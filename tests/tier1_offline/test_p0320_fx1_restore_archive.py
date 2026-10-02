@@ -139,7 +139,7 @@ def test_p0320_restore_archive_the_products_record_is_archived_not_removed(tmp_p
     first = manifest.read_bytes()
     manifest.write_text(json.dumps({"marker": "second", "products": {}}), encoding="utf-8")
     second = manifest.read_bytes()
-    write_campaign_products(workspace, overwrite=True)
+    write_campaign_products(workspace, overwrite=True, archive=True)
     archived = sorted((workspace.products_dir(None) / "archive").glob("*/products.json"))
     assert [p.read_bytes() for p in archived] == [second], "the archive holds the file replaced"
     assert manifest.read_bytes() != second

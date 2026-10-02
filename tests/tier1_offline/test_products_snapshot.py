@@ -209,7 +209,7 @@ def _per_revolution(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
 def _per_revolution_rotor(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
     from tests.tier1_offline.test_goal036_per_revolution import ROTOR, _rotor_workspace
 
-    return _post(_rotor_workspace(tmp, ROTOR), overwrite=True)
+    return _post(_rotor_workspace(tmp, ROTOR), overwrite=True, archive=True)
 
 
 def _submitted_series(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
@@ -266,7 +266,7 @@ def _additional(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
 
     workspace, matrix = a_recorded_campaign(tmp, additional=POST_ADDITIONAL_TOML)
     extract(workspace, matrix, a_stub(tmp))
-    return _post(workspace, overwrite=True, matrix_stem=matrix.stem)
+    return _post(workspace, overwrite=True, archive=True, matrix_stem=matrix.stem)
 
 
 #: Every recorded offline campaign of the snapshot, by name, and its builder.

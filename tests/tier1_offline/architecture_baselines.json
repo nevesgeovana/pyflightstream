@@ -258,7 +258,7 @@
   "post/products.py:_campaign_products": {
    "complexity": 30,
    "branches": 30,
-   "statements": 90,
+   "statements": 89,
    "positional": 1
   },
   "post/products.py:_write_the_products": {

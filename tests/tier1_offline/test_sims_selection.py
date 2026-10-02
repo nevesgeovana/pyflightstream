@@ -127,7 +127,12 @@ def _partial_post(tmp_path: Path, sims=("6001",)):
     before_hashes, before = _hashes(out), _document(out)
     _rerun_every_export(workspace)
     write_campaign_products(
-        workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_SECOND, sims=list(sims)
+        workspace,
+        matrix_stem="matriz",
+        overwrite=True,
+        archive=True,
+        archive_stamp=_SECOND,
+        sims=list(sims),
     )
     return workspace, out, before_hashes, before, _hashes(out), _document(out)
 

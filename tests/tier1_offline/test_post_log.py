@@ -34,7 +34,7 @@ def test_every_post_writes_and_archives_its_log(tmp_path):
     )
     for name, reason in manifest["skipped"].items():
         assert name in text and reason in text
-    write_campaign_products(workspace, overwrite=True)
+    write_campaign_products(workspace, overwrite=True, archive=True)
     copies = list(log.parent.glob("archive/*/post.log"))
     assert len(copies) == 1 and copies[0].read_bytes() == before
 
@@ -410,7 +410,7 @@ def test_post_log_json_is_the_same_records_as_post_log(tmp_path):
         record["product"] == "available-exports" and record["point"] != "campaign"
         for record in records
     ), records
-    write_campaign_products(workspace, overwrite=True, check_frozen=True)
+    write_campaign_products(workspace, overwrite=True, archive=True, check_frozen=True)
     copies = list(out.glob("archive/*/post.log.json"))
     assert len(copies) == 1 and copies[0].read_bytes() == before, copies
 

@@ -348,7 +348,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     # just as thoroughly and puts the work on them.
     from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR
 
-    assert main(["post", "--workspace", str(workspace.root)]) == 0
+    assert main(["post", "--workspace", str(workspace.root), "--archive"]) == 0
     archived = sorted((table.parent / PRODUCT_ARCHIVE_DIR).rglob(table.name))
     assert len(archived) == 1, (
         f"the rebuild did not archive the table it replaced: "

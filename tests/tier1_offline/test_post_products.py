@@ -1504,7 +1504,7 @@ def test_a_rebuild_archives_the_series_tables_it_rewrites_as_it_does_every_produ
         (series / name).write_text(f"the first build of {name}", encoding="utf-8")
     stamp = datetime(2026, 9, 14, 21, 14, 12)
 
-    write_campaign_products(workspace, overwrite=True, archive_stamp=stamp)
+    write_campaign_products(workspace, overwrite=True, archive=True, archive_stamp=stamp)
 
     folder = series / PRODUCT_ARCHIVE_DIR / stamp.strftime(PRODUCT_ARCHIVE_STAMP)
     for name in names:

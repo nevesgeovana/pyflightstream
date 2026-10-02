@@ -174,6 +174,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # refuses rather than destroys because a boundary sidecar is derived
     # from a mesh and can be rebuilt from it.
     ("pyfs-matrix", "force_overwrite"): SWITCH,
+    # 0.35.0 (FR-397): the post keeps no archive unless asked; a switch of one call.
+    ("pyfs-matrix", "archive"): SWITCH,
     ("pyfs-matrix", "yes"): SWITCH,
     # FR-99 at 0.18.0, the collect stage. `watch` is the loop around the
     # one-shot primitive and `post` is whether the products are rebuilt
@@ -454,6 +456,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
+    ("pyfs-matrix", "archive"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "post"): frozenset({"collect"}),

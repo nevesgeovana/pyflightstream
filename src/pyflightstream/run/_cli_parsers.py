@@ -1025,7 +1025,17 @@ def _add_post_parsers(subparsers: Any) -> None:
 def _add_post_selection_parsers(subparsers: Any) -> None:
     """Add the later options of post, and the options it shares with run and collect."""
     post = subparsers.choices["post"]
-    post.add_argument(
+    # One keeps a copy of what a rebuild replaces and the other keeps none.
+    keeping = post.add_mutually_exclusive_group()
+    keeping.add_argument(
+        "--archive",
+        action="store_true",
+        help="keep the files a rebuild replaces: MOVE them into "
+        "post/<matrix>/archive/<day and hour>/ before writing, as 0.34.0 always did. "
+        "Without it (0.35.0, FR-397) a rebuild overwrites the products in place and "
+        "writes no archive folder",
+    )
+    keeping.add_argument(
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
