@@ -255,14 +255,17 @@ def _sub_mesh(vertices: Points, faces: Faces) -> tuple[Points, Faces]:
 def _check_boundary_name(source: Path, boundary: str, names: Sequence[str]) -> None:
     """Refuse an empty ``boundary`` and one whose output name another boundary would share."""
     if boundary == "":
-        raise _refuse(source, "--boundary is empty; it names the one boundary that is the blade")
+        raise _refuse(
+            source,
+            "boundary (CLI: --boundary) is empty; it names the one boundary that is the blade",
+        )
     mine = thin_blade_path(source, boundary)
     for other in names:
         if other != boundary and thin_blade_path(source, other) == mine:
             raise _refuse(
                 source,
-                f"--boundary {boundary!r} would write the same output as its boundary "
-                f"{other!r}, a character of a name that is not a letter, a digit or a "
+                f"boundary (CLI: --boundary) {boundary!r} would write the same output as its "
+                f"boundary {other!r}, a character of a name that is not a letter, a digit or a "
                 "hyphen being written as an underscore; rename one of the two boundaries",
             )
 

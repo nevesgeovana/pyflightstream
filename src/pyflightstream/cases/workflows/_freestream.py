@@ -778,7 +778,7 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
 
 
 #: The wake length a rotor row keeps when nothing states its termination, in
-#: rotor radii (FR-321 R4): the author's recommendation of 2026-10-01, kept for
+#: rotor radii (FR-321 R4): the recommendation of 2026-10-01, kept for
 #: its computational cost; any length may be stated instead.
 DEFAULT_WAKE_LENGTH_R = 4.0
 

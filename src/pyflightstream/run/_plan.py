@@ -1242,7 +1242,7 @@ def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
 def _warn_on_short_wakes(points: Sequence[PointPlan]) -> None:
     """Warn, and never refuse, on every READY rotor point whose wake may fall short (FR-325).
 
-    The plan warns ALWAYS (the author's decision of 2026-10-01): when the run
+    The plan warns ALWAYS (the decision of 2026-10-01): when the run
     has fewer revolutions than the length asked needs, at the 4R default and at
     any larger length; when a step or revolution count keeps less than the 4R
     recommendation; when a stated wake end plane sits before the length; and

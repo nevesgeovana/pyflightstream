@@ -469,7 +469,7 @@ def _toml_string(name: str) -> str:
 # `boundary_faces` is the count of each boundary in the order of the list, written
 # only where the reader gives it. THE POST ONLY CARRIES IT, AND NEVER COUNTS: the
 # super file and the unsteady polar take `mesh_faces` from the inventory of the
-# geometry a row's run opened WHENEVER THE INVENTORY STATES THE FIELD (her words of
+# geometry a row's run opened WHENEVER THE INVENTORY STATES THE FIELD (the decision of
 # 2026-10-01, "ele só puxa de lá se o campo existir"; `recorded_mesh_faces`), and an
 # inventory taken before this release gives NA. Where the inventory's `mesh_sha256`
 # is not the sha256 the run recorded for the file, the post WARNS naming both and

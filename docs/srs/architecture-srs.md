@@ -1248,7 +1248,7 @@ bodies and those under `TYPE_CHECKING` included.
 - `post/disc_maps.py`, in the post row, imports `_errors`, `_tokens`,
   `post._tables`, `post.axes` and `post.harmonics`. It tables a rotor's
   sectional load over its disc.
-- `post/inflow_tools.py`, in the post row, imports `_errors` and
+- `post/inflow_tools.py`, in the post row, imports `_errors`, `_textio` and
   `cases.qsteady`. It writes a product table in the installed frame and the
   blade-view harmonics of a custom inflow.
 - `post/qsteady_noise.py`, in the post row, imports only `_errors` from this

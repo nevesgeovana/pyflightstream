@@ -233,7 +233,7 @@ def test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both(tmp_path, capsys
     for extra, words in (
         (["--thrust", "10", "--ct", "0.1", "--rho", "1", "--rpm", "100"], "not both"),
         ([], "not neither"),
-        (["--ct", "0.1"], "rho_kg_m3 (CLI: --rho), the density"),
+        (["--ct", "0.1"], "rho_kg_m3 (the density in kg/m^3)"),
         (["--thrust", "10", "--rpm", "100"], "leave them out"),
     ):
         assert workspace_cli([*base, "--overwrite", *extra]) == 2

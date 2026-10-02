@@ -373,13 +373,13 @@ def thrust_target(
     if (thrust_n is None) == (ct is None):
         raise WorkspaceError(
             "state the target once: thrust_n, a thrust in newtons, or ct (CLI: --ct), a thrust "
-            "coefficient, with rho_kg_m3 (CLI: --rho), the density, and rpm (CLI: --rpm); not "
+            "coefficient, with rho_kg_m3, the density, and rpm (CLI: --rpm); not "
             "both and not neither."
         )
     if thrust_n is not None:
         if rho_kg_m3 is not None or rpm is not None:
             raise WorkspaceError(
-                "rho_kg_m3 (CLI: --rho), the density, and rpm (CLI: --rpm) state the basis of a "
+                "rho_kg_m3, the density, and rpm (CLI: --rpm) state the basis of a "
                 "CT; with a thrust in newtons they would not be read, so leave them out."
             )
         _positive(thrust_n, "the thrust, in N")
@@ -387,7 +387,7 @@ def thrust_target(
     if rho_kg_m3 is None or rpm is None:
         raise WorkspaceError(
             "a CT is worked out to a thrust with the density and the speed: state rho_kg_m3 "
-            "(CLI: --rho), the density in kg/m^3, and rpm (CLI: --rpm), in rev/min, beside ct "
+            "(the density in kg/m^3), and rpm (CLI: --rpm), in rev/min, beside ct "
             "(CLI: --ct)."
         )
     assert ct is not None  # the first refusal above: one of the two is stated

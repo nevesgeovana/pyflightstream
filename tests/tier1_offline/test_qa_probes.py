@@ -1209,17 +1209,20 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # surface-removal and rotation commands, 142 of them rendering in isolation, 94 with
     # arguments, and three outside the 26.122 view (SURFACE_ROTATE, VOLUME_SECTION_BOUNDARY_LAYER
     # and the one that was already there).
-    assert len(PROBE_SPECS) == 167, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 167. Adding one is "
+    # 168 since the wave-2 integration of 0.34.0 (FR-342, FR-321): the entry of
+    # SET_WAKE_TERMINATION_TIME_STEPS, which the 4R default makes every unsteady_rotor
+    # golden render; it renders in isolation with its argument, so 143 and 95.
+    assert len(PROBE_SPECS) == 168, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 168. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
-    assert renders == 142, (
-        f"{renders} specifications render their target line in isolation, not 142. This "
+    assert renders == 143, (
+        f"{renders} specifications render their target line in isolation, not 143. This "
         f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
         "promotion that removes a command from the view, or marks it broken, moves it"
     )
-    assert len(groups["with_arguments"]) == 94, (
-        f"{len(groups['with_arguments'])} carry arguments on the target line, not 94. "
+    assert len(groups["with_arguments"]) == 95, (
+        f"{len(groups['with_arguments'])} carry arguments on the target line, not 95. "
         "That is the population a bare-token detector would have missed (RPT-026)"
     )
     # Split by CAUSE, because one bucket called "needs prelude" hid

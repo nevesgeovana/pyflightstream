@@ -251,7 +251,7 @@ any of the five. To keep the old behaviour of a row, ask ENABLE.
 ## A sampled field of build 8242026 is written without a warning
 
 Build 8242026 of FlightStream 26.124 is registered (FR-153, RPT-136), by the
-owner's decision of 2026-10-01 and not by a measurement: it has the rows build
+author decision of 2026-10-01 and not by a measurement: it has the rows build
 8172026 has, the unsteady fluid plot and steady probe velocity conventions and
 the rotation timing in metres and millimetres, each stating "owner decision of
 2026-10-01, not measured" in its evidence. A field of that build is therefore

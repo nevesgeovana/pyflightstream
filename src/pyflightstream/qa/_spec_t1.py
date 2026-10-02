@@ -10,7 +10,9 @@ does not hold a command never runs its entry: ``ROTATE_SURFACE`` and
 measures. Three more commands the goldens of the older builds render
 (``SONIC_VELOCITY``, ``SET_MOTION_ANGULAR_VELOCITY``, ``SET_MOTION_IS_ROTOR``)
 are in no database view of 26.120 or later, so no authorised run could judge
-them and they carry no entry.
+them and they carry no entry. ``SET_WAKE_TERMINATION_TIME_STEPS`` joined in
+0.34.0, when the 4R default of FR-321 made every ``unsteady_rotor`` golden
+render it.
 
 The module is imported by ``pyflightstream.qa.specs`` and registers into the
 shared registry of ``pyflightstream.qa._spec_kit``. Where no instrument reads
@@ -108,4 +110,20 @@ _spec(
         "solve, so the solver ran the action; silence records unprobed"
     ),
     timeout_s=240.0,
+)
+
+
+# --- the wake termination of FR-321 ----------------------------------------------
+
+_spec(
+    command="SET_WAKE_TERMINATION_TIME_STEPS",
+    build_target=_emit("SET_WAKE_TERMINATION_TIME_STEPS", 137),
+    requires=Requires.SIM,
+    prelude=_emit("SET_SOLVER_UNSTEADY", time_iterations=3, delta_time=0.0123),
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=(
+        "the saved simulation carries the wake termination step count, set under the "
+        "unsteady mode the rotor goldens render it in"
+    ),
 )

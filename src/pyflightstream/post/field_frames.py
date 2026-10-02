@@ -269,7 +269,7 @@ _STEADY_PROBE = {
     "receipt_sha256": "58b314eaf3aa7ce2cb7823255b8b8031e99bc6b67664cae000b17c321316e9cb",
     "comparison": "same four samples under reference, fixed and rotating analysis frames",
 }
-#: Build 8242026 of 26.124 is registered by the owner's decision of 2026-10-01
+#: Build 8242026 of 26.124 is registered by the decision of 2026-10-01
 #: (FR-153, RPT-136), not by a measurement: its rows say so in ``basis``, a key
 #: no measured row carries.
 _DECISION_8242026 = {
