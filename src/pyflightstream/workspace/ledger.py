@@ -56,8 +56,9 @@ from pyflightstream.workspace import (
     find_matrix,
     planned_points_without_record,
 )
+from pyflightstream.workspace._batch_life import running_batches
 from pyflightstream.workspace._batches import batch_sim_dirs
-from pyflightstream.workspace._effective import effective_points
+from pyflightstream.workspace._effective import effective_points, latest_record_of_point
 from pyflightstream.workspace._ledger_api import (
     activity_rows,
     additional_rows,
@@ -66,9 +67,14 @@ from pyflightstream.workspace._ledger_api import (
     point_card,
     point_rows,
     post_log_groups,
+    read_json_file,
+    select_logs,
     status_rows,
+    storage_rows,
     trace_product,
+    trace_run,
 )
+from pyflightstream.workspace._query_files import matrix_stem
 from pyflightstream.workspace.naming import resolve_manifest
 from pyflightstream.workspace.storage import COMPACTED_SUFFIX, DELETED_SIM_KEY
 
@@ -85,9 +91,15 @@ __all__ = [
     "point_card",
     "point_rows",
     "post_log_groups",
+    "read_json_file",
+    "running_batches",
+    "select_logs",
     "status_rows",
+    "storage_rows",
+    "trace_run",
     "trace_product",
     "listed_sims",
+    "latest_record_of_point",
     "matrix_stem",
     "read_ledger",
     "status_text",
@@ -152,28 +164,6 @@ def listed_sims(text: str) -> list[str]:
     """
     listed = text.replace(" ", "").strip("[]")
     return [item for item in listed.split(",") if item]
-
-
-def matrix_stem(value: str) -> str:
-    """Return the stem a matrix argument names: ``l1_g6``, ``l1_g6.fs`` or a path to it.
-
-    Parameters
-    ----------
-    value : str
-        A matrix stem, file name or path.
-
-    Returns
-    -------
-    str
-        The file name without its ``.fs`` suffix.
-
-    Examples
-    --------
-    >>> matrix_stem("inputs/matrices/l1_g6.fs")
-    'l1_g6'
-    """
-    name = Path(value).name
-    return name[: -len(".fs")] if name.lower().endswith(".fs") else name
 
 
 def status_text(counts: Mapping[str, int]) -> str:

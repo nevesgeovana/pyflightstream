@@ -7,6 +7,8 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
+import time
 from datetime import UTC, datetime
 from zipfile import ZipFile
 
@@ -363,8 +365,12 @@ def test_batch_trace_before_and_after_home(workspace, capsys):
 
 
 def _tree(root):
+    """Every path under ``root`` with its bytes (None for a folder) and modification time."""
     return {
-        path.relative_to(root).as_posix(): path.read_bytes() if path.is_file() else None
+        path.relative_to(root).as_posix(): (
+            path.read_bytes() if path.is_file() else None,
+            path.lstat().st_mtime_ns,
+        )
         for path in root.rglob("*")
     }
 
@@ -382,6 +388,7 @@ def test_queries_read_compacted_logs_and_write_no_bytes(workspace, capsys):
     (workspace / "control.bin").write_bytes(b"unchanged\x00\xff")
     (workspace / "runs.json.lock").write_text("held", encoding="utf-8")
     before = _tree(workspace)
+    time.sleep(0.02)
     card = _rows(workspace, capsys, "show", RUN)[0]
     assert "sim_9101.zip!/" in card["evidence"][0]["path"]
     assert card["evidence"][0]["last_lines"][-1] == "last solver line"
@@ -395,6 +402,13 @@ def test_queries_read_compacted_logs_and_write_no_bytes(workspace, capsys):
     ]:
         _rows(workspace, capsys, *args)
     assert _tree(workspace) == before and not home.exists()
+    # THE CONTROL: the same comparison must fail after a planted writer, even an mtime-only one.
+    (workspace / "planted.bin").write_bytes(b"x")
+    assert _tree(workspace) != before
+    (workspace / "planted.bin").unlink()
+    assert _tree(workspace) == before
+    os.utime(workspace / "runs.json.lock")
+    assert _tree(workspace) != before
 
 
 def test_query_errors_and_machine_csv(workspace, capsys):

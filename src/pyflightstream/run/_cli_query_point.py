@@ -18,16 +18,14 @@ from zipfile import BadZipFile
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._alias import alias_lines, planned_from_plan_files
-from pyflightstream.workspace._query_files import _json
-from pyflightstream.workspace._query_logs import (
-    _select_logs,
-    _storage,
-)
-from pyflightstream.workspace._query_point import _trace_run
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
+    read_json_file,
     read_ledger,
+    select_logs,
+    storage_rows,
+    trace_run,
 )
 from pyflightstream.workspace.ledger import (
     activity_rows as _activity,
@@ -88,7 +86,7 @@ def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
         planned.setdefault(str(row["sim"]), [])
     return {
         alias: (sim, point)
-        for alias, sim, point in alias_lines(_json(ledger.manifest, []), planned)
+        for alias, sim, point in alias_lines(read_json_file(ledger.manifest, []), planned)
     }
 
 
@@ -160,8 +158,8 @@ def _log(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     run = args.run
     if run and "/" not in run:
         run = _resolve(ledger, run)
-    rows = _storage(ledger) if args.storage else _activity(ledger)
-    return _select_logs(
+    rows = storage_rows(ledger) if args.storage else _activity(ledger)
+    return select_logs(
         rows,
         sims=sims,
         run=run,
@@ -176,7 +174,7 @@ def _trace_rows(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]
     if bool(args.product) == bool(args.run):
         raise ValueError("product (CLI: product) needs a path or run (CLI: --run), exactly one")
     if args.run:
-        return [_trace_run(ledger, _resolve(ledger, args.run))]
+        return [trace_run(ledger, _resolve(ledger, args.run))]
     rows = _trace(ledger, args.product)
     if not rows:
         raise LookupError(

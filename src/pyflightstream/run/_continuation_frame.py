@@ -41,7 +41,7 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
 # 0.35.0 (FR-381): the effective-record rules moved down to the workspace layer,
 # where the ledger reads them too; the run layer imports them back under this name.
-from pyflightstream.workspace._effective import latest_record_of_point
+from pyflightstream.workspace.ledger import latest_record_of_point
 
 #: The statuses a continuation continues FROM whatever the run type: these two
 #: stopped with their outputs written and more to march, the wall clock or the

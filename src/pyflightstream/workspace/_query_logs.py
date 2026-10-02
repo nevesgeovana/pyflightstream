@@ -10,11 +10,13 @@ import json
 import re
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pyflightstream.workspace._query_files import _files, _groups, _json, _text
-from pyflightstream.workspace.ledger import Ledger, matrix_stem
+from pyflightstream.workspace._query_files import _files, _groups, _json, _text, matrix_stem
 from pyflightstream.workspace.storage import read_storage_calls
+
+if TYPE_CHECKING:
+    from pyflightstream.workspace.ledger import Ledger
 
 
 def _activity(ledger: Ledger) -> list[dict[str, Any]]:

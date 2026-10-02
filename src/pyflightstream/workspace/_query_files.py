@@ -11,10 +11,11 @@ import os
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from zipfile import ZipFile
 
-from pyflightstream.workspace.ledger import Ledger
+if TYPE_CHECKING:
+    from pyflightstream.workspace.ledger import Ledger
 
 
 def _json(path: Path, default: Any = None) -> Any:
@@ -123,3 +124,25 @@ def _groups(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         )
         group["count"] += 1
     return [grouped[key] for key in sorted(grouped)]
+
+
+def matrix_stem(value: str) -> str:
+    """Return the stem a matrix argument names: ``l1_g6``, ``l1_g6.fs`` or a path to it.
+
+    Parameters
+    ----------
+    value : str
+        A matrix stem, file name or path.
+
+    Returns
+    -------
+    str
+        The file name without its ``.fs`` suffix.
+
+    Examples
+    --------
+    >>> matrix_stem("inputs/matrices/l1_g6.fs")
+    'l1_g6'
+    """
+    name = Path(value).name
+    return name[: -len(".fs")] if name.lower().endswith(".fs") else name
