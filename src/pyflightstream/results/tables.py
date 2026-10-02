@@ -75,9 +75,10 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
@@ -337,6 +338,8 @@ def to_table(result: object) -> pd.DataFrame:
     UnsupportedResultTypeError
         If ``result`` is not one of the kinds above.
     """
+    import pandas as pd
+
     if isinstance(result, LoadsReport):
         return _loads_frame(result)
     if isinstance(result, ProbePointsReport):
@@ -618,6 +621,8 @@ def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> p
     pandas.DataFrame
         One row; missing numeric outcomes are NaN.
     """
+    import pandas as pd
+
     return pd.DataFrame([_run_row(record, loads)])
 
 
@@ -838,6 +843,8 @@ def sweep_table(
     >>> table = sweep_table(CampaignWorkspace("campaign"))   # doctest: +SKIP
     >>> table[["run_id", "alpha", "CL"]]                     # doctest: +SKIP
     """
+    import pandas as pd
+
     _refuse_a_bare_root(workspace, "sweep_table")
     # ONE ROW PER POINT, and the manifest stores JOBS since 0.17.0. A
     # steady matrix row is one job over several points, so a table built
@@ -945,6 +952,8 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
 
 def _loads_frame(report: LoadsReport) -> pd.DataFrame:
     """One row per surface plus Total, with the printed units alongside."""
+    import pandas as pd
+
     rows = []
     for surface, coefficients in {**report.surfaces, "Total": report.total}.items():
         row: dict[str, object] = {"surface": surface}
@@ -964,6 +973,8 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
 
 def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
     """Tabulate the residual history in iteration order, dimensionless."""
+    import pandas as pd
+
     # ``none`` rather than ``unknown``, and the difference is not cosmetic.
     # A residual history is a per-iteration reading, so no reduction is
     # applicable to it at all, whereas an unread solver mode on a
@@ -983,6 +994,8 @@ def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
 
 def _probe_points_frame(report: ProbePointsReport) -> pd.DataFrame:
     """Tabulate the probe table under its printed names, rows in probe order."""
+    import pandas as pd
+
     # A probe export is a point sample, so nothing was averaged to make it
     # (see the residual history above for why that is ``none`` and not
     # ``unknown``).
@@ -1016,6 +1029,8 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
         constant token and leave a frame that still writes and still
         looks right.
     """
+    import pandas as pd
+
     collisions = sorted(set(report.columns) & set(PROVENANCE_COLUMNS))
     if collisions:
         raise MalformedOutputError(
@@ -1060,6 +1075,8 @@ def _force_distribution_frame(report: ForceDistributionReport) -> pd.DataFrame:
     the run initialized, and a boundary index that reads back out of a
     csv as ``1.0`` is a label pretending to be a measurement.
     """
+    import pandas as pd
+
     columns = _pinned_frame_columns(
         tuple(report.columns), FORCE_DISTRIBUTION_COLUMNS, what="force distribution report"
     )
@@ -1083,6 +1100,8 @@ def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> pd.DataFram
     reader joining the last point of one streamline to the first of the
     next, which is a plausible-looking curve that no flow ever followed.
     """
+    import pandas as pd
+
     columns = _pinned_frame_columns(
         tuple(report.columns), OFF_BODY_STREAMLINE_COLUMNS, what="off-body streamline report"
     )
@@ -1114,6 +1133,8 @@ def _surface_sections_frame(report: SurfaceSectionsReport) -> pd.DataFrame:
     is a closed cut and concatenating two of them without the key would
     read as one.
     """
+    import pandas as pd
+
     columns = _pinned_frame_columns(
         tuple(report.columns), SURFACE_SECTION_COLUMNS, what="surface section report"
     )
@@ -1144,6 +1165,8 @@ def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
     provenance columns so the two can be compared without either having
     to explain itself.
     """
+    import pandas as pd
+
     columns = _pinned_frame_columns(
         tuple(report.columns), SWEEP_COLUMNS, what="sweeper spreadsheet report"
     )
@@ -1173,6 +1196,8 @@ def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> pd.DataFrame:
     it is unanswerable from the file. Saying ``none`` would assert a
     direct reading that may not have happened.
     """
+    import pandas as pd
+
     columns = _pinned_frame_columns(
         tuple(report.columns), SOLVER_ANALYSIS_CSV_COLUMNS, what="solver analysis csv report"
     )
@@ -1188,6 +1213,8 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
     ``SectionalLoadsReport``, so tabulating an already parsed report
     never needs the optional extra to be importable again.
     """
+    import pandas as pd
+
     printed = tuple(report.columns)  # type: ignore[attr-defined]
     expected = tuple(_SECTIONAL_COLUMN_UNITS)
     if printed != expected:

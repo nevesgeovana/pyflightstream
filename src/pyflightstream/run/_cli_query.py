@@ -25,6 +25,7 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._cli_query_history import add_history_parsers, run_history_query
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (
     PLANNED,
@@ -32,12 +33,14 @@ from pyflightstream.workspace.ledger import (
     STATUS_COLUMNS,
     Ledger,
     listed_sims,
+    point_rows,
     read_ledger,
+    status_rows,
     status_text,
 )
 
 #: The read-only verbs this module answers, dispatched by :mod:`pyflightstream.run.cli`.
-QUERY_COMMANDS = ("status",)
+QUERY_COMMANDS = ("status", "history", "diff")
 
 #: The table heading of a row key; a key not here is printed upper case.
 _HEADINGS = {"iterations": "ITER", "wall_s": "WALL"}
@@ -125,6 +128,7 @@ def add_query_parsers(subparsers: Any) -> None:
         metavar="NAME",
         help="another manifest in the workspace root, read in place of runs.json",
     )
+    add_history_parsers(subparsers)
 
 
 def run_query(args: argparse.Namespace) -> int:
@@ -142,6 +146,8 @@ def run_query(args: argparse.Namespace) -> int:
         no record and no planned point; 2 for a refused argument or a manifest
         that is not JSON.
     """
+    if args.subcommand in ("history", "diff"):
+        return run_history_query(args)
     return _cmd_status(args)
 
 
@@ -175,7 +181,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 2
     select = {"sims": sims, "matrix": args.matrix, "statuses": statuses, "failed": args.failed}
-    rows = ledger.points(**select) if args.per_point else ledger.status(**select)
+    rows = point_rows(ledger, **select) if args.per_point else status_rows(ledger, **select)
     columns = POINT_COLUMNS if args.per_point else STATUS_COLUMNS
     unmatched = ledger.unmatched(sims or ())
     _say_what_was_not_read(ledger, unmatched)

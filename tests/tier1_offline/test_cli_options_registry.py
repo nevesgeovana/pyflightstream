@@ -330,6 +330,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # mode of this call; `--build-alias` states the scheduler name a build
     # ran under, a fact of the recorded run the rebuilt record carries.
     ("pyfs-matrix", "runs"): SUBJECT,
+    # FR-390/FR-391: the history subject and the two compared run identities.
+    ("pyfs-matrix", "target"): SUBJECT,
+    ("pyfs-matrix", "run_a"): SUBJECT,
+    ("pyfs-matrix", "run_b"): SUBJECT,
     # 0.35.0, the read-only `status` (FR-379 to FR-385). `--status WORD` and
     # `--failed` select WHICH polars this call shows, a SUBJECT like `--sims`;
     # `--points`, `--json` and `--csv` are the form of this one answer.
@@ -524,6 +528,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
+            "history",
+            "diff",
             "collect",
             "delete-sims",
             "free-space",
@@ -552,13 +558,16 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "runs"): frozenset(
-        {"collect", "delete-sims", "free-space", "post", "status", "sync"}
+        {"collect", "delete-sims", "free-space", "post", "status", "sync", "history", "diff"}
     ),
+    ("pyfs-matrix", "target"): frozenset({"history"}),
+    ("pyfs-matrix", "run_a"): frozenset({"diff"}),
+    ("pyfs-matrix", "run_b"): frozenset({"diff"}),
     ("pyfs-matrix", "statuses"): frozenset({"status"}),
     ("pyfs-matrix", "failed"): frozenset({"status"}),
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
-    ("pyfs-matrix", "json"): frozenset({"status"}),
-    ("pyfs-matrix", "csv"): frozenset({"status"}),
+    ("pyfs-matrix", "json"): frozenset({"status", "history", "diff"}),
+    ("pyfs-matrix", "csv"): frozenset({"status", "history", "diff"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),

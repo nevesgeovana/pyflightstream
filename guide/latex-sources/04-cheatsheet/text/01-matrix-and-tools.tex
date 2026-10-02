@@ -117,6 +117,15 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \item \fl{--points} one row per datapoint \quad \fl{--json} \quad \fl{--csv} \quad \fl{--workspace}, \fl{--runs NAME}
 \end{flags}
 
+\sub{history <simulation or point>}{\texttt{pyfs-matrix history} reads every present and archived record, its continuation and archive stamp; batch folders and compacted simulations are read in place}
+\begin{flags}
+\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}
+\end{flags}
+\sub{diff <run-a> <run-b>}{\texttt{pyfs-matrix diff} compares versions, digests, solver flags, flight condition and outcome; \texttt{run-id@<archive stamp>} selects an archived copy; script differences name lines and inputs}
+\begin{flags}
+\item \fl{--workspace DIR} \quad \fl{--runs NAME} \quad \fl{--json} \quad \fl{--csv}; reads only, writes nothing
+\end{flags}
+
 \stage{5. POST-PROCESS (NO SOLVER, NO SEAT)}
 \sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Old products are archived in \texttt{post/<matrix>/archive/}}
 \begin{flags}

@@ -316,6 +316,9 @@ def _discovered_modules() -> list[str]:
 
 
 def _is_private(name: str) -> bool:
+    # QV2 (FR-388/390/391): run._cli_query_history, workspace._ledger_api,
+    # workspace._ledger_history and workspace._script_comparison are deliberately
+    # private implementations; workspace.ledger is their public query surface.
     return any(part.startswith("_") for part in name.split(".")[1:])
 
 

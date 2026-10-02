@@ -117,6 +117,7 @@ nav:
           - Continuation and recovery: continuation-recovery.md
           - Storage and sync: storage-and-sync.md
           - Restore and rebuild the run records: restore-and-rebuild.md
+          - Query workspace history and compare runs: workspace-queries.md
           - Excel matrix synchronization: excel-matrices.md
           - Sync every folder, and the two matrix homes: sync-folders-and-matrix-homes.md
       - FSI:

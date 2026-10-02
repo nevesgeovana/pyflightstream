@@ -85,7 +85,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     choices = list(parser._subparsers._group_actions[0].choices)
     # 0.34.0 appends `degenerate` (FR-330), last, as every later command is;
     # 0.35.0 appends the read-only `status` (FR-379).
-    assert choices == [*V0330_SUBCOMMANDS, "degenerate", "status"]
+    assert choices == [*V0330_SUBCOMMANDS, "degenerate", "status", "history", "diff"]
 
 
 def test_cli_leaves_its_size_exemption_and_the_tables_ad_18(measured):
