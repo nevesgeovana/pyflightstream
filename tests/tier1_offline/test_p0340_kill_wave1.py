@@ -211,11 +211,17 @@ _INSTRUMENT_FILES = (
 )
 
 
+# A path inside the probe's work folder, up to the next blank or quote.
+_WORKDIR_PATH = re.compile(r"<WORKDIR>[^\s\"]*")
+
+
 def _target_lines(lines: list[str], workdir: Path) -> list[str]:
     """The lines of the target command alone: the log and dump instruments are dropped.
 
     An instrument is a command line followed by the path of one of the
     probe's own files, so the pair is dropped; blank separators are dropped.
+    The work folder becomes ``<WORKDIR>`` and every separator in a path under
+    it becomes ``/``, so the golden is the same on Windows and on Linux.
     """
     here = str(workdir.resolve())
     kept: list[str] = []
@@ -231,9 +237,8 @@ def _target_lines(lines: list[str], workdir: Path) -> list[str]:
             skip_next = True
             continue
         if line:
-            kept.append(
-                line.replace(here, "<WORKDIR>").replace(here.replace("\\", "/"), "<WORKDIR>")
-            )
+            masked = line.replace(here, "<WORKDIR>").replace(here.replace("\\", "/"), "<WORKDIR>")
+            kept.append(_WORKDIR_PATH.sub(lambda m: m.group(0).replace("\\", "/"), masked))
     return kept
 
 
