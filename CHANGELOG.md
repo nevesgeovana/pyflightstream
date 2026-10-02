@@ -43,7 +43,10 @@ FlightStream versions.
     arity of the two CCS exports stays undetermined because neither wrote a
     file, and the REAL control-surface form stays refused: its failure follows
     the limits, not the REAL token. Judging the ten, measuring the arity and
-    citing RPT-126 in the refusal message are 0.35.0 scope.
+    citing RPT-126 in the refusal message are 0.35.0 scope. Four tier-1 tests
+    (the two CCS export arity cases and the two `DELETE_CCS_*_RELAXED_TE` probe
+    scripts) are marked as strict expected failures with their cause until 0.35.0
+    fixes the arity emitter and the probe waiver.
 
 - **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
   does not continue (FR-96, RPT-134).** The continuation the package emits

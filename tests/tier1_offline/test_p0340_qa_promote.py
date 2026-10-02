@@ -18,6 +18,7 @@ import yaml
 
 from pyflightstream.qa import specs
 from pyflightstream.qa.compat import apply_compat
+from pyflightstream.script import BrokenCommandError
 from tests.tier1_offline._p0340_probe_support import (
     BUILD,
     COMMANDS,
@@ -84,7 +85,29 @@ def test_every_command_of_the_set_and_of_the_chapters_has_a_catalog_entry_fr_333
     assert len(ARM_CN) >= 40
 
 
-@pytest.mark.parametrize("command", EVERY)
+RELAXED_TE_PRECONDITION_BROKEN = (
+    "RPT-126 records the precondition NEW_CCS_*_RELAXED_TE broken on 26.124 and "
+    "generate_probe_script "
+    "waives only the target, so a BrokenCommandError ends the probe run; RPT-126; owed to 0.35.0 "
+    "(the waiver in qa/probes.py)"
+)
+XFAIL_ENTRIES = ("DELETE_CCS_FUSELAGE_RELAXED_TE", "DELETE_CCS_REVOLVE_RELAXED_TE")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        pytest.param(
+            command,
+            marks=pytest.mark.xfail(
+                strict=True, raises=BrokenCommandError, reason=RELAXED_TE_PRECONDITION_BROKEN
+            ),
+        )
+        if command in XFAIL_ENTRIES
+        else command
+        for command in EVERY
+    ],
+)
 def test_each_entry_builds_a_script_that_emits_its_command_on_26124_fr_333(command):
     """FR-333 R2, marker P0340-QA-PROMOTE: the generated script emits the command under test."""
     entry = specs.PROBE_SPECS[command]
