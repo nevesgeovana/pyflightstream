@@ -9208,3 +9208,18 @@ Requirements written after the specification was last reconciled with the packag
     Rationale: A point interrupted by the job clock must be rerun from the start in the next batch when the owner requests it.
 
     Verification: tier 1, `tests/tier1_offline/test_p0350_collect_discard.py`, carrying the marker P0350-COLLECT-DISCARD (FR-400); release 0.35.0.
+
+!!! requirement "FR-401 The CCS mesh probe judges classify restore and control by geometry <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02, the ten CN commands carried into 0.35.0. Evidence: `tests/tier1_offline/test_p0350_cn_specs.py::test_restore_matches_reference_and_differs_from_control`, `::test_restored_equal_to_control_is_not_restored`, `::test_restore_requires_a_valid_changed_control`, `::test_group_names_and_numeric_format_do_not_change_geometry`, `::test_zone_mesh_change_is_observed`, `::test_lofts_are_exported_and_cleared_as_made`, `::test_wing_zone_intersects_the_synthetic_loft_extents`, `::test_relaxed_te_judge_reads_saved_face_state`, `::test_relaxed_te_spec_saves_each_loft`, `::test_prelude_abort_is_not_called_environment_drift`.*
+
+    Requirement: the CCS probe specifications shall capture each loft before later settings can invalidate it, and judge the observed effect against a reference and an unchanged control.
+
+    - R1 OBJ comparisons use normalized vertices and faces, ignoring group/object names and display metadata. Equal, absent, malformed or empty meshes record a requested mesh change as unprobed (FR-333 R2).
+    - R2 A restore verifies only when the restored geometry equals the reference and differs from the control, and the control equals the modified geometry. When the control proves the setup moved the mesh and the restored geometry equals the control, the command did not restore (false); this is the only refutation. Missing controls or an unobservable modification remain unprobed.
+    - R3 Each loft is exported immediately and its surfaces are removed before the next loft, including all three surfaces made by a control-surface loft. A defaults probe establishes the same defaults before its reference loft.
+    - R4 The wing refinement zone lies inside the synthetic loft's span, with a margin at both ends. The command's documented three-argument grammar takes parametric span bounds and node count, not a Cartesian box; physical bounds derived from the loft definition are mapped to that interval.
+    - R5 Fuselage and revolve relaxed-TE deletion probes save reference, modified, control and restored mesh state. Identical OBJ geometry alone cannot verify deletion: the saved per-face state must demonstrate modification, preservation by the control, and restoration. A failed prelude remains unprobed and is identified as a prelude failure.
+    - R6 Synthetic tier-1 observations verify these judges. Command-database verdicts change only after a licensed re-probe through the existing promotion path (FR-25, FR-333). These tests do not prove solver acceptance of the wing-zone or relaxed-TE preconditions.
+
+    Verification: tier 1, `tests/tier1_offline/test_p0350_cn_specs.py`, carrying the marker P0350-CN (FR-401); release 0.35.0.
