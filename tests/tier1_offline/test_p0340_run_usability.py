@@ -267,6 +267,10 @@ def test_fr327_the_library_refusal_carries_the_counts_a_resume_would_act_on(tmp_
             run_matrix(matrix, workspace, executor=stub, **keywords)
     assert (refused.value.recorded, refused.value.would_run) == (1, 2)
     assert len(stub.invocations) == 1
+    # A library caller reads the way on in the message itself: resume=True, the CLI's --resume.
+    message = str(refused.value)
+    assert "1 point(s) of this run are recorded and 2 would run" in message, message
+    assert "resume=True (CLI: --resume)" in message, message
 
 
 def test_fr327_a_steady_row_recorded_as_one_job_is_counted_by_the_points_it_ran(

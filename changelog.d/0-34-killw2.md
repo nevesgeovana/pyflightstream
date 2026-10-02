@@ -1,0 +1,3 @@
+## Fixed
+
+- The campaign sweep table `campaign_sweep.csv`, which a run writes through `pyflightstream.results.write_table` once its points have run, now ends its rows with LF on every platform: pandas ended each row with the platform's line end, so on Windows the table was written with CRLF. The tier-1 LF guard now also refuses a pandas `to_csv` that states no LF line terminator, a `codecs.open` or `builtins.open` in a text writing mode, an `os.write` of text encoded on the spot and a `TextIOWrapper`, each with a planted bypass as its control, and a test runs a campaign with CRLF forced and reads the sweep table it wrote (NFR-32).

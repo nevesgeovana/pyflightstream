@@ -79,6 +79,7 @@ from typing import Protocol
 
 import pandas as pd
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
@@ -462,9 +463,11 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
     # honours no CSV quoting) reads every row to the header's count. The campaign
     # sweep table is written here, beside the products that `post._tables` writes
     # under the same rule, and on a copy, so the caller's frame keeps its text.
+    # LF ON EVERY PLATFORM (NFR-32): pandas ends a row with os.linesep unless
+    # told otherwise, which is CRLF on Windows, so the line end is stated.
     plain = frame.rename(columns=lambda name: plain_cell(str(name)))
     plain = plain.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
-    plain.to_csv(target, index=False)
+    plain.to_csv(target, index=False, lineterminator=_textio.LINE_END)
     return target
 
 

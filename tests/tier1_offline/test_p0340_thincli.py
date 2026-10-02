@@ -244,6 +244,26 @@ def test_the_boundary_of_a_saved_simulation_is_cut_out_of_its_mesh_block(tmp_pat
     assert read_inventory(third.with_suffix(".boundaries.toml")) == ("Blade1",)
 
 
+def test_a_saved_simulation_of_exactly_two_boundaries_is_refused_until_one_is_named(
+    tmp_path, capsys
+):
+    """FR-330 R6 and R9 (P0340-THIN-BLADE): the body's saved simulation holds exactly TWO
+    boundaries, the least that is several; without --boundary it is refused naming both and
+    the option, nothing written, and with it the named one is derived."""
+    # P0340-THIN-BLADE, FR-330 R9: two boundaries are several, as three are.
+    saved = shutil.copy(_LIBRARY / "20_BODY.fsm", tmp_path / "body.fsm")
+    assert _degenerate.boundary_names(saved) == ("Body", "Base")
+    code, out, err = _run(capsys, "degenerate", str(saved), "--root-offset", "0.01")
+    assert code == 2 and out == ""
+    assert "holds 2 boundaries (Body, Base)" in err and "--boundary" in err, err
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["body.fsm"]
+    code, out, err = _run(
+        capsys, "degenerate", str(saved), "--root-offset", "0.01", "--boundary", "Body"
+    )
+    assert code == 0, err
+    assert out.splitlines()[0] == str(tmp_path / "body_Body_thin_blade.obj")
+
+
 def test_a_saved_simulation_without_a_boundary_row_and_a_name_that_collides_are_refused(
     tmp_path, capsys
 ):
