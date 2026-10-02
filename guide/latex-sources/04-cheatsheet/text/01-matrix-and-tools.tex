@@ -70,6 +70,7 @@
 \item \fl{--points POINT [POINT ...]} with \fl{--sims}: only these points, by the point name the plan prints; the matrix is not edited
 \item \fl{--polar-sweep} plan each simulation as ONE solver job; unsteady rows; with \fl{--local}
 \item \fl{--batch N} plan the simulations as N solver jobs; unsteady rows; not with \fl{--polar-sweep}
+\item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--verbose} full warnings (all detail also in \texttt{logs/activity.log})
 \end{flags}
 
@@ -85,6 +86,7 @@
 \item \fl{--local} run on THIS machine instead of submitting (Linux workstation or smoke test)
 \item \fl{--polar-sweep} run each simulation as ONE solver job; unsteady rows; with \fl{--local}
 \item \fl{--batch N} run the simulations as N solver jobs; unsteady rows; not with \fl{--polar-sweep}
+\item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--progress-every N} local unsteady progress every N steps (default 10; 0 = silent)
 \item \fl{--sweep-csv FILE} sweep table path (default \texttt{post/<matrix>/campaign\_sweep.csv})
 \item \fl{--workflow CODE=NAME} run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor}
@@ -102,6 +104,7 @@
 \item \fl{--rounds N} stop a watch after N sweeps
 \item \fl{--sims IDS} only these simulations, e.g. \texttt{2006,2007}, and their post
 \item \fl{--no-post} collect only, do not rebuild products
+\item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--check-frozen} REFUSE (not warn) averages touched by a frozen solve or an unread log block
 \item \fl{--workspace}, \fl{--runs NAME}, \fl{--pproc-warnings}, \fl{--verbose}
 \end{flags}
