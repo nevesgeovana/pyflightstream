@@ -54,6 +54,20 @@ jobs:
         run: ruff format --check .
       - name: Tier 1 tests
         run: pytest -n auto
+      - name: Nested pytest runs, fully traced
+        # FR-399. tests/tier1_offline/test_examples.py starts pytest inside
+        # pytest, and on Windows that inner run once died in "ERROR
+        # collecting test session" on an lstat of a child of the system
+        # temporary folder, with the frames that called it hidden. The inner
+        # runs are now rooted in their own folder; if a crash of that shape
+        # ever comes back, this step names its frame. PYTEST_ADDOPTS reaches
+        # the inner runs because they inherit this environment, and the
+        # failure text they print ends with the innermost frames. It runs
+        # even when the step above failed, which is when it is wanted.
+        if: ${{ !cancelled() }}
+        env:
+          PYTEST_ADDOPTS: --full-trace
+        run: pytest tests/tier1_offline/test_examples.py
       - name: Executable examples
         # Sybil runs the docstring doctests and the python code blocks
         # in the root README and docs/ (INB-006 item 1e, decision

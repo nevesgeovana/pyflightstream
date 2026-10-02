@@ -801,19 +801,53 @@ def _package_warning_names() -> frozenset[str]:
     return frozenset(cls.__name__ for cls in _package_warning_classes())
 
 
+#: The nested run's base temporary folder, a child of its own root (FR-399).
+NESTED_BASETEMP = "nested-basetemp"
+
+
 def _run_pytest_with(filters: tuple[str, ...], module: Path) -> subprocess.CompletedProcess[str]:
     """Run one throwaway test module under exactly ``filters``.
 
     Through ``pytest`` and from the repository, rather than through a
     bare interpreter from a temporary directory: the six homes are
-    ``pytest`` command lines, pytest installs its own default filters
-    before the ones it is given, and the repository's own ini file is
-    part of what a reader would be running. Measuring the mechanism
-    somewhere easier would be measuring a different mechanism.
+    ``pytest`` command lines, and pytest installs its own default filters
+    before the ones it is given. Measuring the mechanism somewhere easier
+    would be measuring a different mechanism. (The repository's ini file
+    is NOT read by this run, and was not before FR-399 either: pytest
+    looks for an ini file upwards from the module's folder, not from the
+    working directory.)
+
+    The run is rooted in the folder that holds ``module`` (FR-399): its
+    root, its conftest cut and its base temporary folder all live in
+    that folder, the outer test's own ``tmp_path``. Unrooted, pytest took
+    the common ancestor of the working directory and the module as its
+    root; with the checkout and the temporary folder on different drives
+    (CI on Windows) that root is the checkout, every parent of the module
+    then counts as inside the conftest cut, and collection lists each
+    folder from the drive root down, the system temporary folder
+    included, and ``lstat``s every child it listed. A child another
+    process removed in between ended the run in "ERROR collecting test
+    session".
     """
+    root = module.parent
     flags = [token for spec in filters for token in ("-W", spec)]
+    isolation = [
+        f"--rootdir={root}",
+        f"--confcutdir={root}",
+        f"--basetemp={root / NESTED_BASETEMP}",
+    ]
     return subprocess.run(
-        [sys.executable, "-m", "pytest", str(module), "-q", "-p", "no:cacheprovider", *flags],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(module),
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            *isolation,
+            *flags,
+        ],
         capture_output=True,
         text=True,
         cwd=REPO,
@@ -957,6 +991,56 @@ def test_the_promotion_still_catches_a_warning_this_package_raised(tmp_path):
         f"under {list(filters)} a warning this package raised did NOT fail the run. "
         "The narrowing has stopped catching ours, which is the failure mode a "
         f"warnings filter has.\n{output[-2000:]}"
+    )
+
+
+#: Run INSIDE the nested pytest: it reports the root and the base temporary
+#: folder that run really used, rather than the argv that was meant to set them.
+NESTED_ROOT_MODULE = """
+from pathlib import Path
+
+
+def test_the_nested_run_owns_its_root_and_its_temporary_folder(request, tmp_path_factory):
+    here = Path(__file__).resolve().parent
+    root = Path(str(request.config.rootpath)).resolve()
+    assert root == here, f"the nested run is rooted at {root}, not at {here}"
+    assert request.config.option.basetemp, "no --basetemp: the system temporary folder is used"
+    basetemp = Path(tmp_path_factory.getbasetemp()).resolve()
+    assert here in basetemp.parents, f"the nested base temporary folder is {basetemp}"
+"""
+
+#: Planted in the folder ABOVE the nested run's root, which stands in for the
+#: system temporary folder: a run that reaches that folder imports this file.
+OUTSIDE_CONFTEST = "raise RuntimeError('the nested run reached a folder above its own root')\n"
+
+
+def test_p0350_nested_fr399_the_nested_run_stays_in_its_own_folder(tmp_path):
+    """P0350-NESTED-PYTEST (FR-399): a nested run is rooted in its own folder.
+
+    The folder above the nested module plays the system temporary folder,
+    and it is made as attractive as a stray file there could make it: an
+    ini file, so pytest would root the run there, and a conftest that
+    raises when the run reaches it. Inside, the nested test reads the
+    root and the base temporary folder its own run used. Without
+    ``--rootdir`` the root is the folder above; without ``--confcutdir``
+    the conftest above is imported; without ``--basetemp`` the base
+    temporary folder is the system one. Each fails here, on every
+    platform, which the drive-dependent CI crash this guards never did.
+    """
+    outside = tmp_path / "outside"
+    inside = outside / "inside"
+    inside.mkdir(parents=True)
+    (outside / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (outside / "conftest.py").write_text(OUTSIDE_CONFTEST, encoding="utf-8")
+    module = _warning_module(inside, "nested_root", NESTED_ROOT_MODULE)
+    (filters,) = _distinct_filters()
+    result = _run_pytest_with(filters, module)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0 and "1 passed" in result.stdout, (
+        "the nested run left its own folder: it took the folder above as its root, "
+        "imported the conftest planted there, or used the system temporary folder. "
+        f"A run that can list the system temporary folder dies when a child of it "
+        f"vanishes mid-collection.\n{output[-2000:]}"
     )
 
 
