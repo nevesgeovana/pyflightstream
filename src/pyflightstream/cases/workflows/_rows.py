@@ -84,6 +84,7 @@ from ._vocabulary import (
     SYMMETRY_LOADS_VARIABLE,
     SYMMETRY_VARIABLE,
     VELOCITY_VARIABLE,
+    WALLTIME_BEST,
     WALLTIME_MARGIN_DEFAULT_S,
     WALLTIME_UNITS,
     WALLTIME_UNITS_GLOSS,
@@ -1397,6 +1398,27 @@ def row_walltime_text(case: SimCase) -> str | None:
     return str(stated).strip()
 
 
+def row_walltime_is_best(case: SimCase) -> bool:
+    """Whether the row's WALLTIME cell asks the package for the wall clock (FR-364).
+
+    ``BEST`` is read in any letter case. The grouped modes (``plan --batch`` and
+    ``--polar-sweep``) compute the clock from the estimate; the default mode has
+    none to compute it from and refuses the cell by name in :func:`row_walltime_s`.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row's case.
+
+    Returns
+    -------
+    bool
+        True when the cell reads ``BEST``.
+    """
+    stated = row_walltime_text(case)
+    return stated is not None and stated.upper() == WALLTIME_BEST
+
+
 def row_walltime_s(case: SimCase) -> float | None:
     """Return the wall clock the ROW states, in seconds, or None (FR-93).
 
@@ -1412,6 +1434,12 @@ def row_walltime_s(case: SimCase) -> float | None:
     stated = row_walltime_text(case)
     if stated is None:
         return None
+    if row_walltime_is_best(case):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}. BEST asks the "
+            "package for the walltime, which plan --batch and --polar-sweep compute; "
+            "write a wall clock with its unit for the default mode."
+        )
     unit = stated[-1:].lower()
     if unit not in WALLTIME_UNITS:
         raise CampaignConfigError(

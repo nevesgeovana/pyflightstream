@@ -91,6 +91,7 @@ from pyflightstream.workspace import (
     collection_name,
     datapoint_dir_name,
 )
+from pyflightstream.workspace._batches import GroupingReceipt
 from pyflightstream.workspace.naming import (
     PointName,
     archive_previous,
@@ -722,6 +723,9 @@ class CampaignPlan:
     guides: list[Path] = field(default_factory=list)
     #: Resolved row setup details, shared by plan's summary and inspect-setups.
     setup_inspections: list[dict[str, object]] = field(default_factory=list)
+    #: The grouping a ``plan --batch`` or ``--polar-sweep`` decided (FR-365); None for single
+    #: points. LAST, for the reason of ``costs``.
+    grouping: GroupingReceipt | None = None
 
     @property
     def blocked(self) -> list[PointPlan]:

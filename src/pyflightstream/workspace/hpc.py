@@ -14,6 +14,8 @@ its path of 0.32.0 (AD-11, since 0.33.0).
 
 from __future__ import annotations
 
+import re
+import string
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -135,6 +137,14 @@ class HpcProfile:
     #: matched by the glob. When every one matches and the solver log does not,
     #: `collect` records the point FAILED_EXECUTION. Empty: `collect` waits.
     job_end_files: tuple[str, ...] = ()
+    #: THE LONGEST WALL CLOCK THIS CLUSTER GRANTS A JOB, in seconds, read from the top-level
+    #: ``max_walltime = "HH:MM:SS"`` (FR-377); None where the profile states none. A grouped
+    #: plan caps a computed walltime at it and refuses a matrix value above it.
+    max_walltime_s: float | None = None
+    #: WHERE A GROUPED JOB'S SCRIPT PATHS START (FR-377), a template with the placeholders
+    #: ``{work_dir}``, ``{batch}`` and ``{sim}``; the default is the job folder as the workspace
+    #: sees it.
+    job_root: str = "{work_dir}"
 
     def __post_init__(self) -> None:
         """Refuse a descriptor name that is not a plain file name.
@@ -256,7 +266,17 @@ WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
 #: by the interface lens, 2026-09-16: ``export_log`` written at the top level
 #: read as True, and ``native_logs`` read as absent.
 HPC_PROFILE_KEYS: frozenset[str] = frozenset(
-    {"application_id", "descriptor", "submit", "defaults", "builds", "walltime_arithmetic", "log"}
+    {
+        "application_id",
+        "descriptor",
+        "submit",
+        "defaults",
+        "builds",
+        "walltime_arithmetic",
+        "log",
+        "max_walltime",
+        "job_root",
+    }
 )
 HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
 
@@ -413,6 +433,8 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         export_log=export_log,
         native_log=native_log,
         job_end_files=_job_end_files(target, log.get("job_end_files", [])),
+        max_walltime_s=_max_walltime_s(target, table.get("max_walltime")),
+        job_root=_job_root(target, table.get("job_root")),
         builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
@@ -429,6 +451,47 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+#: The one form ``max_walltime`` takes: hours (which may exceed 24), minutes, seconds.
+_CLOCK = re.compile(r"(\d+):([0-5]\d):([0-5]\d)")
+
+#: The placeholders ``job_root`` may carry.
+_JOB_ROOT_FIELDS = frozenset({"work_dir", "batch", "sim"})
+
+
+def _max_walltime_s(target: Path, stated: object) -> float | None:
+    """Read the top-level ``max_walltime`` (FR-377): ``HH:MM:SS``, hours beyond 24 allowed."""
+    if stated is None:
+        return None
+    found = _CLOCK.fullmatch(str(stated).strip()) if isinstance(stated, str) else None
+    if found is None or not any(int(part) for part in found.groups()):
+        raise InputArtifactError(
+            f"the HPC profile {target} states max_walltime = {stated!r}. It is the longest "
+            "wall clock the cluster grants a job, written HH:MM:SS with hours beyond 24 "
+            'allowed, for example "48:00:00"; 2d and 48h are not read, and a clock of zero '
+            "grants nothing."
+        )
+    hours, minutes, seconds = (int(part) for part in found.groups())
+    return float(hours * 3600 + minutes * 60 + seconds)
+
+
+def _job_root(target: Path, stated: object) -> str:
+    """Read the top-level ``job_root`` template, refusing a placeholder it does not fill."""
+    if stated is None:
+        return "{work_dir}"
+    text = str(stated).strip()
+    try:
+        names = {name for _, name, _, _ in string.Formatter().parse(text) if name is not None}
+    except ValueError:
+        names = {"?"}
+    if not text or not names <= _JOB_ROOT_FIELDS:
+        raise InputArtifactError(
+            f"the HPC profile {target} states job_root = {stated!r}. It is a path template "
+            "whose placeholders are {work_dir}, {batch} and {sim}, for example "
+            '"{work_dir}" or "/scratch/{batch}".'
+        )
+    return text
 
 
 def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:

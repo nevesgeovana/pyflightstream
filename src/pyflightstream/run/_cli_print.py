@@ -21,6 +21,7 @@ from pyflightstream.run import (
     inflow_harmonics_line,
     qsteady_validity_line,
 )
+from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
 
 
@@ -296,6 +297,7 @@ def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]
         ("Quasi-steady validity per point", validity),
         ("Solver setup per case", setup_inspection_block(plan.setup_inspections)),
         ("Solver cost per point", costs),
+        ("Batch jobs", grouping_table_lines(plan.grouping) if plan.grouping else []),
         ("Files written", files),
     ]
 
