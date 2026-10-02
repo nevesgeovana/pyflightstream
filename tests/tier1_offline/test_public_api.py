@@ -229,6 +229,9 @@ PUBLIC_MODULES = [
     "pyflightstream.utils.manual",
     "pyflightstream.versions",
     "pyflightstream.workspace",
+    # 0.34.0 (FR-347): the actuator-disc profiles behind `pyfs-workspace profile`.
+    # PUBLIC deliberately, as `fields` is: a script builds and scales a profile.
+    "pyflightstream.workspace.actuator_profiles",
     # 0.33.0 (AD-11): the build registry, cut out of workspace.inputs, which
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.builds",

@@ -107,6 +107,7 @@ nav:
           - Setup standards and guidance: setup-standards.md
           - Boundary conditions: boundary-conditions.md
           - Field operations: field-operations.md
+          - Actuator-disc profiles: actuator-profiles.md
           - Removing surfaces and the wake stabilization: removing-surfaces.md
           - One row, one actuator disc or one custom free stream: workflow-row-flow-inputs.md
       - Running:

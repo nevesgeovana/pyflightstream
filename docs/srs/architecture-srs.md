@@ -1142,6 +1142,14 @@ its own row (a sibling of its own subpackage included).
   subtract, time mean), previewing until applied, with a provenance record
   beside each result; the command-line layer (`pyfs-workspace field`) is a
   thin argument layer over it.
+- `workspace/actuator_profiles.py` (0.34.0, FR-347), in the workspace row,
+  imports `_digest`, `_textio`, `script`, `script.helpers`, `workspace` and
+  `workspace.inputs`. It builds the radial thrust profile of an actuator disc,
+  `inputs/profiles/<stem>.csv`, from a POL's written sections or a generic
+  shape, scales it to a thrust or a CT, checks the integral of the written rows
+  and reads the text back through the run's profile renderer before writing it
+  beside its provenance record; the command-line layer (`pyfs-workspace
+  profile`) is a thin argument layer over it, as for the field operations.
 
 ### The one-home rules they keep
 

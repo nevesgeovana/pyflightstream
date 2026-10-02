@@ -51,6 +51,11 @@ line:
 1.0,0.0
 ```
 
+`pyfs-workspace profile` (since 0.34.0) writes this file for you, from a POL's
+written sections or as the uniform or the Betz-Prandtl shape, scaled to a
+thrust or a CT, as `inputs/profiles/<stem>.csv` with its provenance record:
+see [actuator-disc profiles](actuator-profiles.md).
+
 Save it as any editor saves it. The solver is never handed your file: the run
 writes its own copy, `<stem>.actuator_profile.txt`, in the folder the point
 runs in (a steady row of several points: its simulation folder), and the
