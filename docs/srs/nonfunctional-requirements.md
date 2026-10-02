@@ -877,7 +877,7 @@
     date; `rel/0-33` with WP4 (AD-12) also merged, `cases/workflows.py`
     cut into the package `cases/workflows/` of 24 modules each clean, read
     1122 in 18 of 196 on 2026-10-01; and `rel/0-33` with WP4, WP5 and WP6
-    merged read 192 errors in 17 of 220 modules on 2026-10-01, the
+    merged read 192 errors in 17 of 219 modules on 2026-10-01, the
     exempted set shrinking from eighteen to seventeen modules because WP6
     made `pyflightstream.run` a facade over typed modules and deleted its
     override (decision 7), its 930 errors leaving the debt with it; and
@@ -885,9 +885,13 @@
     modules on 2026-10-01, the six model modules AD-16 cut out of the
     `cases` root each clean and not exempted, and the root, still exempt,
     reporting 1 error where it reported 9 because every moved line was
-    typed.
-    The seventeen exempted modules are the set of the eighteen less
-    `pyflightstream.run`, every module a release
+    typed; and `rel/0-34` with the wave-1 work packages of 0.34.0 merged
+    read 160 errors in 16 of 234 modules on 2026-10-01, fifteen modules
+    more than 0.33.0's 219, each clean, the cuts of WP8, WP9a and the probe
+    catalog typing every moved line, and `pyflightstream.qa.specs` clean,
+    so its override was deleted.
+    The sixteen exempted modules are the set of the eighteen less
+    `pyflightstream.run` and `pyflightstream.qa.specs`, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those
     modules gain and is a measurement, not a promise; the requirement is that

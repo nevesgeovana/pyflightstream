@@ -218,12 +218,13 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-10-01: 184 errors in 17 of 225 modules, the 0.34.0
-#: branch of work package WP8: the six model modules AD-16 cut out of the
-#: cases root are clean and not exempted, and the root reports 1 error where
-#: it reported 9 (rel/0-33 with WP4, WP5 and WP6 merged read 192 in 17 of
-#: 219, when pyflightstream.run left the set (decision 7) with its 930
-#: errors; 1122 in 18 of 196 before WP5 and WP6, 1122 in 18 of 173 before WP4)
+#: mypy recount 2026-10-01: 160 errors in 16 of 234 modules, the 0.34.0
+#: branch rel/0-34 with the wave-1 work packages merged: fifteen modules
+#: more, each clean, and pyflightstream.qa.specs clean, so it left the set
+#: (rel/0-33 with WP4, WP5 and WP6
+#: merged read 192 in 17 of 219, when pyflightstream.run left the set
+#: (decision 7) with its 930 errors; 1122 in 18 of 196 before WP5 and WP6,
+#: 1122 in 18 of 173 before WP4)
 #: (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
@@ -239,7 +240,9 @@ MYPY_EXEMPTIONS = frozenset(
         "pyflightstream.probes.geometry",
         "pyflightstream.probes.planar",
         "pyflightstream.qa.probes",
-        "pyflightstream.qa.specs",
+        # `pyflightstream.qa.specs` stood here until 2026-10-01 and is REMOVED
+        # with its override: the cut of the probe catalog (0.34.0) took its
+        # nine type errors with it, as the wave-1 recount measured.
         # `pyflightstream.results.tables` stood here until 2026-08-19 and
         # is REMOVED rather than commented out, because the ratchet below
         # asserts this set equals the config's and a name kept here would

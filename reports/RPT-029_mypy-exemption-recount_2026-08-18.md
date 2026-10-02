@@ -100,7 +100,9 @@ out of the exempted set, so that the dirty count fell from 18 to 17 and the
 error total from 1122 to 192, and by the run of 2026-10-01 on the 0.34.0
 branch of work package WP8 (`feat/0-34-wp8`), whose six model modules cut
 out of the `cases` root (AD-16) brought it from 219 to 225 and whose typed
-moved lines took the error total from 192 to 184. (An
+moved lines took the error total from 192 to 184, and by the run of
+2026-10-01 on `rel/0-34` with the wave-1 work packages of 0.34.0 merged,
+which brought it to 234 modules and the error total to 160 in 16. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -119,26 +121,29 @@ moved lines took the error total from 192 to 184. (An
 > 2026-09-30, and the branch of FR-96 1125 in 18 of 158 and `rel/0-33`
 > with FR-96 merged 1122 in 18 of 173 on 2026-10-01, and `rel/0-33` with WP4
 > merged 1122 in 18 of 196 on the same date, and `rel/0-33` with WP4, WP5
-> and WP6 merged 192 in 17 of 219 on the same date;
+> and WP6 merged 192 in 17 of 219 on the same date, and the 0.34.0 branch
+> of WP8 184 in 17 of 225 on the same date;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 184 errors in 17 files (checked 225 source files)
->     Success: no issues found in 225 source files
+>     Found 160 errors in 16 files (checked 234 source files)
+>     Success: no issues found in 234 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-01: 184 errors in 17 of 225 modules.**
+**mypy recount 2026-10-01: 160 errors in 16 of 234 modules.**
 
-The module total is the 225 the tracked package holds on the 0.34.0 branch of
-work package WP8, six more than the 219 of `rel/0-33` with work packages
-WP4, WP5 and WP6 merged, each of the six reported clean: the cut of AD-16
-moves the models of the `cases` root into six modules and types every
-moved line, so the root, still exempt, reports 1 error where it reported 9,
-and the total falls from 192 to 184 with the dirty count unchanged at 17.
+The module total is the 234 the tracked package holds on `rel/0-34` with the
+wave-1 work packages of 0.34.0 merged, fifteen more than the 219 of
+`rel/0-33` with work packages WP4, WP5 and WP6 merged, each of the fifteen
+reported clean (the section at the end names them). The cuts of WP8, WP9a
+and the probe catalog type every moved line, so the error total falls from
+192 to 160 and the dirty count from 17 to 16: `pyflightstream.qa.specs`
+reports none, so its override is deleted and the exempted set is the sixteen
+dirty modules. The branch of WP8 alone read 184 in 17 of 225.
 The 219 were the total the tracked package held with work packages WP4,
 WP5 and WP6 merged into `rel/0-33`, twenty-three more than the 196 of the
 tree with WP4 alone, each of the twenty-three reported clean. The error total
@@ -166,7 +171,7 @@ v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption fell from eighteen to seventeen with WP6, and the shipped
-configuration is green over all 225. The run at 139 was taken by `python scripts/mypy_recount.py`
+configuration is green over all 234. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -445,11 +450,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 184 errors in 17 files (checked 225 source files)
+    Found 160 errors in 16 files (checked 234 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 225 source files
+    Success: no issues found in 234 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1131,8 +1136,8 @@ sentence at the top of this report are this run's.
 (the merges of WP4, WP5, WP6 and D1 committed, the tree clean, as the script
 reported), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and
 pydantic 2.13.5 (the script printed mypy's version as unknown): 192 errors
-in 17 of 220 modules on 98 distinct source lines. The tracked package holds
-220 modules (219 on `rel/0-33`, plus `run/_cli_print.py` of WP9b), twenty-four more than the 196 of the WP4 run, each reported
+in 17 of 219 modules on 98 distinct source lines. The tracked package holds
+219 modules, twenty-three more than the 196 of the WP4 run, each reported
 clean. WP6 made `pyflightstream.run` a facade over typed modules and
 deleted its `[[tool.mypy.overrides]]` entry (decision 7), so the exempted set
 shrank from eighteen to seventeen modules and the 930 errors the run root
@@ -1161,5 +1166,33 @@ which keeps its override, reports 1 error where it reported 9, and the total
 falls from 192 to 184 with the dirty count unchanged at 17; every other
 module reports what it reported at 219. The override list of
 `pyproject.toml` is unchanged, and the shipped configuration is green over
-all 225. The quoted mypy lines and the sentence at the top of this report are
-this run's.
+all 225.
+
+## Re-measured 2026-10-01, `rel/0-34` with the wave-1 work packages merged: fifteen modules clean, `qa.specs` clean
+
+`python scripts/mypy_recount.py` on 2026-10-01, on `rel/0-34` at `4b90bf5d`
+(the merges of W0-CI, QA-SPECS, WP8, WP9a, WP9b, GUIDE, FSI-OFF, THIN-CORE,
+ACT, RPTS and QSN committed, the tree clean, as the script reported), with
+python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic
+2.13.5 (the script printed mypy's version as unknown): 160 errors in 16 of
+234 modules on 75 distinct source lines. The tracked package holds fifteen
+modules more than the 219 of `rel/0-33`, each reported CLEAN and none of
+them exempted: the six model modules of the `cases` cut (WP8, AD-16), the
+two of the `script.helpers` cut (`script/_settings.py` and
+`script/_relaxed_te.py`, WP9a, AD-17), `run/_cli_print.py` (WP9b, AD-18),
+the five of the probe-catalog cut (`qa/_spec_catalog_b.py`,
+`qa/_spec_ccs_mesh.py`, `qa/_spec_ccs_noise.py`, `qa/_spec_kit.py` and
+`qa/_spec_t1.py`) and `workspace/_degenerate.py` (FR-330). Every moved line
+was typed rather than exempted: `pyflightstream.cases` reports 1 error where
+it reported 9, `pyflightstream.script.helpers` 2 where it reported 17, and
+`pyflightstream.qa.specs` none where it reported 9, so the total falls from
+192 to 160 and the dirty count from 17 to 16. The 160 are in `qa.probes`
+(79), `script.solver_setup` (22), `script` (17), `fsi.nodes` (10),
+`cases.matrix` (7), `probes.planar` (6), `workspace.inputs` (4), six modules
+with two (`commands`, `farfield`, `post.writers`, `probes.geometry`,
+`script.helpers`, `workspace.naming`) and three with one (`cases`,
+`fsi.driver`, `script.entities`). `module = "pyflightstream.qa.specs"` is
+deleted from the override list of `pyproject.toml` (and from
+`MYPY_EXEMPTIONS`) in the commit that records this run, because the module
+reports no error, and the shipped configuration is green over all 234. The quoted mypy lines and the sentence at the top of
+this report are this run's.
