@@ -168,11 +168,24 @@ suction side, so a wing bending down under its own weight reads negative.
 `tip_flap_m` stays its magnitude; on a rotor both name the blade of largest
 magnitude. A frozen replay leaves both empty.
 
+`CDo`, the profile drag coefficient of the loads export, reads zero in a
+coupled run because the solver prints it so. On 26.124 (reports/RPT-128, the
+fixed-wing route) the spreadsheet exported at the head of a coupled point's
+one pass of the aeroelastic post, before the post updates anything and
+before the structural call, already reads zero, where the rigid solve of the
+same wing reads 0.0098384. The package's order of operations does not cause
+it, and nothing the package emits changes for it.
+
 The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124
 (reports/RPT-092) the route converged and mapped 1052 of 1052 vertices, and
-that reading agrees in sign at the integral (+7.49 against +17.13 N m) and
-not in magnitude (44 %): the sign is not confirmed in magnitude. The
+on that symmetric NACA 0012 wing the reading agrees in sign at the integral
+(+7.49 against +17.13 N m) and not in magnitude (44 percent), which a symmetric
+section cannot decide. On the cambered NACA 4412 wing of reports/RPT-128 the
+magnitude is confirmed: the summed cut moments are 1.00825 of the solver's
+moment about the same line, at least as close to 1 as the summed cut forces
+are to the lift (0.99033), and the coupled point gives the same verdict
+(1.00791 and 0.99045). The
 offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 

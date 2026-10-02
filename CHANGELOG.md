@@ -13,10 +13,11 @@ FlightStream versions.
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
   as a commit of its own after the tag, so the 0.34.0 package does not change
-  with it. RPT-126, RPT-127, RPT-128 and RPT-130 are still owed. Three are
+  with it. RPT-130 is still owed. Six are
   paid, measured on 26.124 (build 8172026) with the released package; the
   requirements' evidence lines now cite them, FR-318 R5 records the answer to
-  the question it left open, and no requirement's status changes:
+  the question it left open, and only FR-338 and FR-340 change status, to
+  implemented:
   - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
     `START_SOLVER`, and every step export then carries it; in the order 0.34.0
     emits, only the final export does. Moving the list is 0.35.0 scope.
@@ -28,6 +29,24 @@ FlightStream versions.
     the 26.124 fresh import; the uncleaned control differs in its saved
     actions only, and the blocks are compared offline. Registering the 26.124
     table in the package is 0.35.0 scope.
+  - RPT-127 (FR-342): tier 2 verifies `ROTATE_SURFACE`,
+    `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS`
+    on 26.124. The command database follows these verdicts in 0.35.0.
+  - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
+    the solver prints it so, not because of the package's order, and the
+    magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
+    page states both, and the definitions page that `CD0` reads that zero in
+    a coupled run; nothing the package emits changes.
+  - RPT-126 (FR-333 to FR-336): of 43 acoustic, CCS and surface-removal
+    commands probed on 26.124, 26 are verified and 7 broken, and the command
+    database follows the run's report. Ten CCS commands stay unprobed, the
+    arity of the two CCS exports stays undetermined because neither wrote a
+    file, and the REAL control-surface form stays refused: its failure follows
+    the limits, not the REAL token. Judging the ten, measuring the arity and
+    citing RPT-126 in the refusal message are 0.35.0 scope. Four tier-1 tests
+    (the two CCS export arity cases and the two `DELETE_CCS_*_RELAXED_TE` probe
+    scripts) are marked as strict expected failures with their cause until 0.35.0
+    measures the arity (and corrects the emitter if needed) and adds the probe waiver.
 
 - **The licensed confirmations of 0.35.0 are owed after the release.** The continuation the
   package emits no longer re-initializes a reopened state (FR-396); this is

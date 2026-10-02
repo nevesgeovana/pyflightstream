@@ -1,0 +1,4180 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.124'
+date: '2026-10-02'
+package_version: 0.34.0
+fs_exe: Flightstream_26124.exe
+fs_exe_sha256: withheld; build 8172026
+executor: LocalExecutor, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+solver_identity:
+- 'FlightStream version 26.1, build #8172026'
+summary:
+  verified: 26
+  broken: 7
+  removed: 0
+  unprobed: 337
+commands:
+  ACOUSTIC_SOURCES:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals exported after a marched rotor carry nonzero pressures with the sources
+      enabled. The instrument read: 3 observer blocks, rows per block [16, 16, 16], 96 nonzero pressure
+      values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.79
+    return_code: 0
+    script_sha256: dbf57209ff270134a3d5c7af497d48594f556772624687fa11c649337eb9d4fc
+  CREATE_NEW_ACOUSTIC_OBSERVER:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals file holds an observer block named for the observer created. The instrument
+      read: 3 observer blocks, rows per block [16, 16, 16], 96 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.72
+    return_code: 0
+    script_sha256: fe9f8b5e5e9d082e5ab7968347baaf01ba7ae6b18d80c160e4a6659c46f66c2b
+  ACOUSTIC_OBSERVERS_IMPORT:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals file holds the two observers read from the observer file, named by index.
+      The instrument read: 3 observer blocks, rows per block [16, 16, 16], 96 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.73
+    return_code: 0
+    script_sha256: 15a8c73392ac5e1b5e2b445c75b2d275a927ed42c4ac3f5162cf3752fc9c64b1
+  DELETE_ACOUSTIC_OBSERVER:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: of the two observers created, exactly one is left in the signals file (the manual
+      counts the index in the application''s own tree). The instrument read: 1 observer blocks, rows per
+      block [16], 0 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.59
+    return_code: 0
+    script_sha256: 83ba144ee04a3f83bafff614070365052ba21433694d7786961faaf99a0f6d1f
+  DELETE_ALL_ACOUSTIC_OBSERVERS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals file holds no observer block after both observers were deleted. The instrument
+      read: 0 observer blocks, rows per block [], 0 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.52
+    return_code: 0
+    script_sha256: 7a54f02fe74fa415822de1a48fd7efb039c2342e0f9c37c50bd1ee699e6eb321
+  SET_ACOUSTIC_OBSERVER_TIME:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: every observer block of the signals file has 16 rows and starts at the requested time.
+      The instrument read: 3 observer blocks, rows per block [16, 16, 16], 96 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.61
+    return_code: 0
+    script_sha256: b1082983a9f150b5ccddf2eaa89ad2433bae6eef25f6768fdfea19be20851566
+  COMPUTE_ACOUSTIC_SIGNALS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals exported after the computation carry data rows. The instrument read: 3
+      observer blocks, rows per block [16, 16, 16], 96 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.76
+    return_code: 0
+    script_sha256: acdafe5ec1620be36a7761a6737d920f22a40a4892d058a04742e60d9f4671c1
+  EXPORT_ACOUSTIC_SIGNALS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the signals file the command names exists and holds observer blocks. The instrument
+      read: 3 observer blocks, rows per block [16, 16, 16], 96 nonzero pressure values'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.56
+    return_code: 0
+    script_sha256: 61bc598748dbea60036f1011966d6d8b0f8f0098a61cd5416fbf0c1ca4d609da
+  CREATE_ACOUSTIC_SECTION:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the section''s storage folder holds files after the section is created on a computed
+      solution. The instrument read: 16 files in the section storage folder'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 2.67
+    return_code: 0
+    script_sha256: ef6dca595959928db337e519f9a9aa9de4d2e88ed93f67176c8302a7b8a63c26
+  CREATE_NEW_ACTUATOR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ACTUATOR_NAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ACTUATOR_AXIS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ACTUATOR_RADIUS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_PROP_ACTUATOR_RPM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_PROP_ACTUATOR_PROFILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_PROP_ACTUATOR_THRUST:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_PROP_ACTUATOR_SWIRL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ENABLE_ACTUATOR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_ACTUATOR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ACTUATOR_WAKE_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_CONVERGENCE_ITERATIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_MINIMUM_CP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  REYNOLDS_AVERAGED_DRAG_FORCES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_FARFIELD_LAYERS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_WAKE_TERMINATION_TIME_STEPS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_WAKE_ON_WAKE_INDUCTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ADDITIONAL_WAKE_RELAXATION_ITERATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  AEROELASTIC_RBF_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  LAMINAR_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  KUTTA_JOUKOWSKI_LIFT_FORCES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  PRINT_ROTOR_INDUCED_VELOCITIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ROTOR_INDUCED_VELOCITY_BLENDING:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_WAKE_NUMERICAL_RELAXATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_WAKE_DECAY_CONSTANT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXECUTE_AEROELASTIC_ANALYSIS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ASSIGN_AEROELASTIC_SURFACES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  IMPORT_AEROELASTIC_STRUCTURAL_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_AEROELASTIC_STRUCTURAL_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_AEROELASTIC_WORKING_DIRECTORY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_AEROELASTIC_ITERATIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_BASE_REGION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_BASE_REGION_CP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_BASE_REGION_BENDING_ANGLE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  AUTO_DETECT_BASE_REGIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DETECT_BASE_REGIONS_BY_SURFACE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_BASE_REGION_TRAILING_EDGES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_BASE_REGION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SELECT_BASE_REGION_FACES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  REMESH_BASE_REGION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_OUTLET_TRAILING_EDGES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  AUTO_DETECT_TRAILING_EDGES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_TRAILING_EDGE_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  AUTO_DETECT_WAKE_TERMINATION_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_FREESTREAM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  FLUID_PROPERTIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  AIR_ALTITUDE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DETECT_TRAILING_EDGES_BY_SURFACE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  MARK_WAKE_TERMINATION_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  IMPORT_WAKE_EDGES_FROM_FILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_DELETE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_MIRROR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_ROTATE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_SCALE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_TRANSLATE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_BODY_SELECT_BY_THRESHOLD:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  IMPORT_CAD:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CONVERT_CAD_TO_MESH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_INITIALIZE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_CAD_CREATE_MERGE_TOLERANCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_CAD_CREATE_SPLINE_SEGMENTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_CAD_CREATE_SPLINE_LOFT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_CAD_CURVATURE_REFINEMENT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_BOX:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_SPHERE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CYLINDER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_SHEET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_POINT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_LINE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_ARC:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_SELECT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_UNSELECT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_REVERSE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_DELETE_ALL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_DELETE_SELECTED:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_DELETE_UNSELECTED:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_ROTATE_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_TRANSLATE_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_SCALE_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_PROJECT_CURVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_PROJECT_MULTI_CURVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_REORDER_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CONNECT_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_SELF_MEDIAN_FROM_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CURVE_EXPORT_CCS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_IMPORT_CURVE_TXT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_IMPORT_CURVE_CCS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_IMPORT_CURVE_P3D:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_CROSS_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_AUTO_CROSS_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_WING_MESH_FROM_CCS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_REVOLVE_MESH_FROM_CCS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CAD_CREATE_MIRROR_CURVES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DEFAULT_CCS_FUSELAGE_MESH_SETTINGS:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after the axial subdivisions were changed and the
+      defaults restored, the loft equals the first loft. The instrument read: reference 0 vertices 0 faces;
+      variant 2449 vertices 2370 faces; restored 0 vertices 0 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.87
+    return_code: 0
+    script_sha256: a914e276acb31c200a14236081ecf6acff5cdbd6ef0e614f11bd246ab64884ba
+  CCS_FUSELAGE_MESH_SUBDIVISIONS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a fuselage lofted after 30 axial subdivisions has a different mesh. The instrument
+      read: reference 1975 vertices 1896 faces; variant 2449 vertices 2370 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.79
+    return_code: 0
+    script_sha256: 188a55c1b3caf9bd1cc2a87d5f8cf4b894cf3e9c429b0c6791e7046adef6d9c0
+  CCS_FUSELAGE_MESH_GROWTH_SCHEME:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a fuselage lofted after a successive axial growth scheme has a different mesh. The
+      instrument read: reference 1975 vertices 1896 faces; variant 1975 vertices 1896 faces Re-probed
+      on 2026-10-02 in LQ2B (RPT-126), arm DR: as D, with an axial growth rate of 1.2 before both lofts;
+      LQ2''s run of 2026-10-02 had read it unprobed.'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.86
+    return_code: 0
+    script_sha256: 551509a1f1a9a0d3779cd6b7cc9352f07f0ba132ef46554e77b3a915eafc9bc5
+  CCS_FUSELAGE_MESH_GROWTH_RATE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a fuselage lofted after a axial growth rate of 1.2 has a different mesh. The instrument
+      read: reference 1975 vertices 1896 faces; variant 1975 vertices 1896 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.83
+    return_code: 0
+    script_sha256: e271d6826ea5805abf76a203c219ca0fdbe7da0445705b1fdd8f8d6e1768df0e
+  CCS_FUSELAGE_MESH_PERIODICITY:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a fuselage lofted after a radial periodicity of 2 has a different mesh. The instrument
+      read: reference 1975 vertices 1896 faces; variant 1872 vertices 1794 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.81
+    return_code: 0
+    script_sha256: 670a97bb5fe7032df912ed0d5a3fdbf20b07d0ce6defcbe099e22f0f1c44d410
+  NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a fuselage lofted after a refinement zone has a different mesh. The instrument read:
+      reference 1896 vertices 1817 faces; variant 2765 vertices 2686 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.89
+    return_code: 0
+    script_sha256: 1dc547279c9ac59a72a6bb552b53ca76cdd8ea0e3708640c8ae6113d0906623d
+  DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after a refinement zone was added and deleted, the
+      loft equals the first loft. The instrument read: reference 0 vertices 0 faces; variant 2765 vertices
+      2686 faces; restored 158 vertices 79 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.8
+    return_code: 0
+    script_sha256: f0491cc922596857db5535c9160a45d8e32ee9a310cfa54b243c2728434f0644
+  NEW_CCS_FUSELAGE_RELAXED_TE:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing)'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.71
+    return_code: 0
+    script_sha256: 23131a0b6852b7063f8c2b22b41a01d9a10f422d55af792734be2d6880e67d03
+  DELETE_CCS_FUSELAGE_RELAXED_TE:
+    outcome: unprobed
+    detail: the solver exported neither sentinel log although the baseline probe passed; inconclusive,
+      environment drifted mid-run (return code 0)
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.82
+    return_code: 0
+    script_sha256: ff915745272b63f1744b6c10ad3aced96434a20d42377f6f60bc9c2b9a1b7185
+  EXPORT_FUSELAGE_CCS_FILE:
+    outcome: broken
+    detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+      the CCS file the command names exists and is not empty, written from the six arguments of the signature
+      heading. The instrument read: fuselage_export.csv was not written The written file did not separate
+      the two readings on this build (RPT-126 states the five forms run and their files); no count of
+      arguments is claimed.'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: false
+      log_errors: []
+    wall_time_s: 0.74
+    return_code: 0
+    script_sha256: 3705369bfe866760f89eb3f214c6835d85d3a0dcea6667dab14abd34c0d6137a
+  DEFAULT_CCS_REVOLVE_MESH_SETTINGS:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after the axial subdivisions were changed and the
+      defaults restored, the loft equals the first loft. The instrument read: reference 0 vertices 0 faces;
+      variant 2293 vertices 2370 faces; restored 0 vertices 0 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.87
+    return_code: 0
+    script_sha256: dc8eb47d12a9ef5926f04164d491c490c1f92e02fe84d98cfd06d41dd7edd63b
+  CCS_REVOLVE_MESH_SUBDIVISIONS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a revolve lofted after 30 axial subdivisions has a different mesh. The instrument
+      read: reference 4584 vertices 4661 faces; variant 2293 vertices 2370 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.14
+    return_code: 0
+    script_sha256: 82f14009b446b445c06e8c2ecc74d4d05ebaf967c643bb310d4b3c1f665acb85
+  CCS_REVOLVE_MESH_GROWTH_SCHEME:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a revolve lofted after a successive axial growth scheme has a different mesh. The
+      instrument read: reference 4584 vertices 4661 faces; variant 4584 vertices 4661 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.59
+    return_code: 0
+    script_sha256: d0cbf6571cb8f65dbada4568745a701ddd089afdff3721bf444793a506502a8e
+  CCS_REVOLVE_MESH_GROWTH_RATE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a revolve lofted after a axial growth rate of 1.2 has a different mesh. The instrument
+      read: reference 4584 vertices 4661 faces; variant 4584 vertices 4661 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.68
+    return_code: 0
+    script_sha256: e49b8714274474b2595e169f624286ac6f15aae05d21e5cc4a27c95326cc6fc2
+  CCS_REVOLVE_MESH_PERIODICITY:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a revolve lofted after a azimuth periodicity of 2 has a different mesh. The instrument
+      read: reference 4584 vertices 4661 faces; variant 4526 vertices 4602 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.6
+    return_code: 0
+    script_sha256: b51938e4024aab1f58af50fc205e3a8aef17096b2aabeb49f56c56a6d2b39284
+  NEW_CCS_REVOLVE_REFINEMENT_ZONE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a revolve lofted after a refinement zone has a different mesh. The instrument read:
+      reference 1975 vertices 1896 faces; variant 2449 vertices 2370 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.82
+    return_code: 0
+    script_sha256: 3b79f7f46624241ca007fd8d30e873f8d36f4b008e8f14a15feeacc2f7f1d537
+  DELETE_CCS_REVOLVE_REFINEMENT_ZONES:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after a refinement zone was added and deleted, the
+      loft equals the first loft. The instrument read: reference 0 vertices 0 faces; variant 2449 vertices
+      2370 faces; restored 2767 vertices 2765 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.94
+    return_code: 0
+    script_sha256: 184f9e97c01ccd1918ad2fe895972103bddb2889c3aa879d1d2d49d04006838b
+  NEW_CCS_REVOLVE_RELAXED_TE:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing)'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.81
+    return_code: 0
+    script_sha256: fd089c91bbba254ddac0994e610d5b82cfd1f523fb0cb7a9c8eec1f248c60259
+  DELETE_CCS_REVOLVE_RELAXED_TE:
+    outcome: unprobed
+    detail: the solver exported neither sentinel log although the baseline probe passed; inconclusive,
+      environment drifted mid-run (return code 0)
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.73
+    return_code: 0
+    script_sha256: 89c850ac17f0892d1089f18c3f3600eddc1719edca192bf4e5f67f7a774a9673
+  EXPORT_REVOLVE_CCS_FILE:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing) The written file did not separate the two readings on this
+      build (RPT-126 states the five forms run and their files); no count of arguments is claimed.'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.73
+    return_code: 0
+    script_sha256: 5c124c3cac48927ac19b629cf2387b2c6b7f1742af684889e64dae8dfadb4abd
+  NEW_CCS_WING_CONTROL_SURFACE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a wing lofted after a gapped control surface has a different mesh from the same wing
+      lofted before it (the PARAMETRIC form of RPT-097). The instrument read: reference 1302 vertices
+      1108 faces; variant 743 vertices 492 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.87
+    return_code: 0
+    script_sha256: 4f28dc3e77473b1a956195ba2b0914cca6d06e10e8fbf4fbf423f7b4dfbb6d3a
+  DEFAULT_CCS_WING_MESH_SETTINGS:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after the chord subdivisions were changed and the
+      defaults restored, the loft equals the first loft. The instrument read: reference 0 vertices 0 faces;
+      variant 588 vertices 560 faces; restored 0 vertices 0 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.8
+    return_code: 0
+    script_sha256: 213b1a890a40c9d73dbe7ef1ab0615281e6b845506add62a5fb0662c95799621
+  CCS_WING_MESH_SUBDIVISIONS:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a wing lofted after 30 chordwise subdivisions has a different mesh from the same wing
+      lofted before them. The instrument read: reference 4484 vertices 4366 faces; variant 588 vertices
+      560 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.85
+    return_code: 0
+    script_sha256: 61e58f4b71590ec3435cf58b792eb3d97e5e3a4d7769310a62777a959c986a07
+  CCS_WING_MESH_GROWTH_SCHEME:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a wing lofted after a successive chord growth scheme has a different mesh. The instrument
+      read: reference 4484 vertices 4366 faces; variant 3894 vertices 3776 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.13
+    return_code: 0
+    script_sha256: 3a5375350f36c2b5252656f7f769412e5b606a7539fa6123ec945c947effc6b4
+  CCS_WING_MESH_GROWTH_RATE:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a wing lofted after a chord growth rate of 1.2 has a different mesh. The instrument
+      read: reference 4484 vertices 4366 faces; variant 2478 vertices 2360 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.83
+    return_code: 0
+    script_sha256: 75f04c8e6a740b47c078b9c28648f419c0608a08350eb28dda673fcad4d590ad
+  CCS_WING_MESH_PERIODICITY:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: a wing lofted after a span periodicity of 2 has a different mesh. The instrument read:
+      reference 4484 vertices 4366 faces; variant 4484 vertices 4366 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 1.74
+    return_code: 0
+    script_sha256: 98289b6ea03913a304013820526f6888d1673bde99231eb7d6b6fc195c413602
+  NEW_CCS_WING_REFINEMENT_ZONE:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: a wing lofted after a refinement zone has a different
+      mesh. The instrument read: reference 0 vertices 0 faces; variant 0 vertices 0 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.79
+    return_code: 0
+    script_sha256: 8bd58ae14ddd87fa31620086eb0ac2d9afbd611c015197d28f9c8e47c0107ab5
+  DELETE_CCS_WING_REFINEMENT_ZONES:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after a refinement zone was added and deleted, the
+      loft equals the first loft. The instrument read: reference 4484 vertices 4366 faces; variant 0 vertices
+      0 faces; restored 0 vertices 0 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 1.09
+    return_code: 0
+    script_sha256: b3315008c027711129c6a2cd562a5921b6ccfd7a066862a04467b426b6f2f379
+  NEW_CCS_WING_MORPHING_SURFACE:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing)'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.79
+    return_code: 0
+    script_sha256: 82e21e671a0c26dba7a5fb9a9eca4df45ded1ae4efa3bdc953523aaf12c99a6a
+  NEW_CCS_WING_FLAP_COVE:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing)'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.79
+    return_code: 0
+    script_sha256: 7a1ab5e5210abd9feb24a2fa2f3a0d08847d7a81fc3228e0301a5c8c73aa5703
+  DELETE_CCS_WING_CONTROL_SURFACE:
+    outcome: unprobed
+    detail: 'the command ran without a script abort or logged error, but its effect is not observable
+      with the current instruments; asserted effect: after a control surface was added and deleted, the
+      loft equals the first loft. The instrument read: reference 0 vertices 0 faces; variant 743 vertices
+      492 faces; restored 705 vertices 644 faces'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    wall_time_s: 0.84
+    return_code: 0
+    script_sha256: 6dd984c985adf0cca18c6a6103d49b579f5f934a9f667b5f4091d86203fd86c5
+  EXPORT_WING_CCS_FILE:
+    outcome: broken
+    detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+      the CCS file the command names exists and is not empty, written from the six arguments of the signature
+      heading. The instrument read: wing_export.csv was not written'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: false
+      log_errors: []
+    wall_time_s: 0.77
+    return_code: 0
+    script_sha256: aa76fce7727a380f0239b5c8815ca29441c31ddc14941285e7e74b32f906d705
+  CREATE_NEW_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EDIT_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_COORDINATE_SYSTEM_ORIGIN:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_COORDINATE_SYSTEM_AXIS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ROTATE_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_COORDINATE_SYSTEM_NAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NORMALIZE_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  TRANSLATE_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DUPLICATE_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  MIRROR_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  OPEN:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SAVEAS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_SIMULATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CLOSE_FLIGHTSTREAM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_LOG:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  OUTPUT_SETTINGS_AND_STATUS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CLEAR_LOG:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  OUTPUT_SURFACE_INDICES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_INLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_INLET_CUSTOM_PROFILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  REMESH_INLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_INLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_OUTLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  REMESH_OUTLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_OUTLET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  IMPORT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CCS_IMPORT:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation names the imported wing component'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.78
+    return_code: 0
+    script_sha256: af0db9ee2039f14437d80dc4bdf32dfe3ca66e1e56a992b2c5bffdf84e6f5c20
+  EXPORT_SURFACE_MESH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_SURFACES:
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved boundary inventory after the command is the inventory before it without
+      its first boundary, the rest renumbered. The instrument read: inventory before (''Body'', ''Base'',
+      ''Blade1''), after (''Base'', ''Blade1'')'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    wall_time_s: 0.75
+    return_code: 0
+    script_sha256: b5b876081291483fdc38ea7887164a4e0b2639a7a3d3b7f77ccc5fd047d02acd
+  TRANSLATE_SURFACE_IN_FRAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  TRANSLATE_SURFACE_BY_FRAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_SCALE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_MIRROR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_LINEAR_COPY_PASTE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_CIRCULAR_COPY_PASTE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_SELECT_BY_ID:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_SELECT_BY_THRESHOLD:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_SURFACE_FROM_SELECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_CUT_BY_PLANE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_COMBINE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_AUTO_HOLE_FILL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_INVERT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SURFACE_RENAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_SELECTED_FACES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_DEGENERATE_FACES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SELECT_MESH_NODE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  TRANSFORM_SELECTED_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  ROTATE_SURFACE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  BOOLEAN_UNITE_PATH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  BOOLEAN_UNITE_MESH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_SET_INPUT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_SET_GLOBAL_SIZE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_SET_VERTEX_PROJECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_SET_ANISOTROPY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_CREATE_LOCAL_CONTROL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_EDIT_LOCAL_CONTROL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_NEW_VOLUME_CONTROL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_DELETE_ALL_VOLUME_CONTROLS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_EXECUTE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  WRAPPER_TRANSFER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_MOTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_MOVING_FRAMES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_COORDINATE_SYSTEM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_START_TIME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_ROTOR_AXIS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_ROTOR_RPM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_FSI_EXECUTABLE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_FSI_STRUCTURAL_NODES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_MOTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_MASS_PROPERTIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_GRAVITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_CUSTOM_TABLE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_6DOF_INITIAL_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MOTION_6DOF_ACTIVE_VARIABLES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_6DOF_EXTERNAL_FORCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_6DOF_CUSTOM_FORCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_6DOF_SPRING_FORCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_6DOF_EXTERNAL_FORCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_6DOF_MOTION_SYMMETRY_LOADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_6DOF_TRAJECTORY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_PLOT_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SAVE_PLOT_TO_FILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_PROBE_POINT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_PROBE_LINE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UPDATE_PROBE_POINTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  PROBE_POINTS_IMPORT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_PROBE_POINTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_PROBE_POINTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_AOA:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_SIDESLIP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_MACH_NUMBER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_ITERATIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_CONVERGENCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_FORCED_ITERATIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_REF_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_REF_MACH_NUMBER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_REF_AREA:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_SET_REF_LENGTH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_MAX_PARALLEL_THREADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_SIZE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_POSITION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_SHADING:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_CUSTOM_MODE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_COLORMAP_CUSTOM_RANGE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  VIEW_RESIZE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CHANGE_SCENE_TO_CAD:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CHANGE_SCENE_TO_GEOMETRY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CHANGE_SCENE_TO_SOLVER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CHANGE_SCENE_TO_PLOTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SAVE_SCENE_AS_IMAGE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_DEFAULTVIEW:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_XY_POSITIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_XY_NEGATIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_XZ_POSITIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_XZ_NEGATIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_YZ_POSITIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_YZ_NEGATIVE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  STOP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  PRINT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  RUN_SCRIPT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SIMULATION_LENGTH_UNITS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SIGNIFICANT_DIGITS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_TRAILING_EDGE_SWEEP_ANGLE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_VERTEX_MERGE_TOLERANCE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_VORTICITY_DRAG_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_VORTICITY_DRAG_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_ANALYSIS_LOADS_FRAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ANALYSIS_MOMENTS_MODEL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ANALYSIS_SYMMETRY_LOADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_LOADS_AND_MOMENTS_UNITS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_ANALYSIS_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_INVISCID_LOADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SCENE_CONTOUR:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_TECPLOT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_VTK:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_VTK_EXPORT_VARIABLES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_CSV:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_BL_VELOCITY_PROFILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_BL_VELOCITY_PROFILE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  INITIALIZE_SOLVER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_PROXIMAL_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  REMOVE_INITIALIZATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  START_SOLVER:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CLEAR_SOLUTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_STEADY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_UNSTEADY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_BOUNDARY_LAYER_TYPE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SOLVER_VISCOUS_COUPLING:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_VISCOUS_EXCLUDED_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_AIRFOIL_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_AXIAL_VORTEX_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_CYLINDRICAL_BULK_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_STRATFORD_BULK_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_SEPARATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_SURFACE_ROUGHNESS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_THIN_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_THIN_BOUNDARIES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_STABILIZATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DISABLE_SOLVER_REF_VELOCITY:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  STABILITY_TOOLBOX_SETTINGS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  STABILITY_TOOLBOX_NEW_COEFFICIENT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  STABILITY_TOOLBOX_DELETE_ALL:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  COMPUTE_STABILITY_COEFFICIENTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  STABILITY_TOOLBOX_EXPORT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_OFF_BODY_STREAMLINE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_STREAMLINE_DISTRIBUTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  GENERATE_ALL_OFF_BODY_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_ALL_OFF_BODY_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_OFF_BODY_STREAMTUBE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_OFF_BODY_STREAMLINE_LENGTH:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_ALL_OFF_BODY_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  GENERATE_ALL_SURFACE_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_ALL_SURFACE_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_ALL_SURFACE_STREAMLINES:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_SURFACE_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_SURFACE_SECTION_DISTRIBUTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  COMPUTE_SURFACE_SECTIONAL_LOADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SURFACE_SECTIONAL_LOADS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UPDATE_ALL_SURFACE_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_ALL_SURFACE_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_SURFACE_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_SURFACE_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_ALL_SURFACE_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_SET_AOA_SWEEP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_SET_BETA_SWEEP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_SET_VELOCITY_SWEEP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_SET_MACH_SWEEP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_POST_RUN_SCRIPT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_CLEAR_SOLUTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_START:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SWEEPER_EXPORT_SPREADSHEET:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_TRANSITION_TRIP:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UNSTEADY_SOLVER_NEW_FORCE_PLOT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UNSTEADY_SOLVER_NEW_FLUID_PLOT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UNSTEADY_SOLVER_EXPORT_PLOTS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UNSTEADY_SOLVER_ANIMATION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SOLVER_TIME_AVERAGING:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  SET_NEW_UNSTEADY_SOLVER_ACTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_RECTANGLE_VOLUME_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  CREATE_NEW_CIRCLE_VOLUME_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  UPDATE_ALL_VOLUME_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_VOLUME_SECTION_VTK:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_VOLUME_SECTION_TECPLOT:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_VOLUME_SECTION:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  DELETE_ALL_VOLUME_SECTIONS:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  VOLUME_SECTION_WIREFRAME:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null
+  EXPORT_VOLUME_SECTION_2D_VTK:
+    outcome: unprobed
+    detail: not probed in this run
+    signals:
+      sentinel_before: false
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: null
+    return_code: null
+    script_sha256: null

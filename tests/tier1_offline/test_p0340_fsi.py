@@ -5,8 +5,9 @@ a new last column, every earlier column as 0.33.0 wrote it.
 
 FR-338 and FR-340 also owe a licensed run (LQ1, RPT-128). Their marker tests
 read the machine-readable field the report carries in its front matter, and
-fail until it is committed, so they are held on the package branch
-feat/0-34-fsi (df44313d) and enter with RPT-128. FR-341 (route C, PFS-2073.04)
+failed until it was committed, so they were held on the package branch
+feat/0-34-fsi (df44313d); they entered with RPT-128, in
+test_p0340_fsi_rpt128.py. FR-341 (route C, PFS-2073.04)
 left 0.34.0 for 0.36.0 by the author decision of 2026-10-01; its offline half
 and its RPT-129 test stay on that branch with it.
 

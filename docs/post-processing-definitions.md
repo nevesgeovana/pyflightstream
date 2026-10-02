@@ -225,6 +225,11 @@ export's own vector equals its `CDi + CDo`, which the recorded exports
 confirm to their printed precision, under sideslip too. `CD0` and `CDI` are
 those two integrals as the solver states them.
 
+**In a coupled FSI run `CDo` is zero as the solver prints it.** On 26.124
+the loads export of a coupled solve prints `CDo` as zero from the first
+export of its first coupling pass, where the rigid solve of the same wing
+prints the profile drag (RPT-128). So in a coupled run `CD0` reads that zero.
+
 **A drag the solver declined is `NA`.** A boundary on the vorticity
 induced-drag list (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing
 edge is not computed, and the export prints its `CDi` as zero (SRC-003 p.202).

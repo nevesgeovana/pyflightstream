@@ -1,0 +1,75 @@
+{
+ "note": "RPT-126: the seven CCS2-REAL arms on FlightStream 26.124 (build 8172026), far field 5 where they solve; outcomes and flags only",
+ "arms": {
+  "P": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y",
+   "outcome": "verified",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 0,
+   "reference_loft": true,
+   "variant_loft": true,
+   "solved_save": false
+  },
+  "R": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 REAL Y",
+   "outcome": "verified",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 0,
+   "reference_loft": true,
+   "variant_loft": true,
+   "solved_save": false
+  },
+  "RL": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y",
+   "outcome": "unprobed",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 3221225477,
+   "reference_loft": false,
+   "variant_loft": false,
+   "solved_save": false
+  },
+  "PL": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y",
+   "outcome": "unprobed",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 3221225477,
+   "reference_loft": false,
+   "variant_loft": false,
+   "solved_save": false
+  },
+  "RX": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL X",
+   "outcome": "unprobed",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 3221225477,
+   "reference_loft": false,
+   "variant_loft": false,
+   "solved_save": false
+  },
+  "P_s": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y",
+   "outcome": "verified",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 0,
+   "reference_loft": false,
+   "variant_loft": false,
+   "solved_save": true
+  },
+  "RL_s": {
+   "line": "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y",
+   "outcome": "unprobed",
+   "sentinel_before": true,
+   "sentinel_after": true,
+   "return_code": 3221225477,
+   "reference_loft": false,
+   "variant_loft": false,
+   "solved_save": false
+  }
+ }
+}

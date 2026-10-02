@@ -1,0 +1,83 @@
+{
+ "note": "RPT-126: the arity arms of FR-335",
+ "EXPORT_FUSELAGE_CCS_FILE": {
+  "verdict": "undetermined",
+  "arms": {
+   "A6": {
+    "outcome": "broken",
+    "sentinel_after": true,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A6m": {
+    "outcome": "broken",
+    "sentinel_after": true,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A6c": {
+    "outcome": "broken",
+    "sentinel_after": true,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A4": {
+    "outcome": "broken",
+    "sentinel_after": true,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A4c": {
+    "outcome": "broken",
+    "sentinel_after": true,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   }
+  }
+ },
+ "EXPORT_REVOLVE_CCS_FILE": {
+  "verdict": "undetermined",
+  "arms": {
+   "A6": {
+    "outcome": "broken",
+    "sentinel_after": false,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A6m": {
+    "outcome": "broken",
+    "sentinel_after": false,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A6c": {
+    "outcome": "broken",
+    "sentinel_after": false,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A4": {
+    "outcome": "broken",
+    "sentinel_after": false,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   },
+   "A4c": {
+    "outcome": "broken",
+    "sentinel_after": false,
+    "written": false,
+    "lines": null,
+    "sha256": null
+   }
+  }
+ }
+}

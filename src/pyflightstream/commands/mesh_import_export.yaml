@@ -57,7 +57,7 @@ CCS_IMPORT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
-    "26.124": {status: documented, note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
     control hole-filling at component ends, whether the simulation
@@ -107,14 +107,7 @@ DELETE_SURFACES:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124":
-      status: documented
-      note: >-
-        SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by
-        the 0.32.0 licensed probe round 1 (probe D1_delete_surfaces): the
-        single-index form was accepted and the surfaces after the deleted one
-        were renumbered; the status stays documented until a dated run report
-        promotes it.
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by the 0.32.0 licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the
