@@ -2,12 +2,11 @@
 
 The licensed confirmation of **FR-318** R5 that pyflightstream 0.33.0 left owed
 (registered in RPT-106, "Licensed confirmation registered (FR-318)"), run after the
-0.34.0 release as GOAL-039 arm OC, run LQ-O1. Three arms ran on **FlightStream 26.124,
-build 8172026**, executable SHA-256 withheld from the public tree per NFR-31, one solver
-instance at a time, hidden, far field 5 layers stated in every setup. The scripts are the
-ones pyflightstream 0.34.0 emits (package tree at `ed06e86d`, no file changed), one arm
-with one block of three lines moved by hand. The run window is recorded for arm L1
-(`licensed/LQ-O1.json`: 2026-10-02T14:30:20-03:00 to 2026-10-02T14:30:59-03:00).
+0.34.0 release. Three arms ran on **FlightStream 26.124, build 8172026**, executable
+SHA-256 withheld from the public tree per NFR-31, one solver instance at a time, hidden,
+far field 5 layers stated in every setup. The scripts are the ones pyflightstream 0.34.0
+emits (package tree at `ed06e86d`, no file changed), one arm with one block of three lines
+moved by hand. The run window: 2026-10-02T14:30:20-03:00 to 2026-10-02T14:30:59-03:00.
 
 Only nondimensional values are stated: force and moment coefficients of the loads
 spreadsheet's Total row, and relative differences. The geometry is the synthetic blade of
@@ -94,8 +93,8 @@ differ, worst 2.238e-01.
 
 What follows for FR-318 R5: the statement it makes about the released order is confirmed,
 and its open question is answered. Moving the list before `START_SOLVER` is a change of
-emitted bytes in `src/`, which a post-release commit of 0.34.0 may not make (GOAL-039,
-POST_SRC_ALLOWED); it is 0.35.0 scope (GOAL-040), and FR-318 R5 now cites this measurement.
+emitted bytes in `src/`; a post-release commit does not change the package source, so the
+fix is 0.35.0 scope, and FR-318 R5 now cites this measurement.
 The tier-1 test `tests/tier1_offline/test_rpt133_fr318_vorticity_order.py` reads the
 recorded exports of the three arms, with the control, and pins the order the package emits
 today.

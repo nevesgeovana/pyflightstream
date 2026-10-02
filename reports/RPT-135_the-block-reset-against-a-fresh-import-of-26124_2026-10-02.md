@@ -1,13 +1,12 @@
 # RPT-135 - The block reset of a cleaned geometry against a fresh import of FlightStream 26.124 (2026-10-02)
 
 The paired measurement and the licensed confirmation of **FR-312** that pyflightstream
-0.33.0 left owed (FR-312, "Evidence owed"), run after the 0.34.0 release as GOAL-039 arm
-OC, run LQ-O3. Every launch ran on **FlightStream 26.124, build 8172026**, executable
-SHA-256 withheld from the public tree per NFR-31, one solver instance at a time, hidden;
-the three solves state far field 5 layers. The fresh imports are the tier-3 preparation
-recipe rendered for 26.124; the solve script is the one pyflightstream 0.34.0 emits
-(package tree at `ed06e86d`, no file changed). The run window is recorded for arm L1
-(`licensed/LQ-O3.json`: 2026-10-02T14:34:39-03:00 to 2026-10-02T14:36:06-03:00).
+0.33.0 left owed (FR-312, "Evidence owed"), run after the 0.34.0 release. Every launch
+ran on **FlightStream 26.124, build 8172026**, executable SHA-256 withheld from the public
+tree per NFR-31, one solver instance at a time, hidden; the three solves state far field 5
+layers. The fresh imports are the tier-3 preparation recipe rendered for 26.124; the solve
+script is the one pyflightstream 0.34.0 emits (package tree at `ed06e86d`, no file
+changed). The run window: 2026-10-02T14:34:39-03:00 to 2026-10-02T14:36:06-03:00.
 
 Only nondimensional values are stated: block names, line counts, coefficients and relative
 differences. The geometries are the ten synthetic shapes of the tier-3 library, generated
@@ -140,9 +139,9 @@ uncleaned file's loads equal the fresh and reset files'); the block content of t
 verified block by block offline (section 3), and the solve confirms that the block-reset
 file opens and runs on 26.124, for the blade, with the 26.124 table given to the package's
 reset in-process. Registering that table in
-`pyflightstream._fsm_fresh.FRESH_IMPORT` is a change in `src/`, which a post-release commit
-of 0.34.0 may not make (GOAL-039, POST_SRC_ALLOWED); it is 0.35.0 scope (GOAL-040), with
-the recorded fresh imports as its tier-1 fixture. The tier-1 test
+`pyflightstream._fsm_fresh.FRESH_IMPORT` is a change in `src/`; a post-release commit does
+not change the package source, so the fix is 0.35.0 scope, with the recorded fresh imports
+as its tier-1 fixture. The tier-1 test
 `tests/tier1_offline/test_rpt135_fr312_fresh_import_26124.py` re-measures the table from
 the recorded fresh imports, compares it with the 26.120 one, resets the recorded D with it
 against the fresh import (D before the reset as the control) and pins the released

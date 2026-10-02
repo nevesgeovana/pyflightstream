@@ -1,7 +1,7 @@
 # RPT-134 - The plots history of a continued march on FlightStream 26.124 (2026-10-02)
 
 The licensed confirmation of **FR-96** that pyflightstream 0.33.0 left owed (FR-96,
-"Owed"), run after the 0.34.0 release as GOAL-039 arm OC, run LQ-O2. Two package runs
+"Owed"), run after the 0.34.0 release. Two package runs
 (`pyfs-matrix plan`, then `pyfs-matrix run --local`) of pyflightstream 0.34.0 (package tree
 at `ed06e86d`, `package_dirty: false` in every record) and one script launched by hand
 ran on **FlightStream 26.124, build 8172026**, executable SHA-256 withheld from the public
@@ -9,8 +9,8 @@ tree per NFR-31, one solver instance at a time, hidden. Far field 5 layers is st
 setup of the point and of the control: the control's script carries
 `SOLVER_SET_FARFIELD_LAYERS 5`, and the point's run record states that command with the
 value 5, stated and emitted. The continuation's script and the resume arm's state no far
-field: they inherit it from the saved simulation they reopen, the point's. The run window is recorded for arm L1 (`licensed/LQ-O2.json`:
-2026-10-02T14:32:21-03:00 to 2026-10-02T14:39:55-03:00); the three launches ran from
+field: they inherit it from the saved simulation they reopen, the point's. The run window:
+2026-10-02T14:32:21-03:00 to 2026-10-02T14:39:55-03:00; the three launches ran from
 14:32:21 to 14:32:40, from 14:33:40 to 14:33:55 and from 14:39:47 to 14:39:55, and the
 launches of RPT-135 ran between the second and the third, never at the same time.
 
@@ -109,9 +109,9 @@ point's 462, and the post joins what it is given (the march restated, 12 steps, 
 `[[1, 12]]`). The emission is `cases/workflows/_skeleton.py:360`, `_initialize(case, script)`
 called without a `reopens_a_saved_state` guard, reached on a continuation from
 `cases/workflows/_unsteady.py:146` (`OPEN ... ENABLE`) and `:161` (`_script_tail(...,
-reopens_a_saved_state=True)`). Its fix changes emitted bytes in `src/`, which a
-post-release commit of 0.34.0 may not make (GOAL-039, POST_SRC_ALLOWED): it is 0.35.0
-scope by decision of 2026-10-02 (GOAL-040).
+reopens_a_saved_state=True)`). Its fix changes emitted bytes in `src/`; a post-release
+commit does not change the package source, so the fix is 0.35.0 scope by decision of
+2026-10-02.
 
 The FR-96 "Owed" paragraph is replaced by a dated evidence line citing this report and the
 tier-1 test `tests/tier1_offline/test_rpt134_fr96_continuation_history.py`, which posts the
