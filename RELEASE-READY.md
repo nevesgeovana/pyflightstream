@@ -1,6 +1,6 @@
 # pyflightstream 0.34.0 is released by this sequence, followed as written
 
-0.34.0 is THE RELEASE OF WHAT SHE USES: the wake length in rotor radii and the Trefftz
+0.34.0 is THE RELEASE OF THE WORKFLOW FEATURES IN DAILY USE: the wake length in rotor radii and the Trefftz
 plane, the run-usability items, the thin-blade command, the actuator disc's swirl sign,
 CCS and noise, FSI, LF in every text product, the cheatsheet as guide 04 with the guides
 numbered from 01, and only the three cuts these need (the `cases` root, `script.helpers`,
@@ -17,8 +17,8 @@ commands and readings through the whole 0.23.0 release, and it carried the v0.24
 title and readings up to the eve of v0.25.0, where the INDEPENDENT REVIEW OF GitHub
 main caught it (finding 6, 2026-09-20): a reader following it would have tagged the
 previous release. Whether it is re-titled each time or split into a version-free
-sequence plus a per-release readings file is still the owner's call; until she
-rules, it is re-titled. The v0.32.0 edition is in the history of this file
+sequence plus a per-release readings file is still open; until it is decided,
+it is re-titled. The v0.32.0 edition is in the history of this file
 (`git show v0.32.0:RELEASE-READY.md`).
 
 ## The sequence, in order, and the steps that were missed before
