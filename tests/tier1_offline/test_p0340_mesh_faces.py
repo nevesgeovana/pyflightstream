@@ -275,6 +275,41 @@ def test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348
     assert second == ["POL,CT,MESH_FACES", "2,0.1,NA"], (requirement, second)
 
 
+def test_the_unsteady_polar_keeps_the_column_last_when_a_later_key_follows_it_fr_348(tmp_path):
+    """P0340-MESH-FACES, FR-348: MESH_FACES closes the unsteady polar, whatever the key order.
+
+    The point's super content states MESH_FACES and then another column. The
+    polar writes the other column first and MESH_FACES last, once, with the
+    point's count in its row.
+    """
+    requirement = "FR-348"
+    from pyflightstream.post.products import write_unsteady_polar
+
+    class _Point:
+        name = "a"
+
+    plots = tmp_path / "a.txt"
+    plots.write_text(
+        "Time-step,CL\n" + "".join(f"{step},{float(step):.5f}\n" for step in range(1, 9)),
+        encoding="utf-8",
+    )
+    written = write_unsteady_polar(
+        tmp_path / "out.csv",
+        points=[_Point()],
+        plots={"a": plots},
+        window=(1, 8),
+        conditions=[{"ALPHA": 2.0}],
+        reference=None,
+        setup={"a": {"MESH_FACES": "7", "LATER": "x"}},
+    )
+    assert written is not None, requirement
+    with written.open(encoding="utf-8", newline="") as handle:
+        header, *rows = list(csv.reader(handle))
+    assert header[-2:] == ["LATER", "MESH_FACES"], (requirement, header)
+    assert header.count("MESH_FACES") == 1, (requirement, header)
+    assert rows and all(row[-2:] == ["x", "7"] for row in rows), (requirement, rows)
+
+
 def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkeypatch):
     """P0340-MESH-FACES, FR-348: the post reads the count and never counts; no count is NA.
 
