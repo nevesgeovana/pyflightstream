@@ -1083,7 +1083,7 @@
     *Origin: the author decision of 2026-10-01 to standardise LF in every
     product (scope record GEO-071, section 4.10), a behaviour change with a
     migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039,
-    arm LF). Pending: no code yet. Verification method: a tier-1 guard
+    arm LF). Built on 2026-10-01; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_p0340_lf_products.py` (R2 by the walk of `src/` and its ten planted bypasses, R1 and R3 by the route and by campaigns and emitted scripts posted with text mode forced to CRLF, with a bypassed route as the control, R4 by the parity comparison, R5 by the change-log fragment, R7 by the census note), `scripts/lf_products_check.py`, and `reports/RPT-140_text-writers-crlf-census_2026-10-01.md` (the writer census of R7, measured on win32). Verification method: a tier-1 guard
     carrying the marker, with a planted control; the products snapshot
     judged on both platforms; the parity receipt of the release; and, for
     the files the solver reads, the licensed runs of R6. Evidence
@@ -1105,8 +1105,8 @@
 
     Why: a file written in text mode gets CRLF on Windows and LF on Linux,
     so the same campaign posted on two platforms can give different bytes
-    and a byte snapshot cannot be portable. Which writers produce CRLF on
-    Windows today is not yet measured; the census of R7 measures it.
+    and a byte snapshot cannot be portable. RPT-140 measures which writers
+    produced CRLF on Windows; R7 holds that census.
 
     - R1 Every text file the package writes is written with LF line ends
       on every platform, with no CR byte: the products, `products.json`,
@@ -1121,7 +1121,10 @@
       emitted script; the products snapshot judges line ends and compares
       equal on Linux and on Windows.
     - R4 Compared with 0.33.0, a file the package writes differs only by
-      the CR bytes removed before LF; the parity script compares the post
+      the CR bytes removed before LF, with one stated exception: the
+      embedded counter and clock solver programs now state the LF line end
+      in their own text, so their text and recorded sha256 change for that
+      reason too; the parity script compares the post
       of a recorded workspace and the emitted scripts after removing CR
       before LF on the 0.33.0 side, and its `NAMED_DIFFERENCES` name that
       difference under this requirement.
