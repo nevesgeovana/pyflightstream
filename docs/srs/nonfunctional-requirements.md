@@ -1086,7 +1086,7 @@
     *Origin: the author decision of 2026-10-01 to standardise LF in every
     product (scope record GEO-071, section 4.10), a behaviour change with a
     migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039,
-    arm LF). Built on 2026-10-01; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_p0340_lf_products.py` (R2 by the walk of `src/` and its twenty-three planted bypasses, R1 and R3 by the route and by campaigns and emitted scripts posted with text mode forced to CRLF, with a bypassed route as the control, R4 by the parity comparison, R5 by the change-log fragment, R7 by the census note), `scripts/lf_products_check.py`, and `reports/RPT-140_text-writers-crlf-census_2026-10-01.md` (the writer census of R7, measured on win32). Verification method: a tier-1 guard
+    arm LF). Built on 2026-10-01; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_p0340_lf_products.py` (R2 by the walk of `src/` and its twenty-eight planted bypasses, R1 and R3 by the route and by campaigns and emitted scripts posted with text mode forced to CRLF, with a bypassed route as the control, R4 by the parity comparison, R5 by the change-log fragment, R7 by the census note), `scripts/lf_products_check.py`, and `reports/RPT-140_text-writers-crlf-census_2026-10-01.md` (the writer census of R7, measured on win32). Verification method: a tier-1 guard
     carrying the marker, with a planted control; the products snapshot
     judged on both platforms; the parity receipt of the release; and, for
     the files the solver reads, the licensed runs of R6. Evidence

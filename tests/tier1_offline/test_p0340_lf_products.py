@@ -18,9 +18,12 @@ The guard (:func:`text_write_bypasses`) reads the SYNTAX of every module under
 ``builtins``' or ``codecs``'), a ``csv`` writer, a pandas ``to_csv`` that states
 no LF line terminator, a ``write_bytes`` or an ``os.write`` of text encoded on the
 spot, a ``TextIOWrapper``, a text ``os.fdopen`` or temporary file. Its control
-plants twenty-three bypasses and requires each to be caught
-(:func:`guard_control`, ``caught 23 of 23``), and the clean forms to pass. What it
-does not read: the forms of :data:`UNCOVERED`, each with its reason; a binary write
+plants twenty-eight bypasses and requires each to be caught
+(:func:`guard_control`, ``caught 28 of 28``), and the clean forms to pass. What it
+does not read: the forms of :data:`UNCOVERED`, each with its reason (a LINE_END rebound
+after its import included); a relative import of the route, ``from . import _textio``, is a
+known false positive (refused, fail closed: its base is not the dotted route; no module of
+src uses it); a binary write
 of bytes it cannot see are text (a byte-exact copy, a workbook); and the source of the
 programs the solver runs, which are checked as text by :func:`program_bypasses` on
 their rendered form.
@@ -182,14 +185,33 @@ def _states_lf_terminator(call: ast.Call, aliases: Mapping[str, str] | None = No
 #: The modules whose ``open`` is the builtin text open, mode second (G2 of the deep QA pass).
 _BUILTIN_OPEN_BASES = ("io", "builtins")
 
+#: Modules whose ``open`` is known NOT to open a text file for writing: ``os.open`` takes
+#: integer flags and an fd, ``tarfile``, ``wave``, ``shelve``, ``dbm`` open binary stores,
+#: ``webbrowser`` opens a URL. Any other module's ``open``, imported by name, is a text open
+#: when its mode says so (``from gzip import open`` then ``open(p, "wt")`` is refused).
+_BINARY_ONLY_OPEN = ("os", "tarfile", "wave", "shelve", "dbm", "webbrowser")
+
+#: Modules whose ``open(path, mode)`` also opens text (``gzip.open(p, "wt")``), mode second.
+_TEXT_OPEN_MODULES = ("gzip", "bz2", "lzma")
+
+#: Modules that re-export the route as ``_textio`` (``from <module> import _textio as _textio``)
+#: and the reason; a test reads each from its own source, so the entry stays true.
+_ROUTE_REEXPORTERS = {
+    "pyflightstream.post._tables": (
+        "post/products.py imports the route through the module that already binds it; the "
+        "binding in _tables is `import pyflightstream._textio as _textio`"
+    ),
+}
+_ROUTE_NAMES = (_ROUTE_MODULE, *(f"{m}._textio" for m in _ROUTE_REEXPORTERS))
+
 
 def _bypass(call: ast.Call, program: bool, aliases: Mapping[str, str] | None = None) -> str | None:
     name, base = _callee(call.func, aliases)
-    if name == "write_text" and not (base or "").endswith("_textio"):
+    if name == "write_text" and base not in _ROUTE_NAMES:
         return None if program and _states_lf(call) else "write_text outside the route"
-    is_open = (name == "open" and base is None and isinstance(call.func, ast.Name)) or (
-        name == "open" and base in _BUILTIN_OPEN_BASES
-    )
+    is_open = (
+        name == "open" and isinstance(call.func, ast.Name) and base not in _BINARY_ONLY_OPEN
+    ) or (name == "open" and base in (*_BUILTIN_OPEN_BASES, *_TEXT_OPEN_MODULES))
     if is_open and _text_write_mode(_mode_node(call, 1), strict=True):
         return None if program and _states_lf(call) else "open in a text writing mode"
     if name == "open" and base == "codecs" and _text_write_mode(_mode_node(call, 1), strict=True):
@@ -199,7 +221,7 @@ def _bypass(call: ast.Call, program: bool, aliases: Mapping[str, str] | None = N
     if (
         name == "open"
         and isinstance(call.func, ast.Attribute)
-        and base not in (*_BUILTIN_OPEN_BASES, "codecs")
+        and base not in (*_BUILTIN_OPEN_BASES, *_TEXT_OPEN_MODULES, "codecs")
     ):
         if _text_write_mode(_mode_node(call, 0), strict=False):
             return None if program and _states_lf(call) else "Path.open in a text writing mode"
@@ -283,6 +305,12 @@ PLANTED = {
     "aliased builtins open w": 'from builtins import open as op\nh = op(p, "w")\n',
     "aliased os.write of text": 'import os as o\no.write(fd, t.encode("utf-8"))\n',
     "os.write of text by keyword": 'import os\nos.write(fd, data=t.encode("utf-8"))\n',
+    # The round-2 forms: a text open imported by name from any module, and a foreign _textio.
+    "gzip open imported by name, wt": 'from gzip import open\nh = open(p, "wt")\n',
+    "bz2 open imported by name, wt": 'from bz2 import open\nh = open(p, "wt")\n',
+    "lzma open imported by name, wt": 'from lzma import open\nh = open(p, mode="wt")\n',
+    "gzip.open wt": 'import gzip\nh = gzip.open(p, "wt")\n',
+    "write_text of a foreign _textio": 'from x import _textio\n_textio.write_text(p, "a")\n',
 }
 CLEAN = {
     "the route": 'from pyflightstream import _textio\n_textio.write_text(p, "a")\n',
@@ -308,6 +336,13 @@ CLEAN = {
         "import pyflightstream._textio as t\nframe.to_csv(p, lineterminator=t.LINE_END)\n"
     ),
     "an aliased codecs read": 'import codecs as c\nc.open(p, "r", encoding="utf-8")\n',
+    "a write_text of the route re-exported by _tables": (
+        'from pyflightstream.post._tables import _textio as _textio\n_textio.write_text(p, "a")\n'
+    ),
+    "a gzip binary write and an os.open": (
+        'from gzip import open\nh = open(p, "wb")\n'
+        "from os import open as osopen\nfd = osopen(p, flags)\n"
+    ),
 }
 
 #: Forms the guard deliberately does NOT read, each with the reason. A named list, so that
@@ -317,6 +352,13 @@ UNCOVERED = {
         'print("a", file=h)\n',
         "the handle comes from a write the guard already refuses or from the route, so the "
         "text mode is decided where the handle is opened, not at the print",
+    ),
+    "a LINE_END shadowed after the import": (
+        "from pyflightstream._textio import LINE_END\n"
+        'LINE_END = "\\r\\n"\n'
+        "frame.to_csv(p, lineterminator=LINE_END)\n",
+        "the guard reads where a name was imported from, not what it is rebound to later; "
+        "tracking a rebinding needs flow analysis, and the shape is left to review",
     ),
     "numpy.savetxt": (
         "import numpy\nnumpy.savetxt(p, a)\n",
@@ -358,9 +400,9 @@ def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
 
 
 def test_a_planted_bypass_of_every_kind_is_caught_and_the_clean_forms_pass() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 23 of 23."""
+    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 28 of 28."""
     caught, planted = guard_control()
-    assert planted == 23
+    assert planted == 28
     assert caught == planted, f"caught {caught} of {planted}"
 
 
@@ -370,6 +412,18 @@ def test_the_forms_the_guard_leaves_uncovered_are_named_with_their_reason_and_re
     for name, (text, reason) in UNCOVERED.items():
         assert len(reason) > 40, f"{name}: no reason written down"
         assert text_write_bypasses({name: text}) == [], f"{name} is read by the guard; unlist it"
+
+
+def test_a_re_exporter_of_the_route_really_binds_the_route() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: a re-exporter of the route binds the route."""
+    assert _ROUTE_REEXPORTERS
+    for module, reason in _ROUTE_REEXPORTERS.items():
+        assert len(reason) > 40, f"{module}: no reason written down"
+        path = SRC.parent / (module.replace(".", "/") + ".py")
+        bound = _aliases(ast.parse(path.read_text(encoding="utf-8")))
+        assert bound.get("_textio") == _ROUTE_MODULE, f"{module} does not bind the route"
+    foreign = 'from x import _textio\n_textio.write_text(p, "a")\n'
+    assert text_write_bypasses({"f": foreign}), "a foreign _textio write_text passed"
 
 
 def test_a_line_end_name_passes_only_when_it_comes_from_the_route() -> None:
@@ -694,7 +748,7 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     assert fields["PLATFORM"] in ("linux", "win32")
     assert int(fields["FILES_CHECKED"]) > 0 and int(fields["SCRIPTS_CHECKED"]) > 0
     assert fields["CR_FILES"] == "0"
-    assert fields["GUARD_CONTROL"] == "caught 23 of 23"
+    assert fields["GUARD_CONTROL"] == "caught 28 of 28"
     assert fields["GUARD_BYPASSES_IN_SRC"] == "0"
     # PASS names a SHA the tree must be at: a tree with changes (a rehearsal) ends in FAIL.
     verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
@@ -745,7 +799,7 @@ def test_the_change_log_fragment_names_the_lf_change_first_in_its_migration() ->
         assert "NFR-32" in carrying[0], f"a bullet cites no requirement: {carrying[0][:60]}"
     # The guard's control the folded bullet names is the one guard_control plants.
     textio = next(line for line in bullets if "`pyflightstream._textio`, the one floor" in line)
-    assert "with twenty-three planted bypasses" in textio and len(PLANTED) == 23
+    assert "with twenty-eight planted bypasses" in textio and len(PLANTED) == 28
 
 
 def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:
