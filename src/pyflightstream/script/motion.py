@@ -65,6 +65,24 @@ _ROTARY_PROOFS: dict[tuple[str, str, str], dict[str, Any]] = {
 }
 
 
+def _decision_proof() -> dict[str, Any]:
+    """Return the timing row of build 8242026, registered by decision and not measured (FR-153)."""
+    return {
+        "fs_build": "8242026",
+        "signed_rpm_factor": 1,
+        "step_time_origin": 0,
+        "evidence": {
+            "kind": "owner decision of 2026-10-01, not measured",
+            "receipt": "RPT-136",
+            "limits": "No run measured this build; no delayed-start or accuracy claim.",
+        },
+    }
+
+
+_ROTARY_PROOFS[("26.124", "METER", "8242026")] = _decision_proof()
+_ROTARY_PROOFS[("26.124", "MILLIMETER", "8242026")] = _decision_proof()
+
+
 def _basis(placement: Any) -> tuple[Any, Any]:
     origin = getattr(placement, "origin", None)
     axes = getattr(placement, "axes", None)
