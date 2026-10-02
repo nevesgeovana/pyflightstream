@@ -47,6 +47,7 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import SimCase, SolverSettings
 from pyflightstream.cases.matrix import MatrixError, MatrixRow
 from pyflightstream.cases.workflows import WORKFLOWS
+from pyflightstream.cases.workflows._freestream import WAKE_TERMINATION_KEYS
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace import InputArtifactError
 from pyflightstream.workspace.inputs import SetupArtifact
@@ -172,6 +173,39 @@ def _preset_spellings(
     return spellings
 
 
+def _refuse_two_wake_terminations(
+    setup: SetupArtifact, preset: SolverSettings, row: MatrixRow, aliases: Mapping[str, str]
+) -> None:
+    """Refuse a row whose preset and cell state two wake termination keys (FR-322 R1, R4).
+
+    Each of ``wake_termination_length``, ``wake_termination_steps`` and
+    ``wake_termination_revolutions`` states the whole termination, so two can
+    only disagree, wherever each is written: both in the preset, one in the
+    preset and one in the row, or both in the row. A row key never silently
+    replaces a preset key of another of the three. The refusal names each key,
+    its value and the file or column it comes from.
+    """
+    spellings = _preset_spellings(setup.settings, aliases)
+    in_row = {aliases.get(key, key): (key, text) for key, text in row.variables.items()}
+    stated: list[str] = []
+    for field in WAKE_TERMINATION_KEYS:
+        if field in spellings and getattr(preset, field) is not None:
+            stated.append(
+                f"{spellings[field][0]} = {getattr(preset, field)} (setup preset "
+                f"{row.set_code!r}, inputs/setups/{row.set_code}.toml)"
+            )
+        if field in in_row:
+            key, text = in_row[field]
+            stated.append(f"{key} = {text} (the row's VAR_NAMES_VALUES cell)")
+    if len(stated) > 1:
+        raise MatrixError(
+            f"POL {row.pol}: the row's wake termination is stated by {' and by '.join(stated)}. "
+            f"Each of {', '.join(WAKE_TERMINATION_KEYS)} states the whole termination, so "
+            "two can only disagree, and the row is refused rather than one of them winning "
+            "(FR-322). Keep one."
+        )
+
+
 def _load(
     loader: Loader, setup: SetupArtifact, settings: dict[str, object], set_code: str, pol: str
 ) -> SolverSettings:
@@ -204,6 +238,7 @@ def row_setup(
     (each key to its cell text, which the run record carries) and the case's
     ``variables`` without those keys, since the solver now holds them (FR-316).
     """
+    _refuse_two_wake_terminations(setup, preset, row, aliases)
     fields = set(SolverSettings.model_fields)
     stated = {k: text for k, text in row.variables.items() if aliases.get(k, k) in fields}
     if not stated:

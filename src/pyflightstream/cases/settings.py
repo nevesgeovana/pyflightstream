@@ -16,6 +16,8 @@ and this module never imports the package root.
 
 from __future__ import annotations
 
+import math
+import re
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
@@ -163,6 +165,37 @@ def _resolve_settings_toggle(value: object) -> object:
 #: Settings toggle: a bool, or the solver's own ENABLE and DISABLE.
 SolverToggle = Annotated[bool, BeforeValidator(_resolve_settings_toggle)]
 
+#: A bare decimal number, the only text a wake end plane X is written as.
+_BARE_NUMBER = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
+
+
+def _an_end_plane(value: object) -> object:
+    """Return ``DEFAULT`` or a finite X in metres for ``wake_termination_x`` (FR-324 R1, R3).
+
+    The solver's own two forms and nothing else: a bare finite number (a
+    preset's TOML number, or a row cell's text), or the word ``DEFAULT``. A
+    number with a unit, a distance in rotor radii, a non-finite number, an
+    empty value and any other word are refused, naming the key and the forms.
+    """
+    if value is None:
+        return None
+    number: float | None = None
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        number = float(value)
+    elif isinstance(value, str) and value.strip() == "DEFAULT":
+        return "DEFAULT"
+    elif isinstance(value, str) and _BARE_NUMBER.match(value.strip()):
+        number = float(value.strip())
+    if number is None or not math.isfinite(number):
+        raise ValueError(
+            f"wake_termination_x takes DEFAULT or the X of the wake end plane in metres in "
+            f"the simulation's reference frame, written as a bare finite number such as "
+            f"2.75; got {value!r}. A number with a unit, a distance in rotor radii, a "
+            "non-finite number, an empty value and any word other than DEFAULT are refused "
+            "(FR-324)."
+        )
+    return number
+
 
 class SolverSettings(BaseModel):
     """Solver runtime settings of one case.
@@ -276,6 +309,22 @@ class SolverSettings(BaseModel):
         Wake termination stated in time steps, negative counting
         backwards from the end of the run, for a run type with a clock
         and no rotor.
+    wake_termination_length : float, optional
+        Wake termination stated as a length of wake in rotor radii (FR-321),
+        converted by the rotor builder into time steps from the axial
+        convection speed, the rotor speed and the step angle. A rotor row
+        stating no termination keeps 4.0. At most one of this key and the
+        two above reaches a row (FR-322).
+    wake_termination_thrust_n : float, optional
+        The rotor thrust in newtons whose momentum-theory induced velocity
+        convects the wake where it exceeds the free-stream speed (FR-323).
+    wake_termination_revolutions_cap : float, optional
+        A revolution count the steps converted from a length never exceed
+        (FR-323).
+    wake_termination_x : float or 'DEFAULT', optional
+        The X of the solver's wake end plane in metres in the simulation's
+        reference frame, the ``wake_termination_x`` argument of
+        ``INITIALIZE_SOLVER`` (FR-324); unstated writes ``DEFAULT``.
     symmetry_loads : bool, optional
         Whether the reported loads are the meshed half's or sector's or
         the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
@@ -533,6 +582,17 @@ class SolverSettings(BaseModel):
     #: refused on it and this one is the way to say it. Negative counts
     #: backwards from the end of the run, as the solver reads it.
     wake_termination_steps: int | None = None
+    #: Wake termination stated as a LENGTH of wake in rotor radii (FR-321);
+    #: the rotor builder converts it, and a rotor row stating none keeps 4.0.
+    wake_termination_length: float | None = Field(default=None, gt=0.0)
+    #: The thrust in newtons whose induced velocity convects a length near hover (FR-323).
+    wake_termination_thrust_n: float | None = Field(default=None, gt=0.0)
+    #: The revolutions the steps converted from a length never exceed (FR-323).
+    wake_termination_revolutions_cap: float | None = Field(default=None, gt=0.0)
+    #: INITIALIZE_SOLVER's wake end plane: DEFAULT or an X in metres (FR-324).
+    wake_termination_x: Annotated[
+        float | Literal["DEFAULT"] | None, BeforeValidator(_an_end_plane)
+    ] = None
     #: The four settings the reference scripts state and 0.10.1 did not
     #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
     #: preset that says nothing emits nothing and every earlier golden holds.

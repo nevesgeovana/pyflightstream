@@ -48,6 +48,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsi_calibration import MATERIAL_FACTORS, MATRIX_FACTORS
 from pyflightstream.cases import (
     ActuatorBlock,
+    FluidState,
     FrameSpec,
     MeshImport,
     PprocSpec,
@@ -601,6 +602,20 @@ def _over_wing(tmp: Path) -> SimCase:
     return _on_wing(tmp, steady_case())
 
 
+def _slow_rotor_in_air(_: Path) -> SimCase:
+    """A rotor at 1 m/s in sea-level air: the thrust's induced velocity exceeds the free stream."""
+    air = FluidState(
+        velocity_m_per_s=1.0,
+        density_kg_m3=1.225,
+        pressure_pa=101325.0,
+        temperature_k=288.15,
+        viscosity_pa_s=1.789e-5,
+        sonic_velocity_m_per_s=340.29,
+        source="isa",
+    )
+    return rotor_case(VELOCITY="1.0").model_copy(update={"fluid": air})
+
+
 def _raw_mesh(tmp: Path) -> SimCase:
     """A raw mesh whose sidecar detects its trailing edges, wake termination and base.
 
@@ -697,6 +712,17 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "aeroelastic_rbf_type": _setting("aeroelastic_rbf_type", "GAUSSIAN", "LINEAR"),
     "wake_termination_revolutions": _setting("wake_termination_revolutions", 1.0, 2.0, rotor_case),
     "wake_termination_steps": _setting("wake_termination_steps", 10, 20, rotor_case),
+    # FR-321 and FR-323 (0.34.0): the length the rotor builder converts, the
+    # cap that bounds it, and the thrust whose induced velocity convects it,
+    # this last on a slow rotor in air so that v_i exceeds the free stream.
+    "wake_termination_length": _setting("wake_termination_length", 4.0, 8.0, rotor_case),
+    "wake_termination_revolutions_cap": _setting(
+        "wake_termination_revolutions_cap", 1.0, 2.0, rotor_case
+    ),
+    "wake_termination_thrust_n": _setting_on(
+        _slow_rotor_in_air, "wake_termination_thrust_n", 1000.0, 4000.0
+    ),
+    "wake_termination_x": _setting("wake_termination_x", 2.0, 5.0, rotor_case),
     "significant_digits": _setting("significant_digits", 6, 8),
     "reference_velocity_m_per_s": _setting("reference_velocity_m_per_s", 30.0, 40.0),
     "vorticity_drag_families": _setting(

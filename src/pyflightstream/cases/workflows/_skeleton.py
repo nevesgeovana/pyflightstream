@@ -49,6 +49,7 @@ from ._exports import (
 )
 from ._freestream import (
     _finish_custom_field_coverage,
+    wake_end_plane,
 )
 from ._geometry import (
     _wake_termination_after_initialization,
@@ -244,6 +245,7 @@ def _initialize(case: SimCase, script: Script) -> None:
         periodic_copies=copies,
         solver_model=case.solver.solver_model or "INCOMPRESSIBLE",
         wall_collision_avoidance=case.solver.wall_collision_avoidance,
+        wake_termination_x=wake_end_plane(case, script),
     )
 
 

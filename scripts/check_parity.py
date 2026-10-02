@@ -125,6 +125,22 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
         "pattern": "*",
+        # One termination line, the only changed line of the script: the 4R
+        # default of a rotor row that states no wake termination, converted into
+        # steps. A changed count is a removed and an added line and does not
+        # match, nor does a second termination line or any other changed line.
+        "lines": r"^SET_WAKE_TERMINATION_TIME_STEPS \d+$",
+        "block": r"SET_WAKE_TERMINATION_TIME_STEPS \d+",
+        "requirement": "FR-321",
+        "why": (
+            "a rotor row that states no wake termination keeps a wake of 4 rotor radii, "
+            "converted into the steps SET_WAKE_TERMINATION_TIME_STEPS takes, where 0.33.0 "
+            "emitted no termination line"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
         # The section Cp plot's three export lines and the blank line closing
         # them, REMOVED from a script that cuts no section: the release must
         # carry neither a section command nor a section Cp plot, so a drop from

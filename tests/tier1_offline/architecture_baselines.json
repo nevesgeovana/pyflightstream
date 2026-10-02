@@ -1341,12 +1341,6 @@
    "statements": 99,
    "positional": 2
   },
-  "run/_plan.py:CampaignPlan.summary": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 19,
-   "positional": 0
-  },
   "run/_plan.py:_plan_point": {
    "complexity": 8,
    "branches": 7,
