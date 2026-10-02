@@ -8526,3 +8526,20 @@ Requirements written after the specification was last reconciled with the packag
     - R3 The file names the archive of the releases by the concept DOI that `CITATION.cff` carries, and a test compares the two.
 
     Solution (release 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation, and `tests/tier1_offline/test_p0340_release_ready.py`.
+
+!!! requirement "FR-349 The five solver-settings toggles emit the state asked <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2073 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
+    *Origin: a defect found by the settings cut of 0.34.0 (work package WP9a) and fixed under the standing rule that a defect found while building is fixed. Of the thirteen toggle keywords `solver_settings` resolves before it emits, 0.33.0 left five out, `valarezo_criterion`, `wake_relaxation`, `wake_streamwise_agglomeration`, `adverse_gradient_boundary_layer` and `vortex_ring_normalization`; a word reached the emitter as written, so `"DISABLE"`, a non-empty string, wrote ENABLE and the snapshot stored the string. No recorded campaign, golden render or tier-3 matrix asks any of the five, so no existing byte moves. Marker P0340-TOGGLES; built in 0.34.0. Verification method: a tier-1 test carrying the marker. Evidence: `tests/tier1_offline/test_p0340_toggles.py` holds one parametrized test per keyword and state, each in the boolean, the upper-case word and the lower-case word, asserting the emitted command line and the boolean in the snapshot, a test that a stray word refuses before anything is emitted, and a test that the parity script names the change; each was proved by a mutant that removed the keyword from the read list (or one command from the parity entry).*
+
+    Need: A setting the caller disables must not reach the solver enabled; an emitted script that contradicts the request is worse than a refusal.
+
+    Requirement: `solver_settings` resolves `valarezo_criterion`, `wake_relaxation`, `wake_streamwise_agglomeration`, `adverse_gradient_boundary_layer` and `vortex_ring_normalization` through the same reader as its other toggles, before the first emission.
+
+    - R1 Each keyword emits its command with ENABLE for a true value and DISABLE for a false one, in either vocabulary (the boolean or the word, in any letter case).
+    - R2 A value in neither vocabulary raises the script layer's argument error naming `solver_settings` and the keyword, on a script nothing was emitted to.
+    - R3 The snapshot of the setup records a boolean for each, never the string the caller wrote.
+    - R4 The only emitted bytes that change from 0.33.0 are a toggle line of these five commands that asked DISABLE; the change is named in the parity script under this requirement and in the migration page.
+
+    Solution (release 0.34.0): the five keywords join the toggles read ahead of the first emission in `script/_settings.py` (`READ_TOGGLES`), and the entry of `scripts/check_parity.py` that names the difference.
