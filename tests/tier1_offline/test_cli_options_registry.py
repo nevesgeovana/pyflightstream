@@ -115,6 +115,29 @@ ALLOWLIST: dict[tuple[str, str], str] = {
         "the reference speed the printed fluctuation is stated against (% of V_inf); "
         "it changes only the words of one invocation, never a file"
     ),
+    # 0.34.0 (FR-347): `pyfs-workspace profile <shape>`. The shape, the sectional
+    # loads table and the POL are what the command reads; the family, the force
+    # column and its sign, the stations, the advance ratio, the disc (a reference
+    # id and block name, or the radii and the blade count) and the target (a
+    # thrust, or a CT with its density and speed) define the profile written and
+    # are recorded in its provenance, so each is stated per call.
+    ("pyfs-workspace", "shape"): FIELD_OPERATION,
+    ("pyfs-workspace", "table"): SUBJECT,
+    ("pyfs-workspace", "pol"): SUBJECT,
+    ("pyfs-workspace", "family"): FIELD_OPERATION,
+    ("pyfs-workspace", "component"): FIELD_OPERATION,
+    ("pyfs-workspace", "sign"): FIELD_OPERATION,
+    ("pyfs-workspace", "stations"): FIELD_OPERATION,
+    ("pyfs-workspace", "advance_ratio"): FIELD_OPERATION,
+    ("pyfs-workspace", "ref"): SUBJECT,
+    ("pyfs-workspace", "disc"): SUBJECT,
+    ("pyfs-workspace", "tip_radius"): FIELD_OPERATION,
+    ("pyfs-workspace", "hub_radius"): FIELD_OPERATION,
+    ("pyfs-workspace", "blades"): FIELD_OPERATION,
+    ("pyfs-workspace", "thrust"): FIELD_OPERATION,
+    ("pyfs-workspace", "ct"): FIELD_OPERATION,
+    ("pyfs-workspace", "rho"): FIELD_OPERATION,
+    ("pyfs-workspace", "rpm"): FIELD_OPERATION,
     ("pyfs-matrix", "matrix"): SUBJECT,
     ("pyfs-matrix", "inputs"): SUBJECT,
     ("pyfs-matrix", "geometry"): SUBJECT,
@@ -501,7 +524,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
     ("pyfs-workspace", "workspace"): frozenset(
-        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
     ),
     ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
     ("pyfs-workspace", "field"): frozenset({"fill-interior", "mirror", "move"}),
@@ -512,21 +535,39 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "source_point"): frozenset({"move"}),
     ("pyfs-workspace", "target_point"): frozenset({"move"}),
     ("pyfs-workspace", "reference"): frozenset({"subtract"}),
-    ("pyfs-workspace", "last"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
     ),
     ("pyfs-workspace", "apply"): frozenset(
-        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
-        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
     ),
     ("pyfs-workspace", "fluctuation"): frozenset({"time-mean"}),
     ("pyfs-workspace", "fluctuation_only"): frozenset({"time-mean"}),
     ("pyfs-workspace", "vinf"): frozenset({"time-mean"}),
     ("pyfs-workspace", "r_body"): frozenset({"fill-interior"}),
+    # 0.34.0 (FR-347): the options of `pyfs-workspace profile`.
+    ("pyfs-workspace", "shape"): frozenset({"profile"}),
+    ("pyfs-workspace", "table"): frozenset({"profile"}),
+    ("pyfs-workspace", "pol"): frozenset({"profile"}),
+    ("pyfs-workspace", "family"): frozenset({"profile"}),
+    ("pyfs-workspace", "component"): frozenset({"profile"}),
+    ("pyfs-workspace", "sign"): frozenset({"profile"}),
+    ("pyfs-workspace", "stations"): frozenset({"profile"}),
+    ("pyfs-workspace", "advance_ratio"): frozenset({"profile"}),
+    ("pyfs-workspace", "ref"): frozenset({"profile"}),
+    ("pyfs-workspace", "disc"): frozenset({"profile"}),
+    ("pyfs-workspace", "tip_radius"): frozenset({"profile"}),
+    ("pyfs-workspace", "hub_radius"): frozenset({"profile"}),
+    ("pyfs-workspace", "blades"): frozenset({"profile"}),
+    ("pyfs-workspace", "thrust"): frozenset({"profile"}),
+    ("pyfs-workspace", "ct"): frozenset({"profile"}),
+    ("pyfs-workspace", "rho"): frozenset({"profile"}),
+    ("pyfs-workspace", "rpm"): frozenset({"profile"}),
 }
 
 

@@ -175,7 +175,7 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \vspace{-2pt}
 \begin{multicols}{3}
 
-\tool{pyfs-workspace}{the campaign tree and the custom free-stream fields of \texttt{inputs/freestreams/}}
+\tool{pyfs-workspace}{the campaign tree, the custom free-stream fields of \texttt{inputs/freestreams/} and the disc profiles}
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \sub{migrate-geometries [root]}{move a flat \texttt{inputs/geometries/} library into one folder per geometry}
@@ -211,6 +211,7 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \item \fl{--r-body M} body radius about the x axis, m (default 0.38)
 \item \fl{--out STEM} \quad \fl{--workspace} \quad \fl{--apply} \quad \fl{--overwrite}
 \end{flags}
+\sub{profile <shape> [table]}{the actuator-disc profile a row's \texttt{PROFILE} names, \texttt{inputs/profiles/<STEM>.csv}, scaled to \fl{--thrust} or \fl{--ct} \fl{--rho} \fl{--rpm}; ELLIPTICAL needs none. sections: \fl{--pol} \fl{--family} \fl{--component} \fl{--sign} \fl{--last}; bp: \fl{--advance-ratio}; uni, bp: \fl{--stations}; disc: \fl{--ref} \fl{--disc}, or \fl{--tip-radius} \fl{--hub-radius} \fl{--blades}; \fl{--out} \fl{--workspace} \fl{--apply} \fl{--overwrite}}
 
 \tool{pyfs-fsi}{the coupling executable the solver's aeroelastic toolbox calls once per time step. With no arguments it runs one coupling step in the current folder: coupled when \texttt{config.json} is there, the dummy (zero displacements) otherwise}
 \sub{init-dummy}{write the dummy configuration into a run folder}

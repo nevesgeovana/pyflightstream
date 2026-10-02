@@ -43,6 +43,14 @@ on the same azimuth ray) and, on ``field time-mean``, ``--fluctuation`` (the
 per-probe population standard deviation of the averaged steps, written beside
 the mean as ``<stem>.fluctuation.csv`` and named in its provenance) and
 ``--fluctuation-only --last K`` (that report alone, no field).
+
+0.34.0 adds ``pyfs-workspace profile sections|uni|bp`` (FR-347), the radial
+thrust profile of an actuator disc a row's ``PROFILE`` names, written into
+``inputs/profiles/<stem>.csv`` with its provenance record through
+:mod:`pyflightstream.workspace.actuator_profiles`: from a POL's written
+sections, or as the uniform or the Betz-Prandtl shape, scaled to a thrust or
+a CT. It previews and applies as the field operations do, and refuses an
+option of another shape rather than leave it unread.
 """
 
 from __future__ import annotations
@@ -50,9 +58,11 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
+from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import command_help
+from pyflightstream._digest import file_sha256
 from pyflightstream._progress import command_console
 from pyflightstream.workspace import (
     INPUT_KINDS,
@@ -61,6 +71,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     migrate_geometry_layout,
 )
+from pyflightstream.workspace import actuator_profiles as _profiles
 from pyflightstream.workspace import fields as _fields
 
 __all__ = [
@@ -126,6 +137,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="campaign root carrying inputs/geometries/ (default: the current directory)",
     )
     _add_field_commands(subparsers)
+    _add_profile_commands(subparsers)
     return parser
 
 
@@ -303,6 +315,88 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
     _add_output_options(fill)
 
 
+#: The options each shape of ``profile`` reads beyond the disc, the target and the output;
+#: one given to another shape is refused rather than ignored.
+_SHAPE_OPTIONS = {
+    "sections": ("table", "pol", "family", "component", "sign", "last"),
+    "uni": ("stations",),
+    "bp": ("advance_ratio", "stations"),
+}
+
+
+def _add_profile_commands(subparsers: argparse._SubParsersAction) -> None:
+    """Add ``profile``: an actuator-disc profile of ``inputs/profiles/`` (FR-347)."""
+    profile = subparsers.add_parser(
+        "profile",
+        help="build an actuator-disc radial thrust profile of inputs/profiles/",
+        description=(
+            "Builds the radial thrust profile a row's PROFILE names (the CUSTOM disc): rows "
+            "r,F with r in m and F in N/m per blade, no header and no final newline, scaled so "
+            "that B * integral(F dr) is the target thrust (--thrust in N, or --ct with --rho "
+            "and --rpm, CT = T / (rho n^2 D^4)). The shape is 'sections' (a POL's written "
+            "sections: the sectional loads table, or --pol; -Fx at the stations, a zero from "
+            "the axis to the hub and a zero at the tip; --last K averages a table of several "
+            "steps), 'uni' (F = c r) or 'bp' (Betz-Prandtl, --advance-ratio J). The disc is a "
+            "reference's block (--ref, --disc) or stated (--tip-radius, --hub-radius, "
+            "--blades). The ELLIPTICAL disc is native in the solver and needs no file: its row "
+            "states ACTUATOR_THRUST. A RELAXED disc ignores a custom profile (RPT-137). "
+            "Previews by default; --apply writes inputs/profiles/<stem>.csv and "
+            "<stem>.provenance.json, and an existing file is replaced only with --overwrite."
+        ),
+    )
+    profile.add_argument("shape", choices=tuple(_SHAPE_OPTIONS), help="the shape of the profile")
+    profile.add_argument(
+        "table", nargs="?", help="sections: the sectional loads table (or --pol to find it)"
+    )
+    profile.add_argument("--pol", help="sections: the POL whose table the post recorded")
+    profile.add_argument("--family", help="sections: the family of --pol (default: Blade1)")
+    profile.add_argument(
+        "--component", choices=("Fx", "Fz"), help="sections: the force read (default: Fx)"
+    )
+    profile.add_argument(
+        "--sign", type=int, choices=(-1, 1), help="sections: its sign (default: -1, so -Fx)"
+    )
+    profile.add_argument(
+        "--last", type=int, metavar="K", help="sections: average the last K steps of a table"
+    )
+    profile.add_argument(
+        "--advance-ratio", type=float, metavar="J", help="bp: J = V / (n D), required"
+    )
+    profile.add_argument(
+        "--stations",
+        type=int,
+        metavar="N",
+        help=f"uni, bp: radii from the hub to the tip (default: {_profiles.DEFAULT_STATIONS})",
+    )
+    profile.add_argument("--ref", metavar="RID", help="the reference id that declares the disc")
+    profile.add_argument("--disc", metavar="NAME", help="the disc's block name in --ref")
+    profile.add_argument("--tip-radius", type=float, metavar="M", help="the tip radius, in m")
+    profile.add_argument("--hub-radius", type=float, metavar="M", help="the hub radius, in m")
+    profile.add_argument("--blades", type=int, metavar="B", help="the blade count")
+    profile.add_argument("--thrust", type=float, metavar="N", help="the target thrust, in N")
+    profile.add_argument("--ct", type=float, help="the target CT = T / (rho n^2 D^4)")
+    profile.add_argument("--rho", type=float, metavar="KG_M3", help="the density of --ct")
+    profile.add_argument("--rpm", type=float, help="the speed of --ct, in rev/min")
+    profile.add_argument(
+        "--out",
+        required=True,
+        metavar="STEM",
+        help="the stem of the file written in inputs/profiles/ (the row's PROFILE)",
+    )
+    profile.add_argument(
+        "--workspace",
+        default=".",
+        help="campaign workspace whose inputs/profiles/ receives the profile (default: the "
+        "current directory)",
+    )
+    profile.add_argument("--apply", action="store_true", help="write the files (default: preview)")
+    profile.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace an existing <stem> file and its provenance record",
+    )
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-workspace``; returns the process exit code.
@@ -321,7 +415,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     # THE CONSOLE CONTRACT (0.32.0, FR-200, FR-201): a titled opening block
     # and the warnings at the end, as every pyfs-matrix command.
-    names = [args.subcommand, *([args.field_command] if args.subcommand == "field" else [])]
+    group = getattr(args, f"{args.subcommand}_command", None)
+    names = [args.subcommand, *([group] if group else [])]
     with command_console(
         "pyfs-workspace",
         " ".join(names),
@@ -334,6 +429,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_migrate_geometries(args)
         if args.subcommand == "field":
             return _cmd_field(args)
+        if args.subcommand == "profile":
+            return _cmd_profile(args)
         return _cmd_init(args)
 
 
@@ -545,6 +642,152 @@ def _cmd_field(args: argparse.Namespace) -> int:
         print(f"replaced {path}")
     print(f"wrote {written.target} and {written.sidecar.name}")
     return 0
+
+
+def _profile_disc(
+    args: argparse.Namespace,
+) -> tuple[_profiles.DiscGeometry, dict[str, object]]:
+    """Return the disc a profile is for: a reference's block, or the three stated values."""
+    stated = (args.tip_radius, args.hub_radius, args.blades)
+    if args.ref is not None or args.disc is not None:
+        if args.ref is None or args.disc is None:
+            raise WorkspaceError("a reference's disc is named by both --ref and --disc.")
+        if any(value is not None for value in stated):
+            raise WorkspaceError(
+                "the disc is read from --ref and --disc, or stated by --tip-radius, "
+                "--hub-radius and --blades, not both."
+            )
+        return _profiles.disc_from_reference(args.workspace, args.ref, args.disc)
+    if any(value is None for value in stated):
+        raise WorkspaceError(
+            "name the disc: --ref RID --disc NAME (a reference's actuator block), or "
+            "--tip-radius, --hub-radius and --blades."
+        )
+    disc = _profiles.DiscGeometry(args.tip_radius, args.hub_radius, args.blades)
+    return disc, {"stated": "on the command line"}
+
+
+def _refuse_foreign_options(args: argparse.Namespace) -> None:
+    """Refuse an option of another shape, which this shape would not read."""
+    own = set(_SHAPE_OPTIONS[args.shape])
+    foreign = sorted(
+        {name for names in _SHAPE_OPTIONS.values() for name in names} - own,
+    )
+    given = [name for name in foreign if getattr(args, name) is not None]
+    if given:
+        words = ", ".join(
+            name if name == "table" else "--" + name.replace("_", "-") for name in given
+        )
+        raise WorkspaceError(
+            f"profile {args.shape} does not read {words}; that belongs to another shape, and an "
+            "option the shape would ignore is refused rather than left unread."
+        )
+
+
+def _profile_shape(
+    args: argparse.Namespace, disc: _profiles.DiscGeometry
+) -> tuple[str, _profiles.RadialProfile, dict[str, object], list[dict[str, object]], str]:
+    """Return the shape, its profile, its parameters, its inputs and what it is, in words."""
+    _refuse_foreign_options(args)
+    stations = _profiles.DEFAULT_STATIONS if args.stations is None else args.stations
+    if args.shape == "uni":
+        profile = _profiles.uniform_profile(disc, stations=stations)
+        return "UNI", profile, {"stations": stations}, [], "uniform pressure jump"
+    if args.shape == "bp":
+        if args.advance_ratio is None:
+            raise WorkspaceError("profile bp needs the advance ratio: --advance-ratio J.")
+        profile = _profiles.betz_prandtl_profile(
+            disc, advance_ratio=args.advance_ratio, stations=stations
+        )
+        stated = {"stations": stations, "advance_ratio": args.advance_ratio}
+        return "BP", profile, stated, [], f"Betz-Prandtl, J = {args.advance_ratio:g}"
+    if (args.table is None) == (args.pol is None):
+        raise WorkspaceError("name the sectional loads table, or --pol to find it; one of the two.")
+    family = args.family or "Blade1"
+    table = (
+        args.table
+        if args.pol is None
+        else _profiles.find_pol_sections(args.workspace, args.pol, family=family)
+    )
+    sign = -1 if args.sign is None else args.sign
+    component = f"{'-' if sign < 0 else ''}{args.component or 'Fx'}"
+    loads = _profiles.read_section_loads(table, component=component, last=args.last)
+    parameters: dict[str, object] = {
+        "component": component,
+        "steps": list(loads.steps),
+        "stations": len(loads.stations),
+        "negative_stations_set_to_zero": loads.clipped,
+        **({"pol": args.pol, "family": family} if args.pol is not None else {}),
+    }
+    inputs: list[dict[str, object]] = [{"path": str(table), "sha256": file_sha256(table)}]
+    what = f"{table}, thrust {component}, {len(loads.stations)} stations, {loads.clipped} set to 0"
+    return "SECTIONS", _profiles.sections_profile(loads, disc), parameters, inputs, what
+
+
+def _cmd_profile(args: argparse.Namespace) -> int:
+    """Build one actuator-disc profile; a preview unless --apply, a refusal to stderr, exit 2."""
+    try:
+        disc, source = _profile_disc(args)
+        target = _profiles.thrust_target(
+            tip_radius_m=disc.tip_radius_m,
+            thrust_n=args.thrust,
+            ct=args.ct,
+            rho_kg_m3=args.rho,
+            rpm=args.rpm,
+        )
+        shape, profile, parameters, inputs, what = _profile_shape(args, disc)
+        reference = source.get("file")
+        written = _profiles.write_profile(
+            args.workspace,
+            args.out,
+            profile,
+            disc=disc,
+            target=target,
+            shape=shape,
+            parameters={
+                **parameters,
+                "disc_source": {k: v for k, v in source.items() if k != "file"},
+            },
+            inputs=[*inputs, *([reference] if isinstance(reference, dict) else [])],
+            apply=args.apply,
+            overwrite=args.overwrite,
+        )
+    except (OSError, WorkspaceError, InputArtifactError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    _print_profile(args, written, what, source.get("wake_type"))
+    return 0
+
+
+def _print_profile(
+    args: argparse.Namespace, written: _profiles.ProfileWrite, what: str, wake: object
+) -> None:
+    """Say what the profile is, its check, and what was written or would be."""
+    record: dict[str, Any] = written.provenance
+    target, integral, disc = record["target"], record["integral"], record["disc"]
+    print(f"profile {args.shape}: {what}")
+    print(
+        f"  disc: tip {disc['tip_radius_m']:g} m, hub {disc['hub_radius_m']:g} m, "
+        f"{disc['blades']} blades; {len(written.profile.rows)} rows r,F (m, N/m per blade)"
+    )
+    print(
+        f"  target {target['thrust_n']:.10g} N ({target['basis']}); scale {record['scale']:.6g}; "
+        f"B * integral(F dr) = {integral['blades_times_integral_n']:.10g} N "
+        "(trapezoid over the written rows)"
+    )
+    if wake == "RELAXED":
+        print(
+            f"  note: the disc {args.disc!r} is RELAXED; measured on 26.124 (RPT-137) a RELAXED "
+            "disc ignored a custom profile, and the plan warns on a row that names one. A "
+            "RIGID disc reads the profile."
+        )
+    if not written.applied:
+        print(f"preview: would write {written.target} and {written.sidecar.name}")
+        print("nothing written; run again with --apply to write")
+        return
+    for path in written.overwritten:
+        print(f"replaced {path}")
+    print(f"wrote {written.target} and {written.sidecar.name}; a row names it PROFILE: {args.out}")
 
 
 if __name__ == "__main__":
