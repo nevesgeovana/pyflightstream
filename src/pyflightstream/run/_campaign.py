@@ -58,6 +58,7 @@ from pyflightstream.run._assessment import (
 )
 from pyflightstream.run._continuation import (
     _unused_continuation_run_id,
+    queued_points,
     resolve_continuation,
 )
 from pyflightstream.run._continuation_frame import (
@@ -605,11 +606,7 @@ def run_campaign(
                 # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
                 # writing its folder, and archiving the record it will be collected
                 # into would leave the job writing where the new run writes.
-                queued = [
-                    run_id
-                    for run_id in superseding
-                    if manifest[run_id].status is RunStatus.SUBMITTED
-                ]
+                queued = queued_points(workspace, manifest, superseding)
                 if queued:
                     raise WorkspaceError(
                         f"force_rerun names {', '.join(queued)}, which is still in a "

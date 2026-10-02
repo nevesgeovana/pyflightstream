@@ -45,6 +45,7 @@ from pyflightstream.run._rebuild_evidence import (
     _slashes,
     _snapshot,
     collect_without_writing,
+    descriptor_folder,
 )
 from pyflightstream.run._record_files import (
     RecordsError,
@@ -530,7 +531,8 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
     if not present:
         return None
     profile = context.profile
-    submitted_here = bool(profile is not None and (work_dir / profile.descriptor_name).is_file())
+    descriptor_dir = descriptor_folder(context.base, sim_dir, work_dir, profile)
+    submitted_here = descriptor_dir is not None
     declared = [str(name) for name in submission.get("declared_outputs") or []]
 
     def where(name: str) -> Path | None:
@@ -552,6 +554,7 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
     quiet = time.time() - newest >= context.quiet_window_s
     facts: dict[str, Any] = {
         "work_dir": work_dir,
+        "descriptor_dir": descriptor_dir,
         "submitted_here": submitted_here,
         "found": found,
     }
@@ -611,7 +614,7 @@ def _finalise(
             record["staged_as"], record["staged_as_reason"] = staged_as, reason
     status = record.get("status")
     if facts["submitted_here"]:
-        descriptor = work_dir / context.profile.descriptor_name
+        descriptor = facts["descriptor_dir"] / context.profile.descriptor_name
         submission = dict(record.get("submission") or {})
         submission["submitted"] = True
         record["submission"] = submission

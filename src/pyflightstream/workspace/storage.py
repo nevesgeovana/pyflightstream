@@ -68,6 +68,7 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
+from pyflightstream.workspace import _batch_life as batch_life
 from pyflightstream.workspace._links import (
     _is_link,
     _is_reparse,
@@ -657,7 +658,7 @@ def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, A
             path.suffix.lower() in _PROTECTED_SUFFIXES
             or "scripts" in path.relative_to(folder).parts
             or lowered.endswith(("_log.txt", ".log"))
-            or lowered in ("fs_runtime_output.txt", "flightstreamlog.txt")
+            or batch_life.is_kept_name(lowered)
         ):
             keep.add(path.resolve())
     return keep
@@ -991,7 +992,10 @@ def free_space(
     if workspace.manifest_path.with_name("runs.json.lock").exists():
         raise StorageError(f"{workspace.root}: runs.json.lock present, a run is in progress")
     path, document = read_recipe(workspace.root, recipe)
-    records = _records_by_sim(workspace, *dict.fromkeys((workspace.manifest_path, manifest)))
+    records = batch_life.mark_running(
+        _records_by_sim(workspace, *dict.fromkeys((workspace.manifest_path, manifest))),
+        workspace.root,
+    )
     sims_root = workspace.root / "sims"
     present = [
         p.name[len("sim_") :]
@@ -1268,11 +1272,7 @@ def delete_sims(
     ]
     if unknown:
         raise StorageError(f"no record and no folder for sims {unknown}")
-    submitted = [
-        sim
-        for sim in ids
-        if any(row.get("status") == RunStatus.SUBMITTED.value for row in records.get(sim, []))
-    ]
+    submitted = batch_life.submitted_sims(workspace.root, ids, records, force=force)
     if submitted and not force:
         raise StorageError(f"sims {submitted} have a run still SUBMITTED; collect it first")
     run_ids = {str(row.get("run_id")) for sim in ids for row in records.get(sim, [])}
@@ -1311,6 +1311,7 @@ def delete_sims(
         "sims": sims_entry,
         "post": products,
         "stale": shared,
+        **batch_life.batch_report(workspace.root, ids),
     }
     if apply and shared and matrix_products is None:
         raise StorageError(
@@ -1327,9 +1328,7 @@ def delete_sims(
     # refusal there leaves the records, the products and the mesh as they were.
     links_undone: dict[str, list[str]] = {}
     for sim in tracked("delete-sims: remove", ids, label=_sim_folder, size=measured.__getitem__):
-        folder = workspace.sim_dir(sim)
-        if folder.exists():
-            links_undone[sim] = _remove_sim_folder(folder)
+        links_undone[sim] = batch_life.remove_sim_folders(workspace, sim, _remove_sim_folder)
         archive = _zip_path(workspace, sim)
         if archive.is_file():
             archive.unlink()
@@ -1598,6 +1597,7 @@ def _sync_files(
                 if parts and parts[0] == "inputs":
                     continue
                 out.add(file)
+    out |= batch_life.batch_files(ws, rank, skip_sims)
     if rank >= 1:
         out.update(_walk_files(ws / "post"))
     brought: list[Path] = []

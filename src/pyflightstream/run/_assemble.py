@@ -40,6 +40,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     find_matrix,
 )
+from pyflightstream.workspace._batch_life import is_job_script
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
     resolve_flight_condition,
@@ -432,7 +433,7 @@ def _loads_exports(sim_dir: Path) -> Iterator[Path]:
             and not os.path.islink(os.path.join(folder, name))
         )
         for name in files:
-            if classify_outputs([name]) == {"loads": name}:
+            if classify_outputs([name]) == {"loads": name} and not is_job_script(name):
                 found.append(Path(folder) / name)
     yield from sorted(found)
 

@@ -1024,9 +1024,9 @@
    "positional": 4
   },
   "workspace/storage.py:delete_sims": {
-   "complexity": 22,
-   "branches": 21,
-   "statements": 71,
+   "complexity": 21,
+   "branches": 20,
+   "statements": 69,
    "positional": 2
   },
   "workspace/storage.py:free_space": {

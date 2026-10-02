@@ -29,6 +29,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream.run._record_files import _ROOT_KINDS, _relative, _root_archives
+from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST
 
@@ -296,6 +297,36 @@ def _plan_campaign_name(base: Path, stem: str) -> tuple[str | None, str | None]:
     if not isinstance(document, dict):
         return None, None
     return document.get("campaign"), document.get("campaign_name_from")
+
+
+def descriptor_folder(base: Path, sim_dir: Path, work_dir: Path, profile: Any) -> Path | None:
+    """Return the folder holding the scheduler descriptor of a simulation's job, or None.
+
+    A point run alone writes its descriptor in its own working folder. A point
+    of a batch has it in the job folder, ``sims/batch/<matrix>_b<ID>/``, beside
+    the batch's copy of the simulation: that point was submitted, never run
+    here, and its record says so (FR-372).
+
+    Parameters
+    ----------
+    base : Path
+        The workspace root.
+    sim_dir : Path
+        ``sims/sim_<id>``.
+    work_dir : Path
+        The point's working folder.
+    profile : object or None
+        The HPC profile, whose ``descriptor_name`` names the file.
+
+    Returns
+    -------
+    Path or None
+        The folder with the descriptor, else None.
+    """
+    if profile is None:
+        return None
+    folders = [work_dir, *(p.parent for p in batch_sim_dirs(base).get(sim_dir.name[4:], []))]
+    return next((f for f in folders if (f / profile.descriptor_name).is_file()), None)
 
 
 def _on_disk(base: Path) -> tuple[set[str], set[str]]:
