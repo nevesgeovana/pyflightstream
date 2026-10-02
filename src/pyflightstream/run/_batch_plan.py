@@ -66,7 +66,6 @@ from pyflightstream.workspace._batches import (
     GroupingReceipt,
     batch_label,
     batch_script_name,
-    job_of,
     next_batch_id,
 )
 from pyflightstream.workspace._geometry_clean import UNSTEADY_WORKFLOWS, saved_action_warning
@@ -449,18 +448,15 @@ def _write_receipt(plan: CampaignPlan, receipt: GroupingReceipt) -> None:
 
 
 def _revive_not_started(plan: CampaignPlan, workspace: CampaignWorkspace) -> None:
-    """Make a point a previous job never started pending again (FR-370, D5).
+    """Make a failed point pending again for a grouped plan (FR-370, D5).
 
-    The collect completes such a point FAILED_EXECUTION with its job entry
-    saying ``not_started``, and the plain plan counts any record as recorded; a
-    grouped plan reads it as not recorded, so the next batch takes it, and the
-    grouped run supersedes the note before it runs it.
+    The plain plan counts any record as recorded. A grouped plan reads a point
+    whose latest record is a FAILED_* status (a point a previous job never
+    started among them) as not recorded, so the next batch takes it; the
+    grouped run archives that record and its outputs before it runs it.
     """
-    notes = {
-        record.run_id
-        for record in workspace.read_manifest()
-        if cast(Mapping[str, Any], job_of(record) or {}).get("not_started")
-    }
+    latest = {record.run_id: record for record in workspace.read_manifest()}
+    notes = {run_id for run_id, record in latest.items() if str(record.status).startswith("FAILED")}
     plan.points[:] = [
         dataclasses.replace(entry, status=PlanStatus.READY, error=None)
         if entry.status is PlanStatus.ALREADY_RECORDED and entry.run_id in notes

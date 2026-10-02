@@ -75,6 +75,7 @@ from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_o
 from pyflightstream.workspace.hpc import HpcProfile
 from pyflightstream.workspace.inputs import hpc_profiles, read_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
+from pyflightstream.workspace.naming import PointName
 
 #: The job root a profile that states none takes: the job folder as the workspace sees it.
 DEFAULT_JOB_ROOT = "{work_dir}"
@@ -237,15 +238,24 @@ def _job_field(record: RunRecord, key: str) -> object:
 
 
 def _supersede_not_started(workspace: CampaignWorkspace, receipt: GroupingReceipt) -> None:
-    """Take out the records of points a previous job never started, so they run again (D5)."""
-    sims = {sim for job in receipt.jobs for sim in job.sims}
+    """Take out the failed records of the points this receipt runs, so they run again.
+
+    A point a previous job never started (D5) and a point whose effective
+    record is any FAILED_* status are pending again for a grouped plan; before
+    the job runs them, their records leave the manifest for its archive and
+    their collected outputs move into the datapoint's ``archive/<stamp>/``, as
+    ``--force-rerun`` does for a point run alone.
+    """
+    planned = {run_id for job in receipt.jobs for run_id in job.points}
     stale = [
-        record.run_id
+        record
         for record in workspace.read_manifest()
-        if record.sim_id in sims and _job_field(record, "not_started") is True
+        if record.run_id in planned and str(record.status).startswith("FAILED")
     ]
+    for record in stale:
+        workspace.archive_datapoint(record.sim_id, PointName(record.run_id.rsplit("/", 1)[-1]))
     if stale:
-        workspace.supersede_records(stale)
+        workspace.supersede_records([record.run_id for record in stale])
 
 
 def _profile_for(workspace: CampaignWorkspace, inner: Any) -> HpcProfile | None:
