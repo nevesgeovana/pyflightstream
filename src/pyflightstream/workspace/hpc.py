@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,6 +39,7 @@ __all__ = [
     "hpc_profiles",
     "read_hpc_profile",
     "resolve_hpc_profile",
+    "select_hpc_profile",
 ]
 
 
@@ -217,14 +219,34 @@ def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
     return sorted(directory.glob("*.toml"))
 
 
+#: The profile stem the invocation selected (``--hpc NAME``), or None.
+_SELECTED_HPC: ContextVar[str | None] = ContextVar("pyflightstream_selected_hpc", default=None)
+
+
+def select_hpc_profile(name: str | None) -> None:
+    """Select which profile :func:`resolve_hpc_profile` returns (0.35.0).
+
+    Parameters
+    ----------
+    name : str or None
+        The file stem of the profile, ``h002`` for ``inputs/hpc/h002.toml``;
+        None clears the selection, which restores the one-profile behaviour.
+
+    Returns
+    -------
+    None
+        The selection is held in a context variable, so it belongs to the
+        invocation that made it.
+    """
+    _SELECTED_HPC.set(name)
+
+
 def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
     """Return the profile of the cluster this workspace is on, or None.
 
-    ONE PROFILE NEEDS NO SELECTOR. A workspace carrying several and no way
-    to say which is REFUSED rather than guessed, because guessing spends a
-    queue. If a study ever needs two clusters the selector is a question to
-    answer then, with the case in hand, rather than a mechanism invented
-    for a problem nobody has.
+    ONE PROFILE NEEDS NO SELECTOR. A workspace carrying several and no
+    selection (:func:`select_hpc_profile`, CLI ``--hpc NAME``) is REFUSED
+    rather than guessed, because guessing spends a queue.
 
     Parameters
     ----------
@@ -234,24 +256,35 @@ def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
     Returns
     -------
     HpcProfile or None
-        The profile of the one cluster the workspace carries, or None when it
-        carries no profile.
+        The selected profile, else the profile of the one cluster the
+        workspace carries, or None when it carries no profile.
 
     Raises
     ------
     InputArtifactError
-        If the folder holds more than one profile, or the one profile is
-        refused by :func:`read_hpc_profile`.
+        If a selection names no profile of the folder, if the folder holds
+        more than one profile and none is selected, or the profile is refused
+        by :func:`read_hpc_profile`.
     """
     found = hpc_profiles(inputs_dir)
+    selected = _SELECTED_HPC.get()
+    if selected is not None:
+        for path in found:
+            if path.stem == selected:
+                return read_hpc_profile(path)
+        raise InputArtifactError(
+            f"{Path(inputs_dir) / HPC_DIR} holds no profile named {selected!r}; "
+            f"available: {', '.join(path.stem for path in found) or 'none'}."
+        )
     if not found:
         return None
     if len(found) > 1:
         raise InputArtifactError(
             f"{Path(inputs_dir) / HPC_DIR} holds {len(found)} profiles "
             f"({', '.join(path.name for path in found)}) and nothing says which cluster "
-            "this machine is. One profile needs no selector; several need one, and "
-            "guessing spends a queue."
+            "this machine is. One profile needs no selector; several need one: select "
+            "the profile by its file stem, hpc (CLI: --hpc) taking <name>, or "
+            "select_hpc_profile(name); guessing spends a queue."
         )
     return read_hpc_profile(found[0])
 

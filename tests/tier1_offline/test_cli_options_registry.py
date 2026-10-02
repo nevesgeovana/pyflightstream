@@ -231,6 +231,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.35.0: the grouped run modes, a mode of one invocation and its job count.
     ("pyfs-matrix", "polar_sweep"): SWITCH,
     ("pyfs-matrix", "batch"): SWITCH,
+    # 0.35.0: which HPC profile of a several-profile workspace THIS call uses.
+    ("pyfs-matrix", "hpc"): SUBJECT,
     # 0.33.0 (FR-307): `post --sims` and `collect --sims` name the simulations
     # THIS call rebuilds or sweeps, the same SUBJECT; a default would limit
     # every post of a machine to simulations a registry happened to hold.
@@ -471,6 +473,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "polar_sweep"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "batch"): frozenset({"inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
             "collect",

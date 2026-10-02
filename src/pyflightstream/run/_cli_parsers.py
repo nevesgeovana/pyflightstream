@@ -25,6 +25,7 @@ from pyflightstream.cases.workflows import (
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
 )
@@ -166,7 +167,9 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
+def _add_common_arguments(parser: argparse.ArgumentParser, *, hpc: bool = False) -> None:
+    if hpc:
+        _add_hpc_argument(parser)
     parser.add_argument("matrix", help="the pipe-delimited run matrix file")
     parser.add_argument(
         "--name",
@@ -620,6 +623,24 @@ def _add_convert_parsers(subparsers: Any) -> None:
     )
 
 
+def _hpc_profile_name(name: str) -> str:
+    """Select the HPC profile ``name`` as argparse reads it, and return it."""
+    select_hpc_profile(name)
+    return name
+
+
+def _add_hpc_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``--hpc NAME`` (0.35): which HPC profile a several-profile workspace uses."""
+    parser.add_argument(
+        "--hpc",
+        type=_hpc_profile_name,
+        default=None,
+        metavar="NAME",
+        help="the HPC profile inputs/hpc/<NAME>.toml to use when the workspace holds "
+        "several (0.35)",
+    )
+
+
 def _add_plan_parsers(subparsers: Any) -> None:
     """Add the plan subcommand."""
     plan = subparsers.add_parser(
@@ -630,7 +651,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "the receipt that command asks for, pinned to the digest of the matrix it "
         "read",
     )
-    _add_common_arguments(plan)
+    _add_common_arguments(plan, hpc=True)
     plan.add_argument(
         "--setup-guidelines",
         action="store_true",
@@ -738,7 +759,7 @@ def _add_run_parsers(subparsers: Any) -> None:
             "solver time."
         ),
     )
-    _add_common_arguments(run)
+    _add_common_arguments(run, hpc=True)
     _add_the_missing_family_choice(run)
     run.add_argument(
         "--workflow",
@@ -863,6 +884,7 @@ def _add_collect_parsers(subparsers: Any) -> None:
             "log. One sweep by default; --watch loops until nothing is outstanding."
         ),
     )
+    _add_hpc_argument(collect)
     collect.add_argument(
         "--workspace",
         default=".",
