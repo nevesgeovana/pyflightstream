@@ -236,6 +236,9 @@ PUBLIC_MODULES = [
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.builds",
     "pyflightstream.workspace.cli",
+    # 0.35.0 (FR-398): the per-machine cost file `plan --cost` reads; PUBLIC
+    # deliberately, a script reads a cost file with `read_cost_file`.
+    "pyflightstream.workspace.costs",
     "pyflightstream.workspace.excel",
     "pyflightstream.workspace.excel_bridge",
     "pyflightstream.workspace.excel_file",

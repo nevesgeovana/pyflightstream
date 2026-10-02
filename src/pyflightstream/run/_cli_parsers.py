@@ -661,6 +661,28 @@ def _add_hpc_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_the_cost_arguments(plan: Any) -> None:
+    """Add the cost options of the plan subcommand."""
+    plan.add_argument(
+        "--cost",
+        action="store_true",
+        help="also table what each polar is expected to cost: mesh size, marked "
+        "trailing edges, farfield layers, viscous coupling, steady or unsteady, "
+        "time iterations, processors set, and an EXPECTED wall time fitted from "
+        "this workspace's own recorded runs. The time is an extrapolation and the "
+        "table says so, carrying the number of samples behind it; a point with no "
+        "comparable recorded run reads 'unknown' rather than a number with no basis",
+    )
+    plan.add_argument(
+        "--cost-file",
+        type=_cost_file_name,
+        default=None,
+        metavar="NAME",
+        help="the cost file inputs/costs/<NAME>.toml that prices the points when the "
+        "workspace holds several; a single file needs no name (0.35)",
+    )
+
+
 def _add_plan_parsers(subparsers: Any) -> None:
     """Add the plan subcommand."""
     plan = subparsers.add_parser(
@@ -710,24 +732,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         help="explicit executable override; mandatory for MANUAL rows, otherwise the "
         "FS_BUILD column resolves through inputs/executables.toml",
     )
-    plan.add_argument(
-        "--cost",
-        action="store_true",
-        help="also table what each polar is expected to cost: mesh size, marked "
-        "trailing edges, farfield layers, viscous coupling, steady or unsteady, "
-        "time iterations, processors set, and an EXPECTED wall time fitted from "
-        "this workspace's own recorded runs. The time is an extrapolation and the "
-        "table says so, carrying the number of samples behind it; a point with no "
-        "comparable recorded run reads 'unknown' rather than a number with no basis",
-    )
-    plan.add_argument(
-        "--cost-file",
-        type=_cost_file_name,
-        default=None,
-        metavar="NAME",
-        help="the cost file inputs/costs/<NAME>.toml that prices the points when the "
-        "workspace holds several; a single file needs no name (0.35)",
-    )
+    _add_the_cost_arguments(plan)
     plan.add_argument(
         "--inflow-fft",
         action="store_true",

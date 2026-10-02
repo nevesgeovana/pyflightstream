@@ -375,3 +375,27 @@ def split_typed_ids(
         else:
             points.setdefault(found[0], []).append(found[1])
     return sims, points
+
+
+def failure_alias_lines(failures: Sequence[Any], rows: list[dict[str, Any]]) -> list[str]:
+    """Name the run id alias beside each failed run id (FR-395 R3), read from the records.
+
+    Parameters
+    ----------
+    failures : sequence
+        The failed records (each with ``sim_id`` and ``run_id``).
+    rows : list of dict
+        The manifest rows, as ``CampaignWorkspace.read_raw_manifest`` returns them.
+
+    Returns
+    -------
+    list of str
+        ``"  alias <alias> = <run id>"`` for each failure that has an alias.
+    """
+    sims: dict[str, list[str]] = {str(row.get("sim_id")): [] for row in rows}
+    found = {(sim, tag): alias for alias, sim, tag in alias_lines(rows, sims)}
+    return [
+        f"  alias {found[key]} = {record.run_id}"
+        for record in failures
+        if (key := (str(record.sim_id), record.run_id.rsplit("/", 1)[-1])) in found
+    ]

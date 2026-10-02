@@ -58,9 +58,8 @@ from __future__ import annotations
 import argparse
 import sys
 import warnings
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import NoReturn
 
 import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
@@ -109,7 +108,7 @@ from pyflightstream.run import format_cost_table as format_cost_table
 from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
-from pyflightstream.run._alias import alias_lines, split_typed_ids
+from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
 from pyflightstream.run._cli_parsers import _build_parser, resume_hint
 from pyflightstream.run._cli_print import (
     _print_delete_sims,
@@ -204,24 +203,10 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _listed_sims(text: str) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
-    Read by ``delete-sims``, ``rebuild --sims``, ``post --sims`` and ``collect
-    --sims`` (FR-307); the form's one home is
-    :func:`pyflightstream.workspace.ledger.listed_sims` since 0.35.0, which
-    ``status --sims`` reads too.
+    Read by ``delete-sims``, ``rebuild``, ``post``, ``collect`` and ``status`` ``--sims``
+    (FR-307); the form's one home is :func:`pyflightstream.workspace.ledger.listed_sims`.
     """
     return listed_sims(text)
-
-
-def _alias_lines_of(failures: Sequence[Any], workspace: CampaignWorkspace) -> list[str]:
-    """Name the run id alias beside each failed run id (FR-395 R3), read from the records."""
-    rows = workspace.read_raw_manifest()
-    sims: dict[str, list[str]] = {str(row.get("sim_id")): [] for row in rows}
-    found = {(sim, tag): alias for alias, sim, tag in alias_lines(rows, sims)}
-    return [
-        f"  alias {found[key]} = {record.run_id}"
-        for record in failures
-        if (key := (str(record.sim_id), record.run_id.rsplit("/", 1)[-1])) in found
-    ]
 
 
 def _whole_sims(args: argparse.Namespace) -> list[str]:
@@ -1422,7 +1407,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # anything, so a sweep with one failed point left no table at
         # all, which is the acceptance of PFS-2014.03 exactly inverted.
         print(f"matrix run with failures: {error}", file=sys.stderr)
-        for line in _alias_lines_of(error.failures, workspace):
+        for line in failure_alias_lines(error.failures, workspace.read_raw_manifest()):
             print(line, file=sys.stderr)
         # The call's records ride on the error, so a run that also SUBMITTED a
         # point is still seen as one below (G43).
