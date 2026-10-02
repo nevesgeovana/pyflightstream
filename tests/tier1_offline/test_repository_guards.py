@@ -251,7 +251,9 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # and actuator-profiles.md (FR-347); no exemption line was added or widened.
     # 197 on the 0.35.0 branch: docs/srs/ gained markers-0350.json, the marker map the
     # SRS index records for FR-350 to FR-378; no exemption line was added or widened.
-    assert numbers["exempt"] <= 197, (
+    # 198 on the 0.35.0 branch: docs/ gained migrating-to-0.35.0.md (every release has
+    # one); no exemption line was added or widened.
+    assert numbers["exempt"] <= 198, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

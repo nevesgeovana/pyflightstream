@@ -1203,7 +1203,8 @@ bodies and those under `TYPE_CHECKING` included.
 - `run/records.py`, in the run row, imports the floor `_errors`, the four
   private modules of the records family (`run._record_files`,
   `run._rebuild_evidence`, `run._rebuild` and `run._assemble`, since
-  0.33.0, AD-11), `workspace.naming` and `workspace.storage`, and inside a
+  0.33.0, AD-11), `workspace.naming` and `workspace.storage`, the alias helper
+  `run._alias` (the point selector of mark-failed), and inside a
   function body `workspace`. It holds the operations on a workspace's
   records: the exact restore of a records file from the archive and the
   mark-failed, and through the four modules it re-exports the rebuild of

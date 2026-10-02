@@ -517,7 +517,8 @@ def test_a_continuation_of_a_file_route_row_marks_nothing_and_initializes_once(t
     assert lines[:3] == ["OPEN", "stopped.fsm", "LOAD_SOLVER_INITIALIZATION ENABLE"], lines[:3]
     marking = [line for line in lines if "IMPORT" in line or "WAKE_TERMINATION_NODES" in line]
     assert not marking, lines
-    assert lines.count("INITIALIZE_SOLVER") == 1, lines
+    # FR-396 (0.35.0): a continuation keeps the reopened state, no re-initialisation
+    assert lines.count("INITIALIZE_SOLVER") == 0, lines
 
 
 def test_base_regions_declared_by_the_sidecar_and_by_the_row_is_refused(tmp_path):

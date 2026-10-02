@@ -231,7 +231,7 @@ def test_status_selects_by_sims_matrix_status_and_failed(workspace, capsys):
     _, out, _ = _status(workspace, capsys, "--failed")
     assert [row[0] for row in _table(out)[1:]] == ["2006", "2009"]
     code, _, err = _status(workspace, capsys, "--status", "SUCCESS")
-    assert code == 2 and "statuses (CLI: --status)" in err and "'SUCCESS'" in err
+    assert code == 2 and "status (CLI: --status)" in err and "'SUCCESS'" in err
     # R4: an id that names nothing is named on standard error; the others print.
     code, out, err = _status(workspace, capsys, "--sims", "2006,9999")
     assert code == 0

@@ -154,7 +154,7 @@ def _status_words(words: Sequence[str]) -> list[str]:
             stem is not None and not any(item.startswith(stem) for item in known)
         ):
             raise ValueError(
-                f"statuses (CLI: --status) names {word!r}, which no status takes; the words "
+                f"status (CLI: --status) names {word!r}, which no status takes; the words "
                 f"are {', '.join(known)}, and a trailing * matches every word it begins"
             )
     return list(words)

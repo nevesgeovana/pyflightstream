@@ -377,6 +377,15 @@ def split_typed_ids(
     return sims, points
 
 
+def _record_sim(record: Any) -> str:
+    """Return the simulation id of a failed record, from its field or else from its run id."""
+    sim = getattr(record, "sim_id", None)
+    if sim is not None:
+        return str(sim)
+    parts = str(record.run_id).split("/")
+    return parts[-2].removeprefix("sim_") if len(parts) > 1 else ""
+
+
 def failure_alias_lines(failures: Sequence[Any], rows: list[dict[str, Any]]) -> list[str]:
     """Name the run id alias beside each failed run id (FR-395 R3), read from the records.
 
@@ -397,5 +406,5 @@ def failure_alias_lines(failures: Sequence[Any], rows: list[dict[str, Any]]) -> 
     return [
         f"  alias {found[key]} = {record.run_id}"
         for record in failures
-        if (key := (str(record.sim_id), record.run_id.rsplit("/", 1)[-1])) in found
+        if (key := (_record_sim(record), record.run_id.rsplit("/", 1)[-1])) in found
     ]

@@ -204,7 +204,8 @@ def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
                 return read_cost_file(path)
         raise InputArtifactError(
             f"{Path(inputs_dir) / COSTS_DIR} holds no cost file named {selected!r} "
-            f"(CLI: --cost-file); available: {', '.join(p.stem for p in found) or 'none'}."
+            f"for cost_file (CLI: --cost-file); available: "
+            f"{', '.join(p.stem for p in found) or 'none'}."
         )
     if len(found) > 1:
         raise InputArtifactError(

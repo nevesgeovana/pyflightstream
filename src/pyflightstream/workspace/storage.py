@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pyflightstream._textio as _textio
+import pyflightstream.workspace._batch_life as batch_life
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -68,7 +69,6 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace import _batch_life as batch_life
 from pyflightstream.workspace._links import (
     _is_link,
     _is_reparse,

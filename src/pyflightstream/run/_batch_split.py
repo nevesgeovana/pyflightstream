@@ -352,8 +352,8 @@ def _from_cells(
 ) -> tuple[int | None, str, bool | None, float | None, list[str], str | None]:
     """Return the walltime of a job whose rows state cells: the SUM of its points' budgets.
 
-    A row's WALLTIME cell is the budget of ONE of its points (the owner's matrices state the
-    wall clock a single datapoint is given, 2026-10-02), so a job that runs several points in
+    A row's WALLTIME cell is the budget of ONE of its points (it states the
+    wall clock a single datapoint is given), so a job that runs several points in
     one instance asks for the sum over its points of their rows' cells. A sum above the
     profile's ``max_walltime`` is capped there with a warning suggesting a larger ``n``; one
     point's own cell above it is refused.
