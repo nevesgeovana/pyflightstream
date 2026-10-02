@@ -109,6 +109,11 @@
 \item \fl{--workspace}, \fl{--runs NAME}, \fl{--pproc-warnings}, \fl{--verbose}
 \end{flags}
 Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
+\sub{status}{one row per polar: SIM, POLAR, SWEEP, POINTS (recorded/planned), MATRIX, STATUS (one word, or the count of each); a point no record carries reads \texttt{planned}; reads only, writes nothing}
+\begin{flags}
+\item \fl{--sims 2006,2007} (or \texttt{[2006,2007]}) \quad \fl{--matrix STEM} \quad \fl{--status WORD} (repeatable, \texttt{FAILED\_*}) \quad \fl{--failed}
+\item \fl{--points} one row per datapoint \quad \fl{--json} \quad \fl{--csv} \quad \fl{--workspace}, \fl{--runs NAME}
+\end{flags}
 
 \stage{5. POST-PROCESS (NO SOLVER, NO SEAT)}
 \sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Old products are archived in \texttt{post/<matrix>/archive/}}

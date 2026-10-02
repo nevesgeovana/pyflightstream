@@ -53,6 +53,8 @@ ARGV = {
     ("run", "matrix"): ["run", NAME],
     ("post", "matrix"): ["post", NAME],
     ("rebuild", "matrix"): ["rebuild", "--matrix", NAME],
+    # 0.35.0: the read-only status narrows its rows to the matrix found (FR-380 R2).
+    ("status", "matrix"): ["status", "--matrix", NAME],
 }
 
 

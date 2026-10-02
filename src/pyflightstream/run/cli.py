@@ -117,6 +117,7 @@ from pyflightstream.run._cli_print import (
     _print_plan,
     _print_sync,
 )
+from pyflightstream.run._cli_query import QUERY_COMMANDS, run_query
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
 from pyflightstream.run._grouped import planner_for, runner_for
 from pyflightstream.run._ids import _AlreadyRecordedError
@@ -130,6 +131,7 @@ from pyflightstream.workspace import (
     selected_sims,
 )
 from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
+from pyflightstream.workspace.ledger import listed_sims
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -202,11 +204,12 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _listed_sims(text: str) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
-    The one home of that form, read by ``delete-sims``, ``rebuild --sims``,
-    ``post --sims`` and ``collect --sims`` (FR-307).
+    Read by ``delete-sims``, ``rebuild --sims``, ``post --sims`` and ``collect
+    --sims`` (FR-307); the form's one home is
+    :func:`pyflightstream.workspace.ledger.listed_sims` since 0.35.0, which
+    ``status --sims`` reads too.
     """
-    listed = text.replace(" ", "").strip("[]")
-    return [item for item in listed.split(",") if item]
+    return listed_sims(text)
 
 
 def _alias_lines_of(failures: Sequence[Any], workspace: CampaignWorkspace) -> list[str]:
@@ -467,12 +470,15 @@ def _cmd_storage(args: argparse.Namespace) -> int:
         return 2
 
 
-#: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1).
-_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed")
+#: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1),
+#: and the read-only query verbs of 0.35.0 (:mod:`pyflightstream.run._cli_query`).
+_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed", *QUERY_COMMANDS)
 
 
 def _cmd_records(args: argparse.Namespace) -> int:
-    """Run ``restore``, ``rebuild`` or ``mark-failed`` through :mod:`pyflightstream.run.records`."""
+    """Run ``restore``, ``rebuild`` or ``mark-failed``, or a query verb such as ``status``."""
+    if args.subcommand in QUERY_COMMANDS:
+        return run_query(args)
     if args.subcommand == "mark-failed":
         return _cmd_mark_failed(args)
     try:
