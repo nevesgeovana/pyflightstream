@@ -479,7 +479,8 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         # which of the two is authoritative (the interface lens,
         # 2026-09-13). An explicit `name` still wins.
         descriptor_name=str(descriptor.get("name") or f"submit.{'txt' if fmt == 'text' else fmt}"),
-        fields={str(k): str(v) for k, v in fields.items()},
+        # A TOML boolean stays a boolean, so the descriptor writes it bare (0.35.0).
+        fields={str(k): v if isinstance(v, bool) else str(v) for k, v in fields.items()},
         submit=tuple(str(part) for part in submit),
         defaults=dict(table.get("defaults") or {}),
         path=target,

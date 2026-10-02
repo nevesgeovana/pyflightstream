@@ -45,3 +45,25 @@ def test_p0350_descriptor_a_boolean_field_is_bare_in_toml():
 def test_p0350_descriptor_a_quoted_string_stays_quoted():
     """The control: a profile that states the string "true" gets a quoted string."""
     assert 'driveg: "true"' in render_descriptor(_profile("yaml", "true"), VALUES)
+
+
+def test_p0350_descriptor_a_boolean_survives_the_profile_loader(tmp_path):
+    """P0350-BATCH-SUBMIT (FR-372): ``driveg = true`` read from a real profile file renders bare."""
+    from pyflightstream.workspace.hpc import read_hpc_profile
+
+    profile_file = tmp_path / "h002.toml"
+    profile_file.write_text(
+        'application_id = "app"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        "[descriptor.fields]\n"
+        'job_name = "FTS{sim}"\n'
+        "driveg = true\n"
+        "[submit]\n"
+        'command = ["qsub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    profile = read_hpc_profile(profile_file)
+    text = render_descriptor(profile, VALUES)
+    assert "driveg: true\n" in text
+    assert 'job_name: "FTSmtx_b1"' in text
