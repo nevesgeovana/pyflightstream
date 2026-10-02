@@ -33,7 +33,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError
 from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
 from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK
-from tests.tier1_offline.test_workflows import rotor_case, steady_case
+from tests.tier1_offline.test_workflows import rotor_case, steady_case, unsteady_case
 
 TERMINATION = "SET_WAKE_TERMINATION_TIME_STEPS"
 
@@ -185,6 +185,50 @@ def test_p0340_wake_length_the_run_record_carries_the_three_values(tmp_path):
     assert derived["wake_termination_steps"] == "800", derived
 
 
+def _parity():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_parity_wake_under_test",
+        Path(__file__).resolve().parents[2] / "scripts" / "check_parity.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor_script():
+    """P0340-WAKE-LENGTH, FR-321 R6: the parity script names the termination line under FR-321
+    only in the direction and on the scripts the requirement states: ADDED to a script that
+    turns a rotor in time and whose base wrote none. A removed line, a changed count, and
+    the line added to a steady script stay unnamed."""
+    requirement = "FR-321"
+    goldens = Path(__file__).parent / "goldens" / "workflows"
+    for build in ("26.124", "25.100"):
+        rotor = (goldens / f"unsteady_rotor__bare__{build}.txt").read_text(encoding="utf-8")
+        (line,) = _terminations(rotor.splitlines())
+        base = rotor.replace(line + "\n", "")
+        assert base != rotor and not _terminations(base.splitlines()), build
+
+        def named(old: str, new: str) -> str | None:
+            entry = _parity().name_difference("scripts", "row.txt", old, new, {requirement})
+            return entry.get("requirement")
+
+        assert named(base, rotor) == requirement, (requirement, build)
+        assert named(rotor, base) is None, ("a removed line", build)
+        assert named(rotor, rotor.replace(line, f"{TERMINATION} 7")) is None, build
+    steady = (goldens / "steady__full__26.124.txt").read_text(encoding="utf-8")
+    added = steady.replace("INITIALIZE_SOLVER", f"{TERMINATION} 100\nINITIALIZE_SOLVER", 1)
+    assert added != steady
+    assert (
+        _parity()
+        .name_difference("scripts", "row.txt", steady, added, {requirement})
+        .get("requirement")
+        != requirement
+    ), "a line added to a steady script"
+
+
 # --- FR-322: one key states the termination ----------------------------------
 
 PAIRS = [
@@ -257,6 +301,27 @@ def test_p0340_wake_one_key_one_key_plans_the_control(tmp_path):
             requirement,
             [entry.error for entry in plan.points],
         )
+
+
+@pytest.mark.parametrize(
+    "key, value", [("wake_termination_steps", "100"), ("wake_termination_revolutions", "1")]
+)
+def test_p0340_wake_one_key_the_same_key_in_preset_and_row_is_one_key(tmp_path, key, value):
+    """P0340-WAKE-ONE-KEY, FR-322 R4 control: the SAME key in the preset and in the row is one
+    key, not two. Agreeing, the row plans READY; differing, it is refused by FR-316's
+    comparison of the row with its preset, never as two termination keys."""
+    requirement = "FR-322"
+    workspace, matrix = _setup_and_row(tmp_path / "agree", [(key, value)], [(key, value)])
+    plan = _plan(workspace, matrix)
+    assert [entry.status for entry in plan.points] == [PlanStatus.READY], (
+        requirement,
+        [entry.error for entry in plan.points],
+    )
+    workspace, matrix = _setup_and_row(tmp_path / "differ", [(key, value)], [(key, "3")])
+    with pytest.raises(MatrixError) as refused:
+        _plan(workspace, matrix)
+    message = str(refused.value)
+    assert "FR-316" in message and "FR-322" not in message, (requirement, message)
 
 
 def test_p0340_wake_one_key_the_builder_refuses_two_keys_too():
@@ -339,6 +404,47 @@ def test_p0340_wake_hover_a_bound_beside_a_count_is_refused(bound, count):
     with pytest.raises(CampaignConfigError) as refused:
         _built(_rotor(**{bound: 500.0, count: 2}))
     assert bound in str(refused.value) and count in str(refused.value), requirement
+
+
+def test_p0340_wake_hover_a_cap_cuts_a_length_in_forward_flight_too():
+    """P0340-WAKE-HOVER, FR-323 R3: the converted steps never exceed the cap, at any speed.
+
+    At 30 m/s, 6 R is 6 * 1.8288 * 1e4 / 30 = 3657.6, so 3658 steps uncapped; a cap of
+    one revolution is 500 steps, which win, and the rule recorded is the cap's.
+    """
+    requirement = "FR-323"
+    assert _steps(6.0, CASE_R_M, 30.0) == 3658
+    lines, script = _built(
+        _rotor("30.0", wake_termination_length=6.0, wake_termination_revolutions_cap=1.0)
+    )
+    assert _terminations(lines) == [f"{TERMINATION} 500"], (requirement, lines)
+    assert script.solver_setup is not None
+    derived = script.solver_setup.derived
+    assert derived["wake_termination_rule"] == "revolution_cap", (requirement, derived)
+    assert float(derived["wake_termination_v_ax_m_s"]) == 30.0, derived
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [
+        ("wake_termination_length", 6.0),
+        ("wake_termination_thrust_n", 1000.0),
+        ("wake_termination_revolutions_cap", 2.0),
+    ],
+)
+@pytest.mark.parametrize("factory", [steady_case, unsteady_case], ids=["steady", "rotorless"])
+def test_p0340_wake_hover_a_length_or_bound_on_a_run_turning_no_rotor_is_refused(
+    factory, key, value
+):
+    """P0340-WAKE-HOVER, FR-323 and FR-321 R4: a length, a thrust or a cap on a steady run or
+    on an unsteady run that turns no rotor reaches no line, so it is refused, naming the key,
+    rather than silently dropped."""
+    requirement = "FR-323"
+    case = factory().model_copy(update={"solver": SolverSettings(**{key: value})})
+    with pytest.raises(CampaignConfigError) as refused:
+        _built(case)
+    message = str(refused.value)
+    assert f"{key} = {value}" in message and "FR-321" in message, (requirement, message)
 
 
 # --- FR-324: the wake end plane ----------------------------------------------
@@ -424,19 +530,27 @@ def test_p0340_wake_trefftz_a_refused_value_stops_the_plan(tmp_path):
 PLANES = {"rotor case": 5.5 * ROW_R_M, "blades-only wheel": 2.1 * ROW_R_M}
 
 
-def _planned_wake(tmp_path: Path, *, iterations: int = 720, row: str = "", plane=None):
-    """Plan the one rotor row; return its wake warnings, statuses and written plan."""
+def _planned_wake(
+    tmp_path: Path, *, iterations: int = 720, row: str = "", plane=None, hover: bool = False
+):
+    """Plan the one rotor row; return its wake warnings, statuses and written plan.
+
+    ``hover`` sets the row's free stream to zero (TASmps and VELOCITY 0, sea-level
+    air), so a stated thrust's induced velocity convects the wake.
+    """
     workspace = _workspace(tmp_path)
     reference = workspace.inputs_dir / "references" / "r003.toml"
     reference.write_text(reference.read_text(encoding="utf-8") + ROTOR_BLOCK, encoding="utf-8")
     extra = row + ("" if plane is None else f" / wake_termination_x: {plane}")
     matrix = _rotor_row(tmp_path, sweep="0.0", extra=extra)
-    matrix.write_text(
-        matrix.read_text(encoding="utf-8").replace(
-            "TIME_ITERATIONS: 720", f"TIME_ITERATIONS: {iterations}"
-        ),
-        encoding="utf-8",
+    text = matrix.read_text(encoding="utf-8").replace(
+        "TIME_ITERATIONS: 720", f"TIME_ITERATIONS: {iterations}"
     )
+    if hover:
+        text = text.replace("TASmps:30.0, REmi:1.20,", "TASmps:0.0,").replace(
+            "VELOCITY: 30.0", "VELOCITY: 0.0"
+        )
+    matrix.write_text(text, encoding="utf-8")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         plan = plan_matrix(
@@ -560,6 +674,99 @@ def test_p0340_wake_plan_warn_the_plan_states_the_three_values(tmp_path):
     assert "wake termination L = 4 R (default), V_ax 30 m/s (free_stream), 800 steps" in (
         plan.summary()
     ), plan.summary()
+
+
+def test_p0340_wake_plan_warn_a_count_states_the_length_it_keeps_warned_or_not(tmp_path):
+    """P0340-WAKE-PLAN-WARN, FR-325 R2: the plan STATES the length a count keeps, whether or
+    not it warns. 1000 steps of a 1500-step run keep 1000 * 30 * 1e-4 / 0.6 = 5 R, above
+    4R and unwarned; 100 steps keep 0.5 R, stated and warned."""
+    requirement = "FR-325"
+    for name, iterations, steps, kept, warns in (
+        ("long", 1500, 1000, "5", False),
+        ("short", 720, 100, "0.5", True),
+    ):
+        said, _, _, (workspace, matrix) = _planned_wake(
+            tmp_path / name, iterations=iterations, row=f" / wake_termination_steps: {steps}"
+        )
+        assert bool(_rule(said, "R2")) is warns, (requirement, name, said)
+        summary = _plan(workspace, matrix).summary()
+        assert (
+            f"wake termination wake_termination_steps: {steps} steps, keeping about {kept} R "
+            "of wake"
+        ) in summary, (requirement, summary)
+
+
+def test_p0340_wake_plan_warn_a_cap_that_cuts_the_length_is_named(tmp_path):
+    """P0340-WAKE-PLAN-WARN, FR-325 R1 with FR-323 R3: a cap that cuts L in forward flight.
+
+    6 R is 200 * 6 = 1200 steps, which a 1500-step run reaches; a cap of one revolution
+    keeps 500 steps, 500 * 30 * 1e-4 / 0.6 = 2.5 R, and the warning names the cap.
+    """
+    requirement = "FR-325"
+    said, statuses, points, _ = _planned_wake(
+        tmp_path,
+        iterations=1500,
+        row=" / wake_termination_length: 6 / wake_termination_revolutions_cap: 1",
+    )
+    warned = _rule(said, "R1")
+    assert len(warned) == 1, (requirement, said)
+    assert "the revolution cap keeps 500 steps" in warned[0], warned
+    assert "about 2.5 R" in warned[0] and "L = 6 R" in warned[0], warned
+    assert points[0]["wake_termination"]["steps"] == 500, points[0]["wake_termination"]
+    assert statuses == [PlanStatus.READY], requirement
+
+
+def test_p0340_wake_plan_warn_a_plane_on_either_side_of_a_hovering_rotor(tmp_path):
+    """P0340-WAKE-PLAN-WARN, FR-325 R3 at zero speed: with no free-stream sense the wake may
+    leave either way, so a plane within L on EITHER side of the hub cuts it. The hub is at
+    x = 0 and L is the 4R default, 2.4 m: a plane 1 R upstream (-0.6 m) or downstream
+    (0.6 m) warns at 1 R; one 5 R upstream (-3.0 m) does not."""
+    requirement = "FR-325"
+    thrust = " / wake_termination_thrust_n: 1000"
+    for name, plane, warns in (("up", "-0.6", True), ("down", "0.6", True), ("far", "-3.0", False)):
+        said, statuses, points, _ = _planned_wake(
+            tmp_path / name, iterations=1500, row=thrust, plane=plane, hover=True
+        )
+        assert points[0]["wake_termination"]["rule"] == "induced_velocity", points
+        warned = _rule(said, "R3")
+        assert len(warned) == (1 if warns else 0), (requirement, name, said)
+        if warns:
+            assert "lies 1 R downstream" in warned[0], (requirement, warned)
+        assert statuses == [PlanStatus.READY], requirement
+
+
+def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path):
+    """P0340-WAKE-PLAN-WARN, FR-325 R3: a stated plane on a rotor whose hub X is unknown (the
+    reference states rotor_diameter_m and no rotor block) cannot be placed against L, and
+    the plan says so rather than passing it in silence (the author's 'always warn')."""
+    from tests.tier1_offline.test_matrix_run import _rotor_matrix, make_library
+
+    requirement = "FR-325"
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        "rotor_diameter_m = 1.2\n" + reference.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
+    )
+    matrix = _rotor_matrix(tmp_path)
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8")
+        .replace("MACH:0.2, REmi:11.77,", "TASmps:30.0,")
+        .replace("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / wake_termination_x: 1.0"),
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_matrix(
+            matrix, workspace, name="rotor", recipes={}, recipe_registry=workflow_registry()
+        )
+    said = [str(item.message) for item in caught if "FR-325 R3)" in str(item.message)]
+    assert len(said) == 1, (requirement, [str(item.message) for item in caught])
+    for words in ("wake_termination_x = 1 m", "hub X is unknown", "cannot be placed"):
+        assert words in said[0], (requirement, words, said[0])
+    assert [entry.status for entry in plan.points] == [PlanStatus.READY], requirement
 
 
 # --- the licensed confirmation LQ5 (RPT-130), checked before the seat is spent ------
