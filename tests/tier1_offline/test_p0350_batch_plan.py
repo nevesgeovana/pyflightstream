@@ -251,7 +251,8 @@ def test_p0350_plan_fr364_best_refused_in_the_default_mode(tmp_path):
         )
     assert [str(entry.status) for entry in plan.points] == ["BLOCKED"]
     assert "BEST asks the package for the walltime" in str(plan.points[0].error)
-    assert "plan --batch and --polar-sweep" in str(plan.points[0].error)
+    assert "batch (CLI: --batch)" in str(plan.points[0].error)
+    assert "polar_sweep (CLI: --polar-sweep)" in str(plan.points[0].error)
     workspace, matrix = _fixture(tmp_path / "four", walltimes=("4h",), sweep="0.0")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)

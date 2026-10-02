@@ -466,6 +466,11 @@ def _numeric_field(template: object, values: Mapping[str, object]) -> bool:
     reads as a float, and quoting it is the difference between a scheduler
     receiving that build and receiving 26.12.
     """
+    if isinstance(template, bool):
+        # A TOML boolean in the profile (``driveg = true``) is a boolean the
+        # scheduler reads, written bare and lower case: quoted, the cluster
+        # reads the string "true" or "True" and not the switch (0.35.0).
+        return True
     text = str(template).strip()
     if not (text.startswith("{") and text.endswith("}") and text.count("{") == 1):
         return False
@@ -510,7 +515,11 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
     rendered: dict[str, str] = {}
     for key, template in profile.fields.items():
         try:
-            text = str(template).format(**values)
+            text = (
+                str(template).lower()
+                if isinstance(template, bool)
+                else str(template).format(**values)
+            )
         except KeyError as missing:
             raise CampaignConfigError(
                 f"the HPC profile {profile.path} asks for {missing.args[0]!r} in its "
@@ -526,7 +535,7 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
         if profile.descriptor_format == "text":
             lines.append(f"{key}: {text}")
         elif profile.descriptor_format == "toml":
-            lines.append(f'{key} = "{text}"')
+            lines.append(f"{key} = {text}" if isinstance(template, bool) else f'{key} = "{text}"')
         else:
             # yaml. A number stays bare and everything else is quoted, which
             # is what the predecessor's own descriptor does.
