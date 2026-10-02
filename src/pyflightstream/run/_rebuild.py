@@ -30,6 +30,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
+from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
 from pyflightstream.run._rebuild_evidence import (
     _changes,
     _compare_scripts,
@@ -95,7 +96,14 @@ def row_versions(resolved: Any) -> dict[str, str]:
 
 
 def campaign_executor(
-    workspace: Any, resolved: Any, path: str | Path, *, executor: Any = None
+    workspace: Any,
+    resolved: Any,
+    path: str | Path,
+    *,
+    executor: Any = None,
+    local: bool = False,
+    hidden: bool | None = None,
+    progress_every: int = PROGRESS_EVERY_DEFAULT,
 ) -> tuple[Any, Callable[[Path], Any]]:
     """Return the executor a bound matrix runs on, and the one for each other build.
 
@@ -114,10 +122,24 @@ def campaign_executor(
     executor : pyflightstream.run.Executor, optional
         An executor that answers for every build; left out, the cluster rule and
         the matrix's HIDDEN column decide.
+    local : bool, optional
+        Keep the run on this machine, as ``pyfs-matrix run --local``.
+    hidden : bool or None, optional
+        Windowless solver runs; None lets the matrix's HIDDEN column decide.
+    progress_every : int, optional
+        How often a local unsteady point says its progress, in time steps.
     """
     from pyflightstream.run import matrix as run_matrix
 
-    return run_matrix._campaign_executor(workspace, resolved, path, executor=executor)
+    return run_matrix._campaign_executor(
+        workspace,
+        resolved,
+        path,
+        executor=executor,
+        local=local,
+        hidden=hidden,
+        progress_every=progress_every,
+    )
 
 
 def bind_row_builds(
