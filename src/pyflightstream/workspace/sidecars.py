@@ -526,7 +526,9 @@ def obj_face_counts(path: str | Path) -> tuple[int, ...]:
     return tuple(counts)
 
 
-def face_count_lines(geometry: Path, boundaries: int, *, obj: bool) -> list[str]:
+def face_count_lines(
+    geometry: Path, boundaries: int, *, obj: bool, digest: Callable[[Path], str] = file_sha256
+) -> list[str]:
     """Return the inventory lines stating a geometry's face count, or none (FR-348).
 
     The file is hashed before and after it is counted, and the lines are
@@ -542,6 +544,9 @@ def face_count_lines(geometry: Path, boundaries: int, *, obj: bool) -> list[str]
         The number of boundaries the inventory lists.
     obj : bool
         Whether the geometry is an OBJ, counted by its groups.
+    digest : callable, optional
+        The sha256 of a file, read before and after the count (the file's own
+        :func:`~pyflightstream._digest.file_sha256` unless another is given).
 
     Returns
     -------
@@ -549,9 +554,9 @@ def face_count_lines(geometry: Path, boundaries: int, *, obj: bool) -> list[str]
         The TOML lines, or an empty list where the faces cannot be counted.
     """
     try:
-        before = file_sha256(geometry)
+        before = digest(geometry)
         counted = _obj_counted(geometry) if obj else mesh_face_counts(geometry)
-        after = file_sha256(geometry)
+        after = digest(geometry)
     except (MeshReadError, OSError, UnicodeDecodeError):
         return []
     if counted is None or before != after:

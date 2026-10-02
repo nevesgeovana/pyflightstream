@@ -210,7 +210,8 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "pattern": "*/SUPER-*.csv",
         # The super file gains ONE column, MESH_FACES, after every column 0.33.1
         # wrote, its cells NA or a whole number, and nothing else changes: the
-        # header and each row are the 0.33.1 line with that one cell appended.
+        # header and each row are the 0.33.1 line with that one cell appended,
+        # after a comma, or as one more 16-wide field in the legacy_polar form.
         "appended_column": "MESH_FACES",
         "cells": r"NA|\d+",
         "requirement": "FR-348",
@@ -656,22 +657,44 @@ def changed_lines(old: str, new: str) -> list[str]:
 
 
 def appends_one_column(old: str, new: str, column: str, cells: str) -> bool:
-    """Whether ``new`` is ``old`` with one CSV column ``column`` appended last, and nothing else.
+    """Whether ``new`` is ``old`` with one column ``column`` appended last, and nothing else.
 
-    The header must be the old header and ``,column``; every other line the old
-    line and one cell that matches ``cells`` whole; the line count and the final
-    line end the same.
+    The header must be the old header and ``,column`` (the CSV form), or the
+    old header and ``column`` right-justified in one more field of
+    :data:`LEGACY_FIELD` characters (the super file's ``legacy_polar`` form);
+    every other line the old line and one cell, in the same form, that matches
+    ``cells`` whole; the line count and the final line end the same.
     """
     before, after = old.splitlines(), new.splitlines()
     if not before or len(before) != len(after) or old.endswith("\n") != new.endswith("\n"):
         return False
-    if after[0] != f"{before[0]},{column}":
+    if after[0] == f"{before[0]},{column}":
+        split = _csv_cell
+    elif after[0] == before[0] + column.rjust(LEGACY_FIELD):
+        split = _legacy_cell
+    else:
         return False
     for was, now in zip(before[1:], after[1:], strict=True):
-        head, comma, cell = now.rpartition(",")
-        if not comma or head != was or not re.fullmatch(cells, cell):
+        head, cell = split(now)
+        if cell is None or head != was or not re.fullmatch(cells, cell):
             return False
     return True
+
+
+#: The width of each field of a super file in the ``legacy_polar`` form.
+LEGACY_FIELD = 16
+
+
+def _csv_cell(line: str) -> tuple[str, str | None]:
+    """Split a CSV line into everything before its last cell and that cell."""
+    head, comma, cell = line.rpartition(",")
+    return head, cell if comma else None
+
+
+def _legacy_cell(line: str) -> tuple[str, str | None]:
+    """Split a fixed-width line into everything before its last field and that field's cell."""
+    head, field = line[:-LEGACY_FIELD], line[-LEGACY_FIELD:]
+    return head, field.lstrip(" ") if len(field) == LEGACY_FIELD else None
 
 
 def name_difference(

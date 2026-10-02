@@ -121,6 +121,34 @@ def test_the_inventory_command_counts_each_group_of_an_obj_fr_348(tmp_path, caps
     assert stated["mesh_sha256"] == file_sha256(mesh), requirement
 
 
+def test_a_count_whose_file_moved_under_it_is_not_written_fr_348(tmp_path):
+    """P0340-MESH-FACES, FR-348: the digests before and after the count must agree.
+
+    The file reads one sha256 before the count and another after it, so no
+    line is written: no count, no count per boundary and no digest, which
+    leaves the inventory the one written before this requirement (as the
+    block that cannot be counted shows in the first test). A count per
+    boundary that does not stand one for one beside the listed boundaries is
+    left out, the total and the digest kept; the control lists as many as
+    were counted, and a steady digest writes the count.
+    """
+    requirement = "FR-348"
+    from pyflightstream.workspace.sidecars import BOUNDARY_FACES_KEY, face_count_lines
+
+    wing = _saved_simulation(tmp_path / "wing.fsm", ["Body", "Base"], [1, 1, 2, 1, 2])
+    lines = face_count_lines(wing, 3, obj=False)
+    assert lines and not any(BOUNDARY_FACES_KEY in line for line in lines), lines
+    assert "mesh_faces = 5" in lines, (requirement, lines)
+    assert f'mesh_sha256 = "{file_sha256(wing)}"' in lines, (requirement, lines)
+    control = face_count_lines(wing, 2, obj=False)
+    assert "boundary_faces = [3, 2]" in control, (requirement, control)
+
+    digests = iter(["a" * 64, "b" * 64])
+    assert face_count_lines(wing, 2, obj=False, digest=lambda _path: next(digests)) == []
+    steady = face_count_lines(wing, 2, obj=False, digest=lambda _path: "a" * 64)
+    assert steady == [*control[:-1], f'mesh_sha256 = "{"a" * 64}"'], (requirement, steady)
+
+
 def _stamped(monkeypatch, digest: str) -> None:
     """Record every run of a campaign built after this as staging ``wing.fsm`` at ``digest``."""
     from pyflightstream.workspace import CampaignWorkspace
@@ -152,6 +180,8 @@ def _posted(workspace, builder: str) -> dict[str, list[list[str]]]:
     post = Path(workspace.root) / "post"
     tables = {}
     for path in sorted([*post.rglob("SUPER-*.csv"), *post.rglob("*_uns_avg.csv")]):
+        if "archive" in path.relative_to(post).parts:
+            continue  # a post again archives the products of the post before it
         with path.open(encoding="utf-8", newline="") as handle:
             tables[path.relative_to(post).as_posix()] = list(csv.reader(handle))
     return tables
@@ -233,29 +263,34 @@ def test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348
 
 
 def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkeypatch):
-    """P0340-MESH-FACES, FR-348: with no count in the inventory the column is NA, never counted.
+    """P0340-MESH-FACES, FR-348: the post reads the count and never counts; no count is NA.
 
-    The geometry the run recorded is on disk with the very bytes the run
-    recorded, its seven faces readable, and its inventory lists its boundaries
-    and the digest and states no count: a post that counted would write 7, and
-    the post writes NA.
+    First the inventory, beside the very bytes the run recorded, its seven
+    faces readable, keeps its boundaries and its digest and states no count:
+    a post that counted would write 7, and the post writes NA. Then the
+    inventory states its count again and the geometry on disk is replaced by
+    bytes no face reader can count: a post that counted would fail or write
+    NA, and the post writes the inventory's 7 in every row.
     """
     requirement = "FR-348"
     workspace = _campaign(tmp_path, monkeypatch, digest_of_the_run=None, builder="superfile")
     geometry = workspace.inputs_dir / "geometries" / "wing.fsm"
     sidecar = geometry.with_name("wing.boundaries.toml")
-    stated = _sidecar(geometry)
+    stated, inventory = _sidecar(geometry), sidecar.read_bytes()
     assert stated["mesh_faces"] == 7 and stated["mesh_sha256"] == file_sha256(geometry)
     sidecar.write_text(
         'file = "wing.fsm"\nboundaries = ["Body", "Base"]\n'
         f'mesh_sha256 = "{stated["mesh_sha256"]}"\n',
         encoding="utf-8",
     )
-    tables = _posted(workspace, "superfile")
-    assert tables, requirement
-    for name, (header, *rows) in tables.items():
-        assert header[-1] == "MESH_FACES", (requirement, name)
-        assert rows and all(row[-1] == "NA" for row in rows), (requirement, name, rows)
+    for cell, mesh in (("NA", geometry.read_bytes()), ("7", b"no mesh block here\n")):
+        geometry.write_bytes(mesh)
+        tables = _posted(workspace, "superfile")
+        assert tables, requirement
+        for name, (header, *rows) in tables.items():
+            assert header[-1] == "MESH_FACES", (requirement, name)
+            assert rows and all(row[-1] == cell for row in rows), (requirement, name, rows)
+        sidecar.write_bytes(inventory)
 
 
 def _parity():
@@ -294,6 +329,7 @@ def test_the_parity_names_the_column_whole_and_alone_fr_348():
         ),
         "a cell not a count": _NEW.replace(",1056", ",1056.5"),
         "a line added": _NEW + "6001,2.00000,0.50000,NA\n",
+        "a legacy field under a comma header": _NEW.replace(",NA\n", "              NA\n"),
     }
     for label, new in unnamed.items():
         named = parity.name_difference(
@@ -302,6 +338,27 @@ def test_the_parity_names_the_column_whole_and_alone_fr_348():
         assert "requirement" not in named, (requirement, label, named)
     other = parity.name_difference("post", "matriz/polars/P6001_g01.csv", _OLD, _NEW, defined)
     assert "requirement" not in other, (requirement, other)
+
+    # The legacy_polar form of the super file: 16-wide fields, no commas.
+    legacy_lines = [
+        "".join(cell.rjust(16) for cell in row)
+        for row in (("POL", "ALPHA", "CL"), ("6001", "-2.00000", "0.10000"))
+    ]
+    legacy_old = "\n".join(legacy_lines) + "\n"
+    legacy = {
+        "the legacy_polar form": ("1056", 16, True),
+        "a legacy field not a count": ("1056.5", 16, False),
+        "a legacy field of another width": ("1056", 15, False),
+    }
+    for label, (cell, width, admitted) in legacy.items():
+        new = "".join(
+            line + extra.rjust(width) + "\n"
+            for line, extra in zip(legacy_lines, ("MESH_FACES", cell), strict=True)
+        )
+        named = parity.name_difference(
+            "post", "matriz/polars/SUPER-6001_g01.csv", legacy_old, new, defined
+        )
+        assert (named.get("requirement") == requirement) is admitted, (label, named)
 
 
 def test_the_snapshot_admits_the_column_whole_and_alone_fr_348():
