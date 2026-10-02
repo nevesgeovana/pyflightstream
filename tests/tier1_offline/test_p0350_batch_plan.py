@@ -89,11 +89,11 @@ def _fixture(tmp_path: Path, walltimes=("BEST", "BEST", "BEST"), sweep="0.0,2.0,
     return workspace, matrix
 
 
-def _sample(workspace, seconds: float = 720.0) -> None:
+def _sample(workspace, seconds: float = 720.0, campaign: str = "rotor") -> None:
     """One COMPLETED unsteady point of 720 steps: the fit then has a rate of seconds/720."""
     workspace.append_record(
         RunRecord(
-            run_id="rotor/sim_7001/V0300RE120AL+000",
+            run_id=f"{campaign}/sim_7001/V0300RE120AL+000",
             sim_id="7001",
             fs_version_requested="26.123",
             package_version="0.35.0.dev0",
@@ -309,3 +309,19 @@ def test_p0350_hpc_fr377_max_walltime_and_job_root(tmp_path):
         read_hpc_profile(_profile(tmp_path, 'job_root = "/scratch/{node}"'))
     with pytest.raises(InputArtifactError, match="walltime_max"):
         read_hpc_profile(_profile(tmp_path, 'walltime_max = "48:00:00"'))
+
+
+def test_p0350_plan_fr362_the_command_line_prints_the_table(tmp_path, capsys):
+    """P0350-BATCH-TABLE (FR-362): ``plan --batch 2`` prints a row per job and the total."""
+    from pyflightstream.run.cli import main
+
+    workspace, matrix = _fixture(tmp_path)
+    _sample(workspace, campaign="camp")
+    code = main(["plan", str(matrix), "--workspace", str(workspace.root), "--batch", "2"])
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "rotor_b1" in out and "rotor_b2" in out and "longest job" in out
+    grouping = json.loads((workspace.plan_dir("rotor") / "plan.json").read_text("utf-8"))[
+        "grouping"
+    ]
+    assert grouping["batch_count"] == 2

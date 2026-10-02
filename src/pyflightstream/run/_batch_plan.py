@@ -423,7 +423,7 @@ def plan_grouped_matrix(
     CampaignPlan
         The plan, its ``grouping`` set; a point of a refused job or polar is BLOCKED.
     """
-    plan = plan_matrix(path, workspace, cost=True, **keywords)
+    plan = plan_matrix(path, workspace, **{**keywords, "cost": True})
     default = keywords.get("default_fs_version") or keywords.get("fs_version")
     resolved = narrow_to_selection(
         resolve_matrix(
