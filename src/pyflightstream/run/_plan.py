@@ -53,6 +53,11 @@ from pyflightstream.cases.workflows import (
     qsteady_validity,
     rotor_machs,
 )
+from pyflightstream.cases.workflows._freestream import (
+    WakeTermination,
+    planned_wake,
+    wake_warnings,
+)
 from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
     resolve_continuation,
@@ -170,6 +175,13 @@ class PointPlan:
         continuation does (``continuing a CONVERGED unsteady run, <run id>, by
         1 revolution(s)``) or why the request cannot continue the point; None
         on every other point and where the resolver's refusal is the error.
+    wake_termination : dict of str to object
+        On a point of an ``unsteady_rotor`` row that is not a continuation, the
+        wake termination its script emits (FR-321 R5, 0.34.0): the key that
+        stated it (``default`` for the 4R default), the length asked in rotor
+        radii, the steps, the rule that gave V_ax and V_ax in m/s, as
+        :meth:`pyflightstream.cases.workflows._freestream.WakeTermination.record`
+        states them. Empty on every other point.
     """
 
     run_id: str
@@ -184,6 +196,7 @@ class PointPlan:
     rotor_mach: dict[str, dict[str, object]] = field(default_factory=dict)
     qsteady_validity: dict[str, object] = field(default_factory=dict)
     continuation: str | None = None
+    wake_termination: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -759,20 +772,55 @@ class CampaignPlan:
         unvalidated = [entry for entry in self.points if entry.raw]
         if unvalidated:
             lines.append(f"  {len(unvalidated)} point(s) use the raw() escape hatch")
-        # 0.30.0 (M1): every unsteady rotor point states its rotors' tip and
-        # helical Mach numbers, or why they are not known.
-        for entry in self.points:
-            for alias, mach in entry.rotor_mach.items():
-                lines.append(f"  {entry.run_id}: {rotor_mach_line(alias, mach)}")
-        # 0.30.0: every quasi-steady wheel point states the four values of its
-        # blade's 1P reduced frequency, or why the chord is not known.
-        for entry in self.points:
-            if entry.qsteady_validity:
-                lines.append(f"  {entry.run_id}: {qsteady_validity_line(entry.qsteady_validity)}")
-                harmonics = entry.qsteady_validity.get("inflow_fft")
-                if isinstance(harmonics, Mapping):
-                    lines.append(f"  {entry.run_id}: {inflow_harmonics_line(harmonics)}")
+        lines.extend(_point_lines(self.points))
         return "\n".join(lines)
+
+
+def _point_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return the per-point lines of the plan's summary, in the order each kind was added."""
+    lines: list[str] = []
+    # 0.30.0 (M1): every unsteady rotor point states its rotors' tip and
+    # helical Mach numbers, or why they are not known.
+    for entry in points:
+        for alias, mach in entry.rotor_mach.items():
+            lines.append(f"  {entry.run_id}: {rotor_mach_line(alias, mach)}")
+    # 0.30.0: every quasi-steady wheel point states the four values of its
+    # blade's 1P reduced frequency, or why the chord is not known.
+    for entry in points:
+        if entry.qsteady_validity:
+            lines.append(f"  {entry.run_id}: {qsteady_validity_line(entry.qsteady_validity)}")
+            harmonics = entry.qsteady_validity.get("inflow_fft")
+            if isinstance(harmonics, Mapping):
+                lines.append(f"  {entry.run_id}: {inflow_harmonics_line(harmonics)}")
+    # 0.34.0 (FR-321 R5): every rotor point states the wake its termination keeps.
+    for entry in points:
+        if entry.wake_termination:
+            lines.append(f"  {entry.run_id}: {wake_termination_line(entry.wake_termination)}")
+    return lines
+
+
+def wake_termination_line(wake: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one rotor point's wake termination (FR-321 R5).
+
+    ``wake`` is one :attr:`PointPlan.wake_termination`: the L asked, the V_ax
+    used with the rule that gave it, and the steps emitted; a count states
+    itself, its steps and the length it keeps over the run (FR-325 R2).
+    """
+    steps, length, speed = wake.get("steps"), wake.get("length_r"), wake.get("v_ax_m_s")
+    if not isinstance(length, int | float):
+        kept = WakeTermination(**cast(dict[str, Any], wake)).count_kept_r()
+        keeps = "an unknown length" if kept is None else f"about {kept:.3g} R"
+        return f"wake termination {wake.get('stated_as')}: {steps} steps, keeping {keeps} of wake"
+    if steps is None:
+        return (
+            f"wake termination L = {length:g} R ({wake.get('stated_as')}) not converted: "
+            "no rotor radius is known, so no termination line is written"
+        )
+    used = f"{speed:.4g} m/s" if isinstance(speed, int | float) else "none"
+    return (
+        f"wake termination L = {length:g} R ({wake.get('stated_as')}), V_ax {used} "
+        f"({wake.get('rule')}), {steps} steps"
+    )
 
 
 def qsteady_validity_line(validity: Mapping[str, object]) -> str:
@@ -1003,6 +1051,10 @@ def plan_campaign(
         A row whose actuator disc is RELAXED and names a loading profile
         (FR-332, :func:`_warn_on_relaxed_discs_naming_a_profile`); the
         point plans as it would without the warning.
+    PyflightstreamWarning
+        A rotor point whose wake may not reach the length it asks, or whose
+        wake end plane is the solver's default or sits before it (FR-325,
+        :func:`_warn_on_short_wakes`); the plan is what it would be without it.
     """
     canonical = resolve(campaign.fs_version).canonical
     # Before the first folder is allocated, for the reason run_campaign
@@ -1057,6 +1109,7 @@ def plan_campaign(
                 )
             )
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
+    _warn_on_short_wakes(points)
     groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
@@ -1171,6 +1224,41 @@ def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:
             )
 
 
+def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
+    """Return what a point's plan states about its rotors, wheel and wake, READY or not.
+
+    The rotors' tip and helical Mach numbers (0.30.0, M1), a quasi-steady
+    wheel's 1P reduced frequency (0.30.0) and, on a rotor point, the wake its
+    termination keeps (0.34.0, FR-321 R5).
+    """
+    wake = planned_wake(point_case)
+    return {
+        "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(point_case)},
+        "qsteady_validity": qsteady_validity(point_case, inflow_fft=inflow_fft) or {},
+        "wake_termination": {} if wake is None else wake.record(),
+    }
+
+
+def _warn_on_short_wakes(points: Sequence[PointPlan]) -> None:
+    """Warn, and never refuse, on every READY rotor point whose wake may fall short (FR-325).
+
+    The plan warns ALWAYS (the author's decision of 2026-10-01): when the run
+    has fewer revolutions than the length asked needs, at the 4R default and at
+    any larger length; when a step or revolution count keeps less than the 4R
+    recommendation; when a stated wake end plane sits before the length; and
+    on the solver's DEFAULT plane, whose position the plan cannot know. Each
+    warning names the row and the point. Computed from the plan's own records:
+    no solver call and no file read, and the plan's statuses and file are what
+    they would be without it (R6).
+    """
+    for entry in points:
+        if entry.status is not PlanStatus.READY or not entry.wake_termination:
+            continue
+        wake = WakeTermination(**cast(dict[str, Any], entry.wake_termination))
+        for message in wake_warnings(f"row {entry.sim_id!r} ({entry.run_id})", wake):
+            warnings.warn(message, PyflightstreamWarning, stacklevel=3)
+
+
 def _plan_point(
     campaign: Campaign,
     case: SimCase,
@@ -1209,10 +1297,9 @@ def _plan_point(
     # 0.30.0 (M1): the rotors' tip and helical Mach numbers ride on every
     # entry from here on, READY or not, since a point blocked for another
     # reason is still a point whose rotor may reach the speed of sound.
-    base["rotor_mach"] = {mach.alias: mach.record() for mach in rotor_machs(point_case)}
     # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
-    # READY or not, as the Mach numbers do.
-    base["qsteady_validity"] = qsteady_validity(point_case, inflow_fft=inflow_fft) or {}
+    # READY or not, as the Mach numbers do; 0.34.0: a rotor point its wake.
+    base.update(_point_facts(point_case, inflow_fft=inflow_fft))
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count

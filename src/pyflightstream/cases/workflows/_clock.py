@@ -44,6 +44,9 @@ from ._exports import (
     _surface_export,
     surface_time_averaging,
 )
+from ._freestream import (
+    refuse_a_wake_length,
+)
 from ._motion import (
     _motion_view,
 )
@@ -101,6 +104,7 @@ def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
     A refusal that misdescribes the run it is refusing teaches the reader
     the wrong thing about their own row.
     """
+    refuse_a_wake_length(case, "names a run type that turns nothing")
     revolutions = case.solver.wake_termination_revolutions
     if revolutions is None:
         return

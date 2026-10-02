@@ -176,31 +176,57 @@ def _restore_fr331_sign(text: str) -> str | None:
     return ACTUATOR_SPEED.sub(lambda m: m.group(1) + ("" if m.group(2) else "-") + m.group(3), text)
 
 
-def _golden_classes(record: dict) -> tuple[set, set, set]:
-    """The goldens that differ from v0.32.0 by the counter, the FR-51 removal or the FR-331 sign."""
+#: The wake termination line FR-321 (0.34.0) adds to a rotor row that states no termination.
+WAKE_DEFAULT_LINE = re.compile(r"^SET_WAKE_TERMINATION_TIME_STEPS \d+\n", re.MULTILINE)
+
+
+def _strip_fr321_wake(text: str) -> str | None:
+    """The text with the one termination line FR-321 (0.34.0) adds removed, or None.
+
+    FR-321 R6: a rotor row stating no wake termination keeps 4 rotor radii, and
+    its script differs from v0.32.0 by one ``SET_WAKE_TERMINATION_TIME_STEPS``
+    line and nothing else. A text carrying no such line, or more than one,
+    never takes the allowance, and what is left must still match its digest.
+    """
+    if len(WAKE_DEFAULT_LINE.findall(text)) != 1:
+        return None
+    return WAKE_DEFAULT_LINE.sub("", text, count=1)
+
+
+def _admitted(name: str, text: str, digest: str) -> str | None:
+    """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
+    if _sha(text) == digest:
+        return ""
+    stripped, found = COUNTER_REGISTRATION.subn("", text)
+    if found:
+        return "FR-314" if found == 1 and _sha(stripped) == digest else None
+    sign = _restore_fr331_sign(text)
+    if sign is not None and _sha(sign) == digest:
+        return "FR-331"
+    restored = _restore_fr51_block(name, text)
+    return "FR-51" if restored is not None and _sha(restored) == digest else None
+
+
+def _golden_classes(record: dict) -> tuple[set, set, set, set]:
+    """The goldens that differ from v0.32.0 by the counter, the FR-51 removal or the FR-331 sign,
+    and those that also carry the FR-321 termination line (0.34.0)."""
     requirement = "FR-314"
-    changed, fr51, fr331 = set(), set(), set()
+    classes: dict[str, set] = {"FR-314": set(), "FR-51": set(), "FR-331": set(), "": set()}
+    fr321 = set()
     for name, digest in sorted(record["digests"].items()):
         text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
         if _sha(text) == digest:
             continue
-        stripped, found = COUNTER_REGISTRATION.subn("", text)
-        if found == 0:
-            # No counter: the other admitted differences are the FR-51 removal (0.33.1) and
-            # the FR-331 disc speed sign (0.34.0), each whole and alone.
-            sign = _restore_fr331_sign(text)
-            if sign is not None and _sha(sign) == digest:
-                fr331.add(name)
-                continue
-            restored = _restore_fr51_block(name, text)
-            assert restored is not None, (requirement, name, found)
-            assert _sha(restored) == digest, (requirement, name, "differs beyond the FR-51 removal")
-            fr51.add(name)
-            continue
-        assert found == 1, (requirement, name, found)
-        assert _sha(stripped) == digest, (requirement, name, "differs beyond the counter")
-        changed.add(name)
-    return changed, fr51, fr331
+        kind = _admitted(name, text, digest)
+        if kind is None:
+            # The FR-321 line first, whole and alone, then the other admitted differences.
+            wake = _strip_fr321_wake(text)
+            kind = None if wake is None else _admitted(name, wake, digest)
+            assert kind is not None, (requirement, name, "differs beyond the admitted differences")
+            fr321.add(name)
+        classes[kind].add(name)
+    assert not classes[""] - fr321, (requirement, classes[""] - fr321)
+    return classes["FR-314"], classes["FR-51"], classes["FR-331"], fr321
 
 
 #: The goldens FR-51 (0.33.1) changes: a row whose script cuts no section no longer plots them.
@@ -210,6 +236,49 @@ FR51_GOLDENS = {"tests/tier3_licensed/goldens/matriz/P1021-M100RE230AL+000.txt"}
 FR331_GOLDENS = {
     "tests/tier3_licensed/goldens/matriz_gui/P5008-V0300RHO12250AL+040.txt",
     "tests/tier3_licensed/goldens/matriz_gui/P5009-V0300RHO12250AL+040.txt",
+}
+
+#: The goldens FR-321 (0.34.0) changes: every rotor row that states no wake termination keeps
+#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (R6).
+FR321_GOLDENS = {
+    *(
+        f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__{build}.txt"
+        for form in ("bare", "full", "resolved")
+        for build in (
+            "25.100",
+            "26.000",
+            "26.100",
+            "26.101",
+            "26.120",
+            "26.121",
+            "26.122",
+            "26.123",
+            "26.124",
+        )
+    ),
+    *(
+        f"tests/tier3_licensed/goldens/{stem}.txt"
+        for stem in (
+            "matriz/P1020-M144RE438AL+000BE+000",
+            "matriz/P1021-M100RE230AL+000",
+            "matriz/P1022-M100RE230AL+000",
+            "matriz_builds/P7001-M144RE438AL+000BE+000",
+            "matriz_builds/P7002-M144RE438AL+000BE+000",
+            "matriz_physics/P5005-V0490RHO12250AL+000BE+000",
+            "matriz_rotate/P9001-M100RE230AL+000",
+            "matriz_rotate/P9002-M100RE230AL+060",
+            "matriz_rotate/P9003-M100RE230AL-060",
+            *(f"matriz_time/P300{k}-M144RE438AL+000BE+000" for k in range(1, 7)),
+            "matriz_vocab/P8001-M100RE230AL+000BE+000",
+            "matriz_vocab/P8002-M100RE230AL+000BE+000J+060",
+            "matriz_vocab/P8002-M100RE230AL+000BE+000J+080",
+            "matriz_vocab/P8003-M100RE230AL+000BE+000J+060",
+            "matriz_vocab/P8003-M100RE230AL+000BE+000J+080",
+            "matriz_vocab/P8004-M100RE230AL+000BE+000",
+            "matriz_vocab/P8005-M100RE230AL+000BE+000",
+            "matriz_vocab/P8006-M100RE230AL+000BE+000",
+        )
+    ),
 }
 
 
@@ -228,10 +297,11 @@ def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration()
     requirement = "FR-314"
     record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
     assert record["tag"] == "v0.32.0" and len(record["digests"]) == 134, record.keys()
-    changed, fr51, fr331 = _golden_classes(record)
+    changed, fr51, fr331, fr321 = _golden_classes(record)
     assert changed == CHANGED_GOLDENS, (requirement, changed ^ CHANGED_GOLDENS)
     assert fr51 == FR51_GOLDENS, (requirement, fr51 ^ FR51_GOLDENS)
     assert fr331 == FR331_GOLDENS, (requirement, fr331 ^ FR331_GOLDENS)
+    assert fr321 == FR321_GOLDENS, (requirement, fr321 ^ FR321_GOLDENS)
 
 
 def test_fr314_the_fr331_sign_is_admitted_whole_and_alone():
@@ -262,6 +332,32 @@ def test_fr314_the_fr331_sign_is_admitted_whole_and_alone():
     assert _restore_fr331_sign("SET_FREESTREAM CONSTANT\n") is None, requirement
 
 
+def test_fr314_the_fr321_wake_line_is_admitted_whole_and_alone():
+    """Controls: a second change beside the termination line, or a second line, fails.
+
+    P0340-WAKE-LENGTH: the 4R default of FR-321 adds one termination line to a
+    rotor row that states none, and the golden comparison admits that line and
+    nothing more.
+    """
+    requirement = "FR-321"
+    record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
+    for name in sorted(FR321_GOLDENS):
+        digest = record["digests"][name]
+        text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
+        stripped = _strip_fr321_wake(text)
+        assert stripped is not None and _admitted(name, stripped, digest) is not None, name
+        # A second change beside the line: one more emitted line elsewhere.
+        planted = text.replace("SOLVER_MINIMUM_CP", "SOLVER_MINIMUM_CP 0\nSOLVER_MINIMUM_CP", 1)
+        assert planted != text, name
+        again = _strip_fr321_wake(planted)
+        assert again is not None and _admitted(name, again, digest) is None, (requirement, name)
+        # Two termination lines never take the allowance.
+        twice = WAKE_DEFAULT_LINE.sub(lambda m: m.group(0) * 2, text, count=1)
+        assert _strip_fr321_wake(twice) is None, (requirement, name)
+    # A script without the line never takes the allowance.
+    assert _strip_fr321_wake("SET_FREESTREAM CONSTANT\n") is None, requirement
+
+
 def test_fr314_the_fr51_removal_is_admitted_whole_and_alone():
     """Controls: a second change beside the removal, or part of the block, fails."""
     requirement = "FR-314"
@@ -269,6 +365,9 @@ def test_fr314_the_fr51_removal_is_admitted_whole_and_alone():
     (name,) = sorted(FR51_GOLDENS)
     digest = record["digests"][name]
     text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
+    if name in FR321_GOLDENS:
+        # The row also keeps the 4R wake of FR-321 (0.34.0): that line out first, alone.
+        text = _strip_fr321_wake(text) or ""
     restored = _restore_fr51_block(name, text)
     assert restored is not None and _sha(restored) == digest, requirement
     # A second extra change beside the removal.

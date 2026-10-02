@@ -68,7 +68,7 @@ from ._freestream import (
     _free_stream,
     _RowFreestream,
     _the_custom_freestream,
-    _wake_termination,
+    settings_with_the_wake,
 )
 from ._geometry import (
     _open_geometry,
@@ -117,7 +117,6 @@ from ._solver_settings import (
     _custom_flags,
     _raw_commands,
     _refuse_the_loads_selections_on_a_march,
-    _settings,
 )
 from ._timing import (
     rotor_time_stepping,
@@ -661,7 +660,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         time_iterations=stepping.time_iterations,
         delta_time=stepping.delta_time_s,
     )
-    _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    settings_with_the_wake(case, script, stepping)
     register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
@@ -888,6 +887,6 @@ def _rotor_motions(
         time_iterations=stepping.time_iterations,
         delta_time=stepping.delta_time_s,
     )
-    _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    settings_with_the_wake(case, script, stepping)
     register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
