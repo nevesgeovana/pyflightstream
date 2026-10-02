@@ -1134,7 +1134,7 @@ def _complete(
     return CollectOutcome(
         run_id=record.run_id,
         state="COLLECTED",
-        detail=f"{len(collected)} output(s) collected, recorded {status}"
+        detail=f"{len(collected)} output(s) collected, recorded {completed.status}"
         + ("; WARNING: " + "; ".join(status_warnings) if status_warnings else ""),
         record=completed,
     )

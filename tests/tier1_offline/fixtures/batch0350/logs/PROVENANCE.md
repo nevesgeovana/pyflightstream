@@ -18,7 +18,7 @@ re-initialisation between); C2b is 9811 AL+000, then 9821 J+150 (a reopened mode
 a second polar) and 9821 J+190; E2 is 9811 AL+000, then 9841 AL+000 (a mesh change, the start
 of a second polar) and 9841 AL+040. None of these logs prints a wake-edge import line.
 
-| fixture | source (under the probe folder) | source sha256 | bytes |
+| fixture | source (under the licensed probe workspace of 2026-10-02 (RPT-141)) | source sha256 | bytes |
 |---|---|---|---|
 | `A2.cumulative.txt` | `reinit-test/armA/A2_log.txt` | `048e20f2fc6aee42244d5c1619c31de012f53d612dcbf9db42fd9557b9ceaf17` | 25269 |
 | `C2b.cumulative.txt` | `reinit-test/armC/p2b/C2b_log.txt` | `eb710699a1ba4b0668300be8fb01d5a455f5d69eaf1ed39a31a63c3a9b02bf4a` | 47884 |

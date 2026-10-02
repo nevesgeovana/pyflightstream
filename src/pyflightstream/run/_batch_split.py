@@ -316,20 +316,24 @@ def best_walltime_s(estimate_s: float, margin_s: float, factor: float = BEST_FAC
     return math.ceil((factor * estimate_s + margin_s) / 60.0 - 1e-9) * 60
 
 
-def walltime_text(seconds: int) -> str:
-    """Return the WALLTIME cell's text for a wall clock: whole minutes, rounded up (``252m``).
+def walltime_text(seconds: int, *, split: JobSplit | None = None) -> str:
+    """Return a job's wall clock as the WALLTIME cell writes it: whole minutes, else seconds.
 
     Parameters
     ----------
     seconds : int
         The wall clock in seconds.
+    split : JobSplit or None, optional
+        Unused; kept so callers that pass the job keep working.
 
     Returns
     -------
     str
-        ``<minutes>m``, the unit the WALLTIME cell takes.
+        ``<minutes>m`` when the seconds are whole minutes, else ``<seconds>s`` (``68s``), so a
+        clock summed from the rows' own cells is written exactly and never rounded up.
     """
-    return f"{math.ceil(seconds / 60.0 - 1e-9)}m"
+    del split
+    return f"{seconds // 60}m" if seconds % 60 == 0 else f"{seconds}s"
 
 
 def _minutes(seconds: float) -> str:
@@ -346,29 +350,42 @@ def _cells_of(split: JobSplit) -> list[PolarUnit]:
 def _from_cells(
     split: JobSplit, estimate_s: float | None, max_walltime_s: float | None
 ) -> tuple[int | None, str, bool | None, float | None, list[str], str | None]:
-    """Return the walltime of a job whose rows state cells: the smallest, named, fitted."""
+    """Return the walltime of a job whose rows state cells: the SUM of its points' budgets.
+
+    A row's WALLTIME cell is the budget of ONE of its points (the owner's matrices state the
+    wall clock a single datapoint is given, 2026-10-02), so a job that runs several points in
+    one instance asks for the sum over its points of their rows' cells. A sum above the
+    profile's ``max_walltime`` is capped there with a warning suggesting a larger ``n``; one
+    point's own cell above it is refused.
+    """
     cells = _cells_of(split)
-    chosen = min(cells, key=lambda unit: unit.walltime_cell_s or 0.0)
-    seconds = int(chosen.walltime_cell_s or 0.0)
     warnings: list[str] = []
-    stated = {unit.walltime_cell_text for unit in cells}
-    if len(stated) > 1:
-        listed = ", ".join(f"{unit.sim_id}: {unit.walltime_cell_text}" for unit in cells)
-        warnings.append(
-            f"the polars of one job state different wall clocks ({listed}); the job takes the "
-            f"smallest, {chosen.walltime_cell_text}."
-        )
-    if max_walltime_s is not None and seconds > max_walltime_s:
+    too_long = [
+        unit
+        for unit in cells
+        if max_walltime_s is not None and (unit.walltime_cell_s or 0.0) > max_walltime_s
+    ]
+    if too_long and max_walltime_s is not None:
+        unit = too_long[0]
         return (
             None,
             "matrix",
             None,
             None,
             warnings,
-            f"the WALLTIME {chosen.walltime_cell_text} of row {chosen.sim_id} is above the "
+            f"the WALLTIME {unit.walltime_cell_text} of row {unit.sim_id} is above the "
             f"cluster's max_walltime of {_minutes(max_walltime_s)}; write a cell the cluster "
             "grants, or BEST.",
         )
+    seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
+    if max_walltime_s is not None and seconds > max_walltime_s:
+        warnings.append(
+            f"the job's points ask {_minutes(seconds)} together, above the cluster's max_walltime "
+            f"of {_minutes(max_walltime_s)}; the job asks the maximum, and a larger --batch n "
+            "makes shorter jobs."
+        )
+        seconds = int(max_walltime_s)
+        return seconds, "max_walltime", False, None, warnings, None
     if estimate_s is None:
         return seconds, "matrix", None, None, warnings, None
     need = best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
@@ -376,9 +393,9 @@ def _from_cells(
         return seconds, "matrix", True, None, warnings, None
     short = float(need - seconds)
     warnings.append(
-        f"the job asks {chosen.walltime_cell_text} and its estimate needs {need // 60}m "
-        f"(1.25 x {_minutes(estimate_s)} plus the margin), {_minutes(short)} short; the cell "
-        "is kept, and a larger --batch n makes shorter jobs."
+        f"the job's points ask {_minutes(seconds)} together and its estimate needs {need // 60}m "
+        f"(1.25 x {_minutes(estimate_s)} plus the margin), {_minutes(short)} short; the cells "
+        "are kept, and a larger --batch n makes shorter jobs."
     )
     return seconds, "matrix", False, short, warnings, None
 

@@ -256,6 +256,18 @@ def test_p0350_collect_fr370_walltime_reached_from_the_points_clock(tmp_path):
     assert _status(workspace, "AL+020").status is RunStatus.CONVERGED
 
 
+def test_p0350_collect_fr370_detail_names_the_recorded_clock_status(tmp_path):
+    """P0350-BATCH-RECORDS (FR-370): the detail names the recorded clock-stop status."""
+    workspace, job_dir, _ = _workspace(tmp_path, "polar_sweep")
+    actions = job_dir / "datapoints" / "DP-AL+000" / "actions"
+    actions.mkdir()
+    (actions / "pfs_walltime_clock.json").write_text(json.dumps(STATE), encoding="utf-8")
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    outcomes = {outcome.run_id: outcome for outcome in report.collected}
+    assert "recorded WALLTIME_REACHED" in outcomes["camp/sim_2006/AL+000"].detail
+    assert "recorded CONVERGED" in outcomes["camp/sim_2006/AL+020"].detail
+
+
 def test_p0350_collect_fr370_a_point_run_alone_is_collected_as_in_0_34_0(tmp_path):
     """The control: the same clock state beside a point with no job entry changes nothing."""
     workspace = CampaignWorkspace(tmp_path / "camp")

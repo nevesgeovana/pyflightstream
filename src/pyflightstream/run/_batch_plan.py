@@ -104,7 +104,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     del workspace
     workflow = str(case.variables.get(WORKFLOW_KEY, "")).strip()
     if workflow not in UNSTEADY_WORKFLOWS:
-        return f"a {workflow or 'LEGACY'} row: grouped modes run unsteady rows only (D6)"
+        return f"a {workflow or 'LEGACY'} row: grouped modes run unsteady rows only"
     reasons = (
         (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
         (case.fsi is not None, "an FSI row: a coupled run is not grouped in this release"),
@@ -280,7 +280,7 @@ def _job_of(
         factor=BEST_FACTOR,
         margin_s=max(unit.margin_s for unit in units),
         walltime_s=walltime,
-        walltime_written=walltime_text(walltime) if walltime is not None else "",
+        walltime_written=walltime_text(walltime, split=split) if walltime is not None else "",
         walltime_source=source,
         fits=fits is not False,
         shortfall_s=short,
