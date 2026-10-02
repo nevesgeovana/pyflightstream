@@ -474,6 +474,28 @@ the whole run to them, so the other simulations are not touched, their new
 points included. Refused beside `--resume` or `--force-rerun`, for an id the
 matrix does not carry, and when nothing of the selection is recorded.
 
+**To plan and run ONE simulation, or some of its points, without editing the
+matrix** (since 0.34.0), select them on both commands:
+
+```text
+pyfs-matrix plan <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
+pyfs-matrix run  <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
+```
+
+`--sims` takes simulation ids as the matrix spells them, and `--points` takes
+the point names the plan prints, only beside `--sims`. Only the selection is
+planned, staged and run: every other point keeps its record, and the matrix
+file is not written. An id or a point the matrix does not carry is refused
+before anything runs, naming the ones that exist. A selected point that is
+already recorded follows the rules above (refused, `--resume`,
+`--force-rerun`). Without `--force-rerun-all`, `--sims` alone runs those
+simulations; in 0.33.0 that was refused.
+
+**A second run of the same matrix without `--resume`** is refused, as before,
+with exit status 2 and nothing run; since 0.34.0 the message says how many
+points are recorded and how many would run, and prints the command you typed
+with `--resume` added, ready to paste.
+
 **A correction that DOES change the point's name needs none of this.** The name
 is written by the row's `FLIGHT_CONDITION`, so correcting a value in that cell
 gives the point a new identity: it is simply a new point, and `--resume` runs it
