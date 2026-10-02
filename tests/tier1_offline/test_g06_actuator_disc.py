@@ -157,6 +157,7 @@ def test_g06_a_row_naming_an_actuator_emits_the_disc_before_the_solver_starts(ma
         "CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PROP",
         f"SET_ACTUATOR_AXIS 1 {hub} X 0.0",
         "SET_ACTUATOR_RADIUS 1 0.5 0.1",
+        # FR-331: the disc speed handed to the solver is minus the block's hand times the speed.
         "SET_PROP_ACTUATOR_RPM 1 -2400.0",
         "SET_PROP_ACTUATOR_THRUST 1 120.0 NEWTONS",
         "ENABLE_ACTUATOR 1",
@@ -221,6 +222,7 @@ def test_g06_the_hand_is_the_block_s_and_a_block_s_swirl_is_emitted():
     lines, script = _lines(case)
     hub = script.entities.labels("frames")["HUB"]
     assert f"SET_ACTUATOR_AXIS 1 {hub} X 0.25" in lines
+    # FR-331: the disc speed handed to the solver is minus the block's hand times the speed.
     assert "SET_PROP_ACTUATOR_RPM 1 2400.0" in lines
     assert "SET_PROP_ACTUATOR_SWIRL 1 0.8" in lines
 
@@ -1425,6 +1427,7 @@ def test_g20_a_disc_takes_its_speed_from_the_advance_ratio(make):
     stated = _with_disc(make(ACTUATOR="PROP", ACTUATOR_RPM="2250", ACTUATOR_THRUST="120"))
     derived_lines, _ = _lines(derived)
     stated_lines, _ = _lines(stated)
+    # FR-331: the disc speed handed to the solver is minus the block's hand times the speed.
     assert "SET_PROP_ACTUATOR_RPM 1 -2250.0" in derived_lines, [
         line for line in derived_lines if "ACTUATOR_RPM" in line
     ]
