@@ -6,11 +6,18 @@ and of D, the blade saved by 26.124 after a 12-step unsteady_rotor solve (far fi
 26.124 table is NOT in the released package (FR-312 R2: a 26.124 file keeps its blocks); the
 tests give it to the package's own reset in-process, which is what registering it in 0.35.0
 would do, and they pin the released behaviour beside it.
+
+D's WAKE (268 lines) and SOLVER (720 lines) are recorded as one placeholder line each,
+carrying the block's sha256; the fixture carries the blade's fresh-import hashes of the same
+two blocks under the same convention (``block_sha256``), so those two are compared by
+content, as the other four blocks the reset puts back are compared by their lines.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -28,6 +35,19 @@ BUILD124, BUILD120, UNIT = "8172026", "7012026", "METER"
 #: The blocks RPT-135 measured the reset to put back on D.
 RESET_PUT_BACK: tuple[str, ...] | None = ("GLOBAL", "MOTION", "POST", "WAKE", "SOLVER", "ACOUSTIC")
 MESH = ["$MESH_START$", "<the mesh block is not recorded>", "$MESH_END$"]
+#: A block of D recorded by its line count and hash rather than by its lines.
+HASHED = re.compile(r"<recorded block: (\d+) lines, sha256 ([0-9a-f]{64})>")
+
+
+def _sha256(lines) -> str:
+    """The fixture's convention: the block's lines, markers left out, joined by '|', latin-1."""
+    return hashlib.sha256("|".join(lines).encode("latin-1")).hexdigest()
+
+
+def _content(body) -> str:
+    """A recorded block's content hash, read from its placeholder when it carries one."""
+    match = HASHED.fullmatch(body[0]) if len(body) == 1 else None
+    return match[2] if match else _sha256(body)
 
 
 def _data() -> dict:
@@ -76,6 +96,15 @@ def test_the_dirty_save_differs_and_the_reset_puts_back_what_rpt_135_measured_fr
     dirty, fresh = _text(data["dirty"]), _text(data["fresh"]["blade"])
     before = [n for n in _table() if block_lines(dirty)[n] != block_lines(fresh)[n]]
     assert sorted(before) == sorted(RESET_PUT_BACK), before
+    # By content, not by the placeholder: the two blocks of D recorded by hash are compared
+    # with the fresh blade's hashes of the same convention, which are re-measured first.
+    recorded = data["block_sha256"]["fresh_blade"]
+    fresh_blocks, dirty_blocks = data["fresh"]["blade"]["blocks"], data["dirty"]["blocks"]
+    hashed = [n for n in dirty_blocks if HASHED.fullmatch(dirty_blocks[n][0])]
+    assert sorted(hashed) == sorted(recorded) == ["SOLVER", "WAKE"], hashed
+    assert all(recorded[n] == _sha256(fresh_blocks[n]) for n in recorded), recorded
+    differ = [n for n in _table() if _content(dirty_blocks[n]) != _content(fresh_blocks[n])]
+    assert sorted(differ) == sorted(RESET_PUT_BACK), differ
     # The table is registered for this test only, as an entry of the released registry,
     # which is what registering it in 0.35.0 would do; the registry is restored after.
     monkeypatch.setitem(FRESH_IMPORT, (BUILD124, UNIT), _table())
