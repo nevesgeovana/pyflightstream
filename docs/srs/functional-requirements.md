@@ -3944,6 +3944,8 @@ requirement below is one seam of that division.
 
     Read with PFS-2074.26 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
+    Fixed by FR-396 in 0.35.0 (pending).
+
     Known defect on 26.124 (RPT-134, 2026-10-02): the continuation the package
     emits re-initializes the reopened state and re-marches from step 1; the fix
     is 0.35.0 scope, and the requirement stays implemented by decision of
@@ -8061,6 +8063,7 @@ Requirements written after the specification was last reconciled with the packag
     - R3 A setup stating both, `VORTICITY`, is accepted without a warning.
     - R4 On a row turning no rotor, the moments model is the one stated, `PRESSURE` unstated (FR-317).
     - R5 The two settings do not yet reach the same exports of an unsteady row. The moments model precedes `START_SOLVER`, so every step export carries it. The vorticity drag list is an analysis-phase command in every edition of the command database and follows `START_SOLVER`, so it reaches the final loads export and not the step exports. The order is kept as documented. Measured on 26.124 (build 8172026) on 2026-10-02 (RPT-133): in this order no step export carries the list (0 of 12 differ from a march without it) and the final export does; the solver accepts the list before `START_SOLVER`, every step export then carries it (12 of 12) and the last step equals the final export of the documented order. Moving the list is a change of the emitted script, 0.35.0 scope; 0.34.0 keeps the order.
+    - R6 Amended 2026-10-02 for 0.35.0 (pending): a row turning a rotor that states `vorticity_drag_families` emits `SET_VORTICITY_DRAG_BOUNDARIES` before `START_SOLVER`, so every step export carries the list (RPT-133). Marker P0350-VORTICITY-BEFORE-SOLVE.
 
     Solution (release 0.33.0): `pyflightstream.cases._setup_link.moments_model_of`, called at the analysis settings of every run type.
 
@@ -8612,3 +8615,273 @@ Requirements written after the specification was last reconciled with the packag
     - R4 The only emitted bytes that change from 0.33.0 are a toggle line of these five commands that asked DISABLE; the change is named in the parity script under this requirement and in the migration page.
 
     Solution (release 0.34.0): the five keywords join the toggles read ahead of the first emission in `script/_settings.py` (`READ_TOGGLES`), and the entry of `scripts/check_parity.py` that names the difference.
+
+## The query verbs and other 0.35.0 requirements
+
+!!! requirement "FR-379 pyfs-matrix status prints one row per polar <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix status` shall print one row per polar of the workspace, a polar being one simulation and its sweep.
+
+    - R1 Each row states the simulation id, the polar name, which variable the sweep varies, the number of datapoints, the matrix the simulation came from, and the status.
+    - R2 Where every datapoint of the polar has the same status, the row states that status word.
+    - R3 Where the datapoints of a polar differ in status (a mixed polar), the row states the count of datapoints concluded, the count failed, and the count submitted or running, each as a number.
+    - R4 Rows are ordered by matrix, then by simulation id taken as a number.
+
+    Rationale: A campaign is read by polar: one line per simulation, with the state of its points visible without opening a file.
+
+    Verification: tier 1, a test carrying the markers P0350-STATUS-POLAR and P0350-STATUS-MIXED; release 0.35.0.
+
+!!! requirement "FR-380 status selects simulations, matrices and statuses <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix status` shall accept `--sims`, `--matrix`, `--status` and `--failed` to narrow the rows it prints.
+
+    - R1 `--sims` takes simulation ids separated by commas, written with or without square brackets (`2006,2007` and `[2006,2007]` select the same simulations).
+    - R2 `--matrix` takes a matrix stem, found in either matrix home as every other command finds it.
+    - R3 `--status` takes a recorded status word and may be repeated; `--failed` selects the polars with at least one failed datapoint.
+    - R4 A simulation id that names no record and no planned point is named on standard error. The exit status for that case is not specified by this requirement.
+
+    Rationale: A reader asks about a few simulations or one matrix, and an id that matches nothing must be visible rather than silently absent.
+
+    Verification: tier 1, a test carrying the marker P0350-STATUS-SELECT; release 0.35.0.
+
+!!! requirement "FR-381 One effective record per datapoint, one home for the rules <span class='srs-pending'>pending</span>"
+
+    Requirement: Every query shall count a datapoint once, by its effective record, and the rules that choose that record shall have one home shared with the run, the post and the sweep table.
+
+    - R1 A steady job is expanded into its points, each with its own status, iterations and residual.
+    - R2 A run continued by a later run is replaced by the continuation.
+    - R3 A refused continuation that never started does not replace the record before it.
+    - R4 A note left by `delete-sims` is not a datapoint.
+    - R5 The latest record of a point is found by the point's name within its simulation, never by run id alone.
+    - R6 The run, the post, the sweep table and every query read these rules from one module; no reader keeps a second copy.
+
+    Rationale: Two readers that choose the effective record by their own rules disagree on how many datapoints a campaign has.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-EFFECTIVE; release 0.35.0.
+
+!!! requirement "FR-382 status shows planned points and states its freshness <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix status` shall show by default the planned points that no record carries, with the status `planned`, and shall state the freshness of the files it read.
+
+    - R1 A point that a matrix's plan names and that no record carries (by its own id, by a continuation of it, or by a job of its row that names it or ran none) is counted among the datapoints of its polar with the status `planned`.
+    - R2 `planned` is written in lower case. It is a derived state; no recorded status word takes that form.
+    - R3 A polar whose points are all planned is shown with the status `planned`; the number of datapoints shown for a polar that has both recorded and planned points states both counts.
+    - R4 A footer states, for each matrix, whether the plan was made from the matrix as it is on disk, whether the post's products index every recorded run, and whether the post is complete.
+
+    Rationale: Work not yet run is part of the state of a campaign, and a derived state must never be mistaken for a recorded one.
+
+    Verification: tier 1, a test carrying the marker P0350-STATUS-PLANNED; release 0.35.0.
+
+!!! requirement "FR-383 Query commands are read only <span class='srs-pending'>pending</span>"
+
+    Requirement: A query command shall change no file, shall create no file or folder in the workspace, shall take no lock and wait on none, and shall expand no compacted simulation.
+
+    - R1 No record, log, activity entry, live log, storage entry, archive or boundary inventory is written by a query.
+    - R2 The manifest lock and its guard are neither created nor waited on, so a campaign writing at that moment is neither slowed nor refused.
+    - R3 A compacted simulation is read as it is and is not expanded, translated or collected.
+    - R4 A manifest row the query cannot read is named by its position and run id, and the other rows are shown.
+    - R5 A query neither asks the scheduler nor uses the network by default.
+
+    Rationale: A command that is run while a campaign is writing must be safe to run at any time and must leave the workspace as it found it.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-READ-ONLY; release 0.35.0.
+
+!!! requirement "FR-384 A query prints recorded words as recorded <span class='srs-pending'>pending</span>"
+
+    Requirement: A query shall print each status exactly as it is recorded, and shall print a state it derives in a form no recorded status takes.
+
+    - R1 The recorded words are the run statuses of the record model; none is renamed, merged or mapped to another word.
+    - R2 A query never re-reads a log to judge a point again.
+    - R3 A marked-failed verdict is shown as recorded, with the status it replaced.
+    - R4 A derived state (`planned`, a post not yet made) is spelled so that it cannot be read as a recorded status.
+
+    Rationale: A reader who sees CONVERGED must know the record says CONVERGED; the query is a view of the record and never a second judge.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-RECORDED-WORDS; release 0.35.0.
+
+!!! requirement "FR-385 Machine output of the query verbs <span class='srs-pending'>pending</span>"
+
+    Requirement: `--json` and `--csv` shall print the rows of the table to standard output and nothing else there.
+
+    - R1 The console opening block and the signature stay on standard error.
+    - R2 `--json` prints one document carrying a schema identifier, the workspace, the time of the read, the modification time of each record file read, and the rows.
+    - R3 `--csv` prints the rows only, with line ends LF (NFR-32).
+    - R4 The rows of the table, of `--json` and of `--csv` are the same rows.
+
+    Rationale: A program or a spreadsheet reads the output directly, so standard output must hold the data and nothing else.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-MACHINE; release 0.35.0.
+
+!!! requirement "FR-386 pyfs-matrix show prints one datapoint's record <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix show` shall print the effective record of one datapoint, taken from a simulation id with a point, from a run id or from its alias (FR-395), with the outcome first.
+
+    - R1 The outcome comes first: the status, the marked verdict (the status before, when, why), the error, the warnings, the residual note, the stopping reason, the iterations and residual, and any condition outside its tolerance.
+    - R2 Then the evidence files present for the point, each with its path and its last lines: the solver log the record used and the other logs and exports that exist.
+    - R3 Then the activity-log and post-log entries that name the point.
+    - R4 Then the chain: the run it continues and the run that continued it, and the archived outputs.
+    - R5 Then the identity: package version and commit, requested and reported solver version, build, recipe and script digests, executor and job id, start and finish, wall time.
+    - R6 Then the inputs: the post options, the setup snapshot limited to flags set away from default, the reference block, and the input digests.
+    - R7 Given a simulation id alone, it prints the polar's points one per row and then the card of each failed point.
+
+    Rationale: The question about a datapoint is why it is in its state; the first screen must answer it.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-SHOW; release 0.35.0.
+
+!!! requirement "FR-387 pyfs-matrix log prints the activity and the post log <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix log` shall print the activity log, filtered, and with `--post` the post log of a matrix, grouped.
+
+    - R1 The activity log is printed oldest first and filtered by `--sims`, `--run`, `--stage` and `--since` (a time or a duration), and `--problems` keeps the events that carry problems or a failed outcome.
+    - R2 `--open` lists the stages that started and have no finish, answered from the record and never from the scheduler.
+    - R3 `--post` reads the post log of the matrix named and groups its entries by category, then by product family, then by message shape, with a count and one example per group; `--sims` narrows it to the points named.
+    - R4 The grouping is the one that `--pproc-warnings` prints, taken from one home.
+
+    Rationale: A long run leaves hundreds of log entries; a reader needs the unfinished stage and the grouped warnings, not the whole file.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-LOG; release 0.35.0.
+
+!!! requirement "FR-388 The query functions in Python without pandas <span class='srs-pending'>pending</span>"
+
+    Requirement: Each query shall be available in `pyflightstream.workspace.ledger` as a function that returns the rows its `--json` form prints, as plain dictionaries, without requiring pandas.
+
+    - R1 The module offers a function for the status rows by polar, the per-point rows, one datapoint's card, the activity rows, the post-log groups and the trace of a product.
+    - R2 Importing the module and calling the functions needs no optional dependency; a conversion to a data frame, if offered, imports pandas only when called.
+    - R3 The CLI verbs call these functions; the table, JSON and CSV forms are rendering of the same rows.
+    - R4 The module imports only from layers below it (workspace, naming, storage, results tables).
+
+    Rationale: The same answers must be available to a script as to a person, on the lean install.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-PYTHON; release 0.35.0.
+
+!!! requirement "FR-389 pyfs-matrix trace follows a product to its runs <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix trace <product path>` shall print, from the post's products index, the simulation, post options and runs the product holds.
+
+    - R1 For each run it prints the effective record's identity: package, build, recipe digest, script digest, input digests and post options.
+    - R2 It prints the path of the run's provenance document and of the product's sidecar when one exists.
+    - R3 `trace --run <run id>` prints the provenance document as a readable tree of inputs, script and outputs with their digests.
+    - R4 A path the products index does not name is reported as such, on standard error.
+
+    Rationale: A figure in a paper must be traceable to the runs and inputs that produced it.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-TRACE; release 0.35.0.
+
+!!! requirement "FR-390 pyfs-matrix history prints every record a point had <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix history <simulation or point>` shall print every record the point ever had, including those in archived manifests and in datapoint archives.
+
+    - R1 The records are read from the present manifest and from each archived copy, with the continuation chain and the archive stamps.
+    - R2 Archived records are read only by this verb and by `diff`; `status` and `show` never merge them into the present.
+    - R3 It is read only (FR-383).
+
+    Rationale: The state now and the states before are different questions, and only the second needs the archives.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-HISTORY; release 0.35.0.
+
+!!! requirement "FR-391 pyfs-matrix diff compares two runs <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix diff <run a> <run b>` shall print what differs between two runs: versions, digests, solver flags, flight condition and outcome.
+
+    - R1 A run id may carry `@<archive stamp>` to name an archived copy.
+    - R2 Script differences are named by line, with the input each difference comes from, using the comparison the rebuild already makes.
+    - R3 It is read only (FR-383).
+
+    Rationale: Two runs of one point differ for a reason; the verb names the reason.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-DIFF; release 0.35.0.
+
+!!! requirement "FR-392 log --storage lists past storage calls <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix log --storage` shall list the storage calls the workspace recorded: each call as it was recorded.
+
+    - R1 The calls are read from the storage register without changing it.
+    - R2 The filters of FR-387 apply where they have a meaning for a storage call.
+
+    Rationale: What was freed or moved, and when, is part of the history of a workspace.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-LOG-STORAGE; release 0.35.0.
+
+!!! requirement "FR-393 status --additional lists the additional register <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix status --additional` shall list the entries of the additional runs register.
+
+    - R1 Each entry is printed with its recorded fields and no field is derived.
+    - R2 The register is read without being changed.
+
+    Rationale: Additional runs live in their own register; a reader asking about them must not open the file.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-ADDITIONAL; release 0.35.0.
+
+!!! requirement "FR-394 The coupled-run block of show <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix show` shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.
+
+    - R1 The block is printed only when the point is a coupled run.
+    - R2 A coupled file that does not exist is named as absent; nothing is created.
+
+    Rationale: A coupled point's outcome depends on files a plain point does not have.
+
+    Verification: tier 1, a test carrying the marker P0350-QUERY-SHOW-FSI; release 0.35.0.
+
+!!! requirement "FR-395 Every datapoint has a run id alias <span class='srs-pending'>pending</span>"
+
+    Requirement: Every datapoint shall have the alias `<sim>_<index>`, where `<index>` is the 1-based position of the datapoint in its polar's sweep order as the plan lists the points, derived and never stored.
+
+    - R1 The alias of a point does not change when the point is re-run or continued.
+    - R2 The alias is accepted wherever a run id is typed: the query verbs, `--points`, `mark-failed` and `delete-sims`.
+    - R3 The alias is printed beside the run id wherever the run id is printed by a query.
+    - R4 The points of a steady job have aliases like any other point.
+    - R5 An alias that names no point is named on standard error.
+
+    Rationale: A run id of a continuation is long and changes; the alias is short and stable.
+
+    Verification: tier 1, a test carrying the marker P0350-RUN-ID-ALIAS; release 0.35.0.
+
+!!! requirement "FR-396 A continuation continues the march <span class='srs-pending'>pending</span>"
+
+    Requirement: A continuation script that reopens a saved state shall continue the march from that state (RPT-134).
+
+    - R1 It shall not emit `INITIALIZE_SOLVER`, which clears the reopened solution and restarts the march at step 1.
+    - R2 It shall not register again the unsteady actions that the saved simulation file carries.
+    - R3 When a continuation adds no time step to the march the post warns, naming the run and its continuation.
+
+    Rationale: A measured continuation on the solver restarted at step 1; a continuation that restarts is not one.
+
+    Verification: tier 1, a test carrying the markers P0350-CONTINUATION-NO-REINIT and P0350-CONTINUATION-ACTIONS-ONCE and P0350-CONTINUATION-WARN; release 0.35.0.
+
+!!! requirement "FR-397 The post writes no archive folder by default <span class='srs-pending'>pending</span>"
+
+    Requirement: `pyfs-matrix post` shall write no `archive/` folder by default.
+
+    - R1 The option `--archive` asks for the folder and writes it as 0.34.0 did.
+    - R2 This requirement states the default of the post only; the other writers are not covered by it.
+
+    Rationale: Archives of a product that is rebuilt at every post are space the user did not ask for.
+
+    Verification: tier 1, a test carrying the marker P0350-ARCHIVE-OPT-IN; release 0.35.0.
+
+!!! requirement "FR-398 The cost file <span class='srs-pending'>pending</span>"
+
+    Requirement: A workspace may carry a cost file `inputs/costs/c<NNN>.toml`, read by `plan --cost` and by the `plan --batch` estimate when it is present.
+
+    - R1 The file states an efficiency curve against NCPUS; a value between two stated points is interpolated, and a value outside the stated range is never extrapolated silently.
+    - R2 The file states an exponent b applied to the face count of the mesh as N^b.
+    - R3 The file states the cost multipliers of flags; a flag multiplier exists only in this file.
+    - R4 Without a cost file `plan --cost` behaves as in 0.34.0.
+    - R5 The package ships only a synthetic example of the file and no measured machine value.
+
+    Rationale: Run cost depends on the machine and the mesh; the measured values belong to the user, never to the package.
+
+    Verification: tier 1, a test carrying the marker P0350-COST-FILE; release 0.35.0.
+
+!!! requirement "FR-399 Nested pytest runs do not list the system temporary folder <span class='srs-pending'>pending</span>"
+
+    Requirement: The nested pytest runs of the examples test shall use their own root and their own base temporary folder.
+
+    - R1 A nested run cannot list or collect from the system temporary folder.
+    - R2 A test fails when a nested run is set up without its own root and base temporary folder.
+
+    Rationale: A nested run that lists the system temporary folder can fail on files that are not the package's.
+
+    Verification: tier 1, a test carrying the marker P0350-NESTED-PYTEST; release 0.35.0.
