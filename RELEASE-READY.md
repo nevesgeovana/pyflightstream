@@ -1,10 +1,11 @@
-# v0.33.1 is released by this sequence, followed as written
+# pyflightstream 0.34.0 is released by this sequence, followed as written
 
-0.33.1 is the PATCH RELEASE OF THE TWO FALSE FAILED_INCOMPLETE_OUTPUT READINGS: a steady
-row's points 2 to n on the solver-log route, and a body row whose pproc artifact
-plots wing sections, no longer read FAILED_INCOMPLETE_OUTPUT falsely, and the tier 1
-suite runs in parallel with pytest-xdist. The change log's `[0.33.1]` section is the
-record; `docs/migrating-to-0.33.1.md` says what a reader's files must change.
+0.34.0 is THE RELEASE OF WHAT SHE USES: the wake length in rotor radii and the Trefftz
+plane, the run-usability items, the thin-blade command, the actuator disc's swirl sign,
+CCS and noise, FSI, LF in every text product, the cheatsheet as guide 04 with the guides
+numbered from 01, and only the three cuts these need (the `cases` root, `script.helpers`,
+`run.cli`). The change log's `[0.34.0]` section is the record;
+`docs/migrating-to-0.34.0.md` says what a reader's files must change.
 
 The version this file describes is the package's version without a development
 suffix (`pyproject.toml`), and a test reads it (FR-346). The commands of the
