@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
@@ -71,6 +71,11 @@ __all__ = [
 #: What opens a row that is an AVERAGE: the window it was taken over, in the three
 #: columns the reductions use.
 _WINDOW_COLUMNS: tuple[str, ...] = ("FIRST_STEP", "LAST_STEP", "STEPS")
+
+#: What closes every row, after the super content (FR-348): the face count of the
+#: point's geometry as its inventory states it, ``NA`` where it states none. Last
+#: so a reader that takes the columns of 0.33 by position keeps every one of them.
+_LAST_COLUMNS: tuple[str, ...] = (MESH_FACES_COLUMN,)
 
 
 def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
@@ -372,6 +377,7 @@ def write_unsteady_polar(
         *CONTEXT_COLUMNS,
         *_MOMENT_POINT_COLUMNS,
         *columns,
+        *_LAST_COLUMNS,
     }
     extra: list[str] = []
     for _condition, _values, _window, content in rows:
@@ -385,6 +391,7 @@ def write_unsteady_polar(
         *_MOMENT_POINT_COLUMNS,
         *columns,
         *extra,
+        *_LAST_COLUMNS,
     )
     table = [
         (
@@ -395,7 +402,7 @@ def write_unsteady_polar(
             *context_row(condition, lengths),
             *context_row(moment, None, columns=_MOMENT_POINT_COLUMNS),
             *(values.get(name) for name in columns),
-            *(content.get(key) for key in extra),
+            *(content.get(key) for key in (*extra, *_LAST_COLUMNS)),
         )
         for condition, values, span, content in rows
     ]
@@ -417,7 +424,7 @@ def write_unsteady_polar(
             if equation_notes is None:
                 raise
             equation_notes.append(str(refused))
-    at = len(header) - len(extra)
+    at = len(header) - len(extra) - len(_LAST_COLUMNS)
     # THE DICTIONARY IS APPLIED LAST, to the heading alone: the axes and the
     # equations above read the names the export prints, and a reader's tool reads
     # the names the pproc gives them.

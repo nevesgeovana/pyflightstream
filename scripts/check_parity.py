@@ -109,6 +109,10 @@ _TOGGLE_LINE = (
 #: given, is a regex the release's own text MUST match, and ``base_lacks`` one
 #: the base's text must NOT match, so a difference that adds lines is held to
 #: its direction and to the scripts the requirement names.
+#: ``appended_column``, when given, names the one CSV column the release appends
+#: LAST to the file, and ``cells`` the regex each of its cells must match whole, so
+#: the difference is held to that column, its place and its cells
+#: (:func:`appends_one_column`).
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
@@ -253,6 +257,35 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "why": (
             "the machine-readable form of the same per-revolution drift warning "
             "records, which FR-180 words and counts anew"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/SUPER-*.csv",
+        # The super file gains ONE column, MESH_FACES, after every column 0.33.1
+        # wrote, its cells NA or a whole number, and nothing else changes: the
+        # header and each row are the 0.33.1 line with that one cell appended,
+        # after a comma, or as one more 16-wide field in the legacy_polar form.
+        "appended_column": "MESH_FACES",
+        "cells": r"NA|\d+",
+        "requirement": "FR-348",
+        "why": (
+            "the super file carries the face count of each row's geometry as its boundary "
+            "inventory states it, NA where it states none, in a new last column"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*_uns_avg.csv",
+        # The unsteady polar gains ONE column, MESH_FACES, after every column 0.33.1
+        # wrote, its cells NA or a whole number, and nothing else changes: the
+        # header and each row are the 0.33.1 line with that one cell appended.
+        "appended_column": "MESH_FACES",
+        "cells": r"NA|\d+",
+        "requirement": "FR-348",
+        "why": (
+            "the unsteady polar carries the face count of each row's geometry as its boundary "
+            "inventory states it, NA where it states none, in a new last column"
         ),
     },
 ]
@@ -677,6 +710,47 @@ def changed_lines(old: str, new: str) -> list[str]:
     return [line[1:] for line in diff if line[:1] in "+-" and not line.startswith(("+++", "---"))]
 
 
+def appends_one_column(old: str, new: str, column: str, cells: str) -> bool:
+    """Whether ``new`` is ``old`` with one column ``column`` appended last, and nothing else.
+
+    The header must be the old header and ``,column`` (the CSV form), or the
+    old header and ``column`` right-justified in one more field of
+    :data:`LEGACY_FIELD` characters (the super file's ``legacy_polar`` form);
+    every other line the old line and one cell, in the same form, that matches
+    ``cells`` whole; the line count and the final line end the same.
+    """
+    before, after = old.splitlines(), new.splitlines()
+    if not before or len(before) != len(after) or old.endswith("\n") != new.endswith("\n"):
+        return False
+    if after[0] == f"{before[0]},{column}":
+        split = _csv_cell
+    elif after[0] == before[0] + column.rjust(LEGACY_FIELD):
+        split = _legacy_cell
+    else:
+        return False
+    for was, now in zip(before[1:], after[1:], strict=True):
+        head, cell = split(now)
+        if cell is None or head != was or not re.fullmatch(cells, cell):
+            return False
+    return True
+
+
+#: The width of each field of a super file in the ``legacy_polar`` form.
+LEGACY_FIELD = 16
+
+
+def _csv_cell(line: str) -> tuple[str, str | None]:
+    """Split a CSV line into everything before its last cell and that cell."""
+    head, comma, cell = line.rpartition(",")
+    return head, cell if comma else None
+
+
+def _legacy_cell(line: str) -> tuple[str, str | None]:
+    """Split a fixed-width line into everything before its last field and that field's cell."""
+    head, field = line[:-LEGACY_FIELD], line[-LEGACY_FIELD:]
+    return head, field.lstrip(" ") if len(field) == LEGACY_FIELD else None
+
+
 def name_difference(
     kind: str, name: str, old: str | None, new: str | None, defined: set[str]
 ) -> dict[str, Any]:
@@ -705,6 +779,9 @@ def name_difference(
             continue
         base_lacks = named.get("base_lacks")
         if base_lacks and (old is None or re.search(base_lacks, old)):
+            continue
+        appended = named.get("appended_column")
+        if appended and not appends_one_column(old or "", new, appended, named["cells"]):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"
