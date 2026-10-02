@@ -13,7 +13,7 @@ FlightStream versions.
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
   as a commit of its own after the tag, so the 0.34.0 package does not change
-  with it. RPT-126 and RPT-130 are still owed. Five are
+  with it. RPT-130 is still owed. Six are
   paid, measured on 26.124 (build 8172026) with the released package; the
   requirements' evidence lines now cite them, FR-318 R5 records the answer to
   the question it left open, and only FR-338 and FR-340 change status, to
@@ -37,6 +37,13 @@ FlightStream versions.
     magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
     page states both, and the definitions page that `CD0` reads that zero in
     a coupled run; nothing the package emits changes.
+  - RPT-126 (FR-333 to FR-336): of 43 acoustic, CCS and surface-removal
+    commands probed on 26.124, 26 are verified and 7 broken, and the command
+    database follows the run's report. Ten CCS commands stay unprobed, the
+    arity of the two CCS exports stays undetermined because neither wrote a
+    file, and the REAL control-surface form stays refused: its failure follows
+    the limits, not the REAL token. Judging the ten, measuring the arity and
+    citing RPT-126 in the refusal message are 0.35.0 scope.
 
 - **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
   does not continue (FR-96, RPT-134).** The continuation the package emits
