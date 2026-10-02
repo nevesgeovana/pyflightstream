@@ -98,7 +98,10 @@ _DRIFT_MESSAGE = (
 #: must match whole, so a difference is held to its lines, their order and
 #: their number; ``release_lacks``, when given, is a regex the release's own
 #: text must NOT match, so a difference that removes lines is held to its
-#: direction and to the state the requirement names.
+#: direction and to the state the requirement names; ``release_has``, when
+#: given, is a regex the release's own text MUST match, and ``base_lacks`` one
+#: the base's text must NOT match, so a difference that adds lines is held to
+#: its direction and to the scripts the requirement names.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
@@ -125,12 +128,20 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
         "pattern": "*",
-        # One termination line, the only changed line of the script: the 4R
-        # default of a rotor row that states no wake termination, converted into
-        # steps. A changed count is a removed and an added line and does not
-        # match, nor does a second termination line or any other changed line.
+        # One termination line ADDED, the only changed line of the script, to a
+        # script that turns a rotor in time (an unsteady solver and a rotor
+        # motion in the release) and whose base wrote no termination line: the
+        # 4R default of a rotor row that states no wake termination, converted
+        # into steps. A removed line, a changed count, a second termination
+        # line, any other changed line, and a steady or rotorless script do not
+        # match.
         "lines": r"^SET_WAKE_TERMINATION_TIME_STEPS \d+$",
         "block": r"SET_WAKE_TERMINATION_TIME_STEPS \d+",
+        "release_has": (
+            r"(?ms)\A(?=.*^SET_SOLVER_UNSTEADY$)"
+            r"(?=.*^(?:CREATE_NEW_MOTION ROTARY|SET_MOTION_IS_ROTOR \d+ ENABLE\b))"
+        ),
+        "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
         "requirement": "FR-321",
         "why": (
             "a rotor row that states no wake termination keeps a wake of 4 rotor radii, "
@@ -636,6 +647,12 @@ def name_difference(
             continue
         lacks = named.get("release_lacks")
         if lacks and re.search(lacks, new):
+            continue
+        has = named.get("release_has")
+        if has and not re.search(has, new):
+            continue
+        base_lacks = named.get("base_lacks")
+        if base_lacks and (old is None or re.search(base_lacks, old)):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"

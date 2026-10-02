@@ -183,21 +183,26 @@ def _refuse_two_wake_terminations(
     only disagree, wherever each is written: both in the preset, one in the
     preset and one in the row, or both in the row. A row key never silently
     replaces a preset key of another of the three. The refusal names each key,
-    its value and the file or column it comes from.
+    its value and the file or column it comes from. The SAME key in the preset
+    and in the row is one key, not two: FR-316 compares the two values and
+    refuses only when they differ.
     """
     spellings = _preset_spellings(setup.settings, aliases)
     in_row = {aliases.get(key, key): (key, text) for key, text in row.variables.items()}
     stated: list[str] = []
+    fields: set[str] = set()
     for field in WAKE_TERMINATION_KEYS:
         if field in spellings and getattr(preset, field) is not None:
+            fields.add(field)
             stated.append(
                 f"{spellings[field][0]} = {getattr(preset, field)} (setup preset "
                 f"{row.set_code!r}, inputs/setups/{row.set_code}.toml)"
             )
         if field in in_row:
+            fields.add(field)
             key, text = in_row[field]
             stated.append(f"{key} = {text} (the row's VAR_NAMES_VALUES cell)")
-    if len(stated) > 1:
+    if len(fields) > 1:
         raise MatrixError(
             f"POL {row.pol}: the row's wake termination is stated by {' and by '.join(stated)}. "
             f"Each of {', '.join(WAKE_TERMINATION_KEYS)} states the whole termination, so "

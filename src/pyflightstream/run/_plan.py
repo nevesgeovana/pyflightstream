@@ -179,7 +179,7 @@ class PointPlan:
         wake termination its script emits (FR-321 R5, 0.34.0): the key that
         stated it (``default`` for the 4R default), the length asked in rotor
         radii, the steps, the rule that gave V_ax and V_ax in m/s, as
-        :meth:`pyflightstream.cases.workflows._wake.WakeTermination.record`
+        :meth:`pyflightstream.cases.workflows._freestream.WakeTermination.record`
         states them. Empty on every other point.
     """
 
@@ -803,11 +803,13 @@ def wake_termination_line(wake: Mapping[str, object]) -> str:
 
     ``wake`` is one :attr:`PointPlan.wake_termination`: the L asked, the V_ax
     used with the rule that gave it, and the steps emitted; a count states
-    itself and its steps.
+    itself, its steps and the length it keeps over the run (FR-325 R2).
     """
     steps, length, speed = wake.get("steps"), wake.get("length_r"), wake.get("v_ax_m_s")
     if not isinstance(length, int | float):
-        return f"wake termination {wake.get('stated_as')}: {steps} steps"
+        kept = WakeTermination(**cast(dict[str, Any], wake)).count_kept_r()
+        keeps = "an unknown length" if kept is None else f"about {kept:.3g} R"
+        return f"wake termination {wake.get('stated_as')}: {steps} steps, keeping {keeps} of wake"
     if steps is None:
         return (
             f"wake termination L = {length:g} R ({wake.get('stated_as')}) not converted: "

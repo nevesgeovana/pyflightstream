@@ -651,7 +651,7 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> int | None:
     length of wake in rotor radii, and the emitter takes STEPS; a row stating
     none keeps 4 radii. The conversion needs the case's clock and its rotor,
     which is why it happens at build time, in
-    :func:`pyflightstream.cases.workflows._wake.wake_termination_of`. Two of
+    :func:`pyflightstream.cases.workflows._freestream.wake_termination_of`. Two of
     the three keys can only disagree, and are refused (FR-322, which the
     refusal of 0.33.0 for revolutions beside steps joins). Returns None where
     a default cannot be converted, so such a case emits nothing.
@@ -884,6 +884,19 @@ class WakeTermination:
         if not self.radius_m or not self.v_ax_m_s or not self.omega_rad_s:
             return None
         return steps * self.v_ax_m_s * self.dtheta_rad / (self.omega_rad_s * self.radius_m)
+
+    def count_kept_r(self) -> float | None:
+        """Return the length a step or revolution count keeps over the run, in radii.
+
+        FR-325 R2: L_kept = n V_ax dtheta / (Omega R), with n the count the run
+        reaches (a negative count is the run's steps less it). None for a
+        converted length, and where the length is unknown (zero free-stream
+        speed, or no rotor radius known).
+        """
+        if self.length_r is not None or self.steps is None:
+            return None
+        count = self.steps if self.steps > 0 else self.run_steps + self.steps
+        return self.kept_r(min(count, self.run_steps))
 
 
 def _stated(case: SimCase, keys: tuple[str, ...]) -> list[tuple[str, object]]:
@@ -1199,8 +1212,7 @@ def _count_warnings(row: str, wake: WakeTermination) -> list[str]:
     """FR-325 R2: the length a count keeps, against the 4R recommendation."""
     if wake.length_r is not None or wake.steps is None:
         return []
-    count = wake.steps if wake.steps > 0 else wake.run_steps + wake.steps
-    kept = wake.kept_r(min(count, wake.run_steps))
+    kept = wake.count_kept_r()
     if kept is None:
         return [
             f"{row}: the wake termination {wake.stated_as} keeps an unknown length at zero "
@@ -1231,7 +1243,13 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
             "simulation's frame, to place it (FR-325 R4)."
         ]
     if wake.radius_m is None or wake.hub_x_m is None:
-        return []
+        unknown = "hub X" if wake.radius_m is not None else "radius"
+        return [
+            f"{row}: the wake end plane wake_termination_x = {float(wake.plane):g} m cannot be "
+            f"placed against L = {length:g} R, because the rotor's {unknown} is unknown (no "
+            "rotor block states it), so the plan cannot say whether the plane cuts the wake "
+            "(FR-325 R3). Declare the rotor block on the reference to place it."
+        ]
     offset = float(wake.plane) - wake.hub_x_m
     distance = abs(offset) if wake.downstream == 0 else offset * wake.downstream
     if distance >= length * wake.radius_m * (1.0 - 1e-9):
