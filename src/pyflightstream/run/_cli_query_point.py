@@ -152,7 +152,7 @@ def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
 def _log(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     sims = listed_sims(args.sims) if args.sims else []
     if args.storage and args.open_only:
-        raise ValueError("open_only (CLI: --open) applies to activity stages, not storage calls")
+        raise ValueError("open (CLI: --open) applies to activity stages, not storage calls")
     if args.post:
         if any((args.run, args.stage, args.since, args.problems, args.open_only)):
             raise ValueError("post (CLI: --post) combines only with sims (CLI: --sims)")

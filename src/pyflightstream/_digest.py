@@ -179,6 +179,12 @@ CANONICAL_FORMS = {
         "storage recipe (inputs/management/m<id>.toml), always the source file's "
         "bytes and never a JSON rendering of its parsed content."
     ),
+    "workspace/_ledger_history.py": (
+        "the raw bytes of a recorded script file, read whole and never decoded, "
+        "compared with the script_sha256 the run record states: the same "
+        "canonical form as the manifest checksum above. It selects which script "
+        "to compare and writes nothing."
+    ),
 }
 
 __all__ = [

@@ -1340,6 +1340,11 @@ pyfs-matrix restore      runs --workspace DIR [--apply]  # a records file, back 
 pyfs-matrix rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
 pyfs-matrix mark-failed  --sims 2006 [--apply]        # a run found wrong, FAILED_MARKED
 pyfs-matrix status       --workspace DIR              # per polar: points, states, freshness
+pyfs-matrix show         9101_1 --workspace DIR       # one point's card, outcome first
+pyfs-matrix log          --workspace DIR [--problems] # recorded activity, post and storage
+pyfs-matrix trace        post/demo/polars/polar.csv   # a product back to its runs
+pyfs-matrix history      9101 --workspace DIR         # every recorded copy of a run
+pyfs-matrix diff         RUN_A RUN_B --workspace DIR  # two runs, field by field
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
