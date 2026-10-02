@@ -11,23 +11,30 @@ FlightStream versions.
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
   decision of 2026-10-02 they are made on the released package and
-  recorded as post-release commits, outside the `[0.34.0]` section: RPT-126, RPT-127,
-  RPT-128 and RPT-130. Each lands as a commit of its own after the tag, so the
-  0.34.0 package does not change with it.
+  recorded as post-release commits, outside the `[0.34.0]` section. Each lands
+  as a commit of its own after the tag, so the 0.34.0 package does not change
+  with it. RPT-126, RPT-127, RPT-128 and RPT-130 are still owed. Three are
+  paid, measured on 26.124 (build 8172026) with the released package; the
+  requirements' evidence lines now cite them, FR-318 R5 records the answer to
+  the question it left open, and no requirement's status changes:
+  - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
+    `START_SOLVER`, and every step export then carries it; in the order 0.34.0
+    emits, only the final export does. Moving the list is 0.35.0 scope.
+  - RPT-134 (FR-96): when the reopened state is kept, a continuation's plots
+    export holds the whole march numbered from 1, which the post joins with
+    every step once. The continuation 0.34.0 emits does not keep that state
+    (the known defect below), and its fix is 0.35.0 scope.
+  - RPT-135 (FR-312): 26.124 opens and runs a file whose blocks are reset to
+    the 26.124 fresh import; the uncleaned control differs in its saved
+    actions only, and the blocks are compared offline. Registering the 26.124
+    table in the package is 0.35.0 scope.
 
-### Measured after 0.34.0
-
-- RPT-133, RPT-134 and RPT-135, measured on 26.124 (build 8172026) with the
-  released package; no requirement changes in this release. RPT-133 (FR-318 R5):
-  the solver accepts the vorticity drag list before `START_SOLVER` and every step
-  export then carries it; in the order 0.34.0 emits, only the final export does.
-  RPT-134 (FR-96): when the reopened state is kept, the plots export of a
-  continuation holds the whole march, numbered from 1, which the post joins with
-  every step once. The continuation 0.34.0 emits does not continue: its
-  `INITIALIZE_SOLVER` after the reopened file clears the solution on 26.124 and
-  the march restarts at step 1; the fix is 0.35.0 scope. RPT-135 (FR-312): the
-  fresh import of 26.124 measured, and a file reset to it opened and ran on 26.124
-  with the fresh import's results.
+- **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
+  does not continue (FR-96, RPT-134).** The continuation the package emits
+  re-initialises the reopened state and re-marches from step 1, so its plots
+  export is the reopened run's march again and the post joins it as a march
+  restated, without a warning. The continuation of a run the wall clock
+  stopped shares the emission path and is not measured.
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
