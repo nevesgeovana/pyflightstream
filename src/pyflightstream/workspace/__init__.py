@@ -113,7 +113,9 @@ carry 0.33 features: ``workspace._matrix_homes``, the one lookup of a matrix
 by name over both homes, which every command that takes a matrix reads;
 ``workspace._row_setup``, the setup keys a matrix row states over its
 preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
-and boundary conditions and the plan warning that asks for it.
+and boundary conditions and the plan warning that asks for it. A private
+module carries a 0.34 feature: ``workspace._degenerate``, the thin blade
+derived from a blade mesh and written beside it.
 """
 
 from __future__ import annotations

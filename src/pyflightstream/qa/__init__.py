@@ -22,6 +22,13 @@ never-overwrite rule all three writers share, so a run is refused before
 a licensed seat is spent rather than after. The ``pyfs-qa`` CLI
 (:mod:`pyflightstream.qa.cli`) drives all three.
 
+The probe specification catalog (:mod:`pyflightstream.qa.specs`) is cut
+since 0.34.0 into private modules that register into one shared table:
+``qa._spec_kit`` holds the instruments and the registry,
+``qa._spec_catalog_b``, ``qa._spec_ccs_noise``, ``qa._spec_ccs_mesh`` and
+``qa._spec_t1`` hold the entries, and ``qa.specs`` imports them all and
+re-exports ``PROBE_SPECS``.
+
 One member of this package spends no seat at all and reads no report:
 :mod:`pyflightstream.qa.cost` builds the wall-time cost view from
 campaign manifests alone, points down and solver builds across, so a
