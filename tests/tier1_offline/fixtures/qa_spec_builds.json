@@ -1,0 +1,1283 @@
+{
+ "ACOUSTIC_OBSERVERS_IMPORT": {
+  "build": [
+   "ACOUSTIC_OBSERVERS_IMPORT",
+   "<WORKDIR>\\observers.txt"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "ACOUSTIC_SOURCES": {
+  "build": [
+   "ACOUSTIC_SOURCES ENABLE"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "AIR_ALTITUDE": {
+  "build": [
+   "AIR_ALTITUDE 5000.0 METERS"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "AUTO_DETECT_TRAILING_EDGES": {
+  "build": [
+   "AUTO_DETECT_TRAILING_EDGES"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "AUTO_DETECT_WAKE_TERMINATION_NODES": {
+  "build": [
+   "AUTO_DETECT_WAKE_TERMINATION_NODES"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "CAD_CREATE_CURVE_SELECT": {
+  "build": [
+   "CAD_CREATE_CURVE_SELECT -1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CAD_CREATE_FUSELAGE_MESH_FROM_CCS": {
+  "build": [
+   "CAD_CREATE_FUSELAGE_MESH_FROM_CCS PYFS_FUS TRUE C2 C2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CAD_CREATE_IMPORT_CURVE_CCS": {
+  "build": [
+   "CAD_CREATE_IMPORT_CURVE_CCS METER 1 1",
+   "<WORKDIR>\\ccs3.csv"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CAD_CREATE_INITIALIZE": {
+  "build": [
+   "CAD_CREATE_INITIALIZE"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CAD_CREATE_REVOLVE_MESH_FROM_CCS": {
+  "build": [
+   "CAD_CREATE_REVOLVE_MESH_FROM_CCS PYFS_REV 1 X 0.0 360.0 TRUE C2 C2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CAD_CREATE_WING_MESH_FROM_CCS": {
+  "build": [
+   "CAD_CREATE_WING_MESH_FROM_CCS PYFS_WING TRUE SHARP TRUE C2 C0"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_FUSELAGE_MESH_GROWTH_RATE": {
+  "build": [
+   "CCS_FUSELAGE_MESH_GROWTH_RATE AXIAL 1.2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_FUSELAGE_MESH_GROWTH_SCHEME": {
+  "build": [
+   "CCS_FUSELAGE_MESH_GROWTH_SCHEME AXIAL SUCCESSIVE"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_FUSELAGE_MESH_PERIODICITY": {
+  "build": [
+   "CCS_FUSELAGE_MESH_PERIODICITY RADIAL 2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_FUSELAGE_MESH_SUBDIVISIONS": {
+  "build": [
+   "CCS_FUSELAGE_MESH_SUBDIVISIONS AXIAL 30"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_IMPORT": {
+  "build": [
+   "CCS_IMPORT",
+   "CLOSE_COMPONENT_ENDS DISABLE",
+   "UPDATE_PROPERTIES DISABLE",
+   "CLEAR_EXISTING ENABLE",
+   "FILE <WORKDIR>\\ccs3.csv"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_REVOLVE_MESH_GROWTH_RATE": {
+  "build": [
+   "CCS_REVOLVE_MESH_GROWTH_RATE AXIAL 1.2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_REVOLVE_MESH_GROWTH_SCHEME": {
+  "build": [
+   "CCS_REVOLVE_MESH_GROWTH_SCHEME AXIAL SUCCESSIVE"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_REVOLVE_MESH_PERIODICITY": {
+  "build": [
+   "CCS_REVOLVE_MESH_PERIODICITY AZIMUTH 2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_REVOLVE_MESH_SUBDIVISIONS": {
+  "build": [
+   "CCS_REVOLVE_MESH_SUBDIVISIONS AXIAL 30"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_WING_MESH_GROWTH_RATE": {
+  "build": [
+   "CCS_WING_MESH_GROWTH_RATE CHORD 1.2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_WING_MESH_GROWTH_SCHEME": {
+  "build": [
+   "CCS_WING_MESH_GROWTH_SCHEME CHORD SUCCESSIVE"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_WING_MESH_PERIODICITY": {
+  "build": [
+   "CCS_WING_MESH_PERIODICITY SPAN 2"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CCS_WING_MESH_SUBDIVISIONS": {
+  "build": [
+   "CCS_WING_MESH_SUBDIVISIONS CHORD 30"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CLEAR_SOLUTION": {
+  "build": [
+   "CLEAR_SOLUTION"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "CLOSE_FLIGHTSTREAM": {
+  "build": [
+   "CLOSE_FLIGHTSTREAM"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "COMPUTE_ACOUSTIC_SIGNALS": {
+  "build": [
+   "COMPUTE_ACOUSTIC_SIGNALS"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "COMPUTE_SURFACE_SECTIONAL_LOADS": {
+  "build": [
+   "COMPUTE_SURFACE_SECTIONAL_LOADS COEFFICIENTS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "CREATE_ACOUSTIC_SECTION": {
+  "build": [
+   "CREATE_ACOUSTIC_SECTION",
+   "FRAME 1",
+   "PLANE YZ",
+   "OFFSET 0.0",
+   "RADIAL_OBSERVERS 2",
+   "AZIMUTH_OBSERVERS 4",
+   "INNER_RADIUS 5.0",
+   "OUTER_RADIUS 10.0",
+   "STORAGE_PATH <WORKDIR>\\section"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "CREATE_NEW_ACOUSTIC_OBSERVER": {
+  "build": [
+   "CREATE_NEW_ACOUSTIC_OBSERVER PYFS_OBS1 0.0 10.0 0.0"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "CREATE_NEW_ACTUATOR": {
+  "build": [
+   "CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PYFS_ACT_CREATED"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "CREATE_NEW_CIRCLE_VOLUME_SECTION": {
+  "build": [
+   "CREATE_NEW_CIRCLE_VOLUME_SECTION 1 XZ 0.0 10 10 0.2 1.0 NONE 0.1 1 1.2"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "CREATE_NEW_COORDINATE_SYSTEM": {
+  "build": [
+   "CREATE_NEW_COORDINATE_SYSTEM"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "CREATE_NEW_MOTION": {
+  "build": [
+   "CREATE_NEW_MOTION ROTARY"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "CREATE_NEW_RECTANGLE_VOLUME_SECTION": {
+  "build": [
+   "CREATE_NEW_RECTANGLE_VOLUME_SECTION 1 XZ 0.0 1 -1.0 -1.0 1.0 1.0 NONE 0.1 1 1.2"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "CREATE_NEW_SURFACE_SECTION": {
+  "build": [
+   "CREATE_NEW_SURFACE_SECTION 1 XZ 0.05 1 DISABLE -1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "DEFAULT_CCS_FUSELAGE_MESH_SETTINGS": {
+  "build": [
+   "DEFAULT_CCS_FUSELAGE_MESH_SETTINGS AXIAL"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DEFAULT_CCS_REVOLVE_MESH_SETTINGS": {
+  "build": [
+   "DEFAULT_CCS_REVOLVE_MESH_SETTINGS AXIAL"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DEFAULT_CCS_WING_MESH_SETTINGS": {
+  "build": [
+   "DEFAULT_CCS_WING_MESH_SETTINGS CHORD"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_ACOUSTIC_OBSERVER": {
+  "build": [
+   "DELETE_ACOUSTIC_OBSERVER 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "DELETE_ACTUATOR": {
+  "build": [
+   "DELETE_ACTUATOR 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "DELETE_ALL_ACOUSTIC_OBSERVERS": {
+  "build": [
+   "DELETE_ALL_ACOUSTIC_OBSERVERS"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "DELETE_CCS_FUSELAGE_REFINEMENT_ZONES": {
+  "build": [
+   "DELETE_CCS_FUSELAGE_REFINEMENT_ZONES 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_CCS_FUSELAGE_RELAXED_TE": {
+  "build": [
+   "DELETE_CCS_FUSELAGE_RELAXED_TE 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_CCS_REVOLVE_REFINEMENT_ZONES": {
+  "build": [
+   "DELETE_CCS_REVOLVE_REFINEMENT_ZONES 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_CCS_REVOLVE_RELAXED_TE": {
+  "build": [
+   "DELETE_CCS_REVOLVE_RELAXED_TE 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_CCS_WING_CONTROL_SURFACE": {
+  "build": [
+   "DELETE_CCS_WING_CONTROL_SURFACE 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_CCS_WING_REFINEMENT_ZONES": {
+  "build": [
+   "DELETE_CCS_WING_REFINEMENT_ZONES 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "DELETE_MOTION": {
+  "build": [
+   "DELETE_MOTION 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "DELETE_PROBE_POINTS": {
+  "build": [
+   "DELETE_PROBE_POINTS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "DELETE_SURFACES": {
+  "build": [
+   "DELETE_SURFACES 1"
+  ],
+  "requires": "SIM",
+  "version": "26.124"
+ },
+ "DELETE_SURFACE_SECTION": {
+  "build": [
+   "DELETE_SURFACE_SECTION 1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "DELETE_VOLUME_SECTION": {
+  "build": [
+   "DELETE_VOLUME_SECTION 1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "DELETE_VORTICITY_DRAG_BOUNDARIES": {
+  "build": [
+   "DELETE_VORTICITY_DRAG_BOUNDARIES"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "DISABLE_WAKE_NODES_ON_TRAILING_EDGE": {
+  "build": [
+   "DISABLE_WAKE_NODES_ON_TRAILING_EDGE 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "EDIT_COORDINATE_SYSTEM": {
+  "build": [
+   "EDIT_COORDINATE_SYSTEM",
+   "FRAME 2",
+   "NAME PYFS_EDITED_FRAME",
+   "ORIGIN_X 0.1",
+   "ORIGIN_Y 0.0",
+   "ORIGIN_Z 0.0",
+   "VECTOR_X_X 1.0",
+   "VECTOR_X_Y 0.0",
+   "VECTOR_X_Z 0.0",
+   "VECTOR_Y_X 0.0",
+   "VECTOR_Y_Y 1.0",
+   "VECTOR_Y_Z 0.0",
+   "VECTOR_Z_X 0.0",
+   "VECTOR_Z_Y 0.0",
+   "VECTOR_Z_Z 1.0"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "ENABLE_ACTUATOR": {
+  "build": [
+   "ENABLE_ACTUATOR 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "EXPORT_ACOUSTIC_SIGNALS": {
+  "build": [
+   "EXPORT_ACOUSTIC_SIGNALS",
+   "<WORKDIR>\\signals.txt"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "EXPORT_ALL_OFF_BODY_STREAMLINES": {
+  "build": [
+   "EXPORT_ALL_OFF_BODY_STREAMLINES",
+   "<WORKDIR>\\streamlines.txt"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_ALL_SURFACE_SECTIONS": {
+  "build": [
+   "EXPORT_ALL_SURFACE_SECTIONS",
+   "<WORKDIR>\\sections.txt"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_FUSELAGE_CCS_FILE": {
+  "build": [
+   "EXPORT_FUSELAGE_CCS_FILE PYFS_FUS TRUE SHARP TRUE C2 C2",
+   "<WORKDIR>\\fuselage_export.csv"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "EXPORT_LOG": {
+  "build": [
+   "EXPORT_LOG",
+   "<WORKDIR>\\target_log.txt"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "EXPORT_PROBE_POINTS": {
+  "build": [
+   "EXPORT_PROBE_POINTS",
+   "<WORKDIR>\\probes.txt"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_REVOLVE_CCS_FILE": {
+  "build": [
+   "EXPORT_REVOLVE_CCS_FILE PYFS_REV TRUE SHARP TRUE C2 C2",
+   "<WORKDIR>\\revolve_export.csv"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_CSV": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_CSV",
+   "<WORKDIR>\\solution.csv",
+   "FORMAT CP-FREESTREAM",
+   "UNITS PASCALS",
+   "FRAME 1",
+   "SURFACES -1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS",
+   "<WORKDIR>\\forces.txt",
+   "SURFACES -1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF",
+   "<WORKDIR>\\loads.bdf",
+   "SURFACES -1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+   "<WORKDIR>\\loads_target.txt"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_TECPLOT": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+   "<WORKDIR>\\solution.dat"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SOLVER_ANALYSIS_VTK": {
+  "build": [
+   "EXPORT_SOLVER_ANALYSIS_VTK",
+   "<WORKDIR>\\solution.vtk",
+   "SURFACES -1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SURFACE_SECTIONAL_LOADS": {
+  "build": [
+   "EXPORT_SURFACE_SECTIONAL_LOADS",
+   "<WORKDIR>\\sectional_loads.txt"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_SURFACE_SECTIONS": {
+  "build": [
+   "EXPORT_SURFACE_SECTIONS 1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_VOLUME_SECTION_TECPLOT": {
+  "build": [
+   "EXPORT_VOLUME_SECTION_TECPLOT 1",
+   "<WORKDIR>\\vsection.dat"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_VOLUME_SECTION_VTK": {
+  "build": [
+   "EXPORT_VOLUME_SECTION_VTK 1",
+   "<WORKDIR>\\vsection.vtk"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "EXPORT_WING_CCS_FILE": {
+  "build": [
+   "EXPORT_WING_CCS_FILE PYFS_WING TRUE SHARP TRUE C2 C0",
+   "<WORKDIR>\\wing_export.csv"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "FLUID_PROPERTIES": {
+  "build": [
+   "FLUID_PROPERTIES",
+   "DENSITY 1.179",
+   "PRESSURE 98765.4",
+   "TEMPERATURE 291.55",
+   "VISCOSITY 1.85e-05",
+   "SPECIFIC_HEAT_RATIO 1.31"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "GENERATE_ALL_OFF_BODY_STREAMLINES": {
+  "build": [
+   "GENERATE_ALL_OFF_BODY_STREAMLINES"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "IMPORT_WAKE_EDGES_FROM_FILE": {
+  "build": [
+   "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER",
+   "<WORKDIR>\\wake_wing.wake_nodes.txt"
+  ],
+  "requires": "NONE",
+  "version": "26.124"
+ },
+ "INITIALIZE_SOLVER": {
+  "build": [
+   "INITIALIZE_SOLVER",
+   "SOLVER_MODEL INCOMPRESSIBLE",
+   "SURFACES -1",
+   "WAKE_TERMINATION_X DEFAULT",
+   "SYMMETRY NONE"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "NEW_CCS_FUSELAGE_REFINEMENT_ZONE": {
+  "build": [
+   "NEW_CCS_FUSELAGE_REFINEMENT_ZONE 0.2 0.6 12"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_FUSELAGE_RELAXED_TE": {
+  "build": [
+   "NEW_CCS_FUSELAGE_RELAXED_TE 0.5 0.2 0.8"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_REVOLVE_REFINEMENT_ZONE": {
+  "build": [
+   "NEW_CCS_REVOLVE_REFINEMENT_ZONE 0.2 0.6 12"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_REVOLVE_RELAXED_TE": {
+  "build": [
+   "NEW_CCS_REVOLVE_RELAXED_TE 0.5 0.2 0.8"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_WING_CONTROL_SURFACE": {
+  "build": [
+   "NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_WING_FLAP_COVE": {
+  "build": [
+   "NEW_CCS_WING_FLAP_COVE PYFS_COVE 0.5 0.9 0.7 0.8 1"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_WING_MORPHING_SURFACE": {
+  "build": [
+   "NEW_CCS_WING_MORPHING_SURFACE PYFS_MORPH 0.5 0.9 0.25 0.25 0.5 20.0"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_CCS_WING_REFINEMENT_ZONE": {
+  "build": [
+   "NEW_CCS_WING_REFINEMENT_ZONE 0.2 0.6 12"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "NEW_OFF_BODY_STREAMLINE": {
+  "build": [
+   "NEW_OFF_BODY_STREAMLINE",
+   "POSITION_X 0.5",
+   "POSITION_Y 0.3",
+   "POSITION_Z 0.2",
+   "UPSTREAM DISABLE"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "NEW_PROBE_LINE": {
+  "build": [
+   "NEW_PROBE_LINE 3 0.9876 0.0 0.1 1.1111 0.0 0.1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "NEW_PROBE_POINT": {
+  "build": [
+   "NEW_PROBE_POINT VOLUME 1.2345 2.3456 3.4567"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "NEW_SIMULATION": {
+  "build": [
+   "NEW_SIMULATION"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "NEW_STREAMLINE_DISTRIBUTION": {
+  "build": [
+   "NEW_STREAMLINE_DISTRIBUTION",
+   "POSITION_1_X 0.4",
+   "POSITION_1_Y 0.2",
+   "POSITION_1_Z 0.1",
+   "POSITION_2_X 0.6",
+   "POSITION_2_Y 0.4",
+   "POSITION_2_Z 0.1",
+   "SUBDIVISIONS 4"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "NEW_SURFACE_SECTION_DISTRIBUTION": {
+  "build": [
+   "NEW_SURFACE_SECTION_DISTRIBUTION",
+   "FRAME 1",
+   "PLANE XZ",
+   "NUM_SECTIONS 3",
+   "PLOT_DIRECTION 1",
+   "INCLUDE_SYMMETRY DISABLE",
+   "SURFACES -1"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "OPEN": {
+  "build": [
+   "OPEN",
+   "<WORKDIR>\\reopen.fsm"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "OUTPUT_SETTINGS_AND_STATUS": {
+  "build": [
+   "OUTPUT_SETTINGS_AND_STATUS",
+   "<WORKDIR>\\target_dump.txt"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "PRINT": {
+  "build": [
+   "PRINT PYFS_EFFECT_PRINT"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "PROBE_POINTS_IMPORT": {
+  "build": [
+   "PROBE_POINTS_IMPORT",
+   "UNITS METER",
+   "FRAME 1",
+   "<WORKDIR>\\lattice.csv"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "REMOVE_INITIALIZATION": {
+  "build": [
+   "REMOVE_INITIALIZATION"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "ROTATE_SURFACE": {
+  "build": [
+   "ROTATE_SURFACE 1 Z 17.5 -1 DISABLE"
+  ],
+  "requires": "SIM",
+  "version": "26.124"
+ },
+ "RUN_SCRIPT": {
+  "build": [
+   "RUN_SCRIPT",
+   "<WORKDIR>\\nested_probe.txt"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "SAVEAS": {
+  "build": [
+   "SAVEAS",
+   "<WORKDIR>\\saveas_target.fsm"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "SET_ACOUSTIC_OBSERVER_TIME": {
+  "build": [
+   "SET_ACOUSTIC_OBSERVER_TIME 0.05 0.2 16"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_ACTUATOR_AXIS": {
+  "build": [
+   "SET_ACTUATOR_AXIS 1 2 X 0.6622"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_ACTUATOR_NAME": {
+  "build": [
+   "SET_ACTUATOR_NAME 1 PYFS_ACT_RENAMED"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_ACTUATOR_RADIUS": {
+  "build": [
+   "SET_ACTUATOR_RADIUS 1 1.234 0.321"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_ANALYSIS_MOMENTS_MODEL": {
+  "build": [
+   "SET_ANALYSIS_MOMENTS_MODEL VORTICITY"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SET_ANALYSIS_SYMMETRY_LOADS": {
+  "build": [
+   "SET_ANALYSIS_SYMMETRY_LOADS ENABLE"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SET_BOUNDARY_LAYER_TYPE": {
+  "build": [
+   "SET_BOUNDARY_LAYER_TYPE TURBULENT"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_COORDINATE_SYSTEM_AXIS": {
+  "build": [
+   "SET_COORDINATE_SYSTEM_AXIS 2 X 0.28 0.96 0.0 FALSE"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "SET_COORDINATE_SYSTEM_ORIGIN": {
+  "build": [
+   "SET_COORDINATE_SYSTEM_ORIGIN 2 0.5511 0.1 0.2 METER"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "SET_FREESTREAM": {
+  "build": [
+   "SET_FREESTREAM CONSTANT"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_INVISCID_LOADS": {
+  "build": [
+   "SET_INVISCID_LOADS ENABLE"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "SET_LOADS_AND_MOMENTS_UNITS": {
+  "build": [
+   "SET_LOADS_AND_MOMENTS_UNITS NEWTONS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "SET_MAX_PARALLEL_THREADS": {
+  "build": [
+   "SET_MAX_PARALLEL_THREADS 3"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_BOUNDARIES": {
+  "build": [
+   "SET_MOTION_BOUNDARIES 1 -1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_COORDINATE_SYSTEM": {
+  "build": [
+   "SET_MOTION_COORDINATE_SYSTEM 1 2"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_MOVING_FRAMES": {
+  "build": [
+   "SET_MOTION_MOVING_FRAMES 1 -1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_ROTOR_AXIS": {
+  "build": [
+   "SET_MOTION_ROTOR_AXIS 1 X"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_ROTOR_RPM": {
+  "build": [
+   "SET_MOTION_ROTOR_RPM 1 4567.8"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION": {
+  "build": [
+   "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION 1 DISABLE 1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_MOTION_START_TIME": {
+  "build": [
+   "SET_MOTION_START_TIME 1 0.05"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_NEW_UNSTEADY_SOLVER_ACTION": {
+  "build": [
+   "SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT PYFS_ACTION",
+   "<WORKDIR>\\action.txt"
+  ],
+  "requires": "SIM",
+  "version": "26.124"
+ },
+ "SET_PROP_ACTUATOR_RPM": {
+  "build": [
+   "SET_PROP_ACTUATOR_RPM 1 3456.7"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_PROP_ACTUATOR_SWIRL": {
+  "build": [
+   "SET_PROP_ACTUATOR_SWIRL 1 0.777"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_PROP_ACTUATOR_THRUST": {
+  "build": [
+   "SET_PROP_ACTUATOR_THRUST 1 45.678 NEWTONS"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_SIMULATION_LENGTH_UNITS": {
+  "build": [
+   "SET_SIMULATION_LENGTH_UNITS CENTIMETER"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_SOLVER_ANALYSIS_BOUNDARIES": {
+  "build": [
+   "SET_SOLVER_ANALYSIS_BOUNDARIES 1",
+   "1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "SET_SOLVER_ANALYSIS_LOADS_FRAME": {
+  "build": [
+   "SET_SOLVER_ANALYSIS_LOADS_FRAME 2"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SET_SOLVER_CONVERGENCE_ITERATIONS": {
+  "build": [
+   "SET_SOLVER_CONVERGENCE_ITERATIONS 37"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_SOLVER_STEADY": {
+  "build": [
+   "SET_SOLVER_STEADY"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_SOLVER_UNSTEADY": {
+  "build": [
+   "SET_SOLVER_UNSTEADY",
+   "TIME_ITERATIONS 7",
+   "DELTA_TIME 0.0123"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_SOLVER_VISCOUS_COUPLING": {
+  "build": [
+   "SET_SOLVER_VISCOUS_COUPLING ENABLE"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_TRAILING_EDGE_TYPE": {
+  "build": [
+   "SET_TRAILING_EDGE_TYPE 1 RELAXED"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_VISCOUS_EXCLUDED_BOUNDARIES": {
+  "build": [
+   "SET_VISCOUS_EXCLUDED_BOUNDARIES 1",
+   "1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SET_VORTICITY_DRAG_BOUNDARIES": {
+  "build": [
+   "SET_VORTICITY_DRAG_BOUNDARIES 1",
+   "1"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "SET_VTK_EXPORT_VARIABLES": {
+  "build": [
+   "SET_VTK_EXPORT_VARIABLES 2 DISABLE",
+   "X",
+   "CP_REFERENCE"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "SOLVER_MINIMUM_CP": {
+  "build": [
+   "SOLVER_MINIMUM_CP -4.5"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_PROXIMAL_BOUNDARIES": {
+  "build": [
+   "SOLVER_PROXIMAL_BOUNDARIES 1",
+   "1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_AOA": {
+  "build": [
+   "SOLVER_SET_AOA 7.253"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_CONVERGENCE": {
+  "build": [
+   "SOLVER_SET_CONVERGENCE 0.000271828"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_FORCED_ITERATIONS": {
+  "build": [
+   "SOLVER_SET_FORCED_ITERATIONS ENABLE"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_ITERATIONS": {
+  "build": [
+   "SOLVER_SET_ITERATIONS 123"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_MACH_NUMBER": {
+  "build": [
+   "SOLVER_SET_MACH_NUMBER 0.213"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SOLVER_SET_REF_AREA": {
+  "build": [
+   "SOLVER_SET_REF_AREA 2.727"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_REF_LENGTH": {
+  "build": [
+   "SOLVER_SET_REF_LENGTH 3.131"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_REF_MACH_NUMBER": {
+  "build": [
+   "SOLVER_SET_REF_MACH_NUMBER 0.157"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SOLVER_SET_REF_VELOCITY": {
+  "build": [
+   "SOLVER_SET_REF_VELOCITY 47.513"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_SIDESLIP": {
+  "build": [
+   "SOLVER_SET_SIDESLIP 3.414"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SOLVER_SET_VELOCITY": {
+  "build": [
+   "SOLVER_SET_VELOCITY 51.617"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "START_SOLVER": {
+  "build": [
+   "START_SOLVER"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "STOP": {
+  "build": [
+   "STOP"
+  ],
+  "requires": "NONE",
+  "version": "26.120"
+ },
+ "SURFACE_ROTATE": {
+  "build": [
+   "SURFACE_ROTATE",
+   "FRAME 1",
+   "AXIS Z",
+   "ANGLE 17.5",
+   "SURFACES -1",
+   "SPLIT_VERTICES DISABLE",
+   "ADAPTIVE_MESH DISABLE",
+   "DETACH_NORMAL_TO_AXIS DISABLE"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "SWEEPER_CLEAR_SOLUTION": {
+  "build": [
+   "SWEEPER_CLEAR_SOLUTION ENABLE"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_EXPORT_SPREADSHEET": {
+  "build": [
+   "SWEEPER_EXPORT_SPREADSHEET <WORKDIR>\\sweep.txt"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_POST_RUN_SCRIPT": {
+  "build": [
+   "SWEEPER_POST_RUN_SCRIPT ENABLE <WORKDIR>\\postrun.txt"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_REF_VELOCITY_SAME": {
+  "build": [
+   "SWEEPER_REF_VELOCITY_SAME ENABLE"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_SET_AOA_SWEEP": {
+  "build": [
+   "SWEEPER_SET_AOA_SWEEP CUSTOM 2.0 4.0"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_SET_BETA_SWEEP": {
+  "build": [
+   "SWEEPER_SET_BETA_SWEEP CUSTOM 1.5 3.5"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_SET_VELOCITY_SWEEP": {
+  "build": [
+   "SWEEPER_SET_VELOCITY_SWEEP DISABLE"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "SWEEPER_START": {
+  "build": [
+   "SWEEPER_START"
+  ],
+  "requires": "SOLVER",
+  "version": "26.120"
+ },
+ "UNSTEADY_SOLVER_EXPORT_PLOTS": {
+  "build": [
+   "UNSTEADY_SOLVER_EXPORT_PLOTS",
+   "<WORKDIR>\\plots_probe.txt"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "UNSTEADY_SOLVER_NEW_FLUID_PLOT": {
+  "build": [
+   "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+   "FRAME 1",
+   "PARAMETER VELOCITY",
+   "NAME VELOCITY_PYFS_PLOT",
+   "VERTEX 0.0 0.0 1.0"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "UNSTEADY_SOLVER_NEW_FORCE_PLOT": {
+  "build": [
+   "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+   "FRAME 1",
+   "UNITS COEFFICIENTS",
+   "PARAMETER CL",
+   "NAME CL_PYFS_PLOT",
+   "BOUNDARIES -1"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
+ "UPDATE_ALL_SURFACE_SECTIONS": {
+  "build": [
+   "UPDATE_ALL_SURFACE_SECTIONS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "UPDATE_ALL_VOLUME_SECTIONS": {
+  "build": [
+   "UPDATE_ALL_VOLUME_SECTIONS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "UPDATE_PROBE_POINTS": {
+  "build": [
+   "UPDATE_PROBE_POINTS"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.120"
+ },
+ "VOLUME_SECTION_BOUNDARY_LAYER": {
+  "build": [
+   "VOLUME_SECTION_BOUNDARY_LAYER 1 ENABLE"
+  ],
+  "requires": "SOLUTION",
+  "version": "26.101"
+ }
+}

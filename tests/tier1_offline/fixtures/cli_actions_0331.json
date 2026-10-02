@@ -1,0 +1,3009 @@
+{
+ "pyfs-fsi": {
+  "init-dummy|dir|--dir": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "WindowsPath('C:/WORK/p34-kill')",
+   "dest": "dir",
+   "nargs": null,
+   "option_strings": [
+    "--dir"
+   ],
+   "required": false,
+   "type": "Path"
+  },
+  "init-dummy|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "init-dummy|node_count|--node-count": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "node_count",
+   "nargs": null,
+   "option_strings": [
+    "--node-count"
+   ],
+   "required": true,
+   "type": "int"
+  },
+  "step|dir|--dir": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "WindowsPath('C:/WORK/p34-kill')",
+   "dest": "dir",
+   "nargs": null,
+   "option_strings": [
+    "--dir"
+   ],
+   "required": false,
+   "type": "Path"
+  },
+  "step|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  }
+ },
+ "pyfs-matrix": {
+  "collect|check_frozen|--check-frozen": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "check_frozen",
+   "nargs": 0,
+   "option_strings": [
+    "--check-frozen"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|interval|--interval": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "interval",
+   "nargs": null,
+   "option_strings": [
+    "--interval"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "collect|post|--no-post": {
+   "action": "_StoreFalseAction",
+   "choices": null,
+   "default": true,
+   "dest": "post",
+   "nargs": 0,
+   "option_strings": [
+    "--no-post"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|pproc_warnings|--pproc-warnings": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "pproc_warnings",
+   "nargs": 0,
+   "option_strings": [
+    "--pproc-warnings"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|rounds|--rounds": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "rounds",
+   "nargs": null,
+   "option_strings": [
+    "--rounds"
+   ],
+   "required": false,
+   "type": "int"
+  },
+  "collect|runs|--runs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "runs",
+   "nargs": null,
+   "option_strings": [
+    "--runs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|sims|--sims": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": null,
+   "option_strings": [
+    "--sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|verbose|--verbose": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "verbose",
+   "nargs": 0,
+   "option_strings": [
+    "--verbose"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|watch_interval|--watch-interval": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "watch_interval",
+   "nargs": null,
+   "option_strings": [
+    "--watch-interval"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "collect|watch|--watch": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "watch",
+   "nargs": 0,
+   "option_strings": [
+    "--watch"
+   ],
+   "required": false,
+   "type": null
+  },
+  "collect|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "convert|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": true,
+   "type": null
+  },
+  "convert|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": false,
+   "type": null
+  },
+  "convert|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "convert|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "convert|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "convert|output|-o,--output": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "output",
+   "nargs": null,
+   "option_strings": [
+    "-o",
+    "--output"
+   ],
+   "required": false,
+   "type": null
+  },
+  "convert|recipe|--recipe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [
+    "--recipe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|force|--force": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "force",
+   "nargs": 0,
+   "option_strings": [
+    "--force"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|matrix_products|--matrix-products": {
+   "action": "_StoreAction",
+   "choices": [
+    "points-only",
+    "regenerate"
+   ],
+   "default": null,
+   "dest": "matrix_products",
+   "nargs": null,
+   "option_strings": [
+    "--matrix-products"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|runs|--runs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "runs",
+   "nargs": null,
+   "option_strings": [
+    "--runs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "delete-sims|sims|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "delete-sims|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "free-space|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "free-space|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "free-space|list_paths|--list": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "list_paths",
+   "nargs": 0,
+   "option_strings": [
+    "--list"
+   ],
+   "required": false,
+   "type": null
+  },
+  "free-space|recipe|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "free-space|runs|--runs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "runs",
+   "nargs": null,
+   "option_strings": [
+    "--runs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "free-space|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|accept_unregistered_build|--accept-unregistered-build": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "accept_unregistered_build",
+   "nargs": 0,
+   "option_strings": [
+    "--accept-unregistered-build"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|cost|--cost": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "cost",
+   "nargs": 0,
+   "option_strings": [
+    "--cost"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|ignore_missing_families|--ignore-missing-families": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "ignore_missing_families",
+   "nargs": "?",
+   "option_strings": [
+    "--ignore-missing-families"
+   ],
+   "required": false,
+   "type": "_a_word_that_means_false"
+  },
+  "inspect-setups|inflow_fft|--inflow-fft": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "inflow_fft",
+   "nargs": 0,
+   "option_strings": [
+    "--inflow-fft"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "inspect-setups|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|point_name|--point-name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "{polar}",
+   "dest": "point_name",
+   "nargs": null,
+   "option_strings": [
+    "--point-name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|recipe|--recipe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [
+    "--recipe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|refuse_missing_families|--no-ignore-missing-families": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "refuse_missing_families",
+   "nargs": 0,
+   "option_strings": [
+    "--no-ignore-missing-families"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|setup_guidelines|--setup-guidelines": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "setup_guidelines",
+   "nargs": 0,
+   "option_strings": [
+    "--setup-guidelines"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|setup_standards|--setup-standards": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "setup_standards",
+   "nargs": 0,
+   "option_strings": [
+    "--setup-standards"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|update_ids|--update-ids,--updateIDs": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "update_ids",
+   "nargs": 0,
+   "option_strings": [
+    "--update-ids",
+    "--updateIDs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|verbose|--verbose": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "verbose",
+   "nargs": 0,
+   "option_strings": [
+    "--verbose"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|workflow|--workflow": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "workflow",
+   "nargs": null,
+   "option_strings": [
+    "--workflow"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inspect-setups|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inventory|clean|--clean": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "clean",
+   "nargs": 0,
+   "option_strings": [
+    "--clean"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inventory|geometry|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "geometry",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "inventory|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "inventory|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "mark-failed|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "mark-failed|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "mark-failed|reason|--reason": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "reason",
+   "nargs": null,
+   "option_strings": [
+    "--reason"
+   ],
+   "required": false,
+   "type": null
+  },
+  "mark-failed|sims|--sims": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": null,
+   "option_strings": [
+    "--sims"
+   ],
+   "required": true,
+   "type": null
+  },
+  "mark-failed|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|accept_unregistered_build|--accept-unregistered-build": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "accept_unregistered_build",
+   "nargs": 0,
+   "option_strings": [
+    "--accept-unregistered-build"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|cost|--cost": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "cost",
+   "nargs": 0,
+   "option_strings": [
+    "--cost"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|ignore_missing_families|--ignore-missing-families": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "ignore_missing_families",
+   "nargs": "?",
+   "option_strings": [
+    "--ignore-missing-families"
+   ],
+   "required": false,
+   "type": "_a_word_that_means_false"
+  },
+  "plan|inflow_fft|--inflow-fft": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "inflow_fft",
+   "nargs": 0,
+   "option_strings": [
+    "--inflow-fft"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "plan|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|point_name|--point-name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "{polar}",
+   "dest": "point_name",
+   "nargs": null,
+   "option_strings": [
+    "--point-name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|recipe|--recipe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [
+    "--recipe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|refuse_missing_families|--no-ignore-missing-families": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "refuse_missing_families",
+   "nargs": 0,
+   "option_strings": [
+    "--no-ignore-missing-families"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|setup_guidelines|--setup-guidelines": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "setup_guidelines",
+   "nargs": 0,
+   "option_strings": [
+    "--setup-guidelines"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|setup_standards|--setup-standards": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "setup_standards",
+   "nargs": 0,
+   "option_strings": [
+    "--setup-standards"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|update_ids|--update-ids,--updateIDs": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "update_ids",
+   "nargs": 0,
+   "option_strings": [
+    "--update-ids",
+    "--updateIDs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|verbose|--verbose": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "verbose",
+   "nargs": 0,
+   "option_strings": [
+    "--verbose"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|workflow|--workflow": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "workflow",
+   "nargs": null,
+   "option_strings": [
+    "--workflow"
+   ],
+   "required": false,
+   "type": null
+  },
+  "plan|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|additional_pproc|--additional-pproc": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "additional_pproc",
+   "nargs": 0,
+   "option_strings": [
+    "--additional-pproc"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|check_frozen|--check-frozen": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "check_frozen",
+   "nargs": 0,
+   "option_strings": [
+    "--check-frozen"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|diagnostics|--diagnostics": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "diagnostics",
+   "nargs": 0,
+   "option_strings": [
+    "--diagnostics"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|force_overwrite|--force-overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "force_overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--force-overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|from_sims|--from-sims": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "from_sims",
+   "nargs": 0,
+   "option_strings": [
+    "--from-sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|local|--local": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "local",
+   "nargs": 0,
+   "option_strings": [
+    "--local"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": "?",
+   "option_strings": [],
+   "required": false,
+   "type": null
+  },
+  "post|pproc_warnings|--pproc-warnings": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "pproc_warnings",
+   "nargs": 0,
+   "option_strings": [
+    "--pproc-warnings"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|recipe|--recipe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [
+    "--recipe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|runs|--runs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "runs",
+   "nargs": null,
+   "option_strings": [
+    "--runs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|sims|--sims": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": null,
+   "option_strings": [
+    "--sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|steps_per_revolution|--steps-per-revolution": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "steps_per_revolution",
+   "nargs": null,
+   "option_strings": [
+    "--steps-per-revolution"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "post|strict|--strict": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "strict",
+   "nargs": 0,
+   "option_strings": [
+    "--strict"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|verbose|--verbose": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "verbose",
+   "nargs": 0,
+   "option_strings": [
+    "--verbose"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "post|yes|--yes": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "yes",
+   "nargs": 0,
+   "option_strings": [
+    "--yes"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|all_sims|--all-sims": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "all_sims",
+   "nargs": 0,
+   "option_strings": [
+    "--all-sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|build_alias|--build-alias": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "build_alias",
+   "nargs": null,
+   "option_strings": [
+    "--build-alias"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|inputs_from|--inputs-from": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "inputs_from",
+   "nargs": null,
+   "option_strings": [
+    "--inputs-from"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|matrix|--matrix": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [
+    "--matrix"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|sims|--sims": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": null,
+   "option_strings": [
+    "--sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rebuild|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rename|dry_run|--dry-run": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "dry_run",
+   "nargs": 0,
+   "option_strings": [
+    "--dry-run"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rename|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "rename|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "restore|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "restore|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "restore|kind|": {
+   "action": "_StoreAction",
+   "choices": [
+    "runs",
+    "storage",
+    "products",
+    "plan",
+    "additional"
+   ],
+   "default": null,
+   "dest": "kind",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "restore|matrix|--matrix": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [
+    "--matrix"
+   ],
+   "required": false,
+   "type": null
+  },
+  "restore|stamp|--stamp": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "stamp",
+   "nargs": null,
+   "option_strings": [
+    "--stamp"
+   ],
+   "required": false,
+   "type": null
+  },
+  "restore|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|accept_unregistered_build|--accept-unregistered-build": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "accept_unregistered_build",
+   "nargs": 0,
+   "option_strings": [
+    "--accept-unregistered-build"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|force_rerun_all|--force-rerun-all": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "force_rerun_all",
+   "nargs": 0,
+   "option_strings": [
+    "--force-rerun-all"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|force_rerun|--force-rerun": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "force_rerun",
+   "nargs": null,
+   "option_strings": [
+    "--force-rerun"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|ignore_missing_families|--ignore-missing-families": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "ignore_missing_families",
+   "nargs": "?",
+   "option_strings": [
+    "--ignore-missing-families"
+   ],
+   "required": false,
+   "type": "_a_word_that_means_false"
+  },
+  "run|local|--local": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "local",
+   "nargs": 0,
+   "option_strings": [
+    "--local"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "run|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|point_name|--point-name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "{polar}",
+   "dest": "point_name",
+   "nargs": null,
+   "option_strings": [
+    "--point-name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|pproc_warnings|--pproc-warnings": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "pproc_warnings",
+   "nargs": 0,
+   "option_strings": [
+    "--pproc-warnings"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|progress_every|--progress-every": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 10,
+   "dest": "progress_every",
+   "nargs": null,
+   "option_strings": [
+    "--progress-every"
+   ],
+   "required": false,
+   "type": "int"
+  },
+  "run|recipe|--recipe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "recipe",
+   "nargs": null,
+   "option_strings": [
+    "--recipe"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|refuse_missing_families|--no-ignore-missing-families": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "refuse_missing_families",
+   "nargs": 0,
+   "option_strings": [
+    "--no-ignore-missing-families"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|resume|--resume": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "resume",
+   "nargs": 0,
+   "option_strings": [
+    "--resume"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|sims|--sims": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sims",
+   "nargs": "+",
+   "option_strings": [
+    "--sims"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|sweep_csv|--sweep-csv": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sweep_csv",
+   "nargs": null,
+   "option_strings": [
+    "--sweep-csv"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|verbose|--verbose": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "verbose",
+   "nargs": 0,
+   "option_strings": [
+    "--verbose"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|workflow|--workflow": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": [],
+   "dest": "workflow",
+   "nargs": null,
+   "option_strings": [
+    "--workflow"
+   ],
+   "required": false,
+   "type": null
+  },
+  "run|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "space-in-use|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "space-in-use|top|--top": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 15,
+   "dest": "top",
+   "nargs": null,
+   "option_strings": [
+    "--top"
+   ],
+   "required": false,
+   "type": "int"
+  },
+  "space-in-use|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|include_archives|--include-archives": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "include_archives",
+   "nargs": 0,
+   "option_strings": [
+    "--include-archives"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|level|": {
+   "action": "_StoreAction",
+   "choices": [
+    "runs",
+    "post",
+    "fsm",
+    "all"
+   ],
+   "default": null,
+   "dest": "level",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "sync|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|prefer_other|--prefer-other": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "prefer_other",
+   "nargs": 0,
+   "option_strings": [
+    "--prefer-other"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|restore|--restore": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "restore",
+   "nargs": 0,
+   "option_strings": [
+    "--restore"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|runs|--runs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "runs",
+   "nargs": null,
+   "option_strings": [
+    "--runs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|source|--from": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "source",
+   "nargs": null,
+   "option_strings": [
+    "--from"
+   ],
+   "required": false,
+   "type": null
+  },
+  "sync|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "upgrade|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "upgrade|in_place|--in-place": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "in_place",
+   "nargs": 0,
+   "option_strings": [
+    "--in-place"
+   ],
+   "required": false,
+   "type": null
+  },
+  "upgrade|inputs|--inputs": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "inputs",
+   "nargs": null,
+   "option_strings": [
+    "--inputs"
+   ],
+   "required": false,
+   "type": null
+  },
+  "upgrade|matrix|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  }
+ },
+ "pyfs-qa": {
+  "apply-compat|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "apply-compat|report|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "report",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "apply-compat|root|--root": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "root",
+   "nargs": null,
+   "option_strings": [
+    "--root"
+   ],
+   "required": false,
+   "type": null
+  },
+  "cases|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "cases|include_smi|--include-smi": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "include_smi",
+   "nargs": 0,
+   "option_strings": [
+    "--include-smi"
+   ],
+   "required": false,
+   "type": null
+  },
+  "cost|campaign|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "campaign",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "cost|compare|--compare": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "compare",
+   "nargs": null,
+   "option_strings": [
+    "--compare"
+   ],
+   "required": false,
+   "type": null
+  },
+  "cost|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|fs_exe|--fs-exe": {
+   "action": "_AppendAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": true,
+   "type": null
+  },
+  "drift|fs_versions|--fs-versions": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_versions",
+   "nargs": null,
+   "option_strings": [
+    "--fs-versions"
+   ],
+   "required": true,
+   "type": null
+  },
+  "drift|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|label|--label": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "label",
+   "nargs": null,
+   "option_strings": [
+    "--label"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|matrix|--matrix": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "matriz_physics.fs",
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [
+    "--matrix"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|report_dir|--report-dir": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "reports/physics",
+   "dest": "report_dir",
+   "nargs": null,
+   "option_strings": [
+    "--report-dir"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|workroot|--workroot": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "runs/drift",
+   "dest": "workroot",
+   "nargs": null,
+   "option_strings": [
+    "--workroot"
+   ],
+   "required": false,
+   "type": null
+  },
+  "drift|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|label|--label": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "label",
+   "nargs": null,
+   "option_strings": [
+    "--label"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|matrix|--matrix": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "matriz_physics.fs",
+   "dest": "matrix",
+   "nargs": null,
+   "option_strings": [
+    "--matrix"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|name|--name": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "name",
+   "nargs": null,
+   "option_strings": [
+    "--name"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|report_dir|--report-dir": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "reports/physics",
+   "dest": "report_dir",
+   "nargs": null,
+   "option_strings": [
+    "--report-dir"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|resume|--resume": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "resume",
+   "nargs": 0,
+   "option_strings": [
+    "--resume"
+   ],
+   "required": false,
+   "type": null
+  },
+  "physics|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|commands|--commands": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "commands",
+   "nargs": null,
+   "option_strings": [
+    "--commands"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|fs_exe|--fs-exe": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_exe",
+   "nargs": null,
+   "option_strings": [
+    "--fs-exe"
+   ],
+   "required": true,
+   "type": null
+  },
+  "probe|fs_version|--fs-version": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fs_version",
+   "nargs": null,
+   "option_strings": [
+    "--fs-version"
+   ],
+   "required": true,
+   "type": null
+  },
+  "probe|fsm|--fsm": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "fsm",
+   "nargs": null,
+   "option_strings": [
+    "--fsm"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|identity_only|--identity-only": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "identity_only",
+   "nargs": 0,
+   "option_strings": [
+    "--identity-only"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|label|--label": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "label",
+   "nargs": null,
+   "option_strings": [
+    "--label"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|report_dir|--report-dir": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "reports/compat",
+   "dest": "report_dir",
+   "nargs": null,
+   "option_strings": [
+    "--report-dir"
+   ],
+   "required": false,
+   "type": null
+  },
+  "probe|timeout|--timeout": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 120.0,
+   "dest": "timeout",
+   "nargs": null,
+   "option_strings": [
+    "--timeout"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "probe|workroot|--workroot": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": "runs/probes",
+   "dest": "workroot",
+   "nargs": null,
+   "option_strings": [
+    "--workroot"
+   ],
+   "required": false,
+   "type": null
+  },
+  "update-reference|case|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "case",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "update-reference|from_report|--from-report": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "from_report",
+   "nargs": null,
+   "option_strings": [
+    "--from-report"
+   ],
+   "required": true,
+   "type": null
+  },
+  "update-reference|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "update-reference|reason|--reason": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "reason",
+   "nargs": null,
+   "option_strings": [
+    "--reason"
+   ],
+   "required": true,
+   "type": null
+  },
+  "|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  }
+ },
+ "pyfs-workspace": {
+  "archive|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "archive|root|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "root",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "archive|sim_id|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "sim_id",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field fill-interior|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field fill-interior|field|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "field",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field fill-interior|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field fill-interior|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field fill-interior|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field fill-interior|r_body|--r-body": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 0.38,
+   "dest": "r_body",
+   "nargs": null,
+   "option_strings": [
+    "--r-body"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "field fill-interior|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field mirror|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field mirror|field|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "field",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field mirror|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field mirror|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field mirror|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field mirror|plane|--plane": {
+   "action": "_StoreAction",
+   "choices": [
+    "x",
+    "y",
+    "z"
+   ],
+   "default": null,
+   "dest": "plane",
+   "nargs": null,
+   "option_strings": [
+    "--plane"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field mirror|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field move|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field move|field|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "field",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field move|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field move|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field move|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field move|source_point|--source-point": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "source_point",
+   "nargs": 3,
+   "option_strings": [
+    "--source-point"
+   ],
+   "required": true,
+   "type": "float"
+  },
+  "field move|target_point|--target-point": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "target_point",
+   "nargs": 3,
+   "option_strings": [
+    "--target-point"
+   ],
+   "required": true,
+   "type": "float"
+  },
+  "field move|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field subtract|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field subtract|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field subtract|other|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "other",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field subtract|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field subtract|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field subtract|reference|--reference": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "reference",
+   "nargs": 3,
+   "option_strings": [
+    "--reference"
+   ],
+   "required": true,
+   "type": "float"
+  },
+  "field subtract|tolerance|--tolerance": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 1e-06,
+   "dest": "tolerance",
+   "nargs": null,
+   "option_strings": [
+    "--tolerance"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "field subtract|total|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "total",
+   "nargs": null,
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field subtract|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|apply|--apply": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "apply",
+   "nargs": 0,
+   "option_strings": [
+    "--apply"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|files|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "files",
+   "nargs": "+",
+   "option_strings": [],
+   "required": true,
+   "type": null
+  },
+  "field time-mean|fluctuation_only|--fluctuation-only": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "fluctuation_only",
+   "nargs": 0,
+   "option_strings": [
+    "--fluctuation-only"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|fluctuation|--fluctuation": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "fluctuation",
+   "nargs": 0,
+   "option_strings": [
+    "--fluctuation"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|last|--last": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "last",
+   "nargs": null,
+   "option_strings": [
+    "--last"
+   ],
+   "required": false,
+   "type": "int"
+  },
+  "field time-mean|out|--out": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "out",
+   "nargs": null,
+   "option_strings": [
+    "--out"
+   ],
+   "required": true,
+   "type": null
+  },
+  "field time-mean|overwrite|--overwrite": {
+   "action": "_StoreTrueAction",
+   "choices": null,
+   "default": false,
+   "dest": "overwrite",
+   "nargs": 0,
+   "option_strings": [
+    "--overwrite"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field time-mean|tolerance|--tolerance": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": 1e-06,
+   "dest": "tolerance",
+   "nargs": null,
+   "option_strings": [
+    "--tolerance"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "field time-mean|vinf|--vinf": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "vinf",
+   "nargs": null,
+   "option_strings": [
+    "--vinf"
+   ],
+   "required": false,
+   "type": "float"
+  },
+  "field time-mean|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
+   "type": null
+  },
+  "field|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "init|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "init|root|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "root",
+   "nargs": "?",
+   "option_strings": [],
+   "required": false,
+   "type": null
+  },
+  "migrate-geometries|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  },
+  "migrate-geometries|root|": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": ".",
+   "dest": "root",
+   "nargs": "?",
+   "option_strings": [],
+   "required": false,
+   "type": null
+  },
+  "|help|-h,--help": {
+   "action": "_HelpAction",
+   "choices": null,
+   "default": "==SUPPRESS==",
+   "dest": "help",
+   "nargs": 0,
+   "option_strings": [
+    "-h",
+    "--help"
+   ],
+   "required": false,
+   "type": null
+  }
+ }
+}
