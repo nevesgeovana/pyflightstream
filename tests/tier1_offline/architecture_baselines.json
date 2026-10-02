@@ -1703,6 +1703,8 @@
     "_skeleton",
     "_pproc",
     "_probes",
+    "_batch_script",
+    "_batch_actions",
     "_clock",
     "_exports",
     "_reductions",
