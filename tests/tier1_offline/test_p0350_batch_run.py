@@ -85,15 +85,6 @@ walltime = 28800
 
 
 #: KNOWN DEFECT OUTSIDE THIS PACKAGE, strict so it fails the day it is fixed:
-#: run/_grouped.py:batch_receipt_error refuses a polar sweep whose job folder,
-#: sims/sim_<id>/, "already holds files", and the plan itself allocates that
-#: folder's empty inputs/, scripts/ and datapoints/ (run/_plan.py create_sim),
-#: so every `run --polar-sweep` after its `plan --polar-sweep` is refused.
-W0_GATE = pytest.mark.xfail(
-    raises=MatrixError,
-    strict=True,
-    reason="W0 receipt gate counts the plan's empty folders as a used polar-sweep job folder",
-)
 
 
 class StubSolver(LocalExecutor):
@@ -263,7 +254,6 @@ def test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder(tmp_path):
     assert script.count("CLOSE_FLIGHTSTREAM") == 1
 
 
-@W0_GATE
 def test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim(tmp_path):
     """P0350-RUN-POLAR-SWEEP (FR-350, FR-357): the job script, descriptor and actions in the sim."""
     workspace, profile, argv_file = _workspace(tmp_path)
@@ -293,7 +283,7 @@ def _neutral(text: str, root: Path) -> str:
     return text.replace(str(root), "<root>").replace(root.as_posix(), "<root>").replace("\\", "/")
 
 
-@pytest.mark.parametrize("mode", ["batch", pytest.param("polar_sweep", marks=W0_GATE)])
+@pytest.mark.parametrize("mode", ["batch", "polar_sweep"])
 def test_p0350_run_fr366_records_are_a_point_run_alone(tmp_path, mode):
     """P0350-BATCH-RECORDS (FR-366): each row equals the point run alone, but the named fields."""
     alone_ws, alone_profile, _ = _workspace(tmp_path / "alone")
@@ -319,20 +309,20 @@ def test_p0350_run_fr366_records_are_a_point_run_alone(tmp_path, mode):
     one = _normalised(alone, alone_ws.root)
     other = _normalised(grouped, workspace.root)
     assert [r["run_id"] for r in one] == [r["run_id"] for r in other]
-    # A batched point's script names its inputs under the batch folder (FR-358),
-    # so its digest differs; its text, with the batch home read as the managed
-    # folder, must be the alone script's, byte for byte.
-    named = set(NAMED_FIELDS) | ({"script_sha256"} if mode == "batch" else set())
-    home = f"sims/batch/{MATRIX}_b1/"
+    # The two workspaces have different roots, and a batched point's script names
+    # its inputs under the batch folder (FR-358), so the digest differs; its text,
+    # with the root as one token and the batch home read as the managed folder,
+    # must be the alone script's, byte for byte, in both modes.
+    named = set(NAMED_FIELDS) | {"script_sha256"}
+    home = f"sims/batch/{MATRIX}_b1/" if mode == "batch" else "sims/"
     for a, b, record in zip(one, other, grouped, strict=True):
         differing = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
         assert set(differing) <= named, differing
-        if mode == "batch":
-            sim = f"sim_{record.sim_id}"
-            mine = (workspace.root / home / sim / record.script_path).read_text(encoding="utf-8")
-            theirs = (alone_ws.root / "sims" / sim / record.script_path).read_text(encoding="utf-8")
-            mine = _neutral(mine, workspace.root).replace(home, "sims/")
-            assert mine == _neutral(theirs, alone_ws.root)
+        sim = f"sim_{record.sim_id}"
+        mine = (workspace.root / home / sim / record.script_path).read_text(encoding="utf-8")
+        theirs = (alone_ws.root / "sims" / sim / record.script_path).read_text(encoding="utf-8")
+        mine = _neutral(mine, workspace.root).replace(home, "sims/")
+        assert mine == _neutral(theirs, alone_ws.root)
         kept = {k: v for k, v in a["submission"].items() if k not in ("descriptor",)}
         assert {k: b["submission"].get(k) for k in kept} == kept
         assert "job" in b["submission"]

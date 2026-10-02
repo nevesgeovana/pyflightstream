@@ -24,7 +24,7 @@ from pyflightstream.cases import SimCase
 from pyflightstream.cases.workflows._vocabulary import WALLTIME_VARIABLE
 from pyflightstream.run._plan import plan_receipt_error
 from pyflightstream.workspace import CampaignWorkspace
-from pyflightstream.workspace._batches import GroupingReceipt
+from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt
 
 
 def _mode_of(args: argparse.Namespace) -> str | None:
@@ -161,6 +161,20 @@ def read_receipt(workspace: CampaignWorkspace, matrix_stem: str) -> GroupingRece
     return None if block is None else GroupingReceipt.from_json(block)
 
 
+def _job_ran(root: Path, job: GroupedJob, *, mode: str) -> bool:
+    """Whether a receipt's job already ran in its folder.
+
+    A polar sweep's job folder is its sim folder, which the plan itself
+    allocates (empty ``inputs/``, ``scripts/``, ``datapoints/``), so only its
+    job script says the job ran; a batch folder is the job's own, so any file
+    in it does.
+    """
+    if mode == "polar_sweep":
+        return (root / job.script).is_file()
+    folder = root / job.dir
+    return folder.is_dir() and any(p.is_file() for p in folder.rglob("*"))
+
+
 def batch_receipt_error(
     workspace: CampaignWorkspace,
     matrix_path: str | Path | None,
@@ -213,8 +227,7 @@ def batch_receipt_error(
     if receipt.selection != selection:
         return "the plan was made for another --sims/--points selection: plan it again."
     for job in receipt.jobs:
-        folder = workspace.root / job.dir
-        if folder.is_dir() and any(folder.iterdir()):
+        if _job_ran(workspace.root, job, mode=mode):
             return (
                 f"the job folder {job.dir} already holds files: this plan's jobs ran; plan again."
             )
