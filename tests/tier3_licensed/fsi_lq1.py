@@ -447,7 +447,18 @@ def cdo_reading(
 
 
 def _one_file(folder: Path, name: str) -> Path | None:
-    found = sorted(folder.rglob(name))
+    """The point's own copy of ``name``, when exactly one exists.
+
+    The package keeps a per-call copy of each structural call's input under
+    the point's ``fsi_archive/`` folder (:data:`pyflightstream.fsi.cli.ARCHIVE_DIR`);
+    that copy is a different artifact, not a second pass of the post, so the
+    count leaves that folder out by name and counts everything else.
+    """
+    from pyflightstream.fsi.cli import ARCHIVE_DIR
+
+    found = sorted(
+        path for path in folder.rglob(name) if ARCHIVE_DIR not in path.relative_to(folder).parts
+    )
     return found[0] if len(found) == 1 else None
 
 
