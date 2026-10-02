@@ -31,7 +31,7 @@ FlightStream versions.
 
 - **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
   does not continue (FR-96, RPT-134).** The continuation the package emits
-  re-initialises the reopened state and re-marches from step 1, so its plots
+  re-initializes the reopened state and re-marches from step 1, so its plots
   export is the reopened run's march again and the post joins it as a march
   restated, without a warning. The continuation of a run the wall clock
   stopped shares the emission path and is not measured.
