@@ -25,6 +25,7 @@ from pyflightstream.cases.workflows import (
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -239,6 +240,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_post_parsers(subparsers)
     _add_post_selection_parsers(subparsers)
     _add_degenerate_parsers(subparsers)
+    _add_query_parsers(subparsers)
     return parser
 
 
@@ -452,6 +454,11 @@ def _add_records_parsers(subparsers: Any) -> None:
     mark.add_argument("--reason", default=None, help="why, recorded as given")
     mark.add_argument("--workspace", default=".", help=workspace_help)
     mark.add_argument("--apply", action="store_true", help=apply_help)
+
+
+def _add_query_parsers(subparsers: Any) -> None:
+    """Register the read-only query verbs of 0.35.0, whose options live beside their commands."""
+    add_query_parsers(subparsers)
 
 
 def _add_workspace_parsers(subparsers: Any) -> None:

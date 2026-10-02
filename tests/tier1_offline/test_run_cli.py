@@ -649,6 +649,7 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # (`pyflightstream.run.records`), for the same reason, and `mark-failed`
     # joined them at 0.33.0 (FR-309). `degenerate` joined at 0.34.0 (FR-330):
     # it reads one blade mesh and takes no recipe, no version and no executable.
+    # `status` joined at 0.35.0 (FR-379): it reads the records and writes nothing.
     assert set(choices) == {
         "collect",
         "convert",
@@ -665,6 +666,7 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "restore",
         "run",
         "space-in-use",
+        "status",
         "sync",
         "upgrade",
     }

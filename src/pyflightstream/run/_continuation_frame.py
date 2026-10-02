@@ -39,6 +39,10 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
+# 0.35.0 (FR-381): the effective-record rules moved down to the workspace layer,
+# where the ledger reads them too; the run layer imports them back under this name.
+from pyflightstream.workspace._effective import latest_record_of_point
+
 #: The statuses a continuation continues FROM whatever the run type: these two
 #: stopped with their outputs written and more to march, the wall clock or the
 #: iteration cap having ended them. A CONVERGED record of an unsteady march is
@@ -480,44 +484,6 @@ def restart_steps(request: RestartRequest, previous: RunRecord) -> int:
     if not window.get("step_deg") and isinstance(per_revolution, int | float) and per_revolution:
         record["export_window"] = {**window, "step_deg": 360.0 / float(per_revolution)}
     return restart_iterations(request, record)
-
-
-def latest_record_of_point(
-    records: Iterable[RunRecord], sim_id: str, name: str
-) -> RunRecord | None:
-    """Return the most recent record of one point, in file order, whatever its status.
-
-    A continuation's run id is ``<campaign>/sim_<id>/r<stamp>/<name>``, so the
-    point name still ENDS every run id of the point, which is what this reads.
-    """
-    latest = None
-    for record in records:
-        if _is_a_continuation_that_never_started(record):
-            continue
-        if record.sim_id == sim_id and record.run_id.endswith(f"/{name}"):
-            latest = record
-    return latest
-
-
-def _is_a_continuation_that_never_started(record: RunRecord) -> bool:
-    """Whether a record is `run_campaign`'s note that a continuation was refused.
-
-    Such a row says an attempt was made and why it could not start; it built no
-    script, archived nothing and touched no folder, so it is NOT the state of the
-    point and the run before it still is. Read as the latest run it would turn a
-    refusal whose remedy is "restore the saved simulation" into one that can
-    never be lifted, because the next attempt would find a FAILED run and be
-    told that a failed continuation is not retried.
-
-    It is told apart by what it lacks: every record `_execute_point` builds
-    names its recipe, including the four that fail before a script exists, and
-    this one reached no recipe.
-    """
-    return (
-        record.status is RunStatus.FAILED_SCRIPT
-        and not record.script_sha256
-        and record.recipe is None
-    )
 
 
 def point_verdict(

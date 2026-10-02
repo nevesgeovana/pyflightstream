@@ -251,6 +251,8 @@ PUBLIC_MODULES = [
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.hpc",
     "pyflightstream.workspace.inputs",
+    # 0.35.0 (FR-388): the ledger, the Python mirror of the query verbs.
+    "pyflightstream.workspace.ledger",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
     # v0.23.0 item 14: the migration that moves a workspace's polar products

@@ -325,6 +325,14 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # mode of this call; `--build-alias` states the scheduler name a build
     # ran under, a fact of the recorded run the rebuilt record carries.
     ("pyfs-matrix", "runs"): SUBJECT,
+    # 0.35.0, the read-only `status` (FR-379 to FR-385). `--status WORD` and
+    # `--failed` select WHICH polars this call shows, a SUBJECT like `--sims`;
+    # `--points`, `--json` and `--csv` are the form of this one answer.
+    ("pyfs-matrix", "statuses"): SUBJECT,
+    ("pyfs-matrix", "failed"): SUBJECT,
+    ("pyfs-matrix", "per_point"): SWITCH,
+    ("pyfs-matrix", "json"): SWITCH,
+    ("pyfs-matrix", "csv"): SWITCH,
     ("pyfs-matrix", "kind"): SUBJECT,
     ("pyfs-matrix", "stamp"): SUBJECT,
     ("pyfs-matrix", "out"): OUTPUT,
@@ -447,7 +455,17 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
     ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
     ("pyfs-matrix", "matrix"): frozenset(
-        {"convert", "inspect-setups", "plan", "post", "rebuild", "restore", "run", "upgrade"}
+        {
+            "convert",
+            "inspect-setups",
+            "plan",
+            "post",
+            "rebuild",
+            "restore",
+            "run",
+            "status",
+            "upgrade",
+        }
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
@@ -484,6 +502,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "post",
             "rebuild",
             "run",
+            "status",
         }
     ),
     ("pyfs-matrix", "points"): frozenset({"inspect-setups", "plan", "run"}),
@@ -509,6 +528,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "restore",
             "run",
             "space-in-use",
+            "status",
             "sync",
         }
     ),
@@ -523,7 +543,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "source"): frozenset({"sync"}),
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
-    ("pyfs-matrix", "runs"): frozenset({"collect", "delete-sims", "free-space", "post", "sync"}),
+    ("pyfs-matrix", "runs"): frozenset(
+        {"collect", "delete-sims", "free-space", "post", "status", "sync"}
+    ),
+    ("pyfs-matrix", "statuses"): frozenset({"status"}),
+    ("pyfs-matrix", "failed"): frozenset({"status"}),
+    ("pyfs-matrix", "per_point"): frozenset({"status"}),
+    ("pyfs-matrix", "json"): frozenset({"status"}),
+    ("pyfs-matrix", "csv"): frozenset({"status"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),

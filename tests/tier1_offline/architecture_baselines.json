@@ -1726,6 +1726,7 @@
     "cli",
     "_cli_parsers",
     "_cli_print",
+    "_cli_query",
     "_batch_run",
     "rename",
     "_batch_plan",
