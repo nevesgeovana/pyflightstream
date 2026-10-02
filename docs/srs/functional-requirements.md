@@ -4070,12 +4070,21 @@ requirement below is one seam of that division.
     `pyflightstream.post._tables._march_history` with
     `pyflightstream.cases.windows.march_end`.
 
-    Owed: which history the solver's plots export of a continuation holds,
-    the whole march or the continuation's steps only, and how it numbers
-    them, is not on record; R6 reads each shape and is correct in each. The
-    licensed confirmation, a CONVERGED `unsteady_rotor` point continued by
-    `{ADDITIONAL_REVS=1}` on 26.124 with its plots export read, is owed to the
-    licensed round of 0.33.0.
+    Evidence, measured after the 0.34.0 release on 2026-10-02, on 26.124
+    (build 8172026), far field 5:
+    `reports/RPT-134_the-plots-history-of-a-continued-march-on-26124_2026-10-02.md`,
+    a CONVERGED `unsteady_rotor` point continued by `{ADDITIONAL_REVS=1}`, with
+    a straight march of the same length as the control. When the reopened state
+    is kept, the solver's plots export of the continuation holds the WHOLE
+    march, numbered 1 to 24, its first 12 rows the point's exactly, and R6 joins
+    it as a march restated: every step once, the window the last revolution of
+    the whole march. The continuation 0.34.0 emits does not continue: it emits
+    `INITIALIZE_SOLVER` after the `OPEN` of the saved simulation, which on
+    26.124 clears the reopened solution, so the march restarts at step 1 and
+    its export is the point's again. Its fix is 0.35.0 scope by decision of
+    2026-10-02. `tests/tier1_offline/test_rpt134_fr96_continuation_history.py`
+    posts the recorded exports through the package, with the point alone as the
+    control, and pins the `INITIALIZE_SOLVER` block emitted today.
 
 !!! requirement "FR-97 A run needs a plan, and the plan is pinned to the matrix it read <span class='srs-implemented'>implemented</span>"
 
