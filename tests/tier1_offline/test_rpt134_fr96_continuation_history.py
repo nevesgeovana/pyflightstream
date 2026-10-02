@@ -10,7 +10,7 @@ exports in place of its synthetic ones, so the join is the package's, read on re
 What RPT-134 measured: when the reopened state is kept, the solver's plots export of the
 continuation holds the WHOLE march, 24 rows numbered 1 to 24, its first 12 the point's rows
 exactly. The continuation 0.34.0 emits re-initialises the reopened solution and re-marches
-from step 1, so its export is the point's again; the fix is not in 0.34.0.
+from step 1, so its export is the point's again; 0.35.0 emits the resume arm (FR-396).
 """
 
 from __future__ import annotations
@@ -155,7 +155,10 @@ def test_the_joined_history_ends_where_the_unbroken_march_ends_fr_96(tmp_path):
 
 
 def test_the_0340_continuation_re_marched_and_posts_one_revolution_fr_96(tmp_path):
-    """The continuation 0.34.0 emits: its export IS the point's, and the post says so."""
+    """The continuation 0.34.0 emits: its export IS the point's, and the post says so.
+
+    Since 0.35.0 the post also warns that the continuation added no time step (FR-396 R3).
+    """
     # Verifies FR-96.
     _, continued = _rows("continuation_plots.txt")
     _, point = _rows("point_plots.txt")
@@ -163,7 +166,8 @@ def test_the_0340_continuation_re_marched_and_posts_one_revolution_fr_96(tmp_pat
     manifest, series, said = _posted(_workspace(tmp_path, continuation="continuation_plots.txt"))
     assert list(series.steps) == list(range(1, PER_REV + 1)), list(series.steps)
     assert manifest["products"]["probes/AL-020_time_average.csv"]["windows"] == [[1, PER_REV]]
-    assert len(said) == 1 and f"{SHAPE_SAID} to step {PER_REV}" in said[0], said
+    assert len(said) == 2 and f"{SHAPE_SAID} to step {PER_REV}" in said[0], said
+    assert "adds no time step" in said[1], said
 
 
 def test_the_recorded_point_alone_posts_its_own_revolution_control_fr_96(tmp_path):
@@ -174,12 +178,12 @@ def test_the_recorded_point_alone_posts_its_own_revolution_control_fr_96(tmp_pat
     assert manifest["products"]["probes/AL-020_time_average.csv"]["windows"] == [[1, PER_REV]]
 
 
-def test_the_package_still_initialises_the_reopened_state_as_rpt_134_measured_fr_96():
-    """The 0.34.0 continuation emits INITIALIZE_SOLVER between OPEN and START_SOLVER.
+def test_the_package_keeps_the_reopened_state_as_rpt_134_resume_arm_fr_96():
+    """Since 0.35.0 the continuation emits no INITIALIZE_SOLVER between OPEN and START_SOLVER.
 
-    On 26.124 that block clears the reopened solution and the march restarts at step 1
-    (RPT-134). When a later release stops emitting it on a continuation, this test moves
-    with it and RPT-134's resume arm is its evidence; until then it pins what was measured.
+    On 26.124 that block, which 0.34.0 emitted, clears the reopened solution and the march
+    restarts at step 1 (RPT-134). The resume arm is that script without the block, and it
+    marched on from step 13 (FR-396 R1); the package now emits the resume arm's order.
     """
     # Verifies FR-96.
     case = _continuing_case(
@@ -189,4 +193,5 @@ def test_the_package_still_initialises_the_reopened_state_as_rpt_134_measured_fr
     script = Script("26.124")
     build_script(case, script)
     lines = script.render().splitlines()
-    assert lines.index("OPEN") < lines.index("INITIALIZE_SOLVER") < lines.index("START_SOLVER")
+    assert "INITIALIZE_SOLVER" not in lines
+    assert lines.index("OPEN") < lines.index("START_SOLVER")

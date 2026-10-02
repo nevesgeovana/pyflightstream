@@ -123,6 +123,14 @@ def _build_continuation(
     today, which is the shape that made a recorded flight condition read
     back as a different number in a regenerated product.
 
+    NO ``INITIALIZE_SOLVER`` AND NO ACTION REGISTRATION (FR-396, 0.35.0).
+    Measured on 26.124 (RPT-134): an initialization after the ``OPEN`` clears
+    the reopened solution and the march restarts at step 1, and the actions
+    the saved file carries run beside any registered again, twice a step.
+    :func:`~._skeleton._script_init` skips the initialization of a reopened
+    state, and :func:`_the_actions_the_saved_state_runs` records the actions
+    without registering them.
+
     THE STEP COUNT IS THE REMAINDER AND NOT THE ROW'S ORIGINAL, computed by
     :func:`restart_iterations` against the record being continued. A
     builder that passed the row's own count through would re-march the
@@ -157,8 +165,39 @@ def _build_continuation(
     else:
         stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(script, time_iterations=iterations, delta_time=stepping.delta_time_s)
-    register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    _the_actions_the_saved_state_runs(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, None, unsteady=True, reopens_a_saved_state=True)
+
+
+def _the_actions_the_saved_state_runs(
+    script: Script, threshold: UnsteadyExportThreshold | None, *, walltime: bool
+) -> None:
+    """Record the row's unsteady actions on a continuation, and emit no registration (FR-396 R2).
+
+    THE REOPENED STATE ALREADY RUNS THEM. A simulation the package saved keeps
+    the unsteady solver actions its run registered, and an action a script
+    registers again under the same name does not replace the saved one: the
+    solver runs both. Measured on 26.124 (RPT-134, RPT-135, FR-308): a
+    continuation that registered the step counter again ran it twice a step,
+    24 times for 12 steps. So no ``SET_NEW_UNSTEADY_SOLVER_ACTION`` line is
+    emitted here.
+
+    THE USES ARE STILL RECORDED, exactly as :func:`register_unsteady_actions`
+    records them for this row on this build, because the saved actions run
+    the files the run layer stages from them: the counter program, the parked
+    exports script, the wall clock and its stop script, under ``actions/`` of
+    the datapoint folder, which the continuation's archive emptied. A build
+    that does not document the action command is refused as it is on a run
+    from the mesh.
+
+    The saved state is taken to carry the actions this row registers: it is
+    the state the package's own run of the same row saved, and every unsteady
+    row has registered its counter since 0.33.0 (FR-314).
+    """
+    carried = Script(script.version, script.registry)
+    register_unsteady_actions(carried, threshold, walltime=walltime)
+    script._unsteady_actions.update((use.name, use) for use in carried.unsteady_actions)
+    script._pending_action_scripts.update(carried.pending_action_scripts)
 
 
 def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:

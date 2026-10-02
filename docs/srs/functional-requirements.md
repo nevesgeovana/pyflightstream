@@ -3946,12 +3946,6 @@ requirement below is one seam of that division.
 
     Fixed by FR-396 in 0.35.0 (pending).
 
-    Known defect on 26.124 (RPT-134, 2026-10-02): the continuation the package
-    emits re-initializes the reopened state and re-marches from step 1; the fix
-    is 0.35.0 scope, and the requirement stays implemented by decision of
-    2026-10-02. The continuation of a run the wall clock stopped shares the
-    emission path and is not measured.
-
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
     is reused for continuity, and its measurement of 2026-09-13 that the
     solver resumes an unsteady march from a saved file. Evidence:
@@ -9158,6 +9152,8 @@ Requirements written after the specification was last reconciled with the packag
     Rationale: A measured continuation on the solver restarted at step 1; a continuation that restarts is not one.
 
     Verification: tier 1, a test carrying the markers P0350-CONTINUATION-NO-REINIT and P0350-CONTINUATION-ACTIONS-ONCE and P0350-CONTINUATION-WARN; release 0.35.0.
+
+    Evidence: `tests/tier1_offline/test_p0350_continuation_and_vorticity_order.py::test_a_continuation_emits_no_initialize_solver_fr_396` (R1), `::test_a_continuation_registers_none_of_the_saved_actions_fr_396` and `::test_a_continuation_without_a_threshold_records_the_counter_alone_fr_396` (R2), `::test_the_post_warns_when_a_continuation_adds_no_time_step_fr_396` and `::test_the_post_is_silent_when_the_continuation_marched_on_fr_396` (R3), `::test_the_parity_checker_names_the_continuation_fr_396_and_nothing_wider`; `tests/tier1_offline/test_rpt134_fr96_continuation_history.py::test_the_package_keeps_the_reopened_state_as_rpt_134_resume_arm_fr_96`. These verify the emitted script and the post offline; that the solver then marches on from the reopened step is RPT-134's resume arm, a script edited by hand, and the continuation the package emits is not yet run on a licensed seat.
 
 !!! requirement "FR-397 The post writes no archive folder by default <span class='srs-pending'>pending</span>"
 

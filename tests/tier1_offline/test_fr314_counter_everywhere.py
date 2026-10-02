@@ -27,6 +27,7 @@ from pyflightstream.cases.workflows import (
     RESTART_ITERATIONS_VARIABLE,
     UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
+    UNSTEADY_COUNTER_ACTION,
     build_script,
     unsteady_counter_steps,
     unsteady_export_threshold,
@@ -74,8 +75,15 @@ def test_fr314_every_unsteady_row_without_export_registers_the_counter_alone(row
     build_script(case, script)
     rendered = script.render()
     actions = _actions(rendered)
-    assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE"], (requirement, rendered)
-    assert actions[0][1].endswith(f'"{UNSTEADY_ACTION_PROGRAM}"'), actions
+    if row == "continuation":
+        # FR-396 R2 (0.35.0): the reopened state carries the counter its run
+        # registered and runs it, so the continuation emits no registration and
+        # records the counter for the run to stage its program.
+        assert actions == [], (requirement, rendered)
+        assert [use.name for use in script.unsteady_actions] == [UNSTEADY_COUNTER_ACTION]
+    else:
+        assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE"], (requirement, rendered)
+        assert actions[0][1].endswith(f'"{UNSTEADY_ACTION_PROGRAM}"'), actions
     # R2: no exports action, no parked exports file.
     assert UNSTEADY_ACTION_SCRIPT not in rendered
     assert script.pending_action_scripts == {}

@@ -2,8 +2,9 @@
 
 The fixtures are the loads spreadsheets the three arms of RPT-133 exported on FlightStream
 26.124 (build 8172026), far field 5: the final export and the step-1 and step-12 exports of
-arm A (the list after START_SOLVER, as the package emits it), arm B (the same three lines
-moved before START_SOLVER) and arm C (no list, the control). Only the Total row is read.
+arm A (the list after START_SOLVER, as 0.34.0 emitted it), arm B (the same three lines
+moved before START_SOLVER, as 0.35.0 emits it, FR-318 R6) and arm C (no list, the
+control). Only the Total row is read.
 """
 
 from __future__ import annotations
@@ -87,11 +88,12 @@ def test_before_start_solver_the_step_exports_answer_r5_as_rpt_133_recorded_fr_3
             assert _total(f"B_{step}") == _total(f"C_{step}"), step
 
 
-def test_the_package_still_emits_the_order_rpt_133_measured_as_arm_a_fr_318(tmp_path):
-    """Arm A is the package's order: the list after START_SOLVER, the moments model before it.
+def test_the_package_emits_the_order_rpt_133_measured_as_arm_b_fr_318(tmp_path):
+    """Arm B is the package's order since 0.35.0: the moments model, then the list, then the solve.
 
-    If 0.35.0 moves the list, this test moves with it and RPT-133's arm B is its
-    evidence; until then a change of order is a change RPT-133 did not measure.
+    0.34.0 emitted arm A, the list after START_SOLVER; FR-318 R6 moves it right before
+    START_SOLVER, and RPT-133's arm B, in which every step export carries the list, is the
+    evidence of that order.
     """
     # Verifies FR-318.
     case = rotor_case().model_copy(
@@ -116,4 +118,5 @@ def test_the_package_still_emits_the_order_rpt_133_measured_as_arm_a_fr_318(tmp_
     drag = next(
         i for i, line in enumerate(lines) if line.startswith("SET_VORTICITY_DRAG_BOUNDARIES")
     )
-    assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < start < drag
+    assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < drag < start
+    assert lines[drag : start + 1] == ["SET_VORTICITY_DRAG_BOUNDARIES 1", "1", "", "START_SOLVER"]

@@ -149,8 +149,9 @@ def test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list():
 def test_a_rotor_row_is_recognised_by_the_builder(tmp_path):
     """FR-318 through the builder: the unsteady_rotor row with a drag list states VORTICITY.
 
-    It also pins the order the requirement states as its limit: the moments
-    model precedes START_SOLVER, the vorticity drag list follows it.
+    It also pins the order: the moments model, then the vorticity drag list,
+    then START_SOLVER (R6 of 0.35.0, RPT-133; 0.34.0 emitted the list after
+    START_SOLVER, the limit R5 stated).
     """
     case = rotor_case().model_copy(
         update={
@@ -170,11 +171,10 @@ def test_a_rotor_row_is_recognised_by_the_builder(tmp_path):
         build_script(case, script)
     lines = script.render().splitlines()
     start = lines.index("START_SOLVER")
-    assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < start
     drag = next(
         i for i, line in enumerate(lines) if line.startswith("SET_VORTICITY_DRAG_BOUNDARIES")
     )
-    assert drag > start
+    assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < drag < start
 
 
 def test_a_steady_row_stating_a_rotor_speed_follows_the_vorticity_link(tmp_path):
