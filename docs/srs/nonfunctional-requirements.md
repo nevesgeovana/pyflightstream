@@ -269,6 +269,8 @@
     Evidence: the process rules below plus the consistency guard
     test.*
 
+    Read with PFS-2077, PFS-2077.14 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Read with PFS-2054, PFS-2054.08, PFS-2063, PFS-2063.02, PFS-2068, PFS-2068.01, PFS-2068.02, PFS-2068.03, PFS-2068.04, PFS-2069, PFS-2069.01, PFS-2071, PFS-2071.01, PFS-2071.02, PFS-2072, PFS-2072.01, PFS-2072.03, PFS-2072.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2031.10 at 0.13.0 (GOAL-012): the tiers page, the workspace page, the guide and CONTRIBUTING move in the same session as the folders.

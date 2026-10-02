@@ -3,7 +3,7 @@
 Keep a copy of the workspace and install the release in a separate Python
 environment before running existing matrices.
 
-## The post writes no archive by default
+## The post writes no archive by default (FR-397)
 
 Until 0.34.0 every rebuild by `pyfs-matrix post` moved the products it replaced
 into `post/<matrix>/archive/<day and hour>/` before writing the new ones, so

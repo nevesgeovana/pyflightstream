@@ -134,6 +134,30 @@ def _select_logs(
     problems: bool = False,
     open_only: bool = False,
 ) -> list[dict[str, Any]]:
+    """Keep the log rows that match every filter given.
+
+    Parameters
+    ----------
+    rows : Sequence[dict[str, Any]]
+        The log rows, in the order read.
+    sims : Sequence[str], optional
+        Keep rows of these simulations; empty keeps all.
+    run : str or None, optional
+        Keep rows that mention this run id.
+    stage : str or None, optional
+        Keep rows of this stage, action or command.
+    since : str or None, optional
+        Keep rows stamped at or after this time.
+    problems : bool, optional
+        Keep only rows that record a problem.
+    open_only : bool, optional
+        Keep only rows of stages that are still open.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        The rows kept, in their original order.
+    """
     cutoff = _since(since)
     candidates = _open_stages(rows) if open_only else rows
     return [
@@ -163,6 +187,18 @@ def _post_groups(ledger: Ledger, matrix: str, sims: Sequence[str] = ()) -> list[
 
 
 def _storage(ledger: Ledger) -> list[dict[str, Any]]:
+    """Read the recorded storage calls of a workspace in chronological order.
+
+    Parameters
+    ----------
+    ledger : Ledger
+        The workspace ledger.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        The storage call rows, oldest first.
+    """
     return sorted(read_storage_calls(ledger.root), key=_chronology)
 
 

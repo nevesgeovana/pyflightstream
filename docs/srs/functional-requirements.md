@@ -8049,6 +8049,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-318 On a row turning a rotor, the moments model follows the vorticity drag <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.12 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Read with PFS-2075, PFS-2075.18 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
@@ -8621,6 +8623,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-350 `pyfs-matrix run --polar-sweep` submits one cluster job per polar <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A polar of unsteady points submitted as one job per point pays the start of a solver instance and a licence checkout for every point, and the points queue separately.
@@ -8635,6 +8639,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-351 `pyfs-matrix run --batch <n>` submits exactly the jobs the plan receipt lists <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A run that regroups the matrix by itself could differ from the split and the estimate the user was shown.
@@ -8646,6 +8652,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder`, `::test_p0350_run_fr365_the_receipt_gates_the_run`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-352 Between two points of one polar the instance removes only the solver initialization <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SAME-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8659,6 +8667,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-353 Between two polars of a batch the instance is refreshed, never closed <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-NEW-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A new polar may carry another geometry and another setup; the state of the previous one must not reach it; measured on FlightStream 26.124 (build 8172026), `NEW_SIMULATION` then `OPEN` of the next simulation matched a fresh instance, licensed confirmation owed, RPT-141.
@@ -8670,6 +8680,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_script.py::test_p0350_script_fr353_fr354_a_refresh_equals_arm_e`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-354 The unsteady-solver actions are registered once per instance <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8683,6 +8695,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-355 At the start of each point the clock program checks its inherited state and rewrites its configuration <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: The programs registered once outlive the point that started them; a stop text or a revolution threshold left from an earlier point would write into the earlier point's folder.
@@ -8694,6 +8708,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_actions.py::test_p0350_actions_fr355_fr371_the_counter_reindexes_each_point`, `::test_p0350_actions_fr355_the_check_flags_a_missing_fsm`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-356 The per-point scripts are still written, and the job script is built from the same builder output <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-POINT-SCRIPTS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8707,6 +8723,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-357 The job scripts are named by their polar or their batch <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP and P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A job script found by name must say what it runs.
@@ -8718,6 +8736,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim`, `::test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-358 Each batch carries a package-assigned ID and its own working directory <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH and P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8731,6 +8751,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-359 Every save and export in a job script names an absolute path <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040), design FR-B7b; defect fix AB. Evidence: `tests/tier1_offline/test_p0350_batch_script.py::test_p0350_script_fr359_all_path_tokens_absolute`, `test_p0350_script_fr359_point_inputs_are_absolute`, and `test_p0350_script_fr359_fr360_every_target_absolute_in_its_folder`; generated job scans in `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder` and `test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim`. Licensed cluster confirmation remains owed.*
 
     Need: A relative name resolves against the working directory of the solver process, which in a grouped job is not the point's folder; measured on FlightStream 26.124 (build 8172026), the absolute form saved and exported correctly from a batch folder, licensed confirmation owed, RPT-141.
@@ -8740,6 +8762,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: The marker P0350-BATCH-ABSOLUTE: a tier-1 test scans every path argument of a job script and asserts each is absolute and none contains `..`, with a script written with a relative path as the control that the scan refuses.
 
 !!! requirement "FR-360 Each point saves its `.fsm` and outputs into its own datapoint folder as it finishes <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8753,6 +8777,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-361 The datapoint folders exist before the launch, and every save target is checked <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-FOLDERS-FIRST; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A save into a folder that does not exist opens a modal dialog that holds the solver until the scheduler kills the job; measured on FlightStream 26.124 (build 8172026), 611 s until killed.
@@ -8764,6 +8790,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr361_a_job_that_does_not_launch_fails_its_points`, `::test_p0350_run_fr361_folders_first_and_targets_checked`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-362 `plan --batch <n>` decides the split and prints it as a table <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SPLIT and P0350-BATCH-TABLE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8780,6 +8808,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-363 `plan --batch <n>` estimates each batch from its points and the measured overheads <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ESTIMATE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: The walltime of a batch must rest on the cost of its points and on what grouping adds.
@@ -8793,6 +8823,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_split.py::test_p0350_split_fr363_estimate_and_fallback`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-364 A batch's walltime is the matrix value or `BEST`, bounded by `max_walltime` <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8811,6 +8843,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-365 The plan receipt records every batch and gates `run --batch` <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: A run must execute the batches the plan estimated and no others.
@@ -8823,6 +8857,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-366 At submission each point of a grouped job is recorded as a point run alone is, naming its batch <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: Every reader of a point record must read a batched point unchanged.
@@ -8834,6 +8870,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr366_records_are_a_point_run_alone`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-367 `collect` completes a grouped job's points while it runs, and copies, then moves, its sims <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-COPY-MOVE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8850,6 +8888,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-368 `collect` slices a grouped job's cumulative log into one log per point <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-LOG-SLICE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: The solver's exported log is cumulative over the instance; each point's record must read its own log as a point run alone does.
@@ -8864,6 +8904,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-369 A point that fails without stopping the instance does not stop the job <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: One diverged point must not cost the points after it.
@@ -8875,6 +8917,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_collect.py::test_p0350_collect_fr369_not_started_points`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-370 A grouped job carries one wall clock, and the points never started are named <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8888,6 +8932,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-371 The step counter of a grouped job reports each point's own time step <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: The count of FR-314 is the time step of the point; a job-wide count would break it for every point after the first.
@@ -8899,6 +8945,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_actions.py::test_p0350_actions_fr355_fr371_the_counter_reindexes_each_point`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-372 The other commands read a batched point as a point run alone <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-TRANSPARENT and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8912,6 +8960,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-373 A grouped job runs in node-local storage and syncs each finished point back <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: Many small writes on a network share slow the solver, and the point files must still reach the network as each point finishes.
@@ -8923,6 +8973,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: The marker P0350-BATCH-ABSOLUTE: a tier-1 test asserts that every path of a job script is absolute and independent of where the folder was copied from; the marker P0350-BATCH-SUBMIT: a tier-1 test asserts the profile entry reaches every grouped submission. The licensed rehearsal of a batch run on the cluster is owed, RPT-142.
 
 !!! requirement "FR-374 While a batch runs, its sims live in its own folder <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8936,6 +8988,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-375 `--local` combines with `--polar-sweep` and `--batch` <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-LOCAL; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: One local instance holding the licence for a whole polar or batch avoids a licence checkout per point.
@@ -8947,6 +9001,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr375_fr376_local_holds_one_instance_and_never_posts`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-376 With `--polar-sweep` or `--batch`, `run` runs the solver only <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RUN-ONLY; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8960,6 +9016,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-377 `plan --batch <n>` reads the queue's maximum walltime from the HPC profile <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
     Need: The limit of the queue belongs to the workspace, beside the submit list that already names the cluster.
@@ -8971,6 +9029,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_hpc_fr377_max_walltime_and_job_root`, `::test_p0350_plan_fr364_best_is_priced_in_the_grouped_mode`; `tests/tier1_offline/test_p0350_batch_split.py::test_p0350_split_fr364_best_walltime`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-378 `plan --batch` refuses a batch whose geometry carries saved unsteady actions <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-PRISTINE-FSM; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
 
@@ -8984,6 +9044,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr378_a_geometry_with_saved_actions_is_refused`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-379 pyfs-matrix status prints one row per polar <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Requirement: `pyfs-matrix status` shall print one row per polar of the workspace, a polar being one simulation and its sweep.
 
@@ -9000,6 +9062,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-380 status selects simulations, matrices and statuses <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: `pyfs-matrix status` shall accept `--sims`, `--matrix`, `--status` and `--failed` to narrow the rows it prints.
 
     - R1 `--sims` takes simulation ids separated by commas, written with or without square brackets (`2006,2007` and `[2006,2007]` select the same simulations).
@@ -9014,6 +9078,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_status.py::test_status_selects_by_sims_matrix_status_and_failed`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-381 One effective record per datapoint, one home for the rules <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Requirement: Every query shall count a datapoint once, by its effective record, and the rules that choose that record shall have one home shared with the run, the post and the sweep table.
 
@@ -9032,6 +9098,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-382 status shows planned points and states its freshness <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: `pyfs-matrix status` shall show by default the planned points that no record carries, with the status `planned`, and shall state the freshness of the files it read.
 
     - R1 A point that a matrix's plan names and that no record carries (by its own id, by a continuation of it, or by a job of its row that names it or ran none) is counted among the datapoints of its polar with the status `planned`.
@@ -9046,6 +9114,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_status.py::test_a_planned_point_whose_record_cannot_be_read_is_not_called_planned`, `::test_planned_points_are_counted_in_lower_case_and_the_footer_states_freshness`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-383 Query commands are read only <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Requirement: A query command shall change no file, shall create no file or folder in the workspace, shall take no lock and wait on none, and shall expand no compacted simulation.
 
@@ -9063,6 +9133,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-384 A query prints recorded words as recorded <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: A query shall print each status exactly as it is recorded, and shall print a state it derives in a form no recorded status takes.
 
     - R1 The recorded words are the run statuses of the record model; none is renamed, merged or mapped to another word.
@@ -9078,6 +9150,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-385 Machine output of the query verbs <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: `--json` and `--csv` shall print the rows of the table to standard output and nothing else there.
 
     - R1 The console opening block and the signature stay on standard error.
@@ -9092,6 +9166,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_status.py::test_json_and_csv_print_the_table_rows_and_nothing_else`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-386 pyfs-matrix show prints one datapoint's record <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_show_outcome_evidence_identity_inputs_and_polar; test_show_uses_current_chain_and_names_archived_outputs).*
 
@@ -9111,6 +9187,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-387 pyfs-matrix log prints the activity and the post log <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_log_filters_order_open_and_relative_since; test_log_post_groups_category_family_shape).*
 
     Requirement: `pyfs-matrix log` shall print the activity log, filtered, and with `--post` the post log of a matrix, grouped.
@@ -9125,6 +9203,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, a test carrying the marker P0350-QUERY-LOG; release 0.35.0.
 
 !!! requirement "FR-388 The query functions in Python without pandas <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
@@ -9143,6 +9223,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-389 pyfs-matrix trace follows a product to its runs <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_trace_product_identity_sidecar_and_provenance_tree).*
 
     Requirement: `pyfs-matrix trace <product path>` shall print, from the post's products index, the simulation, post options and runs the product holds.
@@ -9158,6 +9240,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-390 pyfs-matrix history prints every record a point had <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_history_reads_present_archived_and_datapoint_records, ::test_history_has_its_own_batch_transparency_test, ::test_archives_in_a_compacted_sim_are_read_without_expansion and ::test_missing_ambiguous_and_unreadable_records_are_named`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
     Requirement: `pyfs-matrix history <simulation or point>` shall print every record the point ever had, including those in archived manifests and in datapoint archives.
@@ -9171,6 +9255,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, a test carrying the marker P0350-QUERY-HISTORY; release 0.35.0.
 
 !!! requirement "FR-391 pyfs-matrix diff compares two runs <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_diff_compares_recorded_fields_and_attributes_script_lines, ::test_diff_has_its_own_batch_transparency_test and ::test_diff_refuses_to_compare_a_script_with_the_wrong_digest`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
@@ -9186,6 +9272,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-392 log --storage lists past storage calls <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_log_storage_preserves_calls_and_filters; test_queries_read_compacted_logs_and_write_no_bytes).*
 
     Requirement: `pyfs-matrix log --storage` shall list the storage calls the workspace recorded: each call as it was recorded.
@@ -9198,6 +9286,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, a test carrying the marker P0350-QUERY-LOG-STORAGE; release 0.35.0.
 
 !!! requirement "FR-393 status --additional lists the additional register <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_additional_register_is_printed_without_derived_fields).*
 
@@ -9212,6 +9302,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-394 The coupled-run block of show <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_show_coupling_record_last_exchange_and_absence).*
 
     Requirement: `pyfs-matrix show` shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.
@@ -9224,6 +9316,8 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, a test carrying the marker P0350-QUERY-SHOW-FSI; release 0.35.0.
 
 !!! requirement "FR-395 Every datapoint has a run id alias <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.08 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Requirement: Every datapoint shall have the alias `<sim>_<index>`, where `<index>` is the 1-based position of the datapoint in its polar's sweep order as the plan lists the points, derived and never stored.
 
@@ -9241,6 +9335,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-396 A continuation continues the march <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2077, PFS-2077.09 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: A continuation script that reopens a saved state shall continue the march from that state (RPT-134).
 
     - R1 It shall not emit `INITIALIZE_SOLVER`, which clears the reopened solution and restarts the march at step 1.
@@ -9255,6 +9351,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-397 The post writes no archive folder by default <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.10 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: `pyfs-matrix post` shall write no `archive/` folder by default.
 
     - R1 The option `--archive` asks for the folder and writes it as 0.34.0 did.
@@ -9267,6 +9365,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_p0350_archive_opt_in.py::test_a_rebuild_with_archive_true_archives_as_0340_did`, `::test_a_rebuild_with_no_option_writes_no_archive_folder`, `::test_archive_and_force_overwrite_together_are_refused`, `::test_the_post_command_archives_only_with_the_archive_option`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-398 The cost file <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.11 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     Requirement: A workspace may carry a cost file `inputs/costs/c<NNN>.toml`, read by `plan --cost` and by the `plan --batch` estimate when it is present.
 
@@ -9284,6 +9384,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-399 Nested pytest runs do not list the system temporary folder <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2077, PFS-2077.13 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
+
     Requirement: The nested pytest runs of the examples test shall use their own root and their own base temporary folder.
 
     - R1 A nested run cannot list or collect from the system temporary folder.
@@ -9296,6 +9398,8 @@ Requirements written after the specification was last reconciled with the packag
     Evidence: `tests/tier1_offline/test_examples.py::test_p0350_nested_fr399_the_nested_run_stays_in_its_own_folder`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-400 collect discards a point its clock stopped, on request <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.
 
     *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_collect_discard.py::test_off_by_default`, `::test_discard_is_per_point_and_keeps_outputs`, `::test_earlier_collect_is_discarded_once_by_cli`, `::test_default_mode_and_sims_scope`, `::test_grouped_plan_and_run_archive_the_discarded_point`, `::test_discard_precedes_post`, `::test_watch_discards_after_each_pass`, `::test_help_explains_default_mode_rerun`.*
 

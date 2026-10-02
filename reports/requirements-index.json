@@ -2329,7 +2329,7 @@
   },
   {
    "id": "FR-318",
-   "text": "Read with PFS-2075, PFS-2075.18 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
+   "text": "Read with PFS-2077, PFS-2077.12 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded, ::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused, ::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list, ::test_a_rotor_row_is_recognised_by_the_builder. The licensed confirmation of R5, registered in RPT-106, was measured after the 0.34.0 release on 2026-10-02, on 26.124 (build 8172026), far field 5: reports/RPT-133_vorticity-drag-list-and-the-step-exports-on-26124_2026-10-02.md, three arms of one rotor march (the list after START_SOLVER as emitted, the list moved before it, no list as the control); tests/tier1_offline/test_rpt133_fr318_vorticity_order.py reads the recorded exports of the three arms and pins the emitted order.*",
@@ -2585,7 +2585,7 @@
   },
   {
    "id": "FR-350",
-   "text": "Need: A polar of unsteady points submitted as one job per point pays the start of a solver instance and a licence checkout for every point, and the points queue separately.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2593,7 +2593,7 @@
   },
   {
    "id": "FR-351",
-   "text": "Need: A run that regroups the matrix by itself could differ from the split and the estimate the user was shown.",
+   "text": "Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2601,7 +2601,7 @@
   },
   {
    "id": "FR-352",
-   "text": "Need: Reopening the geometry for every point repeats the open, the coordinate systems, the force plots, the fluid properties and the motion, and costs time that grows with the mesh; measured on FlightStream 26.124 (build 8172026), removing the initialization and initializing again left a result identical to a fresh instance, licensed confirmation owed, RPT-141.",
+   "text": "Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SAME-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2609,7 +2609,7 @@
   },
   {
    "id": "FR-353",
-   "text": "Need: A new polar may carry another geometry and another setup; the state of the previous one must not reach it; measured on FlightStream 26.124 (build 8172026), NEW_SIMULATION then OPEN of the next simulation matched a fresh instance, licensed confirmation owed, RPT-141.",
+   "text": "Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-NEW-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2617,7 +2617,7 @@
   },
   {
    "id": "FR-354",
-   "text": "Need: An action registered again after a re-initialization or a reset would run twice per step.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2625,7 +2625,7 @@
   },
   {
    "id": "FR-355",
-   "text": "Need: The programs registered once outlive the point that started them; a stop text or a revolution threshold left from an earlier point would write into the earlier point's folder.",
+   "text": "Read with PFS-2077, PFS-2077.02, PFS-2077.05 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2633,7 +2633,7 @@
   },
   {
    "id": "FR-356",
-   "text": "Need: The record of what each point was told must not diverge from what the job ran.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-POINT-SCRIPTS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2641,7 +2641,7 @@
   },
   {
    "id": "FR-357",
-   "text": "Need: A job script found by name must say what it runs.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP and P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2649,7 +2649,7 @@
   },
   {
    "id": "FR-358",
-   "text": "Need: Two batches sharing a working directory would write one descriptor, one native log and one set of action files over the other.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH and P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2657,7 +2657,7 @@
   },
   {
    "id": "FR-359",
-   "text": "Need: A relative name resolves against the working directory of the solver process, which in a grouped job is not the point's folder; measured on FlightStream 26.124 (build 8172026), the absolute form saved and exported correctly from a batch folder, licensed confirmation owed, RPT-141.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040), design FR-B7b; defect fix AB. Evidence: tests/tier1_offline/test_p0350_batch_script.py::test_p0350_script_fr359_all_path_tokens_absolute, test_p0350_script_fr359_point_inputs_are_absolute, and test_p0350_script_fr359_fr360_every_target_absolute_in_its_folder; generated job scans in tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder and test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim. Licensed cluster confirmation remains owed.*",
@@ -2665,7 +2665,7 @@
   },
   {
    "id": "FR-360",
-   "text": "Need: A point's files must be where a point run alone leaves them, and the .fsm marks the point done.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2673,7 +2673,7 @@
   },
   {
    "id": "FR-361",
-   "text": "Need: A save into a folder that does not exist opens a modal dialog that holds the solver until the scheduler kills the job; measured on FlightStream 26.124 (build 8172026), 611 s until killed.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-FOLDERS-FIRST; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2681,7 +2681,7 @@
   },
   {
    "id": "FR-362",
-   "text": "Need: The split, its estimate and its total time must be shown to the user before any submission, and one rule must decide it.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SPLIT and P0350-BATCH-TABLE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2689,7 +2689,7 @@
   },
   {
    "id": "FR-363",
-   "text": "Need: The walltime of a batch must rest on the cost of its points and on what grouping adds.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ESTIMATE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2697,7 +2697,7 @@
   },
   {
    "id": "FR-364",
-   "text": "Need: The walltime must be a request the user can read and the queue accepts.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2705,7 +2705,7 @@
   },
   {
    "id": "FR-365",
-   "text": "Need: A run must execute the batches the plan estimated and no others.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2713,7 +2713,7 @@
   },
   {
    "id": "FR-366",
-   "text": "Need: Every reader of a point record must read a batched point unchanged.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2721,7 +2721,7 @@
   },
   {
    "id": "FR-367",
-   "text": "Need: A point must be usable as soon as its files settle, and the folder of a running instance must never be changed under it.",
+   "text": "Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-COPY-MOVE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2729,7 +2729,7 @@
   },
   {
    "id": "FR-368",
-   "text": "Need: The solver's exported log is cumulative over the instance; each point's record must read its own log as a point run alone does.",
+   "text": "Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-LOG-SLICE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2737,7 +2737,7 @@
   },
   {
    "id": "FR-369",
-   "text": "Need: One diverged point must not cost the points after it.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2745,7 +2745,7 @@
   },
   {
    "id": "FR-370",
-   "text": "Need: The scheduler's kill at the walltime would lose the current point's files; points never started must be resumable by the usual commands.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2753,7 +2753,7 @@
   },
   {
    "id": "FR-371",
-   "text": "Need: The count of FR-314 is the time step of the point; a job-wide count would break it for every point after the first.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2761,7 +2761,7 @@
   },
   {
    "id": "FR-372",
-   "text": "Need: A grouped run must be transparent to every other command; what a grouped job adds is limited to additions a reader can ignore.",
+   "text": "Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-TRANSPARENT and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2769,7 +2769,7 @@
   },
   {
    "id": "FR-373",
-   "text": "Need: Many small writes on a network share slow the solver, and the point files must still reach the network as each point finishes.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2777,7 +2777,7 @@
   },
   {
    "id": "FR-374",
-   "text": "Need: A batch must be one self-contained folder that can be copied in and synced back whole.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2785,7 +2785,7 @@
   },
   {
    "id": "FR-375",
-   "text": "Need: One local instance holding the licence for a whole polar or batch avoids a licence checkout per point.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-LOCAL; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2793,7 +2793,7 @@
   },
   {
    "id": "FR-376",
-   "text": "Need: Posting inside a grouped job would read points before collect has completed them.",
+   "text": "Read with PFS-2077, PFS-2077.02 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RUN-ONLY; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2801,7 +2801,7 @@
   },
   {
    "id": "FR-377",
-   "text": "Need: The limit of the queue belongs to the workspace, beside the submit list that already names the cluster.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2809,7 +2809,7 @@
   },
   {
    "id": "FR-378",
-   "text": "Need: A batch always opens the pristine input geometry, never a saved datapoint .fsm: a saved simulation carries the unsteady actions of its run, and opening it would register them a second time; measured on FlightStream 26.124 (build 8172026), a different geometry opened after NEW_SIMULATION matched a fresh instance, licensed confirmation owed, RPT-141.",
+   "text": "Read with PFS-2077, PFS-2077.01 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-PRISTINE-FSM; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
@@ -2817,7 +2817,7 @@
   },
   {
    "id": "FR-379",
-   "text": "Requirement: pyfs-matrix status shall print one row per polar of the workspace, a polar being one simulation and its sweep.",
+   "text": "Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2825,7 +2825,7 @@
   },
   {
    "id": "FR-380",
-   "text": "Requirement: pyfs-matrix status shall accept --sims, --matrix, --status and --failed to narrow the rows it prints.",
+   "text": "Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2833,7 +2833,7 @@
   },
   {
    "id": "FR-381",
-   "text": "Requirement: Every query shall count a datapoint once, by its effective record, and the rules that choose that record shall have one home shared with the run, the post and the sweep table.",
+   "text": "Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2841,7 +2841,7 @@
   },
   {
    "id": "FR-382",
-   "text": "Requirement: pyfs-matrix status shall show by default the planned points that no record carries, with the status planned, and shall state the freshness of the files it read.",
+   "text": "Read with PFS-2077, PFS-2077.06 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2849,7 +2849,7 @@
   },
   {
    "id": "FR-383",
-   "text": "Requirement: A query command shall change no file, shall create no file or folder in the workspace, shall take no lock and wait on none, and shall expand no compacted simulation.",
+   "text": "Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2857,7 +2857,7 @@
   },
   {
    "id": "FR-384",
-   "text": "Requirement: A query shall print each status exactly as it is recorded, and shall print a state it derives in a form no recorded status takes.",
+   "text": "Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2865,7 +2865,7 @@
   },
   {
    "id": "FR-385",
-   "text": "Requirement: --json and --csv shall print the rows of the table to standard output and nothing else there.",
+   "text": "Read with PFS-2077, PFS-2077.06, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2873,7 +2873,7 @@
   },
   {
    "id": "FR-386",
-   "text": "Requirement: pyfs-matrix show shall print the effective record of one datapoint, taken from a simulation id with a point, from a run id or from its alias (FR-395), with the outcome first.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_show_outcome_evidence_identity_inputs_and_polar; test_show_uses_current_chain_and_names_archived_outputs).*",
@@ -2881,7 +2881,7 @@
   },
   {
    "id": "FR-387",
-   "text": "Requirement: pyfs-matrix log shall print the activity log, filtered, and with --post the post log of a matrix, grouped.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_log_filters_order_open_and_relative_since; test_log_post_groups_category_family_shape).*",
@@ -2889,7 +2889,7 @@
   },
   {
    "id": "FR-388",
-   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2897,7 +2897,7 @@
   },
   {
    "id": "FR-389",
-   "text": "Requirement: pyfs-matrix trace <product path> shall print, from the post's products index, the simulation, post options and runs the product holds.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_trace_product_identity_sidecar_and_provenance_tree).*",
@@ -2905,7 +2905,7 @@
   },
   {
    "id": "FR-390",
-   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_history_reads_present_archived_and_datapoint_records, ::test_history_has_its_own_batch_transparency_test, ::test_archives_in_a_compacted_sim_are_read_without_expansion and ::test_missing_ambiguous_and_unreadable_records_are_named; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2913,7 +2913,7 @@
   },
   {
    "id": "FR-391",
-   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_diff_compares_recorded_fields_and_attributes_script_lines, ::test_diff_has_its_own_batch_transparency_test and ::test_diff_refuses_to_compare_a_script_with_the_wrong_digest; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2921,7 +2921,7 @@
   },
   {
    "id": "FR-392",
-   "text": "Requirement: pyfs-matrix log --storage shall list the storage calls the workspace recorded: each call as it was recorded.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_log_storage_preserves_calls_and_filters; test_queries_read_compacted_logs_and_write_no_bytes).*",
@@ -2929,7 +2929,7 @@
   },
   {
    "id": "FR-393",
-   "text": "Requirement: pyfs-matrix status --additional shall list the entries of the additional runs register.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_additional_register_is_printed_without_derived_fields).*",
@@ -2937,7 +2937,7 @@
   },
   {
    "id": "FR-394",
-   "text": "Requirement: pyfs-matrix show shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.",
+   "text": "Read with PFS-2077, PFS-2077.07 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_show_coupling_record_last_exchange_and_absence).*",
@@ -2945,7 +2945,7 @@
   },
   {
    "id": "FR-395",
-   "text": "Requirement: Every datapoint shall have the alias <sim>_<index>, where <index> is the 1-based position of the datapoint in its polar's sweep order as the plan lists the points, derived and never stored.",
+   "text": "Read with PFS-2077, PFS-2077.08 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2953,7 +2953,7 @@
   },
   {
    "id": "FR-396",
-   "text": "Requirement: A continuation script that reopens a saved state shall continue the march from that state (RPT-134).",
+   "text": "Read with PFS-2077, PFS-2077.09 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
    "evidence": "",
@@ -2961,7 +2961,7 @@
   },
   {
    "id": "FR-397",
-   "text": "Requirement: pyfs-matrix post shall write no archive/ folder by default.",
+   "text": "Read with PFS-2077, PFS-2077.10 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2969,7 +2969,7 @@
   },
   {
    "id": "FR-398",
-   "text": "Requirement: A workspace may carry a cost file inputs/costs/c<NNN>.toml, read by plan --cost and by the plan --batch estimate when it is present.",
+   "text": "Read with PFS-2077, PFS-2077.11 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2977,7 +2977,7 @@
   },
   {
    "id": "FR-399",
-   "text": "Requirement: The nested pytest runs of the examples test shall use their own root and their own base temporary folder.",
+   "text": "Read with PFS-2077, PFS-2077.13 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2985,7 +2985,7 @@
   },
   {
    "id": "FR-400",
-   "text": "Requirement: pyfs-matrix collect --discard-walltime shall mark each point in its scope whose latest record is WALLTIME_REACHED as FAILED_MARKED, so the next grouped plan runs it again from the start.",
+   "text": "Read with PFS-2077, PFS-2077.03 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_collect_discard.py::test_off_by_default, ::test_discard_is_per_point_and_keeps_outputs, ::test_earlier_collect_is_discarded_once_by_cli, ::test_default_mode_and_sims_scope, ::test_grouped_plan_and_run_archive_the_discarded_point, ::test_discard_precedes_post, ::test_watch_discards_after_each_pass, ::test_help_explains_default_mode_rerun.*",
@@ -3113,7 +3113,7 @@
   },
   {
    "id": "NFR-11",
-   "text": "Read with PFS-2054, PFS-2054.08, PFS-2063, PFS-2063.02, PFS-2068, PFS-2068.01, PFS-2068.02, PFS-2068.03, PFS-2068.04, PFS-2069, PFS-2069.01, PFS-2071, PFS-2071.01, PFS-2071.02, PFS-2072, PFS-2072.01, PFS-2072.03, PFS-2072.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
+   "text": "Read with PFS-2077, PFS-2077.14 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 2026-07-22 staleness audit, which found the public documentation frozen at earlier milestones while the code moved. Evidence: the process rules below plus the consistency guard test.*",

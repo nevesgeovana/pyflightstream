@@ -168,6 +168,21 @@ def _provenance(ledger: Ledger, run_id: str) -> tuple[str | None, dict[str, Any]
 
 
 def _trace_run(ledger: Ledger, run_id: str) -> dict[str, Any]:
+    """Trace one run id to its identity and its provenance document.
+
+    Parameters
+    ----------
+    ledger : Ledger
+        The workspace ledger.
+    run_id : str
+        The run id to trace.
+
+    Returns
+    -------
+    dict[str, Any]
+        The identity, the provenance path, whether the document is present
+        or absent, and the document itself.
+    """
     path, document = _provenance(ledger, run_id)
     return {
         "identity": _identity(ledger, run_id),

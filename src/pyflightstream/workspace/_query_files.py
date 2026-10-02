@@ -19,6 +19,20 @@ if TYPE_CHECKING:
 
 
 def _json(path: Path, default: Any = None) -> Any:
+    """Read one JSON document, or give the default when the file is absent.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The file to read.
+    default : Any, optional
+        What to return when ``path`` is not a file.
+
+    Returns
+    -------
+    Any
+        The parsed document, or ``default``.
+    """
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
 

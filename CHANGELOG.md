@@ -109,13 +109,13 @@ FlightStream versions.
 
 ### Changed
 
-- `pyfs-matrix post` writes no `archive/` folder unless `--archive` is given (FR-397,
-  P0350-ARCHIVE-OPT-IN): a rebuild overwrites the products, `products.json` and the post
+- **`pyfs-matrix post` writes no `archive/` folder unless `--archive` is given.**
+  (FR-397, P0350-ARCHIVE-OPT-IN) A rebuild overwrites the products, `products.json` and the post
   logs in place. `--archive`, and `archive=True` on `write_campaign_products`, archive
   exactly as 0.34.0 did; the default of `archive` is now False. `--archive` with
   `--force-overwrite` is refused.
-- **A rotor march emits its vorticity drag list right before `START_SOLVER`
-  (FR-318 R6).** A row turning a rotor in time (`unsteady_rotor`, or an
+- **A rotor march emits its vorticity drag list right before `START_SOLVER`.**
+  (FR-318 R6) A row turning a rotor in time (`unsteady_rotor`, or an
   unsteady row stating a rotor speed) that states `vorticity_drag_families`
   now emits `SET_VORTICITY_DRAG_BOUNDARIES` between the moments model and
   `START_SOLVER`, where 0.34.0 emitted it right after `START_SOLVER`. Measured
@@ -157,6 +157,11 @@ FlightStream versions.
   (FR-336 R4).** The message cites RPT-126: the limits 2.0 and 3.6 end the solver
   process (0xC0000005) in both spaces, so the REAL token is not the cause; the
   refusal stays.
+
+### Migration
+
+- The migration page is [Migrating to 0.35.0](docs/migrating-to-0.35.0.md). It puts first the change that alters what a post leaves on disk (no archive folder unless `--archive`, FR-397), then the continuation that no longer re-initializes a reopened state (FR-396), the order of the vorticity drag list of a rotor march (FR-318 R6), the polar and batch runs, collecting batched points, the HPC profile, the run id alias, the cost file and the query verbs (FR-393).
+- FSI on `unsteady_rotor` is still refused by the plan, unchanged in 0.35.0: the plan refuses a fluid-structure row on `unsteady_rotor`, which is still in debug on this release.
 
 ## [0.34.0] - 2026-10-02
 
@@ -14098,7 +14103,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.35.0
 [0.34.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.34.0
 [0.33.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.33.1
 [0.33.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.33.0

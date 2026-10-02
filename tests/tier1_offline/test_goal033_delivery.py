@@ -469,6 +469,18 @@ _MIGRATION_NAMES_0_34_0 = {
     ),
 }
 
+# The heads are the bold heads of the ### Changed list of the 0.35.0 section.
+_MIGRATION_NAMES_0_35_0 = {
+    "`pyfs-matrix post` writes no `archive/` folder unless `--archive` is given.": (
+        "`--archive`",
+        "archive=True",
+    ),
+    "A rotor march emits its vorticity drag list right before `START_SOLVER`.": (
+        "SET_VORTICITY_DRAG_BOUNDARIES",
+        "`START_SOLVER`",
+    ),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
@@ -477,6 +489,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
     "0.33.0": _MIGRATION_NAMES_0_33_0,
     "0.33.1": _MIGRATION_NAMES_0_33_1,
     "0.34.0": _MIGRATION_NAMES_0_34_0,
+    "0.35.0": _MIGRATION_NAMES_0_35_0,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -494,6 +507,7 @@ _REFUSED_BY_RELEASE = {
     "0.33.0": ("unsteady_rotor",),
     "0.33.1": ("unsteady_rotor",),
     "0.34.0": ("unsteady_rotor",),
+    "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
@@ -520,6 +534,7 @@ _PAGE_WORDS_BY_RELEASE = {
         "`PROFILE: <stem>`",
         "build 8242026",
     ),
+    "0.35.0": ("FR-397", "FR-396", "FR-318", "--polar-sweep", "--batch", "FR-393"),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 

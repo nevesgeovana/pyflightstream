@@ -1,5 +1,7 @@
 # Workspace queries
 
+The query verbs of `pyfs-matrix` are `status`, `show`, `log`, `trace`, `history` and `diff`; each writes nothing.
+
 `pyfs-matrix status --workspace campaign` prints one row per polar, a polar
 being one simulation and its sweep (FR-379). A row states the simulation id,
 the polar name, the swept variable, the datapoints as recorded over planned,
@@ -20,7 +22,7 @@ is complete (FR-382). Recorded words are printed as recorded (FR-384).
 `status --additional` lists the additional runs register with its recorded
 fields and no derived one (FR-393).
 
-`pyfs-matrix show` prints the record of one datapoint, taken from a simulation
+`show` prints the record of one datapoint, taken from a simulation
 id and a point, a run id or its alias, outcome first: the status, the verdict
 a `mark-failed` gave, the warnings and the stopping reason, then the evidence
 files with their last lines, the log entries that name the point, the chain of
@@ -28,14 +30,14 @@ the run it continues and the run that continued it, the identity of the
 package, build and script, and the inputs (FR-386). A coupled point also names
 its coupling records, the files it lacks and its last exchange row (FR-394).
 
-`pyfs-matrix log` prints the activity log oldest first, filtered by `--sims`,
+`log` prints the activity log oldest first, filtered by `--sims`,
 `--run`, `--stage` and `--since`; `--problems` keeps the events with a problem,
 `--open` lists the stages that started and have no finish, and `--post MATRIX`
 prints the post log grouped by category, product family and message shape with
 a count and one example each, as `--pproc-warnings` groups it (FR-387).
 `log --storage` lists the storage calls as they were recorded (FR-392).
 
-`pyfs-matrix trace PRODUCT` prints, from the post's products index, the
+`trace PRODUCT` prints, from the post's products index, the
 simulation, post options and runs a product holds, with the identity of each
 run and the paths of its provenance document and sidecar; `trace --run RUN_ID`
 prints the provenance document as a tree of inputs, script and outputs with
