@@ -186,6 +186,44 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
         "pattern": "*",
+        # The FR-321 and FR-51 differences together in one script, and nothing
+        # else: the one termination line ADDED first, then the section Cp plot's
+        # three export lines and their blank line REMOVED, in the order the diff
+        # lists them. Each condition is its single entry's own: the release
+        # turns a rotor in time and the base wrote no termination line (FR-321),
+        # and the release cuts no section and plots none (FR-51). Either part
+        # alone goes to its single entry; a second termination line, any other
+        # changed line, the other order, a steady or rotorless script, a base
+        # that had a termination line, and a release that still plots or cuts a
+        # section do not match. Measured on tier3/matriz/P1021 against v0.33.0.
+        "lines": (
+            r"^(SET_WAKE_TERMINATION_TIME_STEPS \d+|SET_PLOT_TYPE SECTIONS_CP|SAVE_PLOT_TO_FILE"
+            r"|.+_plot_cp_sections\.txt|)$"
+        ),
+        "block": (
+            r"SET_WAKE_TERMINATION_TIME_STEPS \d+\n"
+            r"(SET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\n[^\n]+_plot_cp_sections\.txt\n"
+            r"|\nSET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\n[^\n]+_plot_cp_sections\.txt)"
+        ),
+        "release_has": (
+            r"(?ms)\A(?=.*^SET_SOLVER_UNSTEADY$)"
+            r"(?=.*^(?:CREATE_NEW_MOTION ROTARY|SET_MOTION_IS_ROTOR \d+ ENABLE\b"
+            r"|SET_MOTION_ANGULAR_VELOCITY \d+ [^\n]*[1-9]))"
+        ),
+        "release_lacks": r"(?m)^(NEW_SURFACE_SECTION_DISTRIBUTION|SET_PLOT_TYPE SECTIONS_CP)\b",
+        "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
+        "requirement": "FR-321",
+        "why": (
+            "a rotor row that states no wake termination keeps a wake of 4 rotor radii, "
+            "converted into the steps SET_WAKE_TERMINATION_TIME_STEPS takes, where 0.33.0 "
+            "emitted no termination line (FR-321); and the same row, whose geometry carries "
+            "no family a section distribution of its artifact cuts, declares and exports no "
+            "section Cp plot, P0331-SECTIONS-ABSENT-FAMILY (FR-51, shipped in 0.33.1)"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
         # The three lines of the counter's registration and nothing else: its
         # head, its command line (the interpreter as the render spells it, then
         # the program) and the blank line that closes the action. The diff may
