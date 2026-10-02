@@ -934,9 +934,9 @@
    "positional": 2
   },
   "workspace/flight_condition.py:resolve_flight_condition": {
-   "complexity": 13,
-   "branches": 15,
-   "statements": 51,
+   "complexity": 12,
+   "branches": 14,
+   "statements": 48,
    "positional": 1
   },
   "workspace/fsi_setup.py:resolve_fsi_setup": {

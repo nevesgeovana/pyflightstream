@@ -343,6 +343,50 @@ class ResolvedCondition:
     defaults_origin: str | None = None
 
 
+def _density_from_reynolds(
+    effective: Mapping[str, float],
+    *,
+    pol: str,
+    velocity: float,
+    viscosity: float,
+    reference_length_m: float | None,
+) -> tuple[float, float]:
+    """Return ``(reynolds, density)`` solved from a stated ``REmi``, or refuse.
+
+    density = Re mu / (V L): refused without the reference length L, and
+    refused at no positive speed V, naming the POL and the cells.
+    """
+    if reference_length_m is None:
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} states "
+            f"{DENSITY_KEY}:{effective[DENSITY_KEY]}, and a Reynolds number is "
+            "meaningless without the reference LENGTH it is measured against, "
+            "which lives in the reference artifact the row's REF cell names. "
+            "That row names no reference. Give it one, or state the condition "
+            "without a Reynolds number and let it be derived. The dependency is "
+            "not bookkeeping: on this branch density is inversely proportional "
+            "to the length and to nothing else, so the same Reynolds number "
+            "against a unit chord and against a rotor's mean face length of "
+            "about 0.15 m gives densities differing by the ratio of the two "
+            "lengths, near a factor of seven."
+        )
+    if velocity <= 0.0:
+        # Density solved from a Reynolds number divides by the speed: a
+        # hover row (TASmps:0 or MACH:0) has no Reynolds number to solve
+        # from, and a negative speed would give a negative density.
+        stated_velocity = next(key for key in VELOCITY_KEYS if key in effective)
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} states "
+            f"{stated_velocity}:{effective[stated_velocity]:g} with "
+            f"{DENSITY_KEY}:{effective[DENSITY_KEY]:g}, and a Reynolds number "
+            "solves the density only at a positive speed: density = Re mu / "
+            "(V L). State the density another way, ALTFT (with dISA) or "
+            "RHOkgm3, and drop REmi."
+        )
+    reynolds = effective[DENSITY_KEY] * 1e6
+    return reynolds, reynolds * viscosity / (velocity * reference_length_m)
+
+
 def resolve_flight_condition(
     stated: dict[str, float],
     *,
@@ -557,35 +601,13 @@ def resolve_flight_condition(
 
     reynolds: float | None
     if DENSITY_KEY in effective:
-        if reference_length_m is None:
-            raise FlightConditionError(
-                f"the flight condition of POL {pol} states "
-                f"{DENSITY_KEY}:{effective[DENSITY_KEY]}, and a Reynolds number is "
-                "meaningless without the reference LENGTH it is measured against, "
-                "which lives in the reference artifact the row's REF cell names. "
-                "That row names no reference. Give it one, or state the condition "
-                "without a Reynolds number and let it be derived. The dependency is "
-                "not bookkeeping: on this branch density is inversely proportional "
-                "to the length and to nothing else, so the same Reynolds number "
-                "against a unit chord and against a rotor's mean face length of "
-                "about 0.15 m gives densities differing by the ratio of the two "
-                "lengths, near a factor of seven."
-            )
-        if velocity <= 0.0:
-            # Density solved from a Reynolds number divides by the speed: a
-            # hover row (TASmps:0 or MACH:0) has no Reynolds number to solve
-            # from, and a negative speed would give a negative density.
-            stated_velocity = next(key for key in VELOCITY_KEYS if key in effective)
-            raise FlightConditionError(
-                f"the flight condition of POL {pol} states "
-                f"{stated_velocity}:{effective[stated_velocity]:g} with "
-                f"{DENSITY_KEY}:{effective[DENSITY_KEY]:g}, and a Reynolds number "
-                "solves the density only at a positive speed: density = Re mu / "
-                "(V L). State the density another way, ALTFT (with dISA) or "
-                "RHOkgm3, and drop REmi."
-            )
-        reynolds = effective[DENSITY_KEY] * 1e6
-        density = reynolds * viscosity / (velocity * reference_length_m)
+        reynolds, density = _density_from_reynolds(
+            effective,
+            pol=pol,
+            velocity=velocity,
+            viscosity=viscosity,
+            reference_length_m=reference_length_m,
+        )
         density_source = "solved-from-reynolds"
     else:
         if "RHOkgm3" in effective:
