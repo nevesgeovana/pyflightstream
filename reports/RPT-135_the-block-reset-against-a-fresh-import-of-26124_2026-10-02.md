@@ -135,8 +135,11 @@ name.
   step counter of 24 for 12 steps, and 45 plots columns against 23, a plots export the
   package's reader refuses. The block-reset file matches the fresh import on each of those.
 
-What follows for FR-312: R1's claim is confirmed on 26.124 for the blade, with the 26.124
-table given to the package's reset in-process. Registering that table in
+What follows for FR-312: the licensed control discriminates the saved actions only (the
+uncleaned file's loads equal the fresh and reset files'); the block content of the reset is
+verified block by block offline (section 3), and the solve confirms that the block-reset
+file opens and runs on 26.124, for the blade, with the 26.124 table given to the package's
+reset in-process. Registering that table in
 `pyflightstream._fsm_fresh.FRESH_IMPORT` is a change in `src/`, which a post-release commit
 of 0.34.0 may not make (GOAL-039, POST_SRC_ALLOWED); it is 0.35.0 scope (GOAL-040), with
 the recorded fresh imports as its tier-1 fixture. The tier-1 test
