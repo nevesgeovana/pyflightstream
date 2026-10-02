@@ -55,6 +55,7 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream._progress import activity_stage
@@ -657,7 +658,7 @@ def write_tecplot_surface(
     lines += [" ".join(left[at : at + 20]) for at in range(0, len(left), 20)]
     right = ["0"] * faces
     lines += [" ".join(right[at : at + 20]) for at in range(0, len(right), 20)]
-    destination.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    _textio.write_text(destination, "\n".join(lines) + "\n")
     return destination
 
 
@@ -712,7 +713,7 @@ def write_vtk_surface(
         for name, values in data.items():
             lines += [f"SCALARS {name} FLOAT", "LOOKUP_TABLE default"]
             lines += [_number(value) for value in values]
-    destination.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    _textio.write_text(destination, "\n".join(lines) + "\n")
     return destination
 
 

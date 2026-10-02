@@ -27,6 +27,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl, wing_triangles
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
@@ -76,9 +77,8 @@ def _run_script_target(script: Script, workdir: Path) -> None:
     # The nested file is fixed probe support data (a single PRINT), not
     # emitted through a builder: it must exist on disk before the run.
     nested = workdir / _NESTED_NAME
-    nested.write_text(
-        "# nested script for the RUN_SCRIPT probe\nPRINT PYFS_EFFECT_NESTED\n",
-        encoding="utf-8",
+    _textio.write_text(
+        nested, "# nested script for the RUN_SCRIPT probe\nPRINT PYFS_EFFECT_NESTED\n"
     )
     script.emit("RUN_SCRIPT", nested)
 
@@ -362,9 +362,8 @@ def _wake_edge_import_target(script: Script, workdir: Path) -> None:
     the command lands unprobed there.
     """
     nodes = workdir / _WAKE_EDGE_NODES
-    nodes.write_text(
-        render_wake_edge_node_file(_wing_trailing_edge_midpoints(_WAKE_EDGE_WING)),
-        encoding="utf-8",
+    _textio.write_text(
+        nodes, render_wake_edge_node_file(_wing_trailing_edge_midpoints(_WAKE_EDGE_WING))
     )
     script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, "METER", nodes)
 

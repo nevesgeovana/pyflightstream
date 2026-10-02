@@ -35,6 +35,13 @@ the products digest, and the operator's name, which a run records. The
 snapshot was first stored on Windows; run on Linux it differed by these two
 and by the separator, and by nothing else (measured 2026-10-01).
 
+THE LINE ENDS ARE JUDGED, NOT PINNED (NFR-32, 0.34.0). The post runs with text
+mode forced to write CRLF (:func:`crlf_text_mode`), so a writer that bypasses
+the LF route fails the comparison on Linux as it would on Windows, and the
+receipt counts the files that hold a CR (``cr_files``, which must be 0) and
+names the platform it was made on (``platforms``); the two platforms' receipts
+are the two runs of the ``ci.yml`` matrix.
+
 Also ``.gitattributes``: the stored texts are pinned to LF like the goldens.
 
 THE CONTROL. A comparator that cannot see a difference would pass any
@@ -80,7 +87,7 @@ def _post(workspace, **options) -> Path:
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.post.products import write_campaign_products
 
-    with warnings.catch_warnings():
+    with warnings.catch_warnings(), crlf_text_mode():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         write_campaign_products(workspace, **options)
     return Path(workspace.root)
@@ -372,6 +379,46 @@ OPERATOR = "operator"
 _OPERATOR_VARIABLES = ("LOGNAME", "USER", "LNAME", "USERNAME")
 
 
+#: ``scripts/lf_products_check.py`` clears it on Windows, where text mode writes CRLF by itself.
+FORCE_CRLF_IN_POST = True
+
+
+def _crlf_text_writes(open_):
+    """``open_`` with CRLF as the default line end of a text file opened to write: Windows's."""
+
+    def opened(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, *a, **k):
+        if newline is None and "b" not in mode and any(flag in mode for flag in "wax"):
+            newline = "\r\n"
+        return open_(file, mode, buffering, encoding, errors, newline, *a, **k)
+
+    return opened
+
+
+@contextmanager
+def crlf_text_mode() -> Iterator[None]:
+    """Run the post with text mode forced to write CRLF, as Windows does (NFR-32).
+
+    THE POST IS THE PACKAGE'S, so it is the one stage run this way: a text
+    write that states no line end gets CRLF here on every platform, and a
+    write through ``pyflightstream._textio`` states LF and is untouched. A
+    product that still holds a CR, or differs from the stored LF bytes, is
+    therefore a writer that bypasses the route, on Linux as on Windows. The
+    builders' own writes of the recorded inputs stay under the LF pin of
+    :func:`pin_environment`, which is the test's input and not a product.
+    """
+    import builtins
+    import io
+
+    if not FORCE_CRLF_IN_POST:
+        yield
+        return
+    with pytest.MonkeyPatch.context() as patch:
+        forced = _crlf_text_writes(io.open)
+        patch.setattr(io, "open", forced)
+        patch.setattr(builtins, "open", forced)
+        yield
+
+
 def _lf_text_writes(open_):
     """``open_`` with LF as the default line end of a text file opened to write."""
 
@@ -593,6 +640,13 @@ def _behaviour_caught(found: list[str]) -> bool:
     return f"{BEHAVIOUR_PRODUCT}: bytes differ" in found
 
 
+def _platform() -> str:
+    """The platform a receipt was made on, as the goal checker spells it: linux or win32."""
+    import sys
+
+    return "win32" if sys.platform == "win32" else "linux"
+
+
 def snapshot_receipt(write: bool = False) -> dict[str, object]:
     """Regenerate every campaign, compare (or store, with ``write``), and run the controls.
 
@@ -602,7 +656,7 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
     """
     checked = 0
     differing: list[str] = []
-    caught = planted = 0
+    caught = planted = cr_files = 0
     for name in CAMPAIGNS:
         # One patch scope per campaign: a builder's patch must not reach the next.
         with pytest.MonkeyPatch.context() as monkeypatch:
@@ -611,6 +665,7 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
                 write_snapshot(name, files)
             index, texts = stored(name)
             checked += len(files)
+            cr_files += sum(1 for data in files.values() if b"\r" in data)
             differing += [
                 f"{name}/{d}" for d in differences(index, files) + text_differences(texts, files)
             ]
@@ -622,6 +677,9 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
     return {
         "files_checked": checked,
         "campaigns": len(CAMPAIGNS),
+        "platforms": [_platform()],
+        "line_ends_judged": True,
+        "cr_files": cr_files,
         "differing": differing,
         "control": f"caught {caught + behaviour} of {planted + 1}",
         "behaviour_control": f"caught {behaviour} of 1",

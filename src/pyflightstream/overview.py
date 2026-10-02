@@ -26,6 +26,8 @@ import tempfile
 import webbrowser
 from pathlib import Path
 
+import pyflightstream._textio as _textio
+
 __all__ = [
     "markdown_overview",
     "overview",
@@ -300,7 +302,7 @@ def overview(*, path: str | Path | None = None, open_browser: bool = True) -> Pa
     if path is None:
         path = Path(tempfile.gettempdir()) / "pyflightstream_overview.html"
     target = Path(path)
-    target.write_text(render_overview_html(), encoding="utf-8")
+    _textio.write_text(target, render_overview_html())
     if open_browser:
         webbrowser.open(target.as_uri())
     return target

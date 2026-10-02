@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream.post._tables import (
     _DECIMALS,
     _REFERENCE_COLUMNS,
@@ -283,7 +284,7 @@ def write_custom_polar_format(
         lines.append("".join(f"{float(value):{CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(("\n".join(lines) + "\n").encode("ascii"))
+    _textio.write_text(target, "\n".join(lines) + "\n", encoding="ascii")
     return target
 
 

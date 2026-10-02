@@ -249,7 +249,11 @@ def test_the_module_reaches_up_to_nothing():
         for line in source.splitlines()
         if "import pyflightstream" in line or "from pyflightstream" in line
     ]
+    # NFR-32 (0.34.0): the write route ``_textio`` is a floor module that imports
+    # only the standard library, so reaching it is reaching down; the one chapter
+    # write goes through it so that no text mode can put a CR in the file.
     assert reaching == [
+        "import pyflightstream._textio as _textio",
         "from pyflightstream._yamlflow import flow_mapping",
         "from pyflightstream.utils.errors import ManualDraftError",
         "from pyflightstream.extras import missing_extra",

@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.calibration import (
     CALIBRATION_FACTORS,
@@ -401,8 +402,8 @@ def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Pa
     directory.mkdir(parents=True, exist_ok=True)
     config = directory / "config.json"
     receipt = directory / "fsi-provenance.json"
-    config.write_text(resolved.effective.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    receipt.write_text(json.dumps(resolved.provenance(), indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(config, resolved.effective.model_dump_json(indent=2) + "\n")
+    _textio.write_text(receipt, json.dumps(resolved.provenance(), indent=2) + "\n")
     return config, receipt
 
 

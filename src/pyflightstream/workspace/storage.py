@@ -57,6 +57,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+import pyflightstream._textio as _textio
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -239,7 +240,7 @@ def _replace_rows(workspace: CampaignWorkspace, path: Path, rows: list[dict[str,
         workspace._replace_manifest(rows)
         return
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(temporary, json.dumps(rows, indent=2) + "\n")
     temporary.replace(path)
 
 
@@ -310,10 +311,10 @@ def record_storage_call(root: str | Path, entry: dict[str, Any]) -> int:
         calls.append(full)
         archive_previous(workspace.root, path)
         temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(
+        _textio.write_text(
+            temporary,
             json.dumps({"schema": STORAGE_SCHEMA, "calls": calls}, indent=1, ensure_ascii=False)
             + "\n",
-            encoding="utf-8",
         )
         temporary.replace(path)
     return len(calls) - 1
@@ -592,8 +593,7 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
             (folder / "inputs").mkdir()
     archive.unlink()
     record_storage_call(
-        workspace.root,
-        {"action": "restore", "applied": True, "sim_id": sim_id, "reason": reason},
+        workspace.root, {"action": "restore", "applied": True, "sim_id": sim_id, "reason": reason}
     )
     return True
 
@@ -858,7 +858,7 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
         notes.append({"at": _now().isoformat(), "mode": PRUNE_MODE, "listings_removed": gone})
         document["pruned_by_storage"] = notes
         temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
+        _textio.write_text(temporary, json.dumps(document, indent=1) + "\n")
         temporary.replace(manifest)
         changed[manifest.relative_to(workspace.root).as_posix()] = len(gone)
     return changed
@@ -1176,7 +1176,7 @@ def _forget_products(
     notes.append({"at": _now().isoformat(), "stamp": stamp, "sims": sims, "stale": item["shared"]})
     document["deleted_by_storage"] = notes
     temporary = manifest.with_name(f"{manifest.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(temporary, json.dumps(document, indent=2) + "\n")
     temporary.replace(manifest)
 
 

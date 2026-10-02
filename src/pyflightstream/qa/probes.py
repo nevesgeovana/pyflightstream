@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
@@ -1268,7 +1269,7 @@ def _validate_tiers(
         script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
         script.emit("CLOSE_FLIGHTSTREAM")
         script_path = workdir / _SCRIPT_NAME
-        script_path.write_text(script.render(), encoding="utf-8")
+        _textio.write_text(script_path, script.render())
         execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
         log_text = _read_log(workdir / _LOG_AFTER)
         if log_text is None or not printed_line(log_text, marker):
@@ -1413,7 +1414,7 @@ def _run_baseline(
         script.emit("EXPORT_LOG", log_path)
         script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / _SCRIPT_NAME
-    script_path.write_text(script.render(), encoding="utf-8")
+    _textio.write_text(script_path, script.render())
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     log_text = _read_log(log_path)
     if log_text is None or not printed_line(log_text, _BASELINE_MARKER):
@@ -1479,7 +1480,7 @@ def _run_probe(
         )
     text = script.render()
     script_path = workdir / _SCRIPT_NAME
-    script_path.write_text(text, encoding="utf-8")
+    _textio.write_text(script_path, text)
     sha = text_sha256(text)
     limit = spec.timeout_s if spec.timeout_s is not None else timeout_s
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=limit)

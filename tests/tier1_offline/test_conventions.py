@@ -533,7 +533,8 @@ _SRC = Path(pyflightstream.__file__).parent
 #: `_lengths` joined in 0.27.0: the metres of each length unit, which the cases
 #: layer converts the actuator disc and the volume section with and the
 #: workspace layer the trailing-edge node file.
-_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_tokens")
+#: `_textio` joined in 0.34.0 (NFR-32): the one LF write route every layer writes through.
+_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_textio", "_tokens")
 _LAYER_ROW: dict[str, int] = (
     {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
     | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}

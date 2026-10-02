@@ -30,6 +30,7 @@ from pydantic import (
     model_validator,
 )
 
+import pyflightstream._textio as _textio
 from pyflightstream._atmosphere import ISA
 
 __all__ = [
@@ -749,7 +750,7 @@ def dump_config(cfg: FsiConfig, path: str | Path) -> None:
     >>> load_config(path) == cfg
     True
     """
-    Path(path).write_text(cfg.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(Path(path), cfg.model_dump_json(indent=2) + "\n")
 
 
 def config_sha256(cfg: FsiConfig) -> str:

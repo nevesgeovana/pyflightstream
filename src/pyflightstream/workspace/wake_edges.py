@@ -56,6 +56,7 @@ from typing import Any, NamedTuple
 import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
+import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
@@ -562,7 +563,7 @@ def write_trailing_edge_points(
     length_scale(unit, unit)
     _refuse_an_existing_file(destination, overwrite)
     rows = [",".join(plain_decimal(float(value)) for value in point) for point in array]
-    destination.write_text("\n".join([unit, *rows]) + "\n", encoding="utf-8")
+    _textio.write_text(destination, "\n".join([unit, *rows]) + "\n")
     return destination
 
 
@@ -965,5 +966,5 @@ def write_node_file(
         # Reached only when a converted coordinate overflows to infinity;
         # refused in this layer's vocabulary rather than the script layer's.
         raise InputArtifactError(str(error), kind="wake_edges") from error
-    destination.write_text(text, encoding="utf-8")
+    _textio.write_text(destination, text)
     return destination

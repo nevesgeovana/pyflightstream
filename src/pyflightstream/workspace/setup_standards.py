@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream.cases import SOLVER_SETTING_COMMANDS, SolverSettings
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script.solver_setup import FLAG_SPECS
@@ -977,7 +978,7 @@ def write_setup_library(
     for name, body in payloads.items():
         path = destination / name
         try:
-            with path.open("x", encoding="utf-8", newline="\n") as stream:
+            with _textio.open_text(path, "x") as stream:
                 stream.write(body)
             result[name] = "created"
         except FileExistsError:

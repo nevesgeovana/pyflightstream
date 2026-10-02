@@ -25,6 +25,7 @@ from typing import Any
 
 import yaml
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry, CommandRegistry, Status
@@ -193,8 +194,8 @@ def write_compat_report(
             for result in run.results
         },
     }
-    yaml_path.write_text(yaml.safe_dump(document, sort_keys=False, width=100), encoding="utf-8")
-    md_path.write_text(_render_markdown(run, date, counts), encoding="utf-8")
+    _textio.write_text(yaml_path, yaml.safe_dump(document, sort_keys=False, width=100))
+    _textio.write_text(md_path, _render_markdown(run, date, counts))
     return yaml_path, md_path
 
 
@@ -663,7 +664,7 @@ def apply_compat(
             "them; the report and the database have diverged, and nothing was written"
         )
     for chapter_path, text in rewritten:
-        chapter_path.write_text(text, encoding="utf-8")
+        _textio.write_text(chapter_path, text)
     return promotions
 
 

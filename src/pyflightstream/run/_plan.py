@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream._digest import (
     file_sha256,
 )
@@ -1083,7 +1084,7 @@ def plan_campaign(
         if campaign.matrix_stem:
             # 0.32.0 (P0320-RESTORE-ARCHIVE): the plan this one replaces, for `restore plan`.
             archive_previous(workspace.root, plan_file, matrix=campaign.matrix_stem)
-        plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        _textio.write_text(plan_file, json.dumps(payload, indent=2) + "\n")
     return CampaignPlan(
         campaign=campaign.name,
         fs_version=canonical,

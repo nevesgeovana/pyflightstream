@@ -37,6 +37,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
@@ -223,7 +224,7 @@ def to_installed_frame(
     negate = {i for i, c in enumerate(header) if c in classes.flipped}
     mirror = {i for i, c in enumerate(header) if c in classes.mapped}
     buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
+    writer = _textio.csv_writer(buffer)
     writer.writerow(header)
     for row in body:
         writer.writerow(
@@ -231,7 +232,7 @@ def to_installed_frame(
             for i, cell in enumerate(row)
         )
     text = "".join(f"{line}\n" for line in alias) + buffer.getvalue()
-    target.write_bytes(text.encode("utf-8"))
+    _textio.write_text(target, text)
     return target
 
 
@@ -550,6 +551,6 @@ def write_inflow_harmonics(
             )
         )
     Path(folder).mkdir(parents=True, exist_ok=True)
-    full.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
-    short.write_bytes(("\n".join(lines_j) + "\n").encode("utf-8"))
+    _textio.write_text(full, "\n".join(lines) + "\n")
+    _textio.write_text(short, "\n".join(lines_j) + "\n")
     return full, short

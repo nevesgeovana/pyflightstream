@@ -7,7 +7,6 @@ wall-normal velocity profile.
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.post._tables import ProductError
@@ -268,8 +268,8 @@ def write_boundary_layer_table(path: str | Path, samples: BoundaryLayerSamples) 
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
+    with _textio.open_text(target, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow(BL_COLUMNS)
         for row in samples.rows:
             writer.writerow(

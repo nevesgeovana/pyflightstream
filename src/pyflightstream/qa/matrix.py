@@ -56,6 +56,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream.cases.matrix import MatrixRow, read_matrix
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.qa.drift import DriftRun, diff_runs
@@ -760,11 +761,11 @@ def drift_from_workspace(
             ignore=shutil.ignore_patterns("*.local.toml"),
         )
         shutil.copy(path, side_root / path.name)
-        (side_root / "inputs" / LOCAL_EXECUTABLES_FILE).write_text(
+        _textio.write_text(
+            side_root / "inputs" / LOCAL_EXECUTABLES_FILE,
             f"# Written by pyfs-qa drift: side {side} runs every build the rows name on "
             f"FlightStream {canonical}.\n"
             + "".join(_overlay_line(build, exe, canonical) for build in builds),
-            encoding="utf-8",
         )
         workspace = _workspace(side_root)
         try:

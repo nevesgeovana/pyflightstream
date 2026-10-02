@@ -13,6 +13,7 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import (
     aliased_name_fault,
     file_sha256,
@@ -76,8 +77,6 @@ def _write_probe_points(
     The alternative -- one file per point -- would put a hundred identical
     files in the folder and say the layout depends on the angle of attack.
     """
-    import csv
-
     from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_PROFILE_DIR
 
     if not points:
@@ -115,8 +114,8 @@ def _write_probe_points(
     # THROUGH `csv`, not through an f-string. A frame name carrying a comma,
     # a quote or a newline produced a row the reader silently dropped, and
     # the probe table then showed empty coordinates with nothing recorded.
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
+    with _textio.open_text(target, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow(PROBE_POSITION_COLUMNS)
         writer.writerows(points)
     return relative
@@ -379,7 +378,7 @@ def _write_pending_files(
         if one_file(target) in untouched:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(action_text, encoding="utf-8")
+        _textio.write_text(target, action_text)
     digests: dict[str, str] = {}
     written: dict[str, Path] = {}
     # Each name held, by its case-folded form: (the name as spelled, its digest).
@@ -394,7 +393,7 @@ def _write_pending_files(
         elif isinstance(content, bytes):
             target.write_bytes(content)
         else:
-            target.write_text(content, encoding="utf-8")
+            _textio.write_text(target, content)
         name, digest = target.name, file_sha256(target)
         key, held_digest = held.get(name.casefold(), (name, None))
         if held_digest is not None and held_digest != digest:

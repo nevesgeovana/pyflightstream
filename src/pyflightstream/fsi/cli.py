@@ -29,6 +29,7 @@ import sys
 import traceback
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
@@ -73,7 +74,7 @@ def init_dummy(directory: Path, node_count: int) -> None:
     """
     directory.mkdir(parents=True, exist_ok=True)
     config = {"node_count": node_count}
-    (directory / DUMMY_CONFIG).write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(directory / DUMMY_CONFIG, json.dumps(config, indent=2) + "\n")
     print(f"dummy config written: {directory / DUMMY_CONFIG} (node_count {node_count})")
 
 
@@ -107,7 +108,7 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     try:
         result = driver.coupling_step(cwd)
     except Exception:
-        with (cwd / ERROR_LOG).open("a", encoding="utf-8") as log:
+        with _textio.open_text(cwd / ERROR_LOG, "a") as log:
             log.write(f"{stamp} coupled step failed in {cwd} ({argv_note})\n")
             log.write(traceback.format_exc() + "\n")
         return 1
@@ -117,7 +118,7 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         source = cwd / name
         if source.is_file():
             shutil.copy2(source, archive / name)
-    with (cwd / CALL_LOG).open("a", encoding="utf-8") as log:
+    with _textio.open_text(cwd / CALL_LOG, "a") as log:
         log.write(
             f"{stamp} coupled call {result.call} (step {result.step}, phase "
             f"{result.phase}, cwd {cwd}, {argv_note}): FSIDisp written\n"
@@ -150,10 +151,10 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     config_path = cwd / DUMMY_CONFIG
     if not config_path.is_file():
         listing = "\n".join(sorted(p.name for p in cwd.iterdir()))
-        (cwd / ERROR_LOG).write_text(
+        _textio.write_text(
+            cwd / ERROR_LOG,
             f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd} ({argv_note})\n"
             f"directory listing:\n{listing}\n",
-            encoding="utf-8",
         )
         return 1
     node_count = json.loads(config_path.read_text(encoding="utf-8"))["node_count"]
@@ -177,22 +178,18 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         for p in sorted(cwd.iterdir())
         if p.is_file()
     ]
-    (archive / "directory_listing.txt").write_text(
-        "\n".join(listing_lines) + "\n", encoding="utf-8"
-    )
+    _textio.write_text(archive / "directory_listing.txt", "\n".join(listing_lines) + "\n")
 
     # Comma separated per the FSIDisp.txt format of SRC-003 p.273.
     zero_line = "0.000000000000e+00,0.000000000000e+00,0.000000000000e+00"
-    (cwd / DISPLACEMENT_FILE).write_text(
-        "\n".join([zero_line] * node_count) + "\n", encoding="utf-8"
-    )
+    _textio.write_text(cwd / DISPLACEMENT_FILE, "\n".join([zero_line] * node_count) + "\n")
 
     state["calls"] = call_number
     tmp = state_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state) + "\n", encoding="utf-8")
+    _textio.write_text(tmp, json.dumps(state) + "\n")
     tmp.replace(state_path)
 
-    with (cwd / CALL_LOG).open("a", encoding="utf-8") as log:
+    with _textio.open_text(cwd / CALL_LOG, "a") as log:
         log.write(
             f"{stamp} call {call_number} (cwd {cwd}, {argv_note}): wrote "
             f"{node_count} zero displacement vectors; archived {copied or 'nothing'}\n"

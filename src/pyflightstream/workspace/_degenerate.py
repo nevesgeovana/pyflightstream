@@ -71,6 +71,7 @@ from pathlib import Path
 import numpy
 from numpy.typing import NDArray
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import (
@@ -693,8 +694,8 @@ def derive_thin_blade(
     frame = _span_frame(source, blade.vertices)
     stations = _stations(source, blade.vertices @ frame.span, offset)
     grid = _mean_surface(source, blade, frame, stations)
-    mesh.write_text(_obj_text(source, grid, blade.boundary, offset), encoding="utf-8", newline="\n")
-    sidecar.write_text(_sidecar_text(source, mesh, blade, offset), encoding="utf-8", newline="\n")
+    _textio.write_text(mesh, _obj_text(source, grid, blade.boundary, offset))
+    _textio.write_text(sidecar, _sidecar_text(source, mesh, blade, offset))
     return ThinBlade(
         mesh=mesh,
         sidecar=sidecar,

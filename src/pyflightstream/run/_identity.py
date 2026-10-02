@@ -23,6 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream._digest import (
     optional_file_sha256,
     text_sha256,
@@ -476,7 +477,7 @@ def check_solver_identity(
         script.emit("EXPORT_LOG", log_path)
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "preflight.txt"
-    script_path.write_text(script.render(), encoding="utf-8")
+    _textio.write_text(script_path, script.render())
     result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
 
     if log_path.exists():

@@ -31,11 +31,11 @@ writers.
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream.post.unsteady import FrameAverage, TimestepSeries
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.workspace import WorkspaceError
@@ -124,8 +124,8 @@ def write_series(
                     header.append(f"{name}_{sample}_{letter}")
                     columns.append(values[:, sample, axis])
 
-    with destination.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
+    with _textio.open_text(destination, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow(header)
         for index in range(series.n_frames):
             row: list[object] = [int(series.steps[index])]
@@ -202,8 +202,8 @@ def write_reduction(
     _refuse_existing(destination, overwrite)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    with destination.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
+    with _textio.open_text(destination, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow(["field", "probe", "mean"])
         for name in sorted(average.fields):
             values = average.fields[name]

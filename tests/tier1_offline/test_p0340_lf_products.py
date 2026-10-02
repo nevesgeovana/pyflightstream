@@ -1,0 +1,497 @@
+"""Tier 1, 0.34.0: every text file the package writes has LF line ends, through one route (NFR-32).
+
+Pipeline role: quality gate on the one write route ``pyflightstream._textio``, on the
+writers under ``src/`` that must go through it, and on the products and emitted
+scripts a campaign leaves.
+
+Marker P0340-LF-PRODUCTS, requirement NFR-32. A file written in text mode gets CRLF
+on Windows and LF on Linux, so the same campaign posted on two platforms gave two
+byte sequences. The package now writes every text file with LF (R1), through
+``pyflightstream._textio`` (R2); a campaign posted with text mode forced to write
+CRLF, as Windows does, holds no CR byte in any product or emitted script (R3); the
+parity script compares 0.33.0 with the CR before LF removed and counts the CR in
+the release (R4); the writers that produced CRLF are listed in RPT-140 (R7).
+
+The guard (:func:`text_write_bypasses`) reads the SYNTAX of every module under
+``src/`` and refuses a text write that does not go through the route: a
+``write_text``, an ``open`` in a text writing mode, a ``csv`` writer, a
+``write_bytes`` of text encoded on the spot, a text ``os.fdopen`` or temporary
+file. Its control plants ten bypasses and requires each to be caught
+(:func:`guard_control`, ``caught 10 of 10``), and the clean forms to pass. What it
+does not read: a binary write of bytes it cannot see are text (a byte-exact copy,
+a workbook), and the source of the programs the solver runs, which are checked as
+text by :func:`program_bypasses` on their rendered form.
+
+What this does NOT prove: that the solver reads an LF script. The licensed probes
+of RPT-070 found that line ends change nothing in the disc profile file, and the
+licensed runs of 0.34.0 are the confirmation (NFR-32 R6).
+"""
+# The evidence line of this requirement cites this module (docs/srs/nonfunctional-requirements.md):
+# NFR-32.
+
+from __future__ import annotations
+
+import ast
+import importlib.util
+import subprocess
+import sys
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from pathlib import Path
+
+import pytest
+
+from pyflightstream import _textio
+
+REPO = Path(__file__).resolve().parents[2]
+SRC = REPO / "src" / "pyflightstream"
+ROUTE = "_textio.py"
+_TEXT_FLAGS = set("wax+")
+
+#: The files of a campaign folder the PACKAGE writes (the others are the builders' recorded inputs).
+PACKAGE_WRITTEN = (
+    "post/**/*",
+    "sims/*/scripts/**/*",
+    "runs.json",
+    "logs/*",
+    "reports/*",
+    "archive/*",
+    "*.json",
+)
+
+
+def package_written(root: Path) -> list[Path]:
+    """The files under a campaign ``root`` that the package writes, sorted, each once."""
+    found = {p for pattern in PACKAGE_WRITTEN for p in root.glob(pattern) if p.is_file()}
+    return sorted(found)
+
+
+# --------------------------------------------------------------------------------- the guard
+
+
+def _callee(func: ast.expr) -> tuple[str | None, str | None]:
+    """The called name and, for ``a.b(...)``, the name ``a`` when it is a plain name."""
+    if isinstance(func, ast.Name):
+        return func.id, None
+    if isinstance(func, ast.Attribute):
+        return func.attr, func.value.id if isinstance(func.value, ast.Name) else None
+    return None, None
+
+
+def _keyword(call: ast.Call, name: str) -> ast.expr | None:
+    return next((k.value for k in call.keywords if k.arg == name), None)
+
+
+def _mode_node(call: ast.Call, index: int) -> ast.expr | None:
+    if len(call.args) > index:
+        return call.args[index]
+    return _keyword(call, "mode")
+
+
+def _text_write_mode(node: ast.expr | None, *, strict: bool) -> bool:
+    """True when ``node`` is a text mode that writes; one not readable is ``strict``'s verdict."""
+    if node is None:
+        return False
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return "b" not in node.value and bool(_TEXT_FLAGS & set(node.value))
+    return strict
+
+
+def _states_lf(call: ast.Call) -> bool:
+    node = _keyword(call, "newline")
+    return isinstance(node, ast.Constant) and node.value == "\n"
+
+
+def _encodes_text(node: ast.AST) -> bool:
+    return any(
+        isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "encode"
+        for n in ast.walk(node)
+    )
+
+
+def _bypass(call: ast.Call, program: bool) -> str | None:
+    name, base = _callee(call.func)
+    if name == "write_text" and base != "_textio":
+        return None if program and _states_lf(call) else "write_text outside the route"
+    is_open = (name == "open" and base is None and isinstance(call.func, ast.Name)) or (
+        name == "open" and base == "io"
+    )
+    if is_open and _text_write_mode(_mode_node(call, 1), strict=True):
+        return None if program and _states_lf(call) else "open in a text writing mode"
+    if name == "open" and isinstance(call.func, ast.Attribute) and base != "io":
+        if _text_write_mode(_mode_node(call, 0), strict=False):
+            return None if program and _states_lf(call) else "Path.open in a text writing mode"
+    if program:
+        return None
+    if name in ("writer", "DictWriter") and base == "csv":
+        return "a csv writer outside the route"
+    if name == "write_bytes" and call.args and _encodes_text(call.args[0]):
+        return "text encoded and written as bytes"
+    if name == "fdopen" and base == "os" and _text_write_mode(_mode_node(call, 1), strict=False):
+        return "os.fdopen in a text writing mode"
+    if name in ("NamedTemporaryFile", "TemporaryFile", "SpooledTemporaryFile"):
+        if _text_write_mode(_mode_node(call, 0), strict=False):
+            return "a temporary file in a text writing mode"
+    return None
+
+
+def text_write_bypasses(
+    sources: Mapping[str, str], *, program: bool = False
+) -> list[tuple[str, int, str]]:
+    """Every text write of ``sources`` (name to text) that does not go through the route.
+
+    ``program`` reads the text of a program the solver runs, which cannot import the
+    route: there a ``write_text`` or an ``open`` is allowed when it states ``newline="\\n"``.
+    The route module itself is not read, because it is where the writes are.
+    """
+    found: list[tuple[str, int, str]] = []
+    for name, text in sorted(sources.items()):
+        if Path(name).name == ROUTE:
+            continue
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, ast.Call) and (what := _bypass(node, program)):
+                found.append((name, node.lineno, what))
+    return found
+
+
+def program_bypasses(text: str) -> list[tuple[str, int, str]]:
+    """The writes of one rendered solver program that state no LF line end."""
+    return text_write_bypasses({"program.py": text}, program=True)
+
+
+PLANTED = {
+    "write_text": 'from pathlib import Path\nPath("x").write_text("a", encoding="utf-8")\n',
+    "open w": 'with open("x", "w", encoding="utf-8") as h:\n    h.write("a")\n',
+    "Path.open a": 'from pathlib import Path\nwith Path("x").open("a") as h:\n    h.write("a")\n',
+    "csv.writer": "import csv\nw = csv.writer(h)\n",
+    "csv.DictWriter": 'import csv\nw = csv.DictWriter(h, ["a"])\n',
+    "write_bytes of text": 'from pathlib import Path\nPath("x").write_bytes("a".encode("utf-8"))\n',
+    "open with a mode it cannot read": "with open(p, mode) as h:\n    h.write(t)\n",
+    "os.fdopen w": 'import os\nh = os.fdopen(fd, "w")\n',
+    "NamedTemporaryFile w": 'import tempfile\nh = tempfile.NamedTemporaryFile("w")\n',
+    "io.open w": 'import io\nh = io.open("x", "w")\n',
+}
+CLEAN = {
+    "the route": 'from pyflightstream import _textio\n_textio.write_text(p, "a")\n',
+    "the route handle": (
+        'from pyflightstream import _textio\nwith _textio.open_text(p, "a") as h:\n    pass\n'
+    ),
+    "a read": 'from pathlib import Path\nPath("x").read_text(encoding="utf-8")\nopen("x")\n',
+    "a binary write": 'from pathlib import Path\nPath("x").write_bytes(blob)\nopen("x", "wb")\n',
+    "a workspace open": "CampaignWorkspace.open(root, naming)\n",
+}
+
+
+def guard_control() -> tuple[int, int]:
+    """Plant every bypass and clean form; return (caught, planted), the clean ones must pass."""
+    caught = sum(bool(text_write_bypasses({name: text})) for name, text in PLANTED.items())
+    clean = [name for name, text in CLEAN.items() if text_write_bypasses({name: text})]
+    assert not clean, f"the guard refused clean forms: {clean}"
+    return caught, len(PLANTED)
+
+
+def _sources() -> dict[str, str]:
+    return {
+        p.relative_to(SRC).as_posix(): p.read_text(encoding="utf-8")
+        for p in sorted(SRC.rglob("*.py"))
+    }
+
+
+# ------------------------------------------------------------------------------------ tests
+
+
+def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: a walk of src/ finds no text write outside _textio."""
+    sources = _sources()
+    assert len(sources) > 150, "the walk found too few modules to be the package"
+    assert ROUTE in sources
+    uses = sum("_textio" in text for name, text in sources.items() if name != ROUTE)
+    assert uses > 40, "the route has too few users to be the route of the package"
+    bypasses = text_write_bypasses(sources)
+    assert not bypasses, "text writes outside pyflightstream._textio:\n" + "\n".join(
+        f"  {name}:{line}: {what}" for name, line, what in bypasses
+    )
+
+
+def test_a_planted_bypass_of_every_kind_is_caught_and_the_clean_forms_pass() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 10 of 10."""
+    caught, planted = guard_control()
+    assert planted == 10
+    assert caught == planted, f"caught {caught} of {planted}"
+
+
+def test_the_route_is_a_floor_module_that_imports_nothing_of_the_package() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: ``_textio`` imports the standard library only: a floor."""
+    tree = ast.parse((SRC / ROUTE).read_text(encoding="utf-8"))
+    roots = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            assert node.level == 0, "a relative import points into the package"
+            roots.add((node.module or "").split(".")[0])
+    assert "pyflightstream" not in roots, roots
+    assert roots <= set(sys.stdlib_module_names), roots
+    from tests.tier1_offline.test_conventions import _UNDRAWN_FLOOR_MODULES
+
+    assert "_textio" in _UNDRAWN_FLOOR_MODULES
+    functions = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    assert len(functions) >= 2
+
+
+def test_the_route_writes_lf_with_text_mode_forced_to_crlf(tmp_path: Path) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R1: each route function writes no CR where text mode does."""
+    from tests.tier1_offline.test_products_snapshot import crlf_text_mode
+
+    with crlf_text_mode():
+        plain = tmp_path / "plain.txt"
+        plain.write_text("a\nb\n", encoding="utf-8")
+        assert b"\r\n" in plain.read_bytes(), "the forcing does not write CRLF: no control"
+        _textio.write_text(tmp_path / "text.txt", "a\nb\n")
+        _textio.append_text(tmp_path / "text.txt", "c\n")
+        with _textio.open_text(tmp_path / "open.txt", "w") as handle:
+            handle.write("a\nb\n")
+        with _textio.open_text(tmp_path / "table.csv", "w") as handle:
+            writer = _textio.csv_writer(handle)
+            writer.writerow(["x", "y"])
+            writer.writerow([1, 2])
+        with _textio.open_text(tmp_path / "dict.csv", "w") as handle:
+            dict_writer = _textio.csv_dict_writer(handle, ["x", "y"])
+            dict_writer.writeheader()
+            dict_writer.writerow({"x": 1, "y": 2})
+        _textio.write_csv(tmp_path / "rows.csv", [[1, 2], [3, 4]], header=["x", "y"])
+        _textio.write_json(tmp_path / "doc.json", {"a": [1, 2]})
+        _textio.write_lines(tmp_path / "lines.txt", ["a", "b"])
+        _textio.append_lines(tmp_path / "lines.txt", ["c"])
+        with _textio.open_text(tmp_path / "x.txt", "x") as handle:
+            handle.write("a\n")
+    written = [p for p in tmp_path.iterdir() if p.name != "plain.txt"]
+    assert len(written) == 8
+    for path in written:
+        assert _textio.file_cr_count(path) == 0, path.name
+    assert (tmp_path / "text.txt").read_bytes() == b"a\nb\nc\n"
+    assert (tmp_path / "table.csv").read_bytes() == b"x,y\n1,2\n"
+    assert (tmp_path / "dict.csv").read_bytes() == b"x,y\n1,2\n"
+    assert (tmp_path / "doc.json").read_bytes().endswith(b"]\n}\n")
+    assert _textio.lf("a\r\nb\rc\n") == "a\nb\nc\n"
+    for refused in ("r", "wb", "rb", "r+"):
+        with pytest.raises(ValueError):
+            _textio.open_text(tmp_path / "never.txt", refused)
+    assert not (tmp_path / "never.txt").exists()
+
+
+@contextmanager
+def bypassed_route() -> Iterator[None]:
+    """Plant the defect in the route: a write that states no line end, as 0.33.1 wrote."""
+
+    def plain(path, text, *, encoding="utf-8", errors=None):
+        return Path(path).write_text(text, encoding=encoding, errors=errors)
+
+    kept = _textio.write_text
+    _textio.write_text = plain
+    try:
+        yield
+    finally:
+        _textio.write_text = kept
+
+
+@pytest.mark.parametrize("name", ["unsteady_rotor", "steady_provenance", "per_revolution_rotor"])
+def test_a_campaign_posted_with_text_mode_forced_to_crlf_holds_no_cr_in_any_product(
+    name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R3: no CR byte in any file the post writes; a bypass plants one."""
+    from tests.tier1_offline.test_products_snapshot import (
+        CAMPAIGNS,
+        FORCE_CRLF_IN_POST,
+        pin_environment,
+    )
+
+    assert FORCE_CRLF_IN_POST, "the post is not run with text mode forced to CRLF"
+    pin_environment(monkeypatch)
+    root = CAMPAIGNS[name](tmp_path / "w", monkeypatch)
+    products = package_written(root)
+    assert len(products) >= 5, f"{name}: the post wrote {len(products)} files"
+    crs = [p.relative_to(root).as_posix() for p in products if b"\r" in p.read_bytes()]
+    assert crs == [], f"{name}: products hold a CR byte: {crs[:5]}"
+    # The control: the same campaign with the route bypassed holds CR, so the test can fail.
+    with bypassed_route():
+        root2 = CAMPAIGNS[name](tmp_path / "w2", monkeypatch)
+        held = [p for p in package_written(root2) if b"\r" in p.read_bytes()]
+    assert held, f"{name}: a bypassed route left no CR, so the check above proves nothing"
+
+
+def test_the_scripts_a_campaign_emits_hold_no_cr_with_text_mode_forced_to_crlf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R1, R3: the emitted solver scripts and records hold no CR."""
+    from tests.tier1_offline.test_additional_post import (
+        POST_ADDITIONAL_TOML,
+        a_recorded_campaign,
+        a_stub,
+        extract,
+    )
+    from tests.tier1_offline.test_products_snapshot import crlf_text_mode, pin_environment
+
+    pin_environment(monkeypatch)
+
+    def built(folder: Path) -> list[Path]:
+        workspace, matrix = a_recorded_campaign(folder, additional=POST_ADDITIONAL_TOML)
+        with crlf_text_mode():
+            extract(workspace, matrix, a_stub(folder))
+        return package_written(Path(workspace.root))
+
+    first = tmp_path / "a"
+    first.mkdir()
+    written = built(first)
+    scripts = [p for p in written if "scripts" in p.parts and p.suffix == ".txt"]
+    assert len(scripts) >= 2, [p.name for p in written]
+    assert any(p.name == "runs.json" for p in written)
+    assert [p.name for p in written if b"\r" in p.read_bytes()] == []
+    with bypassed_route():
+        second = tmp_path / "b"
+        second.mkdir()
+        held = [p for p in built(second) if b"\r" in p.read_bytes()]
+    assert held, "a bypassed route left no CR in a script or a record: the check proves nothing"
+
+
+def test_the_programs_the_solver_runs_state_lf_for_every_file_they_write(tmp_path: Path) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R1: the counter and clock programs write with ``newline="\\n"``."""
+    from pyflightstream.cases.workflows import UnsteadyExportThreshold
+    from pyflightstream.cases.workflows._clock import WALLTIME_CLOCK_TEMPLATE
+    from pyflightstream.run._actions_counter import render_count_program, render_program
+
+    threshold = UnsteadyExportThreshold(
+        stated_form="iterations",
+        stated_value=4.0,
+        first_step=4,
+        time_iterations=8,
+        delta_time_s=0.01,
+        step_deg=None,
+        rpm=None,
+        exports="EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nloads.txt\n",
+    )
+    programs = {
+        "counter": render_program(threshold, interpreter="python"),
+        "count only": render_count_program(4, interpreter="python"),
+        "clock": WALLTIME_CLOCK_TEMPLATE.format(
+            sim="s", state_name="clock.json", stop_name="stop.txt", deadline=10.0, stop_text="X\n"
+        ),
+    }
+    for name, text in programs.items():
+        assert "write_text(" in text, f"{name}: the program writes nothing, so the guard reads none"
+        assert program_bypasses(text) == [], name
+        unstated = text.replace(', newline="\\n"', "")
+        assert program_bypasses(unstated), f"{name}: a program with no stated line end passed"
+    # The counter, run as the solver runs it: its files hold no CR in any platform's text mode.
+    program = tmp_path / "pfs_unsteady_actions.py"
+    _textio.write_text(program, programs["counter"])
+    for _ in range(2):
+        subprocess.run([sys.executable, str(program)], cwd=tmp_path, check=True, timeout=60)
+    made = [p for p in tmp_path.iterdir() if p != program and p.is_file()]
+    assert len(made) >= 2, [p.name for p in made]
+    assert [p.name for p in made if _textio.file_cr_count(p)] == []
+
+
+def _parity():
+    spec = importlib.util.spec_from_file_location(
+        "check_parity_lf_under_test", REPO / "scripts" / "check_parity.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_parity_script_removes_cr_before_lf_on_the_033_side_and_counts_the_release_cr() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R4: a CRLF-only difference is named NFR-32, any other differs."""
+    parity = _parity()
+    assert parity.LF_REQUIREMENT == "NFR-32"
+    defined = {"NFR-32"}
+    base = {"post.log": "a\r\nb\r\n", "kept.csv": "x\n", "changed.csv": "x\r\ny\r\n"}
+    release = {"post.log": "a\nb\n", "kept.csv": "x\n", "changed.csv": "x\nz\n"}
+    result = parity.compare_texts("post", "file", base, release, defined)
+    assert [d["file"] for d in result["differing"]] == ["changed.csv"], result
+    assert "requirement" not in result["differing"][0], "a content change must stay unnamed"
+    assert result["cr_removed"] == [
+        {"file": "changed.csv", "requirement": "NFR-32"},
+        {"file": "post.log", "requirement": "NFR-32"},
+    ]
+    # The release side is NOT normalised: a CR in a release file is a difference and is counted.
+    held = parity.compare_texts("post", "file", {"a.csv": "x\n"}, {"a.csv": "x\r\n"}, defined)
+    assert [d["file"] for d in held["differing"]] == ["a.csv"]
+    raw = {"a.csv": b"x\r\n", "b.csv": b"x\n", "c.png": b"\x89\r\n", "d.log": b"a\rb"}
+    assert parity.count_cr_files(raw) == 2
+    assert parity.count_cr_files({"b.csv": b"x\n"}) == 0
+    assert parity.lf(b"a\r\nb\rc") == b"a\nb\rc"
+    assert parity.CONTROLS == 7
+
+
+def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R3: this platform's receipt judges line ends and counts 0 CR."""
+    from tests.tier1_offline.test_products_snapshot import _platform, snapshot_receipt
+
+    receipt = snapshot_receipt()
+    assert receipt["platforms"] == [_platform()]
+    assert _platform() in ("linux", "win32")
+    assert receipt["line_ends_judged"] is True
+    assert receipt["cr_files"] == 0
+    assert receipt["differing"] == []
+    control = str(receipt["control"]).split()
+    assert control[1] == control[3] and int(control[1]) > 0
+
+
+def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_reads(
+    tmp_path: Path,
+) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R3: lf_products_check.py writes SHA, platform, counts, verdict."""
+    out = tmp_path / "lf_products.txt"
+    command = [
+        sys.executable,
+        str(REPO / "scripts" / "lf_products_check.py"),
+        "--out",
+        str(out),
+        "--campaign",
+        "unsteady_rotor",
+        "--campaign",
+        "additional",
+        "--allow-dirty",
+    ]
+    done = subprocess.run(command, cwd=REPO, capture_output=True, text=True, timeout=600)
+    data = out.read_bytes()
+    assert b"\r" not in data, "the receipt is not LF"
+    lines = data.decode("utf-8").splitlines()
+    fields = dict(line.split(": ", 1) for line in lines if ": " in line)
+    assert lines[0].startswith("SHA: ") and len(lines[0]) == len("SHA: ") + 40
+    assert fields["PLATFORM"] in ("linux", "win32")
+    assert int(fields["FILES_CHECKED"]) > 0 and int(fields["SCRIPTS_CHECKED"]) > 0
+    assert fields["CR_FILES"] == "0"
+    assert fields["GUARD_CONTROL"] == "caught 10 of 10"
+    assert fields["GUARD_BYPASSES_IN_SRC"] == "0"
+    # PASS names a SHA the tree must be at: a tree with changes (a rehearsal) ends in FAIL.
+    verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
+    assert lines[-1] == f"LF PRODUCTS: {verdict}"
+    assert done.returncode == (0 if verdict == "PASS" else 1), done.stderr[-500:]
+
+
+def test_the_change_log_fragment_names_the_lf_change_first_in_its_migration() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R5: the migration paragraph names the LF change, citing NFR-32."""
+    fragment = (REPO / "changelog.d" / "0-34-lf.md").read_text(encoding="utf-8")
+    section = fragment.split("## Migration", 1)[1]
+    first = next(line for line in section.splitlines() if line.startswith("- "))
+    assert "LF" in first and "NFR-32" in first
+    for line in fragment.splitlines():
+        if line.startswith("- "):
+            assert "NFR-32" in line, f"a bullet cites no requirement: {line[:60]}"
+    assert "no switch" in section.lower()
+
+
+def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R7: the census report names its platform and the writers."""
+    notes = sorted((REPO / "reports").glob("RPT-140_*.md"))
+    assert len(notes) == 1
+    text = notes[0].read_text(encoding="utf-8")
+    assert "win32" in text and "NFR-32" in text
+    listed = [line for line in text.splitlines() if line.startswith("| `")]
+    assert len(listed) >= 20, "the census lists too few writers"
+    for source in ("post/products.py", "run/_pending.py", "workspace/storage.py"):
+        assert source in text, f"the census does not name {source}"

@@ -43,6 +43,7 @@ from pathlib import Path, PurePath
 from typing import Any
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream._deprecations import MATRIX_FS_VERSION
 from pyflightstream._digest import file_sha256, optional_file_sha256
 from pyflightstream._errors import (
@@ -114,11 +115,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace._geometry_clean import warn_saved_actions_of_unsteady_rows
 from pyflightstream.workspace._matrix_homes import warn_a_matrix_outside_the_homes
-from pyflightstream.workspace.inputs import (
-    hpc_profiles,
-    read_hpc_profile,
-    resolve_hpc_profile,
-)
+from pyflightstream.workspace.inputs import hpc_profiles, read_hpc_profile, resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 
@@ -2248,7 +2245,7 @@ def _the_extraction_s_log(
     if not logs:
         return names
     if printed:
-        (sim_dir / logs[0]).write_text(printed, encoding="utf-8", newline="")
+        _textio.write_text(sim_dir / logs[0], printed)
         said = (
             f"{PurePath(logs[0]).name} is the solver's captured standard output and error, "
             "written by this package: this machine's HPC profile states export_log = false, "

@@ -33,6 +33,7 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.workflows import (
@@ -96,8 +97,8 @@ def main():
     if COUNT_FILE.is_file():
         count = int(json.loads(COUNT_FILE.read_text(encoding="utf-8"))["count"])
     current = state(count + 1)
-    COUNT_FILE.write_text(json.dumps(current), encoding="utf-8")
-    SCRIPT_FILE.write_text(EXPORTS if current["exporting"] else "", encoding="utf-8")
+    COUNT_FILE.write_text(json.dumps(current), encoding="utf-8", newline="\\n")
+    SCRIPT_FILE.write_text(EXPORTS if current["exporting"] else "", encoding="utf-8", newline="\\n")
     return 0
 
 
@@ -180,7 +181,7 @@ def main():
     count = 0
     if COUNT_FILE.is_file():
         count = int(json.loads(COUNT_FILE.read_text(encoding="utf-8"))["count"])
-    COUNT_FILE.write_text(json.dumps({"count": count + 1}), encoding="utf-8")
+    COUNT_FILE.write_text(json.dumps({"count": count + 1}), encoding="utf-8", newline="\\n")
     return 0
 
 
@@ -250,11 +251,11 @@ def stage_counter(
     threshold = unsteady_export_threshold(point_case, version=fs_version)
     program = work_dir / UNSTEADY_ACTION_PROGRAM
     program.parent.mkdir(parents=True, exist_ok=True)
-    program.write_text(
+    _textio.write_text(
+        program,
         render_program(threshold, interpreter=sys.executable)
         if threshold is not None
         else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),
-        encoding="utf-8",
     )
     (work_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
     hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}

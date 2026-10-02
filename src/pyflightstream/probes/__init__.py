@@ -31,6 +31,7 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict, model_validator
 
+import pyflightstream._textio as _textio
 from pyflightstream.probes.planar import (
     AxisSpec,
     FrameDefinition,
@@ -438,7 +439,7 @@ def write_points_csv(points: np.ndarray, path: str | Path) -> int:
         )
     lines = [str(len(points))]
     lines += [f"{x},{y},{z},1" for x, y, z in points]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _textio.write_text(Path(path), "\n".join(lines) + "\n")
     return len(points)
 
 

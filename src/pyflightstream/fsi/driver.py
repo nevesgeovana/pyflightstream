@@ -69,6 +69,7 @@ from typing import Any
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
@@ -426,9 +427,9 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
         f"{row['relaxation']},{row['config_sha256']},{row['tip_flap_signed_m']}\n"
     )
     if not path.is_file():
-        path.write_text(_LOG_HEADER + line, encoding="utf-8")
+        _textio.write_text(path, _LOG_HEADER + line)
     else:
-        with path.open("a", encoding="utf-8") as handle:
+        with _textio.open_text(path, "a") as handle:
             handle.write(line)
 
 
