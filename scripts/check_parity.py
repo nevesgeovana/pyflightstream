@@ -134,12 +134,15 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         # 4R default of a rotor row that states no wake termination, converted
         # into steps. A removed line, a changed count, a second termination
         # line, any other changed line, and a steady or rotorless script do not
-        # match.
+        # match. The rotor motion is ROTARY, or marked a rotor, or, on 26.100,
+        # whose database has no SET_MOTION_IS_ROTOR (RPT-049), a EUCLIDEAN
+        # motion with a non-zero angular velocity.
         "lines": r"^SET_WAKE_TERMINATION_TIME_STEPS \d+$",
         "block": r"SET_WAKE_TERMINATION_TIME_STEPS \d+",
         "release_has": (
             r"(?ms)\A(?=.*^SET_SOLVER_UNSTEADY$)"
-            r"(?=.*^(?:CREATE_NEW_MOTION ROTARY|SET_MOTION_IS_ROTOR \d+ ENABLE\b))"
+            r"(?=.*^(?:CREATE_NEW_MOTION ROTARY|SET_MOTION_IS_ROTOR \d+ ENABLE\b"
+            r"|SET_MOTION_ANGULAR_VELOCITY \d+ [^\n]*[1-9]))"
         ),
         "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
         "requirement": "FR-321",
@@ -711,6 +714,24 @@ def compare_texts(
     }
 
 
+def text_control(
+    kind: str, key: str, base: dict[str, str], planted: str, defined: set[str]
+) -> str | None:
+    """Plant ``planted`` at the end of the first base item; return it if caught alone.
+
+    The release side of :func:`compare_texts` is compared as written and the
+    base side with CR removed before LF (NFR-32 R4), so the control mutates the
+    base AS COMPARED. Mutating the raw base would make every CRLF file of a
+    0.33 base on Windows differ beside the victim, and the control would fail
+    for a reason that is not the comparator's blindness.
+    """
+    victim = sorted(base)[0]
+    compared = {name: lf(text) for name, text in base.items()}
+    mutated = {**compared, victim: compared[victim] + planted}
+    probe = compare_texts(kind, key, base, mutated, defined)["differing"]
+    return victim if [d[key] for d in probe if "requirement" not in d] == [victim] else None
+
+
 def srs_ids(tree: Path) -> set[str]:
     """Return every requirement id the tree's ``docs/srs`` pages mention."""
     text = "\n".join(
@@ -852,16 +873,12 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     # The two text controls: one changed line of a real render and one changed
     # byte of a real product must each come back differing and unnamed.
     if scripts_base:
-        victim = sorted(scripts_base)[0]
-        mutated = {**scripts_base, victim: scripts_base[victim] + "PARITY CONTROL\n"}
-        probe = compare_texts("scripts", "name", scripts_base, mutated, defined)["differing"]
-        if [d["name"] for d in probe if "requirement" not in d] == [victim]:
+        victim = text_control("scripts", "name", scripts_base, "PARITY CONTROL\n", defined)
+        if victim:
             controls.append(f"scripts: a changed line of {victim} was reported unnamed")
     if post_base:
-        victim = sorted(post_base)[0]
-        mutated = {**post_base, victim: post_base[victim] + "\x00"}
-        probe = compare_texts("post", "file", post_base, mutated, defined)["differing"]
-        if [d["file"] for d in probe if "requirement" not in d] == [victim]:
+        victim = text_control("post", "file", post_base, "\x00", defined)
+        if victim:
             controls.append(f"post: a changed byte of {victim} was reported unnamed")
 
     if post_release_raw:

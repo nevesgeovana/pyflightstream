@@ -205,7 +205,9 @@ def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor
     the line added to a steady script stay unnamed."""
     requirement = "FR-321"
     goldens = Path(__file__).parent / "goldens" / "workflows"
-    for build in ("26.124", "25.100"):
+    # 26.100 turns its rotor as a EUCLIDEAN motion with an angular velocity (no
+    # SET_MOTION_IS_ROTOR in its database), the case the parity run of 2026-10-02 found unnamed.
+    for build in ("26.124", "26.100", "25.100"):
         rotor = (goldens / f"unsteady_rotor__bare__{build}.txt").read_text(encoding="utf-8")
         (line,) = _terminations(rotor.splitlines())
         base = rotor.replace(line + "\n", "")
@@ -227,6 +229,19 @@ def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor
         .get("requirement")
         != requirement
     ), "a line added to a steady script"
+    # A EUCLIDEAN motion that does not turn (zero angular velocity) is no rotor.
+    still = (goldens / "unsteady_rotor__bare__26.100.txt").read_text(encoding="utf-8")
+    (line,) = _terminations(still.splitlines())
+    still = still.replace(
+        "SET_MOTION_ANGULAR_VELOCITY 1 1200.0 0.0 0.0", "SET_MOTION_ANGULAR_VELOCITY 1 0.0 0.0 0.0"
+    )
+    assert "SET_MOTION_ANGULAR_VELOCITY 1 0.0 0.0 0.0" in still
+    assert (
+        _parity()
+        .name_difference("scripts", "row.txt", still.replace(line + "\n", ""), still, {requirement})
+        .get("requirement")
+        != requirement
+    ), "a line added to a script whose motion does not turn"
 
 
 # --- FR-322: one key states the termination ----------------------------------

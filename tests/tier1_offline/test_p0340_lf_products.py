@@ -433,6 +433,29 @@ def test_the_parity_script_removes_cr_before_lf_on_the_033_side_and_counts_the_r
     assert parity.CONTROLS == 7
 
 
+def test_the_parity_byte_control_is_caught_alone_over_a_crlf_base() -> None:
+    """NFR-32 R4: the planted byte is caught alone though the 0.33 base holds CRLF files.
+
+    The parity run of 2026-10-02 on Windows caught 6 of 7 controls: the post control
+    mutated the raw base, so every CRLF product differed beside the victim.
+    """
+    parity = _parity()
+    defined = {"NFR-32"}
+    base = {"a/post.log": "a\r\nb\r\n", "b.csv": "x\r\ny\r\n", "c.csv": "z\n"}
+    assert parity.text_control("post", "file", base, "\x00", defined) == "a/post.log"
+    assert parity.text_control("scripts", "name", base, "PARITY CONTROL\n", defined) == "a/post.log"
+    # The control still fails when the comparator is blind: a comparator that names
+    # every difference leaves nothing unnamed, so nothing is caught.
+    blind = parity.compare_texts
+    try:
+        parity.compare_texts = lambda *a, **k: {
+            "differing": [{"file": "a/post.log", "requirement": "X"}]
+        }
+        assert parity.text_control("post", "file", base, "\x00", defined) is None
+    finally:
+        parity.compare_texts = blind
+
+
 def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
     """P0340-LF-PRODUCTS, NFR-32 R3: this platform's receipt judges line ends and counts 0 CR."""
     from tests.tier1_offline.test_products_snapshot import _platform, snapshot_receipt
