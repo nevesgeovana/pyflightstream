@@ -459,7 +459,7 @@ def _revive_not_started(plan: CampaignPlan, workspace: CampaignWorkspace) -> Non
     notes = {
         record.run_id
         for record in workspace.read_manifest()
-        if (job_of(record) or {}).get("not_started")
+        if cast(Mapping[str, Any], job_of(record) or {}).get("not_started")
     }
     plan.points[:] = [
         dataclasses.replace(entry, status=PlanStatus.READY, error=None)
