@@ -6,7 +6,7 @@ tier2_set_new_unsteady_solver_action: verified
 tier2_set_wake_termination_time_steps: verified
 ---
 
-# RPT-127 - The T1 probe specifications re-measured by tier 2 on FlightStream 26.124 (2026-10-02)
+# RPT-127 - The probe specifications of three emitted commands re-measured by tier 2 on FlightStream 26.124 (2026-10-02)
 
 The tier-2 native run **FR-342** owes (R3), run after the 0.34.0 release. One `pyfs-qa probe`
 run on **FlightStream 26.124, build 8172026**, executable SHA-256 withheld from the public tree
@@ -37,7 +37,7 @@ FR-333 R4."
 
 ## 2. The set
 
-The four catalog entries of FR-342 R1 (the census of the work package, the workflow goldens):
+The four catalog entries of FR-342 R1 (its census, the commands the workflow goldens render):
 
 | command | in the 26.124 view | instrument |
 |---|---|---|
