@@ -174,8 +174,7 @@ fixed-wing route) the spreadsheet exported at the head of a coupled point's
 one pass of the aeroelastic post, before the post updates anything and
 before the structural call, already reads zero, where the rigid solve of the
 same wing reads 0.0098384. The package's order of operations does not cause
-it, and nothing the package emits changes for it: the column is not the
-profile drag of a coupled run.
+it, and nothing the package emits changes for it.
 
 The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124

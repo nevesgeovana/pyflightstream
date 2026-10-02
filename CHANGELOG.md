@@ -35,8 +35,8 @@ FlightStream versions.
   - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
     the solver prints it so, not because of the package's order, and the
     magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
-    page states both, and the definitions page what the column means in a
-    coupled run; nothing the package emits changes.
+    page states both, and the definitions page that `CD0` reads that zero in
+    a coupled run; nothing the package emits changes.
 
 - **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
   does not continue (FR-96, RPT-134).** The continuation the package emits

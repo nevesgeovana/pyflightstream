@@ -83,8 +83,9 @@ def test_rpt128_states_why_cdo_reads_zero_and_the_tree_holds_its_branch_fr_338()
     """P0340-FSI-CDO, FR-338: `cdo_cause` is `solver`; the page and the product state the column.
 
     R3 and R4, the `solver` branch: one paragraph of the FSI page states that `CDo` reads zero in a
-    coupled run, and why, citing RPT-128; the product's statement of the column's meaning is the
-    definition of record of every product column, docs/post-processing-definitions.md.
+    coupled run, and why, citing RPT-128; the product's statement of the column is the definition
+    of record of every product column, docs/post-processing-definitions.md, which states the
+    measured zero and that `CD0` reads it, and no reading RPT-128 does not measure.
     """
     report, fields = _front_matter(128)
     cause = fields.get("cdo_cause")
@@ -112,7 +113,22 @@ def test_rpt128_states_why_cdo_reads_zero_and_the_tree_holds_its_branch_fr_338()
         if "`CDo`" in p and "RPT-128" in p and "coupled" in p
     ]
     assert defined, (
-        "FR-338 R4: the definitions page states what `CDo` means in a coupled run, citing RPT-128"
+        "FR-338 R4: the definitions page states what `CDo` reads in a coupled run, citing RPT-128"
+    )
+    measured = "prints `CDo` as zero from the first export of its first coupling pass"
+    assert any(measured in p and "`CD0` reads that zero" in p for p in defined), (
+        "FR-338 R4: the definitions paragraph states the measured fact of RPT-128 and that "
+        "`CD0` reads that zero"
+    )
+    unmeasured = (
+        "`CDW` equals `CDI`",
+        "profile drag of the coupled wing",
+        "not the profile drag of a coupled run",
+    )
+    beyond = [claim for p in defined + stated for claim in unmeasured if claim in p]
+    assert not beyond, (
+        f"FR-338: the pages state {beyond}, which RPT-128 does not measure; they state the "
+        "measured zero and no more"
     )
 
 

@@ -106,7 +106,8 @@ solver`. Nothing else in its output changed.
   summed cut forces to the lift (0.99033). `xz_moment_verdict: confirmed`.
 
 What follows: the FSI page states that `CDo` reads zero in a coupled run, and why, citing this
-report (FR-338 R3), and the definitions page states the column's meaning in a coupled run (R4);
+report (FR-338 R3), and the definitions page states the same measured zero and that `CD0` reads
+it, citing this report (R4);
 nothing emitted changes. The XZ reading stays, and the FSI page's XZ reading cites this report
 (FR-340 R3). The tier-1 tests `tests/tier1_offline/test_p0340_fsi_rpt128.py` read this front
 matter and the five recorded loads exports above, each with its control.
