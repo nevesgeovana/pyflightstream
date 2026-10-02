@@ -10,7 +10,7 @@ functions, and the text printed is unchanged by the move (AD-18).
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pyflightstream._console import blocks, table, wrap
@@ -21,6 +21,7 @@ from pyflightstream.run import (
     inflow_harmonics_line,
     qsteady_validity_line,
 )
+from pyflightstream.run._alias import alias_lines
 from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
 
@@ -211,6 +212,7 @@ def _print_plan(
     held: list[warnings.WarningMessage],
     *,
     cost: bool,
+    rows: Sequence[Mapping[str, Any]] = (),
 ) -> None:
     """Print a plan as titled blocks, a blank line between two (0.31.0).
 
@@ -225,13 +227,27 @@ def _print_plan(
     ]
     print(blocks([("pyfs-matrix plan", header)]), flush=True)
     print_held_warnings(held)
-    rest = blocks(_plan_blocks(plan, cost=cost))
+    rest = blocks(_plan_blocks(plan, cost=cost, rows=rows))
     if rest:
         # After the warnings the blank line is already out.
         print(rest if held else f"\n{rest}", flush=True)
 
 
-def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]]]:
+def _alias_block(plan: CampaignPlan, rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Return one line per planned point: its run id alias beside the point (FR-395 R3)."""
+    planned: dict[str, list[str]] = {}
+    for entry in plan.points:
+        planned.setdefault(entry.sim_id, []).append(_point_of(entry.run_id))
+    return [
+        f"  {alias}  POL {sim} {point}"
+        for alias, sim, point in alias_lines(rows, planned)
+        if point in planned[sim]
+    ]
+
+
+def _plan_blocks(
+    plan: CampaignPlan, *, cost: bool, rows: Sequence[Mapping[str, Any]] = ()
+) -> list[tuple[str, list[str]]]:
     """Return every block of a plan after its header and its warnings, titled, in order."""
     from pyflightstream.workspace.setup_inspection import setup_inspection_block
 
@@ -291,6 +307,7 @@ def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]
     files.extend(f"  guide: {guide}" for guide in plan.guides)
     return [
         ("Cases", cases),
+        ("Point aliases", _alias_block(plan, rows)),
         (f"Blocked points ({len(plan.blocked)})", blocked),
         ("Continuations (RESTART)", continuation_block(plan.points)),
         ("Rotor Mach numbers", _rotor_mach_block(plan)),

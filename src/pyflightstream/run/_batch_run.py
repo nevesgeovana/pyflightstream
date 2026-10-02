@@ -225,7 +225,7 @@ def _bound_matrix(
         ignore_missing_families=kw.get("ignore_missing_families", True),
     )
     sims = [sim for job in receipt.jobs for sim in job.sims]
-    resolved = narrow_to_selection(resolved, sims, kw.get("points"))
+    resolved = narrow_to_selection(resolved, sims, kw.get("points"), workspace)
     campaign = resolved.campaign
     grouped = campaign.model_copy(update={"sims": [grouped_case(c) for c in campaign.sims]})
     return replace(resolved, campaign=grouped)

@@ -73,7 +73,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import shutil
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +102,7 @@ from pyflightstream.results import parse_unsteady_plots as parse_unsteady_plots
 # Since 0.33.0 (AD-11) the rebuild, what it reads, the assembly and the record
 # files are private modules of this package; every public name of them keeps
 # its 0.32.0 path here.
+from pyflightstream.run._alias import row_selected
 from pyflightstream.run._assemble import APART_MARK as APART_MARK
 from pyflightstream.run._assemble import ASSEMBLED_NOTE as ASSEMBLED_NOTE
 from pyflightstream.run._assemble import FROM_SIMS_LABEL as FROM_SIMS_LABEL
@@ -176,6 +177,7 @@ def mark_failed(
     *,
     reason: str | None = None,
     apply: bool = False,
+    points: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
     """Mark every record of the named simulations FAILED_MARKED (FR-309).
 
@@ -196,6 +198,9 @@ def mark_failed(
         Why the runs are marked, recorded as it is given.
     apply : bool
         Write. Without it nothing changes and the result says what would.
+    points : mapping of str to sequence of str, optional
+        Per simulation, the point names whose records alone are marked (a run id
+        alias, FR-395); a simulation also in ``sims`` is marked whole.
 
     Returns
     -------
@@ -214,21 +219,28 @@ def mark_failed(
     base = Path(root)
     manifest = base / DEFAULT_MANIFEST
     ids = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
-    if not ids:
+    only = {sim: tags for sim, tags in (points or {}).items() if sim not in ids}
+    if not ids and not only:
         raise RunsManifestError("name the simulations to mark, comma separated: 2006,2007")
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
 
     def plan(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
         known = {str(row.get("sim_id")) for row in rows if row.get("deleted_sim") is None}
-        unknown = [sim for sim in ids if sim not in known]
+        unknown = [sim for sim in [*ids, *only] if sim not in known]
         if unknown:
             raise RunsManifestError(
                 f"no record in {manifest.name} for simulation(s) {', '.join(unknown)}; "
                 "nothing was marked"
             )
         chosen = [
-            row for row in rows if row.get("deleted_sim") is None and str(row.get("sim_id")) in ids
+            row
+            for row in rows
+            if row.get("deleted_sim") is None
+            and (
+                str(row.get("sim_id")) in ids
+                or row_selected(row, only.get(str(row.get("sim_id")), ()))
+            )
         ]
         already = [
             str(row["run_id"]) for row in chosen if row.get("status") == RunStatus.FAILED_MARKED
