@@ -285,7 +285,8 @@ def build(workspace: Path, exe: str) -> None:
         '"26.124" = { path = "FlightStream_26124.exe", version = "26.124" }\n', encoding="utf-8"
     )
     (inputs / "executables.local.toml").write_text(
-        f'# THIS MACHINE\'s installation of build #8172026.\n"26.124" = "{exe}"\n',
+        # Forward slashes: a Windows path's backslashes are escapes in a TOML string.
+        f'# THIS MACHINE\'s installation of build #8172026.\n"26.124" = "{Path(exe).as_posix()}"\n',
         encoding="utf-8",
     )
     row = (
