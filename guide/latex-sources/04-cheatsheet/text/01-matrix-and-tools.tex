@@ -61,6 +61,7 @@
 \item \fl{--ignore-missing-families [true|false]} default true: a family the mesh lacks is skipped; false refuses the point
 \item \fl{--no-ignore-missing-families} same as \texttt{false}
 \item \fl{--cost} table mesh size, TEs, farfield layers, viscous coupling, steady/unsteady, iterations, CPUs and an EXPECTED wall time fitted on this workspace's runs
+\item \fl{--cost-file NAME} with \fl{--cost}: price the points by \texttt{inputs/costs/NAME.toml}, the machine's own cost model (mesh, steps, CPUs, flags); needed only when several exist
 \item \fl{--inflow-fft} for qsteady\_rotor wheel points in a custom inflow: blade-frame harmonics, \(k_{\mathrm{eff}}\), \(n_{\max}\), suggested PASSAGE\_POSITIONS (warns if too few)
 \item \fl{--update-ids} (\fl{--updateIDs}) REWRITE this matrix so no POL repeats one used elsewhere; written before the plan runs
 \item \fl{--accept-unregistered-build} allow an installed build other than the registered one (your responsibility; recorded)

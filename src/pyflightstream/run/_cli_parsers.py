@@ -25,6 +25,7 @@ from pyflightstream.cases.workflows import (
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -629,6 +630,12 @@ def _hpc_profile_name(name: str) -> str:
     return name
 
 
+def _cost_file_name(name: str) -> str:
+    """Select the cost file ``name`` as argparse reads it, and return it."""
+    select_cost_file(name)
+    return name
+
+
 def _add_hpc_argument(parser: argparse.ArgumentParser) -> None:
     """Add ``--hpc NAME`` (0.35): which HPC profile a several-profile workspace uses."""
     parser.add_argument(
@@ -699,6 +706,14 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "this workspace's own recorded runs. The time is an extrapolation and the "
         "table says so, carrying the number of samples behind it; a point with no "
         "comparable recorded run reads 'unknown' rather than a number with no basis",
+    )
+    plan.add_argument(
+        "--cost-file",
+        type=_cost_file_name,
+        default=None,
+        metavar="NAME",
+        help="the cost file inputs/costs/<NAME>.toml that prices the points when the "
+        "workspace holds several; a single file needs no name (0.35)",
     )
     plan.add_argument(
         "--inflow-fft",
