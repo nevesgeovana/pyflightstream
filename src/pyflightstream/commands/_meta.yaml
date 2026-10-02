@@ -552,7 +552,7 @@ manual_editions:
     Index at pp.384-390; cited in version notes as "SRC-752 p.N".
     Registered 2026-09-14, the day the build was delivered.
 
-    IT IS THE SRC-751 FILE (RPT-050 records both digests). The package's
+    IT IS THE SRC-751 FILE (RPT-050 records that the two files are equal). The package's
     manual carries SRC-751's sha256, page count and creation date, and the
     text of all 417 pages extracts
     identically, so every SRC-751 page number addresses the same page here

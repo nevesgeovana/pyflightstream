@@ -8461,11 +8461,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): catalog entries after the cut of `qa/specs.py`, and RPT-127.
 
-!!! requirement "FR-343 The PHASE3 evidence the specification relies on is a summary report in the repository <span class='srs-pending'>pending</span>"
+!!! requirement "FR-343 The PHASE3 evidence the specification relies on is a summary report in the repository <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2073, PFS-2073.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*
+    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Built in 0.34.0. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence: `reports/RPT-131_phase3-probe-campaign-summary_2026-10-01.md`; `tests/tier1_offline/test_p0340_phase3_rpt.py` holds a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*
 
     Need: RPT-093 cites a results file of a private licensed campaign that the repository does not keep, so the facts it carries cannot be reproduced or checked from here.
 
@@ -8476,13 +8476,13 @@ Requirements written after the specification was last reconciled with the packag
     - R3 RPT-131 satisfies NFR-31 (no machine identity, no executable digest), as every report of 0.34.0 does: the NFR-31 guard walks every tracked file.
     - R4 A tier-1 test scans RPT-131 for the forbidden identifiers the repository's own house-style guard already holds (the forbidden names, the personal-identifier shapes and the private ledger identifiers of `tests/tier1_offline/test_house_style.py`), with a planted identifier as its control; NFR-31 does not cover geometry or research data, and the table form of R1 is what keeps them out.
 
-    Solution (planned for 0.34.0): RPT-131, its test and the citations.
+    Solution (release 0.34.0): RPT-131, `tests/tier1_offline/test_p0340_phase3_rpt.py` and the citations in RPT-089 and RPT-093.
 
-!!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-pending'>pending</span>"
+!!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line.*
+    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Built in 0.34.0. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence: `tests/tier1_offline/test_p0340_vendor_digests.py` holds a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line (2026-10-01).*
 
     Need: The digests identify the vendor's documentation files and need not be published; the private corpus keeps the manual's digest.
 
@@ -8494,7 +8494,7 @@ Requirements written after the specification was last reconciled with the packag
     - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history): the digests stay in the history of the repository, and only the tree from 0.34.0 on is clean.
     - R5 This requirement amends NFR-31 R1: the commit that implements it replaces NFR-31's sentence "The digests of the package's documentation (manual, release notes, licence agreement) are not covered." with a pointer to FR-344, so the two read the same way; NFR-31 otherwise keeps its reading.
 
-    Solution (planned for 0.34.0): the amendment of RPT-050 and the guard beside the NFR-31 guard.
+    Solution (release 0.34.0): the amendment of RPT-050 and `tests/tier1_offline/test_p0340_vendor_digests.py`, beside the NFR-31 guard.
 
 !!! requirement "FR-345 The report-index test reads the release section that carries its report <span class='srs-pending'>pending</span>"
 
@@ -8511,18 +8511,18 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): the test module of the report index.
 
-!!! requirement "FR-346 The release-state file states no owed archive row <span class='srs-pending'>pending</span>"
+!!! requirement "FR-346 The release-state file states no owed archive row <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2075, PFS-2075.17 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that `RELEASE-READY.md` does not contain the phrase, names the version it describes equal to the package's version without a development suffix, and names the archive by the concept DOI that `CITATION.cff` carries; a file with the phrase merely deleted and no archive named fails it.*
+    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Built in 0.34.0. Verification method: a tier-1 test carrying the marker. Evidence: `tests/tier1_offline/test_p0340_release_ready.py` holds a test that `RELEASE-READY.md` does not contain the phrase, names the version it describes equal to the package's version without a development suffix, and names the archive by the concept DOI that `CITATION.cff` carries; a file with the phrase merely deleted and no archive named fails it.*
 
     Need: A state file that contradicts the state misleads the next release.
 
     Requirement: `RELEASE-READY.md`, rewritten for 0.34.0, does not say "archive row owed" and names the release it describes.
 
     - R1 The phrase "archive row owed" appears nowhere in the file.
-    - R2 The file names the version it describes, equal to the package's version without a development suffix, and a test reads it.
+    - R2 The file names the version it describes, equal to the package's version without a development suffix, and a test reads it; the re-title of the file and the change of the package's version are one commit.
     - R3 The file names the archive of the releases by the concept DOI that `CITATION.cff` carries, and a test compares the two.
 
-    Solution (planned for 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation.
+    Solution (release 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation, and `tests/tier1_offline/test_p0340_release_ready.py`.

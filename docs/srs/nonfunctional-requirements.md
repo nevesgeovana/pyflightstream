@@ -1051,7 +1051,7 @@
       `Script.txt` files): a record states the file, its size and whether
       two packages agree, and withholds the digest. The digests of the
       package's documentation (manual, release notes, licence agreement) are
-      not covered. The guard refuses a 64-hex value on
+      covered by FR-344. The guard refuses a 64-hex value on
       the same line as a `.dll`, `.exe` or `.so` file name or `Script.txt`,
       with a mutant control that plants one. The digest of a script or
       product the package wrote is not a solver-package file and stays

@@ -1,4 +1,6 @@
-# RPT-093 - The Aeroelastic Coupling Toolbox on 26.124: nine measured facts (2026-09-29)
+# RPT-093 - The Aeroelastic Coupling Toolbox on 26.124: nine measured facts (2026-09-29, amended 2026-10-01)
+
+Amended 2026-10-01: the facts taken from the private campaign's results file are summarised, with their number, date, build and command, in RPT-131; no measurement of this report changed.
 
 A synthesis of licensed probes on **FlightStream 26.124, build 8172026**, executable
 SHA-256 withheld from the public tree per NFR-31 (the same
@@ -26,7 +28,8 @@ the morph from the rotation.
 Every fact below comes from one of two places, both licensed, both on 26.124:
 
 - A private licensed probe campaign of 2026-09-28 (its results file
-  `PHASE3-RESULTS.md`, sections 1 to 14, not in this repository). That
+  `PHASE3-RESULTS.md`, sections 1 to 14, not in this repository; its facts are
+  summarised in RPT-131). That
   geometry is private; where a fact is stated with numbers from it, this
   report says so and gives no geometry, project or vendor-order identifier.
 - A self-contained, generic-geometry reproduction, the folder
