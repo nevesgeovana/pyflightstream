@@ -187,6 +187,10 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
             "ports",
             "boundaries",
             "file",
+            # FR-348 (0.34.0): the face count the inventory takes, and its digest.
+            "mesh_faces",
+            "boundary_faces",
+            "mesh_sha256",
             IMPORT_TABLE,
             *RAW_MESH_CONDITION_TABLES,
         },

@@ -155,11 +155,11 @@ def test_g30_a_comment_on_a_group_line_is_not_part_of_the_name(tmp_path):
 def test_g30_the_plan_writes_an_objs_sidecar_from_its_groups(tmp_path, capsys):
     """THE EXIT OF G30: an OBJ with no sidecar gets one at plan, and then plans with it.
 
-    The written file holds the list and a header naming the OBJ's sha256 and
-    the report, and nothing else, so the plan blocks the row on the unit the
-    user still owes, naming the table. With the user's tables appended beneath
-    the list, the next plan is READY, the list is the case's inventory, and
-    the file is not rewritten.
+    The written file holds the list, its face counts (FR-348, since 0.34.0)
+    and a header naming the OBJ's sha256 and the report, and nothing else, so
+    the plan blocks the row on the unit the user still owes, naming the table.
+    With the user's tables appended beneath the list, the next plan is READY,
+    the list is the case's inventory, and the file is not rewritten.
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     mesh = stage_geometry(workspace, "wing.obj", O_THREE.encode())
@@ -168,7 +168,12 @@ def test_g30_the_plan_writes_an_objs_sidecar_from_its_groups(tmp_path, capsys):
     plan = _plan(tmp_path, workspace)
     assert sidecar.is_file(), "the plan wrote no sidecar beside an OBJ that had none"
     text = sidecar.read_text(encoding="utf-8")
-    assert tomllib.loads(text) == {"boundaries": list(THREE)}, text
+    assert tomllib.loads(text) == {
+        "boundaries": list(THREE),
+        "mesh_faces": 3,
+        "boundary_faces": [1, 1, 1],
+        "mesh_sha256": file_sha256(mesh),
+    }, text
     assert file_sha256(mesh) in text and "RPT-078" in text, text
     err = capsys.readouterr().err
     assert str(sidecar) in err and "ZETA, ALPHA, MID" in err, err
@@ -257,7 +262,13 @@ def test_g30_inventory_writes_an_objs_sidecar_and_never_rewrites_it(tmp_path, ca
     sidecar = tmp_path / "wing.boundaries.toml"
     assert pyfs_matrix(["inventory", str(mesh)]) == 0
     assert capsys.readouterr().out.strip() == str(sidecar)
-    assert tomllib.loads(sidecar.read_text(encoding="utf-8")) == {"boundaries": list(THREE)}
+    # The face counts of FR-348 (0.34.0): the empty group holds none and is no boundary.
+    assert tomllib.loads(sidecar.read_text(encoding="utf-8")) == {
+        "boundaries": list(THREE),
+        "mesh_faces": 3,
+        "boundary_faces": [1, 1, 1],
+        "mesh_sha256": file_sha256(mesh),
+    }
     sidecar.write_text('boundaries = ["edited"]\n' + USER_TABLES, encoding="utf-8")
     before = sidecar.read_bytes()
     for flags in ([], ["--overwrite"]):

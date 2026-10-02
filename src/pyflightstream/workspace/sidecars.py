@@ -7,8 +7,10 @@ named by its stem: ``<stem>.boundaries.toml``, the boundary inventory
 termination, base regions); and ``<stem>.provenance.toml``, the record of
 where the geometry came from, which the package never writes. This module
 writes and checks the inventory (the boundary names read off an OBJ or a
-saved simulation), reads each table of the sidecar with its own reader over
-one parse, and moves a flat geometry library into one folder per geometry
+saved simulation), with the mesh's face count taken at the same time
+(FR-348, which the post carries and never counts: :func:`recorded_mesh_faces`),
+reads each table of the sidecar with its own reader over one parse, and
+moves a flat geometry library into one folder per geometry
 (:func:`migrate_geometry_layout`, PFS-2032.04).
 
 It also holds the TOML reader of the input library's artifact files, which
@@ -23,7 +25,7 @@ from __future__ import annotations
 import json
 import sys
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -33,7 +35,7 @@ from pydantic import ValidationError
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
-from pyflightstream._fsm import MeshReadError, boundary_names
+from pyflightstream._fsm import MeshReadError, boundary_names, mesh_face_counts
 from pyflightstream.cases import (
     EVERY_SURFACE,
     InputKey,
@@ -209,6 +211,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         "boundaries = [",
         *[f'    "{name}",' for name in names],
         "]",
+        *face_count_lines(path, len(names), obj=False),
     ]
     _textio.write_text(sidecar, "\n".join(body) + "\n")
     return sidecar
@@ -403,6 +406,7 @@ def ensure_inventory(geometry: str | Path) -> Path:
         "boundaries = [",
         *[f"    {_toml_string(name)}," for name in names],
         "]",
+        *face_count_lines(path, len(names), obj=True),
     ]
     _textio.write_text(sidecar, "\n".join(body) + "\n")
     print(
@@ -450,6 +454,190 @@ def _compare_with_the_groups(mesh: Path, sidecar: Path) -> None:
 def _toml_string(name: str) -> str:
     """Quote one name as a TOML basic string; JSON's escapes are TOML's."""
     return json.dumps(name, ensure_ascii=False)
+
+
+# --- the face count of the mesh, taken with the inventory (FR-348) -------------------
+#
+# A run's cost grows with the faces of its mesh, and until 0.34.0 no product said
+# how many a run had. The count is taken where the mesh is already read, WHEN THE
+# INVENTORY IS TAKEN, and written beside the `boundaries` list:
+#
+#     mesh_faces = 1056
+#     boundary_faces = [1032, 24]
+#     mesh_sha256 = "<the sha256 of the file the faces were counted in>"
+#
+# `boundary_faces` is the count of each boundary in the order of the list, written
+# only where the reader gives it. THE POST ONLY CARRIES IT, AND NEVER COUNTS: the
+# super file and the unsteady polar take `mesh_faces` from the inventory of the
+# geometry a row's run opened, and only with the sha256 that run recorded for the
+# file (`recorded_mesh_faces`), so a geometry replaced since the run, and an
+# inventory taken before this release, give NA. A count that cannot be taken is not
+# written, and the inventory is written as it was before: the count is an addition
+# to the inventory and never a reason to refuse one.
+
+#: The key of the inventory that states the geometry's face count.
+MESH_FACES_KEY = "mesh_faces"
+#: The key that states the count of each boundary, in the order of ``boundaries``.
+BOUNDARY_FACES_KEY = "boundary_faces"
+#: The key that states the sha256 of the file the faces were counted in.
+MESH_SHA256_KEY = "mesh_sha256"
+
+
+def obj_face_counts(path: str | Path) -> tuple[int, ...]:
+    """Return the faces of each face-bearing group of an OBJ, in the order of the file.
+
+    The groups are cut where :func:`obj_boundary_names` cuts them: every
+    ``o`` or ``g`` statement closes the group before it, which counts when
+    it holds a face, and faces before the first group make a group of their
+    own. It is called only on a file whose names that reader has read, so
+    the counts stand beside those names one for one.
+
+    Parameters
+    ----------
+    path : str or Path
+        The OBJ mesh file, read as UTF-8 text.
+
+    Returns
+    -------
+    tuple of int
+        The face count of each group that holds a face.
+
+    Raises
+    ------
+    OSError, UnicodeDecodeError
+        If the file cannot be read as text.
+    """
+    counts: list[int] = []
+    held = 0
+    with Path(path).open(encoding="utf-8") as lines:
+        for line in lines:
+            if line.startswith("v"):
+                continue
+            words = line.split("#", 1)[0].split()
+            if not words:
+                continue
+            if words[0] == "f":
+                held += 1
+            elif words[0] in _OBJ_GROUP_STATEMENTS and held:
+                counts.append(held)
+                held = 0
+    if held:
+        counts.append(held)
+    return tuple(counts)
+
+
+def face_count_lines(geometry: Path, boundaries: int, *, obj: bool) -> list[str]:
+    """Return the inventory lines stating a geometry's face count, or none (FR-348).
+
+    The file is hashed before and after it is counted, and the lines are
+    written only when the two digests agree, so the count and the digest
+    are of the same bytes. ``boundary_faces`` is written only where a
+    count is read for each of the ``boundaries`` the inventory lists.
+
+    Parameters
+    ----------
+    geometry : Path
+        The saved simulation or OBJ the inventory is taken from.
+    boundaries : int
+        The number of boundaries the inventory lists.
+    obj : bool
+        Whether the geometry is an OBJ, counted by its groups.
+
+    Returns
+    -------
+    list of str
+        The TOML lines, or an empty list where the faces cannot be counted.
+    """
+    try:
+        before = file_sha256(geometry)
+        counted = _obj_counted(geometry) if obj else mesh_face_counts(geometry)
+        after = file_sha256(geometry)
+    except (MeshReadError, OSError, UnicodeDecodeError):
+        return []
+    if counted is None or before != after:
+        return []
+    total, per_boundary = counted
+    lines = [
+        "# The faces of the mesh, counted when this inventory was taken, and the sha256 of",
+        "# the file they were counted in; the post carries mesh_faces as MESH_FACES for a",
+        "# run whose recorded sha256 of this geometry is that one (FR-348).",
+        f"{MESH_FACES_KEY} = {total}",
+    ]
+    if per_boundary is not None and len(per_boundary) == boundaries:
+        lines.append(f"{BOUNDARY_FACES_KEY} = [{', '.join(str(n) for n in per_boundary)}]")
+    lines.append(f'{MESH_SHA256_KEY} = "{before}"')
+    return lines
+
+
+def _obj_counted(path: Path) -> tuple[int, tuple[int, ...]]:
+    """Return an OBJ's face count and its count per group."""
+    counts = obj_face_counts(path)
+    return sum(counts), counts
+
+
+def stated_mesh_faces(sidecar: Path) -> tuple[int, str] | None:
+    """Return the face count an inventory states and the sha256 it was counted in, or None.
+
+    None for an inventory that does not exist or does not read as TOML,
+    and for one that does not state both keys, the count as a whole
+    number of at least zero and the digest as a string. Nothing is
+    refused here: the run reads the inventory and refuses what it must,
+    and a count the post cannot take is written ``NA``.
+
+    Parameters
+    ----------
+    sidecar : Path
+        A geometry's ``<stem>.boundaries.toml``.
+
+    Returns
+    -------
+    tuple of (int, str) or None
+        The face count and the sha256, or None.
+    """
+    try:
+        data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    count, digest = data.get(MESH_FACES_KEY), data.get(MESH_SHA256_KEY)
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        return None
+    if not isinstance(digest, str):
+        return None
+    return count, digest
+
+
+def recorded_mesh_faces(
+    inputs_sha256: Mapping[str, str], sidecars_of: Callable[[str], Iterable[Path]]
+) -> int | None:
+    """Return the face count of the geometry a run opened, as its inventory states it, or None.
+
+    Each file the run staged, by the name and the sha256 its record holds,
+    is looked up through ``sidecars_of``, which names the inventories that
+    may describe it (the geometry library's, then the simulation's staged
+    copy). The first inventory that states a count with that very sha256
+    gives it; a file staged under a path rather than a bare name is never
+    a geometry and is passed over.
+
+    Parameters
+    ----------
+    inputs_sha256 : mapping of str to str
+        The record's sha256 of each staged input, by file name.
+    sidecars_of : callable
+        Returns the inventory paths that may describe one staged file name.
+
+    Returns
+    -------
+    int or None
+        The face count, or None where no inventory states it for that file.
+    """
+    for name, digest in inputs_sha256.items():
+        if not name or Path(name).name != name:
+            continue
+        for sidecar in sidecars_of(name):
+            stated = stated_mesh_faces(sidecar)
+            if stated is not None and stated[1] == digest:
+                return stated[0]
+    return None
 
 
 #: The table of a geometry's sidecar that states how a raw mesh is imported
@@ -613,6 +801,22 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "The file the inventory was read from, as pyfs-matrix inventory writes it; "
         "nothing reads it back.",
         "a file name",
+    ),
+    MESH_FACES_KEY: InputKey(
+        "The mesh's face count, counted when the inventory is taken from a saved simulation "
+        "or an OBJ; the post carries it as MESH_FACES for a run whose recorded sha256 of the "
+        "geometry is mesh_sha256 (FR-348).",
+        "a whole number",
+    ),
+    BOUNDARY_FACES_KEY: InputKey(
+        "The face count of each boundary, in the order of boundaries, where the inventory's "
+        "reader gives it; nothing reads it back.",
+        "a list of whole numbers",
+    ),
+    MESH_SHA256_KEY: InputKey(
+        "The sha256 of the file the faces were counted in, which a run's recorded sha256 of "
+        "the geometry must equal for the post to carry mesh_faces.",
+        "a sha256, as text",
     ),
     IMPORT_TABLE: InputKey(
         "How a raw mesh is imported: the unit it is written in and the operations "

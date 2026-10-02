@@ -772,6 +772,88 @@ class _BlockReader:
         return tokens
 
 
+def _faces_after_records(block: _BlockReader) -> tuple[int, int, list[str]]:
+    """Step over a block's header and boundary records to its faces.
+
+    Returns the boundary count, the face count and the vertices-per-face
+    row, the face id row between them held to the face count. The face
+    count read here is the block's own, which every per-face row is held
+    to, and not the count :func:`element_count` reads, which a campaign
+    geometry states wrong.
+    """
+    for _ in range(_LINES_BEFORE_COUNT):
+        block.row("header")
+    boundaries = block.count("boundary count")
+    for position in range(1, boundaries + 1):
+        head = block.row(f"boundary record {position}").strip()
+        if not _HEAD_LINE.match(head):
+            raise block.refuse(f"boundary {position} of {boundaries} begins with {head!r}")
+        block.row(f"boundary record {position}")
+        block.row(f"boundary record {position}")
+    faces = block.count("face count")
+    block.sized("face id row", faces, "faces")
+    return boundaries, faces, block.sized("vertices-per-face row", faces, "faces")
+
+
+def mesh_face_counts(path: str | Path) -> tuple[int, tuple[int, ...] | None] | None:
+    """Return the face count of a saved simulation's mesh block, and per boundary (FR-348).
+
+    The count is the block's own face count, held to its face id row and
+    its vertices-per-face row. The count per boundary is read from the
+    row :data:`_BOUNDARY_ROW` names, in the solver's boundary order, where
+    every face is a triangle (the layout that row was measured on) and the
+    row holds a boundary number for each face; otherwise it is None and
+    the total stands alone. Only the rows up to that one are read, never
+    the vertex coordinates.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    tuple of (int, tuple of int or None) or None
+        The face count and the count per boundary, or None when the file
+        carries no mesh block.
+
+    Raises
+    ------
+    MeshReadError
+        If the file cannot be opened, or its block does not hold its shape
+        up to the rows read.
+    """
+    target = Path(path)
+    try:
+        handle = target.open(encoding="utf-8", errors="replace")
+    except OSError as error:
+        raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
+    with handle:
+        if not any(line.strip() == MESH_MARKER for line in handle):
+            return None
+        block = _BlockReader(handle, target.name)
+        boundaries, faces, corners = _faces_after_records(block)
+        if any(value != "3" for value in corners):
+            return faces, None
+        return faces, _faces_per_boundary(block, boundaries, faces)
+
+
+def _faces_per_boundary(block: _BlockReader, boundaries: int, faces: int) -> tuple[int, ...] | None:
+    """Count the faces of each boundary from the boundary row, or None where it is not there."""
+    for _ in range(3):
+        block.sized("vertex-index row", faces, "faces")
+    for _ in range(_BOUNDARY_ROW):
+        if set(block.sized("per-face flag row", faces, "faces")) <= _FLAGS:
+            return None
+    counts = [0] * boundaries
+    for owner in block.sized("per-face flag row", faces, "faces"):
+        number = int(owner) if owner.isdigit() else 0
+        if not 1 <= number <= boundaries:
+            return None
+        counts[number - 1] += 1
+    return tuple(counts)
+
+
 def _mesh_block(path: str | Path) -> _Block:
     """Read the mesh block's vertices, triangles and five T/F rows.
 
