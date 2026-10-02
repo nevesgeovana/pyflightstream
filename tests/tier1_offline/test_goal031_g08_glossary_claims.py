@@ -722,7 +722,7 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "wake_termination_thrust_n": _setting_on(
         _slow_rotor_in_air, "wake_termination_thrust_n", 1000.0, 4000.0
     ),
-    "wake_termination_x": _setting("wake_termination_x", 2.0, 5.0, rotor_case),
+    "wake_termination_x_m": _setting("wake_termination_x_m", 2.0, 5.0, rotor_case),
     "significant_digits": _setting("significant_digits", 6, 8),
     "reference_velocity_m_per_s": _setting("reference_velocity_m_per_s", 30.0, 40.0),
     "vorticity_drag_families": _setting(

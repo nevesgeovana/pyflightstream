@@ -32,7 +32,8 @@ free-stream speed, or a revolution cap (``wake_termination_revolutions_cap``)
 that bounds the converted steps (FR-323). The record names the rule used.
 
 WHAT THIS MODULE DOES NOT DO: place the wake end plane. That is the
-``wake_termination_x`` argument of ``INITIALIZE_SOLVER`` (FR-324), emitted by
+``wake_termination_x`` argument of ``INITIALIZE_SOLVER`` (FR-324), stated by the
+setup key ``wake_termination_x_m`` and emitted by
 the skeleton; this module only reads it to warn when the plane sits before the
 length (FR-325 R3, R4).
 """
@@ -1094,7 +1095,7 @@ def wake_termination_of(case: SimCase, stepping: TimeStepping | None = None) -> 
     v_inf = abs(_velocity(case))
     radius, hub = _radius_and_hub(case)
     key, value = stated[0] if stated else ("default", DEFAULT_WAKE_LENGTH_R)
-    plane = case.solver.wake_termination_x
+    plane = case.solver.wake_termination_x_m
     base = WakeTermination(
         stated_as=key,
         length_r=None,
@@ -1148,10 +1149,10 @@ def wake_end_plane(case: SimCase, script: Script) -> str:
     0.33.0 wrote (R2); else the stated X in metres, written in the
     simulation's length unit as every length this package hands the solver.
     """
-    plane = case.solver.wake_termination_x
+    plane = case.solver.wake_termination_x_m
     if plane is None or plane == "DEFAULT":
         return "DEFAULT"
-    factor = _from_metres(case, script, "the wake end plane wake_termination_x")
+    factor = _from_metres(case, script, "the wake end plane wake_termination_x_m")
     return f"{float(plane) * factor:.12g}"
 
 
@@ -1239,13 +1240,13 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
         return [
             f"{row}: the wake end plane is the solver's DEFAULT, whose position the plan "
             f"cannot know, and it may cut the wake before L = {length:g} R: measured on "
-            f"26.124 at {placements}. State wake_termination_x, an X in metres in the "
+            f"26.124 at {placements}. State wake_termination_x_m, an X in metres in the "
             "simulation's frame, to place it (FR-325 R4)."
         ]
     if wake.radius_m is None or wake.hub_x_m is None:
         unknown = "hub X" if wake.radius_m is not None else "radius"
         return [
-            f"{row}: the wake end plane wake_termination_x = {float(wake.plane):g} m cannot be "
+            f"{row}: the wake end plane wake_termination_x_m = {float(wake.plane):g} m cannot be "
             f"placed against L = {length:g} R, because the rotor's {unknown} is unknown (no "
             "rotor block states it), so the plan cannot say whether the plane cuts the wake "
             "(FR-325 R3). Declare the rotor block on the reference to place it."
@@ -1255,7 +1256,7 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
     if distance >= length * wake.radius_m * (1.0 - 1e-9):
         return []
     return [
-        f"{row}: the wake end plane wake_termination_x = {float(wake.plane):g} m lies "
+        f"{row}: the wake end plane wake_termination_x_m = {float(wake.plane):g} m lies "
         f"{distance / wake.radius_m:.3g} R downstream of the rotor hub, before the "
         f"L = {length:g} R the wake keeps, so the plane cuts it (FR-325 R3)."
     ]

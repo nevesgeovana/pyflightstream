@@ -455,7 +455,7 @@ def test_p0340_wake_trefftz_a_stated_plane_writes_wake_termination_x_and_nothing
     requirement = "FR-324"
     before, _ = _built(steady_case())
     after, _ = _built(
-        steady_case().model_copy(update={"solver": SolverSettings(wake_termination_x=2.75)})
+        steady_case().model_copy(update={"solver": SolverSettings(wake_termination_x_m=2.75)})
     )
     changed = [
         line
@@ -476,7 +476,7 @@ def test_p0340_wake_trefftz_an_unstated_plane_writes_default_as_0330_did():
     requirement = "FR-324"
     unstated, _ = _built(steady_case())
     default, _ = _built(
-        steady_case().model_copy(update={"solver": SolverSettings(wake_termination_x="DEFAULT")})
+        steady_case().model_copy(update={"solver": SolverSettings(wake_termination_x_m="DEFAULT")})
     )
     assert unstated == default, requirement
     assert "WAKE_TERMINATION_X DEFAULT" in unstated, requirement
@@ -495,9 +495,9 @@ def test_p0340_wake_trefftz_any_other_value_is_refused_naming_the_key_and_the_fo
     such value reaches WAKE_TERMINATION_X."""
     requirement = "FR-324"
     with pytest.raises(ValidationError) as refused:
-        SolverSettings(wake_termination_x=value)
+        SolverSettings(wake_termination_x_m=value)
     message = str(refused.value)
-    assert "wake_termination_x" in message and "DEFAULT" in message, (requirement, message)
+    assert "wake_termination_x_m" in message and "DEFAULT" in message, (requirement, message)
     assert "metres" in message, (requirement, message)
 
 
@@ -506,19 +506,21 @@ def test_p0340_wake_trefftz_a_bare_number_in_a_cell_or_a_preset_is_taken(value):
     """P0340-WAKE-TREFFTZ, FR-324 R1: the text a row cell carries is the number that
     WAKE_TERMINATION_X writes."""
     requirement = "FR-324"
-    assert SolverSettings(wake_termination_x=value).wake_termination_x == float(value), requirement
+    assert SolverSettings(wake_termination_x_m=value).wake_termination_x_m == float(value), (
+        requirement
+    )
 
 
 def test_p0340_wake_trefftz_a_refused_value_stops_the_plan(tmp_path):
     """P0340-WAKE-TREFFTZ, FR-324 R3: refused at plan, from the preset, naming the key,
     before any script writes WAKE_TERMINATION_X."""
     requirement = "FR-324"
-    workspace, matrix = _setup_and_row(tmp_path, [("wake_termination_x", '"4R"')], [])
+    workspace, matrix = _setup_and_row(tmp_path, [("wake_termination_x_m", '"4R"')], [])
     with pytest.raises((InputArtifactError, MatrixError)) as refused:
         _plan(workspace, matrix)
     message = str(refused.value)
     assert "setup preset 's002'" in message, (requirement, message)
-    for words in ("wake_termination_x", "DEFAULT", "metres", "rotor radii", "FR-324"):
+    for words in ("wake_termination_x_m", "DEFAULT", "metres", "rotor radii", "FR-324"):
         assert words in message, (requirement, words, message)
 
 
@@ -541,7 +543,7 @@ def _planned_wake(
     workspace = _workspace(tmp_path)
     reference = workspace.inputs_dir / "references" / "r003.toml"
     reference.write_text(reference.read_text(encoding="utf-8") + ROTOR_BLOCK, encoding="utf-8")
-    extra = row + ("" if plane is None else f" / wake_termination_x: {plane}")
+    extra = row + ("" if plane is None else f" / wake_termination_x_m: {plane}")
     matrix = _rotor_row(tmp_path, sweep="0.0", extra=extra)
     text = matrix.read_text(encoding="utf-8").replace(
         "TIME_ITERATIONS: 720", f"TIME_ITERATIONS: {iterations}"
@@ -625,7 +627,7 @@ def test_p0340_wake_plan_warn_a_plane_before_the_length_warns_and_after_it_does_
         plane=f"{plane:.4g}",
     )
     warned = _rule(at_6r, "R3")
-    assert len(warned) == 1 and "wake_termination_x" in warned[0], (requirement, at_6r)
+    assert len(warned) == 1 and "wake_termination_x_m" in warned[0], (requirement, at_6r)
     assert f"{plane / ROW_R_M:.3g} R downstream" in warned[0], warned
     # A stated plane is never the DEFAULT warning.
     assert _rule(at_4r, "R4") == [] and _rule(at_6r, "R4") == [], requirement
@@ -637,7 +639,7 @@ def test_p0340_wake_plan_warn_the_default_plane_always_warns_citing_both_placeme
     said, statuses, _, _ = _planned_wake(tmp_path, iterations=1500)
     warned = _rule(said, "R4")
     assert len(warned) == 1, (requirement, said)
-    for words in ("DEFAULT", "5.5 R", "RPT-130", "2.1 R", "RPT-137", "wake_termination_x"):
+    for words in ("DEFAULT", "5.5 R", "RPT-130", "2.1 R", "RPT-137", "wake_termination_x_m"):
         assert words in warned[0], (requirement, words, warned[0])
     assert statuses == [PlanStatus.READY], requirement
 
@@ -754,7 +756,7 @@ def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path
     matrix.write_text(
         matrix.read_text(encoding="utf-8")
         .replace("MACH:0.2, REmi:11.77,", "TASmps:30.0,")
-        .replace("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / wake_termination_x: 1.0"),
+        .replace("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / wake_termination_x_m: 1.0"),
         encoding="utf-8",
     )
     with warnings.catch_warnings(record=True) as caught:
@@ -764,7 +766,7 @@ def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path
         )
     said = [str(item.message) for item in caught if "FR-325 R3)" in str(item.message)]
     assert len(said) == 1, (requirement, [str(item.message) for item in caught])
-    for words in ("wake_termination_x = 1 m", "hub X is unknown", "cannot be placed"):
+    for words in ("wake_termination_x_m = 1 m", "hub X is unknown", "cannot be placed"):
         assert words in said[0], (requirement, words, said[0])
     assert [entry.status for entry in plan.points] == [PlanStatus.READY], requirement
 

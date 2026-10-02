@@ -170,7 +170,7 @@ _BARE_NUMBER = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
 
 
 def _an_end_plane(value: object) -> object:
-    """Return ``DEFAULT`` or a finite X in metres for ``wake_termination_x`` (FR-324 R1, R3).
+    """Return ``DEFAULT`` or a finite X in metres for ``wake_termination_x_m`` (FR-324 R1, R3).
 
     The solver's own two forms and nothing else: a bare finite number (a
     preset's TOML number, or a row cell's text), or the word ``DEFAULT``. A
@@ -188,7 +188,7 @@ def _an_end_plane(value: object) -> object:
         number = float(value.strip())
     if number is None or not math.isfinite(number):
         raise ValueError(
-            f"wake_termination_x takes DEFAULT or the X of the wake end plane in metres in "
+            f"wake_termination_x_m takes DEFAULT or the X of the wake end plane in metres in "
             f"the simulation's reference frame, written as a bare finite number such as "
             f"2.75; got {value!r}. A number with a unit, a distance in rotor radii, a "
             "non-finite number, an empty value and any word other than DEFAULT are refused "
@@ -321,7 +321,7 @@ class SolverSettings(BaseModel):
     wake_termination_revolutions_cap : float, optional
         A revolution count the steps converted from a length never exceed
         (FR-323).
-    wake_termination_x : float or 'DEFAULT', optional
+    wake_termination_x_m : float or 'DEFAULT', optional
         The X of the solver's wake end plane in metres in the simulation's
         reference frame, the ``wake_termination_x`` argument of
         ``INITIALIZE_SOLVER`` (FR-324); unstated writes ``DEFAULT``.
@@ -590,7 +590,7 @@ class SolverSettings(BaseModel):
     #: The revolutions the steps converted from a length never exceed (FR-323).
     wake_termination_revolutions_cap: float | None = Field(default=None, gt=0.0)
     #: INITIALIZE_SOLVER's wake end plane: DEFAULT or an X in metres (FR-324).
-    wake_termination_x: Annotated[
+    wake_termination_x_m: Annotated[
         float | Literal["DEFAULT"] | None, BeforeValidator(_an_end_plane)
     ] = None
     #: The four settings the reference scripts state and 0.10.1 did not

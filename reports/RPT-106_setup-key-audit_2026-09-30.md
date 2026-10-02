@@ -209,7 +209,7 @@ runs, the order stays as the database documents it.
 
 The table above is the audit as it ran on 2026-09-30 and is left as it ran.
 From 0.34.0 the row `INITIALIZE_SOLVER wake_termination_x` moves to covered:
-the setup key `wake_termination_x` (FR-324) takes `DEFAULT` or an X in metres
+the setup key `wake_termination_x_m` (FR-324) takes `DEFAULT` or an X in metres
 in the simulation's frame, validated in `cases/settings.py`, routed in
 `cases/_setup_keys.py`, and written as the `WAKE_TERMINATION_X` argument of the
 skeleton's `INITIALIZE_SOLVER` call (`cases/workflows/_freestream.py`

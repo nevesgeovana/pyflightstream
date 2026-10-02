@@ -8136,9 +8136,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: Every workflow writes `WAKE_TERMINATION_X DEFAULT`, and the solver's default plane limits the wake whatever the termination says. Research studies measured the default plane on 26.124 at 5.5 rotor radii downstream of the rotor on a rotor case and at 2.1 radii on a blades-only wheel, where it cut the wake; the placements are stated nondimensionally, the second summarised in RPT-137 and the first stated beside its own run in RPT-130. No setup key reaches the argument, and the raw command route cannot replace one argument of a keyword block.
 
-    Requirement: a setup key states the `wake_termination_x` argument of `INITIALIZE_SOLVER`.
+    Requirement: a setup key, `wake_termination_x_m`, states the `wake_termination_x` argument of `INITIALIZE_SOLVER`.
 
-    - R1 The key `wake_termination_x` takes `DEFAULT` or an X coordinate in metres in the reference frame of the simulation, the solver's own form of the argument.
+    - R1 The key `wake_termination_x_m` takes `DEFAULT` or an X coordinate in metres in the reference frame of the simulation, the solver's own form of the argument.
     - R2 A setup that does not state the key writes `DEFAULT`, so its scripts are byte-identical to those of 0.33.0.
     - R3 Any other value is refused at plan, naming the key and the accepted forms: a number with a unit, a distance in radii, a non-finite number, an empty value or any word other than `DEFAULT`.
     - R4 No other form is taken: a distance downstream of the rotor in radii is not a value of this key.

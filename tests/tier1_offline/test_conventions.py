@@ -219,6 +219,13 @@ _DIMENSIONLESS_OR_DEBT = {
     # unit rides the key inside the mapping rather than the field name
     # (PFS-2012.04; PFS-2031.18 fills it).
     "export_window",
+    # 0.34.0 WAKE-LENGTH (FR-321). A LENGTH OVER THE ROTOR RADIUS, L / R: a
+    # ratio of two lengths, so it carries no unit, and a `_m` suffix would be
+    # a LIE (the metres are the rotor's, read from its block at conversion).
+    "wake_termination_length",  # SolverSettings: the wake length in rotor radii
+    # FR-323: a count of turns that bounds the steps a length converts to,
+    # dimensionless as every revolution key above is.
+    "wake_termination_revolutions_cap",  # SolverSettings: revolutions are counts
     # (b) naming debt pinned by released formats or frames
     "area",  # campaign.toml key (ReferenceData), m2 in docs
     "length",  # campaign.toml key (ReferenceData), m in docs

@@ -12,7 +12,7 @@ FlightStream 26.124, far field 5 layers, one solver instance at a time:
   where a blades-only wheel's default plane was measured at x/R = 2.08
   (RPT-137) and may cut the wake before 4 R;
 * ``9502``, the same row with the wake end plane moved to x = 8 R
-  (``wake_termination_x``, FR-324): the run whose wake reaches L.
+  (``wake_termination_x_m``, FR-324): the run whose wake reaches L.
 
 At J = 0.8 a length of 4 R needs L / (2 J) = 2.5 revolutions at V_inf, so 4
 revolutions reach it with margin; the default converts to
@@ -204,7 +204,7 @@ def _row_variables(plane: str | None) -> str:
         "LAST_REVS_AVG: 1",
     ]
     if plane is not None:
-        cells.append(f"wake_termination_x: {plane}")
+        cells.append(f"wake_termination_x_m: {plane}")
     return " / ".join(cells)
 
 
