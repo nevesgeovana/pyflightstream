@@ -153,8 +153,9 @@ def test_the_recorded_arms_give_the_verdict_rpt126_states_fr_336():
 def test_the_recorded_arms_separate_the_limits_not_the_space_fr_336():
     """P0340-CCS2-REAL, FR-336 R1 and R3: the cause RPT-126 states is the one the arms record.
 
-    REAL with 0.5 and 0.9 lofts as PARAMETRIC does (R against P); the limits 2.0 and 3.6 write no
-    loft in either space (RL against R, PL against P) nor along the other axis (RX against RL).
+    REAL with 0.5 and 0.9 is lofted without error, as PARAMETRIC is (R against P); the limits
+    2.0 and 3.6 write no loft in either space (RL against R, PL against P) nor along the
+    other axis (RX against RL).
     """
     arms = _arms()
     assert lofted(arms["P"]) and lofted(arms["R"]), "the space alone stopped the loft"
@@ -190,6 +191,10 @@ def test_the_recorded_arity_forms_give_the_arity_rpt126_states_fr_335(command):
     """FR-335 R1: the five forms of each export give the arity RPT-126 states (undetermined)."""
     record = _arity_arms()[command]
     assert set(record["arms"]) == {"A6", "A6m", "A6c", "A4", "A4c"}
+    wrote = [
+        form for form, arm in record["arms"].items() if arm["written"] or arm["sha256"] is not None
+    ]
+    assert wrote == [], f"{command}: the measured fact is that no form wrote a file, got {wrote}"
     measured = arity_from(record["arms"])
     assert measured == record["verdict"], f"{command}: the forms give {measured}"
     report, _ = _front_matter(126)

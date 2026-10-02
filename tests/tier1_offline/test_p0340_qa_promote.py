@@ -194,9 +194,11 @@ def test_a_promotion_from_a_report_that_judged_the_command_moves_it_fr_333(tmp_p
     from another report corroborates the row and keeps its line, by design of the promotion tool.
     """
     commands = _chapter_copy(tmp_path)
-    before = (commands / "acoustics.yaml").read_bytes()
+    chapter = commands / "acoustics.yaml"
+    before = chapter.read_bytes().replace(b"\r\n", b"\n")
     outcome = "broken" if status_on("ACOUSTIC_SOURCES") == "verified" else "verified"
     report = _report(tmp_path, outcome)
     promoted = apply_compat(report, repo_root=tmp_path, commands_dir=commands)
-    assert [name for name, _, _ in promoted] == ["ACOUSTIC_SOURCES"]
-    assert (commands / "acoustics.yaml").read_bytes() != before
+    assert promoted == [("ACOUSTIC_SOURCES", outcome, "acoustics.yaml")]
+    after = chapter.read_bytes().replace(b"\r\n", b"\n")
+    assert after != before, "the line endings alone do not count as a promotion"
