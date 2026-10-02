@@ -14,6 +14,11 @@ This is the LibraryHelp companion of the CommandHelp in
 :mod:`pyflightstream.reference`: ``help()`` answers "which commands
 exist and with what evidence", ``overview()`` answers "how the package
 is put together and where to start".
+
+Since 0.35.0 the grouped run modes (``run --polar-sweep`` and ``run --batch``) and
+the read-only query ledger (``status``, ``show``, ``log``, ``trace``, ``history``,
+``diff``) live inside the ``run`` and ``workspace`` rows below; they add no row
+and keep the rule that the workspace never imports the run.
 """
 
 from __future__ import annotations

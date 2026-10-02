@@ -136,6 +136,66 @@ the fit, not the comparable runs found. An unsteady run whose step count cannot
 be resolved is left out rather than counted as a single solve, and the basis
 line says how many were dropped.
 
+## The cost file
+
+A workspace may carry one cost file for each machine, `inputs/costs/c<NNN>.toml`
+(FR-398). `plan --cost` and the `plan --batch` estimate read it when it is
+present, and `--cost-file NAME` names the one to read when the workspace holds
+several; a single file needs no name. Without a cost file `plan --cost` fits
+its expected time from the workspace's own recorded runs, as before.
+
+The file has an anchor run (`[reference]`: the mesh size, processor count,
+wall time and step count of one run measured on the machine), an efficiency
+curve (`[parallel]`: a speedup for each stated processor count, interpolated
+linearly between two stated points), an exponent `b` on the mesh size
+(`[mesh]`, time scales as N to the power b), an exponent on the step count
+(`[steps]`) and the multiplier of each solver flag the row sets (`[flags]`).
+A processor count outside the stated range is never extrapolated silently: the
+estimate is withheld and its basis says why. An unknown key is refused by name.
+The package ships only a synthetic example, `examples/costs/c000.toml`, whose
+values are invented round numbers; the measured values of a machine belong to
+its user and are never part of the package.
+
+## One job for a polar or for a batch of polars
+
+`pyfs-matrix plan --batch N` plans the unsteady polars as N solver jobs, and
+`plan --polar-sweep` as one job for each polar (FR-362). The plan groups the
+polars by processor count and build, so that no job mixes two builds, and cuts
+each group into contiguous batches of whole polars so that the largest batch
+estimate is the smallest possible. It prints the split as a table with each
+batch's name, working directory, polars, points, estimate and walltime, and it
+names every polar a grouped job cannot take, a steady or quasi-steady row for
+instance, with the reason. The split is recorded per batch in the plan receipt
+`post/<matrix>/plan.json`, and `run --batch N` refuses a receipt that has no
+batches or was made for another N or another matrix (FR-365).
+
+The batch's estimate is the sum of the estimates of its points plus the start,
+re-initialization, reset and save overheads. A point with no estimate is
+budgeted at its row's `WALLTIME` cell, and the batch that rests on such a point
+is named (FR-363).
+
+A job's script is `FULL-POLAR.txt`, at the root of the polar's simulation
+folder, or `BATCH-<first sim>-<last sim>.txt`, inside the batch's working
+directory `sims/batch/<matrix>_b<ID>/`, where `<ID>` is assigned by the
+package and never typed (FR-357, FR-358).
+
+### The walltime of a grouped job
+
+The `WALLTIME` cell of a row is the budget of one of its datapoints. A grouped
+job asks for the sum over its points of the cells of their rows, capped at the
+queue's maximum with a warning that suggests a larger N; a row whose own cell
+is above the maximum is refused (FR-364). The maximum is the key `max_walltime`
+of the HPC profile `inputs/hpc/<cluster>.toml`, written `HH:MM:SS`; a value
+that does not parse is refused naming the key, and without the key there is no
+limit (FR-377).
+
+The cell may read `BEST` instead. The package then prices the job itself: the
+estimate of the batch times 1.25, plus the walltime margin, rounded up to the
+next minute and written with its unit. `BEST` is a value of the grouped plan
+and a plan that uses neither `--polar-sweep` nor `--batch` refuses it, naming
+the row. A point with no estimate in a `BEST` job takes the profile's
+`max_walltime` with a warning naming the point.
+
 ## The window, said once
 
 **THE AVERAGING WINDOW HAS A KEY OF ITS OWN, AND SINCE 0.24.0 A ROW MUST STATE

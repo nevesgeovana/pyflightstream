@@ -1652,3 +1652,91 @@ The second wave of 0.34.0, as integrated into `rel/0-34`:
   `workspace/sidecars.py`), read by the post from the inventory
   (`recorded_mesh_faces`, `post/_sim.py`) and written last by the super
   file and the unsteady polar.
+
+## The 0.35.0 additions and their limits
+
+This section records what 0.35.0 changes in the structure above and the limit
+each change keeps, measured on the merged tree of the release against v0.34.0
+(`reports/RPT-144` and `reports/RPT-145`, from `scripts/arch_metrics.py`). The
+tracked package holds 260 modules, of which 24 were created since v0.34.0; the
+largest module holds 1.9 percent of the code lines and the number of modules
+over 2000 code lines is zero. `workspace_to_run_imports`
+is 0 in the record, so the rule that the workspace layer never imports the run
+layer holds on the tree, and every new module sits in the row of its package.
+The layer guards of NFR-23 and guard G3(b) hold on the merged tree.
+
+### The grouped run path
+
+0.35.0 adds two run modes, `run --polar-sweep` and `run --batch N`, in which
+several points are solved in one FlightStream instance (FR-350 to FR-378). The
+design keeps the per-point run path unchanged and adds only what surrounds it:
+
+- `run/_grouped.py` is the dispatch and the helpers the grouped modes share:
+  the command line chooses between the per-point path and the grouped one
+  there and nowhere else, and it reads the plan receipt that gates the run
+  (FR-365);
+- `run/_batch_split.py` and `run/_batch_plan.py` decide the split of the polars
+  into batches and price each job's walltime for `plan --batch` (FR-362 to
+  FR-364, FR-378); `run/_batch_run.py` and `run/_batch_exec.py` are the grouped
+  run and the two adapters it hands to the per-point campaign loop;
+  `run/_batch_collect.py` is the prepare step `collect` runs for the points of
+  a grouped job (FR-367 to FR-370, FR-400);
+- the job script is built from the same per-point builder output by
+  `cases/workflows/_batch_script.py`, and the action programs of one job, one
+  counter and one clock for many points, by `cases/workflows/_batch_actions.py`
+  (FR-352 to FR-356, FR-359);
+- the workspace layer owns what a grouped run writes and reads back:
+  `workspace/_batches.py` (the batch layout under
+  `sims/batch/<matrix>_b<ID>/`, the grouping receipt and the job entry),
+  `workspace/_batch_life.py` (what the other commands do with a batch's folders
+  while its job runs, FR-372) and `workspace/_batch_relocate.py` (the copy and
+  the move of a batch's points to their simulations, FR-367). They are
+  imported by the run layer and import nothing from it.
+
+The limit this keeps: no grouped module writes a record the per-point path
+does not write. A point of a grouped job is recorded as a point run alone is,
+naming its batch in the submission entry (FR-366), which is what lets every
+other command read a collected point unchanged.
+
+### The ledger and the query verbs
+
+The query verbs `status`, `show`, `log`, `trace`, `history` and `diff` (FR-379
+to FR-394) read one snapshot and write nothing:
+
+- `workspace/ledger.py` is the public reader: `read_ledger` returns a snapshot
+  whose methods return plain dictionaries, and the module offers the same rows
+  as functions for a script, with no optional dependency (FR-388);
+  `workspace/_ledger_api.py` adapts paths and snapshots to those functions and
+  `workspace/_ledger_history.py` holds the archive-aware queries, `history` and
+  `diff`, apart from the present-state reader;
+- `workspace/_effective.py` is the one home of the rules that choose the
+  effective record of a datapoint (FR-381): the run layer and the ledger both
+  read it, where the run layer alone held those rules before;
+- `workspace/_query_files.py` and `workspace/_query_logs.py` read evidence and
+  registers in an ordinary home, a running batch's folder and a compacted
+  archive, in place and without expanding anything;
+- the command side is `run/_cli_query.py` (`status`), `run/_cli_query_point.py`
+  (`show`, `log`, `trace`) and `run/_cli_query_history.py` (`history`, `diff`),
+  which only select and render rows; `run/_alias.py` derives the run id alias
+  (FR-395).
+
+The limit this keeps: a query takes no lock, writes no file and imports nothing
+from a layer above the workspace. A tier-1 test compares the bytes of a
+workspace tree before and after each verb (FR-383).
+
+### The cost file
+
+`workspace/costs.py` reads the per-machine cost file `inputs/costs/c<NNN>.toml`
+(FR-398). It is a reader and an estimator over plain data: an unknown or
+misplaced key is refused by name and a processor count outside the stated
+efficiency curve is never extrapolated. The package ships only a synthetic
+example, and a guard refuses a tracked cost file that does not say it is
+synthetic.
+
+### Other changes of the release
+
+The archive default of `post` is the argument `archive` of
+`write_campaign_products`, now false (FR-397). The continuation script no longer
+re-initializes a reopened state (FR-396) and a rotor march lists its vorticity
+drag boundaries before `START_SOLVER` (FR-318 R6); the parity script names both
+differences. The CCS mesh probe judges classify by geometry (FR-401).

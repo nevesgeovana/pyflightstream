@@ -216,6 +216,19 @@ into a point's folder while its job is queued. A digest says which bytes were
 there when the run wrote them; keep a workspace's simulation folders to the
 runs that own them.
 
+## Choosing a profile and the longest walltime
+
+When a workspace holds more than one profile in `inputs/hpc/`, `--hpc NAME` on
+`plan`, `run` and `collect` selects `inputs/hpc/<NAME>.toml`; a workspace with
+one profile needs no option. The top-level key `max_walltime`, written
+`HH:MM:SS` (hours may exceed 24), states the longest walltime the queue
+accepts. A grouped plan caps the walltime of every job at it, with a warning
+that suggests a larger number of batches, and refuses a row whose own
+`WALLTIME` cell is above it (FR-364, FR-377). A value that does not parse is
+refused naming the key, and a profile without the key states no limit. The
+sum rule for the walltime of a job, and the value `BEST`, are in
+[Planning a campaign and what it costs](workflow-plan-and-cost.md).
+
 ## Naming the build to a cluster's scheduler
 
 A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an
