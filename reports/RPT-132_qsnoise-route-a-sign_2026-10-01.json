@@ -1,0 +1,465 @@
+{
+ "report": "RPT-132",
+ "exploratory": true,
+ "requirement": "FR-337",
+ "reference_run": {
+  "run_id": "round3/sim_3201/M144RE438AL+000BE+000",
+  "fs_version_reported": "26.1",
+  "fs_build": "8172026",
+  "fs_exe_sha256": "withheld; build 8172026",
+  "package_version": "0.31.0",
+  "package_commit": "822660ce54bddca330327e1b00f07d46010bf590"
+ },
+ "script": "<local probe folder>/round3/rpt132_sign.py",
+ "source_variant": "A1_quasi_steady of RPT-099 (the last step's load held steady, turning with the blade), observers carried with the hub",
+ "score_definitions": {
+  "inplane_normalized_rms_difference": "pooled over the 25 in-plane records (four observers and the 21 distinct section points), each about its own mean: sqrt(sum (model - reference)^2 / sum reference^2)",
+  "mic_up_mean_ratio_model_over_reference": "the on-axis upstream observer's mean, model over reference",
+  "gains": "least squares of the reference on the named brackets: in-plane records about their means and MIC_UP's whole record"
+ },
+ "rings": {
+  "H0_model_as_is": {
+   "2.734": {
+    "mean_deg": 159.50926795334362,
+    "spread_deg": 9.63291245279163
+   },
+   "4.101": {
+    "mean_deg": 159.6569853046006,
+    "spread_deg": 12.86764275089871
+   },
+   "5.468": {
+    "mean_deg": 158.8040733953335,
+    "spread_deg": 15.972681866952485
+   }
+  },
+  "H1_every_term_negated": {
+   "2.734": {
+    "mean_deg": -20.490732046656404,
+    "spread_deg": 9.6329124527916
+   },
+   "4.101": {
+    "mean_deg": -20.343014695399404,
+    "spread_deg": 12.867642750898654
+   },
+   "5.468": {
+    "mean_deg": -21.195926604666568,
+    "spread_deg": 15.972681866952541
+   }
+  },
+  "H4_far_term_negated": {
+   "2.734": {
+    "mean_deg": 111.13081070395901,
+    "spread_deg": 20.96242492226719
+   },
+   "4.101": {
+    "mean_deg": 91.38086917242254,
+    "spread_deg": 20.740210782056977
+   },
+   "5.468": {
+    "mean_deg": 74.57223807732566,
+    "spread_deg": 15.813463367046893
+   }
+  },
+  "H5_near_and_motion_terms_negated": {
+   "2.734": {
+    "mean_deg": -68.86918929604099,
+    "spread_deg": 20.96242492226716
+   },
+   "4.101": {
+    "mean_deg": -88.61913082757748,
+    "spread_deg": 20.740210782056963
+   },
+   "5.468": {
+    "mean_deg": -105.42776192267434,
+    "spread_deg": 15.813463367046936
+   }
+  }
+ },
+ "lag": {
+  "best_azimuth_shift_deg": 15.0,
+  "best_azimuth_shift_over_step": 1.0,
+  "negated_inplane_residual_at_best": 0.22718370494249263,
+  "negated_inplane_residual_unshifted": 0.3660901458505143,
+  "negated_inplane_residual_at_blade_spec_azimuth_90": 0.25210165238508125,
+  "azimuth_at_tau0_from_moments_deg": 80.69331902278007,
+  "gains_at_best_one": {
+   "gains": [
+    -0.9250626567175185
+   ],
+   "relative_residual": 0.21410269935654624
+  },
+  "gains_at_best_per_source": {
+   "gains": [
+    -0.6079708546515902,
+    -0.9236094571291721
+   ],
+   "relative_residual": 0.21335852405473751
+  },
+  "gains_at_best_per_term": {
+   "gains": [
+    -0.9712551444326514,
+    -0.8955329713169262,
+    3.8362429997399947
+   ],
+   "relative_residual": 0.037163641469803554
+  },
+  "gains_unshifted_per_term": {
+   "gains": [
+    -1.409209475179318,
+    -0.7358505645869056,
+    1.9175402417229863
+   ],
+   "relative_residual": 0.11855806021666603
+  },
+  "inverted_observers_best_azimuth_shift_deg": 26.5,
+  "inverted_observers_inplane_residual_at_best": 0.44270065549980536,
+  "inplane_term_rms_over_near_term_rms": {
+   "far": 0.5239913018721357,
+   "near": 1.0,
+   "motion": 0.04553289265079812
+  },
+  "gains_far_near_with_motion_held_at_-1": {
+   "gains": [
+    -1.0284767714678476,
+    -0.9071934936472447
+   ],
+   "relative_residual": 0.2079671030678791
+  },
+  "gains_far_near_with_motion_held_at_+1": {
+   "gains": [
+    -1.0048131023601232,
+    -0.9023713528528525
+   ],
+   "relative_residual": 0.128548247383535
+  }
+ },
+ "condition": {
+  "tip_mach": 0.16320882649276144,
+  "flight_mach": 0.1441,
+  "observer_window_t_over_T": [
+   0.24166666666666664,
+   0.9213541666666665
+  ],
+  "samples": 16
+ },
+ "section": {
+  "points_distinct": 21,
+  "rings_r_over_R": [
+   2.734,
+   4.101,
+   5.4681
+  ],
+  "file_k_equals_observer_sample_k_max_relative_difference_at_MIC_P": 0.0
+ },
+ "hypotheses": {
+  "H0_model_as_is": {
+   "inplane_normalized_rms_difference": 2.022833458339996,
+   "inplane_correlation_min": -0.9773138500874486,
+   "inplane_correlation_max": -0.8462919254273218,
+   "mic_up_mean_ratio_model_over_reference": -1.72952318895632
+  },
+  "H1_every_term_negated": {
+   "inplane_normalized_rms_difference": 0.3660901458505143,
+   "inplane_correlation_min": 0.8462919254273218,
+   "inplane_correlation_max": 0.9773138500874486,
+   "mic_up_mean_ratio_model_over_reference": 1.72952318895632
+  },
+  "H2_axial_source_negated": {
+   "inplane_normalized_rms_difference": 2.0379571905288616,
+   "inplane_correlation_min": -0.9771037223090161,
+   "inplane_correlation_max": -0.8451793776866343,
+   "mic_up_mean_ratio_model_over_reference": 1.7921038193215824
+  },
+  "H3_inplane_source_negated": {
+   "inplane_normalized_rms_difference": 0.372838740577374,
+   "inplane_correlation_min": 0.8451793776866343,
+   "inplane_correlation_max": 0.9771037223090161,
+   "mic_up_mean_ratio_model_over_reference": -1.7921038193215824
+  },
+  "H4_far_term_negated": {
+   "inplane_normalized_rms_difference": 1.6446956093108573,
+   "inplane_correlation_min": -0.6802375408036673,
+   "inplane_correlation_max": 0.5922460865213489,
+   "mic_up_mean_ratio_model_over_reference": -2.251499543243235
+  },
+  "H5_near_and_motion_terms_negated": {
+   "inplane_normalized_rms_difference": 1.2324888300101575,
+   "inplane_correlation_min": -0.5922460865213489,
+   "inplane_correlation_max": 0.6802375408036673,
+   "mic_up_mean_ratio_model_over_reference": 2.251499543243235
+  },
+  "H6_observers_inverted_through_the_hub": {
+   "inplane_normalized_rms_difference": 0.6104459044411903,
+   "inplane_correlation_min": 0.6549765755038073,
+   "inplane_correlation_max": 0.9825857514288071,
+   "mic_up_mean_ratio_model_over_reference": 1.792103819321582
+  },
+  "H7_rotation_sense_reversed": {
+   "inplane_normalized_rms_difference": 1.6082594735698097,
+   "inplane_correlation_min": -0.9726803787589274,
+   "inplane_correlation_max": 0.8297311298366478,
+   "mic_up_mean_ratio_model_over_reference": -1.7295231889563198
+  },
+  "H8_azimuth_origin_half_a_turn": {
+   "inplane_normalized_rms_difference": 0.6104459044411903,
+   "inplane_correlation_min": 0.6549765755038068,
+   "inplane_correlation_max": 0.982585751428807,
+   "mic_up_mean_ratio_model_over_reference": -1.7295231889563198
+  },
+  "H9_rotation_reversed_and_negated": {
+   "inplane_normalized_rms_difference": 1.3062416866009934,
+   "inplane_correlation_min": -0.8297311298366478,
+   "inplane_correlation_max": 0.9726803787589274,
+   "mic_up_mean_ratio_model_over_reference": 1.7295231889563198
+  }
+ },
+ "gains": {
+  "one_gain": {
+   "groups": [
+    "axial.far+axial.near+axial.motion+plane.far+plane.near+plane.motion"
+   ],
+   "gains": [
+    -0.8882015989312357
+   ],
+   "relative_residual": 0.347120669769162,
+   "condition_number_scaled": 1.0
+  },
+  "per_source": {
+   "groups": [
+    "axial.far+axial.near+axial.motion",
+    "plane.far+plane.near+plane.motion"
+   ],
+   "gains": [
+    -0.6688436003522825,
+    -0.8871966107996118
+   ],
+   "relative_residual": 0.34690132085703806,
+   "condition_number_scaled": 1.149656206155746
+  },
+  "per_term": {
+   "groups": [
+    "axial.far+plane.far",
+    "axial.near+plane.near",
+    "axial.motion+plane.motion"
+   ],
+   "gains": [
+    -1.409209475179319,
+    -0.7358505645869056,
+    1.9175402417229863
+   ],
+   "relative_residual": 0.11855806021666603,
+   "condition_number_scaled": 1.1554301477948388
+  }
+ },
+ "phase_first_harmonic": {
+  "MIC_P": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": 0.0,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 155.85413354749073,
+   "amplitude_ratio_reference_over_model": 0.8003607777936119
+  },
+  "MIC_M": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": 180.0,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 162.80161060262435,
+   "amplitude_ratio_reference_over_model": 1.0579873124597456
+  },
+  "Observer 4": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": 90.0,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 150.0949215383747,
+   "amplitude_ratio_reference_over_model": 0.9998956999956751
+  },
+  "Observer 5": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": -90.0,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 166.0676034053272,
+   "amplitude_ratio_reference_over_model": 0.8847322179240436
+  },
+  "S00": {
+   "r_over_R": 2.7340332458442695,
+   "azimuth_deg": 0.0,
+   "kr": 0.44621835764643875,
+   "phase_reference_minus_model_deg": 161.49111527322134,
+   "amplitude_ratio_reference_over_model": 0.8881926891386301
+  },
+  "S01": {
+   "r_over_R": 2.7340332458442695,
+   "azimuth_deg": 51.42857142854094,
+   "kr": 0.44621835764643875,
+   "phase_reference_minus_model_deg": 154.58912192969024,
+   "amplitude_ratio_reference_over_model": 0.8865109206486774
+  },
+  "S02": {
+   "r_over_R": 2.73403324584427,
+   "azimuth_deg": 102.85714285708187,
+   "kr": 0.4462183576464388,
+   "phase_reference_minus_model_deg": 154.29455433826524,
+   "amplitude_ratio_reference_over_model": 0.9645714579409911
+  },
+  "S03": {
+   "r_over_R": 2.734033245844269,
+   "azimuth_deg": 154.2857142856228,
+   "kr": 0.4462183576464387,
+   "phase_reference_minus_model_deg": 158.77613137376375,
+   "amplitude_ratio_reference_over_model": 1.085033021237011
+  },
+  "S04": {
+   "r_over_R": 2.734033245844269,
+   "azimuth_deg": -154.2857142858363,
+   "kr": 0.4462183576464387,
+   "phase_reference_minus_model_deg": 161.9413686496556,
+   "amplitude_ratio_reference_over_model": 0.9934311693085572
+  },
+  "S05": {
+   "r_over_R": 2.7340332458442695,
+   "azimuth_deg": -102.85714285729533,
+   "kr": 0.44621835764643875,
+   "phase_reference_minus_model_deg": 163.92746679105687,
+   "amplitude_ratio_reference_over_model": 0.9760256914241958
+  },
+  "S06": {
+   "r_over_R": 2.7340332458442695,
+   "azimuth_deg": -51.42857142875445,
+   "kr": 0.44621835764643875,
+   "phase_reference_minus_model_deg": 161.53778275734055,
+   "amplitude_ratio_reference_over_model": 0.9158437876649574
+  },
+  "S08": {
+   "r_over_R": 4.101049868766404,
+   "azimuth_deg": 0.0,
+   "kr": 0.6693275364696581,
+   "phase_reference_minus_model_deg": 158.72678299806205,
+   "amplitude_ratio_reference_over_model": 0.8337957368263735
+  },
+  "S09": {
+   "r_over_R": 4.101049868766404,
+   "azimuth_deg": 51.428571428540934,
+   "kr": 0.6693275364696581,
+   "phase_reference_minus_model_deg": 155.15507898443178,
+   "amplitude_ratio_reference_over_model": 0.8765683432252415
+  },
+  "S10": {
+   "r_over_R": 4.101049868766405,
+   "azimuth_deg": 102.85714285708187,
+   "kr": 0.6693275364696583,
+   "phase_reference_minus_model_deg": 152.17301836913265,
+   "amplitude_ratio_reference_over_model": 0.994452793824215
+  },
+  "S11": {
+   "r_over_R": 4.101049868766403,
+   "azimuth_deg": 154.2857142856228,
+   "kr": 0.669327536469658,
+   "phase_reference_minus_model_deg": 160.3413945947499,
+   "amplitude_ratio_reference_over_model": 1.04736117721678
+  },
+  "S12": {
+   "r_over_R": 4.101049868766404,
+   "azimuth_deg": -154.28571428583626,
+   "kr": 0.6693275364696581,
+   "phase_reference_minus_model_deg": 162.83133871822702,
+   "amplitude_ratio_reference_over_model": 1.0118818616891898
+  },
+  "S13": {
+   "r_over_R": 4.101049868766404,
+   "azimuth_deg": -102.85714285729533,
+   "kr": 0.6693275364696581,
+   "phase_reference_minus_model_deg": 165.04066112003136,
+   "amplitude_ratio_reference_over_model": 0.919449692565242
+  },
+  "S14": {
+   "r_over_R": 4.101049868766404,
+   "azimuth_deg": -51.42857142875445,
+   "kr": 0.6693275364696581,
+   "phase_reference_minus_model_deg": 163.31673412831879,
+   "amplitude_ratio_reference_over_model": 0.8984003140576624
+  },
+  "S16": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": 0.0,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 155.85413354749073,
+   "amplitude_ratio_reference_over_model": 0.8003607777936119
+  },
+  "S17": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": 51.42857142854095,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 153.58306425971728,
+   "amplitude_ratio_reference_over_model": 0.9102437960085815
+  },
+  "S18": {
+   "r_over_R": 5.46806649168854,
+   "azimuth_deg": 102.85714285708187,
+   "kr": 0.8924367152928776,
+   "phase_reference_minus_model_deg": 151.20050884645661,
+   "amplitude_ratio_reference_over_model": 1.0085289150731613
+  },
+  "S19": {
+   "r_over_R": 5.468066491688538,
+   "azimuth_deg": 154.2857142856228,
+   "kr": 0.8924367152928774,
+   "phase_reference_minus_model_deg": 161.7426607680195,
+   "amplitude_ratio_reference_over_model": 1.04868433687328
+  },
+  "S20": {
+   "r_over_R": 5.468066491688538,
+   "azimuth_deg": -154.28571428583626,
+   "kr": 0.8924367152928774,
+   "phase_reference_minus_model_deg": 162.3229134227854,
+   "amplitude_ratio_reference_over_model": 0.9927427296655548
+  },
+  "S21": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": -102.85714285729533,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 165.62121317882816,
+   "amplitude_ratio_reference_over_model": 0.8837188318844088
+  },
+  "S22": {
+   "r_over_R": 5.468066491688539,
+   "azimuth_deg": -51.42857142875445,
+   "kr": 0.8924367152928775,
+   "phase_reference_minus_model_deg": 161.6798812281844,
+   "amplitude_ratio_reference_over_model": 0.8855448054576672
+  }
+ },
+ "pattern_rotation": {
+  "reference_rate_over_omega": 0.9945113552679418,
+  "model_rate_over_omega": 0.999996818709836,
+  "reference_minus_model_pattern_azimuth_deg": [
+   -158.227915404572,
+   -158.39391235571372,
+   -158.61974646068302,
+   -158.8801989541634,
+   -159.12101829257307,
+   -159.3049545437961,
+   -159.4467174423268,
+   -159.49169016563388,
+   -159.51879107813795,
+   -159.5387606760069,
+   -159.55121503125187,
+   -159.56359957549742,
+   -159.6021026986171,
+   -159.6347245988841,
+   -159.67186934778059,
+   -159.6905532099556
+  ]
+ },
+ "mic_up_mean_parts_over_reference_mean": {
+  "axial.far": 0.0,
+  "axial.near": -1.5081306090587636,
+  "axial.motion": -0.25268289508018754,
+  "plane.far": 0.2609881771434574,
+  "plane.near": -0.23362664161224167,
+  "plane.motion": 0.003928779651415503
+ },
+ "loads_sign_checks": {
+  "axial_force_on_blade_along_axis": -1.0,
+  "tangential_force_on_blade_along_rotation": -1.0
+ }
+}
