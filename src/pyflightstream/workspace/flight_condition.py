@@ -571,6 +571,19 @@ def resolve_flight_condition(
                 "about 0.15 m gives densities differing by the ratio of the two "
                 "lengths, near a factor of seven."
             )
+        if velocity <= 0.0:
+            # Density solved from a Reynolds number divides by the speed: a
+            # hover row (TASmps:0 or MACH:0) has no Reynolds number to solve
+            # from, and a negative speed would give a negative density.
+            stated_velocity = next(key for key in VELOCITY_KEYS if key in effective)
+            raise FlightConditionError(
+                f"the flight condition of POL {pol} states "
+                f"{stated_velocity}:{effective[stated_velocity]:g} with "
+                f"{DENSITY_KEY}:{effective[DENSITY_KEY]:g}, and a Reynolds number "
+                "solves the density only at a positive speed: density = Re mu / "
+                "(V L). State the density another way, ALTFT (with dISA) or "
+                "RHOkgm3, and drop REmi."
+            )
         reynolds = effective[DENSITY_KEY] * 1e6
         density = reynolds * viscosity / (velocity * reference_length_m)
         density_source = "solved-from-reynolds"

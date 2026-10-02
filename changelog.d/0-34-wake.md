@@ -10,6 +10,10 @@
 - At most one of `wake_termination_length`, `wake_termination_steps` and `wake_termination_revolutions` states a row's wake termination: two reaching one row, both from its setup preset, one from the preset and one from the row's `VAR_NAMES_VALUES` cell, or both from the row, are refused at plan, naming each key, its value and the file or column it comes from. The refusal of 0.33.0 for a preset stating revolutions beside steps is now this rule (FR-322).
 - A rotor row of `unsteady_rotor` that states no wake termination keeps a wake of 4 rotor radii: its script gains one `SET_WAKE_TERMINATION_TIME_STEPS` line, the 4R default converted into steps, and nothing else changes. `scripts/check_parity.py` names the line under FR-321 (FR-321).
 
+## Fixed
+
+- A matrix row stating `REmi` with a speed of zero (`TASmps:0` or `MACH:0`, a hover row) or a negative `TASmps` no longer stops the plan with a `ZeroDivisionError` (or resolves a negative density): density solved from a Reynolds number, `Re mu / (V L)`, needs a positive speed, and the row is refused with a `FlightConditionError` naming the POL, both cells and the ways to state the density instead (`ALTFT` with `dISA`, or `RHOkgm3`).
+
 ## Migration
 
 - **A rotor row that states no wake termination now keeps 4 rotor radii of wake (FR-321).** From 0.34.0 the script of an `unsteady_rotor` row whose setup and row state none of `wake_termination_length`, `wake_termination_steps` and `wake_termination_revolutions` carries one `SET_WAKE_TERMINATION_TIME_STEPS` line, the 4R default converted into steps from the free-stream speed, the rotor speed and the step angle; 0.33.0 wrote no termination line, so the wake was bounded only by the run's length and the solver's default end plane (FR-324). A row that wants the 0.33.0 script states its termination. A rotor row at zero free-stream speed that states no termination is refused at plan until it states `wake_termination_thrust_n` or `wake_termination_revolutions_cap` (FR-323), and two termination keys on one row are refused (FR-322). A result recorded by 0.33.0 or earlier keeps the script it ran in its run record.

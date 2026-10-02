@@ -191,6 +191,34 @@ def test_a_reynolds_constraint_with_no_reference_is_refused_naming_both():
     assert "ratio of the two lengths" in message
 
 
+@pytest.mark.parametrize(
+    ("stated", "named"),
+    [
+        ({"TASmps": 0.0, "REmi": 1.0}, "TASmps:0"),
+        ({"MACH": 0.0, "REmi": 1.0}, "MACH:0"),
+        ({"TASmps": -10.0, "REmi": 1.0}, "TASmps:-10"),
+    ],
+)
+def test_a_reynolds_number_at_no_positive_speed_is_refused_by_name(stated, named):
+    """A hover row stating REmi divided by zero (ZeroDivisionError, found in 0.34.0 wave 2).
+
+    density = Re mu / (V L) needs V > 0: at V = 0 it is undefined and a
+    negative V gives a negative density. The refusal names the POL, both
+    cells and the ways to state the density instead.
+    """
+    with pytest.raises(FlightConditionError) as raised:
+        resolve_flight_condition(stated, pol="P9", reference_length_m=1.0)
+    message = str(raised.value)
+    for words in ("P9", named, f"{DENSITY_KEY}:1", "positive speed", "ALTFT", "RHOkgm3"):
+        assert words in message, (words, message)
+
+
+def test_a_reynolds_number_at_a_positive_speed_still_solves_the_density():
+    """The control of the refusal above: the same row at 1 m/s resolves."""
+    state = resolve_flight_condition({"TASmps": 1.0, "REmi": 1.0}, pol="P9", reference_length_m=1.0)
+    assert state.density_kg_m3 > 0.0
+
+
 def test_a_condition_without_a_reynolds_number_needs_no_reference():
     """The coupling is to REmi specifically, not to conditions at large."""
     state = resolve_flight_condition({"MACH": 0.20, "ALTFT": 5000}, pol="P1")
