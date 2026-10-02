@@ -344,6 +344,8 @@ The first plan names what blocks; fix it and plan again until every point is REA
 \opt{--fs-version V}{the build for rows whose FS\_BUILD cell is empty, e.g. \texttt{\fsbuild}.}
 \opt{--fs-exe PATH}{an executable override; mandatory for a row whose FS\_BUILD says MANUAL, otherwise the build resolves through \file{inputs/executables.toml}.}
 \opt{--workflow CODE=NAME}{a legacy script code to a run type (repeatable), the mapping \cmd{pyfs-matrix run} takes.}
+\opt{--sims SIM [SIM ...]}{plan only these simulations, space separated (\texttt{2031 2032}); the matrix is not edited.}
+\opt{--points POINT [POINT ...]}{with \fl{--sims}: only these points, by the point name the plan prints.}
 \opt{--recipe CODE=MODULE:FUNCTION}{a LEGACY row's recipe (repeatable).}
 \opt{--point-name TPL}{the naming template; default \texttt{\{polar\}}, which is \texttt{P<sim>-<point name>}; also \texttt{\{point\}} \texttt{\{alpha\}} \texttt{\{beta\}} \texttt{\{mach\}} \texttt{\{advance\_ratio\}} \texttt{\{sim\}} \texttt{\{campaign\}}.}
 \opt{--cost}{table each point's expected cost: mesh size, marked trailing edges, farfield layers, viscous coupling, steady or unsteady, time iterations, processors, and an EXPECTED wall time fitted on this workspace's own runs (\texttt{unknown} without a comparable run).}
@@ -420,7 +422,8 @@ One \file{inputs/hpc/h001.toml} per workspace (two are refused): the descriptor 
 \opt{--resume}{skip points already recorded, so a grown matrix runs only its new points; without it a recorded point refuses.}
 \opt{--force-rerun POINT}{REDO a recorded point, by point name, full run id or a steady row's job id (repeatable): the records and outputs are archived first, nothing is deleted.}
 \opt{--force-rerun-all}{REDO every recorded point; the count of points and jobs, the licenses it spends, prints first.}
-\opt{--sims SIM [SIM ...]}{with \fl{--force-rerun-all}: only these simulations, space separated (\texttt{2031 2032}).}
+\opt{--sims SIM [SIM ...]}{run only these simulations, space separated (\texttt{2031 2032}); with \fl{--force-rerun-all}, redo only these.}
+\opt{--points POINT [POINT ...]}{with \fl{--sims}: run only these points, by the point name the plan prints; refused beside \fl{--force-rerun-all}.}
 \opt{--local}{run on THIS machine instead of submitting: a Linux workstation, or a smoke test.}
 \opt{--progress-every N}{a local unsteady point reports every N steps (default 10; 0 is silent).}
 \opt{--sweep-csv FILE}{the sweep table (default \file{post/<matrix>/campaign_sweep.csv}).}
@@ -449,9 +452,10 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \hd{Common errors}
 \err{\textit{no plan for this matrix, and since v0.17.0 a run needs one}.}{run \cmd{pyfs-matrix plan} with the same matrix first.}
 \err{The matrix was edited after the plan.}{refused until planned again: the receipt is pinned to the matrix digest.}
-\err{A point is already recorded and refuses.}{\fl{--resume} skips it; \fl{--force-rerun} redoes it. The two together are refused.}
+\err{A point is already recorded and refuses.}{the refusal counts the points recorded and those \fl{--resume} would run, and prints the command that continues; \fl{--force-rerun} redoes a point. \fl{--resume} and \fl{--force-rerun} together are refused.}
+\err{\fl{--sims} names an id, or \fl{--points} a point, the matrix does not carry; or \fl{--points} comes without \fl{--sims}.}{refused before anything runs, naming the ids or points that exist.}
 \err{\fl{--force-rerun} names a point no record carries.}{refused: copy the name or run id the refusal printed.}
-\err{\fl{--force-rerun-all} is refused.}{beside \fl{--resume} or \fl{--force-rerun}, for a \fl{--sims} id the matrix does not carry, or when nothing of the selection is recorded.}
+\err{\fl{--force-rerun-all} is refused.}{beside \fl{--resume}, \fl{--force-rerun} or \fl{--points}, for a \fl{--sims} id the matrix does not carry, or when nothing of the selection is recorded.}
 \err{Two profiles in \file{inputs/hpc/}.}{refused rather than guessed: keep the one of this cluster.}
 \err{The profile has no \texttt{[builds]} line for a row's build.}{refused before any point is submitted: add the line.}
 \err{A WALLTIME cell written as a bare number is refused by name.}{write it with its unit (stage 2).}

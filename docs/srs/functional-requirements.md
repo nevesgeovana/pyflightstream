@@ -8168,7 +8168,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item (1) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8), measured on a real map run in which a single test point could only be planned by setting RUN 0 on every other row. Marker P0340-RUN-ONE-POINT; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through `main`. Evidence: `tests/tier1_offline/test_p0340_run_usability.py` (`plan` and `run` of one simulation and one point through `main`, the matrix bytes before and after, the refusals of an unknown id, an unknown point and `--points` without `--sims` for both commands, a recorded selected point refused and then resumed, and `run --force-rerun-all --sims` as the control; the `--sims`-alone refusal test of FR-131 in `tests/tier1_offline/test_g44_force_rerun_all.py` is retargeted to the refusal of `--points` beside `--force-rerun-all` and to the empty-manifest refusal).*
+    *Origin: item (1) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8), measured on a real map run in which a single test point could only be planned by setting RUN 0 on every other row. Marker P0340-RUN-ONE-POINT; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through `main`. Evidence: `tests/tier1_offline/test_p0340_run_usability.py` (`plan` and `run` of one simulation and one point through `main`, the matrix bytes before and after, the refusals of an unknown id, an unknown point and `--points` without `--sims` for both commands, a recorded selected point refused and then resumed, `--force-rerun` of a selected point beside an unselected record that stays byte for byte unchanged, and `run --force-rerun-all --sims` as the control; the `--sims`-alone refusal test of FR-131 in `tests/tier1_offline/test_g44_force_rerun_all.py` is retargeted to the refusal of `--points` beside `--force-rerun-all` and to the empty-manifest refusal).*
 
     Need: `--sims` of `run` names the simulations to redo with `--force-rerun-all` only, and `plan` takes no selection, so running one new test point before the batch means editing the matrix.
 
@@ -8182,13 +8182,13 @@ Requirements written after the specification was last reconciled with the packag
     - R6 The spellings `--sims` and `--points` are fixed by this requirement; a change of spelling at implementation amends it in the same commit, and the cheatsheet (FR-328) carries them.
     - R7 This requirement amends FR-131: the commit that implements it removes "when `--sims` stands alone" from the refusals FR-131 lists and points there to FR-326; FR-131 otherwise keeps its reading.
 
-    Solution (0.34.0): the selection in the parsers of `plan` and `run`, built by the family functions of AD-18, and in `pyflightstream.run._plan` and `pyflightstream.run._campaign`.
+    Solution (0.34.0): the selection in the parsers of `plan` and `run`, built by the family functions of AD-18, and in `pyflightstream.run._ids.narrow_to_selection`, called by `plan_matrix` and `run_matrix` of `pyflightstream.run.matrix`.
 
 !!! requirement "FR-327 A second run of a matrix without --resume names the exact command to continue <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second `run` of the same matrix without `--resume` failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through `main`. Evidence: `tests/tier1_offline/test_p0340_run_usability.py` (a matrix run, two points added, a second run without `--resume` refused with exit status 2, the counts, the printed command parsed back as the shell does and equal to the invoked one with `--resume` added, and running it runs exactly the two new points; the control with nothing recorded prints no command; the library error carries the counts).*
+    *Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second `run` of the same matrix without `--resume` failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through `main`. Evidence: `tests/tier1_offline/test_p0340_run_usability.py` (a matrix run, two points added, a second run without `--resume` refused with exit status 2, the counts, the printed command parsed back as the shell does and equal to the invoked one with `--resume` added, and running it runs exactly the two new points; the control with nothing recorded prints no command; the library error carries the counts; a steady row recorded as one job of three points that gains a fourth is counted 3 recorded and 1 new).*
 
     Need: The refusal of a second run explains `--resume` and `--force-rerun` in words, so a person must rebuild the command line by hand.
 
@@ -8198,9 +8198,9 @@ Requirements written after the specification was last reconciled with the packag
     - R2 The message says how many points are recorded and how many would run with that command.
     - R3 The refusal keeps its exit status and runs nothing; no point is staged.
     - R4 The run does not prompt for an answer: a run may be detached or scripted, and a prompt would hang it; the printed command is the way to continue.
-    - R5 The refusal is reworded in place or extracted into a helper of `pyflightstream.run._campaign`, which keeps `run_campaign` from growing (the G2 rule of AD-08: a function in the length table may only shrink).
+    - R5 The refusal is reworded in place or extracted into a helper of `pyflightstream.run._ids` (`already_recorded_error`, called by `run_campaign`), which keeps `run_campaign` from growing (the G2 rule of AD-08: a function in the length table may only shrink).
 
-    Solution (0.34.0): the refusal of `pyflightstream.run._campaign.run_campaign` and the command-line rendering in the parser module of AD-18.
+    Solution (0.34.0): the refusal helper `pyflightstream.run._ids.already_recorded_error`, raised by `pyflightstream.run._campaign.run_campaign`, and the command-line rendering in the parser module of AD-18.
 
 !!! requirement "FR-328 The cheatsheet is one ten-page document carrying every command and option of every console tool <span class='srs-pending'>pending</span>"
 

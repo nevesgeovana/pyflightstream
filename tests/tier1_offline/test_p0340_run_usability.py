@@ -173,6 +173,32 @@ def test_fr326_a_selected_point_already_recorded_is_refused_as_before(
     assert len(stub.invocations) == 1, "a resume re-ran a recorded point"
 
 
+def test_fr326_force_rerun_of_a_selected_point_leaves_an_unselected_record_unchanged(
+    tmp_path, monkeypatch, capsys
+):
+    """P0340-RUN-ONE-POINT (FR-326): --force-rerun with --sims and --points follows 0.33.0.
+
+    Both simulations are run, then 5001 alone is redone through its point name. The record of the
+    unselected simulation 5002 is byte for byte what it was, and the redone one ran again.
+    """
+    workspace, matrix, stub = _two_simulations(tmp_path, monkeypatch)
+    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert cli.main(_argv("run", workspace, matrix)) == 0
+    assert len(stub.invocations) == 2
+    capsys.readouterr()
+    chosen = _names(workspace, matrix, "5001")[0]
+
+    def dump(record):
+        return record.model_dump_json()
+
+    other = {r.sim_id: dump(r) for r in workspace.read_manifest() if r.sim_id == "5002"}
+    argv = _argv("run", workspace, matrix, "--sims", "5001", "--points", chosen)
+    assert cli.main([*argv, "--force-rerun", chosen]) == 0, capsys.readouterr().err
+    assert len(stub.invocations) == 3, "the selected point was not redone"
+    after = {r.sim_id: dump(r) for r in workspace.read_manifest() if r.sim_id == "5002"}
+    assert after == other, "the record of an unselected simulation changed"
+
+
 def test_fr327_a_second_run_names_the_command_that_continues_it_with_resume(
     tmp_path, monkeypatch, capsys
 ):
@@ -240,6 +266,52 @@ def test_fr327_the_library_refusal_carries_the_counts_a_resume_would_act_on(tmp_
         with pytest.raises(WorkspaceError) as refused:
             run_matrix(matrix, workspace, executor=stub, **keywords)
     assert (refused.value.recorded, refused.value.would_run) == (1, 2)
+    assert len(stub.invocations) == 1
+
+
+def test_fr327_a_steady_row_recorded_as_one_job_is_counted_by_the_points_it_ran(
+    tmp_path, monkeypatch, capsys
+):
+    """P0340-RUN-AGAIN (FR-327): a recorded job counts as its points, and a grown row adds new.
+
+    A steady row of three points is ONE job, recorded under the job's id with ``points_ran``.
+    The row then grows by one point: the refusal must count 3 recorded and 1 that resume would
+    run, from the job's points and not from point ids no record carries (which would say 0 and 4).
+    The same counts are on the library error, and the printed command carries resume.
+    """
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    monkeypatch.setattr(matrix_module, "LocalExecutor", lambda *args, **kwargs: stub)
+    monkeypatch.setattr(LoadsAssessor, "__call__", lambda self, *args: converged(*args))
+    text = matrix.read_text(encoding="utf-8")
+    argv = _argv("run", workspace, matrix, "--local")
+    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    assert cli.main(argv) == 0
+    (job,) = workspace.read_manifest()
+    assert len(job.points_ran or []) == 3, "the fixture must record one job of three points"
+    matrix.write_text(text.replace("-2.0,0.0,2.0", "-2.0,0.0,2.0,4.0"), encoding="utf-8")
+    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    capsys.readouterr()
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "3 point(s) of this run are recorded and 1 would run" in err, err
+    assert any(line.strip().endswith("--resume") for line in err.splitlines()), err
+    keywords = dict(
+        name="warm",
+        default_fs_version="26.120",
+        recipes={},
+        recipe_registry=workflow_registry(),
+        assess=converged,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        with pytest.raises(WorkspaceError) as refused:
+            run_matrix(matrix, workspace, executor=stub, **keywords)
+    assert (refused.value.recorded, refused.value.would_run) == (3, 1)
     assert len(stub.invocations) == 1
 
 
