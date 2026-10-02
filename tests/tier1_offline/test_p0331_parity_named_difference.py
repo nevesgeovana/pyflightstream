@@ -12,10 +12,13 @@ pair only where each single entry would name its own part.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+#: What the one ``git show`` below needs to start and find its config, and nothing else.
+_GIT_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemRoot", "HOME", "USERPROFILE")
 
 _PLOT = "SET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\nrow_plot_cp_sections.txt\n"
 _SECTION = "NEW_SURFACE_SECTION_DISTRIBUTION\n"
@@ -90,6 +93,7 @@ def _p1021_pair() -> tuple[str, str]:
         cwd=REPO,
         capture_output=True,
         check=False,
+        env={key: os.environ[key] for key in _GIT_ENV_KEYS if key in os.environ},
     )
     if shown.returncode == 0:
         assert base == shown.stdout.decode("utf-8").replace("\r\n", "\n")
@@ -138,6 +142,11 @@ def test_p1021_both_parts_are_named_fr_321_by_the_composite() -> None:
     unnamed = _name(base, release, {"FR-51"})
     assert "requirement" not in unnamed
     assert "FR-321" in unnamed["unnamed_because"]
+    # FR-51 absent: the section part has no requirement, so the pair is unnamed too.
+    assert composite["also_requires"] == "FR-51"
+    unnamed = _name(base, release, {"FR-321"})
+    assert "requirement" not in unnamed, unnamed
+    assert "FR-51" in unnamed["unnamed_because"]
 
 
 def test_p1021_the_composite_refuses_every_other_state() -> None:
@@ -193,3 +202,11 @@ def test_p1021_the_composite_refuses_every_other_state() -> None:
     only_plot = _name(plotted, release, _BOTH)
     assert only_plot.get("requirement") == "FR-51", only_plot
     assert only_plot["why"] == plot["why"]
+    # The plot part alone is never FR-321's, even when FR-51 is not defined: on a base
+    # that wrote no termination line and a release that writes none, so only the
+    # composite's block (not base_lacks) can refuse it.
+    assert "requirement" not in _name(plotted, release, {"FR-321"})
+    unterminated = release.replace(_TERMINATION, "", 1)
+    assert module.changed_lines(base, unterminated) == real[1:]
+    assert _name(base, unterminated, _BOTH).get("requirement") == "FR-51"
+    assert "requirement" not in _name(base, unterminated, {"FR-321"})

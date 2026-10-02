@@ -213,6 +213,9 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "release_lacks": r"(?m)^(NEW_SURFACE_SECTION_DISTRIBUTION|SET_PLOT_TYPE SECTIONS_CP)\b",
         "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
         "requirement": "FR-321",
+        # The section part is FR-51's: the composite names the pair only when
+        # the release SRS defines both, as the two single entries together would.
+        "also_requires": "FR-51",
         "why": (
             "a rotor row that states no wake termination keeps a wake of 4 rotor radii, "
             "converted into the steps SET_WAKE_TERMINATION_TIME_STEPS takes, where 0.33.0 "
@@ -823,6 +826,10 @@ def name_difference(
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"
+            continue
+        also = named.get("also_requires")
+        if also and also not in defined:
+            entry["unnamed_because"] = f"{also} is not defined in the release SRS"
             continue
         entry["requirement"] = named["requirement"]
         entry["why"] = named["why"]
