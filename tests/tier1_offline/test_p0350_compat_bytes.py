@@ -22,6 +22,24 @@ def _chapter_copy(tmp_path: Path) -> Path:
     return destination
 
 
+def _forget_the_26124_verdict(chapter: Path, command: str) -> None:
+    """Return the command's 26.124 row to its documented state in the copy.
+
+    The committed chapter already carries the verdict of the qa-promote run; the case needs a
+    command that the report still has to verify for the first application to write.
+    """
+    lines = chapter.read_text(encoding="utf-8").splitlines(keepends=True)
+    start = next(i for i, line in enumerate(lines) if line.startswith(f"{command}:"))
+    for i in range(start, len(lines)):
+        if lines[i].lstrip().startswith(f'"{BUILD}": {{status: verified'):
+            row = f'    "{BUILD}": {{status: documented, note: "carried from the previous build"}}'
+            lines[i] = row + "\n"
+            break
+    else:
+        raise AssertionError(f"{command} has no verified row for {BUILD}")
+    chapter.write_text("".join(lines), encoding="utf-8")
+
+
 def _verified_report(tmp_path: Path) -> Path:
     document = {
         "schema": "pyflightstream-compat-report/1",
@@ -38,6 +56,7 @@ def _verified_report(tmp_path: Path) -> Path:
 def test_a_corroborating_report_keeps_the_line_ends_of_a_crlf_chapter_fr_333(tmp_path):
     """FR-333: the corroborate-only path of apply_compat writes no byte of a CRLF chapter."""
     commands = _chapter_copy(tmp_path)
+    _forget_the_26124_verdict(commands / "acoustics.yaml", "ACOUSTIC_SOURCES")
     report = _verified_report(tmp_path)
     first = apply_compat(report, repo_root=tmp_path, commands_dir=commands)
     assert [outcome for _, outcome, _ in first] == ["verified"]
