@@ -251,8 +251,24 @@ def _sub_mesh(vertices: Points, faces: Faces) -> tuple[Points, Faces]:
     return vertices[used], inverse.reshape(-1, 3).astype(numpy.int64)
 
 
+def _check_boundary_name(source: Path, boundary: str, names: Sequence[str]) -> None:
+    """Refuse an empty ``boundary`` and one whose output name another boundary would share."""
+    if boundary == "":
+        raise _refuse(source, "--boundary is empty; it names the one boundary that is the blade")
+    mine = thin_blade_path(source, boundary)
+    for other in names:
+        if other != boundary and thin_blade_path(source, other) == mine:
+            raise _refuse(
+                source,
+                f"--boundary {boundary!r} would write the same output as its boundary "
+                f"{other!r}, a character of a name that is not a letter, a digit or a "
+                "hyphen being written as an underscore; rename one of the two boundaries",
+            )
+
+
 def _fsm_boundary_faces(source: Path, names: Sequence[str], boundary: str) -> tuple[Points, Faces]:
     """Return the vertices and faces of the saved simulation's boundary named ``boundary``."""
+    _check_boundary_name(source, boundary, names)
     if names.count(boundary) != 1:
         raise _no_such_boundary(source, boundary, names)
     try:
@@ -332,6 +348,8 @@ def _read_obj(source: Path, boundary: str | None) -> _Blade:
     names = [name or "(no group)" for name in groups]
     if boundary is None and len(groups) > 1:
         raise _not_one_blade(source, "groups of faces", names)
+    if boundary is not None:
+        _check_boundary_name(source, boundary, names)
     if boundary is not None and boundary not in groups:
         raise _no_such_boundary(source, boundary, names)
     sidecar = inventory_sidecar(source)

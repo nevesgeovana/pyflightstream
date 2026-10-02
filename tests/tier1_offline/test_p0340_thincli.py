@@ -12,6 +12,7 @@ tier-3 library's pusher, which holds three boundaries in one file.
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -47,6 +48,25 @@ def _with_spinner(path: Path, *, boundary: str = "Blade1") -> Path:
     lines += [f"f {a + 9} {b + 9} {c + 9}" for a, b, c in faces]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return path
+
+
+def _with_owners(path: Path, mapping: dict[int, int]) -> Path:
+    """Copy a saved simulation beside itself with its per-face boundary row renumbered.
+
+    The row is the one line of the mesh block whose values are the boundary numbers 1, 2 and 3;
+    ``mapping`` gives the new number of each, and a number outside 1 to 3 removes the row.
+    """
+    lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
+    numbers = r"\d+"
+    row = next(
+        i for i, line in enumerate(lines) if set(re.findall(numbers, line)) == {"1", "2", "3"}
+    )
+    lines[row] = re.sub(
+        numbers, lambda m: str(mapping.get(int(m.group()), int(m.group()))), lines[row]
+    )
+    copy = path.with_name(path.stem + "_owners.fsm")
+    copy.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    return copy
 
 
 def _run(capsys, *argv: str) -> tuple[int, str, str]:
@@ -208,8 +228,48 @@ def test_the_boundary_of_a_saved_simulation_is_cut_out_of_its_mesh_block(tmp_pat
     assert out.splitlines()[0] == str(mesh) and "in METER" in err
     sheet = _read_obj(mesh)
     whole = numpy.asarray(_degenerate.surface_mesh(saved)[0])
-    assert 0 < len(sheet) and sheet[:, 0].max() <= whole[:, 0].max() + 1e-9
+    assert 0 < len(sheet)
+    assert not numpy.allclose(sheet.max(axis=0), whole.max(axis=0))
     assert read_inventory(tmp_path / "pusher_Body_thin_blade.boundaries.toml") == ("Body",)
+    # The owners of the first and third boundaries swapped: "Blade1", the third name, now owns
+    # the faces "Body" owned, so its sheet is the first run's, and the inventory's one boundary
+    # is the one named and not the first of the file.
+    code, _, err = _run(
+        capsys, "degenerate", str(_with_owners(saved, {1: 3, 3: 1})), "--root-offset", "0.01",
+        "--boundary", "Blade1",
+    )  # fmt: skip
+    assert code == 0, err
+    third = tmp_path / "pusher_owners_Blade1_thin_blade.obj"
+    assert numpy.allclose(_read_obj(third), sheet)
+    assert read_inventory(third.with_suffix(".boundaries.toml")) == ("Blade1",)
+
+
+def test_a_saved_simulation_without_a_boundary_row_and_a_name_that_collides_are_refused(
+    tmp_path, capsys
+):
+    """FR-330 R6 and R9 (P0340-THIN-BLADE): a mesh block with no per-face boundary row, an
+    empty NAME and two boundaries whose names write the same output are each refused."""
+    # P0340-THIN-BLADE, FR-330 R9: no boundary row, an empty name, a colliding sanitized name.
+    saved = shutil.copy(_LIBRARY / "40_PUSHER.fsm", tmp_path / "pusher.fsm")
+    bare = _with_owners(saved, {1: 99, 2: 99, 3: 99})
+    with pytest.raises(InputArtifactError, match="carries no boundary row") as refused:
+        derive_thin_blade(bare, root_offset=0.01, boundary="Body")
+    assert str(bare) in str(refused.value)
+    with pytest.raises(InputArtifactError, match="empty") as empty:
+        derive_thin_blade(saved, root_offset=0.01, boundary="")
+    assert "--boundary" in str(empty.value)
+    source = _with_spinner(tmp_path / "rotor.obj", boundary="Blade 1")
+    text = source.read_text(encoding="utf-8").replace("o Spinner", "o Blade_1")
+    source.write_text(text, encoding="utf-8", newline="\n")
+    code, out, err = _run(
+        capsys, "degenerate", str(source), "--root-offset", "0.05", "--boundary", "Blade 1"
+    )
+    assert code == 2 and out == "" and "same output" in err and "Blade_1" in err
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "pusher.fsm",
+        "pusher_owners.fsm",
+        "rotor.obj",
+    ]
 
 
 def test_the_cli_reference_and_the_cheatsheet_name_the_command_and_its_options():
