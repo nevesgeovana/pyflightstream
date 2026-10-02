@@ -12,7 +12,7 @@
 
 ## Fixed
 
-- A matrix row stating `REmi` with a speed of zero (`TASmps:0` or `MACH:0`, a hover row) or a negative `TASmps` no longer stops the plan with a `ZeroDivisionError` (or resolves a negative density): density solved from a Reynolds number, `Re mu / (V L)`, needs a positive speed, and the row is refused with a `FlightConditionError` naming the POL, both cells and the ways to state the density instead (`ALTFT` with `dISA`, or `RHOkgm3`).
+- A matrix row stating `REmi` with a speed of zero (`TASmps:0` or `MACH:0`, a hover row) or a negative `TASmps` no longer stops the plan with a `ZeroDivisionError` (or resolves a negative density): density solved from a Reynolds number, `Re mu / (V L)`, needs a positive speed, and the row is refused with a `FlightConditionError` naming the POL, both cells and the ways to state the density instead, `ALTFT` with `dISA` or `RHOkgm3` (no requirement: defect fix).
 
 ## Migration
 
