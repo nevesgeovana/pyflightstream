@@ -121,6 +121,7 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \item \fl{--diagnostics} print recorded post diagnostics as Markdown, change nothing
 \item \fl{--strict} exit 3 when a product was skipped by design (e.g. polar under sideslip)
 \item \fl{--check-frozen} refuse instead of warn (see \cmd{collect})
+\item \fl{--archive} keep the replaced products under \fl{archive/} (default: overwrite in place)
 \item \fl{--force-overwrite} DESTROY products instead of archiving (asks; \fl{--yes} answers it)
 \item \fl{--workspace}, \fl{--pproc-warnings}, \fl{--verbose}
 \end{flags}

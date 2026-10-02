@@ -548,7 +548,7 @@ def write_campaign_products(
     workspace: CampaignWorkspace,
     *,
     overwrite: bool = False,
-    archive: bool = True,
+    archive: bool = False,
     archive_stamp: datetime | None = None,
     matrix_stem: str | None = None,
     check_frozen: bool = False,
@@ -565,8 +565,9 @@ def write_campaign_products(
     Python callers receive warnings through their filters, outside every sink.
     CLI callers suppress terminal warnings by default; ``--pproc-warnings``
     shows category totals. Both modes retain every record in the durable log.
-    A warning raised by code outside the package is not logged. A rebuild
-    archives both files with the same stamp as the products. See
+    A warning raised by code outside the package is not logged. With
+    ``archive=True`` a rebuild archives both files with the same stamp as
+    the products; by default it overwrites them in place. See
     docs/post-processing-definitions.md for the sample and refusal rules.
     Since 0.27.0 (G12) the products of the additional post's current
     extractions are written too, under ``additional/<pid>/``, from
@@ -587,9 +588,11 @@ def write_campaign_products(
         The campaign workspace whose recorded runs are posted.
     overwrite : bool, default False
         Rebuild when the post log already exists; otherwise that is refused.
-    archive : bool, default True
-        Move the files a rebuild replaces into the products archive, under
-        one stamp, instead of overwriting them.
+    archive : bool, default False
+        Since 0.35.0 (FR-397, P0350-ARCHIVE-OPT-IN) a rebuild overwrites the
+        files in place and writes no ``archive/`` folder. True moves the files
+        a rebuild replaces into the products archive, under one stamp, as
+        0.34.0 always did (``pyfs-matrix post --archive``).
     archive_stamp : datetime.datetime, optional
         The stamp of the archive; the current time when omitted.
     matrix_stem : str, optional
@@ -734,6 +737,26 @@ def write_campaign_products(
             from pyflightstream.post.diagnostics import report_post_warnings
 
             report_post_warnings(records, out / _POST_LOG_JSON)
+
+
+def _retire_previous_manifest(root: Path, previous: Path, *, matrix: str, archive: bool) -> None:
+    """Remove the previous ``products.json``, archiving it first only when asked.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        The workspace root, under which the archive folder is named.
+    previous : pathlib.Path
+        The manifest the rebuild replaces.
+    matrix : str
+        The matrix whose products folder holds it.
+    archive : bool
+        Copy it into the products archive before removing it (``--archive``,
+        FR-397); by default it is overwritten in place and no archive is written.
+    """
+    if archive:
+        archive_previous(root, previous, matrix=matrix)
+    previous.unlink()
 
 
 def _campaign_products(
@@ -959,8 +982,7 @@ def _campaign_products(
         previous_document = json.loads(previous.read_text(encoding="utf-8"))
         # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
         # `restore products` has the file this rebuild replaces.
-        archive_previous(workspace.root, previous, matrix=out.name)
-        previous.unlink()
+        _retire_previous_manifest(workspace.root, previous, matrix=out.name, archive=archive)
     previous_products = previous_document.get("products", {})
     partial: _PartialPost | None = None
     if sims is not None:

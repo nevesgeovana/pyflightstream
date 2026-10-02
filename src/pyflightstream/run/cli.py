@@ -859,7 +859,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                         stage(
                             workspace,
                             overwrite=True,
-                            archive=not args.force_overwrite,
+                            archive=args.archive,
                             matrix_stem=matrix,
                             # Only when set, so a stage registered before 0.25.1
                             # keeps running under the bare command.

@@ -113,7 +113,8 @@ def test_p0320_post_runs_apart_twice_archives_inside_its_own_folder(tmp_path):
     default = _tree(root / "post" / "matriz")
     name = _without_one_point(workspace, "runs-b.json")
     for _ in range(2):
-        assert cli.main(["post", "matriz", "--workspace", str(root), "--runs", name]) == 0
+        argv = ["post", "matriz", "--workspace", str(root), "--runs", name, "--archive"]
+        assert cli.main(argv) == 0
     assert list((root / "post" / "matriz@runs-b" / "archive").iterdir())
     assert _tree(root / "post" / "matriz") == default
 
