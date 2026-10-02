@@ -7,12 +7,12 @@ rows as tables, JSON or CSV. No execution stage or workspace writer is entered.
 from __future__ import annotations
 
 import argparse
-import csv
 import io
 import json
 import sys
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace.ledger import diff, history, read_ledger
@@ -93,7 +93,7 @@ def _render(
     cells = [[_cell(row.get(key)) for key in columns] for row in rows]
     if args.csv:
         stream = io.StringIO(newline="")
-        writer = csv.writer(stream, lineterminator="\n")
+        writer = _textio.csv_writer(stream)
         writer.writerows([columns, *cells])
         _emit(stream.getvalue())
     elif cells:

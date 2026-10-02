@@ -637,11 +637,12 @@ def apply_compat(
     # report check below are all such mid-loop raise sites.
     promotions: list[tuple[str, str, str]] = []
     pending = dict(targets)
-    rewritten: list[tuple[Path, str]] = []
+    rewritten: list[tuple[Path, str, str]] = []
     for chapter_path in sorted(commands_dir.glob("*.yaml")):
         if chapter_path.name == "_meta.yaml":
             continue
         text = chapter_path.read_text(encoding="utf-8")
+        original = text
         names = [name for name in _load_yaml(chapter_path) if name in pending]
         if not names:
             continue
@@ -656,16 +657,26 @@ def apply_compat(
             # as it was; the report corroborates it and promotes nothing.
             outcomes[name] = CORROBORATED if text == before else str(body["outcome"])
         _validate_chapter(chapter_path.name, text, names)
-        rewritten.append((chapter_path, text))
+        rewritten.append((chapter_path, original, text))
         promotions.extend((name, outcomes[name], chapter_path.name) for name in names)
     if pending:
         raise QaEvidenceError(
             f"report judges {', '.join(sorted(pending))} but no chapter file defines "
             "them; the report and the database have diverged, and nothing was written"
         )
-    for chapter_path, text in rewritten:
-        _textio.write_text(chapter_path, text)
+    _write_changed(rewritten)
     return promotions
+
+
+def _write_changed(rewritten: list[tuple[Path, str, str]]) -> None:
+    """Write each chapter whose text changed; a corroborated chapter is left alone.
+
+    Reading a chapter folds CRLF into LF, so writing unchanged content back would
+    change every line end of a checkout that keeps CRLF.
+    """
+    for chapter_path, original, text in rewritten:
+        if text != original:
+            _textio.write_text(chapter_path, text)
 
 
 #: The outcome apply_compat reports for a verified row whose earlier

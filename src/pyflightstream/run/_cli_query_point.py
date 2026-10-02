@@ -7,7 +7,6 @@ This module never invokes a pipeline stage or writes a workspace file.
 from __future__ import annotations
 
 import argparse
-import csv
 import io
 import json
 import sys
@@ -15,6 +14,7 @@ from collections.abc import Callable
 from typing import Any
 from zipfile import BadZipFile
 
+import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._alias import alias_lines, planned_from_plan_files
@@ -199,7 +199,7 @@ def _render(
     elif args.csv:
         columns = list(dict.fromkeys(key for row in rows for key in row))
         buffer = io.StringIO()
-        writer = csv.DictWriter(buffer, fieldnames=columns, lineterminator="\n")
+        writer = _textio.csv_dict_writer(buffer, columns)
         writer.writeheader()
         writer.writerows(
             {

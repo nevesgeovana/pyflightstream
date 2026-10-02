@@ -435,12 +435,6 @@
    "statements": 28,
    "positional": 6
   },
-  "qa/compat.py:apply_compat": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 41,
-   "positional": 1
-  },
   "qa/matrix.py:_reduce_case": {
    "complexity": 7,
    "branches": 6,
