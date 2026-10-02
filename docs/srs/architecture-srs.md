@@ -701,10 +701,10 @@ diff, the products snapshot, the record fixtures and
     no import edge from `workspace` to `cases`.
 
     Measured at the cut (work package WP8, 2026-10-01, record RPT-120):
-    `cases/__init__.py` holds 632 code lines and is off the G1 table, its
+    `cases/__init__.py` holds 609 code lines and is off the G1 table, its
     G8 facade entry falls from 4916 to 1128, and the six modules hold 855
     (`pproc`), 201 (`reference_blocks`), 222 (`settings`), 265 (`mesh`),
-    188 (`naming`) and 214 (`selection`) code lines, each within the lens
+    189 (`naming`) and 214 (`selection`) code lines, each within the lens
     and deep. Two placements differ from the list above, because a model
     the six hold reads them and none of the six may import the root:
     `CampaignConfigError` is defined in `cases/reference_blocks.py`, the

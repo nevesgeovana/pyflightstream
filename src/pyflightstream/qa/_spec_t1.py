@@ -1,4 +1,4 @@
-"""The probe catalog, fourth part: the commands the workflow goldens emit and no spec covered.
+"""The probe catalog, fifth part: the commands the workflow goldens emit and no spec covered.
 
 Pipeline role: the entries of ``PROBE_SPECS`` for the commands the package's
 committed workflow goldens render (``tests/tier1_offline/goldens/workflows``)
