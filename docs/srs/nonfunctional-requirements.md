@@ -889,7 +889,10 @@
     read 160 errors in 16 of 234 modules on 2026-10-01, fifteen modules
     more than 0.33.0's 219, each clean, the cuts of WP8, WP9a and the probe
     catalog typing every moved line, and `pyflightstream.qa.specs` clean,
-    so its override was deleted.
+    so its override was deleted; and `rel/0-34` with the wave-2 packages
+    merged read 160 errors in 16 of 236 modules on 2026-10-02, the two
+    modules more (`pyflightstream._textio` and
+    `pyflightstream.workspace.actuator_profiles`) each clean.
     The sixteen exempted modules are the set of the eighteen less
     `pyflightstream.run` and `pyflightstream.qa.specs`, every module a release
     adds is clean, and the shipped configuration is green over all of them.

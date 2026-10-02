@@ -25,9 +25,13 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured)
 
-- mypy recount 2026-10-01: 160 errors in 16 of 234 modules, on `rel/0-34`
-  with the wave-1 work packages of 0.34.0 merged: fifteen modules more than
-  the 219 of 0.33.0, each reported clean (six from the `cases` cut of WP8,
+- mypy recount 2026-10-02: 160 errors in 16 of 236 modules, on `rel/0-34`
+  with the wave-2 packages of 0.34.0 merged: two modules more than the wave-1
+  tip, `pyflightstream._textio` (NFR-32) and
+  `pyflightstream.workspace.actuator_profiles` (FR-347), each reported clean,
+  and the shipped configuration green over all 236. The wave-1 tip read 160
+  in 16 of 234: fifteen modules more than the 219 of 0.33.0, each reported
+  clean (six from the `cases` cut of WP8,
   AD-16; two from the `script.helpers` cut of WP9a, AD-17; one from the
   parser cut of WP9b, AD-18; five from the probe-catalog cut of `qa/specs.py`;
   and the thin-blade core of FR-330). Every moved line was typed rather than
@@ -35,8 +39,8 @@ FlightStream versions.
   `pyflightstream.script.helpers` 2 where it reported 17, and
   `pyflightstream.qa.specs` none where it reported 9, so its override is
   deleted and the exempted set falls from 17 modules to 16, each still dirty.
-  The shipped configuration is green over all 234 modules. `rel/0-33` with
-  WP4, WP5 and WP6 merged read 192 in 17 of 219 (the 0.33.0 section below).
+  `rel/0-33` with WP4, WP5 and WP6 merged read 192 in 17 of 219 (the 0.33.0
+  section below).
 
 ## [0.33.1] - 2026-10-01
 

@@ -102,7 +102,9 @@ branch of work package WP8 (`feat/0-34-wp8`), whose six model modules cut
 out of the `cases` root (AD-16) brought it from 219 to 225 and whose typed
 moved lines took the error total from 192 to 184, and by the run of
 2026-10-01 on `rel/0-34` with the wave-1 work packages of 0.34.0 merged,
-which brought it to 234 modules and the error total to 160 in 16. (An
+which brought it to 234 modules and the error total to 160 in 16, and by the
+run of 2026-10-02 on `rel/0-34` with the wave-2 packages merged, which
+brought it to 236 modules and left the error total at 160 in 16. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -122,21 +124,27 @@ which brought it to 234 modules and the error total to 160 in 16. (An
 > with FR-96 merged 1122 in 18 of 173 on 2026-10-01, and `rel/0-33` with WP4
 > merged 1122 in 18 of 196 on the same date, and `rel/0-33` with WP4, WP5
 > and WP6 merged 192 in 17 of 219 on the same date, and the 0.34.0 branch
-> of WP8 184 in 17 of 225 on the same date;
+> of WP8 184 in 17 of 225 on the same date, and `rel/0-34` with the
+> wave-1 work packages merged 160 in 16 of 234 on the same date;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 160 errors in 16 files (checked 234 source files)
->     Success: no issues found in 234 source files
+>     Found 160 errors in 16 files (checked 236 source files)
+>     Success: no issues found in 236 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-01: 160 errors in 16 of 234 modules.**
+**mypy recount 2026-10-02: 160 errors in 16 of 236 modules.**
 
-The module total is the 234 the tracked package holds on `rel/0-34` with the
+The module total is the 236 the tracked package holds on `rel/0-34` with the
+wave-2 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
+each reported clean: `pyflightstream._textio` (NFR-32) and
+`pyflightstream.workspace.actuator_profiles` (FR-347); the error total and
+the sixteen dirty modules are those of the wave-1 tip (the section at the end).
+The 234 were the total on `rel/0-34` with the
 wave-1 work packages of 0.34.0 merged, fifteen more than the 219 of
 `rel/0-33` with work packages WP4, WP5 and WP6 merged, each of the fifteen
 reported clean (the section at the end names them). The cuts of WP8, WP9a
@@ -450,11 +458,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 160 errors in 16 files (checked 234 source files)
+    Found 160 errors in 16 files (checked 236 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 234 source files
+    Success: no issues found in 236 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1196,3 +1204,23 @@ deleted from the override list of `pyproject.toml` (and from
 `MYPY_EXEMPTIONS`) in the commit that records this run, because the module
 reports no error, and the shipped configuration is green over all 234. The quoted mypy lines and the sentence at the top of
 this report are this run's.
+
+## Re-measured 2026-10-02, `rel/0-34` with the wave-2 packages merged: two modules more, both clean
+
+`python scripts/mypy_recount.py` on 2026-10-02, on `rel/0-34` at `6988eeef`
+(the wave-2 merges of LF, RUN, THIN-CLI, WAKE, TOGGLE, FR153REG, ADPROF,
+MESHFACES, the public architecture section, the migration page and the kill
+tests committed, the tree clean, as the script reported), with python 3.12.0,
+numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic 2.13.5 (the script
+printed mypy's version as unknown): 160 errors in 16 of 236 modules on 75
+distinct source lines. The tracked package holds two modules more than the
+234 of the wave-1 tip, each reported CLEAN and neither exempted:
+`pyflightstream._textio`, the LF write route of NFR-32, and
+`pyflightstream.workspace.actuator_profiles`, the profile generator of
+FR-347. The per-module table is the wave-1 tip's, module by module: the 160
+are in `qa.probes` (79), `script.solver_setup` (22), `script` (17),
+`fsi.nodes` (10), `cases.matrix` (7), `probes.planar` (6),
+`workspace.inputs` (4), six modules with two and three with one. The
+override list of `pyproject.toml` is unchanged, and the shipped
+configuration is green over all 236. The quoted mypy lines and the sentence
+at the top of this report are this run's.
