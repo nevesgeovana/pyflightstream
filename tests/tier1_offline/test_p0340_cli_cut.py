@@ -118,3 +118,32 @@ def test_the_printing_of_plan_and_storage_lives_in_cli_print_ad_18():
     for name in names:
         assert callable(getattr(_cli_print, name))
         assert name not in defined_in_cli
+
+
+#: The names 0.33.1 offered from pyflightstream.run.cli (a module without __all__)
+#: and their homes; WP9b moved their use into run/_cli_print (AD-18).
+V0331_OFFERED = {
+    "blocks": "pyflightstream._console",
+    "table": "pyflightstream._console",
+    "wrap": "pyflightstream._console",
+    "print_held_warnings": "pyflightstream._progress",
+    "CampaignPlan": "pyflightstream.run",
+    "format_cost_table": "pyflightstream.run",
+    "inflow_harmonics_line": "pyflightstream.run",
+    "qsteady_validity_line": "pyflightstream.run",
+    "continuation_block": "pyflightstream.run._continuation_frame",
+}
+
+
+@pytest.mark.parametrize("name", sorted(V0331_OFFERED))
+def test_run_cli_keeps_the_names_0331_offered_ad_15(name):
+    """Parity arm R1, AD-15: each name 0.33.1 offered from run.cli imports from it still.
+
+    It is the very object of its home, re-exported with the ``name as name``
+    idiom, so the cut of AD-18 moved no public path.
+    """
+    import importlib
+
+    exec(f"from pyflightstream.run.cli import {name}", {})
+    home = importlib.import_module(V0331_OFFERED[name])
+    assert getattr(matrix_cli, name) is getattr(home, name), name

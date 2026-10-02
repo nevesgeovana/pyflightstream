@@ -63,17 +63,27 @@ from typing import NoReturn
 
 import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
+
+# Each `name as name` import of this block is a name 0.33.1 offered here, where its
+# printing used it; the printing is run/_cli_print since 0.34.0 (AD-18), and the nine
+# names keep this dotted path (parity arm R1, AD-15): blocks, table, wrap,
+# print_held_warnings, CampaignPlan, format_cost_table, inflow_harmonics_line,
+# qsteady_validity_line and continuation_block.
+from pyflightstream._console import blocks as blocks
 from pyflightstream._console import (
     command_help,
     held_warnings,
     release_warnings,
 )
+from pyflightstream._console import table as table
+from pyflightstream._console import wrap as wrap
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
     stage_progress,
 )
+from pyflightstream._progress import print_held_warnings as print_held_warnings
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -93,6 +103,10 @@ from pyflightstream.run import (
     LoadsAssessor,
     plan_receipt_error,
 )
+from pyflightstream.run import CampaignPlan as CampaignPlan
+from pyflightstream.run import format_cost_table as format_cost_table
+from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
+from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._cli_parsers import _build_parser, resume_hint
 from pyflightstream.run._cli_print import (
@@ -101,6 +115,7 @@ from pyflightstream.run._cli_print import (
     _print_plan,
     _print_sync,
 )
+from pyflightstream.run._continuation_frame import continuation_block as continuation_block
 from pyflightstream.run._ids import _AlreadyRecordedError
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
