@@ -85,12 +85,19 @@ def _same_bytes(left: Path, right: Path) -> bool:
 
 
 def _relink(source: Path, target: Path) -> None:
-    """Make ``target`` a link to what the link ``source`` points at; refuse a real folder."""
+    """Make ``target`` a link to what the link ``source`` points at; refuse a real folder.
+
+    An EMPTY real folder is replaced, as staging replaces it: the plan allocates
+    ``sims/sim_<id>/inputs`` empty before any run, so a batched sim brought back
+    always meets one. A folder holding anything is refused, never overwritten.
+    """
     destination = source.resolve()
     if _is_link(target):
         if target.resolve() == destination:
             return
         _remove_link(target)
+    elif target.is_dir() and not any(target.iterdir()):
+        target.rmdir()
     elif target.exists():
         raise WorkspaceError(
             f"{target} is a real folder where the batch holds a link to {destination}. A link is "

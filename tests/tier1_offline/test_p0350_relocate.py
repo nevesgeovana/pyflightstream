@@ -112,3 +112,29 @@ def test_p0350_relocate_the_control_a_copy_through_the_link_is_seen(tmp_path):
     (batch_sim / "scripts" / "planted.txt").write_bytes(b"x")
     assert _listing(batch_sim) != before
     assert _listing(staged) == {"SENTINEL.fsm": _listing(staged)["SENTINEL.fsm"]}
+
+
+def test_p0350_relocate_replaces_the_plans_empty_inputs_folder(tmp_path):
+    """P0350-COLLECT-COPY-MOVE (FR-367): the empty ``inputs`` the plan allocates becomes the link.
+
+    The plan creates ``sims/sim_<id>/inputs`` empty before any run, so a batched
+    sim brought home always meets one; a folder holding a file stays refused.
+    """
+    import pytest
+
+    from pyflightstream.workspace import WorkspaceError
+
+    staged, batch_sim, sim = _batch(tmp_path)
+    (sim / "inputs").mkdir(parents=True)
+    relink_inputs(batch_sim, sim)
+    assert _is_link(sim / "inputs") and (sim / "inputs").resolve() == staged.resolve()
+    assert (staged / "SENTINEL.fsm").read_bytes() == b"geometry"
+
+    other = tmp_path / "other"
+    other.mkdir()
+    staged2, batch_sim2, sim2 = _batch(other)
+    (sim2 / "inputs").mkdir(parents=True)
+    (sim2 / "inputs" / "kept.txt").write_text("mine", encoding="utf-8")
+    with pytest.raises(WorkspaceError):
+        relink_inputs(batch_sim2, sim2)
+    assert (sim2 / "inputs" / "kept.txt").read_text(encoding="utf-8") == "mine"
