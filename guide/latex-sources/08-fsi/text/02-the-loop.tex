@@ -1,0 +1,305 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/02-the-loop.tex
+
+\section{The coupling loop}
+
+\begin{frame}{The loop, one coupling call}
+\begin{center}
+\begin{adjustbox}{max width=\linewidth, max totalheight=0.54\textheight}
+\begin{tikzpicture}[node distance=5mm]
+  \node[fsibox, minimum width=3.3cm, minimum height=1.35cm] (fs)
+    {\textbf{FlightStream}\\a steady iteration or\\a time step, on the\\current mesh};
+  \node[fsibox, right=9mm of fs, minimum width=4.4cm, minimum height=1.35cm] (post)
+    {\textbf{post-processing script} \texttt{fsi\_post.txt}\\[0.5mm]
+     \texttt{UPDATE\_ALL\_SURFACE\_SECTIONS}\\
+     \texttt{COMPUTE\_SURFACE\_SECTIONAL\_LOADS NEWTONS}\\
+     \texttt{EXPORT\_SURFACE\_SECTIONAL\_LOADS}};
+  \node[fsifile, right=9mm of post, minimum height=1.35cm, text width=3.7cm] (loads)
+    {FS\_SurfaceSection\_Loads.txt\\[0.5mm]
+     {\rmfamily\itshape per section: Fx, Fz, moment about the quarter chord}};
+  \node[fsibox, below=15mm of loads, minimum width=3.9cm, minimum height=1.7cm,
+        text width=3.8cm] (step)
+    {\textbf{\texttt{pyfs-fsi} step}\\[0.5mm]
+     loads moved to the elastic axis\\
+     one beam solve per blade\\
+     relaxed against the last call\\
+     twist written as node translations};
+  \node[fsifile, left=12mm of step, minimum height=1.35cm, text width=2.7cm] (disp)
+    {FSIDisp.txt\\[0.5mm]
+     {\rmfamily\itshape one translation per node, in import order}};
+  \node[fsibox, below=15mm of fs, minimum width=3.3cm, minimum height=1.35cm] (morph)
+    {the solver moves\\the blade nodes\\and deforms the mesh};
+  \node[fsifile, right=6mm of step, yshift=4mm] (cfg) {config.json};
+  \node[fsifile, below=2mm of cfg] (state) {state.json};
+
+  \draw[fsiarrow] (fs) -- (post);
+  \draw[fsiarrow] (post) -- (loads);
+  \draw[fsiarrow] (loads) -- (step);
+  \draw[fsiarrow] (step) -- (disp);
+  \draw[fsiarrow] (disp) -- (morph);
+  \draw[fsiarrow] (morph) -- node[fsinote, left] {next\\call} (fs);
+  \draw[fsiarrow, CourseGold] (cfg.west) -- (cfg.west -| step.east);
+  \draw[fsiarrow, CourseGold, {Stealth[length=2mm]}-{Stealth[length=2mm]}]
+    (state.west) -- (state.west -| step.east);
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\vspace{-1mm}
+{\small FlightStream's Aeroelastic Toolbox calls the executable once per
+aeroelastic iteration of a steady row, or once per time step of an unsteady
+one (\code{SET\_AEROELASTIC\_ITERATIONS 1}). Each call is stateless: what
+persists is in \code{state.json}. Loads and displacements are in each blade's
+own frame, or the wing's; the package never sees azimuth.\par}
+\fsisource{FSI tutorial, ``The loop in one paragraph'', ``cli'';
+  \code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi};
+  \code{fsi/\_\_init\_\_.py}}
+\end{frame}
+
+\begin{frame}{The structure: one Euler beam per blade, or along the wing}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\small
+  \item One node per radial station, on the elastic axis; one member per
+        bay, with the bay-averaged EI and GJ; the root station clamped.
+  \item Unit elastic moduli, \(E = G = 1\): the section constants handed to
+        PyNite are the configuration's EI and GJ, so no modulus is applied
+        twice.
+  \item Flap deflection \(w\) and elastic twist \(\theta\) carry mass
+        (\(\mu\,l\) and \((I_1 + I_2)\,l\)); every other degree of freedom is
+        condensed out of the eigenproblem exactly.
+  \item Static solves are linear, or P-Delta whenever axial tension is
+        present [6, 7].
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{center}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % the clamp
+  \fill[pattern=north east lines, pattern color=SoftGray] (-0.35,-0.8) rectangle (0,0.8);
+  \draw[thick, SoftGray] (0,-0.8) -- (0,0.8);
+  % the beam and its stations
+  \draw[very thick, CourseBlue] (0,0) -- (5.6,0);
+  \foreach \x/\n in {0/0,1.4/1,2.8/2,4.2/3,5.6/4} {
+    \fill[CourseBlue] (\x,0) circle (1.6pt);
+  }
+  \node[font=\tiny, below, text=SoftGray] at (0.7,0) {bay};
+  \draw[SoftGray, decorate, decoration={brace, amplitude=3pt, mirror}]
+    (1.4,-0.28) -- (2.8,-0.28) node[midway, below=2pt, font=\tiny] {EI, GJ averaged};
+  % flap and twist at the tip
+  \draw[-{Stealth[length=1.6mm]}, thick, CourseRed] (5.6,0) -- (5.6,0.9)
+    node[above, font=\scriptsize] {\(w\), flap};
+  \draw[-{Stealth[length=1.6mm]}, thick, CourseRed]
+    (6.05,-0.35) arc[start angle=-60, end angle=200, x radius=0.25, y radius=0.45];
+  \node[font=\scriptsize, CourseRed, right] at (6.2,0.1) {\(\theta\), twist};
+  % the tension
+  \draw[-{Stealth[length=1.6mm]}, thick, CourseGold] (3.0,0.45) -- (4.2,0.45)
+    node[midway, above, font=\scriptsize, text=black] {\(\mu\,\Omega^2 r\)};
+  \node[font=\tiny, text=SoftGray, align=center] at (-0.2,-1.15) {root\\clamped};
+  \node[font=\tiny, text=SoftGray] at (5.6,-0.95) {tip};
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\begin{takeaway}
+The stiffnesses in \code{config.json} are the beam's stiffnesses, typed or
+generated, exactly as written.
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{FSI tutorial, ``beam''; \code{fsi/beam.py} module docstring}
+\end{frame}
+
+\begin{frame}{What rotation adds}
+\begin{itemize}\small
+  \item \textbf{Tension.} The distributed axial force \(\mu\,\Omega^2 r\)
+        makes the tension \(N(r)\) emerge in the solver, and P-Delta turns it
+        into bending stiffness, with no manual correction terms: the
+        centrifugal stiffening of a rotating blade [8, 9, 10].
+  \item \textbf{Propeller moment.} \(-\Omega^2 (I_1 - I_2)\sin\theta\cos\theta\)
+        drives each section toward flat pitch. It depends on the total pitch,
+        geometric plus elastic, so each call re-solves the beam a few times
+        until the twist stops moving [9, 12].
+  \item \textbf{In-plane softening.} The part of the flap deflection that
+        lies in the plane of rotation feels the centrifugal field pulling it
+        outward, a term \(\mu\,\Omega^2 \sin^2\beta\,w\), \(\beta\) the
+        section's pitch, that lowers the stiffness; it is applied with the
+        tension [8, 9].
+  \item \textbf{Not modelled: the trapeze effect.} A declared limitation;
+        omitting it overpredicts the elastic twist, which is conservative.
+\end{itemize}
+\fsisource{FSI tutorial, ``The loop in one paragraph'' and ``centrifugal'';
+  \code{fsi/centrifugal.py} module docstring}
+\end{frame}
+
+\begin{frame}{A fixed wing: its own weight, and where the model stops}
+\begin{itemize}\small
+  \item \textbf{A wing that does not turn} has no centrifugal load. The
+        structural solver applies the structure's \textbf{own weight}, gravity
+        on its mass distribution, beside the aerodynamic loads, on a
+        \code{steady} or an \code{unsteady} row; the loop is the same.
+  \item \textbf{A blade held still} in a turning free stream
+        (\code{qsteady\_rotor}, sector) is the opposite case: the aerodynamics
+        see the rotation through the free stream, which reproduces the
+        turning blade's axial force to 0.35\,\% [3], and the structural solver
+        still applies the centrifugal loads at the free-stream rotation's rpm.
+  \item \textbf{Quasi-static.} The mean deformation is exact within the beam
+        idealisation; the once-per-revolution content is trustworthy only well
+        below resonance, roughly \(n\,\Omega / \omega_n \le 0.3\) [12, 13].
+        The convergence log prints this boundary in its header.
+\end{itemize}
+\begin{alertblock}{The formulas are transcribed, not re-verified}
+\small The primary sources of the model have not been independently checked
+against the implemented formulas; each formula lives in one small function
+that cites its source, so a correction stays local.
+\end{alertblock}
+\fsisource{\code{fsi/wing.py} module docstring (gravity \(-z\) by default,
+  \code{[config.wing]}); \code{fsi/centrifugal.py}; the page ``FSI in a
+  workspace''}
+\end{frame}
+
+\begin{frame}{Twist travels as three nodes per station}
+\begin{center}
+\begin{adjustbox}{max width=0.62\linewidth, max totalheight=0.36\textheight}
+\begin{tikzpicture}[x=1cm,y=1cm]
+  % undeformed section
+  \draw[SoftGray, dashed] (0,0) ellipse (2.4 and 0.32);
+  \draw[SoftGray] (-2.9,0) -- (2.9,0);
+  \foreach \x in {-1.2,0,1.2} \fill[SoftGray] (\x,0) circle (2pt);
+  % deformed section: translated by w and turned by theta
+  \begin{scope}[shift={(0,1.15)}, rotate=9]
+    \draw[CourseBlue, thick] (0,0) ellipse (2.4 and 0.32);
+    \fill[CourseBlue] (-1.2,0) circle (2.2pt);
+    \fill[CourseRed] (0,0) circle (2.2pt);
+    \fill[CourseBlue] (1.2,0) circle (2.2pt);
+  \end{scope}
+  \draw[-{Stealth[length=1.6mm]}, CourseRed, thick] (0,0) -- (0,1.12)
+    node[midway, left, font=\scriptsize] {\(w\)};
+  \draw[-{Stealth[length=1.4mm]}, CourseBlue] (1.2,0) -- (1.2,1.33)
+    node[midway, right, font=\scriptsize] {\(w + \theta d\)};
+  \draw[-{Stealth[length=1.4mm]}, CourseBlue] (-1.2,0) -- (-1.2,0.97)
+    node[midway, left, font=\scriptsize] {\(w - \theta d\)};
+  \node[font=\tiny, text=SoftGray] at (1.2,-0.55) {toward LE};
+  \node[font=\tiny, text=SoftGray] at (0,-0.55) {elastic axis};
+  \node[font=\tiny, text=SoftGray] at (-1.2,-0.55) {toward TE};
+  \draw[SoftGray, |-|] (0,-0.9) -- (1.2,-0.9) node[midway, below, font=\tiny] {\(d = 0.25\,c\)};
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\vspace{-1mm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}\footnotesize
+  \item \code{FSIDisp.txt} carries translations only, so twist is encoded by
+        three nodes per station, \(d = 0.25\,c\) apart
+        (\code{node\_offset\_chord\_fraction}).
+  \item Rigid section kinematics, \(\delta y = w + \theta\,d\): linear, so the
+        inverse is exact to machine precision.
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{itemize}\footnotesize
+  \item One generator makes the node file, the ordering map and the
+        \code{FSIDisp.txt} rows: the solver applies them strictly in import
+        order, and a drift would corrupt the geometry in silence.
+  \item One node file serves every blade, imported once per blade frame, in
+        blade order.
+\end{itemize}
+\end{column}
+\end{columns}
+\fsisource{FSI tutorial, ``kinematics'' and ``nodes'';
+  \code{fsi/nodes.py} module docstring; \code{fsi/config.py},
+  \code{FsiConfig.node\_offset\_chord\_fraction}}
+\end{frame}
+
+\begin{frame}{The driver: four phases, keyed on the step counter}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}P{0.23\linewidth}R@{}}
+\toprule
+\textbf{Phase} & \textbf{Behaviour, and its key in \code{config.json} \code{phases}} \\
+\midrule
+1, wake development & zero displacements on the rigid blade;
+  \code{wake\_development\_revolutions} (1.0) \\
+2, averaged coupling & loads averaged over the window, relaxed updates
+  \(d_{new} = d_{old} + \lambda (d_{calc} - d_{old})\);
+  \code{averaging\_window\_revolutions} (1.0), \code{coupling\_relaxation} (0.4) \\
+3, convergence watch & as 2, and converged when BOTH hold across consecutive
+  revolutions: tip twist change below \code{tip\_twist\_tolerance\_deg} (0.05)
+  and relative change of the integrated normal force below
+  \code{thrust\_tolerance\_fraction} (0.02) \\
+4, recording & instantaneous loads, \(\lambda = 1\) by design, twist recorded
+  per step; \code{recording\_revolutions} (1.0) \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1.5mm}
+\begin{itemize}\scriptsize
+  \item \textbf{Freshness is asserted}: each call must see an advancing solver
+        iteration in the loads header; a repeat is refused, since it means more
+        than one FSI iteration per time step.
+  \item \textbf{Frozen mode}: a \code{fsi\_frozen\_displacements.txt} in the
+        run folder is replayed verbatim at every call, with no loads and no solve.
+\end{itemize}
+\fsisource{FSI tutorial, ``driver and state''; \code{fsi/config.py},
+  \code{PhaseSchedule} (defaults in brackets)}
+\end{frame}
+
+\begin{frame}{The structural nodes, and how the surface follows them}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\footnotesize
+  \item \textbf{Inside the component.} Where the input gives section
+        contours, the nodes lie on the camber line of each station, turned by
+        its local twist, inside the blade or the wing; a node outside is
+        refused at plan.
+  \item \textbf{The node frame.} On 26.124 a scripted node import stores the
+        reference frame whatever frame it names [2].
+  \item \textbf{The surface by its boundary ID}: an OBJ import numbers its
+        first boundary 2 and an STL 1; a list holding the tree position maps
+        0 vertices, in silence [2].
+  \item \textbf{After the structural call}: the exports that must show the
+        deformation run in the post-processing script.
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{block}{A radial basis function carries the nodes to the panels}
+\footnotesize The displacement known at the nodes is interpolated onto every
+aerodynamic panel [14, 15, 16]. A beam is a \textbf{line} of nodes: a
+compactly supported kernel reaches only the panels near it. The coupled row
+uses the \textbf{multiquadric} [14], whose support is global: on one beam line
+it delivered an imposed bend to 3 mm, where the compact kernel gave 64\,\% of
+it and the coupled run diverged [2].
+\end{block}
+\end{column}
+\end{columns}
+\fsisource{\code{fsi/nodes.py}; \code{cases/fsi\_workspace.py}; Guide 6,
+  \code{aeroelastic\_rbf\_type}; RPT-093 [2], facts 1, 2 and 7}
+\end{frame}
+
+\begin{frame}{Route B: the direct transform, a sanity check}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\small
+  \item The same beam, solved on the solver's sectional loads, gives flap
+        \(w(r)\) and twist \(\theta(r)\); \textbf{every mesh vertex is moved}
+        about the elastic axis by that \(w\) and \(\theta\), and the deformed
+        geometry is solved again, rigid. No interpolation, no in-run
+        coupling.
+  \item Repeated until the tip flap and twist stop moving, it is a
+        partitioned static iteration: quasi-steady by construction.
+  \item A zero deformation through the same chain reproduces the rigid
+        answer, which is its own control.
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{ftslimit}[What route B is for]
+\small A simplified run, a check of the coupled route against an
+independent one, and an FSI option where the coupled route is not
+available. It is \textbf{not} the coupled route: it carries no dynamics and
+no in-run deformation.
+\end{ftslimit}
+\end{column}
+\end{columns}
+\fsisource{\code{fsi/loads.py}, \code{to\_elastic\_axis};
+  \code{fsi/centrifugal.py}, \code{solve\_rotating\_static}}
+\end{frame}

@@ -1,0 +1,65 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 05-references/main.tex
+%
+% Guide 5 of the pyflightstream guides: The reference file. Built by
+% ../build-all.ps1 (or build-all.sh) with this folder and ../shared/ as
+% include directories.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+\guidepdftitle{5}{The reference file}
+
+\newcommand{\setupsources}[1]{%
+  \par\vfill
+  {\tiny\color{SoftGray} Sources under \code{src/pyflightstream/}: #1.\par}}
+
+% Keep the slide edition's section-frame shape and add its source line.
+\AtBeginSection[]{%
+  \begin{frame}[plain,noframenumbering]
+    \vfill
+    {\color{SoftGray}\small Part \thesection\par}
+    \vspace{2mm}
+    {\color{hanblue}\Huge\bfseries\insertsection\par}
+    \vfill
+    \setupsources{\code{workspace/inputs.py}; \code{cases/\_\_init\_\_.py};
+      \code{cases/workflows.py}; \code{cases/matrix.py}}
+  \end{frame}}
+
+\begin{document}
+
+\guidetitleframe{5}{The reference file}{The reference file}
+  {What \code{inputs/references/r<id>.toml} holds, and why}
+  {Sources: the package pages ``The workspace and the workflow'' and
+  ``Getting started'', and the input glossary [1, 2].}
+
+\begin{frame}{Contents}
+\small
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\setupsources{\code{workspace/inputs.py}; \code{cases/\_\_init\_\_.py};
+  \code{cases/workflows.py}; \code{cases/matrix.py}}
+\end{frame}
+
+\input{text/01-the-reference-file.tex}
+\input{text/02-lengths-and-moment-point.tex}
+\input{text/03-aliases-and-frames.tex}
+\input{text/04-rotors.tex}
+\input{text/05-actuator-discs.tex}
+\input{text/06-post-and-refusals.tex}
+\input{text/07-worked-example.tex}
+\input{text/08-references.tex}
+
+\end{document}

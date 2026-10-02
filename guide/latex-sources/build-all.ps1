@@ -2,17 +2,15 @@
 #
 # build-all.ps1
 #
-# Builds the eight guide decks, 00 to 07, from this folder and copies each
-# final PDF, named pyfts-guide-<folder>.pdf, one level up (guide/ in the
-# repository, docs/ in a kit), overwriting. Auxiliary files stay in build/
-# here, which is never versioned. The one-page pyfs-matrix cheatsheet of
-# cheatsheet/ is built after the decks and copied the same way, as
-# pyfts-cheatsheet-pyfs-matrix.pdf.
+# Builds the nine guides, 01 to 09, from this folder and copies each final PDF,
+# named pyfts-guide-<folder>.pdf, one level up (guide/ in the repository, docs/
+# in a kit), overwriting. Auxiliary files stay in build/ here, which is never
+# versioned. Guide 04 is the cheatsheet, one document of ten pages (04-cheatsheet),
+# built and copied like the decks.
 #
-#   .\build-all.ps1            all eight decks and the cheatsheet
-#   .\build-all.ps1 -Only 00   only guide 00, the overview (00-fts-overview)
-#   .\build-all.ps1 -Only 03   only the deck whose folder starts with 03
-#   .\build-all.ps1 -Only cheatsheet   only the pyfs-matrix cheatsheet
+#   .\build-all.ps1            all nine guides
+#   .\build-all.ps1 -Only 01   only guide 01, the overview (01-fts-overview)
+#   .\build-all.ps1 -Only 04   only guide 04, the cheatsheet (04-cheatsheet)
 #
 # Needs pdflatex on the PATH (MiKTeX installs it; TeX Live works too) with the
 # beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore
@@ -20,7 +18,7 @@
 # with shared/ as the working directory, so every ../shared/ in the preamble
 # resolves inside this folder; each deck's own folder and shared/ are handed
 # to it as include directories. Nothing outside this folder is read.
-# Three passes per deck, for the table of contents and the frame counts.
+# Three passes per guide, for the table of contents and the frame counts.
 
 param([string]$Only = "")
 $ErrorActionPreference = "Stop"
@@ -64,29 +62,4 @@ foreach ($deck in Get-ChildItem $here -Directory | Where-Object { $_.Name -match
     Write-Host "built $docs\$job.pdf (Overfull boxes: $over)" -ForegroundColor Green
 }
 
-# The one-page pyfs-matrix cheatsheet, built with the decks (or alone with
-# -Only cheatsheet) and copied beside them as pyfts-cheatsheet-pyfs-matrix.pdf.
-# It runs from its own folder, so its ../shared/info.tex resolves here; two
-# passes, and the overfull count must be zero for the page to stay one sheet.
-if (-not $Only -or "cheatsheet".StartsWith($Only)) {
-    $sheet = Join-Path $here "cheatsheet"
-    $job = "pyfts-cheatsheet-pyfs-matrix"
-    $out = Join-Path $here "build\cheatsheet"
-    New-Item -ItemType Directory -Force -Path $out | Out-Null
-    $ok = $true
-    Push-Location $sheet
-    try {
-        foreach ($pass in 1..2) {
-            & pdflatex -interaction=nonstopmode -halt-on-error "-output-directory=$out" "$job.tex" | Out-Null
-            if ($LASTEXITCODE -ne 0) { $ok = $false; break }
-        }
-    } finally { Pop-Location }
-    if (-not $ok) { Write-Host "FAILED $job; see $out\$job.log" -ForegroundColor Red; $failed++ }
-    else {
-        $log  = Get-Content (Join-Path $out "$job.log") -Raw
-        $over = ([regex]::Matches($log, '(?m)^Overfull')).Count
-        Copy-Item (Join-Path $out "$job.pdf") (Join-Path $docs "$job.pdf") -Force
-        Write-Host "built $docs\$job.pdf (Overfull boxes: $over)" -ForegroundColor Green
-    }
-}
 if ($failed) { exit 1 }

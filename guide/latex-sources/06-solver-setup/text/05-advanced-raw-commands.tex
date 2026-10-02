@@ -1,0 +1,236 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Fourteen new advanced setup keys}
+
+\begin{frame}{Advanced setup keys (1/4)}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} \\
+\midrule
+\code{laminar\_\allowbreak separation} & \code{LAMINAR\_\allowbreak SEPARATION} \\
+\code{kutta\_\allowbreak joukowski\_\allowbreak lift} & \code{KUTTA\_\allowbreak JOUKOWSKI\_\allowbreak LIFT\_\allowbreak FORCES} \\
+\code{aeroelastic\_\allowbreak rbf\_\allowbreak type} & \code{AEROELASTIC\_\allowbreak RBF\_\allowbreak TYPE} \\
+\code{print\_\allowbreak rotor\_\allowbreak induced\_\allowbreak velocities} & \code{PRINT\_\allowbreak ROTOR\_\allowbreak INDUCED\_\allowbreak VELOCITIES} \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+\item A stated key emits its command; an omitted key emits nothing.
+\item Unknown keys, unsupported values and unavailable commands are refused, naming the build.
+\item The command tables below retain the per-build status. A new key does not establish licensed verification.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Advanced setup keys (2/4)}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} \\
+\midrule
+\code{adaptive\_\allowbreak field\_\allowbreak grid\_\allowbreak refinement} & \code{SET\_\allowbreak ADAPTIVE\_\allowbreak FIELD\_\allowbreak GRID\_\allowbreak REFINEMENT} \\
+\code{rotor\_\allowbreak induced\_\allowbreak velocity\_\allowbreak blending} & \code{ROTOR\_\allowbreak INDUCED\_\allowbreak VELOCITY\_\allowbreak BLENDING} \\
+\code{wake\_\allowbreak numerical\_\allowbreak relaxation} & \code{SET\_\allowbreak WAKE\_\allowbreak NUMERICAL\_\allowbreak RELAXATION} \\
+\code{wake\_\allowbreak relaxation} & \code{SET\_\allowbreak WAKE\_\allowbreak RELAXATION} \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+\item A stated key emits its command; an omitted key emits nothing.
+\item Unknown keys, unsupported values and unavailable commands are refused, naming the build.
+\item The command tables below retain the per-build status. A new key does not establish licensed verification.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Advanced setup keys (3/4)}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} \\
+\midrule
+\code{wake\_\allowbreak decay\_\allowbreak constant\_\allowbreak per\_\allowbreak m} & \code{SET\_\allowbreak WAKE\_\allowbreak DECAY\_\allowbreak CONSTANT} \\
+\code{wake\_\allowbreak streamwise\_\allowbreak agglomeration} & \code{SET\_\allowbreak WAKE\_\allowbreak STREAMWISE\_\allowbreak AGGLOMERATION} \\
+\code{jet\_\allowbreak wake\_\allowbreak decay\_\allowbreak normalized\_\allowbreak length} & \code{SET\_\allowbreak JET\_\allowbreak WAKE\_\allowbreak DECAY\_\allowbreak NORMALIZED\_\allowbreak LENGTH} \\
+\code{jet\_\allowbreak wake\_\allowbreak filaments\_\allowbreak grid\_\allowbreak induction} & \code{SET\_\allowbreak JET\_\allowbreak WAKE\_\allowbreak FILAMENTS\_\allowbreak GRID\_\allowbreak INDUCTION} \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+\item A stated key emits its command; an omitted key emits nothing.
+\item Unknown keys, unsupported values and unavailable commands are refused, naming the build.
+\item The command tables below retain the per-build status. A new key does not establish licensed verification.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Advanced setup keys (4/4)}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} \\
+\midrule
+\code{adverse\_\allowbreak gradient\_\allowbreak boundary\_\allowbreak layer} & \code{SOLVER\_\allowbreak SET\_\allowbreak ADVERSE\_\allowbreak GRADIENT\_\allowbreak BOUNDARY\_\allowbreak LAYER} \\
+\code{vortex\_\allowbreak ring\_\allowbreak normalization} & \code{SOLVER\_\allowbreak VORTEX\_\allowbreak RING\_\allowbreak NORMALIZATION} \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+\item A stated key emits its command; an omitted key emits nothing.
+\item Unknown keys, unsupported values and unavailable commands are refused, naming the build.
+\item The command tables below retain the per-build status. A new key does not establish licensed verification.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Setup toggles for separation and lift}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{LAMINAR\_\allowbreak SEPARATION} & \code{ENABLE} or \code{DISABLE} & Not stated & D / D \\
+\code{KUTTA\_\allowbreak JOUKOWSKI\_\allowbreak LIFT\_\allowbreak FORCES} & \code{ENABLE} or \code{DISABLE} & Not stated & D / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small Laminar separation is a boundary-layer separation switch. The lift command selects bound-circulation lift instead of surface-pressure integration; the database does not identify every affected output quantity.
+\par\vspace{2mm}{\scriptsize Manual references: [3, p.345]; [3, p.344].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Setup output and field-grid toggles}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{PRINT\_\allowbreak ROTOR\_\allowbreak INDUCED\_\allowbreak VELOCITIES} & \code{ENABLE} or \code{DISABLE} & Not stated & D / D \\
+\code{SET\_\allowbreak ADAPTIVE\_\allowbreak FIELD\_\allowbreak GRID\_\allowbreak REFINEMENT} & \code{ENABLE} or \code{DISABLE} & Not stated & D / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The print switch writes rotor-induced velocities to the log at every unsteady time step. The refinement note marks the field-grid option as transonic only; no subsonic behavior is established.
+\par\vspace{2mm}{\scriptsize Manual references: [3, p.345].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Setup wake factors}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{ROTOR\_\allowbreak INDUCED\_\allowbreak VELOCITY\_\allowbreak BLENDING} & \code{<float>} & 0.25 & D / D \\
+\code{SET\_\allowbreak WAKE\_\allowbreak NUMERICAL\_\allowbreak RELAXATION} & \code{<float>} & 0.15 & D / D \\
+\code{SET\_\allowbreak JET\_\allowbreak WAKE\_\allowbreak DECAY\_\allowbreak NORMALIZED\_\allowbreak LENGTH} & \code{<float>} & 100.0 & D / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The two factors are documented from 0 to 1. Jet decay length is in jet-wake diameters, with a documented minimum of 1.0: it is the distance to one tenth of the initial strength. These notes do not enforce the bounds.
+\par\vspace{2mm}{\scriptsize Manual references: [3, p.345]; [3, p.346].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Setup wake decay and jet induction}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{SET\_\allowbreak WAKE\_\allowbreak DECAY\_\allowbreak CONSTANT} & \code{<float>} & Not stated & D / D \\
+\code{SET\_\allowbreak JET\_\allowbreak WAKE\_\allowbreak FILAMENTS\_\allowbreak GRID\_\allowbreak INDUCTION} & \code{ENABLE} or \code{DISABLE} & Not stated & Refused / refused \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The decay constant is in inverse metres, derived in the database from \code{19.1/L}, with \code{L} in metres. No fixed default is recorded. Jet-filament grid induction has evidence only on 26.101 and 26.120; it is refused on 26.123 and 26.124.
+\par\vspace{2mm}{\scriptsize Manual references: [4, p.346]; [3, p.346].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Build-limited wake commands}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{SET\_\allowbreak WAKE\_\allowbreak RELAXATION} & \code{ENABLE} or \code{DISABLE} & Not stated & Refused / refused \\
+\code{SET\_\allowbreak WAKE\_\allowbreak STREAMWISE\_\allowbreak AGGLOMERATION} & \code{ENABLE} or \code{DISABLE} & Not stated & Refused / refused \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small Both are documented on 25.000, 25.100 and 26.000. The database records their removal from later documentation. Neither is available to emit on 26.123 or 26.124; \code{[[raw]]} does not bypass the build check.
+\par\vspace{2mm}{\scriptsize Manual references: [5, p.319]; [5, p.318].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Build-limited boundary-layer and vortex commands}
+\small These commands have setup keys. Use the keys on a
+supported build; \code{[[raw]]} remains available. Phase: \code{init}.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.46\linewidth}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.12\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Command} & \textbf{Argument form} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{SOLVER\_\allowbreak SET\_\allowbreak ADVERSE\_\allowbreak GRADIENT\_\allowbreak BOUNDARY\_\allowbreak LAYER} & \code{ENABLE} or \code{DISABLE} & Not stated & Refused / refused \\
+\code{SOLVER\_\allowbreak VORTEX\_\allowbreak RING\_\allowbreak NORMALIZATION} & \code{ENABLE} or \code{DISABLE} & Not stated & Refused / refused \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small Both are documented on 25.000, 25.100 and 26.000 and refused on 26.123 and 26.124. The database gives no definition of the vortex normalization beyond the switch, so no numerical mechanism is asserted here.
+\par\vspace{2mm}{\scriptsize Manual references: [5, p.318].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Setup aeroelastic RBF choice}
+\small \code{AEROELASTIC\_RBF\_TYPE <rbf\_type>} is an inline
+\code{init} command. The setup key is \code{aeroelastic\_rbf\_type}.
+Its argument is one of \code{WENDLAND\_C2}, \code{GAUSSIAN},
+\code{THIN\_PLATE\_SPLINE}, \code{MULTI\_QUADRATIC} or
+\code{INV\_MULTI\_QUADRATIC}.
+\par\vspace{1mm}
+\small Solver default: \textbf{not stated}. Status: \textbf{documented} on
+both 26.123 and 26.124 [3, pp.345-346]. The manual also describes numbered
+choices, but the command database's accepted grammar uses the names above.
+Use a quoted name as the setup value.
+\begin{block}{What the choice is}
+\small A radial basis function interpolates the structure's displacements,
+known at its nodes, onto every aerodynamic panel [9, 10, 11]. The
+multiquadric [12] has global support; the Wendland C2 [13] is compact. A
+coupled FSI row states its own choice: the multiquadric for a beam line of
+structural nodes (Guide 8).
+\end{block}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\end{frame}

@@ -1,0 +1,64 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 07-pproc-definitions/text/15-quasi-steady-rotor.tex
+%
+% The qsteady_rotor workflow's products, read against the merged workflow
+% (cases/qsteady.py, post/qsteady.py) and docs/workspace-and-workflows.md.
+% The count nP is the blade's own, per revolution; Guide 2 has the rest.
+
+\section{The quasi-steady rotor}
+
+\begin{frame}{A rotor solved steady, and what its products are}
+\begin{itemize}\small
+  \item A \code{qsteady\_rotor} row holds the blades still and turns the free
+        stream about the shaft at the rotor's speed; every solve is steady. It
+        is valid only for an \textbf{isolated, axisymmetric} rotor.
+  \item \textbf{Sector} (the row states periodic symmetry): one blade and its
+        copies, one steady solve. \textbf{Wheel}: every blade meshed; in an
+        axial, uniform inflow it is solved once.
+  \item A wheel at incidence, or in a custom inflow, sees a different flow at
+        each blade position. It is solved once per position and the
+        positions are averaged: \code{PASSAGE\_POSITIONS: k}, mandatory,
+        \(k \ge 1\), at \(\theta_i = i\,(360^\circ/N)/k\), \(i = 0 \ldots
+        k-1\), uniform over one blade passage.
+  \item Such a point's products are those of an unsteady point: the loads at
+        each position (\code{<point>\_qs<i>.txt}), and their average where an
+        unsteady point has its window average.
+\end{itemize}
+\begin{takeaway}Uniform positions over one passage give an unbiased mean of a
+signal that repeats every passage [8]. Two positions settle thrust and
+torque; the in-plane forces and moments want six or more.\end{takeaway}
+\end{frame}
+
+\begin{frame}{The validity parameter, carried by every product}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item Each blade station's 1P reduced frequency,
+        \[ k = \frac{\Omega\,c}{2\,V_\mathrm{rel}}, \]
+        compares the time the flow takes to cross the chord with the period of
+        the once-per-revolution change. Below about 0.05 a quasi-steady
+        answer holds; above 0.1 the lag of the circulation and the shed wake
+        matter [10, 11, 12].
+  \item \pyfs{plan} shows, per wheel point, the per cent of the span with
+        \(k > 0.1\) and \(k\) minimum, maximum and mean, and warns when that
+        per cent is above zero.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{block}{Where it is written}
+\small
+\begin{itemize}\small
+  \item The datapoint folder: \(k\) minimum, maximum and mean; the span
+        fractions above 0.05 and 0.1; the shares of thrust and torque from
+        stations above 0.1.
+  \item Every post product of the point carries them.
+  \item The sections product carries \(k\) at each station.
+\end{itemize}
+\end{block}
+{\scriptsize With \code{--inflow-fft} a custom inflow's harmonics count too:
+\(k_\mathrm{eff} = n_{95}\,k\), \(n\)P counted by one blade per revolution
+(Guide 2).\par}
+\end{column}
+\end{columns}
+\end{frame}

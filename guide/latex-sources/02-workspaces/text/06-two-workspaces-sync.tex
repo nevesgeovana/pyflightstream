@@ -1,0 +1,229 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 02-workspaces/text/06-two-workspaces-sync.tex
+%
+% Working on a Windows workstation and on an HPC cluster: two workspaces, one
+% of them the main, kept together by pyfs-matrix sync. Source of record:
+% docs/storage-and-sync.md and `pyfs-matrix sync --help` of the version on
+% the title page.
+
+\section{Windows and an HPC cluster: two workspaces and sync}
+\label{sec:two-workspaces}
+
+\begin{frame}{Two workspaces, one of them the main}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{The main workspace, on Windows}
+\begin{itemize}\small
+  \item {\scriptsize\code{\mainworkspace}}: \textbf{the reference}. Its \code{runs.json},
+        its \code{post/} and its matrices are the record everybody reads.
+  \item It is the one under version control.
+  \item Runs can be done here: planning, one point, a steady sweep.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{The cluster workspace}
+\begin{itemize}\small
+  \item Where runs are \textbf{submitted} to the queue and collected:\\
+        {\scriptsize\code{\clusterworkspace}}.
+  \item The same \code{inputs/} library as the main: references, setups,
+        pproc files, geometries.
+  \item Its own matrices, its own \code{sims/} and \code{runs.json}.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}Runs are done in either workspace. \pyfs{pyfs-matrix sync}, run
+on the main, brings the cluster's runs and results home.\end{takeaway}
+\end{frame}
+
+\begin{frame}{How they relate}
+\begin{center}
+\begin{tikzpicture}[font=\scriptsize,
+  w/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+            align=center, text width=46mm, minimum height=22mm, inner sep=3pt},
+  lib/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+              align=center, text width=34mm, minimum height=10mm, inner sep=3pt}]
+\node[w] (main) {\textbf{main workspace} (Windows)\\[2pt]
+  owns \code{matriz.fs}\\ \code{runs.json}, \code{post/}, \code{sims/}\\
+  \tiny\code{inputs/sync-workspaces.toml}};
+\node[w, right=36mm of main] (hpc) {\textbf{cluster workspace}\\[2pt]
+  owns \code{matriz\_hpc.fs}\\ \code{runs.json}, \code{post/}, \code{sims/}\\
+  \tiny\code{inputs/hpc/h001.toml}};
+\node[lib, below=8mm of $(main)!0.5!(hpc)$] (inputs) {the same \code{inputs/}\\ \tiny references, setups, pproc, geometries};
+\draw[-{Stealth}, very thick, CourseGreen] (hpc.west) -- node[above, font=\tiny] {\code{sync runs | post | fsm | all}} node[below, font=\tiny] {preview, then \code{--apply}} (main.east);
+\draw[CourseGold, thick] (inputs) -- (main.south);
+\draw[CourseGold, thick] (inputs) -- (hpc.south);
+\end{tikzpicture}
+\end{center}
+\begin{itemize}\small
+  \item \textbf{Every matrix is owned by exactly one workspace.} The owner
+        edits it; the other only receives it.
+  \item \pyfs{sync} runs \textbf{on the main} and pulls. It never writes into
+        the cluster workspace.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\code{inputs/sync-workspaces.toml}}
+\begin{columns}[T]
+\begin{column}{0.60\textwidth}
+\begin{lstlisting}[style=ftsbase]
+main = "windows"
+
+[workspaces.windows]
+path = "."
+matrices = ["matriz"]
+
+[workspaces.cluster]
+path = "(*@\clusterworkspaceunc@*)"
+matrices = ["matriz_hpc"]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.37\textwidth}
+\begin{itemize}\small
+  \item \code{main} names the entry you stand in; \pyfs{sync} is run there.
+  \item One \code{[workspaces.<name>]} table per workspace: its \code{path}
+        (as the main sees it) and the \code{matrices} it \textbf{owns}, by
+        stem.
+  \item A stem declared by two workspaces refuses the sync, and so does a
+        matrix file that no workspace declares.
+  \item \code{--from cluster} pulls from one workspace; without it, from
+        every other one.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Four levels, each one the previous plus more}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix sync post --workspace .            # preview: changes nothing
+pyfs-matrix sync post --workspace . --apply    # then do it
+\end{lstlisting}
+{\ftstablesize
+\begin{tabular}{@{}lp{0.78\linewidth}@{}}
+\toprule
+\textbf{Level} & \textbf{Brings} \\
+\midrule
+\code{runs} & the records in \code{runs.json}, and the provenance each needs to be believed: every simulation's \code{scripts/} and its datapoint logs \\
+\code{post} & the above, plus the \code{post/} folder, its products and their provenance \\
+\code{fsm}  & the above, plus the saved simulation of every datapoint \\
+\code{all}  & the above, plus everything else under \code{sims/} \\
+\bottomrule
+\end{tabular}}
+\vspace{2mm}
+\begin{takeaway}Every call previews by default and changes files only with
+\code{--apply}. Read the preview first.\end{takeaway}
+\end{frame}
+
+\begin{frame}{How a conflict is settled}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Run records and files}
+\begin{itemize}\small
+  \item Only in the other workspace: added. Identical: left alone.
+  \item Different: if main's record is still \code{SUBMITTED}, the other's
+        wins; otherwise \textbf{main wins} unless \code{--prefer-other}.
+  \item A file in both with different content: main's copy stays unless
+        \code{--overwrite}, which archives it to
+        \code{archive/sync-<stamp>/} first.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Matrices: ownership decides}
+\small Any difference between main's copy and the source's is reported as a
+\textbf{MERGE CONFLICT}, every time, and \textbf{the owner's copy wins}. When
+the source owns it, main's copy is archived and replaced; when main owns it,
+main's copy stays. \code{--prefer-other} and \code{--overwrite} do not apply
+to matrices.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{What sync never does}
+\begin{itemize}\small
+  \item \textbf{It never copies a mesh.} A synced simulation's \code{inputs}
+        is linked again into the main's own \code{inputs/geometries/}, to the
+        same geometry folder. A geometry the main library lacks is not
+        linked, and the sync says so.
+  \item \textbf{A run still \code{SUBMITTED} there syncs its record only}:
+        nothing finished is worth copying, and a job may still be writing.
+  \item It deletes nothing in the main and never touches \code{inputs/},
+        except a declared matrix.
+  \item It never brings back a run id that \pyfs{delete-sims} retired in the
+        main.
+  \item \code{runs.json} is archived before it is rewritten. A lock in the
+        main (a run in progress) refuses the sync; a lock in a source skips
+        that source, with the reason.
+\end{itemize}
+\begin{takeaway}Every call, one entry per source workspace, is recorded in
+\code{storage\_management.json} at the main's root.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{A routine that works}
+\begin{enumerate}\small
+  \item On the main: edit and plan the matrices it owns; commit them.
+  \item Bring the cluster's \code{inputs/} up to date from the main (the
+        site's copy procedure), before planning there.
+  \item On the cluster: plan, run (it submits), \pyfs{collect} until
+        nothing is outstanding. Edit only the matrices the cluster owns.
+  \item On the main, in Windows:
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix sync post --workspace .          # read the preview
+pyfs-matrix sync post --workspace . --apply
+\end{lstlisting}
+  \item Commit the synced matrices on the main, with the reason.
+\end{enumerate}
+\end{frame}
+
+\section{Space on disk}
+\label{sec:storage}
+
+\begin{frame}[fragile]{Three commands that keep a workspace small}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix space-in-use --workspace .              # sizes; changes nothing
+pyfs-matrix free-space m001 --workspace . --apply   # inputs/management/m001.toml
+pyfs-matrix delete-sims 4001,2009 --workspace . --apply
+\end{lstlisting}
+\begin{itemize}\small
+  \item \code{space-in-use}: sizes by top folder, by \code{sims/sim\_*} and by
+        extension (\code{--top N}).
+  \item \code{free-space}: prunes per-step exports, compacts simulation folders into
+        \code{sims/sim\_<id>.zip}, deletes files of named extensions, compacts
+        or deletes \code{post/<matrix>/archive/}. A compacted folder is
+        restored, hash checked, the moment \pyfs{post}, \pyfs{collect} or a
+        continuation needs it.
+  \item \code{delete-sims}: a simulation, its own products and its records;
+        a product shared with other points needs \code{--matrix-products}.
+  \item The \code{.fsm}, \code{scripts/}, logs and every file a record names
+        are never deleted; neither is the mesh, whose link is undone first.
+        Every call is recorded in \code{storage\_management.json}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Per-step exports: keep the last step}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\small
+  \item An unsteady point that exports along its march (the surface of an
+        averaging window, the stamped series) leaves one file per step. They
+        are the largest thing a campaign keeps.
+  \item The recipe table \code{[[prune\_step\_exports]]} of
+        \code{inputs/management/m<id>.toml} deletes them and \textbf{keeps only
+        the last step's} export of each unsteady point. Like every storage call it
+        previews first and deletes only with \code{--apply}, and the call is
+        recorded.
+  \item Products already written stay as they are.
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{alertblock}{A later post that needs a deleted step}
+\small is \textbf{refused}, naming the point and the step that is gone.
+Nothing is averaged over a window with holes in it. Post everything a
+campaign needs before freeing its steps, or run the point again.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}

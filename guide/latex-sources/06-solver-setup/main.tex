@@ -1,0 +1,145 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 06-solver-setup/main.tex
+%
+% Guide 6 of the pyflightstream guides: Solver setup. Built by ../build-all.ps1
+% (or build-all.sh) with this folder and ../shared/ as include directories.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+\guidepdftitle{6}{Solver setup}
+
+\newcommand{\setupsources}[1]{%
+  \par\vfill
+  {\tiny\color{SoftGray} Sources under \code{src/pyflightstream/}: #1.\par}}
+
+% Keep the slide edition's section-frame shape and add its source line.
+\AtBeginSection[]{%
+  \begin{frame}[plain,noframenumbering]
+    \vfill
+    {\color{SoftGray}\small Part \thesection\par}
+    \vspace{2mm}
+    {\color{hanblue}\Huge\bfseries\insertsection\par}
+    \vfill
+    \setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+      \code{workspace/matrix.py}; \code{cases/workflows.py}; \code{commands/}}
+  \end{frame}}
+
+\begin{document}
+
+\guidetitleframe{6}{Solver setup}{Solver setup}
+  {The setup file, its keys, and the solver commands behind them}
+  {Source: the package page ``The workspace and the workflow'' and the setup code [1].}
+
+\begin{frame}{Contents}
+\small
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\setupsources{\code{workspace/matrix.py}; \code{cases/workflows.py};
+  \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\input{text/01-setup-artifact.tex}
+\input{text/02-run-control.tex}
+\input{text/03-physics-and-model.tex}
+\input{text/04-advanced-setup-keys.tex}
+\input{text/05-advanced-raw-commands.tex}
+\input{text/08-loads-keys-and-rates.tex}
+\input{text/06-raw-entries.tex}
+\input{text/07-example-and-checklist.tex}
+
+\begin{frame}{The physics behind the keys, and where to read it}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.30\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Keys} & \textbf{The physics, and its origin} \\
+\midrule
+The solve itself & a panel method: source and doublet singularities on the
+  surface, one boundary condition per panel [6, 7] \\
+\code{solver\_model} & incompressible potential flow [7]; the linearised
+  subsonic correction of Prandtl and Glauert [8]; the tangent-cone and modified
+  Newtonian pressure laws of supersonic and hypersonic flow [14] \\
+\code{unsteady\_pressure\_and\_kutta}, trailing edges & the Kutta condition at a
+  sharp trailing edge, and its unsteady form [7, 19] \\
+Wake relaxation, termination, decay & a force-free wake moved with the local
+  velocity; a time-stepping wake that grows one row per step [7] \\
+\code{boundary\_layer}, \code{viscous\_coupling} & the boundary layer and its
+  transition [15], coupled to the inviscid solution [16] \\
+Separation models and criteria & turbulent separation by a pressure-gradient
+  criterion [17]; a maximum-lift criterion [18] \\
+\code{aeroelastic\_rbf\_type} & radial basis function interpolation of a
+  structure's displacements [9, 10, 11, 12, 13] \\
+\code{SYMMETRY}, periodic copies & the method of images for a mirror plane,
+  and copies turned about an axis [7] \\
+\bottomrule
+\end{tabularx}}
+\end{frame}
+
+\begin{frame}{References}
+\begin{reflist}
+  \bibitem{g04r01} \docref{workspace-and-workflows}{The workspace and the workflow}
+  \bibitem{g04r02} \recordsref
+  \bibitem{g04r03} Altair Engineering, \emph{FlightStream User Manual}, version 26.12, 2026.
+  \bibitem{g04r04} Altair Engineering, \emph{FlightStream User Manual}, version 26.1 (build 26121), 2026.
+  \bibitem{g04r05} Altair Engineering, \emph{FlightStream User Guide}, version 26.0, 2025.
+  \bibitem{g04r06} J. L. Hess, A. M. O. Smith, ``Calculation of potential flow about
+        arbitrary bodies'', \emph{Progress in Aerospace Sciences}, 8,
+        pp. 1-138, 1967.
+  \bibitem{g04r07} J. Katz, A. Plotkin, \emph{Low-Speed Aerodynamics}, 2nd ed.,
+        Cambridge University Press, Cambridge, 2001.
+  \bibitem{g04r08} H. Glauert, ``The effect of compressibility on the lift of an
+        aerofoil'', \emph{Proceedings of the Royal Society of London, Series
+        A}, 118(779), pp. 113-119, 1928.
+  \bibitem{g04r09} A. Beckert, H. Wendland, ``Multivariate interpolation for
+        fluid-structure-interaction problems using radial basis functions'',
+        \emph{Aerospace Science and Technology}, 5(2), pp. 125-134, 2001.
+  \bibitem{g04r10} A. de Boer, M. S. van der Schoot, H. Bijl, ``Mesh deformation based
+        on radial basis function interpolation'', \emph{Computers and
+        Structures}, 85(11-14), pp. 784-795, 2007.
+\end{reflist}
+\end{frame}
+
+\begin{frame}{References (continued)}
+\begin{reflist}
+  \setcounter{enumi}{10}
+  \bibitem{g04r11} T. C. S. Rendall, C. B. Allen, ``Unified fluid-structure
+        interpolation and mesh motion using radial basis functions'',
+        \emph{International Journal for Numerical Methods in Engineering},
+        74(10), pp. 1519-1559, 2008.
+  \bibitem{g04r12} R. L. Hardy, ``Multiquadric equations of topography and other
+        irregular surfaces'', \emph{Journal of Geophysical Research}, 76(8),
+        pp. 1905-1915, 1971.
+  \bibitem{g04r13} H. Wendland, ``Piecewise polynomial, positive definite and compactly
+        supported radial functions of minimal degree'', \emph{Advances in
+        Computational Mathematics}, 4(1), pp. 389-396, 1995.
+  \bibitem{g04r14} J. D. Anderson, \emph{Modern Compressible Flow: With Historical
+        Perspective}, 3rd ed., McGraw-Hill, New York, 2003.
+  \bibitem{g04r15} H. Schlichting, K. Gersten, \emph{Boundary-Layer Theory}, 9th ed.,
+        Springer, Berlin, 2017.
+  \bibitem{g04r16} M. Drela, M. B. Giles, ``Viscous-inviscid analysis of transonic and
+        low Reynolds number airfoils'', \emph{AIAA Journal}, 25(10),
+        pp. 1347-1355, 1987.
+  \bibitem{g04r17} B. S. Stratford, ``The prediction of separation of the turbulent
+        boundary layer'', \emph{Journal of Fluid Mechanics}, 5(1), pp. 1-16,
+        1959.
+  \bibitem{g04r18} W. O. Valarezo, V. D. Chin, ``Method for the prediction of wing
+        maximum lift'', \emph{Journal of Aircraft}, 31(1), pp. 103-109, 1994.
+  \bibitem{g04r19} W. M. Kutta, ``Auftriebskr\"afte in str\"omenden Fl\"ussigkeiten'',
+        \emph{Illustrierte Aeronautische Mitteilungen}, 6, pp. 133-135, 1902.
+\end{reflist}
+\end{frame}
+
+\end{document}

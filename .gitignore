@@ -29,16 +29,14 @@ runs/
 # LaTeX build artifacts of the beamer guide; its built pdf never
 # enters Git, only guide/*.tex is committed.
 guide/*.pdf
-# The eight guide decks, 00 to 07, are the one exception to the pdf rule, by the
+# The nine guides, 01 to 09, are the one exception to the pdf rule, by the
 # owner's decision: their compiled PDFs and the figures they include are
 # tracked beside their sources. The repository guards (pre-commit, the CI
 # guard job and tests/tier1_offline/test_house_style.py) admit these two
 # patterns and no other pdf, guide/ included; the decks' build/ folder stays
 # ignored.
-!guide/pyfts-guide-0[0-7]-*.pdf
-!guide/latex-sources/0[0-7]-*/figures/*.pdf
-# And since 0.33.0 the compiled pyfs-matrix cheatsheet, beside the decks.
-!guide/pyfts-cheatsheet-pyfs-matrix.pdf
+!guide/pyfts-guide-0[1-9]-*.pdf
+!guide/latex-sources/0[1-9]-*/figures/*.pdf
 guide/*.aux
 guide/*.log
 guide/*.nav

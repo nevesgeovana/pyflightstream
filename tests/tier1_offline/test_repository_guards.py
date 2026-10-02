@@ -241,7 +241,12 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # no exemption line was added or widened.
     # 192 on the 0.33.1 branch: docs/ gained migrating-to-0.33.1.md (every
     # release has one); no exemption line was added or widened.
-    assert numbers["exempt"] <= 192, (
+    # 194 on the 0.34.0 branch, the two counts merged (measured at the head, no
+    # slack): the 193 of the guide branch (guide 04 is one source folder of three
+    # files and one PDF, replacing the two files of the pyfs-matrix cheatsheet of
+    # 0.33.0, so guide/ gained two files) plus the migrating-to-0.33.1.md of the
+    # 0.33.1 branch; no exemption line was added or widened.
+    assert numbers["exempt"] <= 194, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

@@ -1,0 +1,142 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-fts-overview/main.tex
+%
+% Guide 1 of the pyflightstream guides: the overview read before guides 2 to 9. What
+% FlightStream is and how a surface vorticity panel solver works, the
+% simulation workflow from geometry to post-processing, how pyflightstream
+% carries that workflow in a workspace, and a map of the other seven guides.
+% Built by ../build-all.ps1 (or build-all.sh) with this folder and ../shared/
+% as include directories. Its own figures are in tikz/, named g01-*.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+\guidepdftitle{1}{Overview}
+
+% Table columns, ragged right so a narrow cell never hyphenates or stretches:
+% P{width} for a fixed column, R for the one that takes the rest.
+\newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{R}{>{\RaggedRight\arraybackslash}X}
+
+\begin{document}
+
+\guidetitleframe{1}{FlightStream and pyfts, an overview}{Overview}
+  {What the solver does, how a simulation is built, and where each guide
+   takes over}
+  {Sources: the FlightStream user manual, the panel-method literature, and
+   the package pages ``The workspace and the workflow'' and ``Storage and
+   sync'' [1, 2, 6, 7, 8, 10].}
+
+\begin{frame}{Who reads what}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{You are new to FlightStream}
+\begin{itemize}\small
+  \item Part 1: what the tool is, and what it will not do.
+  \item Part 2: how a surface vorticity panel solver works, steady,
+        unsteady and rotating.
+  \item Part 3: the simulation workflow, stage by stage.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{You know FlightStream, and meet pyfs}
+\begin{itemize}\small
+  \item Part 4: how pyflightstream carries each stage: the matrix, the
+        references, the setups, the pproc, run and post, the four
+        workflows, storage and sync.
+  \item Part 5: the other seven guides, and when to read each.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\vspace{2mm}
+\begin{takeaway}This deck orients; it defines nothing. Every key, command and
+refusal it names is defined in the guide it points to.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Contents}
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\end{frame}
+
+\input{text/01-flightstream.tex}
+\input{text/02-theory.tex}
+\input{text/03-workflow.tex}
+\input{text/04-pyfs.tex}
+\input{text/05-guides.tex}
+
+\begin{frame}{References}
+\begin{reflist}
+  \bibitem{g00r01} \docref{workspace-and-workflows}{The workspace and the workflow}
+  \bibitem{g00r02} \docref{storage-and-sync}{Storage and sync}
+  \bibitem{g00r03} \docref{gui-to-pyfs}{From the GUI to pyfs}
+  \bibitem{g00r04} \docref{post-processing-definitions}{Post-processing definitions}
+  \bibitem{g00r05} \recordsref
+  \bibitem{g00r06} Altair Engineering, \emph{FlightStream User Manual}, version 26.1
+        (build 26121), 2026. Cited with its page, as [6, p.~164].
+  \bibitem{g00r07} V. Ahuja, \emph{Aerodynamic Loads over Arbitrary Bodies by Method
+        of Integrated Circulation}, PhD dissertation, Auburn University, Auburn,
+        2013.
+  \bibitem{g00r08} D. J. Pate, B. J. German, ``A surface vorticity panel method'',
+        \emph{AIAA Journal}, 56(12), 2018. DOI \texttt{10.2514/1.J057120}.
+\end{reflist}
+\end{frame}
+
+\begin{frame}{References (continued)}
+\begin{reflist}
+  \setcounter{enumi}{8}
+  \bibitem{g00r09} J. L. Hess, A. M. O. Smith, ``Calculation of potential flow about
+        arbitrary bodies'', \emph{Progress in Aerospace Sciences}, 8,
+        pp. 1-138, 1967.
+  \bibitem{g00r10} J. Katz, A. Plotkin, \emph{Low-Speed Aerodynamics}, 2nd ed.,
+        Cambridge University Press, Cambridge, 2001.
+  \bibitem{g00r11} W. M. Kutta, ``Auftriebskr\"afte in str\"omenden Fl\"ussigkeiten'',
+        \emph{Illustrierte Aeronautische Mitteilungen}, 6, pp. 133-135, 1902.
+  \bibitem{g00r12} H. Glauert, ``The effect of compressibility on the lift of an
+        aerofoil'', \emph{Proceedings of the Royal Society of London, Series
+        A}, 118(779), pp. 113-119, 1928.
+  \bibitem{g00r13} B. M. Simmons, S. C. Geuther, V. Ahuja, ``Validation of a
+        mid-fidelity approach for aircraft stability and control
+        characterization'', AIAA AVIATION Forum, 2023. DOI
+        \texttt{10.2514/6.2023-4076}.
+  \bibitem{g00r14} A. Gothow, F. Gavrila, J. Weiss, V. Ahuja, C. Gates,
+        ``Comparative analysis: validating FlightStream with experimental
+        results of a high-lift configured wing model equipped with distributed
+        electric propulsion'', AIAA AVIATION Forum, 2024.
+  \bibitem{g00r15} T. Theodorsen, ``General theory of aerodynamic instability and the
+        mechanism of flutter'', NACA Report 496, 1935.
+  \bibitem{g00r16} J. G. Leishman, \emph{Principles of Helicopter Aerodynamics}, 2nd
+        ed., Cambridge University Press, Cambridge, 2006.
+  \bibitem{g00r17} B. W. McCormick, \emph{Aerodynamics, Aeronautics, and Flight
+        Mechanics}, 2nd ed., Wiley, New York, 1995.
+\end{reflist}
+\end{frame}
+
+\begin{frame}{References (continued)}
+\begin{reflist}
+  \setcounter{enumi}{17}
+  \bibitem{SMI} \smiref
+  \bibitem{g00r19} T. Sinnige, B. Della Corte, ``TUD-XPROP: propeller geometry'',
+        Delft University of Technology, Zenodo, 2026. DOI
+        \texttt{10.5281/zenodo.18598046}.
+  \bibitem{g00r20} \pkgauthor, ``The quasi-steady rotor against the unsteady rotor,
+        measured'', report RPT-089, 2026, \code{reports/} of \url{\pkgrepo}.
+  \bibitem{g00r21} \docref{getting-started}{Getting started}
+  \bibitem{g00r22} \docref{fsi-workspace}{FSI in a workspace}
+\end{reflist}
+\end{frame}
+
+\end{document}
