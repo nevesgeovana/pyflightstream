@@ -57,7 +57,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
-from pyflightstream.workspace._batch_life import running_batches
+from pyflightstream.workspace.ledger import running_batches
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP,
 )

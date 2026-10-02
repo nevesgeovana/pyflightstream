@@ -26,7 +26,7 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases.workflows._vocabulary import (
+from pyflightstream.cases.workflows import (
     BATCH_STEM_PREFIX,
     FULL_POLAR_STEM,
     JOB_END_SUFFIX,

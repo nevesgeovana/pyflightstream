@@ -11,12 +11,29 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pyflightstream.workspace._ledger_history import diff_rows, history_rows
+from pyflightstream.workspace._query_files import _json
+from pyflightstream.workspace._query_logs import (
+    _activity,
+    _additional,
+    _post_groups,
+    _select_logs,
+    _storage,
+)
+from pyflightstream.workspace._query_point import _card, _trace, _trace_run
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
 
+#: The query helpers the command layer reads, under public names (the private
+#: implementations stay in ``_query_files``, ``_query_logs`` and ``_query_point``).
+read_json_file = _json
+select_logs = _select_logs
+storage_rows = _storage
+trace_run = _trace_run
+
 
 def _snapshot(root: str | Path | Ledger, runs: str | None) -> Ledger:
+    # Local on purpose: ``ledger`` imports this module, so this is the one cycle.
     from pyflightstream.workspace.ledger import Ledger, read_ledger
 
     return root if isinstance(root, Ledger) else read_ledger(root, runs=runs)
@@ -121,8 +138,6 @@ def point_card(
     --------
     >>> point_card("campaign", "camp/sim_2006/A0")  # doctest: +SKIP
     """
-    from pyflightstream.workspace._query_point import _card
-
     return _card(_snapshot(root, runs), run_id)
 
 
@@ -206,8 +221,6 @@ def additional_rows(root: str | Path | Ledger) -> list[dict[str, Any]]:
     --------
     >>> additional_rows("campaign")  # doctest: +SKIP
     """
-    from pyflightstream.workspace._query_logs import _additional
-
     return _additional(_snapshot(root, None))
 
 
@@ -254,9 +267,7 @@ def activity_rows(
     --------
     >>> activity_rows("campaign", stage="run")  # doctest: +SKIP
     """
-    from pyflightstream.workspace._query_logs import _activity, _select_logs
-
-    return _select_logs(
+    return select_logs(
         _activity(_snapshot(root, None)),
         sims=list(sims or ()),
         run=run,
@@ -290,8 +301,6 @@ def post_log_groups(
     --------
     >>> post_log_groups("campaign", "sample")  # doctest: +SKIP
     """
-    from pyflightstream.workspace._query_logs import _post_groups
-
     return _post_groups(_snapshot(root, None), matrix, list(sims or ()))
 
 
@@ -314,6 +323,4 @@ def trace_product(root: str | Path | Ledger, product: str) -> list[dict[str, Any
     --------
     >>> trace_product("campaign", "post/sample/polar.csv")  # doctest: +SKIP
     """
-    from pyflightstream.workspace._query_point import _trace
-
     return _trace(_snapshot(root, None), product)

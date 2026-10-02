@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
-from pyflightstream.cases.workflows._vocabulary import BATCH_DIR, BATCH_STEM_PREFIX
+from pyflightstream.cases.workflows import BATCH_DIR, BATCH_STEM_PREFIX
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import RunRecord

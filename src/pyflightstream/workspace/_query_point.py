@@ -10,7 +10,7 @@ import csv
 import io
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyflightstream.workspace._query_files import (
     _evidence,
@@ -22,7 +22,9 @@ from pyflightstream.workspace._query_files import (
     _text,
 )
 from pyflightstream.workspace._query_logs import _activity, _mentions, _post_rows
-from pyflightstream.workspace.ledger import Ledger
+
+if TYPE_CHECKING:
+    from pyflightstream.workspace.ledger import Ledger
 
 _OUTCOME = (
     "status",

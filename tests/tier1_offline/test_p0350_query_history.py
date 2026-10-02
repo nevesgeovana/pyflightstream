@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -110,9 +111,13 @@ def _call(root: Path, capsys, verb: str, *args: str) -> tuple[int, str, str]:
     return code, out, err
 
 
-def _tree(root: Path) -> dict[str, bytes | None]:
+def _tree(root: Path) -> dict[str, tuple[bytes | None, int]]:
+    """Every path under ``root`` with its bytes (None for a folder) and modification time."""
     return {
-        path.relative_to(root).as_posix(): path.read_bytes() if path.is_file() else None
+        path.relative_to(root).as_posix(): (
+            path.read_bytes() if path.is_file() else None,
+            path.lstat().st_mtime_ns,
+        )
         for path in root.rglob("*")
     }
 
@@ -195,12 +200,20 @@ def test_queries_write_nothing_and_keep_the_additional_register(workspace, capsy
     (workspace / "control.bin").write_bytes(b"do not change\x00\xff")
     (workspace / "runs.json.lock").write_bytes(b"a running writer owns this")
     before = _tree(workspace)
+    time.sleep(0.02)
     for verb, args in (("history", ["2006"]), ("diff", [f"{RUN}@{STAMP}", NEXT])):
         for output in ([], ["--json"], ["--csv"]):
             code, _, _ = _call(workspace, capsys, verb, *args, *output)
             assert code == 0
-    assert additional_rows(workspace) == json.loads(before["additional.json"])
+    assert additional_rows(workspace) == json.loads(before["additional.json"][0])
     assert _tree(workspace) == before
+    # THE CONTROL: the same comparison must fail after a planted writer, even an mtime-only one.
+    (workspace / "planted.bin").write_bytes(b"x")
+    assert _tree(workspace) != before
+    (workspace / "planted.bin").unlink()
+    assert _tree(workspace) == before
+    os.utime(workspace / "runs.json.lock")
+    assert _tree(workspace) != before
 
 
 def test_python_query_results_are_plain_json_data(workspace, capsys):

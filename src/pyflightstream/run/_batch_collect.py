@@ -31,11 +31,11 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream.cases import EXPORT_KINDS
-from pyflightstream.cases.workflows import WALLTIME_CLOCK_STATE
-from pyflightstream.cases.workflows._vocabulary import (
+from pyflightstream.cases.workflows import (
     CUMULATIVE_LOG_SUFFIX,
     JOB_END_SUFFIX,
     JOB_LOG_SUFFIX,
+    WALLTIME_CLOCK_STATE,
 )
 from pyflightstream.results.log import point_log_text, split_job_log
 from pyflightstream.run._pending import _walltime_stop
