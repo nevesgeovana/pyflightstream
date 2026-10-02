@@ -159,17 +159,39 @@ def _restore_fr51_block(name: str, text: str) -> str | None:
     return text.replace(anchor, anchor + block)
 
 
-def _golden_classes(record: dict) -> tuple[set, set]:
-    """The goldens that differ from v0.32.0 by the counter, and by the FR-51 removal."""
+#: A disc speed line of the script, its sign apart from its magnitude.
+ACTUATOR_SPEED = re.compile(r"^(SET_PROP_ACTUATOR_RPM \d+ )(-?)(\S+)$", re.MULTILINE)
+
+
+def _restore_fr331_sign(text: str) -> str | None:
+    """The text with the disc speed sign FR-331 (0.34.0) flips put back, or None without a disc.
+
+    FR-331 hands the solver minus the block's hand times the speed where v0.32.0 handed plus,
+    so every SET_PROP_ACTUATOR_RPM line changes sign and nothing else changes. The restore
+    flips each one back, so a golden that differs from v0.32.0 by anything beside that sign
+    still fails its digest.
+    """
+    if not ACTUATOR_SPEED.search(text):
+        return None
+    return ACTUATOR_SPEED.sub(lambda m: m.group(1) + ("" if m.group(2) else "-") + m.group(3), text)
+
+
+def _golden_classes(record: dict) -> tuple[set, set, set]:
+    """The goldens that differ from v0.32.0 by the counter, the FR-51 removal or the FR-331 sign."""
     requirement = "FR-314"
-    changed, fr51 = set(), set()
+    changed, fr51, fr331 = set(), set(), set()
     for name, digest in sorted(record["digests"].items()):
         text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
         if _sha(text) == digest:
             continue
         stripped, found = COUNTER_REGISTRATION.subn("", text)
         if found == 0:
-            # No counter: the only other admitted difference is the FR-51 removal.
+            # No counter: the other admitted differences are the FR-51 removal (0.33.1) and
+            # the FR-331 disc speed sign (0.34.0), each whole and alone.
+            sign = _restore_fr331_sign(text)
+            if sign is not None and _sha(sign) == digest:
+                fr331.add(name)
+                continue
             restored = _restore_fr51_block(name, text)
             assert restored is not None, (requirement, name, found)
             assert _sha(restored) == digest, (requirement, name, "differs beyond the FR-51 removal")
@@ -178,11 +200,17 @@ def _golden_classes(record: dict) -> tuple[set, set]:
         assert found == 1, (requirement, name, found)
         assert _sha(stripped) == digest, (requirement, name, "differs beyond the counter")
         changed.add(name)
-    return changed, fr51
+    return changed, fr51, fr331
 
 
 #: The goldens FR-51 (0.33.1) changes: a row whose script cuts no section no longer plots them.
 FR51_GOLDENS = {"tests/tier3_licensed/goldens/matriz/P1021-M100RE230AL+000.txt"}
+
+#: The goldens FR-331 (0.34.0) changes: the rows with an actuator disc, whose speed changes sign.
+FR331_GOLDENS = {
+    "tests/tier3_licensed/goldens/matriz_gui/P5008-V0300RHO12250AL+040.txt",
+    "tests/tier3_licensed/goldens/matriz_gui/P5009-V0300RHO12250AL+040.txt",
+}
 
 
 def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration():
@@ -192,16 +220,39 @@ def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration()
     v0.32.0 committed, or those bytes with exactly one counter registration
     added. The set of the second kind is every unsteady run type on 26.122 to
     26.124 and the ten tier-3 scripts of rows without per-step export. The
-    one other admitted difference is the FR-51 removal of the sections plot
-    block from a script that cuts no section (0.33.1). The control: a changed
-    golden, the counter kept, does not match its digest.
+    other admitted differences are the FR-51 removal of the sections plot
+    block from a script that cuts no section (0.33.1) and the FR-331 sign of
+    an actuator disc's speed (0.34.0). The control: a changed golden, the
+    counter kept, does not match its digest.
     """
     requirement = "FR-314"
     record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
     assert record["tag"] == "v0.32.0" and len(record["digests"]) == 134, record.keys()
-    changed, fr51 = _golden_classes(record)
+    changed, fr51, fr331 = _golden_classes(record)
     assert changed == CHANGED_GOLDENS, (requirement, changed ^ CHANGED_GOLDENS)
     assert fr51 == FR51_GOLDENS, (requirement, fr51 ^ FR51_GOLDENS)
+    assert fr331 == FR331_GOLDENS, (requirement, fr331 ^ FR331_GOLDENS)
+
+
+def test_fr314_the_fr331_sign_is_admitted_whole_and_alone():
+    """Controls: a second change beside the sign, or one disc line left unflipped, fails."""
+    requirement = "FR-331"
+    record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
+    for name in sorted(FR331_GOLDENS):
+        digest = record["digests"][name]
+        text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
+        assert _sha(text) != digest, (requirement, name, "the golden no longer differs")
+        restored = _restore_fr331_sign(text)
+        assert restored is not None and _sha(restored) == digest, (requirement, name)
+        # A second change beside the sign.
+        planted = text.replace("ENABLE_ACTUATOR 1\n", "ENABLE_ACTUATOR 1\nENABLE_ACTUATOR 1\n", 1)
+        assert planted != text
+        again = _restore_fr331_sign(planted)
+        assert again is not None and _sha(again) != digest, (requirement, name)
+        # The 0.32.0 sign kept: the golden as v0.32.0 wrote it is not restored to itself.
+        assert _sha(_restore_fr331_sign(restored) or "") != digest, (requirement, name)
+    # A script without a disc never takes the allowance.
+    assert _restore_fr331_sign("SET_FREESTREAM CONSTANT\n") is None, requirement
 
 
 def test_fr314_the_fr51_removal_is_admitted_whole_and_alone():
