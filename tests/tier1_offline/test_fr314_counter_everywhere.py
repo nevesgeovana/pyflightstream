@@ -251,6 +251,13 @@ def test_fr314_the_fr331_sign_is_admitted_whole_and_alone():
         assert again is not None and _sha(again) != digest, (requirement, name)
         # The 0.32.0 sign kept: the golden as v0.32.0 wrote it is not restored to itself.
         assert _sha(_restore_fr331_sign(restored) or "") != digest, (requirement, name)
+    # One disc line left unflipped, on a synthetic two-disc script: v0.32.0 wrote +100 and +200,
+    # 0.34.0 writes both flipped, and a script that flipped only the first is refused.
+    before = "SET_PROP_ACTUATOR_RPM 1 100\nX\nSET_PROP_ACTUATOR_RPM 2 200\n"
+    flipped = "SET_PROP_ACTUATOR_RPM 1 -100\nX\nSET_PROP_ACTUATOR_RPM 2 -200\n"
+    one_left = "SET_PROP_ACTUATOR_RPM 1 -100\nX\nSET_PROP_ACTUATOR_RPM 2 200\n"
+    assert _restore_fr331_sign(flipped) == before, requirement
+    assert _restore_fr331_sign(one_left) != before, requirement
     # A script without a disc never takes the allowance.
     assert _restore_fr331_sign("SET_FREESTREAM CONSTANT\n") is None, requirement
 

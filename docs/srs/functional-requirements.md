@@ -8271,7 +8271,7 @@ Requirements written after the specification was last reconciled with the packag
     - R2 The disc speed handed to the disc emitter is minus `rpm_sign` times the row's disc speed magnitude, where 0.33.0 handed plus `rpm_sign` times it; the emitted disc line therefore carries, for the same block, the opposite sign of the line 0.33.0 wrote, which is the sign measured on 26.124 to swirl with the rotor. The docstring of the reference block and the actuator pages say the same.
     - R3 A tier-1 test pins the emitted sign for both hands.
     - R4 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only. This is a behaviour change, permanent from 0.34.0: the `NAMED_DIFFERENCES` of the parity script name it under this requirement, and the migration page of 0.34.0 states it among the first changes.
-    - R5 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so.
+    - R5 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so. The sign rule is measured on 26.124 only and applied to every build.
 
     Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module turning `rpm_sign` into the solver's disc speed). `pyflightstream.cases.workflows._motion` also reads the hand of a disc, for the signed `rpm` of its Mach record in the plan and the run record, and keeps it as the block's hand times the speed, the opposite sign of the script's `SET_PROP_ACTUATOR_RPM` since 0.34.0.
 

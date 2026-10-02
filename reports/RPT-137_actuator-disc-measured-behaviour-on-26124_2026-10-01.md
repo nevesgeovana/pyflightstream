@@ -119,3 +119,28 @@ wake study states the plane rather than leaving the solver's default.
 - The cause of the ELLIPTICAL deficit and of the RELAXED behaviour: a question
   for the vendor, or a test with the unsteady solver.
 - The loads of a disc: the study read the wake, not the body's loads.
+
+## Amendment of 2026-10-01: the study this report summarises, and three precisions
+
+The measured text above is unchanged. This section only names its source and
+states what the text left open.
+
+- **The study.** This report summarises the study `actuator_disc_wake` of the
+  author's private research repository, commit `637c146` of 2026-10-01. The
+  study file, as it stands at the time of this amendment, has the sha256
+  `383cc7db308dfbd35bd8e53779a1d8df117815438a3ce9e01daa43482662950d`. The
+  underlying run data is private and is not in this tree; the report states
+  nondimensional results only, with no geometry and no path.
+- **The unsteady reference of each comparison.** The swirl sense of section 2
+  compares each disc against the unsteady full wheel (+5.3 deg at x/R = 1, the
+  reference whose hand the disc must follow). The one-factor swirl statement of
+  section 3 compares the RIGID disc against the unsteady sector (0.5 to 1.0 deg
+  above it over x/R 0.5 to 4). The two statements are about different
+  references, and neither is wrong: the sector's swirl at x/R = 1 is 4.1 deg
+  against the wheel's 5.3 deg, so the disc's +4.8 deg is above the sector and
+  below the wheel.
+- **ELLIPTICAL's ratio.** The deficit of section 4 is 0.619 of the thrust asked
+  at T and 0.652 at 2T, so the words "linear and scaled" of section 4 are
+  read as: the delivered thrust is roughly proportional to the
+  thrust asked, not linear in it, because the ratio moves by 0.033 between the
+  two loads.
