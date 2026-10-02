@@ -3,7 +3,7 @@
   "init-dummy|dir|--dir": {
    "action": "_StoreAction",
    "choices": null,
-   "default": "WindowsPath('C:/WORK/p34-kill')",
+   "default": "<CWD>",
    "dest": "dir",
    "nargs": null,
    "option_strings": [
@@ -40,7 +40,7 @@
   "step|dir|--dir": {
    "action": "_StoreAction",
    "choices": null,
-   "default": "WindowsPath('C:/WORK/p34-kill')",
+   "default": "<CWD>",
    "dest": "dir",
    "nargs": null,
    "option_strings": [

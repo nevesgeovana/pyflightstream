@@ -95,6 +95,11 @@ def _plain(value):
     """A JSON-safe form of a default or a choice, stable across runs."""
     if value is None or isinstance(value, bool | int | float | str):
         return value
+    # A default taken from the working directory when the parser is built
+    # (pyfs-fsi --dir) is recorded as that, not as the machine's path, so the
+    # golden reads the same on every checkout and platform.
+    if isinstance(value, Path) and value == Path.cwd():
+        return "<CWD>"
     if isinstance(value, list | tuple | set | frozenset):
         items = [_plain(v) for v in value]
         return sorted(items, key=repr) if isinstance(value, set | frozenset) else items
