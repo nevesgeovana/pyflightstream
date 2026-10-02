@@ -19,6 +19,7 @@ import webbrowser
 from importlib import metadata, resources
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream.commands import (
     ArgSpec,
     CommandEntry,
@@ -876,7 +877,7 @@ def help(  # noqa: A001
         suffix = resolve(version).canonical if version is not None else "all"
         path = Path(tempfile.gettempdir()) / f"pyflightstream_reference_{suffix}.html"
     target = Path(path)
-    target.write_text(render_html(version), encoding="utf-8")
+    _textio.write_text(target, render_html(version))
     if open_browser:
         webbrowser.open(target.as_uri())
     return target

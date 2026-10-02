@@ -186,6 +186,10 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
+
+# The LF route (NFR-32) is reached through the module that already imports it: this
+# module's fan-out is over its cap (G4) and may only fall.
+from pyflightstream.post._tables import _textio as _textio
 from pyflightstream.post._tables import polar_file_name as polar_file_name
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
@@ -647,7 +651,7 @@ def write_campaign_products(
     caught: list[warnings.WarningMessage] = []
     try:
         with (
-            (out / _POST_LOG).open("w", encoding="utf-8") as stream,
+            _textio.open_text(out / _POST_LOG, "w") as stream,
             collecting_warnings() as caught,
         ):
             stream.write(
@@ -711,9 +715,9 @@ def write_campaign_products(
                     # an interrupted post alike, and even when the manifest
                     # cannot be read back, with what was collected before it.
                     stream.writelines(_log_line(record) for record in records)
-                    (out / _POST_LOG_JSON).write_text(
+                    _textio.write_text(
+                        out / _POST_LOG_JSON,
                         json.dumps({**header, "records": records}, indent=1) + "\n",
-                        encoding="utf-8",
                     )
     finally:
         _POST_REFUSES.reset(token)
@@ -1032,9 +1036,7 @@ def _campaign_products(
                     path.unlink()
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
-        (out / PRODUCTS_MANIFEST).write_text(
-            json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
-        )
+        _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"
@@ -1044,9 +1046,7 @@ def _campaign_products(
         }
         manifest["products"] = products_index_on_disk
         out.mkdir(parents=True, exist_ok=True)
-        (out / PRODUCTS_MANIFEST).write_text(
-            json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
-        )
+        _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
         raise
     return written
 
@@ -1367,4 +1367,4 @@ def _write_the_products(
     manifest["provenance"] = provenance if partial is None else {**partial.provenance, **provenance}
     manifest["complete"] = True
     out.mkdir(parents=True, exist_ok=True)
-    (out / PRODUCTS_MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+    _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")

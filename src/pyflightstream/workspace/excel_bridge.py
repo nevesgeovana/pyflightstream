@@ -8,6 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
 
+import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream.workspace.excel_sync import (
     Cell,
@@ -123,9 +124,8 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
 
 
 def _write_response(path: Path, records: list[list[str]]) -> None:
-    path.write_text(
-        "\n".join("\t".join(escape(value) for value in row) for row in records) + "\n",
-        encoding="utf-8",
+    _textio.write_text(
+        path, "\n".join("\t".join(escape(value) for value in row) for row in records) + "\n"
     )
 
 
@@ -189,9 +189,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
             preview = preview_sync(
                 metadata["workspace"], snapshot, direction=direction, matrices=selected or None
             )
-            batch.write_text(
-                json.dumps(asdict(preview), ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            _textio.write_text(batch, json.dumps(asdict(preview), ensure_ascii=False, indent=2))
             records += [
                 ["META", "workspace", preview.workspace],
                 ["META", "direction", preview.direction],

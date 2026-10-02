@@ -127,6 +127,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
+import pyflightstream._textio as _textio
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.utils.errors import ManualDraftError
 
@@ -2255,7 +2256,7 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
             f"nothing written. Pass write=True to write {target}."
         )
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
+    _textio.write_text(target, body)
     return (
         f"wrote {entries} drafted entr(ies) to {target}, with {unanswered} unanswered "
         "field(s) still to review. They are drafts: the '???' values do not load."

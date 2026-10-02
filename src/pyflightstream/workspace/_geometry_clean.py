@@ -21,6 +21,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamError, PyflightstreamWarning
 from pyflightstream._errors import warn as _warn
 from pyflightstream._fsm import (
@@ -127,7 +128,7 @@ def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
     backup = path.with_name(f"{path.name}.bak-{stamp}")
     shutil.copy2(path, backup)
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    temporary.write_bytes(reset.text.encode("latin-1"))
+    _textio.write_text(temporary, reset.text, encoding="latin-1")
     os.replace(temporary, path)
     after: object
     try:

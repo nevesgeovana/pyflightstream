@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pyflightstream
+import pyflightstream._textio as _textio
 
 # The writer is looked up on its module, not bound here, so the point path
 # and the sweep path reach one function through one name (and a test that
@@ -295,7 +296,7 @@ def _the_local_log(
         return _LocalLog()
     captured = result.captured_output()
     if captured:
-        (work_dir / declared[0]).write_text(captured, encoding="utf-8", newline="")
+        _textio.write_text(work_dir / declared[0], captured)
         return _LocalLog(
             written=declared[0], note=_CAPTURED_LOG_NOTE.format(name=Path(declared[0]).name)
         )
@@ -752,11 +753,11 @@ def _execute_point(
     if any(use.name == WALLTIME_CLOCK_ACTION for use in script.unsteady_actions):
         clock = work_dir / WALLTIME_CLOCK_PROGRAM
         clock.parent.mkdir(parents=True, exist_ok=True)
-        clock.write_text(
+        _textio.write_text(
+            clock,
             walltime_clock_program(
                 point_case, workflow_conventions_for(point_case), version=fs_version
             ),
-            encoding="utf-8",
         )
         (work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
         base["inputs_sha256"] = {

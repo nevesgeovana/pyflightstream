@@ -27,6 +27,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream.run._record_files import _ROOT_KINDS, _relative, _root_archives
 from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST
@@ -178,9 +179,7 @@ def collect_without_writing(
         return seen
 
     workspace = _Staged(Path(root))
-    workspace.manifest_path.write_text(
-        json.dumps([dict(record)], indent=2) + "\n", encoding="utf-8"
-    )
+    _textio.write_text(workspace.manifest_path, json.dumps([dict(record)], indent=2) + "\n")
 
     # The stage logs its activity under the workspace it is given; entered
     # here first with the STAGING folder, its log lands there, not in the

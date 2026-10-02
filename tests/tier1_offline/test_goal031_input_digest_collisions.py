@@ -229,8 +229,9 @@ def _run_in_python(tmp_path: Path, field_text: str):
     geometry.write_bytes(b"geometry")
     field = tmp_path / "freestreams" / "wing.wake_nodes.txt"
     field.parent.mkdir()
-    # Written as the run writes a parked text file, so the same text is the same bytes.
-    field.write_text(field_text, encoding="utf-8")
+    # Written as the run writes a parked text file (LF on every platform, NFR-32),
+    # so the same text is the same bytes.
+    field.write_text(field_text, encoding="utf-8", newline="\n")
     case = SimCase(
         sim_id="9001",
         aircraft="TestWing",

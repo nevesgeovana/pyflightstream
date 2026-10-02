@@ -38,6 +38,7 @@ from pathlib import Path
 from types import MappingProxyType, UnionType
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases import (
     EXPORT_KIND_MEANINGS,
@@ -114,7 +115,7 @@ def write_if_different(path: Path, text: str) -> bool:
             return False
     except (OSError, UnicodeDecodeError):
         pass  # unreadable is different
-    path.write_text(text, encoding="utf-8", newline="\n")
+    _textio.write_text(path, text)
     return True
 
 

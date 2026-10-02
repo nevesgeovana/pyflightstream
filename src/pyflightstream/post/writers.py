@@ -46,6 +46,7 @@ import numpy as np
 import xarray as xr
 from pydantic import BaseModel, ConfigDict
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
@@ -281,8 +282,8 @@ def write_output_pair(
     record = provenance_path(destination)
     _refuse_existing(destination, overwrite)
     _refuse_existing(record, overwrite)
-    destination.write_text(text, encoding="utf-8")
-    record.write_text(_provenance_payload(provenance, destination), encoding="utf-8")
+    _textio.write_text(destination, text)
+    _textio.write_text(record, _provenance_payload(provenance, destination))
     return destination, record
 
 

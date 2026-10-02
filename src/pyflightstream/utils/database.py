@@ -56,6 +56,7 @@ from pathlib import Path
 
 import yaml
 
+import pyflightstream._textio as _textio
 from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
@@ -408,7 +409,7 @@ def register_edition(
         edited[path] = text
 
     for path, text in edited.items():
-        path.write_bytes(text.encode("utf-8"))
+        _textio.write_text(path, text)
     # REPLACED, not rebuilt. The class docstring says a dry run and a
     # write report the same object, and nothing enforced it: seven fields
     # were repeated across two constructions, so one added to the write

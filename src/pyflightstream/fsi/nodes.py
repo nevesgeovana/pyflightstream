@@ -78,6 +78,7 @@ from pydantic import (
     model_validator,
 )
 
+import pyflightstream._textio as _textio
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.kinematics import NODE_ROLES
@@ -827,7 +828,7 @@ def write_node_file(node_map: NodeOrderingMap, path: str | Path) -> None:
     path : str or Path
         Destination CSV; overwritten if present.
     """
-    Path(path).write_text(render_node_file(node_map), encoding="utf-8")
+    _textio.write_text(Path(path), render_node_file(node_map))
 
 
 def write_node_map(node_map: NodeOrderingMap, path: str | Path) -> None:
@@ -841,7 +842,7 @@ def write_node_map(node_map: NodeOrderingMap, path: str | Path) -> None:
         Destination JSON, normally the ``node_map_file`` name of the
         configuration inside the run folder.
     """
-    Path(path).write_text(node_map.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(Path(path), node_map.model_dump_json(indent=2) + "\n")
 
 
 def load_node_map(path: str | Path) -> NodeOrderingMap:
@@ -1000,7 +1001,7 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
             "import order."
         )
     lines = [",".join(_DISP_FORMAT.format(v) for v in row) for row in translations]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _textio.write_text(Path(path), "\n".join(lines) + "\n")
 
 
 def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarray:

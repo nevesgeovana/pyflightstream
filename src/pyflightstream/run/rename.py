@@ -60,6 +60,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     CampaignConfigError,
@@ -872,7 +873,7 @@ def _plan_changes(
         if after != before:
             if applied:
                 archive_previous(workspace.root, plan_file, matrix=stem)
-                plan_file.write_text(after, encoding="utf-8")
+                _textio.write_text(plan_file, after)
             changes.append(
                 RenameChange(
                     "plan" if applied else "plan would be",

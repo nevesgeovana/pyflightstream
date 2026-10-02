@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._tables import NOT_APPLICABLE, ProductExistsError
@@ -643,6 +644,6 @@ def run_provenance(
             )
         document = prov_document(record, workspace.sim_dir(record.sim_id))
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
+        _textio.write_text(target, json.dumps(document, indent=1) + "\n")
         index[record.run_id] = relative
     return index

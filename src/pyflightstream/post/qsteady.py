@@ -64,6 +64,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.qsteady import (
@@ -233,8 +234,8 @@ def _read_table(path: Path) -> tuple[list[str], list[list[str]]]:
 
 
 def _rewrite(path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
+    with _textio.open_text(path, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow(columns)
         writer.writerows(rows)
 
@@ -357,7 +358,7 @@ def write_point_validity_file(
         "plan": record.validity,
         "written_by": "the post stage; the run record beside it is not rewritten",
     }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(path, json.dumps(payload, indent=2) + "\n")
     return path
 
 

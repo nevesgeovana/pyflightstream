@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream.qa.errors import QaEvidenceError
 
 __all__ = [
@@ -352,7 +353,7 @@ def write_stl(triangles: np.ndarray, path: str | Path, name: str = "pyflightstre
         lines.append("  endfacet")
     lines.append(f"endsolid {name}")
     destination = Path(path)
-    destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _textio.write_text(destination, "\n".join(lines) + "\n")
     return destination
 
 

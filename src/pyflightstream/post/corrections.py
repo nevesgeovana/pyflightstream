@@ -58,6 +58,7 @@ from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.corrections import (
@@ -774,9 +775,7 @@ def _correct_wheel_point(
             "term only"
         )
     done = write_csv_table(
-        target(out / sections_out),
-        (*section_columns, *PROVENANCE_COLUMNS),
-        new_sections,
+        target(out / sections_out), (*section_columns, *PROVENANCE_COLUMNS), new_sections
     )
     written.append(
         (
@@ -1369,6 +1368,6 @@ def sector_offset_calibration(
     if path.exists() and not overwrite:
         raise CalibrationError(f"{path} exists; pass overwrite=True to replace it")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    _textio.write_text(path, text)
     read_calibration(path)
     return path

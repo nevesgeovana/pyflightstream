@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import (
     PyflightstreamError,
 )
@@ -841,7 +842,7 @@ class SubmittingExecutor:
             values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
         descriptor = Path(working_dir) / self.profile.descriptor_name
         descriptor.parent.mkdir(parents=True, exist_ok=True)
-        descriptor.write_text(render_descriptor(self.profile, values), encoding="utf-8")
+        _textio.write_text(descriptor, render_descriptor(self.profile, values))
         self.descriptor_path = descriptor
         argv = [
             part.format(descriptor_path=descriptor.as_posix(), **values)
@@ -1026,7 +1027,7 @@ def _run_until_the_analysis_ends(
                     "by itself.\n"
                 )
                 try:
-                    with (working_dir / STEADY_COUPLED_STOP_LOG).open("a", encoding="utf-8") as log:
+                    with _textio.open_text(working_dir / STEADY_COUPLED_STOP_LOG, "a") as log:
                         log.write(note)
                 except (OSError, ValueError):
                     pass
@@ -1046,7 +1047,7 @@ def _run_until_the_analysis_ends(
                 process.kill()
                 process.wait()
                 try:
-                    with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
+                    with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
                         log.write(diagnostic)
                 except (OSError, ValueError) as log_error:
                     say_line(f"[solver] could not persist modal diagnostic: {log_error}")
@@ -1054,8 +1055,8 @@ def _run_until_the_analysis_ends(
                 return process.returncode or 1, False, "\n" + diagnostic
 
     with (
-        out_path.open("w", encoding="utf-8") as out_file,
-        err_path.open("w", encoding="utf-8") as err_file,
+        _textio.open_text(out_path, "w") as out_file,
+        _textio.open_text(err_path, "w") as err_file,
     ):
         process = subprocess.Popen(
             argv,
@@ -1130,7 +1131,7 @@ def _run_with_progress(
                 # Guarded (GOAL-034 Q8 CXQ8R4-2): a log or stderr that cannot be
                 # written must not replace the failed-execution result it reports.
                 try:
-                    with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
+                    with _textio.open_text(working_dir / "pyfs-modal-error.log", "a") as log:
                         log.write(diagnostic)
                 except (OSError, ValueError) as log_error:
                     say_line(f"[solver] could not persist modal diagnostic: {log_error}")
@@ -1146,9 +1147,7 @@ def _run_with_progress(
             for description in spared:
                 spared_said.add(description)
                 try:
-                    with (working_dir / "pyfs-solver-windows.log").open(
-                        "a", encoding="utf-8"
-                    ) as log:
+                    with _textio.open_text(working_dir / "pyfs-solver-windows.log", "a") as log:
                         log.write(
                             f"{_utc_now()} pid={pid} spared a window that asks nothing: "
                             f"{description}\n"
@@ -1561,7 +1560,7 @@ def export_surface_mesh(
     script.emit("EXPORT_SURFACE_MESH", file_type, surface, str(mesh_path))
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "export_surface_mesh.txt"
-    script_path.write_text(script.render(), encoding="utf-8")
+    _textio.write_text(script_path, script.render())
 
     result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     if result.failed or not mesh_path.is_file():

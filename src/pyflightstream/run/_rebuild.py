@@ -28,6 +28,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.run._rebuild_evidence import (
     _changes,
@@ -151,7 +152,7 @@ def _reactivate(matrix: Path, sims: set[str]) -> list[str]:
             lines[index] = "|".join(cells)
             changed.append(pol)
     if changed:
-        matrix.write_text("".join(lines), encoding="utf-8")
+        _textio.write_text(matrix, "".join(lines))
     return changed
 
 
@@ -928,7 +929,7 @@ def rebuild(
             else [rebuilt.get(row.get("run_id"), row) for row in rows] + fresh
         )
         try:
-            with target.open("x", encoding="utf-8") as handle:
+            with _textio.open_text(target, "x") as handle:
                 handle.write(json.dumps(written, indent=2) + "\n")
         except FileExistsError as error:
             raise RecordsError(
@@ -1083,7 +1084,7 @@ def _rebuild_all(
             quiet_window_s=QUIET_WINDOW_S,
         )
         with (
-            chatter.open("w", encoding="utf-8") as stream,
+            _textio.open_text(chatter, "w") as stream,
             contextlib.redirect_stdout(stream),
             contextlib.redirect_stderr(stream),
         ):

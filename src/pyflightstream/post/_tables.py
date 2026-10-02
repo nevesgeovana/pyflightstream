@@ -29,6 +29,8 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
+
 # RE-EXPORTED, not used here. `post.products` imports both from this module,
 # which is what its own docstring promises a reader, and they are DEFINED in
 # `_errors` since 0.23.0 because two layers name them: the products stage
@@ -387,8 +389,8 @@ def write_csv_table(
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
+    with _textio.open_text(target, "w") as handle:
+        writer = _textio.csv_writer(handle)
         writer.writerow([plain_cell(str(name)) for name in columns])
         for row in rows:
             if len(row) != len(columns):

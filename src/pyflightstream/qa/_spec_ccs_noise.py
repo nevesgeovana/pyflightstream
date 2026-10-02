@@ -23,6 +23,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._fsm import boundary_names
 from pyflightstream.qa._spec_catalog_b import _CREATE_RECT_VSECTION
 from pyflightstream.qa._spec_kit import (
@@ -108,7 +109,7 @@ def ccs_probe_text() -> str:
 
 def _ccs_file(workdir: Path) -> Path:
     path = workdir / _CCS_NAME
-    path.write_text(ccs_probe_text(), encoding="utf-8")
+    _textio.write_text(path, ccs_probe_text())
     return path
 
 
@@ -266,7 +267,7 @@ _INSTRUMENT_FILES = frozenset(
 def _record_listing(script: Script, workdir: Path) -> None:
     """Record the directory at build time so a file the solver adds can be told apart."""
     listing = sorted(path.name for path in workdir.iterdir() if path.name != "listing_at_build.txt")
-    (workdir / "listing_at_build.txt").write_text("\n".join(listing), encoding="utf-8")
+    _textio.write_text(workdir / "listing_at_build.txt", "\n".join(listing))
 
 
 def _added_files(artifacts: ProbeArtifacts) -> list[str]:
@@ -545,7 +546,7 @@ def _acoustic_solver(script: Script, workdir: Path) -> None:
 
 def _observers_file(workdir: Path) -> Path:
     path = workdir / "observers.txt"
-    path.write_text("2\n0.0,10.0,5.0\n5.0,10.0,0.0\n", encoding="utf-8")
+    _textio.write_text(path, "2\n0.0,10.0,5.0\n5.0,10.0,0.0\n")
     return path
 
 

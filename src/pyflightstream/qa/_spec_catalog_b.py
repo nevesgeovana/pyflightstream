@@ -28,6 +28,7 @@ from pyflightstream.script import Script
 
 __all__: list[str] = []
 
+import pyflightstream._textio as _textio
 from pyflightstream.qa._spec_kit import (  # noqa: E402
     _emit,
     _file_lax,
@@ -67,7 +68,7 @@ def _probe_import_target(script: Script, workdir: Path) -> None:
     # Lattice format per the curated helper evidence (SRC-003
     # pp.362-363): first line the count, then X,Y,Z,TYPE rows.
     lattice = workdir / "lattice.csv"
-    lattice.write_text("2\n0.8765,0.1,0.2,1\n0.7654,0.3,0.4,1\n", encoding="utf-8")
+    _textio.write_text(lattice, "2\n0.8765,0.1,0.2,1\n0.7654,0.3,0.4,1\n")
     script.emit("PROBE_POINTS_IMPORT", "METER", 1, lattice)
 
 
@@ -603,7 +604,7 @@ def _sweep_epilogue(script: Script, workdir: Path) -> None:
 
 def _postrun_target(script: Script, workdir: Path) -> None:
     postrun = workdir / "postrun.txt"
-    postrun.write_text("PRINT PYFS_POSTRUN\n", encoding="utf-8")
+    _textio.write_text(postrun, "PRINT PYFS_POSTRUN\n")
     script.emit("SWEEPER_POST_RUN_SCRIPT", "ENABLE", postrun)
 
 

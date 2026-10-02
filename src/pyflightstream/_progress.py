@@ -36,6 +36,7 @@ from functools import wraps
 from pathlib import Path
 from typing import IO, Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._console import (
     blocks,
     clock_text,
@@ -216,9 +217,9 @@ def activity_event(stage: str, event: str, message: str = "", **details: object)
         "message": message,
         **details,
     }
-    with (folder / "activity.log.jsonl").open("a", encoding="utf-8") as stream:
+    with _textio.open_text(folder / "activity.log.jsonl", "a") as stream:
         stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-    with (folder / "activity.log").open("a", encoding="utf-8") as stream:
+    with _textio.open_text(folder / "activity.log", "a") as stream:
         stream.write(f"{record['timestamp']} [{stage}] {event}: {message}\n")
         if details:
             stream.write(json.dumps(details, ensure_ascii=False, default=str) + "\n")
@@ -685,7 +686,7 @@ def _live_log(root: Path, command: str, title: str) -> tuple[_LiveLog | None, st
         for attempt in range(1, 100):
             name = f"{command}-{stamp}.log" if attempt == 1 else f"{command}-{stamp}-{attempt}.log"
             try:
-                stream = (folder / name).open("x", encoding="utf-8")
+                stream = _textio.open_text(folder / name, "x")
             except FileExistsError:
                 continue
             log = _LiveLog(folder / name, stream)

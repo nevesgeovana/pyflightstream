@@ -152,6 +152,7 @@ from pydantic import (
     model_validator,
 )
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import MeshReadError, boundary_names
@@ -160,17 +161,9 @@ from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttribu
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
 from pyflightstream.script import MarchStrategy
-from pyflightstream.script._surface_averaging import (
-    SurfaceAverageWindow,
-    SurfaceAveragingWindow,
-)
+from pyflightstream.script._surface_averaging import SurfaceAverageWindow, SurfaceAveragingWindow
 from pyflightstream.script.solver_setup import explicit_empty_selections
-from pyflightstream.workspace._links import (
-    _is_link,
-    _is_reparse,
-    _make_dir_link,
-    _remove_link,
-)
+from pyflightstream.workspace._links import _is_link, _is_reparse, _make_dir_link, _remove_link
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     GEOMETRIES_README,
@@ -2271,7 +2264,7 @@ class CampaignWorkspace:
             (workspace.root / name).mkdir(parents=True, exist_ok=True)
         registry = workspace.inputs_dir / EXECUTABLES_FILE
         if not registry.exists():
-            registry.write_text(_EXECUTABLES_TEMPLATE, encoding="utf-8")
+            _textio.write_text(registry, _EXECUTABLES_TEMPLATE)
         # PFS-2032.07:
         # the per-mesh folder is the layout, AND THE USER HAS TO BE TOLD. A
         # layout nobody is told about is a layout nobody uses, which is why
@@ -2282,7 +2275,7 @@ class CampaignWorkspace:
         geometries = workspace.inputs_dir / "geometries"
         readme = geometries / GEOMETRIES_README
         if not readme.exists():
-            readme.write_text(_GEOMETRIES_README, encoding="utf-8")
+            _textio.write_text(readme, _GEOMETRIES_README)
         # THE GENERATED PPROC GUIDES, where whoever writes a pproc artifact is
         # already standing: every variable with its definition, and how to write
         # an equation; and the input template at the root of `inputs/`, an
@@ -2968,7 +2961,7 @@ class CampaignWorkspace:
         """
         sim = self.create_sim(sim_id)
         target = sim / "scripts" / name
-        target.write_text(text, encoding="utf-8")
+        _textio.write_text(target, text)
         return target, _sha256(target)
 
     #: What each managed subdirectory of a simulation folder IS, so a
@@ -3748,7 +3741,7 @@ class CampaignWorkspace:
                     ):
                         lock.unlink()
                 try:
-                    with lock.open("x", encoding="utf-8", newline="\n") as handle:
+                    with _textio.open_text(lock, "x") as handle:
                         handle.write(json.dumps(owner) + "\n")
                 except (FileExistsError, PermissionError):
                     pass
@@ -3799,7 +3792,7 @@ class CampaignWorkspace:
         self.root.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(raw, indent=2)
         temporary = self.manifest_path.with_suffix(f".json.{os.getpid()}.tmp")
-        temporary.write_text(payload + "\n", encoding="utf-8")
+        _textio.write_text(temporary, payload + "\n")
         temporary.replace(self.manifest_path)
 
     def append_record(self, record: RunRecord) -> None:
@@ -3878,7 +3871,7 @@ class CampaignWorkspace:
             raw.append(record.model_dump(mode="json"))
             archive_previous(self.root, self.additional_path)
             temporary = self.additional_path.with_suffix(f".json.{os.getpid()}.tmp")
-            temporary.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+            _textio.write_text(temporary, json.dumps(raw, indent=2) + "\n")
             temporary.replace(self.additional_path)
 
     def changed_extraction_file(self, record: AdditionalRecord) -> str | None:

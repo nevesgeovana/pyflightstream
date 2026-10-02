@@ -26,6 +26,7 @@ from pathlib import Path
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
 
@@ -458,6 +459,6 @@ def write_state_atomic(state: FsiState, path: str | Path) -> None:
     """
     path = Path(path)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(state.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(temporary, state.model_dump_json(indent=2) + "\n")
     temporary.replace(path)
     logger.debug("state written atomically: call %d step %d", state.call_count, state.step_count)

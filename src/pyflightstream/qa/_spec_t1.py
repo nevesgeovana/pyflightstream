@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream.qa._spec_kit import _emit, _seq, _spec
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
@@ -75,7 +76,7 @@ def _action_unsteady_setup(script: Script, workdir: Path) -> None:
     """Emit the steady setup with the unsteady mode over it, and the action's script."""
     emit_solver_setup(script)
     script.emit("SET_SOLVER_UNSTEADY", time_iterations=3, delta_time=0.0123)
-    (workdir / _ACTION_SCRIPT).write_text(f"PRINT {_ACTION_MARKER}\n", encoding="utf-8")
+    _textio.write_text(workdir / _ACTION_SCRIPT, f"PRINT {_ACTION_MARKER}\n")
 
 
 def _register_action(script: Script, workdir: Path) -> None:

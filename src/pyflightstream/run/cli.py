@@ -61,6 +61,7 @@ import warnings
 from pathlib import Path
 from typing import NoReturn
 
+import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
 from pyflightstream._console import (
     command_help,
@@ -1141,7 +1142,7 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         print(f"matrix not converted: {error}", file=sys.stderr)
         return 2
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as handle:
+        with _textio.open_text(args.output, "w") as handle:
             handle.write(text)
         print(f"campaign written: {args.output}")
     else:

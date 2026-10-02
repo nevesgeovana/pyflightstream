@@ -78,6 +78,7 @@ from pathlib import Path
 
 import numpy as np
 
+import pyflightstream._textio as _textio
 from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
@@ -939,7 +940,7 @@ def write_superfile_report(
     }
     target = root / REPORTS_DIR / f"{SUPERFILE_REPORT_PREFIX}{release_tag(version)}.json"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+    _textio.write_text(target, json.dumps(payload, indent=1) + "\n")
     return target
 
 
@@ -1059,7 +1060,7 @@ def write_sections_report(
     """Write the sections measurement the goal's sections arm reads."""
     target = root / REPORTS_DIR / f"{SECTIONS_REPORT_PREFIX}{release_tag(version)}.json"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps({"cases": list(cases)}, indent=1) + "\n", encoding="utf-8")
+    _textio.write_text(target, json.dumps({"cases": list(cases)}, indent=1) + "\n")
     return target
 
 
@@ -1078,5 +1079,5 @@ def _write_legacy_polar(
     for row in rows:
         lines.append("".join(_fixed_cell(value).rjust(width) for value in row))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _textio.write_text(path, "\n".join(lines) + "\n")
     return path

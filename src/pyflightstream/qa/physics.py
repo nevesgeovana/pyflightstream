@@ -55,6 +55,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.errors import QaEvidenceError
@@ -1231,8 +1232,8 @@ def write_physics_report(
             for result in run.results
         },
     }
-    yaml_path.write_text(yaml.safe_dump(document, sort_keys=False, width=100), encoding="utf-8")
-    md_path.write_text(_render_markdown(run, date, counts), encoding="utf-8")
+    _textio.write_text(yaml_path, yaml.safe_dump(document, sort_keys=False, width=100))
+    _textio.write_text(md_path, _render_markdown(run, date, counts))
     return yaml_path, md_path
 
 
@@ -1410,5 +1411,5 @@ def update_reference(
         "metrics": metrics,
     }
     path = directory / f"{case_id}.yaml"
-    path.write_text(yaml.safe_dump(document, sort_keys=False, width=100), encoding="utf-8")
+    _textio.write_text(path, yaml.safe_dump(document, sort_keys=False, width=100))
     return path

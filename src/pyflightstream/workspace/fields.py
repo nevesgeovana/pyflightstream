@@ -60,6 +60,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.freestream import read_field_rows
@@ -1038,12 +1039,12 @@ def write_freestream(
         ]
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
-        # Bytes, not text: the record's sha256 is of these exact bytes, and a
-        # text write would turn each newline into the platform's.
-        target.write_bytes(text.encode("utf-8"))
+        # Through the LF route: the record's sha256 is of these exact bytes, and
+        # the route writes each newline as LF on every platform (NFR-32).
+        _textio.write_text(target, text)
         for path, extra in extras.items():
-            path.write_bytes(extra.encode("utf-8"))
-        sidecar.write_bytes((json.dumps(provenance, indent=2) + "\n").encode("utf-8"))
+            _textio.write_text(path, extra)
+        _textio.write_text(sidecar, json.dumps(provenance, indent=2) + "\n")
     return FieldWrite(target, sidecar, field, provenance, apply, existing if apply else ())
 
 
@@ -1118,6 +1119,6 @@ def write_fluctuation(
     }
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(text.encode("utf-8"))
-        sidecar.write_bytes((json.dumps(provenance, indent=2) + "\n").encode("utf-8"))
+        _textio.write_text(target, text)
+        _textio.write_text(sidecar, json.dumps(provenance, indent=2) + "\n")
     return FluctuationWrite(target, sidecar, provenance, apply, existing if apply else ())

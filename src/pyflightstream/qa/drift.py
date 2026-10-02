@@ -29,6 +29,7 @@ from pathlib import Path
 import yaml
 
 import pyflightstream
+import pyflightstream._textio as _textio
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.physics import (
     PhysicsRun,
@@ -356,8 +357,8 @@ def write_drift_report(
             for result in run.results
         },
     }
-    yaml_path.write_text(yaml.safe_dump(document, sort_keys=False, width=100), encoding="utf-8")
-    md_path.write_text(_render_markdown(run, date, counts), encoding="utf-8")
+    _textio.write_text(yaml_path, yaml.safe_dump(document, sort_keys=False, width=100))
+    _textio.write_text(md_path, _render_markdown(run, date, counts))
     return yaml_path, md_path
 
 

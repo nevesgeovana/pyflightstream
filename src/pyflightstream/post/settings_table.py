@@ -44,6 +44,7 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+import pyflightstream._textio as _textio
 from pyflightstream.post._tables import NOT_APPLICABLE, write_csv_table
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.results import MalformedOutputError
@@ -464,7 +465,7 @@ def write_settings_table(
     # rule exists to end (the architect lens, v0.22.0 push round, which found
     # the commit claiming `_cell` was the one funnel while this bypassed it).
     write_csv_table(destination, columns, [[row.get(key) for key in columns] for row in rows])
-    legend.write_text(json.dumps(codebook(), indent=2) + "\n", encoding="utf-8")
+    _textio.write_text(legend, json.dumps(codebook(), indent=2) + "\n")
     return destination, legend
 
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 from zipfile import ZipFile
 
+import pyflightstream._textio as _textio
 from pyflightstream.workspace.excel_bridge import preview_from_json
 from pyflightstream.workspace.excel_sync import (
     Cell,
@@ -344,7 +345,7 @@ def preview_file(
         "preview": asdict(preview),
     }
     batch.parent.mkdir(parents=True, exist_ok=True)
-    with batch.open("x", encoding="utf-8") as stream:
+    with _textio.open_text(batch, "x") as stream:
         json.dump(payload, stream, ensure_ascii=False, indent=2)
     rows = "".join(
         "<tr>"
@@ -374,7 +375,7 @@ def preview_file(
         + rows
         + "</table>"
     )
-    batch.with_suffix(".html").write_text(page, encoding="utf-8")
+    _textio.write_text(batch.with_suffix(".html"), page)
     return batch.with_suffix(".html")
 
 

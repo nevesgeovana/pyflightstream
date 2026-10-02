@@ -30,6 +30,7 @@ from typing import Any, Literal, cast
 
 from pydantic import ValidationError
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_names
@@ -209,7 +210,7 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         *[f'    "{name}",' for name in names],
         "]",
     ]
-    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
+    _textio.write_text(sidecar, "\n".join(body) + "\n")
     return sidecar
 
 
@@ -403,7 +404,7 @@ def ensure_inventory(geometry: str | Path) -> Path:
         *[f"    {_toml_string(name)}," for name in names],
         "]",
     ]
-    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
+    _textio.write_text(sidecar, "\n".join(body) + "\n")
     print(
         f"wrote {sidecar}: the boundaries of {path.name}, read from its groups in the "
         f"order of the file (RPT-078): {', '.join(names)}. Add its [import] units and its "

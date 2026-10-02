@@ -91,6 +91,8 @@ from pydantic import (
     model_validator,
 )
 
+import pyflightstream._textio as _textio
+
 # InputArtifactError is DEFINED in `_errors`, below every layer, and
 # re-exported here and from `pyflightstream.workspace`, which is the name
 # a user catches and the one every docstring in this module names. It
@@ -503,7 +505,7 @@ def strip_rotor_facts(inputs_dir: Path) -> dict[str, list[str]]:
             else:
                 kept.append(line)
         if gone:
-            path.write_text("".join(kept), encoding="utf-8")
+            _textio.write_text(path, "".join(kept))
             removed[path.name] = gone
     return removed
 
@@ -1482,11 +1484,11 @@ def migrate_groups_to_pproc(inputs_dir: Path) -> dict[str, str]:
         target = target_dir / f"{new}.toml"
         text = path.read_text(encoding="utf-8")
         target_dir.mkdir(parents=True, exist_ok=True)
-        target.write_text(
+        _textio.write_text(
+            target,
             "# Moved from inputs/groups/" + path.name + " by `pyfs-matrix upgrade --inputs`;\n"
             "# the groups are the file's own lines, under the [groups] table a pproc\n"
             "# artifact holds them in (PFS-2029.07).\n[groups]\n" + text,
-            encoding="utf-8",
         )
         path.unlink()
     try:

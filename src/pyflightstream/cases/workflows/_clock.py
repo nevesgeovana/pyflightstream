@@ -465,11 +465,11 @@ elapsed = now - float(state["started_at"])
 state["elapsed_s"] = elapsed
 
 if not state["fired"] and elapsed >= DEADLINE_S:
-    TARGET.write_text(STOP_TEXT, encoding="utf-8")
+    TARGET.write_text(STOP_TEXT, encoding="utf-8", newline="\\n")
     state["fired"] = True
     state["stopped_at"] = {{"step": state["steps"], "elapsed_s": elapsed}}
 
-STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+STATE.write_text(json.dumps(state, indent=2), encoding="utf-8", newline="\\n")
 """
 
 
