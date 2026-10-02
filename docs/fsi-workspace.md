@@ -180,7 +180,7 @@ The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124
 (reports/RPT-092) the route converged and mapped 1052 of 1052 vertices, and
 on that symmetric NACA 0012 wing the reading agrees in sign at the integral
-(+7.49 against +17.13 N m) and not in magnitude (44 %), which a symmetric
+(+7.49 against +17.13 N m) and not in magnitude (44 percent), which a symmetric
 section cannot decide. On the cambered NACA 4412 wing of reports/RPT-128 the
 magnitude is confirmed: the summed cut moments are 1.00825 of the solver's
 moment about the same line, at least as close to 1 as the summed cut forces
