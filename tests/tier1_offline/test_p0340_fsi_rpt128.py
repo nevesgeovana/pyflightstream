@@ -182,7 +182,9 @@ def test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_f
             "RPT-128, and its test (FR-340 R4) are src, owed to 0.35.0"
         )
     page = FSI_PAGE.read_text(encoding="utf-8")
-    xz = page.split("moment column of an XZ cut", 1)[-1][:1200]
+    anchor = "moment column of an XZ cut"
+    assert anchor in page, f"FR-340 R3: the FSI page has no XZ reading ({anchor!r})"
+    xz = page.split(anchor, 1)[1][:1200]
     assert "RPT-128" in xz, "FR-340 R3: the FSI page's XZ reading cites RPT-128"
 
 
