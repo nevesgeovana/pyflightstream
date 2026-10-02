@@ -13,10 +13,11 @@ FlightStream versions.
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
   as a commit of its own after the tag, so the 0.34.0 package does not change
-  with it. RPT-126, RPT-128 and RPT-130 are still owed. Four are
+  with it. RPT-126 and RPT-130 are still owed. Five are
   paid, measured on 26.124 (build 8172026) with the released package; the
   requirements' evidence lines now cite them, FR-318 R5 records the answer to
-  the question it left open, and no requirement's status changes:
+  the question it left open, and only FR-338 and FR-340 change status, to
+  implemented:
   - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
     `START_SOLVER`, and every step export then carries it; in the order 0.34.0
     emits, only the final export does. Moving the list is 0.35.0 scope.
@@ -31,6 +32,11 @@ FlightStream versions.
   - RPT-127 (FR-342): tier 2 verifies `ROTATE_SURFACE`,
     `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS`
     on 26.124. The command database follows these verdicts in 0.35.0.
+  - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
+    the solver prints it so, not because of the package's order, and the
+    magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
+    page states both, and the definitions page what the column means in a
+    coupled run; nothing the package emits changes.
 
 - **A known defect, its fix 0.35.0 scope: on 26.124 a `RESTART` continuation
   does not continue (FR-96, RPT-134).** The continuation the package emits
