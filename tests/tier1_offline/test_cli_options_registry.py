@@ -55,6 +55,17 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    # 0.35.0 QV1: read-only query subjects and per-invocation filters.
+    ("pyfs-matrix", "target"): SUBJECT,
+    ("pyfs-matrix", "point"): SUBJECT,
+    ("pyfs-matrix", "product"): SUBJECT,
+    ("pyfs-matrix", "run"): SUBJECT,
+    ("pyfs-matrix", "storage"): SWITCH,
+    ("pyfs-matrix", "stage"): SUBJECT,
+    ("pyfs-matrix", "since"): SUBJECT,
+    ("pyfs-matrix", "problems"): SWITCH,
+    ("pyfs-matrix", "open_only"): SWITCH,
+    ("pyfs-matrix", "additional"): SWITCH,
     ("pyfs-qa", "fs_version"): SOLVER,
     ("pyfs-qa", "fs_versions"): SOLVER,
     ("pyfs-qa", "fs_exe"): SOLVER,
@@ -426,6 +437,16 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: directions: a dest that spreads to a new subcommand, and one that
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-matrix", "additional"): frozenset({"status"}),
+    ("pyfs-matrix", "target"): frozenset({"show"}),
+    ("pyfs-matrix", "point"): frozenset({"show"}),
+    ("pyfs-matrix", "product"): frozenset({"trace"}),
+    ("pyfs-matrix", "run"): frozenset({"log", "trace"}),
+    ("pyfs-matrix", "storage"): frozenset({"log"}),
+    ("pyfs-matrix", "stage"): frozenset({"log"}),
+    ("pyfs-matrix", "since"): frozenset({"log"}),
+    ("pyfs-matrix", "problems"): frozenset({"log"}),
+    ("pyfs-matrix", "open_only"): frozenset({"log"}),
     ("pyfs-fsi", "dir"): frozenset({"init-dummy", "step"}),
     ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
     ("pyfs-manual", "build"): frozenset({"register"}),
@@ -481,7 +502,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "discard_walltime"): frozenset({"collect"}),
-    ("pyfs-matrix", "post"): frozenset({"collect"}),
+    ("pyfs-matrix", "post"): frozenset({"collect", "log"}),
     ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
     ("pyfs-matrix", "local"): frozenset({"post", "run"}),
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
@@ -501,6 +522,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "hpc"): frozenset({"collect", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "sims"): frozenset(
         {
+            "log",
             "collect",
             "delete-sims",
             "inspect-setups",
@@ -524,6 +546,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
         {
+            "show",
+            "log",
+            "trace",
             "collect",
             "delete-sims",
             "free-space",
@@ -552,13 +577,13 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "runs"): frozenset(
-        {"collect", "delete-sims", "free-space", "post", "status", "sync"}
+        {"collect", "delete-sims", "free-space", "post", "status", "sync", "show", "log", "trace"}
     ),
     ("pyfs-matrix", "statuses"): frozenset({"status"}),
     ("pyfs-matrix", "failed"): frozenset({"status"}),
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
-    ("pyfs-matrix", "json"): frozenset({"status"}),
-    ("pyfs-matrix", "csv"): frozenset({"status"}),
+    ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace"}),
+    ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),

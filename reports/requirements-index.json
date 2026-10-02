@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 341,
+  "cited_by_a_test": 347,
   "total": 409,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2875,17 +2875,17 @@
    "id": "FR-386",
    "text": "Requirement: pyfs-matrix show shall print the effective record of one datapoint, taken from a simulation id with a point, from a run id or from its alias (FR-395), with the outcome first.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_show_outcome_evidence_identity_inputs_and_polar; test_show_uses_current_chain_and_names_archived_outputs).*",
+   "verification": "test"
   },
   {
    "id": "FR-387",
    "text": "Requirement: pyfs-matrix log shall print the activity log, filtered, and with --post the post log of a matrix, grouped.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_log_filters_order_open_and_relative_since; test_log_post_groups_category_family_shape).*",
+   "verification": "test"
   },
   {
    "id": "FR-388",
@@ -2899,9 +2899,9 @@
    "id": "FR-389",
    "text": "Requirement: pyfs-matrix trace <product path> shall print, from the post's products index, the simulation, post options and runs the product holds.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_trace_product_identity_sidecar_and_provenance_tree).*",
+   "verification": "test"
   },
   {
    "id": "FR-390",
@@ -2923,25 +2923,25 @@
    "id": "FR-392",
    "text": "Requirement: pyfs-matrix log --storage shall list the storage calls the workspace recorded: each call as it was recorded.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_log_storage_preserves_calls_and_filters; test_queries_read_compacted_logs_and_write_no_bytes).*",
+   "verification": "test"
   },
   {
    "id": "FR-393",
    "text": "Requirement: pyfs-matrix status --additional shall list the entries of the additional runs register.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_additional_register_is_printed_without_derived_fields).*",
+   "verification": "test"
   },
   {
    "id": "FR-394",
    "text": "Requirement: pyfs-matrix show shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_query_point.py (test_show_coupling_record_last_exchange_and_absence).*",
+   "verification": "test"
   },
   {
    "id": "FR-395",

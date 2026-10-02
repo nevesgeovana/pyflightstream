@@ -9016,7 +9016,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-MACHINE; release 0.35.0.
 
-!!! requirement "FR-386 pyfs-matrix show prints one datapoint's record <span class='srs-pending'>pending</span>"
+!!! requirement "FR-386 pyfs-matrix show prints one datapoint's record <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_show_outcome_evidence_identity_inputs_and_polar; test_show_uses_current_chain_and_names_archived_outputs).*
 
     Requirement: `pyfs-matrix show` shall print the effective record of one datapoint, taken from a simulation id with a point, from a run id or from its alias (FR-395), with the outcome first.
 
@@ -9032,7 +9034,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-SHOW; release 0.35.0.
 
-!!! requirement "FR-387 pyfs-matrix log prints the activity and the post log <span class='srs-pending'>pending</span>"
+!!! requirement "FR-387 pyfs-matrix log prints the activity and the post log <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_log_filters_order_open_and_relative_since; test_log_post_groups_category_family_shape).*
 
     Requirement: `pyfs-matrix log` shall print the activity log, filtered, and with `--post` the post log of a matrix, grouped.
 
@@ -9058,7 +9062,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-PYTHON; release 0.35.0.
 
-!!! requirement "FR-389 pyfs-matrix trace follows a product to its runs <span class='srs-pending'>pending</span>"
+!!! requirement "FR-389 pyfs-matrix trace follows a product to its runs <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_trace_product_identity_sidecar_and_provenance_tree).*
 
     Requirement: `pyfs-matrix trace <product path>` shall print, from the post's products index, the simulation, post options and runs the product holds.
 
@@ -9095,7 +9101,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-DIFF; release 0.35.0.
 
-!!! requirement "FR-392 log --storage lists past storage calls <span class='srs-pending'>pending</span>"
+!!! requirement "FR-392 log --storage lists past storage calls <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_log_storage_preserves_calls_and_filters; test_queries_read_compacted_logs_and_write_no_bytes).*
 
     Requirement: `pyfs-matrix log --storage` shall list the storage calls the workspace recorded: each call as it was recorded.
 
@@ -9106,7 +9114,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-LOG-STORAGE; release 0.35.0.
 
-!!! requirement "FR-393 status --additional lists the additional register <span class='srs-pending'>pending</span>"
+!!! requirement "FR-393 status --additional lists the additional register <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_additional_register_is_printed_without_derived_fields).*
 
     Requirement: `pyfs-matrix status --additional` shall list the entries of the additional runs register.
 
@@ -9117,7 +9127,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-ADDITIONAL; release 0.35.0.
 
-!!! requirement "FR-394 The coupled-run block of show <span class='srs-pending'>pending</span>"
+!!! requirement "FR-394 The coupled-run block of show <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_query_point.py` (test_show_coupling_record_last_exchange_and_absence).*
 
     Requirement: `pyfs-matrix show` shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.
 

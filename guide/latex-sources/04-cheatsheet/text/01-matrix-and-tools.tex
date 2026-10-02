@@ -114,8 +114,28 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \sub{status}{one row per polar: SIM, POLAR, SWEEP, POINTS (recorded/planned), MATRIX, STATUS (one word, or the count of each); a point no record carries reads \texttt{planned}; reads only, writes nothing}
 \begin{flags}
 \item \fl{--sims 2006,2007} (or \texttt{[2006,2007]}) \quad \fl{--matrix STEM} \quad \fl{--status WORD} (repeatable, \texttt{FAILED\_*}) \quad \fl{--failed}
-\item \fl{--points} one row per datapoint \quad \fl{--json} \quad \fl{--csv} \quad \fl{--workspace}, \fl{--runs NAME}
+\item \fl{--additional} lists the additional register; \fl{--points} one row per datapoint \quad \fl{--json} \quad \fl{--csv} \quad \fl{--workspace}, \fl{--runs NAME}
 \end{flags}
+
+\sub{show <run id or alias>}{outcome first, then evidence tails, logs, continuation chain, identity and inputs; coupled points also show the FSI record and last exchange row}
+\begin{flags}
+\item \cmd{pyfs-matrix show} \texttt{9101\_1}; a simulation id alone lists its points and failed cards; \fl{--point NAME} selects one
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
+\end{flags}
+\sub{log}{read recorded activity oldest first, including running batches and compacted simulations}
+\begin{flags}
+\item \cmd{pyfs-matrix log} \fl{--sims IDS} \fl{--run ID} \fl{--stage NAME} \fl{--since 2h} \fl{--problems} \fl{--open}
+\item \fl{--post MATRIX}: groups by category, product family and message shape, with counts and examples; \fl{--sims IDS} narrows them
+\item \fl{--storage}: storage calls as recorded; \fl{--stage} selects the recorded action
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}; \fl{--since} also accepts an ISO time
+\end{flags}
+\sub{trace <product path>}{follow the products index to the simulation, post options, effective run identities, digests and provenance paths}
+\begin{flags}
+\item \cmd{pyfs-matrix trace} \texttt{post/demo/polars/polar.csv}; or \fl{--run ID} for the provenance tree (aliases accepted)
+\item \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}
+\end{flags}
+\cmd{pyfs-matrix status} \fl{--additional} prints the additional register's fields as recorded.
+These queries write nothing, take no lock and never ask the scheduler.
 
 \stage{5. POST-PROCESS (NO SOLVER, NO SEAT)}
 \sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Old products are archived in \texttt{post/<matrix>/archive/}}
