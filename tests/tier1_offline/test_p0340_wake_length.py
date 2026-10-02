@@ -16,6 +16,7 @@ from __future__ import annotations
 import difflib
 import json
 import math
+import re
 import warnings
 from pathlib import Path
 
@@ -654,8 +655,21 @@ def test_p0340_wake_plan_warn_the_default_plane_always_warns_citing_both_placeme
     said, statuses, _, _ = _planned_wake(tmp_path, iterations=1500)
     warned = _rule(said, "R4")
     assert len(warned) == 1, (requirement, said)
-    for words in ("DEFAULT", "5.5 R", "RPT-130", "2.1 R", "RPT-137", "wake_termination_x_m"):
+    for words in (
+        "DEFAULT",
+        "5.5 R on a rotor with the body behind it (RPT-137 section 7)",
+        "2.1 R on a blades-only wheel (RPT-137 section 7)",
+        "wake_termination_x_m",
+    ):
         assert words in warned[0], (requirement, words, warned[0])
+    # The warning cites only a report the release carries: the licensed long-wake
+    # run (RPT-130) is made after the release, and no warning may cite it before.
+    assert "RPT-130" not in warned[0], (requirement, warned[0])
+    reports = Path(__file__).resolve().parents[2] / "reports"
+    cited = set(re.findall(r"RPT-\d+", warned[0]))
+    assert cited, (requirement, warned[0])
+    for report in sorted(cited):
+        assert sorted(reports.glob(f"{report}_*.md")), (requirement, report, "no such report")
     assert statuses == [PlanStatus.READY], requirement
 
 
@@ -786,7 +800,7 @@ def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path
     assert [entry.status for entry in plan.points] == [PlanStatus.READY], requirement
 
 
-# --- the licensed confirmation LQ5 (RPT-130), checked before the seat is spent ------
+# --- the licensed confirmation LQ5 (RPT-130, owed after the release), checked first ---
 
 
 def test_p0340_wake_length_the_lq5_kit_plans_ready_offline(tmp_path):
@@ -824,7 +838,7 @@ def test_p0340_wake_length_the_lq5_kit_plans_ready_offline(tmp_path):
 
 
 def test_p0340_wake_length_the_lq5_analysis_recovers_a_known_convection_speed(tmp_path):
-    """P0340-WAKE-LENGTH, FR-321 R3: the analysis RPT-130 reads, on a synthetic tip vortex
+    """P0340-WAKE-LENGTH, FR-321 R3: the analysis RPT-130 will read, on a synthetic tip vortex
     convecting at 1.15 V_inf and ending at 4.5 R, returns that speed and that end, and the
     slipstream line's induced velocity; the momentum ratio of CT = 0.1 is worked by hand."""
     from tests.tier3_licensed import wake_lq5 as kit

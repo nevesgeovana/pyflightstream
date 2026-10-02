@@ -82,7 +82,8 @@ none of `wake_termination_length`, `wake_termination_steps` and
 `wake_termination_revolutions` carries one `SET_WAKE_TERMINATION_TIME_STEPS`
 line: the default length L = 4 rotor radii, converted into steps from the
 free-stream speed, the rotor speed and the step angle (FR-321). 0.33.0 wrote no
-termination there, and the solver kept the whole wake. The default is a
+termination there, so the wake was bounded only by the run's length and the
+solver's default end plane (RPT-137 section 7). The default is a
 recommendation, kept for its computational cost, and it is permanent: a row
 that wants the 0.33.0 script states its termination. `scripts/check_parity.py`
 names the changed line under FR-321, and only rotor rows that state no
@@ -96,9 +97,10 @@ V_ax the axial convection speed of the wake; rounding is upward, so the wake
 kept is never shorter than L. The run record of the point names the L asked,
 the V_ax used with the rule that gave it (`free_stream`, `induced_velocity` or
 `revolution_cap`) and the steps emitted, and the plan states the same values
-for each rotor point. Which speed V_ax should be in forward flight is settled
-by the licensed long-wake run reported in RPT-130; read it before relying on
-the default for a study whose wake length matters.
+for each rotor point. Which speed V_ax should be in forward flight is not yet
+measured: V_ax is the free-stream speed by the expectation of FR-321 R3, and
+the licensed long-wake run that measures it is made after the 0.34.0 release
+and will be reported in RPT-130.
 
 What a matrix must allow:
 

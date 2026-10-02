@@ -795,10 +795,12 @@ WAKE_TERMINATION_KEYS = (
 WAKE_BOUND_KEYS = ("wake_termination_thrust_n", "wake_termination_revolutions_cap")
 
 #: The solver's default wake end plane as measured on 26.124, downstream of the
-#: rotor in rotor radii, with the case and the report that state it (FR-325 R4).
+#: rotor in rotor radii, with the case and the report that state it (FR-325 R4):
+#: RPT-137 section 7 reads x/R 5.52 with the body behind the rotor and 2.08 on a
+#: wheel of blades alone.
 MEASURED_DEFAULT_PLANES = (
-    ("a rotor case", 5.5, "RPT-130"),
-    ("a blades-only wheel", 2.1, "RPT-137"),
+    ("a rotor with the body behind it", 5.5, "RPT-137 section 7"),
+    ("a blades-only wheel", 2.1, "RPT-137 section 7"),
 )
 
 #: The rule that gave V_ax, as the record and the plan name it (FR-323 R6).
