@@ -167,7 +167,10 @@ VERIFIED = {
     # from the release harness's transcription (CMP-26124_2026-09-30_acoustics)
     # and reverted to documented, because promotion goes only through a
     # qa.specs entry and a pyfs-qa probe run (RPT-096, RPT-098): 89.
-    "26.124": 89,
+    # +26 on 2026-10-02, after the 0.34.0 release: the pyfs-qa probe run of
+    # RPT-126 (CMP-26124_2026-10-02_qa-promote) verified the nine acoustic
+    # commands, CCS_IMPORT, DELETE_SURFACES and fifteen CCS meshing commands: 115.
+    "26.124": 115,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

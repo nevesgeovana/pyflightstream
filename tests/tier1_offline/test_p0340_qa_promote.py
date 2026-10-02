@@ -164,10 +164,16 @@ def test_a_promotion_from_a_report_that_judged_nothing_changes_nothing_fr_333(tm
 
 
 def test_a_promotion_from_a_report_that_judged_the_command_moves_it_fr_333(tmp_path):
-    """FR-333 R4, marker P0340-QA-PROMOTE: the control of the test above, a verdict promotes."""
+    """FR-333 R4, marker P0340-QA-PROMOTE: the control of the test above, a verdict promotes.
+
+    The planted verdict is one that MOVES the row as it stands: `verified` while the row is not
+    verified, `broken` once the licensed run of RPT-126 promoted it, because a second `verified`
+    from another report corroborates the row and keeps its line, by design of the promotion tool.
+    """
     commands = _chapter_copy(tmp_path)
     before = (commands / "acoustics.yaml").read_bytes()
-    report = _report(tmp_path, "verified")
+    outcome = "broken" if status_on("ACOUSTIC_SOURCES") == "verified" else "verified"
+    report = _report(tmp_path, outcome)
     promoted = apply_compat(report, repo_root=tmp_path, commands_dir=commands)
     assert [name for name, _, _ in promoted] == ["ACOUSTIC_SOURCES"]
     assert (commands / "acoustics.yaml").read_bytes() != before
