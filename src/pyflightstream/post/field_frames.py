@@ -269,11 +269,23 @@ _STEADY_PROBE = {
     "receipt_sha256": "58b314eaf3aa7ce2cb7823255b8b8031e99bc6b67664cae000b17c321316e9cb",
     "comparison": "same four samples under reference, fixed and rotating analysis frames",
 }
+#: Build 8242026 of 26.124 is registered by the owner's decision of 2026-10-01
+#: (FR-153, RPT-136), not by a measurement: its rows say so in ``basis``, a key
+#: no measured row carries.
+_DECISION_8242026 = {
+    "receipt": "RPT-136",
+    "basis": "owner decision of 2026-10-01, not measured",
+    "comparison": "none: registered as writing fields as build 8172026 does",
+}
 VELOCITY_EVIDENCE: dict[tuple[str, str, str, str], tuple[float, dict[str, str]]] = {
     ("26.124", "8172026", "unsteady-fluid-plot", "METER"): (1.0, _FLUID_METER),
     ("26.124", "8172026", "unsteady-fluid-plot", "MILLIMETER"): (1.0, _FLUID_MILLIMETER),
     ("26.124", "8172026", "steady-probe", "METER"): (1.0, _STEADY_PROBE),
     ("26.124", "8172026", "steady-probe", "MILLIMETER"): (0.001, _STEADY_PROBE),
+    ("26.124", "8242026", "unsteady-fluid-plot", "METER"): (1.0, _DECISION_8242026),
+    ("26.124", "8242026", "unsteady-fluid-plot", "MILLIMETER"): (1.0, _DECISION_8242026),
+    ("26.124", "8242026", "steady-probe", "METER"): (1.0, _DECISION_8242026),
+    ("26.124", "8242026", "steady-probe", "MILLIMETER"): (0.001, _DECISION_8242026),
 }
 
 

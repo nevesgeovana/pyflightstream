@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.68.5 |
+| Version | 1.68.6 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.68.6 | 2026-10-01 | **FR-153 REGISTERS BUILD 8242026 BY THE OWNER'S DECISION.** FR-153 gains an amendment (RPT-136): build 8242026 of 26.124 has every row kind that build 8172026 has, with the same values and evidence stating "owner decision of 2026-10-01, not measured", so its fields are written with no warning. No status moves; the rows of 8172026 and the warning for every other build are unchanged. |
 | 1.68.5 | 2026-10-01 | **THE FIVE SOLVER-SETTINGS TOGGLES EMIT THE STATE ASKED (FR-349), AND THE FUNCTIONAL RANGE READS FR-01 TO FR-349.** A defect found by the settings cut: `valarezo_criterion`, `wake_relaxation`, `wake_streamwise_agglomeration`, `adverse_gradient_boundary_layer` and `vortex_ring_normalization` were never resolved through the toggle reader, so a value of DISABLE emitted ENABLE and the snapshot stored the string. FR-349 is written and implemented in the same revision: each keyword emits what was asked, a stray word refuses before emitting, and the snapshot records a boolean. No golden render and no tier-3 matrix asks any of the five, so no recorded byte moves; the change is named in the parity script. No other requirement changes. |
 | 1.68.4 | 2026-10-02 | **THE WAKE KEYS OF WAKE-LENGTH ARE NAMED BY THEIR UNITS; THIS ROW MOVES NO STATUS.** At the integration of package WAKE of GOAL-039 (wave 2), clarifications of pending requirements: FR-324's setup key is `wake_termination_x_m`, an X in metres, so the unit rides the name as the house convention asks; the solver's own argument of `INITIALIZE_SOLVER` keeps its name `wake_termination_x`. FR-321's `wake_termination_length` (a length over the rotor radius) and FR-323's `wake_termination_revolutions_cap` (a count of turns) keep their names: both are dimensionless and are registered as such in the units guard of `tests/tier1_offline/test_conventions.py`. FR-321 R1 reads R as half the largest `diameter_m` of the rotor blocks the row turns, else half the reference's `rotor_diameter_m` (a rotor block states no `tip_radius_m`), as its dated amendment says. The requirements stay pending until accepted. |
 | 1.68.3 | 2026-10-01 | **THE THIN-BLADE COMMAND GAINS THE OPTION THAT NAMES THE BLADE; THIS ROW MOVES NO STATUS.** FR-330 (package THIN-CLI of GOAL-039, wave 2): the command `pyfs-matrix degenerate` is built and its box says so, the command line of R1 gains `[--boundary NAME]`, and a new R9 states it: for a mesh that holds the blade with a spinner or a nacelle in one file, the option names the boundary that is the blade, only its faces are read, and the output carries its name in the stem; R6 names the two refusals that follow (a file of several boundaries without the option, a name the file does not hold or holds twice). The requirement stays pending until accepted. |

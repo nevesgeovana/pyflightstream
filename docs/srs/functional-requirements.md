@@ -6763,7 +6763,9 @@ Requirements written after the specification was last reconciled with the packag
     *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
     `tests/tier1_offline/test_f01_probe_source.py`,
     `tests/tier1_offline/test_approved_capabilities_029.py` and, for R1,
-    `tests/tier1_offline/test_fr153_field_build_warning.py`.*
+    `tests/tier1_offline/test_fr153_field_build_warning.py` and, for the
+    registration of build 8242026,
+    `tests/tier1_offline/test_p0340_fr153_build_8242026.py`.*
 
     Probes and volume sections write package-built VTK or Tecplot point
     fields whose provenance states the source, the position, the frame and the
@@ -6786,12 +6788,23 @@ Requirements written after the specification was last reconciled with the packag
       A run of a solver version, export kind or unit with no measured build is
       refused as before, and a field of a measured build is written as before,
       byte for byte.
+    - Amendment (0.34.0, RPT-136) Build 8242026 of 26.124 is registered by the
+      owner's decision of 2026-10-01, not by a measurement: it has a row of
+      every kind that build 8172026 has (the unsteady fluid plot and the steady
+      probe velocity conventions and the rotation timing, in METER and in
+      MILLIMETER), with the same values, and each row's evidence states "owner
+      decision of 2026-10-01, not measured". A field of build 8242026 in those
+      units is written with no warning and its entry carries neither
+      `velocity_convention` nor `rotation_timing`; the rows of 8172026 and the
+      warning for every other build are unchanged.
 
     **Solution (0.29.0).** `docs/sampled-fields.md` and the writers behind it.
     R1 (0.33.0): the table `pyflightstream.post.field_frames.VELOCITY_EVIDENCE`
     read by `native_velocity_proof`, the rotation timing table of
     `pyflightstream.script.motion` read by `resolve_frame_motion`, and
     `pyflightstream.post.probe_fields.point_field_products`.
+    Amendment (0.34.0): the rows of build 8242026 in the same two tables
+    (RPT-136).
     **Trace.** The test files above.
 
 !!! requirement "FR-154 Boundary-layer products are separate: section integrals from the surface, profiles refused <span class='srs-implemented'>implemented</span>"

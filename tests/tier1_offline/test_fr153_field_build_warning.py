@@ -21,7 +21,8 @@ from pyflightstream.post.probe_fields import point_field_products
 from pyflightstream.script import Script, helpers
 
 MEASURED = "8172026"
-OTHER = "8242026"
+#: A build nobody registered (8242026 is registered by decision, RPT-136).
+OTHER = "8999999"
 DIGEST = "a" * 64
 
 #: The proof each measured export kind and unit returned before FR-153's
@@ -107,7 +108,9 @@ def _rotating(version="26.124"):
     return moving, motion
 
 
-def _point(tmp_path, *, build=MEASURED, version="26.124", unit="METER", rotating=False):
+def _point(
+    tmp_path, *, build=MEASURED, version="26.124", unit="METER", rotating=False, native_to_m=1
+):
     """Write one point's fields over two STEPs; return (entries, warning texts)."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     table = tmp_path / "probes.csv"
@@ -126,7 +129,14 @@ def _point(tmp_path, *, build=MEASURED, version="26.124", unit="METER", rotating
     record = SimpleNamespace(
         run_id="r1",
         campaign=None,
-        probe_field_layout=[{**_layout([1, 2, 3, 4]), "frame": frame, "frame_index": index}],
+        probe_field_layout=[
+            {
+                **_layout([1, 2, 3, 4]),
+                "frame": frame,
+                "frame_index": index,
+                "native_to_m": native_to_m,
+            }
+        ],
         frame_motions={index: motion},
         fs_exe_sha256=DIGEST,
         fs_build=build,

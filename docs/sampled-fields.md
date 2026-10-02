@@ -41,7 +41,9 @@ produce a named diagnostic instead of a guessed placement.
 
 Native fluid-plot conventions are verified for FlightStream 26.124 build 8172026
 with the recorded executable digest, independently in METER and MILLIMETER
-simulations. Fluid-plot command vertices use metres in both cases; the saved
+simulations. Build 8242026 of 26.124 is registered with the same conventions by
+the owner's decision of 2026-10-01, not by a measurement ([RPT-136](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-136_fr153-build-8242026_2026-10-01.md)):
+its fields are written with no warning, and its rows say "not measured". Fluid-plot command vertices use metres in both cases; the saved
 layout retains native coordinates for frame placement. The measured velocity
 components are already absolute REFERENCE components in m/s, even when the sampling
 frame rotates. Applying the sampling-frame rotation to those components again
@@ -93,8 +95,9 @@ values can be inspected independently.
 ## A run on another build
 
 The velocity conventions above were measured on FlightStream 26.124 build
-8172026. A run of 26.124 in METER or MILLIMETER on another build, for example
-a cluster build run with `--accept-unregistered-build`, still gets its fields.
+8172026 and, by the decision above, 8242026. A run of 26.124 in METER or
+MILLIMETER on any other build, for example a cluster build run with
+`--accept-unregistered-build`, still gets its fields.
 The post writes them with the convention measured on build 8172026 and adds one
 warning per point to `post.log` and to the warnings the console prints, naming
 the build the convention was measured on and the build the run reports. Each
@@ -141,10 +144,12 @@ rotor turns one ring spacing per STEP, 30 degrees for a ring of twelve:
 VELOCITY: 30.0 / RPM: 800 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 30 / REVOLUTIONS: 1
 ```
 
-Its pproc samples the same ring twice: once in the rotor's hub frame `SMRP`,
-which stays fixed, and once in its turning frame `RMRP`, which starts on it and
-turns with the motion. Write the ring about the rotor axis, clear of the
-blades, in the hub frame's coordinates; the numbers below assume the hub
+Its pproc samples the same ring twice: once in the rotor's hub frame
+`ROTOR_SMRP`, which stays fixed, and once in its turning frame `ROTOR_RMRP1`,
+which starts on it and turns with the motion. The frame names are
+`<ALIAS>_SMRP` and `<ALIAS>_RMRP<k>` (here the alias is `ROTOR` and the
+blade is `1`); the bare names `SMRP` and `RMRP` are refused by the plan.
+Write the ring about the rotor axis, clear of the blades, in the hub frame's coordinates; the numbers below assume the hub
 frame's x axis is the rotor axis and are to be adapted to your rotor:
 
 ```toml
@@ -152,15 +157,21 @@ frame's x axis is the rotor axis and are to be adapted to your rotor:
 "1" = "all"
 
 [[probes]]
-frame = "SMRP"
+frame = "ROTOR_SMRP"
 parameters = ["VX", "VY", "VZ"]
 circles = [{center = [-0.5, 0, 0], normal = [1, 0, 0], radius = 0.3, points_radial = 2, points_azimuth = 12}]
 
 [[probes]]
-frame = "RMRP"
+frame = "ROTOR_RMRP1"
 parameters = ["VX", "VY", "VZ"]
 circles = [{center = [-0.5, 0, 0], normal = [1, 0, 0], radius = 0.3, points_radial = 2, points_azimuth = 12}]
 ```
+
+A rotor of four blades (`BLADES: 4`) makes the sampled field repeat every 90
+degrees, so a ring of twelve stations identifies the rotation shift only modulo
+three stations: the sense and the time origin can still be told apart over six
+STEPs, but one blade pins the whole shift. Measure on a single blade when the
+full shift matters.
 
 At every STEP, compare in the point's plots export the VX, VY and VZ of each
 moving sample with those of the fixed sample it lies on. The convention above
@@ -177,7 +188,8 @@ the comparison that established it. The rotation timing is the same kind of
 table in `pyflightstream.script.motion`, one row per solver version, unit and
 build. Registering your build is one row in each, citing your comparison, in a
 change to the package. A run of a registered build is proven, and its fields
-carry no warning.
+carry no warning. A row registered by decision and not by a comparison, as
+8242026 is (RPT-136), says "not measured" in its evidence.
 
 ## Surface-property histories
 
