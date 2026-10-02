@@ -68,12 +68,12 @@ RPT-128's front matter states the run it judges by.
 
 Commands (from the worktree root, with the package's Python)::
 
-    python -m tests.tier3_licensed.fsi_lq1 build C:/WORK/release-0340/lq1-fsi-ws
-    python -m tests.tier3_licensed.fsi_lq1 plan  C:/WORK/release-0340/lq1-fsi-ws
-    python -m tests.tier3_licensed.fsi_lq1 run   C:/WORK/release-0340/lq1-fsi-ws
-    python -m tests.tier3_licensed.fsi_lq1 plan-capped C:/WORK/release-0340/lq1-fsi-ws
-    python -m tests.tier3_licensed.fsi_lq1 run-capped  C:/WORK/release-0340/lq1-fsi-ws
-    python -m tests.tier3_licensed.fsi_lq1 analyze C:/WORK/release-0340/lq1-fsi-ws
+    python -m tests.tier3_licensed.fsi_lq1 build <workspace>
+    python -m tests.tier3_licensed.fsi_lq1 plan  <workspace>
+    python -m tests.tier3_licensed.fsi_lq1 run   <workspace>
+    python -m tests.tier3_licensed.fsi_lq1 plan-capped <workspace>
+    python -m tests.tier3_licensed.fsi_lq1 run-capped  <workspace>
+    python -m tests.tier3_licensed.fsi_lq1 analyze <workspace>
 
 ``analyze`` also reads RPT-092's own workspace as a control
 (``--rigid 9211 --coupled 9212 --capped none``), where it must print the 44
@@ -104,9 +104,9 @@ NACA = "4412"
 CHORD_M, SEMI_SPAN_M, N_CHORD, N_SPAN = 1.0, 4.0, 25, 20
 #: Dynamic viscosity of the setup's flight condition [Pa s], for rho = Re mu / (V c).
 MU_PA_S = 1.789e-5
-DEFAULT_EXE = (
-    "C:/GeoverseGoddess/GeoverseCloud/pyflightstream/exe/FlightStream_26124/Flightstream_26124.exe"
-)
+#: The build the kit runs on; its installation is this machine's, read from the tier-3
+#: ``inputs/executables.local.toml`` (gitignored) unless ``--exe`` names one.
+BUILD = "26.124"
 
 _SETUP = """# s340: steady preset of LQ1 (0.34.0, RPT-128), the s110 of RPT-092;
 # far field at five layers.
@@ -257,6 +257,13 @@ def fsi_input() -> str:
         "torsion_grid_cells = 64\n"
         f"sections_m = [\n  {sections}\n]\n"
     )
+
+
+def _local_executable() -> Path:
+    """This machine's installation of :data:`BUILD`, the way the tier-3 rows resolve it."""
+    from tests.tier3_licensed.prepare import executable
+
+    return Path(executable(BUILD))
 
 
 def build(workspace: Path, exe: str) -> None:
@@ -515,7 +522,12 @@ def main(argv: list[str] | None = None) -> int:
         "action", choices=("build", "plan", "run", "plan-capped", "run-capped", "analyze")
     )
     parser.add_argument("workspace", type=Path)
-    parser.add_argument("--exe", default=DEFAULT_EXE, help="the 26.124 executable (build)")
+    parser.add_argument(
+        "--exe",
+        default=None,
+        help="the 26.124 executable (build); default: this machine's installation as the "
+        "tier-3 inputs/executables.local.toml names it",
+    )
     parser.add_argument("--rigid", default=RIGID_POL, help="the rigid point's POL (analyze)")
     parser.add_argument("--coupled", default=COUPLED_POL, help="the coupled point's POL (analyze)")
     parser.add_argument(
@@ -524,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     workspace = args.workspace.resolve()
     if args.action == "build":
-        build(workspace, args.exe)
+        build(workspace, args.exe or str(_local_executable()))
         return 0
     if args.action == "analyze":
         capped = None if args.capped.lower() == "none" else args.capped
