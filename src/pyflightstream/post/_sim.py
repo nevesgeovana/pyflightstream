@@ -1272,7 +1272,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 row.setdefault(validity_column, validity_cell)
             # FR-348: from the inventory only, and placed last by the writer.
             row[MESH_FACES_COLUMN] = _mesh_faces_of(
-                ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0])
+                ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0]), point.name
             )
         ctx.drafts.append(
             SuperfileDraft(
@@ -1356,17 +1356,21 @@ def _setup_content(
             sweep_row=(sweep_rows or {}).get(run_id),
             plots_row=None,
         )
-        content[point.name][MESH_FACES_COLUMN] = _mesh_faces_of(workspace, by_run.get(run_id))
+        content[point.name][MESH_FACES_COLUMN] = _mesh_faces_of(
+            workspace, by_run.get(run_id), point.name
+        )
     return content
 
 
-def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None) -> str:
+def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point: str) -> str:
     """Return the face count the inventory states for the geometry a record's run opened (FR-348).
 
     Taken from the inventory, never counted here: the library's inventory of
-    each file the run staged, then the simulation's staged copy, the count
-    standing only with the sha256 the record holds for that file. A blank,
-    written ``NA``, where no record or no inventory states it.
+    each file the run staged, then the simulation's staged copy, whenever it
+    states the field. Where its ``mesh_sha256`` is not the sha256 the record
+    holds for that file, the post log WARNS naming both, and the count is
+    still carried (a warning, never a refusal). A blank, written ``NA``, where
+    no record or no inventory states it.
     """
     if record is None:
         return ""
@@ -1381,4 +1385,17 @@ def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None) -> st
         return [inventory_sidecar(path) for path in found]
 
     faces = recorded_mesh_faces(record.inputs_sha256, sidecars)
-    return "" if faces is None else str(faces)
+    if faces is None:
+        return ""
+    if not faces.same_bytes:
+        warn(
+            f"point={point} product={MESH_FACES_COLUMN}: the inventory {faces.sidecar} states "
+            f"mesh_faces = {faces.mesh_faces} counted in mesh_sha256 {faces.counted_sha256}, "
+            f"and run "
+            f"{record.run_id} recorded sha256 {faces.recorded_sha256} for {faces.name}; the count "
+            "is carried as the inventory states it. Take the inventory again "
+            "(pyfs-matrix inventory <geometry> --overwrite) if the geometry changed (FR-348).",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return str(faces.mesh_faces)

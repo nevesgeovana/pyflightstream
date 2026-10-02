@@ -1813,13 +1813,15 @@ FX_HUB_PUSHER = "FX_PUSHER"
   where the reader gives it (a saved simulation whose faces are all triangles
   and whose block names each face's boundary, and an OBJ, one count per group
   that holds a face); and `mesh_sha256`, the sha256 of the file counted.
-- **A row carries the count only when the inventory states it for that row's
-  geometry with the sha256 the row's run recorded for the file**, the library's
-  inventory read first and then the simulation's staged copy. Otherwise the
-  cell is `NA`: a row whose point has no run record, an inventory without
-  `mesh_faces` (every inventory taken before 0.34.0), and an inventory whose
-  `mesh_sha256` is not the sha256 the run recorded, because the geometry was
-  replaced, edited or cleaned (`--clean`) between the inventory and the run.
+- **A row carries the count whenever the inventory states it for that row's
+  geometry**, the library's inventory read first and then the simulation's
+  staged copy. Otherwise the cell is `NA`: a row whose point has no run record,
+  and an inventory without `mesh_faces` (every inventory taken before 0.34.0).
+- **Where the inventory's `mesh_sha256` is not the sha256 the run recorded** for
+  the file, because the geometry was replaced, edited or cleaned (`--clean`)
+  between the inventory and the run, the count is still carried and `post.log`
+  warns, naming the inventory, both sha256 and the run. The warning never
+  blocks the post; take the inventory again if the geometry changed.
 - **Taking the count again.** For a saved simulation, `pyfs-matrix inventory
   <geometry> --overwrite` rewrites its inventory with the count. The package
   never rewrites an OBJ's inventory, because it may carry tables written by

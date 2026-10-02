@@ -28,7 +28,7 @@ import tomllib
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, NamedTuple, cast
 
 from pydantic import ValidationError
 
@@ -469,11 +469,13 @@ def _toml_string(name: str) -> str:
 # `boundary_faces` is the count of each boundary in the order of the list, written
 # only where the reader gives it. THE POST ONLY CARRIES IT, AND NEVER COUNTS: the
 # super file and the unsteady polar take `mesh_faces` from the inventory of the
-# geometry a row's run opened, and only with the sha256 that run recorded for the
-# file (`recorded_mesh_faces`), so a geometry replaced since the run, and an
-# inventory taken before this release, give NA. A count that cannot be taken is not
-# written, and the inventory is written as it was before: the count is an addition
-# to the inventory and never a reason to refuse one.
+# geometry a row's run opened WHENEVER THE INVENTORY STATES THE FIELD (her words of
+# 2026-10-01, "ele só puxa de lá se o campo existir"; `recorded_mesh_faces`), and an
+# inventory taken before this release gives NA. Where the inventory's `mesh_sha256`
+# is not the sha256 the run recorded for the file, the post WARNS naming both and
+# still carries the count: a warning, never a refusal. A count that cannot be taken
+# is not written, and the inventory is written as it was before: the count is an
+# addition to the inventory and never a reason to refuse one.
 
 #: The key of the inventory that states the geometry's face count.
 MESH_FACES_KEY = "mesh_faces"
@@ -611,17 +613,39 @@ def stated_mesh_faces(sidecar: Path) -> tuple[int, str] | None:
     return count, digest
 
 
+class RecordedMeshFaces(NamedTuple):
+    """The face count an inventory states for a file a run staged (FR-348)."""
+
+    #: The face count, ``mesh_faces``.
+    mesh_faces: int
+    #: The staged file's name, as the run record holds it.
+    name: str
+    #: The inventory the count was read from.
+    sidecar: Path
+    #: The sha256 of the file the faces were counted in, ``mesh_sha256``.
+    counted_sha256: str
+    #: The sha256 the run recorded for the file.
+    recorded_sha256: str
+
+    @property
+    def same_bytes(self) -> bool:
+        """Whether the faces were counted in the bytes the run staged."""
+        return self.counted_sha256 == self.recorded_sha256
+
+
 def recorded_mesh_faces(
     inputs_sha256: Mapping[str, str], sidecars_of: Callable[[str], Iterable[Path]]
-) -> int | None:
+) -> RecordedMeshFaces | None:
     """Return the face count of the geometry a run opened, as its inventory states it, or None.
 
     Each file the run staged, by the name and the sha256 its record holds,
     is looked up through ``sidecars_of``, which names the inventories that
     may describe it (the geometry library's, then the simulation's staged
-    copy). The first inventory that states a count with that very sha256
-    gives it; a file staged under a path rather than a bare name is never
-    a geometry and is passed over.
+    copy). The count is taken whenever an inventory states it (FR-348 R3):
+    an inventory counted from the very bytes the run recorded is preferred,
+    and otherwise the first that states a count gives it, and the caller
+    warns that the two sha256 differ. A file staged under a path rather than
+    a bare name is never a geometry and is passed over.
 
     Parameters
     ----------
@@ -632,17 +656,23 @@ def recorded_mesh_faces(
 
     Returns
     -------
-    int or None
-        The face count, or None where no inventory states it for that file.
+    RecordedMeshFaces or None
+        The count with where it was read and both sha256, or None where no
+        inventory states it for any staged file.
     """
+    first: RecordedMeshFaces | None = None
     for name, digest in inputs_sha256.items():
         if not name or Path(name).name != name:
             continue
         for sidecar in sidecars_of(name):
             stated = stated_mesh_faces(sidecar)
-            if stated is not None and stated[1] == digest:
-                return stated[0]
-    return None
+            if stated is None:
+                continue
+            found = RecordedMeshFaces(stated[0], name, sidecar, stated[1], digest)
+            if found.same_bytes:
+                return found
+            first = first or found
+    return first
 
 
 #: The table of a geometry's sidecar that states how a raw mesh is imported
@@ -809,8 +839,8 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
     ),
     MESH_FACES_KEY: InputKey(
         "The mesh's face count, counted when the inventory is taken from a saved simulation "
-        "or an OBJ; the post carries it as MESH_FACES for a run whose recorded sha256 of the "
-        "geometry is mesh_sha256 (FR-348).",
+        "or an OBJ; the post carries it as MESH_FACES, and warns where the run's recorded "
+        "sha256 of the geometry is not mesh_sha256 (FR-348).",
         "a whole number",
     ),
     BOUNDARY_FACES_KEY: InputKey(
@@ -819,8 +849,8 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
         "a list of whole numbers",
     ),
     MESH_SHA256_KEY: InputKey(
-        "The sha256 of the file the faces were counted in, which a run's recorded sha256 of "
-        "the geometry must equal for the post to carry mesh_faces.",
+        "The sha256 of the file the faces were counted in; the post warns where a run's "
+        "recorded sha256 of the geometry differs from it.",
         "a sha256, as text",
     ),
     IMPORT_TABLE: InputKey(

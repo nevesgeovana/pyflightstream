@@ -4,8 +4,10 @@ P0340-MESH-FACES (FR-348). The inventory ``<stem>.boundaries.toml`` states
 ``mesh_faces`` (and ``boundary_faces`` where the reader gives it, and the
 ``mesh_sha256`` of the file counted) when it is taken, from a saved
 simulation or an OBJ; the super file and the unsteady polar carry it as their
-LAST column ``MESH_FACES`` for a row whose run recorded that very sha256 for
-the geometry, and ``NA`` otherwise. The post never counts a face.
+LAST column ``MESH_FACES`` whenever the inventory states it ("ele só puxa de lá
+se o campo existir"), and ``NA`` otherwise; where the run recorded another
+sha256 for the geometry, post.log warns naming both. The post never counts a
+face.
 
 Every fixture is synthetic: a mesh block and an OBJ built here, and the
 recorded campaigns the products snapshot already posts.
@@ -216,9 +218,11 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
 ):
     """P0340-MESH-FACES, FR-348: the count reaches the super file and the unsteady polar, last.
 
-    The run recorded the sha256 the inventory states, so every row carries 7.
-    The control is the same campaign whose run recorded another sha256: every
-    row carries NA, and every other column and cell of both posts is the same.
+    The run recorded the sha256 the inventory states, so every row carries 7
+    and post.log holds no MESH_FACES warning. The same campaign whose run
+    recorded another sha256 still carries 7 in every row, since the inventory
+    states the field (R3), and its post.log WARNS naming both sha256; every
+    other column and cell of both posts is the same.
     """
     requirement = "FR-348"
     workspace = _campaign(tmp_path / "a", monkeypatch, digest_of_the_run=None, builder=builder)
@@ -226,6 +230,15 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
     monkeypatch.undo()
     other = _campaign(tmp_path / "b", monkeypatch, digest_of_the_run="0" * 64, builder=builder)
     replaced = _posted(other, builder)
+    stem = _POST_OPTIONS[builder].get("matrix_stem")
+    same_log = (workspace.products_dir(stem) / "post.log").read_text(encoding="utf-8")
+    other_log = (other.products_dir(stem) / "post.log").read_text(encoding="utf-8")
+    assert "product=MESH_FACES" not in same_log, (requirement, "a warning on the same bytes")
+    counted = file_sha256(tmp_path / "b" / "source" / "wing.fsm")
+    warned = [line for line in other_log.splitlines() if "product=MESH_FACES" in line]
+    assert warned, (requirement, "no warning where the sha256 differ")
+    for line in warned:
+        assert line.startswith("WARNING ") and counted in line and "0" * 64 in line, line
     kinds = {"SUPER" if "SUPER-" in name else "uns_avg" for name in carried}
     assert kinds == ({"SUPER"} if builder == "superfile" else {"uns_avg"}), (requirement, carried)
     assert set(carried) == set(replaced), requirement
@@ -235,7 +248,7 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
         assert rows and all(row[-1] == "7" for row in rows), (requirement, name, rows)
         control_header, *control_rows = replaced[name]
         assert control_header == header, (requirement, name)
-        assert all(row[-1] == "NA" for row in control_rows), (requirement, name, control_rows)
+        assert all(row[-1] == "7" for row in control_rows), (requirement, name, control_rows)
         assert [row[:-1] for row in control_rows] == [row[:-1] for row in rows], (requirement, name)
 
 

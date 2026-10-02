@@ -1,7 +1,7 @@
 ## Added
 
 - The boundary inventory states the face count of its geometry when it is taken: `pyfs-matrix inventory <geometry>`, and the plan for an OBJ that has no inventory, write `mesh_faces` into `<stem>.boundaries.toml`, with `boundary_faces`, the count of each boundary in the order of `boundaries`, where the reader gives it (a saved simulation whose faces are all triangles and whose block names each face's boundary, and an OBJ, one count per group that holds a face), and `mesh_sha256`, the sha256 of the file counted. A count that cannot be taken is not written, and the inventory is then written as before. The input glossary states the three keys, and the input template's example of a saved simulation's inventory shows them (FR-348).
-- `MESH_FACES`, the last column of every super file and of every unsteady polar (`polars/P<sim>_<name>_uns_avg.csv`): the face count of the geometry each row's run opened, taken from its inventory only where the inventory states it with the sha256 that run recorded for the file, `NA` otherwise. The post never counts a face; the definitions page states the column (FR-348).
+- `MESH_FACES`, the last column of every super file and of every unsteady polar (`polars/P<sim>_<name>_uns_avg.csv`): the face count of the geometry each row's run opened, taken from its inventory whenever the inventory states it, `NA` otherwise; where the inventory was counted from other bytes than the sha256 the run recorded, `post.log` warns naming both and the count is still carried. The post never counts a face; the definitions page states the column (FR-348).
 
 ## Changed
 
