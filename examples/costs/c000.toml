@@ -1,0 +1,30 @@
+# SYNTHETIC EXAMPLE of a per-machine cost file (FR-398). Every number below is
+# synthetic and invented round: copy this file to inputs/costs/c001.toml of a
+# workspace and replace the values with your own machine's measurements.
+
+[machine]
+name = "example-machine"
+fs_build = "26.1"
+
+[reference]            # the anchor run
+pol = "000"
+run_type = "steady"
+mesh_faces = 10000
+ncpus = 4
+wall_time_s = 1000.0
+steps = 100
+
+[parallel]             # speedup against NCPUS, linear between stated points
+ncpus = [1, 2, 4, 8, 16]
+speedup = [1.0, 2.0, 4.0, 8.0, 16.0]
+
+[mesh]
+exponent_b = 1.0       # time scales with the mesh faces as N^b
+
+[steps]
+exponent = 1.0         # time scales with the step count as N^exponent
+
+[flags]                # multiplier of each solver flag the row sets
+blunt_trailing_edge = 1.5
+viscous_coupling = 2.0
+wake_termination_plus_1_rev = 1.25

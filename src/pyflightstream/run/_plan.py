@@ -92,6 +92,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
 )
 from pyflightstream.workspace._batches import GroupingReceipt
+from pyflightstream.workspace.costs import priced_rows
 from pyflightstream.workspace.naming import (
     PointName,
     archive_previous,
@@ -590,10 +591,14 @@ def point_costs(
         if entry.sim_id in cases_by_sim_id
     }
     steps_by_run = {run_id: time_steps_of(case) for run_id, case in filled.items()}
-    return [
-        estimate_point_cost(case, run_id=run_id, recorded=recorded, steps_by_run=steps_by_run)
-        for run_id, case in filled.items()
-    ]
+    return priced_rows(
+        [
+            estimate_point_cost(case, run_id=run_id, recorded=recorded, steps_by_run=steps_by_run)
+            for run_id, case in filled.items()
+        ],
+        filled,
+        getattr(workspace, "inputs_dir", None),
+    )
 
 
 #: What `_elide` puts in place of the characters it drops.

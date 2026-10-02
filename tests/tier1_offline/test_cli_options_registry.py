@@ -254,6 +254,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # would put an extrapolation in front of someone who asked for a
     # pre-flight.
     ("pyfs-matrix", "cost"): SWITCH,
+    # 0.35.0 (FR-398): which cost file of inputs/costs/ THIS plan uses.
+    ("pyfs-matrix", "cost_file"): SUBJECT,
     ("pyfs-matrix", "inflow_fft"): SWITCH,
     # PFS-2031.21, the author's instruction of 2026-09-14. A SWITCH: whether
     # THIS plan rewrites the matrix it was handed is the invocation's intent,
@@ -511,6 +513,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "points"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
+    ("pyfs-matrix", "cost_file"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "inflow_fft"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "accept_unregistered_build"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "update_ids"): frozenset({"inspect-setups", "plan"}),
