@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._tokens import MESH_FACES_COLUMN
 from pyflightstream.cases import PprocSpec, select_group_members
 from pyflightstream.cases.workflows import CONFIGURATION_VARIABLE
 from pyflightstream.post import qsteady as _qsteady
@@ -114,6 +115,7 @@ from pyflightstream.post.unsteady_polar import (
 )
 from pyflightstream.results import FrozenSolve
 from pyflightstream.workspace.inputs import rotor_integration_groups
+from pyflightstream.workspace.sidecars import inventory_sidecar, recorded_mesh_faces
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -1131,7 +1133,14 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
         window=ctx.window,
         windows=ctx.point_windows,
         frozen=ctx.frozen_points,
-        setup=_setup_content(ctx.points, ctx.sources, ctx.records, ctx.matrix_row, ctx.sweep_rows),
+        setup=_setup_content(
+            ctx.points,
+            ctx.sources,
+            ctx.records,
+            ctx.matrix_row,
+            ctx.sweep_rows,
+            workspace=ctx.workspace,
+        ),
         conditions=ctx.conditions,
         reference=ctx.reference,
         left_out=left_out,
@@ -1261,6 +1270,10 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
+            # FR-348: from the inventory only, and placed last by the writer.
+            row[MESH_FACES_COLUMN] = _mesh_faces_of(
+                ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0])
+            )
         ctx.drafts.append(
             SuperfileDraft(
                 path=path,
@@ -1319,6 +1332,8 @@ def _setup_content(
     records: Sequence[RunRecord],
     matrix_row: MatrixRow | None,
     sweep_rows: Mapping[str, Mapping[str, object]] | None,
+    *,
+    workspace: CampaignWorkspace,
 ) -> dict[str, dict[str, str]]:
     """Return the SUPER content of each point by name, through the super file's own assembly.
 
@@ -1326,7 +1341,8 @@ def _setup_content(
     of the setup and whatever the simulation knows that the polar does not: the
     record's condition and scalars, the matrix row's cells, each rotor's speed,
     the campaign sweep row and the solver flags. One assembly, so the steady super
-    file and the unsteady polar cannot drift in what they call the setup.
+    file and the unsteady polar cannot drift in what they call the setup. The
+    face count of the point's geometry is added as the super file adds it (FR-348).
     """
     by_run = {record.run_id: record for record in records}
     content: dict[str, dict[str, str]] = {}
@@ -1340,4 +1356,29 @@ def _setup_content(
             sweep_row=(sweep_rows or {}).get(run_id),
             plots_row=None,
         )
+        content[point.name][MESH_FACES_COLUMN] = _mesh_faces_of(workspace, by_run.get(run_id))
     return content
+
+
+def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None) -> str:
+    """Return the face count the inventory states for the geometry a record's run opened (FR-348).
+
+    Taken from the inventory, never counted here: the library's inventory of
+    each file the run staged, then the simulation's staged copy, the count
+    standing only with the sha256 the record holds for that file. A blank,
+    written ``NA``, where no record or no inventory states it.
+    """
+    if record is None:
+        return ""
+    staged = workspace.sim_dir(record.sim_id) / "inputs"
+
+    def sidecars(name: str) -> list[Path]:
+        found = [staged / name]
+        try:
+            found.insert(0, workspace.resolve_geometry(name))
+        except (PyflightstreamError, OSError):
+            pass
+        return [inventory_sidecar(path) for path in found]
+
+    faces = recorded_mesh_faces(record.inputs_sha256, sidecars)
+    return "" if faces is None else str(faces)

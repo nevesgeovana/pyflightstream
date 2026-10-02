@@ -503,10 +503,64 @@ def stored(name: str) -> tuple[dict[str, str], dict[str, str]]:
     return index, texts
 
 
+#: The products FR-348 (0.34.0) appends one last column to, and the column: the super
+#: files and the unsteady polars carry the face count of each row's geometry.
+FR348_PRODUCTS = ("*/SUPER-*.csv", "*_uns_avg.csv")
+FR348_COLUMN = "MESH_FACES"
+#: A cell of that column: NA where the inventory states no count, else a whole number.
+_FR348_CELL = re.compile(r"NA|[0-9]+")
+
+
+def without_the_fr348_column(data: bytes) -> bytes | None:
+    """The product with the column FR-348 appends taken off, or None where it is not there.
+
+    The header must end in ``,MESH_FACES`` and every row in one more cell that is
+    ``NA`` or a whole number; that cell and its comma are removed, all of them and
+    nothing else, so a product that differs from the stored one by anything beside
+    the column still fails its digest.
+    """
+    text = data.decode("utf-8", "replace")
+    lines = text.split("\n")
+    if len(lines) < 2 or lines[-1] != "" or not lines[0].endswith(f",{FR348_COLUMN}"):
+        return None
+    kept = [lines[0][: -len(f",{FR348_COLUMN}")]]
+    for line in lines[1:-1]:
+        head, comma, cell = line.rpartition(",")
+        if not comma or not _FR348_CELL.fullmatch(cell):
+            return None
+        kept.append(head)
+    return ("\n".join(kept) + "\n").encode("utf-8")
+
+
+def fr348_admitted(files: dict[str, bytes]) -> tuple[dict[str, bytes], list[str]]:
+    """The files with the FR-348 column taken off each product it names, and those that lack it.
+
+    The admission is the products of :data:`FR348_PRODUCTS` alone, and it is not
+    optional: one of them without the column is named as lacking it.
+    """
+    admitted, lacking = dict(files), []
+    for name, data in files.items():
+        if any(fnmatch.fnmatch(name, pattern) for pattern in FR348_PRODUCTS):
+            restored = without_the_fr348_column(data)
+            if restored is None:
+                lacking.append(name)
+            else:
+                admitted[name] = restored
+    return admitted, lacking
+
+
 def differences(index: dict[str, str], files: dict[str, bytes]) -> list[str]:
-    """Every difference between a stored digest index and regenerated files, named."""
+    """Every difference between a stored digest index and regenerated files, named.
+
+    The stored digests are of the products as 0.33 wrote them; the one column
+    FR-348 appends to the super files and the unsteady polars is taken off
+    before they are compared (:func:`fr348_admitted`), and such a product
+    without it is a difference.
+    """
+    files, lacking = fr348_admitted(files)
     now = digests(files)
-    out = [f"{name}: missing" for name in sorted(set(index) - set(now))]
+    out = [f"{name}: lacks the {FR348_COLUMN} column FR-348 appends" for name in sorted(lacking)]
+    out += [f"{name}: missing" for name in sorted(set(index) - set(now))]
     out += [f"{name}: not in the snapshot" for name in sorted(set(now) - set(index))]
     out += [
         f"{name}: bytes differ"
@@ -586,7 +640,9 @@ def write_snapshot(name: str, files: dict[str, bytes]) -> None:
     if folder.exists():
         shutil.rmtree(folder)
     folder.mkdir(parents=True)
-    (folder / DIGESTS).write_text(json.dumps(digests(files), indent=1) + "\n", encoding="utf-8")
+    # The digests stay those of the 0.33 shape: the FR-348 column is admitted, not stored.
+    admitted, _lacking = fr348_admitted(files)
+    (folder / DIGESTS).write_text(json.dumps(digests(admitted), indent=1) + "\n", encoding="utf-8")
     for base in TEXT_FILES:
         match = [n for n in files if n.rsplit("/", 1)[-1] == base]
         if len(match) == 1:

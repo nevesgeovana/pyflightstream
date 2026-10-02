@@ -79,7 +79,7 @@ from pathlib import Path
 import numpy as np
 
 import pyflightstream._textio as _textio
-from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream._tokens import MESH_FACES_COLUMN, POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
@@ -683,6 +683,10 @@ def write_superfiles(
                 if key not in seen:
                     seen.add(key)
                     columns.append(key)
+    if MESH_FACES_COLUMN in seen:
+        # FR-348: LAST, whichever row brought it in, so a reader by position keeps every column.
+        columns.remove(MESH_FACES_COLUMN)
+        columns.append(MESH_FACES_COLUMN)
     written: list[Path] = []
     entries: dict[Path, dict[str, object]] = {}
     for draft in drafts:

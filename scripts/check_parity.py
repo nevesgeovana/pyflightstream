@@ -98,7 +98,10 @@ _DRIFT_MESSAGE = (
 #: must match whole, so a difference is held to its lines, their order and
 #: their number; ``release_lacks``, when given, is a regex the release's own
 #: text must NOT match, so a difference that removes lines is held to its
-#: direction and to the state the requirement names.
+#: direction and to the state the requirement names; ``appended_column``, when
+#: given, names the one CSV column the release appends LAST to the file, and
+#: ``cells`` the regex each of its cells must match whole, so the difference is
+#: held to that column, its place and its cells (:func:`appends_one_column`).
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
@@ -200,6 +203,34 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "why": (
             "the machine-readable form of the same per-revolution drift warning "
             "records, which FR-180 words and counts anew"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/SUPER-*.csv",
+        # The super file gains ONE column, MESH_FACES, after every column 0.33.1
+        # wrote, its cells NA or a whole number, and nothing else changes: the
+        # header and each row are the 0.33.1 line with that one cell appended.
+        "appended_column": "MESH_FACES",
+        "cells": r"NA|\d+",
+        "requirement": "FR-348",
+        "why": (
+            "the super file carries the face count of each row's geometry as its boundary "
+            "inventory states it, NA where it states none, in a new last column"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*_uns_avg.csv",
+        # The unsteady polar gains ONE column, MESH_FACES, after every column 0.33.1
+        # wrote, its cells NA or a whole number, and nothing else changes: the
+        # header and each row are the 0.33.1 line with that one cell appended.
+        "appended_column": "MESH_FACES",
+        "cells": r"NA|\d+",
+        "requirement": "FR-348",
+        "why": (
+            "the unsteady polar carries the face count of each row's geometry as its boundary "
+            "inventory states it, NA where it states none, in a new last column"
         ),
     },
 ]
@@ -624,6 +655,25 @@ def changed_lines(old: str, new: str) -> list[str]:
     return [line[1:] for line in diff if line[:1] in "+-" and not line.startswith(("+++", "---"))]
 
 
+def appends_one_column(old: str, new: str, column: str, cells: str) -> bool:
+    """Whether ``new`` is ``old`` with one CSV column ``column`` appended last, and nothing else.
+
+    The header must be the old header and ``,column``; every other line the old
+    line and one cell that matches ``cells`` whole; the line count and the final
+    line end the same.
+    """
+    before, after = old.splitlines(), new.splitlines()
+    if not before or len(before) != len(after) or old.endswith("\n") != new.endswith("\n"):
+        return False
+    if after[0] != f"{before[0]},{column}":
+        return False
+    for was, now in zip(before[1:], after[1:], strict=True):
+        head, comma, cell = now.rpartition(",")
+        if not comma or head != was or not re.fullmatch(cells, cell):
+            return False
+    return True
+
+
 def name_difference(
     kind: str, name: str, old: str | None, new: str | None, defined: set[str]
 ) -> dict[str, Any]:
@@ -646,6 +696,9 @@ def name_difference(
             continue
         lacks = named.get("release_lacks")
         if lacks and re.search(lacks, new):
+            continue
+        appended = named.get("appended_column")
+        if appended and not appends_one_column(old or "", new, appended, named["cells"]):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"

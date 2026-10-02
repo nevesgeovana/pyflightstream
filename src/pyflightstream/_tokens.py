@@ -72,6 +72,12 @@ POLAR_ID_COLUMN = "POL"
 #: as written.
 ROTOR_ID_COLUMN = "ROTOR"
 
+#: The LAST column of the super file and of the unsteady polar (FR-348, 0.34.0):
+#: the face count of the geometry a row's run opened, as its boundary inventory
+#: states it, ``NA`` where the inventory states none for that geometry. Last so
+#: a reader that takes the columns of 0.33 by position keeps every one of them.
+MESH_FACES_COLUMN = "MESH_FACES"
+
 #: What a text cell writes where it would have held the delimiter (G16, 0.27.0).
 #:
 #: NO CELL OF A TABLE HOLDS A COMMA OR A DOUBLE QUOTE, and no cell is quoted, so

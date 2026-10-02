@@ -38,6 +38,7 @@ them was inferred from an implementation.
 - [A volume section](#a-volume-section)
 - [The additional post](#the-additional-post)
 - [The unsteady POLAR](#the-unsteady-polar)
+- [The mesh face count](#the-mesh-face-count-since-0340)
 - [Rotor coefficients](#rotor-coefficients)
 - [Tip and helical Mach numbers](#tip-and-helical-mach-numbers)
 - [What the package does NOT judge](#what-the-package-does-not-judge)
@@ -1739,6 +1740,9 @@ come back
   flags. The super file is what the polar does not have; for an unsteady point it
   is not a second file. Its `POL` cell is the row's first column and is not
   written a second time.
+- **The last column is `MESH_FACES`** (since 0.34.0), after the super file's
+  content: the face count of the point's geometry as its inventory states it,
+  or `NA` ([the mesh face count](#the-mesh-face-count-since-0340)).
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
   polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
   `CDB .. CNB25`, each suffixed with its plot group's WHOLE name
@@ -1792,6 +1796,35 @@ FX_HUB_PUSHER = "FX_PUSHER"
   check, so a plot column cannot be renamed to one of those; `CL_TOTAL` can.
 - Two entries giving one name, or a name that is not one word, are refused when
   the pproc is read.
+
+---
+
+## The mesh face count (since 0.34.0)
+
+- **`MESH_FACES` is the last column of every super file and of every unsteady
+  polar** (`polars/P<sim>_<name>_uns_avg.csv`), after every column 0.33 wrote,
+  so a reader that takes those columns by position keeps each of them. It holds
+  the face count of the geometry the row's run opened.
+- **It comes from the boundary inventory, and the post never counts a face.**
+  `pyfs-matrix inventory <geometry>`, and the plan for an OBJ that has no
+  inventory, write into `<stem>.boundaries.toml`, when they take the inventory,
+  `mesh_faces`, the face count of a saved simulation's mesh block or of an OBJ;
+  `boundary_faces`, the count of each boundary in the order of `boundaries`,
+  where the reader gives it (a saved simulation whose faces are all triangles
+  and whose block names each face's boundary, and an OBJ, one count per group
+  that holds a face); and `mesh_sha256`, the sha256 of the file counted.
+- **A row carries the count only when the inventory states it for that row's
+  geometry with the sha256 the row's run recorded for the file**, the library's
+  inventory read first and then the simulation's staged copy. Otherwise the
+  cell is `NA`: a row whose point has no run record, an inventory without
+  `mesh_faces` (every inventory taken before 0.34.0), and an inventory whose
+  `mesh_sha256` is not the sha256 the run recorded, because the geometry was
+  replaced, edited or cleaned (`--clean`) between the inventory and the run.
+- **Taking the count again.** For a saved simulation, `pyfs-matrix inventory
+  <geometry> --overwrite` rewrites its inventory with the count. The package
+  never rewrites an OBJ's inventory, because it may carry tables written by
+  hand: move it aside, take the inventory again, and copy those tables beneath
+  the new list.
 
 ---
 
