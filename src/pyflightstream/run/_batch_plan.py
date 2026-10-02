@@ -514,6 +514,7 @@ def plan_grouped_matrix(
         ),
         keywords.get("sims"),
         keywords.get("points"),
+        workspace,
     )
     units, left_out = _eligible_units(plan, resolved, workspace, keywords.get("recipe_registry"))
     profile = resolve_hpc_profile(workspace.inputs_dir)

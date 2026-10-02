@@ -768,7 +768,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
-    resolved = narrow_to_selection(resolved, sims, points)  # FR-326
+    resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
@@ -1299,7 +1299,7 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
-    resolved = narrow_to_selection(resolved, sims, points, redoing=force_rerun_all)  # FR-326
+    resolved = narrow_to_selection(resolved, sims, points, workspace, redoing=force_rerun_all)
     if force_rerun_all:
         force_rerun, resolved = _everything_recorded(
             resolved, workspace, sims=sims, force_rerun=force_rerun, resume=resume

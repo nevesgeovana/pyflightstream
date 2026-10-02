@@ -114,8 +114,9 @@ def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="POINT",
         default=None,
         help="with --sims, plan or run only these points of those simulations, by the "
-        "point name the plan prints for each; the matrix file is not edited and no other "
-        "point is planned, staged or run. A point the matrix does not carry is refused "
+        "point name the plan prints for each, or by its run id alias <sim>_<index> (2006_3, "
+        "which names its simulation; the plan prints each); the matrix file is not edited and "
+        "no other point is planned, staged or run. A point the matrix does not carry is refused "
         "before anything runs",
     )
 
@@ -448,7 +449,12 @@ def _add_records_parsers(subparsers: Any) -> None:
             "runs.json is copied to archive/ first (FR-309)."
         ),
     )
-    mark.add_argument("--sims", required=True, help="simulation ids, comma separated: 2006,2007")
+    mark.add_argument(
+        "--sims",
+        required=True,
+        help="simulation ids, comma separated: 2006,2007; a run id alias (2006_3) marks that "
+        "point's record alone",
+    )
     mark.add_argument("--reason", default=None, help="why, recorded as given")
     mark.add_argument("--workspace", default=".", help=workspace_help)
     mark.add_argument("--apply", action="store_true", help=apply_help)

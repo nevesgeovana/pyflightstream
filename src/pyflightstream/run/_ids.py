@@ -35,6 +35,7 @@ from pyflightstream.cases.workflows import (
     disc_speed_moves_with_the_point,
     with_tecplot_source,
 )
+from pyflightstream.run._alias import selection_with_aliases
 from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -429,6 +430,7 @@ def narrow_to_selection(
     resolved: ResolvedMatrix,
     sims: Sequence[str] | None,
     points: Sequence[str] | None,
+    workspace: CampaignWorkspace | None = None,
     *,
     redoing: bool = False,
 ) -> ResolvedMatrix:
@@ -442,7 +444,10 @@ def narrow_to_selection(
         The simulation ids as the matrix spells them; None or empty selects every one.
     points : sequence of str, optional
         Point names, accepted only with ``sims``: only those points of the selected
-        simulations remain, and a simulation carrying none of them is left out.
+        simulations remain, and a simulation carrying none of them is left out. A run
+        id alias (``<sim>_<index>``, FR-395) is read as its point and names its simulation.
+    workspace : CampaignWorkspace, optional
+        Whose records order the aliases; without it a point is read as a name only.
     redoing : bool
         True under ``force_rerun_all``, which redoes recorded points by simulation and
         refuses a point selection (``--force-rerun`` names points to redo).
@@ -459,6 +464,13 @@ def narrow_to_selection(
         When ``points`` comes without ``sims`` or with ``redoing``, or names a simulation
         or a point the matrix does not carry; raised before anything runs.
     """
+    if points and workspace is not None:
+        sims, points = selection_with_aliases(
+            sims,
+            points,
+            workspace.read_raw_manifest(),
+            {case.sim_id: _names_of(case) for case in resolved.campaign.sims},
+        )
     if not sims:
         if points:
             raise MatrixError(
