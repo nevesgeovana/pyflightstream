@@ -202,14 +202,12 @@ ADVANCED_FAMILY = (
 
 #: The toggles read before the first emission, in the order they are read,
 #: so a value in neither vocabulary refuses on an untouched script and the
-#: snapshot records booleans whichever vocabulary the caller wrote. Five
-#: toggle rows of ADVANCED_FAMILY are NOT here, as they were not in 0.33.0:
-#: valarezo_criterion, wake_relaxation, wake_streamwise_agglomeration,
-#: adverse_gradient_boundary_layer and vortex_ring_normalization. They reach
-#: :func:`_toggle` as the caller wrote them, so a string decides the flag by
-#: truthiness ('DISABLE' writes ENABLE) and the snapshot records the string.
-#: That is a defect of 0.33.0 the cut keeps, because fixing it changes the
-#: emitted bytes; it is reported for a release of its own.
+#: snapshot records booleans whichever vocabulary the caller wrote. The five
+#: toggle rows of ADVANCED_FAMILY that 0.33.0 left out (valarezo_criterion,
+#: wake_relaxation, wake_streamwise_agglomeration,
+#: adverse_gradient_boundary_layer and vortex_ring_normalization) are the
+#: last five: FR-349 (0.34.0) reads them too, so 'DISABLE' writes DISABLE
+#: and the snapshot records a boolean.
 READ_TOGGLES = (
     "forced_iterations",
     "viscous_coupling",
@@ -224,6 +222,11 @@ READ_TOGGLES = (
     "print_rotor_induced_velocities",
     "adaptive_field_grid_refinement",
     "jet_wake_filaments_grid_induction",
+    "valarezo_criterion",
+    "wake_relaxation",
+    "wake_streamwise_agglomeration",
+    "adverse_gradient_boundary_layer",
+    "vortex_ring_normalization",
 )
 
 
@@ -261,9 +264,7 @@ def _toggle(value: bool) -> str:
 
     Meant for a bool only: the helpers resolve their toggles through
     :func:`_read` or :func:`_optional_toggle` before emitting, so that
-    truthiness never decides a flag. The exception is the five toggle
-    rows of :data:`ADVANCED_FAMILY` that :data:`READ_TOGGLES` leaves out,
-    which reach this function unresolved, as they did in 0.33.0.
+    truthiness never decides a flag.
     """
     return "ENABLE" if value else "DISABLE"
 

@@ -91,6 +91,13 @@ _DRIFT_MESSAGE = (
     r"\(\[per_revolution\] drift_limit_pct\): the last revolution is still moving"
 )
 
+#: A toggle line of the five solver-settings commands FR-349 (0.34.0) resolves.
+_TOGGLE_LINE = (
+    r"(?:VALAREZO_CRITERION|SET_WAKE_RELAXATION|SET_WAKE_STREAMWISE_AGGLOMERATION"
+    r"|SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER|SOLVER_VORTEX_RING_NORMALIZATION)"
+    r" (?:ENABLE|DISABLE)"
+)
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -194,6 +201,22 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             "every unsteady row registers the step counter; a row asking no per-step "
             "export gains the count-only counter's registration, on a build that "
             "documents the unsteady solver action"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
+        # A toggle line of the five commands the 0.33.0 defect wrote as ENABLE
+        # whatever was asked, and nothing else: the removed and the added line
+        # are each one of those commands with a state. The release is held to
+        # the state a row asked by the tier-1 tests of FR-349.
+        "lines": rf"^{_TOGGLE_LINE}$",
+        "block": rf"(?:{_TOGGLE_LINE}(?:\n|$))+",
+        "requirement": "FR-349",
+        "why": (
+            "P0340-TOGGLES: a row that asks DISABLE for valarezo_criterion, wake_relaxation, "
+            "wake_streamwise_agglomeration, adverse_gradient_boundary_layer or "
+            "vortex_ring_normalization now gets DISABLE, where 0.33.0 wrote ENABLE"
         ),
     },
     {
