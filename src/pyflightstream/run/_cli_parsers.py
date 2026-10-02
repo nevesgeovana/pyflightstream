@@ -199,6 +199,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_collect_parsers(subparsers)
     _add_post_parsers(subparsers)
     _add_post_selection_parsers(subparsers)
+    _add_degenerate_parsers(subparsers)
     return parser
 
 
@@ -508,6 +509,59 @@ def _add_workspace_parsers(subparsers: Any) -> None:
             "otherwise names as a warning, keeping a copy <file>.bak-<stamp> beside it; an "
             "existing sidecar is then kept unless --overwrite (FR-308)"
         ),
+    )
+
+
+def _add_degenerate_parsers(subparsers: Any) -> None:
+    """Add the subcommand that derives a degenerate geometry from a mesh: degenerate (FR-330)."""
+    degenerate = subparsers.add_parser(
+        "degenerate",
+        help=(
+            "derive a degenerate geometry, the thin blade first, from a blade mesh and write "
+            "it beside the source"
+        ),
+        description=(
+            "Derives the thin blade of a blade mesh, the sheet midway between its two sides "
+            "from the root to the tip, with the root moved outward along the span by "
+            "--root-offset so it does not cross the spinner, and writes it beside the source "
+            "as <stem>_thin_blade.obj with its boundary inventory "
+            "<stem>_thin_blade.boundaries.toml. The root is the end of the blade nearer the "
+            "origin of the mesh's own coordinates. The source is read only; a file holding "
+            "more than one boundary needs --boundary. The derived geometry is a modelling "
+            "choice: a run confirms what the solver makes of it. Needs no executable."
+        ),
+    )
+    degenerate.add_argument("geometry", help="a blade mesh: a saved simulation or an OBJ")
+    degenerate.add_argument(
+        "--kind",
+        choices=["thin-blade"],
+        default="thin-blade",
+        help="the degenerate geometry to derive; thin-blade is the one kind of 0.34.0 "
+        "(default: %(default)s)",
+    )
+    degenerate.add_argument(
+        "--root-offset",
+        type=float,
+        required=True,
+        metavar="LENGTH",
+        help="how far the root of the thin blade is moved outward along the span, a positive "
+        "length in the mesh's own unit, shorter than the blade",
+    )
+    degenerate.add_argument(
+        "--boundary",
+        metavar="NAME",
+        help=(
+            "the boundary (an OBJ's group) that is the blade, for a file that also holds a "
+            "spinner, a nacelle or other bodies; only its faces are read and the output is "
+            "named <stem>_<NAME>_thin_blade; without it a file holding more than one "
+            "boundary is refused"
+        ),
+    )
+    degenerate.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="rewrite a thin blade and its inventory that already exist; without it an "
+        "existing one is refused",
     )
 
 

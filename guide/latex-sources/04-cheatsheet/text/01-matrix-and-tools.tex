@@ -23,6 +23,13 @@
 \item \fl{--overwrite} rewrite an existing .fsm sidecar (an OBJ sidecar is never rewritten)
 \item \fl{--clean} remove the saved solver actions (26.120 in meters: also reset to a fresh import, meshes and BCs kept); copy kept as \texttt{<file>.bak-<stamp>}
 \end{flags}
+\sub{degenerate <geometry>}{derive a degenerate geometry, the thin blade first, from a blade mesh (.fsm or OBJ) and write \texttt{<stem>\_thin\_blade.obj} and its \texttt{.boundaries.toml} beside it; no executable needed}
+\begin{flags}
+\item \fl{--root-offset LENGTH} required: the root moved outward along the span, in the mesh's unit, off the spinner
+\item \fl{--kind thin-blade} the one kind (the default)
+\item \fl{--boundary NAME} the blade's boundary, for a file that also holds a spinner or a nacelle
+\item \fl{--overwrite} rewrite an existing output
+\end{flags}
 \sub{upgrade <matrix>}{convert a matrix written under an older layout}
 \begin{flags}
 \item \fl{--in-place} rewrite the file (default: print to stdout)

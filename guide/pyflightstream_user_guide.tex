@@ -1328,6 +1328,7 @@ pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and proven
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh
+pyfs-matrix degenerate   blade.obj --root-offset 0.05 # the thin blade of a blade mesh
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
 pyfs-matrix rename       --workspace DIR [--dry-run]  # 0.20.x names to the 0.21.0 point names

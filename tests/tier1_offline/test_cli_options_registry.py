@@ -128,6 +128,16 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "fs_exe"): SOLVER,
     ("pyfs-matrix", "in_place"): SWITCH,
     ("pyfs-matrix", "overwrite"): SWITCH,
+    # 0.34.0 (FR-330): `degenerate` derives a geometry from the mesh it is given.
+    # `--root-offset` defines the geometry written, is stated per call and is
+    # recorded in the output's sidecar; `--boundary` names which body of the
+    # file is the blade, so it is the subject; `--kind` (above) names the
+    # derivation and `--geometry` (above) the mesh.
+    ("pyfs-matrix", "root_offset"): (
+        "a parameter of one derivation, written into the output's sidecar; it defines "
+        "the geometry written, so it is stated per call and never a machine default"
+    ),
+    ("pyfs-matrix", "boundary"): SUBJECT,
     # 0.33.0 (FR-308): `inventory --clean` rewrites THIS geometry once; a
     # default would rewrite every geometry a machine ever inventories.
     ("pyfs-matrix", "clean"): SWITCH,
@@ -402,7 +412,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
-    ("pyfs-matrix", "geometry"): frozenset({"inventory"}),
+    ("pyfs-matrix", "geometry"): frozenset({"degenerate", "inventory"}),
+    ("pyfs-matrix", "root_offset"): frozenset({"degenerate"}),
+    ("pyfs-matrix", "boundary"): frozenset({"degenerate"}),
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
     ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
@@ -411,7 +423,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"inventory", "sync"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
@@ -481,7 +493,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "runs"): frozenset({"collect", "delete-sims", "free-space", "post", "sync"}),
-    ("pyfs-matrix", "kind"): frozenset({"restore"}),
+    ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),

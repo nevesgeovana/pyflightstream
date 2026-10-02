@@ -83,7 +83,8 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     # Verifies AD-18.
     parser = capture_parser("pyflightstream.run.cli:main")
     choices = list(parser._subparsers._group_actions[0].choices)
-    assert choices == V0330_SUBCOMMANDS
+    # 0.34.0 appends `degenerate` (FR-330), last, as every later command is.
+    assert choices == [*V0330_SUBCOMMANDS, "degenerate"]
 
 
 def test_cli_leaves_its_size_exemption_and_the_tables_ad_18(measured):

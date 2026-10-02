@@ -52,6 +52,12 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
 \opt{--clean}{remove the saved solver actions, keeping \file{<file>.bak-<stamp>} (stage 8).}
 \end{cmdblock}
+\begin{cmdblock}{pyfs-matrix degenerate}{<geometry>}{Derive the thin blade of a blade mesh (a saved simulation or an OBJ): the sheet midway between its two sides, written beside the source with its boundary inventory. Needs no executable.}
+\opt{--root-offset LENGTH}{required: how far the root moves outward along the span, in the mesh's unit.}
+\opt{--kind thin-blade}{the one kind, the default.}
+\opt{--boundary NAME}{the blade's boundary, for a file that also holds a spinner or a nacelle.}
+\opt{--overwrite}{rewrite an existing output.}
+\end{cmdblock}
 
 \columnbreak
 \hd{Custom free-stream fields}

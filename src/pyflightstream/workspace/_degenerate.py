@@ -46,13 +46,19 @@ blade's own frame and the same operations place it. The source is only read
 
 WHAT IS REFUSED, by name and with the reason, before anything is written
 (FR-330 R6): a file that is not a saved simulation or an OBJ, one that cannot
-be read, one holding more than one boundary, an OBJ whose sidecar states a
+be read, one holding more than one boundary when ``boundary`` names none, a
+boundary the file does not hold or holds twice, an OBJ whose sidecar states a
 CAD or CCS conversion, a root offset that is not a positive length shorter
 than the blade, a blade whose root cannot be told from its tip, a section
 that is not one closed loop (an open surface, such as a sheet already without
 thickness, or a plane that cuts another closed body in the same group), and
 a section whose two sides cannot be separated. An existing output is refused
 unless ``overwrite`` is given.
+
+WHICH BLADE. A file that holds the blade with a spinner, a nacelle or other
+bodies is read with ``boundary`` naming the blade's boundary (FR-330 R9): only
+its faces are taken, so the other bodies take no part in the span, the stations
+or the sections, and the output's stem carries the boundary's name.
 
 WHAT IT IS NOT. The derived geometry is a modelling choice of the user; this
 module makes no claim about the solver's behaviour on it, which a run
@@ -64,6 +70,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,6 +83,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import (
     MeshReadError,
+    _mesh_block,
     boundary_names,
     saved_mesh_coordinate_unit,
     surface_mesh,
@@ -169,21 +177,28 @@ class ThinBlade:
     unit: str | None
 
 
-def thin_blade_path(geometry: str | Path) -> Path:
+def thin_blade_path(geometry: str | Path, boundary: str | None = None) -> Path:
     """Return the path the thin blade of ``geometry`` is written at (FR-330 R4).
 
     Parameters
     ----------
     geometry : str or Path
         The source blade mesh.
+    boundary : str, optional
+        The boundary the blade was selected by (FR-330 R9); its name, with
+        every character that is not a letter, a digit or a hyphen turned
+        into an underscore, joins the stem so two blades of one file do
+        not share an output.
 
     Returns
     -------
     Path
-        ``<stem>_thin_blade.obj`` beside it, whether or not it exists.
+        ``<stem>_thin_blade.obj`` beside it, or ``<stem>_<boundary>_thin_blade.obj``
+        with a boundary, whether or not it exists.
     """
     path = Path(geometry)
-    return path.with_name(path.stem + THIN_BLADE_STEM + ".obj")
+    part = "_" + re.sub(r"[^0-9A-Za-z-]", "_", boundary) if boundary else ""
+    return path.with_name(path.stem + part + THIN_BLADE_STEM + ".obj")
 
 
 def _refuse(source: Path, reason: str) -> InputArtifactError:
@@ -207,29 +222,87 @@ class _Blade:
     operations: tuple[MeshOperation, ...] = ()
 
 
-def _read_fsm(source: Path) -> _Blade:
-    """Read a saved simulation holding one boundary, refusing by name."""
+def _not_one_blade(source: Path, kind: str, names: Sequence[str]) -> InputArtifactError:
+    """Return the refusal of a file holding several boundaries or groups, naming the way out."""
+    return _refuse(
+        source,
+        f"it holds {len(names)} {kind} ({', '.join(names)}), and a thin blade is derived "
+        "from a file holding one blade alone, or from the one boundary named with --boundary",
+    )
+
+
+def _no_such_boundary(source: Path, boundary: str, names: Sequence[str]) -> InputArtifactError:
+    """Return the refusal of a ``boundary`` the file does not hold, or holds under two names."""
+    if names.count(boundary) > 1:
+        return _refuse(
+            source,
+            f"--boundary {boundary!r} names {names.count(boundary)} of its boundaries, so it "
+            "selects none; rename one in the geometry",
+        )
+    return _refuse(
+        source,
+        f"it holds no boundary named {boundary!r} (--boundary); it holds "
+        f"{', '.join(names) or 'none'}",
+    )
+
+
+def _sub_mesh(vertices: Points, faces: Faces) -> tuple[Points, Faces]:
+    """Return the faces with only the vertices they use, renumbered in their own order."""
+    used, inverse = numpy.unique(faces.reshape(-1), return_inverse=True)
+    return vertices[used], inverse.reshape(-1, 3).astype(numpy.int64)
+
+
+def _check_boundary_name(source: Path, boundary: str, names: Sequence[str]) -> None:
+    """Refuse an empty ``boundary`` and one whose output name another boundary would share."""
+    if boundary == "":
+        raise _refuse(source, "--boundary is empty; it names the one boundary that is the blade")
+    mine = thin_blade_path(source, boundary)
+    for other in names:
+        if other != boundary and thin_blade_path(source, other) == mine:
+            raise _refuse(
+                source,
+                f"--boundary {boundary!r} would write the same output as its boundary "
+                f"{other!r}, a character of a name that is not a letter, a digit or a "
+                "hyphen being written as an underscore; rename one of the two boundaries",
+            )
+
+
+def _fsm_boundary_faces(source: Path, names: Sequence[str], boundary: str) -> tuple[Points, Faces]:
+    """Return the vertices and faces of the saved simulation's boundary named ``boundary``."""
+    _check_boundary_name(source, boundary, names)
+    if names.count(boundary) != 1:
+        raise _no_such_boundary(source, boundary, names)
+    try:
+        vertices, triangles, _, owners = _mesh_block(source)
+    except MeshReadError as error:
+        raise _refuse(source, f"its mesh block cannot be read ({error})") from error
+    faces = numpy.asarray(triangles, dtype=numpy.int64).reshape(-1, 3)
+    if len(owners) != len(faces):
+        raise _refuse(
+            source, "its mesh block carries no boundary row, so no face can be told to a boundary"
+        )
+    mine = numpy.asarray(owners, dtype=numpy.int64) == names.index(boundary) + 1
+    return _sub_mesh(numpy.asarray(vertices, dtype=float).reshape(-1, 3), faces[mine])
+
+
+def _read_fsm(source: Path, boundary: str | None) -> _Blade:
+    """Read a saved simulation holding one boundary, or the one named, refusing by name."""
     try:
         names = boundary_names(source) or ()
         vertices, triangles = surface_mesh(source)
     except MeshReadError as error:
         raise _refuse(source, f"its mesh block cannot be read ({error})") from error
-    if len(names) > 1:
-        raise _refuse(
-            source,
-            f"it holds {len(names)} boundaries ({', '.join(names)}), and a thin blade is "
-            "derived from a file holding one blade alone",
-        )
+    if boundary is None and len(names) > 1:
+        raise _not_one_blade(source, "boundaries", names)
     try:
         unit = saved_mesh_coordinate_unit(source)
     except MeshReadError:
         unit = None
-    return _Blade(
-        numpy.asarray(vertices, dtype=float).reshape(-1, 3),
-        numpy.asarray(triangles, dtype=numpy.int64).reshape(-1, 3),
-        names[0] if names else source.stem,
-        unit,
-    )
+    points = numpy.asarray(vertices, dtype=float).reshape(-1, 3)
+    faces = numpy.asarray(triangles, dtype=numpy.int64).reshape(-1, 3)
+    if boundary is not None:
+        points, faces = _fsm_boundary_faces(source, names, boundary)
+    return _Blade(points, faces, boundary or (names[0] if names else source.stem), unit)
 
 
 def _obj_face(words: Sequence[str], count: int, where: str) -> list[int]:
@@ -267,19 +340,19 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
     return vertices, groups
 
 
-def _read_obj(source: Path) -> _Blade:
-    """Read an OBJ holding one group of faces, refusing by name."""
+def _read_obj(source: Path, boundary: str | None) -> _Blade:
+    """Read an OBJ holding one group of faces, or the one named, refusing by name."""
     try:
         vertices, groups = _obj_statements(source.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, ValueError, IndexError) as error:
         raise _refuse(source, f"it cannot be read as an OBJ ({error})") from error
-    if len(groups) > 1:
-        names = ", ".join(name or "(no group)" for name in groups)
-        raise _refuse(
-            source,
-            f"it holds {len(groups)} groups of faces ({names}), and a thin blade is "
-            "derived from a file holding one blade alone",
-        )
+    names = [name or "(no group)" for name in groups]
+    if boundary is None and len(groups) > 1:
+        raise _not_one_blade(source, "groups of faces", names)
+    if boundary is not None:
+        _check_boundary_name(source, boundary, names)
+    if boundary is not None and boundary not in groups:
+        raise _no_such_boundary(source, boundary, names)
     sidecar = inventory_sidecar(source)
     stated = read_mesh_import(sidecar) if sidecar.is_file() else None
     if stated is not None and (stated.cad is not None or stated.ccs is not None):
@@ -289,10 +362,14 @@ def _read_obj(source: Path) -> _Blade:
             f"its sidecar {sidecar.name} states {table}, a conversion of a CAD or CCS "
             "file, which a mesh read as an OBJ does not take",
         )
-    name, faces = next(iter(groups.items()), ("", []))
+    name, faces = (boundary, groups[boundary]) if boundary else next(iter(groups.items()), ("", []))
+    points = numpy.asarray(vertices, dtype=float).reshape(-1, 3)
+    triangles = numpy.asarray(faces, dtype=numpy.int64).reshape(-1, 3)
+    if boundary is not None:
+        points, triangles = _sub_mesh(points, triangles)
     return _Blade(
-        numpy.asarray(vertices, dtype=float).reshape(-1, 3),
-        numpy.asarray(faces, dtype=numpy.int64).reshape(-1, 3),
+        points,
+        triangles,
         name or source.stem,
         stated.units if stated is not None else None,
         stated.operations if stated is not None else (),
@@ -326,7 +403,7 @@ def _welded(blade: _Blade) -> _Blade:
     )
 
 
-def _read_blade(source: Path) -> _Blade:
+def _read_blade(source: Path, boundary: str | None = None) -> _Blade:
     """Read the blade mesh ``source`` names, refusing what cannot be read (FR-330 R6)."""
     if not source.is_file():
         raise _refuse(source, "it is not a file")
@@ -336,7 +413,10 @@ def _read_blade(source: Path) -> _Blade:
             f"a blade mesh is read from a saved simulation (.fsm) or an OBJ (.obj), "
             f"and this file is a {source.suffix or 'file without a suffix'}",
         )
-    blade = _read_fsm(source) if source.suffix.lower() == ".fsm" else _read_obj(source)
+    if source.suffix.lower() == ".fsm":
+        blade = _read_fsm(source, boundary)
+    else:
+        blade = _read_obj(source, boundary)
     if len(blade.faces) < 4 or len(blade.vertices) < 4:
         raise _refuse(source, "it holds no surface mesh of a blade (fewer than four faces)")
     if not bool(numpy.isfinite(blade.vertices).all()):
@@ -649,7 +729,11 @@ def _checked_offset(source: Path, root_offset: float) -> float:
 
 
 def derive_thin_blade(
-    geometry: str | Path, *, root_offset: float, overwrite: bool = False
+    geometry: str | Path,
+    *,
+    root_offset: float,
+    overwrite: bool = False,
+    boundary: str | None = None,
 ) -> ThinBlade:
     """Derive the thin blade of a blade mesh and write it beside the source (FR-330).
 
@@ -665,6 +749,12 @@ def derive_thin_blade(
     overwrite : bool
         Rewrite an existing thin blade and its sidecar. Without it an
         existing one is refused.
+    boundary : str, optional
+        The name of the one boundary (OBJ group) that is the blade, for a
+        file that holds the blade with a spinner, a nacelle or other bodies
+        (FR-330 R9). Only its faces are read, and the output is written
+        under the name :func:`thin_blade_path` gives for it. Without it a
+        file holding more than one boundary is refused.
 
     Returns
     -------
@@ -684,13 +774,13 @@ def derive_thin_blade(
         ``overwrite``.
     """
     source = Path(geometry)
-    mesh = thin_blade_path(source)
+    mesh = thin_blade_path(source, boundary)
     sidecar = inventory_sidecar(mesh)
     for existing in (mesh, sidecar):
         if existing.exists() and not overwrite:
             raise _refuse(source, f"{existing} already exists; pass overwrite to rewrite it")
     offset = _checked_offset(source, root_offset)
-    blade = _read_blade(source)
+    blade = _read_blade(source, boundary)
     frame = _span_frame(source, blade.vertices)
     stations = _stations(source, blade.vertices @ frame.span, offset)
     grid = _mean_surface(source, blade, frame, stations)

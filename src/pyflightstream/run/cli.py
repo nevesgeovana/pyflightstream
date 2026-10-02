@@ -259,8 +259,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_post(args)
         if args.subcommand == "collect":
             return _cmd_collect(args)
-        if args.subcommand == "inventory":
-            return _cmd_inventory(args)
+        if args.subcommand in _GEOMETRY_COMMANDS:
+            return _cmd_geometry(args)
         if args.subcommand == "upgrade":
             return _cmd_upgrade(args)
         if args.subcommand == "rename":
@@ -1039,6 +1039,42 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 2
     print(sidecar)
+    return 0
+
+
+#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330).
+_GEOMETRY_COMMANDS = ("inventory", "degenerate")
+
+
+def _cmd_geometry(args: argparse.Namespace) -> int:
+    """Run the geometry command ``args`` names."""
+    return _cmd_degenerate(args) if args.subcommand == "degenerate" else _cmd_inventory(args)
+
+
+def _cmd_degenerate(args: argparse.Namespace) -> int:
+    """Derive the degenerate geometry of one blade mesh and write it beside it (FR-330).
+
+    The OBJ and its boundary inventory are named on standard output, one per
+    line; the offset used and a unit the source does not state are said on
+    standard error. A refusal names the file and the reason on standard error
+    and writes nothing.
+    """
+    from pyflightstream.workspace._degenerate import derive_thin_blade
+
+    try:
+        made = derive_thin_blade(
+            args.geometry,
+            root_offset=args.root_offset,
+            overwrite=args.overwrite,
+            boundary=args.boundary,
+        )
+    except (OSError, PyflightstreamError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(made.mesh)
+    print(made.sidecar)
+    unit = made.unit or "a length unit the source does not state"
+    print(f"the root moved outward by {made.root_offset!r} in {unit}", file=sys.stderr)
     return 0
 
 
