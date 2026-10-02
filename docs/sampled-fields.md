@@ -57,6 +57,18 @@ The field exporter converts both to SI once. These steady values need not equal
 the last fluid-plot sample: the exports can sample different solution states.
 The original probe CSV keeps its native values for compatibility.
 
+**A quasi-steady rotor run is the exception.** A `qsteady_rotor` point holds
+the blades still and turns the free stream about the shaft, so the probe
+velocities of a quasi-steady run are expressed in the rotating frame of the
+blade, not in a fixed frame: the swept velocity of the blade is in them, with
+the other sign. Measured on 26.124 (build 8172026) by the research study
+[RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+summarises: outside the slipstream, at 1.5 rotor radii and an advance ratio of
+1.8, a probe read a tangential velocity of -2.618 times the free-stream speed,
+which is the blade's rotation times that radius over the free-stream speed.
+Add the rotation times the radius back before comparing the field with a
+fixed-frame one, such as an `unsteady_rotor` probe or a wind-tunnel survey.
+
 A reusable inflow file contains X, Y, Z, VX, VY and VZ in the native custom-inflow
 UNSTRUCTURED form, with SI units. That form requires a two-dimensional global
 YZ survey at constant X, without repeated positions. A field may be suitable for

@@ -21,7 +21,7 @@ axis = "X"             # X, Y or Z of that frame
 offset_m = 0.0         # along the axis, from the frame's origin
 tip_radius_m = 0.5
 hub_radius_m = 0.1     # 0 <= hub < tip
-rpm_sign = 1           # +1 the right-hand rule about axis; the row's speed is a magnitude
+rpm_sign = 1           # +1 the right-hand rule about axis, swirling as a rotor of +1 turns
 blades = 3             # needed by a row stating PROFILE
 swirl = 0.8            # optional: the fraction of the swirl velocity kept downstream
 profile_units = "NEWTONS"   # the force unit a profile file is written in
@@ -156,6 +156,45 @@ refused there. Since 0.28.0 (G20) a row may state `ADVANCE_RATIO` instead of
 its `tip_radius_m`); a steady row that sweeps the advance ratio runs one job per
 point, so each point sets its own speed. A row stating neither is refused
 naming both.
+
+### What the disc was measured to do on 26.124
+
+A research study of the disc on 26.124 (build 8172026), summarised in
+[RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md),
+measured four things a reader would not assume. They are stated here with the
+case they were measured on; on another build they are unmeasured.
+
+**THE HAND, SINCE 0.34.0.** A disc whose block states `rpm_sign = 1` swirls its
+wake the way a rotor of `rpm_sign = 1` turns (FR-331): `+1` is a positive
+rotation about the block's `axis` by the right-hand rule, as for a rotor block.
+The script hands `SET_PROP_ACTUATOR_RPM` minus the block's sign times the
+row's speed, because a disc handed plus swirled against a rotor of the same
+`rpm_sign` on 26.124 and a disc handed minus swirled with it (RPT-137). Up to
+0.33.0 the script handed plus, so a disc study that set `rpm_sign = -1` to swirl
+with its rotor sets `rpm_sign = 1` from 0.34.0.
+
+**THE SWIRL IS ONE GLOBAL FACTOR.** The block's `swirl` is one global factor,
+0 to 1, applied to the swirl the solver computes for the disc from its thrust
+and speed; it is not a radial distribution. `SET_PROP_ACTUATOR_SWIRL` takes one
+number and no command imposes a swirl profile, so a disc cannot be given the
+radial swirl of a bladed rotor (RPT-137).
+
+**ELLIPTICAL PLACED 0.62 OF THE THRUST ASKED IN THE WAKE.** On the one case
+RPT-137 summarises (26.124), a disc loaded by `ACTUATOR_THRUST` (the ELLIPTICAL
+model) carried 0.62 of the thrust asked as axial momentum flux four radii
+downstream, at the thrust asked and at twice it alike, where the CUSTOM
+profiles carried 0.95 to 1.04 of it. This is a measured value, not a
+guaranteed one: the solver's elliptical definition is not readable from the
+manual, and a study that needs the thrust in the wake loads the disc by a
+profile.
+
+**RELAXED IGNORED A CUSTOM PROFILE.** On the same case (RPT-137), a disc whose
+block states `wake_type = "RELAXED"` gave the same wake for every loading
+profile and for the ELLIPTICAL model, and carried about half of the thrust
+asked as axial momentum flux four radii downstream. This is a measured value,
+not a guaranteed one. The plan warns on a row whose RELAXED disc names a
+`PROFILE`, naming the row, the disc and RPT-137, and never refuses it (FR-332);
+a RIGID disc reads the profile.
 
 ## One row, one custom free stream
 

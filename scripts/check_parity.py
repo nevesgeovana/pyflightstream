@@ -103,6 +103,28 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
         "pattern": "*",
+        # The disc speed lines and nothing else, each removed line followed by
+        # the added line of the same disc index and the same magnitude with
+        # the other sign: 0.33.0 handed the solver plus the block's hand times
+        # the speed, 0.34.0 hands it minus (FR-331, measured in RPT-137).
+        "lines": r"^SET_PROP_ACTUATOR_RPM \d+ -?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$",
+        "block": (
+            r"(?:SET_PROP_ACTUATOR_RPM (\d+) "
+            r"(?:-(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\nSET_PROP_ACTUATOR_RPM \1 \2"
+            r"|(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\nSET_PROP_ACTUATOR_RPM \1 -\3)"
+            r"(?:\n|$))+"
+        ),
+        "requirement": "FR-331",
+        "why": (
+            "an actuator disc swirls its wake the way a rotor of the same rpm_sign "
+            "turns: the disc speed handed to the solver is minus the block's hand "
+            "times the speed, where 0.33.0 handed plus, the sense measured on 26.124 "
+            "to swirl with the rotor"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
         # The section Cp plot's three export lines and the blank line closing
         # them, REMOVED from a script that cuts no section: the release must
         # carry neither a section command nor a section Cp plot, so a drop from
