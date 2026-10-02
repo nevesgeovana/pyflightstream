@@ -322,3 +322,26 @@ def test_p0350_collect_ended_evidence(tmp_path):
     actions.mkdir()
     (actions / "pfs_walltime_clock.json").write_text(json.dumps(STATE), encoding="utf-8")
     assert verdict().ended and "DP-AL+020" in verdict().evidence, requirement
+
+
+def test_p0350_collect_fr370_a_clock_stopped_point_is_collected_from_its_stamped_exports(tmp_path):
+    """P0350-BATCH-RECORDS (FR-370): the stop's exports carry the step stamp; collect adopts them.
+
+    Measured in the dev-wheel rehearsal on 26.124: the job clock's stop wrote
+    every output of the current point as ``<stem>_iteration=<step><suffix>``.
+    Without adopting them the point waited forever under its plain names.
+    """
+    requirement = "FR-370"
+    workspace, job_dir, _ = _workspace(tmp_path, "polar_sweep")
+    folder = job_dir / "datapoints" / "DP-AL+000"
+    step = STATE["stopped_at"]["step"]
+    plain = sorted(p for p in folder.iterdir() if p.is_file())
+    for path in plain:
+        path.rename(path.with_name(f"{path.stem}_iteration={step}{path.suffix}"))
+    (folder / "actions").mkdir()
+    (folder / "actions" / "pfs_walltime_clock.json").write_text(json.dumps(STATE), encoding="utf-8")
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    first = _status(workspace, "AL+000")
+    assert first.status is RunStatus.WALLTIME_REACHED, requirement
+    assert all(path.is_file() for path in plain), "every declared output under its plain name"
+    assert _status(workspace, "AL+020").status is RunStatus.CONVERGED

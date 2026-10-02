@@ -66,6 +66,7 @@ from pyflightstream.workspace._batches import (
     GroupingReceipt,
     batch_label,
     batch_script_name,
+    job_of,
     next_batch_id,
 )
 from pyflightstream.workspace._geometry_clean import UNSTEADY_WORKFLOWS, saved_action_warning
@@ -447,6 +448,27 @@ def _write_receipt(plan: CampaignPlan, receipt: GroupingReceipt) -> None:
     _textio.write_json(plan.plan_file, payload)
 
 
+def _revive_not_started(plan: CampaignPlan, workspace: CampaignWorkspace) -> None:
+    """Make a point a previous job never started pending again (FR-370, D5).
+
+    The collect completes such a point FAILED_EXECUTION with its job entry
+    saying ``not_started``, and the plain plan counts any record as recorded; a
+    grouped plan reads it as not recorded, so the next batch takes it, and the
+    grouped run supersedes the note before it runs it.
+    """
+    notes = {
+        record.run_id
+        for record in workspace.read_manifest()
+        if (job_of(record) or {}).get("not_started")
+    }
+    plan.points[:] = [
+        dataclasses.replace(entry, status=PlanStatus.READY, error=None)
+        if entry.status is PlanStatus.ALREADY_RECORDED and entry.run_id in notes
+        else entry
+        for entry in plan.points
+    ]
+
+
 def plan_grouped_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -482,6 +504,7 @@ def plan_grouped_matrix(
         The plan, its ``grouping`` set; a point of a refused job or polar is BLOCKED.
     """
     plan = plan_matrix(path, workspace, **{**keywords, "cost": True})
+    _revive_not_started(plan, workspace)
     default = keywords.get("default_fs_version") or keywords.get("fs_version")
     resolved = narrow_to_selection(
         resolve_matrix(

@@ -23,6 +23,7 @@ measured marker, idempotent), FR-369 (a point the job never started) and FR-370
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -383,10 +384,34 @@ def _not_started(
     job.failed.append((record.run_id, error))
 
 
+def _adopt_stop_exports(point: _Point, source: Path | None) -> None:
+    """Give a clock-stopped point its outputs under their declared names (FR-370).
+
+    The job's clock writes the CURRENT point's exports from a solver action, and
+    an export run from an action is stamped ``<stem>_iteration=<step><suffix>``
+    (measured on 26.124 in the dev-wheel rehearsal: every output of the stopped
+    point, its ``.fsm`` and its cumulative log carried the stamp of the step the
+    clock fired at). Each declared output missing under its plain name is copied
+    from that stamped file, so the point is collected as the stop left it; the
+    stamped file stays, and nothing is done for a point whose own clock did not
+    fire or whose stamped file is absent.
+    """
+    stopped = _walltime_stop(point.work / WALLTIME_CLOCK_STATE)
+    step = (stopped or {}).get("step")
+    if step is None:
+        return
+    for path in _waited(point, source):
+        stamped = path.with_name(f"{path.stem}_iteration={step}{path.suffix}")
+        if not path.exists() and stamped.is_file():
+            shutil.copy2(stamped, path)
+
+
 def _sweep_point(workspace: CampaignWorkspace, point: _Point, job: _Job, *, ended: bool) -> None:
     """Copy (a running batch) and slice the log of one point once its files settled."""
     job_dir = _job_dir(workspace, point.job)
     source = _log_source(point, job_dir, job.profile)
+    if ended:
+        _adopt_stop_exports(point, source)
     if (point.log_name is not None and source is None) or not job.watch.steady(
         _waited(point, source)
     ):
