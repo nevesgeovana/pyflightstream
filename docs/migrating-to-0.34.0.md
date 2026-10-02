@@ -13,8 +13,9 @@ swirls its wake the way a rotor of `rpm_sign = 1` turns, and a rotor row that
 states no wake termination now keeps four rotor radii of wake. The sections
 after them are the renamed guides, the code that moved without moving a public
 path, the new thin-blade command, the run selection and the message of a second
-run, a fixed family of five switches, a registered solver build, and two
-additions of the post that build their own pages of definitions.
+run, a fixed family of five switches, a registered solver build, an
+actuator-disc profile command, and the face count of a mesh in the inventory
+and in the last column of two products.
 
 ## Every text file has LF line ends
 
@@ -39,11 +40,11 @@ What a reader must allow:
   their text and their recorded sha256 change as well.
 - The products snapshot of the release judges line ends on both platforms.
 
-<!-- D1: confirm against the merged code -->
-The route through which every write goes, the receipt script that posts the
-recorded campaigns and counts the files holding a CR byte, and the census of
-the writers that gave CRLF on 0.33.1 are described in the change log; none of
-them is a setting.
+Every write goes through one private module, `pyflightstream._textio`, and a
+tier-1 guard refuses a text write outside it. The receipt script
+`scripts/lf_products_check.py` posts the recorded campaigns and counts the
+files holding a CR byte, and RPT-140 is the census of the writers that gave
+CRLF on 0.33.1. None of them is a setting.
 
 ## An actuator disc swirls the way its rotor turns
 
@@ -76,7 +77,6 @@ what they would be without the warning (FR-332).
 
 ## A rotor row keeps four radii of wake unless it says otherwise
 
-<!-- D1: confirm against the merged code -->
 From 0.34.0 the script of an `unsteady_rotor` row whose setup and row state
 none of `wake_termination_length`, `wake_termination_steps` and
 `wake_termination_revolutions` carries one `SET_WAKE_TERMINATION_TIME_STEPS`
@@ -88,9 +88,10 @@ that wants the 0.33.0 script states its termination. `scripts/check_parity.py`
 names the changed line under FR-321, and only rotor rows that state no
 termination differ.
 
-<!-- D1: confirm against the merged code -->
-The conversion is `n = ceil(L R Omega / (V_ax dtheta))`, with R the tip radius
-of the rotor the row turns, Omega the rotor speed, dtheta the step angle and
+The conversion is `n = ceil(L R Omega / (V_ax dtheta))`, with R half the
+largest diameter of the rotors the row turns (the rotor block's `diameter_m`,
+else the reference's `rotor_diameter_m`), Omega the rotor speed, dtheta the
+step angle and
 V_ax the axial convection speed of the wake; rounding is upward, so the wake
 kept is never shorter than L. The run record of the point names the L asked,
 the V_ax used with the rule that gave it (`free_stream`, `induced_velocity` or
@@ -99,7 +100,6 @@ for each rotor point. Which speed V_ax should be in forward flight is settled
 by the licensed long-wake run reported in RPT-130; read it before relying on
 the default for a study whose wake length matters.
 
-<!-- D1: confirm against the merged code -->
 What a matrix must allow:
 
 - One key states the termination. A row that states two of the three keys,
@@ -113,7 +113,7 @@ What a matrix must allow:
   free-stream speed, or `wake_termination_revolutions_cap`, which bounds the
   converted steps (FR-323). The two keys bound a length only and are refused
   beside a step or revolution count.
-- The setup key `wake_termination_x` places the solver's wake end plane: the
+- The setup key `wake_termination_x_m` places the solver's wake end plane: the
   `WAKE_TERMINATION_X` argument of `INITIALIZE_SOLVER`, `DEFAULT` or an X in
   metres in the simulation's frame. A setup that does not state it writes
   `DEFAULT`, as 0.33.0 did; a number with a unit, a distance in radii, a
@@ -124,27 +124,32 @@ What a matrix must allow:
   and the solver's `DEFAULT` plane, whose position the plan cannot know (FR-325).
   The same holds for a blades-only wheel.
 
-A result recorded by 0.33.0 or earlier keeps the script it ran in its run
+No golden render and no tier-3 matrix of the package is refused by the hover
+rule: the parity run of `v0.33.1` against the integrated tree renders all 194
+scripts. The plan file `plan.json` gains one key per point, `wake_termination`,
+with the three recorded values for a rotor point and empty for any other. A
+result recorded by 0.33.0 or earlier keeps the script it ran in its run
 record.
 
 ## The guides are renumbered
 
-<!-- D1: confirm against the merged code -->
 The PDF guides are numbered from 01 and the cheatsheet is guide 04 (FR-329).
 No old name resolves, so a link, a bookmark or a script that names a guide by
-its file name is updated by this map:
+its file name is updated by this map, each guide with the number it had in
+0.33 (the file names were `pyfts-guide-<number>-<name>.pdf`, the name being
+the one of the right column):
 
-| Before | From 0.34.0 |
+| Number in 0.33 | From 0.34.0 |
 | --- | --- |
-| `pyfts-guide-00-fts-overview.pdf` | `pyfts-guide-01-fts-overview.pdf` (overview) |
-| `pyfts-guide-01-workspaces.pdf` | `pyfts-guide-02-workspaces.pdf` (workspaces) |
-| `pyfts-guide-02-gui-to-pyfs.pdf` | `pyfts-guide-03-gui-to-pyfs.pdf` (GUI to pyfs) |
-| `pyfts-cheatsheet-pyfs-matrix.pdf` | `pyfts-guide-04-cheatsheet.pdf` (cheatsheet, new as a numbered guide) |
-| `pyfts-guide-03-references.pdf` | `pyfts-guide-05-references.pdf` (references) |
-| `pyfts-guide-04-solver-setup.pdf` | `pyfts-guide-06-solver-setup.pdf` (solver setup) |
-| `pyfts-guide-05-pproc-definitions.pdf` | `pyfts-guide-07-pproc-definitions.pdf` (post-processing definitions) |
-| `pyfts-guide-06-fsi.pdf` | `pyfts-guide-08-fsi.pdf` (FSI) |
-| `pyfts-guide-07-python-environment-offline.pdf` | `pyfts-guide-09-python-environment-offline.pdf` (Python environment for offline machines) |
+| 00 | `pyfts-guide-01-fts-overview.pdf` (overview) |
+| 01 | `pyfts-guide-02-workspaces.pdf` (workspaces) |
+| 02 | `pyfts-guide-03-gui-to-pyfs.pdf` (GUI to pyfs) |
+| none, `pyfts-cheatsheet-pyfs-matrix.pdf` | `pyfts-guide-04-cheatsheet.pdf` (cheatsheet, new as a numbered guide) |
+| 03 | `pyfts-guide-05-references.pdf` (references) |
+| 04 | `pyfts-guide-06-solver-setup.pdf` (solver setup) |
+| 05 | `pyfts-guide-07-pproc-definitions.pdf` (post-processing definitions) |
+| 06 | `pyfts-guide-08-fsi.pdf` (FSI) |
+| 07 | `pyfts-guide-09-python-environment-offline.pdf` (Python environment for offline machines) |
 
 The cheatsheet is now one document of ten pages (FR-328): page 1 holds every
 subcommand and option of `pyfs-matrix`, page 2 every other console tool, and
@@ -183,7 +188,6 @@ products, and names the differences this page lists.
 
 ## A thin blade can be derived from a blade mesh
 
-<!-- D1: confirm against the merged code -->
 `pyfs-matrix degenerate GEOMETRY --kind thin-blade --root-offset LENGTH`,
 beside `inventory`, derives the thin blade of a blade mesh, a saved simulation
 or an OBJ, and writes `<stem>_thin_blade.obj` with its boundary inventory
@@ -192,7 +196,6 @@ is the one kind and the default of `--kind`; the root offset is required, and
 the blade's root is moved outward along the span by it so that it does not
 cross the spinner. `--overwrite` rewrites an existing output.
 
-<!-- D1: confirm against the merged code -->
 `--boundary NAME` names the one boundary, an OBJ's group, that is the blade
 when the file also holds a spinner, a nacelle or other bodies; the output is
 then written as `<stem>_<NAME>_thin_blade.obj`. The command never modifies the
@@ -206,7 +209,6 @@ the mesh operations of its sidecar in order.
 
 ## Planning and running a selection, and the command that continues a run
 
-<!-- D1: confirm against the merged code -->
 `pyfs-matrix plan` and `pyfs-matrix run` take `--sims SIM [SIM ...]` and
 `--points POINT [POINT ...]` (FR-326): one simulation, or one simulation and
 some of its points by the point name the plan prints, is planned and run
@@ -215,7 +217,6 @@ selected is neither planned, staged nor run and keeps its record, and an id or
 a point the matrix does not carry is refused before anything runs, naming it
 and the ones that exist. `--points` is accepted only with `--sims`.
 
-<!-- D1: confirm against the merged code -->
 What changes for a script of yours: `pyfs-matrix run --sims 2031 2032` without
 `--force-rerun-all` was refused in 0.33.0 and runs those two simulations from
 0.34.0, so a script that relied on the refusal sees a run. Add
@@ -226,7 +227,6 @@ is already recorded follows the rules of 0.33.0 (refused, `--resume`,
 selection is also a pair of arguments of the library functions `plan_matrix`
 and `run_matrix`, `sims` and `points`.
 
-<!-- D1: confirm against the merged code -->
 A second `pyfs-matrix run` of a matrix with recorded points, without
 `--resume`, is still refused with exit status 2 and runs nothing, and now
 prints the command that continues it (FR-327): the command as it was invoked
@@ -238,7 +238,6 @@ The options are described in [Run the matrix](workflow-run-matrix.md).
 
 ## Five switches that asked DISABLE now get DISABLE
 
-<!-- D1: confirm against the merged code -->
 `solver_settings` resolves `valarezo_criterion`, `wake_relaxation`,
 `wake_streamwise_agglomeration`, `adverse_gradient_boundary_layer` and
 `vortex_ring_normalization` as it resolves its other switches (FR-349). A row
@@ -251,7 +250,6 @@ any of the five. To keep the old behaviour of a row, ask ENABLE.
 
 ## A sampled field of build 8242026 is written without a warning
 
-<!-- D1: confirm against the merged code -->
 Build 8242026 of FlightStream 26.124 is registered (FR-153, RPT-136), by the
 owner's decision of 2026-10-01 and not by a measurement: it has the rows build
 8172026 has, the unsteady fluid plot and steady probe velocity conventions and
@@ -265,29 +263,42 @@ recipe that measures a convention is on
 `ROTOR_RMRP1`, and says that a ring of four blades repeats every 90 degrees, so
 one blade pins the whole rotation shift.
 
-## A profile for an actuator disc can be generated by the post
+## A profile for an actuator disc can be generated
 
-<!-- D1: confirm against the merged code -->
-The post writes `inputs/profiles/<stem>.csv` from the sections of a simulation,
-scaled to a target thrust or thrust coefficient, so that a matrix row uses it
-by its stem (`PROFILE: <stem>`), as a sampled field is used (FR-347, ADPROF).
-The shapes are the profile of the simulation's own mean sectional loads, and
-the generic UNI and BP forms; the elliptical form is native to the solver. The
-written file is an input of the next matrix, nothing already in a workspace
-changes, and a matrix that does not ask for it posts as before. Measured on
+`pyfs-workspace profile SHAPE` writes `inputs/profiles/<stem>.csv` and its
+provenance record `<stem>.provenance.json`, so that a matrix row uses the
+profile by its stem (`PROFILE: <stem>`), as a sampled field is used (FR-347).
+The shape is `sections` (a POL's written sections: the sectional loads table
+the post recorded, found by `--pol` or named, `-Fx` at the stations by
+default), `uni` (thrust growing with the radius) or `bp` (Betz-Prandtl, at an
+advance ratio `--advance-ratio`); the profile is scaled to a thrust
+(`--thrust`) or a thrust coefficient (`--ct` with `--rho` and `--rpm`), never
+both. A station of `sections` whose thrust is negative is set to zero and
+counted, as the measured method did. The command previews by default and
+writes only with `--apply`, and replaces an existing file only with
+`--overwrite`. The elliptical disc is native to the solver and needs no file.
+The written file is an input of the next matrix; nothing already in a
+workspace changes, and the post does not change. Measured on
 26.124 and summarised in RPT-137, a custom profile delivers 0.95 to 1.04 of the
 thrust asked on a RIGID wake, the ELLIPTICAL model places 0.62, and a RELAXED
 wake ignores the profile (the plan warning above).
 
 ## The inventory records the number of faces
 
-<!-- D1: confirm against the merged code -->
-The inventory of a geometry records `MESH_FACES`, its number of faces, per
-geometry and per surface where that is useful (FR-348). The super file, and the
-file of the unsteady averages, carry `MESH_FACES` taken from the inventory only
-when the field exists for the row's `GEOMETRY`, and NA otherwise: the post
-never computes it. A reader of the super file that counts its columns sees one
-more, and an inventory written by an earlier release has no field and gives NA.
+The inventory of a geometry, `<stem>.boundaries.toml`, records `mesh_faces`,
+its number of faces, with `boundary_faces`, the count of each boundary where
+the reader gives it, and `mesh_sha256`, the sha256 of the file counted
+(FR-348). The super file, and the unsteady polar
+(`polars/P<sim>_<name>_uns_avg.csv`), end with a new column `MESH_FACES`,
+taken from the inventory whenever the field exists for the row's geometry, and
+`NA` otherwise: the post never counts a face. Where the inventory was counted
+from other bytes than the sha256 the run recorded for the file, `post.log`
+warns, naming both, and the count is still carried. A reader of these files
+that counts their columns sees one more, including the fixed-width
+`legacy_polar` form of the super file, which gains one more 16-wide field. An
+inventory written by an earlier release has no field and gives `NA`; for a
+saved simulation, `pyfs-matrix inventory <geometry> --overwrite` takes it
+again with the count.
 
 ## The coupled-run convergence log gains a column
 

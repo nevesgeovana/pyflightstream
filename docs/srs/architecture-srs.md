@@ -1518,8 +1518,7 @@ line changes on purpose, the speed handed to an actuator disc (FR-331), and
 the parity script names it. Every new module sits in the row of its package,
 and the layer guards of NFR-23 (module level and function bodies) and, inside
 the two packages that declare an order, guard G3(b) hold on the merged tree.
-The items of the second wave are listed at the end, to be confirmed when that
-wave is integrated.
+The items of the second wave are listed at the end, as integrated.
 
 ### The measured structure of the first wave
 
@@ -1556,8 +1555,6 @@ line), `workspace/matrix.py`, `run/matrix.py` (with its line) and
 catalog cut below). Two functions left the length table:
 `solver_settings` (AD-17) and `_build_parser` (AD-18). `pyflightstream.qa.specs`
 left the type checker's exempted set, so the exempted modules are sixteen.
-
-<!-- D1: confirm at integration: the AD-16 box reads 632 code lines for the cases root and 188 for cases/naming.py; the reader measures 609 and 189 at the WP8 merge and at the first-wave tip. -->
 
 ### The 0.34.0 modules and their rows
 
@@ -1618,27 +1615,39 @@ and `script._relaxed_te`), the review list of the deep-modules rule of AD-08.
   package module changes. FR-345: the dry-run trigger of the release workflow
   and the report-index test that reads its own release section.
 
-### The second wave, to be confirmed at integration
+### The second wave
 
-<!-- D1: confirm at integration -->
-The second wave of 0.34.0 was not merged when this section was written. Each
-item below names where its scope places it, and each is confirmed or
-corrected against the integrated tree:
+The second wave of 0.34.0, as integrated into `rel/0-34`:
 
-- the LF line ends of every text file the package writes (NFR-32), in one
-  private writer module; <!-- D1: confirm at integration -->
-- the wake length of a rotor row (FR-321 to FR-325), its keys in
-  `cases/settings.py` and its emission in `script/_settings.py`;
-  <!-- D1: confirm at integration -->
+- the LF line ends of every text file the package writes (NFR-32), through
+  one private floor module, `pyflightstream._textio`, which every writer
+  calls and a guard test walks `src/` for;
+- the wake length of a rotor row (FR-321 to FR-325): its keys on
+  `SolverSettings` in `cases/settings.py` (`wake_termination_length`,
+  `wake_termination_thrust_n`, `wake_termination_revolutions_cap` and the
+  end plane `wake_termination_x_m`), routed by `cases/_setup_keys.py`; the
+  conversion into steps in `cases/workflows/_freestream.py`, whose steps the
+  `SET_WAKE_TERMINATION_TIME_STEPS` row of `script/_settings.py` emits, and
+  the end plane written into `INITIALIZE_SOLVER` by
+  `cases/workflows/_skeleton.py`; the plan's record and warnings in
+  `run/_plan.py`;
 - the selection of a simulation or a point for `plan` and `run`, and the
-  message of a second run (FR-326, FR-327), in the family functions of
-  `run/_cli_parsers.py`; <!-- D1: confirm at integration -->
-- the thin-blade command over `workspace/_degenerate.py` (FR-330), with its
-  boundary option; <!-- D1: confirm at integration -->
-- the toggle keywords that emitted ENABLE when DISABLE was asked, with a
-  named parity difference; <!-- D1: confirm at integration -->
-- the registration of a further solver build in the measured field
-  conventions (FR-153); <!-- D1: confirm at integration -->
-- the actuator-disc profile generator, and the mesh face count the
-  inventory records and the super file carries.
-  <!-- D1: confirm at integration -->
+  message of a second run (FR-326, FR-327): the options in the family
+  functions of `run/_cli_parsers.py` (with `resume_hint`, the command that
+  continues), the selection in `run/_ids.py` (`narrow_to_selection`,
+  `already_recorded_error`), and the `sims` and `points` arguments of
+  `plan_matrix` and `run_matrix` in `run/matrix.py`;
+- the thin-blade command `pyfs-matrix degenerate` over
+  `workspace/_degenerate.py` (FR-330), with its `--boundary` option;
+- the five toggle keywords that emitted ENABLE when DISABLE was asked
+  (FR-349), now read with the other toggles by `READ_TOGGLES` of
+  `script/_settings.py`, with a named parity difference;
+- the registration of build 8242026 of 26.124 in the field conventions of
+  `post/field_frames.py` (FR-153, RPT-136);
+- the actuator-disc profile generator `workspace/actuator_profiles.py` and
+  the `profile` command of `pyfs-workspace` (FR-347), and the mesh face
+  count (FR-348): counted when the inventory is taken
+  (`pyflightstream._fsm.mesh_face_counts`, `obj_face_counts` of
+  `workspace/sidecars.py`), read by the post from the inventory
+  (`recorded_mesh_faces`, `post/_sim.py`) and written last by the super
+  file and the unsteady polar.
