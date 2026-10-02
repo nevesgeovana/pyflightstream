@@ -10,6 +10,7 @@ follows the verdict of the run's committed report (a planted mismatch is its con
 
 from __future__ import annotations
 
+import dataclasses
 import shutil
 from pathlib import Path
 
@@ -18,6 +19,7 @@ import yaml
 
 from pyflightstream.qa import specs
 from pyflightstream.qa.compat import apply_compat
+from pyflightstream.qa.probes import generate_probe_script
 from pyflightstream.script import BrokenCommandError
 from tests.tier1_offline._p0340_probe_support import (
     BUILD,
@@ -85,29 +87,7 @@ def test_every_command_of_the_set_and_of_the_chapters_has_a_catalog_entry_fr_333
     assert len(ARM_CN) >= 40
 
 
-RELAXED_TE_PRECONDITION_BROKEN = (
-    "RPT-126 records the precondition NEW_CCS_*_RELAXED_TE broken on 26.124 and "
-    "generate_probe_script "
-    "waives only the target, so a BrokenCommandError ends the probe run; RPT-126; owed to 0.35.0 "
-    "(the waiver in qa/probes.py)"
-)
-XFAIL_ENTRIES = ("DELETE_CCS_FUSELAGE_RELAXED_TE", "DELETE_CCS_REVOLVE_RELAXED_TE")
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
-        pytest.param(
-            command,
-            marks=pytest.mark.xfail(
-                strict=True, raises=BrokenCommandError, reason=RELAXED_TE_PRECONDITION_BROKEN
-            ),
-        )
-        if command in XFAIL_ENTRIES
-        else command
-        for command in EVERY
-    ],
-)
+@pytest.mark.parametrize("command", EVERY)
 def test_each_entry_builds_a_script_that_emits_its_command_on_26124_fr_333(command):
     """FR-333 R2, marker P0340-QA-PROMOTE: the generated script emits the command under test."""
     entry = specs.PROBE_SPECS[command]
@@ -115,6 +95,26 @@ def test_each_entry_builds_a_script_that_emits_its_command_on_26124_fr_333(comma
     assert entry.assert_effect is not None or entry.expects_halt
     assert target_line(command).startswith(command)
     assert f"PYFS_PROBE_BEGIN_{command}" in build_script(command)
+
+
+@pytest.mark.parametrize("family", ["FUSELAGE", "REVOLVE"])
+def test_a_broken_precondition_is_waived_and_stays_visible_in_the_script_fr_333(family, tmp_path):
+    """FR-333 R2, marker P0340-QA-PROMOTE: RPT-126 records NEW_CCS_*_RELAXED_TE broken on 26.124.
+
+    The deletion's probe needs it, so the build of the script waives it (it used to end in
+    BrokenCommandError) and names it in the script; the control is the same spec with the
+    waiver removed, which must still refuse.
+    """
+    command = f"DELETE_CCS_{family}_RELAXED_TE"
+    precondition = f"NEW_CCS_{family}_RELAXED_TE"
+    entry = specs.PROBE_SPECS[command]
+    assert entry.preconditions == (precondition,)
+    text = build_script(command)
+    assert f"precondition {precondition}" in text
+    assert text.index(f"{precondition} ") < text.index(f"PYFS_PROBE_BEGIN_{command}")
+    bare = dataclasses.replace(entry, preconditions=())
+    with pytest.raises(BrokenCommandError):
+        generate_probe_script(bare, "26.124", tmp_path, fsm=tmp_path / "x.fsm")
 
 
 def test_the_wake_stabilisation_reads_the_saved_simulation_not_a_placeholder_fr_333():

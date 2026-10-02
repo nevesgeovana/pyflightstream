@@ -338,13 +338,16 @@ def _emit_file_route(script: Script, case: SimCase, names: Sequence[str]) -> Non
 
 
 def _refuse_the_real_control_surface_form(case: SimCase, spec: CcsImportOptions) -> None:
-    """Refuse a control surface written with REAL spanwise limits (RPT-097, POL 3205).
+    """Refuse a control surface written with REAL spanwise limits (RPT-097, POL 3205, RPT-126).
 
     Licensed round 2 on FlightStream 26.124 ran the same aileron in the two
     forms through the package route: the PARAMETRIC form completed and saved a
     simulation that differs from the wing without it (POL 3204), and the REAL
     form ended ``FAILED_EXECUTION`` with no saved simulation (POL 3205). No
     other build measured the REAL form, so it is refused on every build.
+    RPT-126 then separated the cause (FR-336 R4, ``refusal_stays``): the limits
+    2.0 and 3.6 end the solver process in both spaces, the REAL token does not,
+    and the message states it.
     """
     for surface in spec.control_surfaces:
         if surface.space != "REAL":
@@ -353,9 +356,12 @@ def _refuse_the_real_control_surface_form(case: SimCase, spec: CcsImportOptions)
             f"case {case.sim_id!r}: the control surface {surface.name!r} is written with REAL "
             "spanwise limits, and the plan refuses that form. On FlightStream 26.124 the REAL "
             "form ended FAILED_EXECUTION with no saved simulation, where the same surface in "
-            "the PARAMETRIC form completed (licensed round 2, RPT-097), and no other build "
-            "measured it. Write the limits as fractions of the span between 0 and 1 and "
-            'space = "PARAMETRIC" (the default) in the sidecar\'s [[import.ccs.control_surfaces]].'
+            "the PARAMETRIC form completed (licensed round 2, RPT-097). RPT-126 measured the "
+            "cause: the limits 2.0 and 3.6 end the solver process (0xC0000005) in both spaces, "
+            "so the REAL token is not the cause; the refusal stays because that row neither "
+            "solved nor saved, and no other build measured the form. Write the limits as "
+            'fractions of the span between 0 and 1 and space = "PARAMETRIC" (the default) in '
+            "the sidecar's [[import.ccs.control_surfaces]]."
         )
 
 

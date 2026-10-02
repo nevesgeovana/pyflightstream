@@ -148,6 +148,15 @@ FlightStream versions.
   already ended, as the continuations 0.34.0 emitted on 26.124 did, the post
   log warns, naming the continuation and the run it continues; the table is
   posted as the march stands.
+- The probe script of a command whose spec needs a precondition recorded broken
+  (`DELETE_CCS_FUSELAGE_RELAXED_TE` and `DELETE_CCS_REVOLVE_RELAXED_TE` need
+  `NEW_CCS_*_RELAXED_TE`, broken on 26.124 by RPT-126) is now built: the
+  precondition is waived like the target and named in the script, not dropped
+  (FR-333). The two strict expected failures that recorded it are removed.
+- **The refusal of a REAL control-surface form states its measured cause
+  (FR-336 R4).** The message cites RPT-126: the limits 2.0 and 3.6 end the solver
+  process (0xC0000005) in both spaces, so the REAL token is not the cause; the
+  refusal stays.
 
 ## [0.34.0] - 2026-10-02
 

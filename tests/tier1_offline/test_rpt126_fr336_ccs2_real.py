@@ -9,9 +9,9 @@ digest), read here against the criterion fixed before the run.
 
 RPT-126 measured `refusal_stays`: the REAL token is not the cause, the limits 2.0 and 3.6 end
 the solver process in both spaces, and RPT-097's row neither solved nor saved. What this module
-cannot hold, named so it is not forgotten: FR-336 R4's `refusal_stays` branch also asks that the
-refusal's MESSAGE cite RPT-126. The message lives in ``src/pyflightstream/cases/ccs_wing.py``
-and still cites RPT-097 (``test_p0320_ccs.py``); the citation and its test are owed to 0.35.0.
+cannot hold in the arms: FR-336 R4's `refusal_stays` branch also asks that the refusal's MESSAGE
+cite RPT-126 and state the measured cause; ``test_the_refusal_message_cites_rpt126_and_states_the_
+measured_cause_fr_336`` checks it against the message in ``src/pyflightstream/cases/ccs_wing.py``.
 A `form_works` verdict would be the same: its re-admission is src, and the first test fails on
 it by design.
 """
@@ -176,6 +176,24 @@ def test_each_arm_changes_one_thing_against_its_pair_fr_336():
         moved = changed_tokens(arms[arm]["line"], arms[pair]["line"])
         expected = {"space": [9], "limits": [2, 3], "axis": [10], "none": []}[what]
         assert moved == expected, f"{arm} against {pair}: tokens {moved} moved, {what} expected"
+
+
+def test_the_refusal_message_cites_rpt126_and_states_the_measured_cause_fr_336(tmp_path):
+    """P0340-CCS2-REAL, FR-336 R4 (refusal_stays): the message names RPT-126 and its cause.
+
+    The cause is the one the recorded arms separate: the limits 2.0 and 3.6 end the solver
+    process (0xC0000005) in both spaces, and the REAL token is not the cause; the report
+    that was cited before (RPT-097) stays named as the run that failed.
+    """
+    arms = _arms()
+    assert verdict_from(arms) == "refusal_stays"
+    with pytest.raises(CampaignConfigError, match="refus") as refusal:
+        _built(_real_case(tmp_path))
+    text = str(refusal.value)
+    assert "RPT-126" in text and "RPT-097" in text
+    assert "2.0 and 3.6" in text and "0xC0000005" in text and "both spaces" in text
+    assert "REAL token is not the cause" in text
+    assert "AIL" in text and "PARAMETRIC" in text
 
 
 def test_a_planted_saved_real_row_reads_form_works_fr_336():

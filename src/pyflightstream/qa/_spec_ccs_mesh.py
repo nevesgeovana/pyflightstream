@@ -127,7 +127,14 @@ def _set_chapter(family: _Family, command: str, build: Build, note: str) -> None
 
 
 def _undo_chapter(
-    family: _Family, command: str, build: Build, undo: Build, note: str, *, saved: bool = False
+    family: _Family,
+    command: str,
+    build: Build,
+    undo: Build,
+    note: str,
+    *,
+    saved: bool = False,
+    precondition: str | None = None,
 ) -> None:
     """Register an undoing command: set, loft, undo, loft; the last loft equals the first."""
     count = 3 if command == "DELETE_CCS_WING_CONTROL_SURFACE" else 1
@@ -147,6 +154,7 @@ def _undo_chapter(
         assert_effect=_saved_restored if saved else _restored_differs_from_modified,
         observe=_saved_read if saved else _mesh_read,
         effect_note=note,
+        preconditions=(precondition,) if precondition else (),
     )
 
 
@@ -322,6 +330,7 @@ def _relaxed_trailing_edges(family: _Family) -> None:
         "the saved per-face state returns to the reference after relaxed trailing-edge deletion, "
         "while an unchanged control retains the modification and all four geometries agree",
         saved=True,
+        precondition=f"NEW_CCS_{name}_RELAXED_TE",
     )
 
 
