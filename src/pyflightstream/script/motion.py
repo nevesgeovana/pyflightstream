@@ -72,7 +72,7 @@ def _decision_proof() -> dict[str, Any]:
         "signed_rpm_factor": 1,
         "step_time_origin": 0,
         "evidence": {
-            "kind": "owner decision of 2026-10-01, not measured",
+            "kind": "decision of 2026-10-01, not measured",
             "receipt": "RPT-136",
             "limits": "No run measured this build; no delayed-start or accuracy claim.",
         },

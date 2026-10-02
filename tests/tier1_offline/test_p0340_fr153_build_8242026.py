@@ -1,6 +1,6 @@
 """FR-153 (0.34.0): build 8242026 of 26.124 writes fields as build 8172026 does, no warning.
 
-The registration is the owner's decision of 2026-10-01, not a measurement (RPT-136).
+The registration is by decision of 2026-10-01, not by measurement (RPT-136).
 Each test names the marker P0340-FR153-8242026 and the requirement FR-153 in its
 own source; the rows it reads say "not measured" in their evidence.
 """
@@ -19,7 +19,7 @@ from tests.tier1_offline.test_fr153_field_build_warning import (
 )
 
 REGISTERED = "8242026"
-DECISION = "owner decision of 2026-10-01, not measured"
+DECISION = "decision of 2026-10-01, not measured"
 
 
 @pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])

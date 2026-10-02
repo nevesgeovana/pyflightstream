@@ -274,7 +274,7 @@ _STEADY_PROBE = {
 #: no measured row carries.
 _DECISION_8242026 = {
     "receipt": "RPT-136",
-    "basis": "owner decision of 2026-10-01, not measured",
+    "basis": "decision of 2026-10-01, not measured",
     "comparison": "none: registered as writing fields as build 8172026 does",
 }
 VELOCITY_EVIDENCE: dict[tuple[str, str, str, str], tuple[float, dict[str, str]]] = {

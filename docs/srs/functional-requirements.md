@@ -6788,12 +6788,12 @@ Requirements written after the specification was last reconciled with the packag
       A run of a solver version, export kind or unit with no measured build is
       refused as before, and a field of a measured build is written as before,
       byte for byte.
-    - Amendment (0.34.0, RPT-136) Build 8242026 of 26.124 is registered by the
-      author decision of 2026-10-01, not by a measurement: it has a row of
+    - Amendment (0.34.0, RPT-136) Build 8242026 of 26.124 is registered by
+      decision of 2026-10-01, not by measurement: it has a row of
       every kind that build 8172026 has (the unsteady fluid plot and the steady
       probe velocity conventions and the rotation timing, in METER and in
-      MILLIMETER), with the same values, and each row's evidence states "owner
-      decision of 2026-10-01, not measured". A field of build 8242026 in those
+      MILLIMETER), with the same values, and each row's evidence states
+      "decision of 2026-10-01, not measured". A field of build 8242026 in those
       units is written with no warning and its entry carries neither
       `velocity_convention` nor `rotation_timing`; the rows of 8172026 and the
       warning for every other build are unchanged.

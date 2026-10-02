@@ -42,7 +42,7 @@ produce a named diagnostic instead of a guessed placement.
 Native fluid-plot conventions are verified for FlightStream 26.124 build 8172026
 with the recorded executable digest, independently in METER and MILLIMETER
 simulations. Build 8242026 of 26.124 is registered with the same conventions by
-the owner's decision of 2026-10-01, not by a measurement ([RPT-136](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-136_fr153-build-8242026_2026-10-01.md)):
+decision of 2026-10-01, not by measurement ([RPT-136](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-136_fr153-build-8242026_2026-10-01.md)):
 its fields are written with no warning, and its rows say "not measured". Fluid-plot command vertices use metres in both cases; the saved
 layout retains native coordinates for frame placement. The measured velocity
 components are already absolute REFERENCE components in m/s, even when the sampling
