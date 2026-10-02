@@ -927,7 +927,7 @@ _spec(
 )
 
 
-from pyflightstream.qa import _spec_catalog_b as _spec_catalog_b  # noqa: E402,F401
-from pyflightstream.qa import _spec_ccs_mesh as _spec_ccs_mesh  # noqa: E402,F401
-from pyflightstream.qa import _spec_ccs_noise as _spec_ccs_noise  # noqa: E402,F401
-from pyflightstream.qa import _spec_t1 as _spec_t1  # noqa: E402,F401
+import pyflightstream.qa._spec_catalog_b as _spec_catalog_b  # noqa: E402,F401
+import pyflightstream.qa._spec_ccs_mesh as _spec_ccs_mesh  # noqa: E402,F401
+import pyflightstream.qa._spec_ccs_noise as _spec_ccs_noise  # noqa: E402,F401
+import pyflightstream.qa._spec_t1 as _spec_t1  # noqa: E402,F401
