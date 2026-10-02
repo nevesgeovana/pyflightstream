@@ -437,6 +437,35 @@ _MIGRATION_NAMES_0_33_1 = {
     "The tier 1 suite runs in parallel.": ("pytest-xdist", "-n auto"),
 }
 
+# The heads are the bold heads of the ### Changed list of the 0.34.0 section; the
+# integrator reconciles them with the change log when the section is written.
+_MIGRATION_NAMES_0_34_0 = {
+    "Every text file the package writes has LF line ends on every platform.": (
+        "LF line ends",
+        "str.splitlines()",
+    ),
+    "An actuator disc with `rpm_sign = 1` swirls the way a rotor with `rpm_sign = 1` turns.": (
+        "SET_PROP_ACTUATOR_RPM",
+        "`rpm_sign = 1`",
+    ),
+    "A rotor row that states no wake termination keeps 4 rotor radii of wake.": (
+        "SET_WAKE_TERMINATION_TIME_STEPS",
+        "`wake_termination_length`",
+    ),
+    "The guides are numbered from 01 and the cheatsheet is guide 04.": (
+        "`pyfts-guide-00-fts-overview.pdf`",
+        "`pyfts-guide-01-fts-overview.pdf`",
+    ),
+    "`pyfs-matrix run --sims` runs a selection and a second run names its command.": (
+        "`--points`",
+        "`--resume`",
+    ),
+    "Five switches that asked DISABLE now get DISABLE.": (
+        "`valarezo_criterion`",
+        "`vortex_ring_normalization`",
+    ),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
@@ -444,6 +473,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
     "0.32.0": _MIGRATION_NAMES_0_32_0,
     "0.33.0": _MIGRATION_NAMES_0_33_0,
     "0.33.1": _MIGRATION_NAMES_0_33_1,
+    "0.34.0": _MIGRATION_NAMES_0_34_0,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -460,6 +490,7 @@ _REFUSED_BY_RELEASE = {
     "0.32.0": ("unsteady_rotor",),
     "0.33.0": ("unsteady_rotor",),
     "0.33.1": ("unsteady_rotor",),
+    "0.34.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
@@ -477,6 +508,14 @@ _PAGE_WORDS_BY_RELEASE = {
         "pyfs-matrix post",
         "`unsteady_rotor`",
         "still in debug on this release",
+    ),
+    "0.34.0": (
+        "NFR-32",
+        "FR-331",
+        "FR-321",
+        "`MESH_FACES`",
+        "`PROFILE: <stem>`",
+        "build 8242026",
     ),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
