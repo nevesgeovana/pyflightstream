@@ -8,7 +8,7 @@ the recorded loads frames and refuse an import count no log can confirm.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -55,7 +55,9 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunRecord,
     RunStatus,
+    WorkspaceError,
 )
+from pyflightstream.workspace._batch_life import running_batches
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP,
 )
@@ -329,3 +331,48 @@ def _refuse_an_import_count_nothing_logs(
         "([log] export_log = false, with native_log naming the log its scheduler writes), "
         "and the count is then read from that log."
     )
+
+
+def queued_points(
+    workspace: CampaignWorkspace, manifest: Mapping[str, RunRecord], run_ids: Sequence[str]
+) -> list[str]:
+    """Return the run ids a forced re-run may not supersede, or refuse by batch.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace the run belongs to.
+    manifest : mapping
+        The records by run id.
+    run_ids : sequence of str
+        The recorded points the forced re-run would supersede.
+
+    Returns
+    -------
+    list of str
+        The ids still SUBMITTED, which the caller refuses as queued.
+
+    Raises
+    ------
+    WorkspaceError
+        If one of the points belongs to a batch whose job has not ended; the
+        message names the batch.
+    """
+    records = [manifest[run_id] for run_id in run_ids if run_id in manifest]
+    running = running_batches(workspace.root, manifest.values())
+    for record in records:
+        for label in running:
+            if _in_batch(record, label):
+                raise WorkspaceError(
+                    f"force_rerun (CLI: --force-rerun) names {record.run_id}, a point of "
+                    f"batch {label}, whose job has not ended: it is still writing the batch "
+                    "folder this point came from, and redoing the point now would run it "
+                    "beside the job. Wait for the batch to end and collect it "
+                    "(pyfs-matrix collect); nothing was archived or run."
+                )
+    return [record.run_id for record in records if record.status is RunStatus.SUBMITTED]
+
+
+def _in_batch(record: RunRecord, label: str) -> bool:
+    job = (record.submission or {}).get("job")
+    return isinstance(job, Mapping) and job.get("label") == label
