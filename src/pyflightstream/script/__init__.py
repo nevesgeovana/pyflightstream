@@ -48,6 +48,16 @@ database arguments now, emitted comfortably through the curated
 helper layer in :mod:`pyflightstream.script.helpers` (SAD Section
 4.3).
 
+The 0.34 layout of the helpers (AD-17):
+:func:`pyflightstream.script.helpers.solver_settings` keeps its signature
+and its path and is the facade over per-family emitters in the private
+module ``script._settings``, which also holds the helpers that set up a
+run (the flow conditions, the unsteady solver, the solver initialization
+and start) and the toggle readers they share; the relaxed trailing edge
+is the private module ``script._relaxed_te``. Only the helpers import
+the two, and the helpers import every moved name, so each public path of
+0.33.0 is kept.
+
 In the 0.29 workflow, emitted surface operations and frame motions also
 form a provenance ledger. Geometry facts and unknown trajectory details
 remain distinct; consumers may resolve timing only against exact measured

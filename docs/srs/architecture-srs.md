@@ -1504,3 +1504,141 @@ the `pyfs-matrix` parser builder, the rotor tables' plan and the campaign
 loop of the post stage. Nine package roots still hold statements beyond a
 facade and stay in the G8 table, each entry only falling. Decomposing them is
 later work, and this release does not claim it.
+
+## The 0.34.0 additions and their limits
+
+This section records what 0.34.0 changes in the structure above and the limit
+each change keeps, measured on the merged first wave of the release (the
+three cuts AD-16 to AD-18 and the features built beside them), against
+v0.33.1. The tracked package holds 234 modules: fifteen arrived and none
+left. The cuts move code and change no product, emitted script or console
+behaviour for the sake of a move; the decisions AD-16 to AD-18 above state
+each cut and what it keeps, under the evolution policy of AD-15. One emitted
+line changes on purpose, the speed handed to an actuator disc (FR-331), and
+the parity script names it. Every new module sits in the row of its package,
+and the layer guards of NFR-23 (module level and function bodies) and, inside
+the two packages that declare an order, guard G3(b) hold on the merged tree.
+The items of the second wave are listed at the end, to be confirmed when that
+wave is integrated.
+
+### The measured structure of the first wave
+
+Both columns are measured with the same reader, `scripts/arch_metrics.py`.
+No record was written for the patch release v0.33.1, whose structure is that
+of 0.33.0 (`reports/RPT-119`, 219 modules); the first wave's record is
+`reports/RPT-123`. Sizes are code lines, docstring and comment lines
+excluded.
+
+| measure | v0.33.1 | 0.34.0, first wave (`reports/RPT-123`) |
+|---|---:|---:|
+| modules | 219 | 234 |
+| code lines | 85,250 | 86,961 |
+| share of the largest module | 2.7 percent | 2.1 percent |
+| share of the largest 5 modules | 10.4 percent | 8.9 percent |
+| share of the largest 13 modules | 21.7 percent | 18.0 percent |
+| modules over 1000 code lines | 11 | 7 |
+| modules over 2000 code lines | 1 | 0 |
+| functions over 250 code lines | 11 | 9 |
+| functions over a limit of G2 | 227 | 225 |
+| cross-package import components | 1 | 1 |
+| `workspace` to `run` imports | 0 | 0 |
+| package-root lines beyond a facade | 12,834 | 9,046 |
+| private names reached by tests | 240 | 240 |
+| type-check errors in the exempted modules | 192 in 17 | 160 in 16 |
+
+No module is over 2000 code lines. The seven over 1000 are baseline entries
+that may only fall: `cases/matrix.py`, `workspace/__init__.py`,
+`workspace/storage.py`, `post/input_template.py` (with its `Size exemption:`
+line), `workspace/matrix.py`, `run/matrix.py` (with its line) and
+`post/corrections.py`. Four modules left the size table in the first wave:
+`cases/__init__.py` (AD-16), `script/helpers.py` (AD-17), `run/cli.py`
+(AD-18, its `Size exemption:` line removed) and `qa/specs.py` (the probe
+catalog cut below). Two functions left the length table:
+`solver_settings` (AD-17) and `_build_parser` (AD-18). `pyflightstream.qa.specs`
+left the type checker's exempted set, so the exempted modules are sixteen.
+
+<!-- D1: confirm at integration: the AD-16 box reads 632 code lines for the cases root and 188 for cases/naming.py; the reader measures 609 and 189 at the WP8 merge and at the first-wave tip. -->
+
+### The 0.34.0 modules and their rows
+
+- The cases row: the six public modules of AD-16, in the order they import
+  one another, each importing only those before it and none importing the
+  root `pyflightstream.cases`. `cases.reference_blocks` (201 code lines)
+  imports only `_errors`; `cases.selection` (214) imports `_errors`,
+  `_deprecations`, `_fsm` and `cases.reference_blocks`; `cases.pproc` (855)
+  imports `_errors`, `_deprecations`, `_expressions`, `_retired_names`,
+  `_tokens`, `commands`, `cases.corrections` and `cases.selection`, and
+  `cases.acoustics` inside a function; `cases.naming` (189) imports
+  `cases.reference_blocks`; `cases.mesh` (265) imports the private
+  `cases._ccs`; `cases.settings` (222) imports `_atmosphere`, `commands`,
+  `cases._setup_keys`, `cases.mesh`, `cases.reference_blocks`,
+  `script.solver_setup` and `script.toggles`. The root holds 609 code lines
+  (2316 at v0.33.1) and its facade entry of G8 fell from 4,916 to 1,128.
+- The script row: `script._settings` (598), the emitters by family behind
+  `solver_settings`, the run-setup helpers and the toggle readers they share,
+  importing `commands`, `script`, `script.solver_setup` and `script.toggles`;
+  and `script._relaxed_te` (119), the relaxed trailing edge, importing
+  `script`. `script.helpers` is the only module that imports either, and it
+  imports every moved name, so each 0.33.0 path is kept.
+- The run row: `run._cli_print` (274), the printing of `plan` and of the
+  storage commands, importing `run`, `run._continuation_frame`, `_console`
+  and `_progress`, and `workspace.setup_inspection` and `workspace.storage`
+  inside its functions; `run.cli` is the only module that imports it, and the
+  package's declared order places it after `_cli_parsers`.
+- The qa row: the probe catalog of `qa.specs` is cut into five private
+  modules that register into one shared table: `qa._spec_kit` (94, the
+  instruments and the registry, importing `qa.probes` and `script`),
+  `qa._spec_catalog_b` (592), `qa._spec_ccs_noise` (612, which also imports
+  `_fsm` and `script.helpers`), `qa._spec_ccs_mesh` (207) and `qa._spec_t1`
+  (69). `qa.specs` (710) imports all five and re-exports `PROBE_SPECS`.
+- The workspace row: `workspace._degenerate` (445), the library core of the
+  thin blade of FR-330, importing `_digest`, `_errors`, `_fsm`, `cases` and
+  `workspace.sidecars`. No module of the package calls it in the first wave.
+
+Three of the fifteen are under 150 code lines (`qa._spec_kit`, `qa._spec_t1`
+and `script._relaxed_te`), the review list of the deep-modules rule of AD-08.
+
+### The first-wave features and their homes
+
+- FR-328 and FR-329, the guides numbered from 01 with the cheatsheet as guide
+  04: the `guide/` tree, its build scripts and the admitted-PDF rule of the
+  CI; no package module changes.
+- FR-330, the thin blade from a blade mesh, its library core:
+  `workspace/_degenerate.py`.
+- FR-331, the swirl of an actuator disc: `cases/workflows/_actuator.py`, and
+  the named difference of `scripts/check_parity.py`, which accepts the disc
+  speed line with its sign changed and nothing else; FR-332, the warning on a
+  RELAXED disc naming a profile: `run/_plan.py`.
+- FR-333 to FR-335 and FR-342, the probe specifications: the catalog modules
+  above; the licensed verdicts are owed.
+- FR-339, the signed tip deflection as the last column of the FSI
+  convergence log: `fsi/driver.py`.
+- FR-337, FR-343, FR-344 and FR-346: records of the repository (RPT-132,
+  RPT-131, the digests out of the tracked tree, `RELEASE-READY.md`); no
+  package module changes. FR-345: the dry-run trigger of the release workflow
+  and the report-index test that reads its own release section.
+
+### The second wave, to be confirmed at integration
+
+<!-- D1: confirm at integration -->
+The second wave of 0.34.0 was not merged when this section was written. Each
+item below names where its scope places it, and each is confirmed or
+corrected against the integrated tree:
+
+- the LF line ends of every text file the package writes (NFR-32), in one
+  private writer module; <!-- D1: confirm at integration -->
+- the wake length of a rotor row (FR-321 to FR-325), its keys in
+  `cases/settings.py` and its emission in `script/_settings.py`;
+  <!-- D1: confirm at integration -->
+- the selection of a simulation or a point for `plan` and `run`, and the
+  message of a second run (FR-326, FR-327), in the family functions of
+  `run/_cli_parsers.py`; <!-- D1: confirm at integration -->
+- the thin-blade command over `workspace/_degenerate.py` (FR-330), with its
+  boundary option; <!-- D1: confirm at integration -->
+- the toggle keywords that emitted ENABLE when DISABLE was asked, with a
+  named parity difference; <!-- D1: confirm at integration -->
+- the registration of a further solver build in the measured field
+  conventions (FR-153); <!-- D1: confirm at integration -->
+- the actuator-disc profile generator, and the mesh face count the
+  inventory records and the super file carries.
+  <!-- D1: confirm at integration -->

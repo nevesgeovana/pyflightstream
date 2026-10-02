@@ -102,8 +102,10 @@ re-exports the rest from ``_rebuild`` (the rebuild), ``_rebuild_evidence``
 their archives and lease), and it registers its rebuild with
 :mod:`pyflightstream.workspace.storage` when it loads, so the workspace row
 never imports this one. The ``pyfs-matrix`` argument parser, every
-subcommand, option and help text, is ``_cli_parsers``;
-:mod:`pyflightstream.run.cli` keeps the commands.
+subcommand, option and help text, is ``_cli_parsers``, built since 0.34.0
+by one ``_add_<family>_parsers`` function per family of subcommands
+(AD-18); the printing of ``plan`` and of the storage commands is
+``_cli_print``; :mod:`pyflightstream.run.cli` keeps the commands.
 """
 
 from __future__ import annotations

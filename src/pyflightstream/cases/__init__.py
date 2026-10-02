@@ -86,7 +86,9 @@ blocks of a reference and the two errors of a case definition;
 state and the reference data; :mod:`pyflightstream.cases.mesh` the mesh import
 and the mesh-side boundary models; :mod:`pyflightstream.cases.naming` the point
 and sweep names; :mod:`pyflightstream.cases.selection` the family and alias
-selection. None of the six imports this root, so the root keeps the input keys,
+selection. The six import one another in one order, ``reference_blocks``,
+``selection``, ``pproc``, ``naming``, ``mesh``, ``settings``, each only those
+before it. None of the six imports this root, so the root keeps the input keys,
 the recipes, the sweep, the flags and raw commands, the frames, the case and
 the campaign, and a field a release adds to a model lands in the model's own
 module.
