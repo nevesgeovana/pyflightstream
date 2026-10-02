@@ -18,11 +18,12 @@ The guard (:func:`text_write_bypasses`) reads the SYNTAX of every module under
 ``builtins``' or ``codecs``'), a ``csv`` writer, a pandas ``to_csv`` that states
 no LF line terminator, a ``write_bytes`` or an ``os.write`` of text encoded on the
 spot, a ``TextIOWrapper``, a text ``os.fdopen`` or temporary file. Its control
-plants fifteen bypasses and requires each to be caught
-(:func:`guard_control`, ``caught 15 of 15``), and the clean forms to pass. What it
-does not read: a binary write of bytes it cannot see are text (a byte-exact copy,
-a workbook), and the source of the programs the solver runs, which are checked as
-text by :func:`program_bypasses` on their rendered form.
+plants twenty-three bypasses and requires each to be caught
+(:func:`guard_control`, ``caught 23 of 23``), and the clean forms to pass. What it
+does not read: the forms of :data:`UNCOVERED`, each with its reason; a binary write
+of bytes it cannot see are text (a byte-exact copy, a workbook); and the source of the
+programs the solver runs, which are checked as text by :func:`program_bypasses` on
+their rendered form.
 
 What this does NOT prove: that the solver reads an LF script. The licensed probes
 of RPT-070 found that line ends change nothing in the disc profile file, and the
@@ -72,12 +73,59 @@ def package_written(root: Path) -> list[Path]:
 # --------------------------------------------------------------------------------- the guard
 
 
-def _callee(func: ast.expr) -> tuple[str | None, str | None]:
-    """The called name and, for ``a.b(...)``, the name ``a`` when it is a plain name."""
+def _aliases(tree: ast.AST) -> dict[str, str]:
+    """The names a module binds by import and the dotted name each stands for.
+
+    ``from io import TextIOWrapper as W`` binds ``W`` to ``io.TextIOWrapper``.
+    """
+    bound: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    bound[alias.asname] = alias.name
+                else:
+                    root = alias.name.split(".")[0]
+                    bound[root] = root
+        elif isinstance(node, ast.ImportFrom):
+            origin = "." * node.level + (node.module or "")
+            for alias in node.names:
+                bound[alias.asname or alias.name] = f"{origin}.{alias.name}"
+    return bound
+
+
+def _dotted(node: ast.expr, aliases: Mapping[str, str]) -> str | None:
+    """The dotted name of ``a.b.c`` with its first name resolved through ``aliases``."""
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    parts.append(aliases.get(node.id, node.id))
+    return ".".join(reversed(parts))
+
+
+def _callee(
+    func: ast.expr, aliases: Mapping[str, str] | None = None
+) -> tuple[str | None, str | None]:
+    """The called name and, for ``a.b(...)``, the name ``a`` when it is a plain name.
+
+    With ``aliases`` an import alias is resolved to what it stands for: ``W(...)`` after
+    ``from io import TextIOWrapper as W`` is ``("TextIOWrapper", "io")`` and ``c.open(...)``
+    after ``import codecs as c`` is ``("open", "codecs")``.
+    """
+    aliases = aliases or {}
     if isinstance(func, ast.Name):
+        target = aliases.get(func.id)
+        if target and "." in target and not target.startswith("."):
+            module, _, name = target.rpartition(".")
+            return name, module
         return func.id, None
     if isinstance(func, ast.Attribute):
-        return func.attr, func.value.id if isinstance(func.value, ast.Name) else None
+        if isinstance(func.value, ast.Name):
+            return func.attr, aliases.get(func.value.id, func.value.id)
+        return func.attr, None
     return None, None
 
 
@@ -112,23 +160,32 @@ def _encodes_text(node: ast.AST) -> bool:
     )
 
 
-def _states_lf_terminator(call: ast.Call) -> bool:
-    """True when a ``to_csv`` call states LF: ``"\\n"`` or the route's ``LINE_END``."""
+_ROUTE_MODULE = "pyflightstream._textio"
+
+
+def _states_lf_terminator(call: ast.Call, aliases: Mapping[str, str] | None = None) -> bool:
+    """True when a ``to_csv`` call states LF: ``"\\n"`` or ``LINE_END`` of the route.
+
+    ``LINE_END`` counts only when it provably comes from the route: the attribute of a
+    module imported from ``pyflightstream._textio``, or the bare name imported by
+    ``from pyflightstream._textio import LINE_END``. A local or foreign one is refused.
+    """
+    aliases = aliases or {}
     node = _keyword(call, "lineterminator")
     if isinstance(node, ast.Constant):
         return node.value == "\n"
-    if isinstance(node, ast.Name):
-        return node.id == "LINE_END"
-    return isinstance(node, ast.Attribute) and _callee(node) == ("LINE_END", "_textio")
+    if node is None:
+        return False
+    return _dotted(node, aliases) == f"{_ROUTE_MODULE}.LINE_END"
 
 
 #: The modules whose ``open`` is the builtin text open, mode second (G2 of the deep QA pass).
 _BUILTIN_OPEN_BASES = ("io", "builtins")
 
 
-def _bypass(call: ast.Call, program: bool) -> str | None:
-    name, base = _callee(call.func)
-    if name == "write_text" and base != "_textio":
+def _bypass(call: ast.Call, program: bool, aliases: Mapping[str, str] | None = None) -> str | None:
+    name, base = _callee(call.func, aliases)
+    if name == "write_text" and not (base or "").endswith("_textio"):
         return None if program and _states_lf(call) else "write_text outside the route"
     is_open = (name == "open" and base is None and isinstance(call.func, ast.Name)) or (
         name == "open" and base in _BUILTIN_OPEN_BASES
@@ -149,13 +206,14 @@ def _bypass(call: ast.Call, program: bool) -> str | None:
     if program:
         return None
     if name == "to_csv" and isinstance(call.func, ast.Attribute):
-        if not _states_lf_terminator(call):
+        if not _states_lf_terminator(call, aliases):
             return "a pandas to_csv that states no LF line terminator"
     if name in ("writer", "DictWriter") and base == "csv":
         return "a csv writer outside the route"
     if name == "write_bytes" and call.args and _encodes_text(call.args[0]):
         return "text encoded and written as bytes"
-    if name == "write" and base == "os" and len(call.args) > 1 and _encodes_text(call.args[1]):
+    data = call.args[1] if len(call.args) > 1 else _keyword(call, "data")
+    if name == "write" and base == "os" and data is not None and _encodes_text(data):
         return "text encoded and written by os.write"
     if name == "fdopen" and base == "os" and _text_write_mode(_mode_node(call, 1), strict=False):
         return "os.fdopen in a text writing mode"
@@ -178,8 +236,10 @@ def text_write_bypasses(
     for name, text in sorted(sources.items()):
         if Path(name).name == ROUTE:
             continue
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, ast.Call) and (what := _bypass(node, program)):
+        tree = ast.parse(text)
+        aliases = _aliases(tree)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and (what := _bypass(node, program, aliases)):
                 found.append((name, node.lineno, what))
     return found
 
@@ -206,6 +266,23 @@ PLANTED = {
     "builtins.open w": 'import builtins\nh = builtins.open(p, "w")\n',
     "os.write of text": 'import os\nos.write(fd, t.encode("utf-8"))\n',
     "io.TextIOWrapper": 'import io\nh = io.TextIOWrapper(open(p, "wb"), encoding="utf-8")\n',
+    # The forms the LF guard review of 0.34.0 found: where LINE_END comes from, and import aliases.
+    "to_csv with a local LINE_END": (
+        'LINE_END = "\\r\\n"\nframe.to_csv(p, lineterminator=LINE_END)\n'
+    ),
+    "to_csv with a foreign LINE_END": (
+        "from other import LINE_END\nframe.to_csv(p, lineterminator=LINE_END)\n"
+    ),
+    "to_csv with the LINE_END of a foreign _textio": (
+        "from other import _textio\nframe.to_csv(p, lineterminator=_textio.LINE_END)\n"
+    ),
+    "aliased TextIOWrapper": (
+        'from io import TextIOWrapper as W\nh = W(open(p, "wb"), encoding="utf-8")\n'
+    ),
+    "aliased codecs.open w": 'import codecs as c\nh = c.open(p, "w", encoding="utf-8")\n',
+    "aliased builtins open w": 'from builtins import open as op\nh = op(p, "w")\n',
+    "aliased os.write of text": 'import os as o\no.write(fd, t.encode("utf-8"))\n',
+    "os.write of text by keyword": 'import os\nos.write(fd, data=t.encode("utf-8"))\n',
 }
 CLEAN = {
     "the route": 'from pyflightstream import _textio\n_textio.write_text(p, "a")\n',
@@ -224,6 +301,28 @@ CLEAN = {
         'import builtins, codecs\ncodecs.open(p, "r", encoding="utf-8")\nbuiltins.open(p)\n'
     ),
     "an os.write of bytes": "import os\nos.write(fd, blob)\n",
+    "a to_csv stating LINE_END imported from the route": (
+        "from pyflightstream._textio import LINE_END\nframe.to_csv(p, lineterminator=LINE_END)\n"
+    ),
+    "a to_csv stating LINE_END of an aliased route module": (
+        "import pyflightstream._textio as t\nframe.to_csv(p, lineterminator=t.LINE_END)\n"
+    ),
+    "an aliased codecs read": 'import codecs as c\nc.open(p, "r", encoding="utf-8")\n',
+}
+
+#: Forms the guard deliberately does NOT read, each with the reason. A named list, so that
+#: what is left uncovered is written down and not silent; the test below keeps it true.
+UNCOVERED = {
+    "print to a handle": (
+        'print("a", file=h)\n',
+        "the handle comes from a write the guard already refuses or from the route, so the "
+        "text mode is decided where the handle is opened, not at the print",
+    ),
+    "numpy.savetxt": (
+        "import numpy\nnumpy.savetxt(p, a)\n",
+        "its default newline is the one character LF on every platform, so it writes LF "
+        "whatever the mode of the file it is given",
+    ),
 }
 
 
@@ -259,10 +358,31 @@ def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
 
 
 def test_a_planted_bypass_of_every_kind_is_caught_and_the_clean_forms_pass() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 15 of 15."""
+    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 23 of 23."""
     caught, planted = guard_control()
-    assert planted == 15
+    assert planted == 23
     assert caught == planted, f"caught {caught} of {planted}"
+
+
+def test_the_forms_the_guard_leaves_uncovered_are_named_with_their_reason_and_really_pass() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: what the guard does not read is a named list, kept true."""
+    assert UNCOVERED, "the list of uncovered forms is empty"
+    for name, (text, reason) in UNCOVERED.items():
+        assert len(reason) > 40, f"{name}: no reason written down"
+        assert text_write_bypasses({name: text}) == [], f"{name} is read by the guard; unlist it"
+
+
+def test_a_line_end_name_passes_only_when_it_comes_from_the_route() -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R2: the same call passes or fails by where LINE_END comes from."""
+    call = "frame.to_csv(p, lineterminator={})\n"
+    imported = "from pyflightstream._textio import LINE_END\n"
+    assert text_write_bypasses({"a": imported + call.format("LINE_END")}) == []
+    assert text_write_bypasses({"b": call.format("LINE_END")}), "an unbound LINE_END passed"
+    local = 'LINE_END = "\\r\\n"\n' + call.format("LINE_END")
+    assert text_write_bypasses({"c": local}), "a local LINE_END passed"
+    via_module = "from pyflightstream import _textio\n" + call.format("_textio.LINE_END")
+    assert text_write_bypasses({"d": via_module}) == []
+    assert text_write_bypasses({"e": "from x import _textio\n" + call.format("_textio.LINE_END")})
 
 
 def test_the_route_is_a_floor_module_that_imports_nothing_of_the_package() -> None:
@@ -574,7 +694,7 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     assert fields["PLATFORM"] in ("linux", "win32")
     assert int(fields["FILES_CHECKED"]) > 0 and int(fields["SCRIPTS_CHECKED"]) > 0
     assert fields["CR_FILES"] == "0"
-    assert fields["GUARD_CONTROL"] == "caught 15 of 15"
+    assert fields["GUARD_CONTROL"] == "caught 23 of 23"
     assert fields["GUARD_BYPASSES_IN_SRC"] == "0"
     # PASS names a SHA the tree must be at: a tree with changes (a rehearsal) ends in FAIL.
     verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
@@ -625,7 +745,7 @@ def test_the_change_log_fragment_names_the_lf_change_first_in_its_migration() ->
         assert "NFR-32" in carrying[0], f"a bullet cites no requirement: {carrying[0][:60]}"
     # The guard's control the folded bullet names is the one guard_control plants.
     textio = next(line for line in bullets if "`pyflightstream._textio`, the one floor" in line)
-    assert "with fifteen planted bypasses" in textio and len(PLANTED) == 15
+    assert "with twenty-three planted bypasses" in textio and len(PLANTED) == 23
 
 
 def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:

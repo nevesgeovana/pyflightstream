@@ -13,7 +13,7 @@ on any other platform the post is run with text mode forced to write CRLF as Win
 does (``--force-crlf`` forces it on Windows too). Then every file the package wrote
 (:func:`tests.tier1_offline.test_p0340_lf_products.package_written`: the products
 under ``post/``, the emitted solver scripts, the run records and logs) is read as
-bytes and counted. The guard that walks ``src/`` is run with its fifteen planted
+bytes and counted. The guard that walks ``src/`` is run with its twenty-three planted
 bypasses. The lines written::
 
     SHA: <git rev-parse HEAD>
