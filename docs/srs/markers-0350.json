@@ -74,5 +74,80 @@
   ],
   "P0350-BATCH-TRANSPARENT": [
     "FR-372"
+  ],
+  "P0350-STATUS-POLAR": [
+    "FR-379"
+  ],
+  "P0350-STATUS-SELECT": [
+    "FR-380"
+  ],
+  "P0350-STATUS-MIXED": [
+    "FR-379"
+  ],
+  "P0350-STATUS-PLANNED": [
+    "FR-382"
+  ],
+  "P0350-QUERY-EFFECTIVE": [
+    "FR-381"
+  ],
+  "P0350-QUERY-READ-ONLY": [
+    "FR-383"
+  ],
+  "P0350-QUERY-MACHINE": [
+    "FR-385"
+  ],
+  "P0350-QUERY-SHOW": [
+    "FR-386"
+  ],
+  "P0350-QUERY-LOG": [
+    "FR-387"
+  ],
+  "P0350-QUERY-TRACE": [
+    "FR-389"
+  ],
+  "P0350-QUERY-HISTORY": [
+    "FR-390"
+  ],
+  "P0350-QUERY-DIFF": [
+    "FR-391"
+  ],
+  "P0350-QUERY-LOG-STORAGE": [
+    "FR-392"
+  ],
+  "P0350-QUERY-ADDITIONAL": [
+    "FR-393"
+  ],
+  "P0350-QUERY-SHOW-FSI": [
+    "FR-394"
+  ],
+  "P0350-QUERY-PYTHON": [
+    "FR-388"
+  ],
+  "P0350-RUN-ID-ALIAS": [
+    "FR-395"
+  ],
+  "P0350-CONTINUATION-NO-REINIT": [
+    "FR-396"
+  ],
+  "P0350-CONTINUATION-ACTIONS-ONCE": [
+    "FR-396"
+  ],
+  "P0350-CONTINUATION-WARN": [
+    "FR-396"
+  ],
+  "P0350-ARCHIVE-OPT-IN": [
+    "FR-397"
+  ],
+  "P0350-COST-FILE": [
+    "FR-398"
+  ],
+  "P0350-VORTICITY-BEFORE-SOLVE": [
+    "FR-318"
+  ],
+  "P0350-NESTED-PYTEST": [
+    "FR-399"
+  ],
+  "P0350-QUERY-RECORDED-WORDS": [
+    "FR-384"
   ]
 }

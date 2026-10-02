@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 327,
-  "total": 387,
+  "cited_by_a_test": 328,
+  "total": 408,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2813,6 +2813,174 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-PRISTINE-FSM; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-379",
+   "text": "Requirement: pyfs-matrix status shall print one row per polar of the workspace, a polar being one simulation and its sweep.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-380",
+   "text": "Requirement: pyfs-matrix status shall accept --sims, --matrix, --status and --failed to narrow the rows it prints.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-381",
+   "text": "Requirement: Every query shall count a datapoint once, by its effective record, and the rules that choose that record shall have one home shared with the run, the post and the sweep table.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-382",
+   "text": "Requirement: pyfs-matrix status shall show by default the planned points that no record carries, with the status planned, and shall state the freshness of the files it read.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-383",
+   "text": "Requirement: A query command shall change no file, shall create no file or folder in the workspace, shall take no lock and wait on none, and shall expand no compacted simulation.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-384",
+   "text": "Requirement: A query shall print each status exactly as it is recorded, and shall print a state it derives in a form no recorded status takes.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-385",
+   "text": "Requirement: --json and --csv shall print the rows of the table to standard output and nothing else there.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-386",
+   "text": "Requirement: pyfs-matrix show shall print the effective record of one datapoint, taken from a simulation id with a point, from a run id or from its alias (FR-395), with the outcome first.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-387",
+   "text": "Requirement: pyfs-matrix log shall print the activity log, filtered, and with --post the post log of a matrix, grouped.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-388",
+   "text": "Requirement: Each query shall be available in pyflightstream.workspace.ledger as a function that returns the rows its --json form prints, as plain dictionaries, without requiring pandas.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-389",
+   "text": "Requirement: pyfs-matrix trace <product path> shall print, from the post's products index, the simulation, post options and runs the product holds.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-390",
+   "text": "Requirement: pyfs-matrix history <simulation or point> shall print every record the point ever had, including those in archived manifests and in datapoint archives.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-391",
+   "text": "Requirement: pyfs-matrix diff <run a> <run b> shall print what differs between two runs: versions, digests, solver flags, flight condition and outcome.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-392",
+   "text": "Requirement: pyfs-matrix log --storage shall list the storage calls the workspace recorded: each call as it was recorded.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-393",
+   "text": "Requirement: pyfs-matrix status --additional shall list the entries of the additional runs register.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-394",
+   "text": "Requirement: pyfs-matrix show shall print, for a coupled (fluid-structure) point, a block with the coupling's record and the last row of its exchange file.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-395",
+   "text": "Requirement: Every datapoint shall have the alias <sim>_<index>, where <index> is the 1-based position of the datapoint in its polar's sweep order as the plan lists the points, derived and never stored.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-396",
+   "text": "Requirement: A continuation script that reopens a saved state shall continue the march from that state (RPT-134).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-397",
+   "text": "Requirement: pyfs-matrix post shall write no archive/ folder by default.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-398",
+   "text": "Requirement: A workspace may carry a cost file inputs/costs/c<NNN>.toml, read by plan --cost and by the plan --batch estimate when it is present.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "FR-399",
+   "text": "Requirement: The nested pytest runs of the examples test shall use their own root and their own base temporary folder.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
    "verification": "none"
   },
   {
