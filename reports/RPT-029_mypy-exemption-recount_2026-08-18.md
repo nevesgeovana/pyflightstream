@@ -130,14 +130,14 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 160 errors in 16 files (checked 240 source files)
+>     Found 160 errors in 16 files (checked 242 source files)
 >     Success: no issues found in 236 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-02: 160 errors in 16 of 240 modules.**
+**mypy recount 2026-10-02: 160 errors in 16 of 242 modules.**
 
 The module total is the 236 the tracked package holds on `rel/0-34` with the
 wave-2 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
@@ -458,7 +458,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 160 errors in 16 files (checked 240 source files)
+    Found 160 errors in 16 files (checked 242 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
