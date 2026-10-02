@@ -6,8 +6,10 @@ The licensed confirmation of **FR-96** that pyflightstream 0.33.0 left owed (FR-
 at `ed06e86d`, `package_dirty: false` in every record) and one script launched by hand
 ran on **FlightStream 26.124, build 8172026**, executable SHA-256 withheld from the public
 tree per NFR-31, one solver instance at a time, hidden. Far field 5 layers is stated in the
-setup of the point and of the control; a continuation reopens the point's saved simulation,
-which carries it. The run window is recorded for arm L1 (`licensed/LQ-O2.json`:
+setup of the point and of the control: the control's script carries
+`SOLVER_SET_FARFIELD_LAYERS 5`, and the point's run record states that command with the
+value 5, stated and emitted. The continuation's script and the resume arm's state no far
+field: they inherit it from the saved simulation they reopen, the point's. The run window is recorded for arm L1 (`licensed/LQ-O2.json`:
 2026-10-02T14:32:21-03:00 to 2026-10-02T14:39:55-03:00); the three launches ran from
 14:32:21 to 14:32:40, from 14:33:40 to 14:33:55 and from 14:39:47 to 14:39:55, and the
 launches of RPT-135 ran between the second and the third, never at the same time.
