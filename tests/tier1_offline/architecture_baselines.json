@@ -1721,6 +1721,7 @@
     "_cli_parsers",
     "_cli_print",
     "_cli_query",
+    "_cli_query_point",
     "_batch_run",
     "rename",
     "_batch_plan",

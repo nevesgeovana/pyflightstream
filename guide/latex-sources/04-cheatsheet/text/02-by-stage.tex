@@ -501,6 +501,17 @@ For every \texttt{SUBMITTED} record, \cmd{pyfs-matrix collect} waits until the d
 \hd{What a record carries}
 Which run it was (\texttt{run\_id}, \texttt{point\_name}, \texttt{sweep\_name}), which build ran it, the hashes of the script and the inputs, how the solver was called (\texttt{executor}), where it ran (\texttt{working\_dir}), how it ended (\texttt{status}), how long it took and which files it produced. Nothing is inferred from a folder name afterwards.
 
+\textbf{Read the recorded evidence.}
+\cmd{pyfs-matrix show} \texttt{9101\_1} prints the outcome first, evidence tails, logs, chain, identity and inputs; coupled runs include the FSI record and last exchange row.
+Give a simulation id to list its points and failed cards, or add \fl{--point NAME}.
+\cmd{pyfs-matrix log} reads activity oldest first: \fl{--sims IDS}, \fl{--run ID}, \fl{--stage NAME}, \fl{--since 2h} (or an ISO time), \fl{--problems}, \fl{--open}.
+\fl{--post MATRIX} groups saved post warnings by category, family and message shape with a count and example; \fl{--sims IDS} narrows the groups.
+\fl{--storage} reads storage calls as recorded; \fl{--stage} selects their action.
+\cmd{pyfs-matrix trace} \texttt{post/demo/polars/polar.csv} follows the products index to run identities, digests and provenance; \fl{--run ID} prints a run's provenance tree.
+All three accept \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}, and run ids or aliases where a run is named.
+\cmd{pyfs-matrix status} \fl{--additional} prints the additional register without deriving fields.
+These commands read running batch folders and compacted simulations in place, write nothing and never ask the scheduler.
+
 \texttt{COMPLETED\_MAX\_ITER} and \texttt{WALLTIME\_REACHED} are not failures: the numbers up to the cap are real. Every reader that asks whether a status begins with \texttt{FAILED} treats \texttt{FAILED\_MARKED} as a failure. A forced re-run archives the record and the point runs again.
 
 \columnbreak

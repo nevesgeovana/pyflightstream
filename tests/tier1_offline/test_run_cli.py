@@ -667,6 +667,9 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "run",
         "space-in-use",
         "status",
+        "show",
+        "log",
+        "trace",
         "sync",
         "upgrade",
     }

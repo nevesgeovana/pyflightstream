@@ -316,6 +316,8 @@ def _discovered_modules() -> list[str]:
 
 
 def _is_private(name: str) -> bool:
+    # QV1: run._cli_query_point, workspace._query_files/_query_logs/_query_point
+    # are deliberately private, including their shared warning grouping.
     return any(part.startswith("_") for part in name.split(".")[1:])
 
 

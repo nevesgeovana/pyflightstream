@@ -25,6 +25,7 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (
     PLANNED,
@@ -37,7 +38,7 @@ from pyflightstream.workspace.ledger import (
 )
 
 #: The read-only verbs this module answers, dispatched by :mod:`pyflightstream.run.cli`.
-QUERY_COMMANDS = ("status",)
+QUERY_COMMANDS = ("status", "show", "log", "trace")
 
 #: The table heading of a row key; a key not here is printed upper case.
 _HEADINGS = {"iterations": "ITER", "wall_s": "WALL"}
@@ -73,6 +74,9 @@ def add_query_parsers(subparsers: Any) -> None:
             "and no record carries is shown as `planned`, in lower case because no "
             "recorded status is written so."
         ),
+    )
+    status.add_argument(
+        "--additional", action="store_true", help="list the additional register as recorded"
     )
     status.add_argument(
         "--sims",
@@ -125,6 +129,7 @@ def add_query_parsers(subparsers: Any) -> None:
         metavar="NAME",
         help="another manifest in the workspace root, read in place of runs.json",
     )
+    _add_parsers(subparsers)
 
 
 def run_query(args: argparse.Namespace) -> int:
@@ -142,6 +147,8 @@ def run_query(args: argparse.Namespace) -> int:
         no record and no planned point; 2 for a refused argument or a manifest
         that is not JSON.
     """
+    if args.subcommand != "status" or args.additional:
+        return _run_point_query(args, _emit)
     return _cmd_status(args)
 
 

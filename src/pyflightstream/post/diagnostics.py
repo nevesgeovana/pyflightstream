@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import ProductArgumentError, ProductError
+from pyflightstream.workspace._query_files import _category, _groups
 
 __all__ = [
     "render_post_diagnostics",
@@ -39,20 +39,7 @@ def warning_category(product: str, message: str) -> str:
         One of ``configuration``, ``convergence``, ``missing-data``, ``postprocessing``,
         ``reference-frame`` and ``section-layout``.
     """
-    text = f"{product} {message}".lower()
-    if any(word in text for word in ("section", "distribution", "layout", "block")):
-        return "section-layout"
-    if any(word in text for word in ("frame", "reference", "axis", "rotation")):
-        return "reference-frame"
-    if any(word in text for word in ("converg", "residual", "iteration")):
-        return "convergence"
-    if any(word in text for word in ("tecplot", "vtk", "translation", "variable")):
-        return "translation"
-    if any(word in text for word in ("missing", "absent", "no data", "not found", "empty")):
-        return "missing-data"
-    if any(word in text for word in ("configuration", "pproc", "setting", "option")):
-        return "configuration"
-    return "postprocessing"
+    return _category(product, message)
 
 
 def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: Path) -> None:
@@ -67,13 +54,14 @@ def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: 
     """
     if post_warning_policy() is not True:
         return
-    counts = Counter(
-        record.get("category") or "postprocessing"
-        for record in records
-        if record.get("severity", "warning") == "warning"
-    )
-    for category, count in sorted(counts.items()):
-        print(f"pproc warning [{category}]: {count}; details: {log_path}", file=sys.stderr)
+    groups = _groups([r for r in records if r.get("severity", "warning") == "warning"])
+    for group in groups:
+        print(
+            f"pproc warning [{group['category']}]: {group['count']}; "
+            f"family: {group['family']}; example: {group['example'].get('message', '')}; "
+            f"details: {log_path}",
+            file=sys.stderr,
+        )
 
 
 def render_post_diagnostics(log_paths: Sequence[Path]) -> str:
