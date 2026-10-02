@@ -583,8 +583,10 @@ z_m = 0.0
 """
 
 _INVENTORY_EXAMPLE = """\
-# The boundary inventory of aircraft.fsm as `pyfs-matrix inventory` writes it: the solver's
-# order, then the faces it counted (FR-348); rewrite it with `--overwrite`, never by hand.
+# The boundary inventory of aircraft.fsm, as `pyfs-matrix inventory` writes it from its mesh
+# block: the solver's order (name i is boundary i), then the faces it counted there. A run
+# whose sidecar disagrees with the file is refused before the solver starts; rewrite it with
+# `pyfs-matrix inventory inputs/geometries/aircraft/aircraft.fsm --overwrite`.
 file = "aircraft.fsm"
 boundaries = [
     "Wing",
@@ -1243,15 +1245,13 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
     TemplateSection(
         heading=ARTIFACT_HEADINGS["geometry"],
         intro=(
-            "The file beside a geometry that names its boundaries, "
-            "`<stem>.boundaries.toml`. A geometry sits in `inputs/geometries/` "
-            "directly, or in a folder named by its stem with everything that "
-            "belongs to it, which is the layout the examples use; a row's "
-            "`GEOMETRY` names the file the same way in both. A saved simulation "
-            "(`.fsm`) gets its sidecar from `pyfs-matrix inventory`. An OBJ with no "
-            "sidecar gets one from the plan, its `boundaries` read from the OBJ's "
-            "groups, and an STL's is written by hand; beside a raw mesh, you add how "
-            "it is imported and where its trailing edges are."
+            "The file beside a geometry that names its boundaries, `<stem>.boundaries.toml`. "
+            "A geometry sits in `inputs/geometries/` directly, or in a folder named by its stem "
+            "with everything that belongs to it, which is the layout the examples use; a row's "
+            "`GEOMETRY` names the file the same way in both. A saved simulation (`.fsm`) gets "
+            "its sidecar from `pyfs-matrix inventory`. An OBJ with no sidecar gets one from the "
+            "plan, its `boundaries` read from the OBJ's groups, and an STL's is written by hand; "
+            "beside a raw mesh, you add how it is imported and where its trailing edges are."
         ),
         examples=(
             TemplateExample(
