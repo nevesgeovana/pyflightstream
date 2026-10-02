@@ -350,6 +350,18 @@ NCPUS_VARIABLE = "NCPUS"
 #: it is what the watchdog counts down to on an unsteady row.
 WALLTIME_VARIABLE = "WALLTIME"
 
+#: A WALLTIME cell asking the package for the walltime: the value BEST, which
+#: a grouped run (--batch, --polar-sweep) replaces by the estimate of its job.
+WALLTIME_BEST = "BEST"
+
+#: The grouped-run layout and file names (0.35.0). One home for each literal.
+BATCH_DIR = "batch"  # sims/batch/
+FULL_POLAR_STEM = "FULL-POLAR"  # sims/sim_<id>/FULL-POLAR.txt
+BATCH_STEM_PREFIX = "BATCH-"  # BATCH-<first sim>-<last sim>.txt
+JOB_LOG_SUFFIX = ".job-log.txt"  # a job's final EXPORT_LOG
+CUMULATIVE_LOG_SUFFIX = ".cumulative-log.txt"  # a point's own EXPORT_LOG inside a job
+JOB_END_SUFFIX = ".end.json"  # written by run under --local when a job ends
+
 #: FR-94: the user's own name for the configuration, beside AIRCRAFT. It
 #: configures NOTHING and that is the point: it labels. It reaches a
 #: comment at the top of the emitted script and the header of the custom
@@ -1127,7 +1139,8 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         WALLTIME_VARIABLE: InputKey(
             "The wall clock the row asks for: the scheduler's limit on a cluster, and "
-            "what the watchdog counts down on an unsteady row; written in its column.",
+            "what the watchdog counts down on an unsteady row; written in its column. "
+            f"{WALLTIME_BEST} asks the package for the walltime of a grouped job.",
             f"a number and its unit, {WALLTIME_UNITS_GLOSS}, as 240m or 4h",
             unscripted=(
                 "on an unsteady row, stating it registers the wall-clock actions, and the "

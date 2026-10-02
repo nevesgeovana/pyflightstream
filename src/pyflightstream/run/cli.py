@@ -116,6 +116,7 @@ from pyflightstream.run._cli_print import (
     _print_sync,
 )
 from pyflightstream.run._continuation_frame import continuation_block as continuation_block
+from pyflightstream.run._grouped import planner_for, runner_for
 from pyflightstream.run._ids import _AlreadyRecordedError
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
@@ -1276,7 +1277,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     held: list[warnings.WarningMessage] = []
     try:
         with held_warnings() as held:
-            plan = plan_matrix(
+            plan = planner_for(args, plan_matrix)(
                 args.matrix,
                 workspace,
                 name=name,
@@ -1345,7 +1346,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         return 2
     records: list = []
     try:
-        records = run_matrix(
+        records = runner_for(args, run_matrix)(
             args.matrix,
             workspace,
             name=name,
