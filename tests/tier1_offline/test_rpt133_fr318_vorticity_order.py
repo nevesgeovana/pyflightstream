@@ -8,6 +8,7 @@ moved before START_SOLVER) and arm C (no list, the control). Only the Total row 
 
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
 
@@ -27,6 +28,10 @@ from pyflightstream.script import Script
 from tests.tier1_offline.test_workflows import rotor_case
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "rpt133"
+#: The build every recorded export names in its header, and the exports recorded.
+BUILD = "8172026"
+EXPORTS = tuple(f"{arm}_{when}" for arm in "ABC" for when in ("final", "step01", "step12"))
+SOFTWARE = re.compile(r"Software : Flightstream version 26\.1, build #(\d+)")
 
 #: RPT-133's answer to Q2: True when, with the list before START_SOLVER, every step export
 #: carries it; False when none does. Measured True (12 of 12 step exports).
@@ -38,6 +43,17 @@ RELEASED_STEPS_CARRY: bool | None = False
 
 def _total(name: str) -> dict[str, float]:
     return parse_loads((FIX / f"{name}.txt").read_text(encoding="latin-1")).total
+
+
+def test_every_recorded_export_names_build_8172026_in_its_header_fr_318():
+    """The fixtures are exports of 26.124 build 8172026, read from each file's own header."""
+    # Verifies FR-318.
+    assert sorted(p.stem for p in FIX.glob("*.txt")) == sorted(EXPORTS)
+    builds = {
+        name: SOFTWARE.findall((FIX / f"{name}.txt").read_text(encoding="latin-1"))
+        for name in EXPORTS
+    }
+    assert all(found == [BUILD] for found in builds.values()), builds
 
 
 def test_the_drag_list_moves_the_final_loads_the_control_fr_318():

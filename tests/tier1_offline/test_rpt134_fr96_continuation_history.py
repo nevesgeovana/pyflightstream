@@ -16,6 +16,7 @@ from step 1, so its export is the point's again; the fix is not in 0.34.0.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -34,6 +35,10 @@ from tests.tier1_offline.test_post_products import _unsteady_workspace
 from tests.tier1_offline.test_restart_continuation import SAVED, _continuing_case
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "rpt134"
+#: The build every recorded export names in its header, and the exports recorded.
+BUILD = "8172026"
+EXPORTS = ("continuation_plots", "control_plots", "point_plots", "resume_plots")
+SOFTWARE = re.compile(r"Software : Flightstream version 26\.1, build #(\d+)")
 STAMP = "20261002-120000"
 PER_REV = 12
 PLAN = {
@@ -94,6 +99,17 @@ def _posted(workspace):
     _, series = plots_table_series(out / "probes" / "AL-020_plots.csv")
     said = [str(w.message) for w in caught if "product=plots" in str(w.message)]
     return manifest, series, said
+
+
+def test_every_recorded_export_names_build_8172026_in_its_header_fr_96():
+    """The fixtures are exports of 26.124 build 8172026, read from each file's own header."""
+    # Verifies FR-96.
+    assert sorted(p.stem for p in FIX.glob("*.txt")) == sorted(EXPORTS)
+    builds = {
+        name: SOFTWARE.findall((FIX / f"{name}.txt").read_text(encoding="latin-1"))
+        for name in EXPORTS
+    }
+    assert all(found == [BUILD] for found in builds.values()), builds
 
 
 def test_the_resumed_export_holds_the_whole_march_numbered_1_to_24_fr_96():
