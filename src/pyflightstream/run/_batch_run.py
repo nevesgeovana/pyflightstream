@@ -413,6 +413,7 @@ def _assemble(
         _polars(points),
         kind=kind,
         version=records[0].fs_version_requested,
+        job_dir=job_root,
         job_log=job_root / f"{stem}{JOB_LOG_SUFFIX}" if context.exports_log else None,
         walltime=job.walltime_s is not None,
     )

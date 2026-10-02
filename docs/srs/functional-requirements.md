@@ -8704,9 +8704,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: The markers P0350-RUN-BATCH and P0350-BATCH-RECEIPT: tier-1 tests assert that the IDs are distinct, are written to the receipt, and that two plans of the same matrix never name one directory twice.
 
-!!! requirement "FR-359 Every save and export in a job script names an absolute path <span class='srs-pending'>pending</span>"
+!!! requirement "FR-359 Every save and export in a job script names an absolute path <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040), design FR-B7b; defect fix AB. Evidence: `tests/tier1_offline/test_p0350_batch_script.py::test_p0350_script_fr359_all_path_tokens_absolute`, `test_p0350_script_fr359_point_inputs_are_absolute`, and `test_p0350_script_fr359_fr360_every_target_absolute_in_its_folder`; generated job scans in `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder` and `test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim`. Licensed cluster confirmation remains owed.*
 
     Need: A relative name resolves against the working directory of the solver process, which in a grouped job is not the point's folder; measured on FlightStream 26.124 (build 8172026), the absolute form saved and exported correctly from a batch folder, licensed confirmation owed, RPT-141.
 
