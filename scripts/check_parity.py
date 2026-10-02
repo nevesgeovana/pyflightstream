@@ -98,6 +98,35 @@ _TOGGLE_LINE = (
     r" (?:ENABLE|DISABLE)"
 )
 
+#: The vorticity drag list as the emitter writes it, its blank line included: the
+#: count -1 alone (every boundary), or a count and its comma-separated indices.
+_VORTICITY_LIST = r"SET_VORTICITY_DRAG_BOUNDARIES (?:-1|\d+\n\d+(?:,\d+)*)\n\n"
+
+#: A script that turns a rotor in time: an unsteady solver and a rotor motion
+#: (the condition the FR-321 entries state, written once more for FR-318).
+_ROTOR_MARCH = (
+    r"(?=.*^SET_SOLVER_UNSTEADY$)"
+    r"(?=.*^(?:CREATE_NEW_MOTION ROTARY|SET_MOTION_IS_ROTOR \d+ ENABLE\b"
+    r"|SET_MOTION_ANGULAR_VELOCITY \d+ [^\n]*[1-9]))"
+)
+
+#: One line of the INITIALIZE_SOLVER block 0.34.0 emitted on a continuation, and
+#: one line of an unsteady action registration it emitted there (FR-396).
+_INITIALIZATION_LINE = (
+    r"(?:SOLVER_MODEL|SURFACES|WAKE_TERMINATION_X|SYMMETRY|SYMMETRY_TYPE"
+    r"|WALL_COLLISION_AVOIDANCE|ENABLE|DISABLE)\b[^\n]*"
+)
+_ACTION_HEAD = r"SET_NEW_UNSTEADY_SOLVER_ACTION (?:COMMAND_LINE|SCRIPT) pfs_\w+"
+_ACTION_FILE = r'(?:"[^"\n]+" "actions/pfs_\w+\.py"|actions/pfs_\w+\.txt)'
+
+#: The post's warning on a continuation whose plots export adds no time step (FR-396 R3).
+_NO_STEP_MESSAGE = (
+    r"this continuation of '[^']*' adds no time step to its march: '[^']*' had reached step "
+    r"\d+ and the continuation's plots export ends there or before, so no continued step is "
+    r"in the table\. A continuation that clears the reopened state marches again from step 1 "
+    r"\(RPT-134\); the table is posted as the march stands\."
+)
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -327,6 +356,80 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "why": (
             "the unsteady polar carries the face count of each row's geometry as its boundary "
             "inventory states it, NA where it states none, in a new last column"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
+        # The vorticity drag list of a rotor march moved from right after
+        # START_SOLVER to right before it, and nothing else. The diff keeps the
+        # longer common run, so it reads the move as START_SOLVER removed after
+        # the list's place in 0.34.0 and added after the list: the changed lines
+        # are START_SOLVER twice. The base held the list right after every
+        # START_SOLVER; the release holds it right before, never after, in a
+        # script that turns a rotor in time. Measured on 26.124 in RPT-133.
+        "lines": r"^START_SOLVER$",
+        "block": r"START_SOLVER\nSTART_SOLVER",
+        "release_has": rf"(?ms)\A{_ROTOR_MARCH}(?=.*^{_VORTICITY_LIST}START_SOLVER$)",
+        "release_lacks": r"(?m)^START_SOLVER\nSET_VORTICITY_DRAG_BOUNDARIES\b",
+        "base_lacks": rf"(?m)^START_SOLVER\n(?!{_VORTICITY_LIST})",
+        "requirement": "FR-318",
+        "why": (
+            "P0350-VORTICITY-BEFORE-SOLVE: a row turning a rotor in time that states "
+            "vorticity_drag_families emits SET_VORTICITY_DRAG_BOUNDARIES right before "
+            "START_SOLVER, where 0.34.0 emitted it right after, so every step export carries "
+            "the list (FR-318 R6, RPT-133)"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*",
+        # A continuation's unsteady action registrations and its INITIALIZE_SOLVER
+        # block REMOVED, and nothing else: each registration its head and its
+        # command or script file, each followed by the blank line that closes it,
+        # then the initialization's keyword lines. The release reopens a saved
+        # state (OPEN ... ENABLE) and carries neither command.
+        "lines": rf"^(?:{_ACTION_HEAD}|{_ACTION_FILE}|INITIALIZE_SOLVER|{_INITIALIZATION_LINE}|)$",
+        "block": (
+            rf"\n?(?:{_ACTION_HEAD}\n{_ACTION_FILE}\n\n)*"
+            rf"INITIALIZE_SOLVER(?:\n{_INITIALIZATION_LINE})+\n?"
+        ),
+        "release_has": r"(?m)^LOAD_SOLVER_INITIALIZATION ENABLE$",
+        "release_lacks": r"(?m)^(?:INITIALIZE_SOLVER|SET_NEW_UNSTEADY_SOLVER_ACTION)\b",
+        "requirement": "FR-396",
+        "why": (
+            "P0350-CONTINUATION-NO-REINIT, P0350-CONTINUATION-ACTIONS-ONCE: a continuation that "
+            "reopens a saved state emits no INITIALIZE_SOLVER, which cleared the reopened "
+            "solution and restarted the march at step 1, and registers none of the unsteady "
+            "actions the saved file carries, which then ran twice a step (RPT-134)"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log",
+        # Only the warning on a continuation that adds no time step, whole.
+        "lines": rf"^WARNING point=\S+ product=plots: {_NO_STEP_MESSAGE}$",
+        "requirement": "FR-396",
+        "why": (
+            "P0350-CONTINUATION-WARN: the post warns on a continuation whose plots export adds "
+            "no time step to the march it continues, naming both runs (FR-396 R3)"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log.json",
+        # The same warning's record as the log writes it (indent 1 and 3).
+        "lines": (
+            r"^(  \{|  \},?"
+            r'|   "point": "[^"]+",'
+            r'|   "product": "plots",'
+            rf'|   "message": "{_NO_STEP_MESSAGE}",'
+            r'|   "remedy": null,|   "category": "[a-z_]+",|   "severity": "warning")$'
+        ),
+        "requirement": "FR-396",
+        "why": (
+            "the machine-readable form of the same warning on a continuation that adds no "
+            "time step (FR-396 R3)"
         ),
     },
 ]

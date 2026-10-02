@@ -33,6 +33,9 @@ from pyflightstream.script import (
     Script,
     helpers,
 )
+from pyflightstream.script._settings import (
+    _flush_pending_vorticity,
+)
 
 from ._clock import (
     _rotor_clock,
@@ -68,6 +71,7 @@ from ._rows import (
     _from_metres,
     _qsteady_speed,
     _required_int,
+    _states_a_rotor_speed,
     _the_copies_the_sector_stands_for,
     _the_isolated_rotor,
     _the_rotor_a_flat_row_turns,
@@ -249,6 +253,68 @@ def _initialize(case: SimCase, script: Script) -> None:
     )
 
 
+def _initialize_the_solver(case: SimCase, script: Script) -> None:
+    """Emit the initialization of a run that starts from a mesh, never of a reopened state.
+
+    A CONTINUATION EMITS NONE (FR-396 R1, RPT-134). On 26.124 an
+    ``INITIALIZE_SOLVER`` after the ``OPEN`` of a saved simulation clears the
+    solution that file carries ("Solution cleared. Initialization removed.")
+    and the march starts again at step 1; without it the solver marches on
+    from the step the saved state reached. :func:`_script_init` calls this
+    only for a script that does not reopen a saved state.
+
+    The file route's wake termination sits between two initializations (G02,
+    T07): after a file import the detection marks nothing until the solver has
+    initialized, and the solver uses what it marked only once it initializes
+    again. The first is the final one's settings exactly, since the second
+    clears it; nothing else moves.
+    """
+    detection = _wake_termination_after_initialization(case, script)
+    if detection:
+        _initialize(case, script)
+        for command, arguments in detection:
+            script.emit_after_initialization(command, *arguments)
+    _initialize(case, script)
+
+
+def _a_march_turning_a_rotor(case: SimCase) -> bool:
+    """Say whether an unsteady row turns a rotor: ``unsteady_rotor``, or a stated rotor speed.
+
+    The predicate :func:`~._solver_settings._analysis` reads for FR-318, less
+    the quasi-steady rotor, which does not march: every export of it follows
+    the solve (RPT-133, section 5).
+    """
+    return case.recipe == "unsteady_rotor" or _states_a_rotor_speed(case)
+
+
+def _vorticity_list_before_the_solve(script: Script) -> None:
+    """Emit the deferred vorticity drag list right before ``START_SOLVER`` (FR-318 R6).
+
+    MEASURED ON 26.124 (build 8172026, RPT-133): on a rotor march the list
+    emitted after ``START_SOLVER`` reaches the final loads export and no step
+    export (0 of 12 differ from a march without it); emitted right before it,
+    the solver accepts it and every step export carries it (12 of 12), the
+    last step equal to the final export. So a march turning a rotor lands the
+    list here, the lines of the measured probe (arm B) and nothing else moved.
+    A row that states no list has nothing deferred, and nothing is emitted.
+
+    THE COMMAND DATABASE FILES THE LIST UNDER THE ANALYSIS PHASE, the
+    manual's chapter, and its phase stays: a steady row and the quasi-steady
+    rotor, where every export follows the solve, keep it after
+    ``START_SOLVER`` (:func:`pyflightstream.script.helpers.start_solver`
+    flushes it there). The phase guard would refuse ``START_SOLVER`` after an
+    analysis command, so this one emission is carried past it the way
+    :meth:`~pyflightstream.script.Script.emit_after_initialization` carries
+    its own, moving no phase: every other check of the emitter applies, and
+    the next command still meets the phase the script had reached.
+    """
+    script._through_the_door = True
+    try:
+        _flush_pending_vorticity(script)
+    finally:
+        script._through_the_door = False
+
+
 def _script_tail(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -347,17 +413,8 @@ def _script_init(
     # window's steps are exported one by one (unsteady_export_threshold) and the
     # post averages them.
     script.surface_average_window = surface_time_averaging(case)
-    # THE FILE ROUTE'S WAKE TERMINATION, BETWEEN TWO INITIALISATIONS (G02, T07).
-    # After a file import the detection marks nothing until the solver has
-    # initialised, and the solver uses what it marked only once it initialises
-    # again. The first is the final one's settings exactly, since the second
-    # clears it; nothing else moves.
-    detection = _wake_termination_after_initialization(case, script)
-    if detection:
-        _initialize(case, script)
-        for command, arguments in detection:
-            script.emit_after_initialization(command, *arguments)
-    _initialize(case, script)
+    if not reopens_a_saved_state:
+        _initialize_the_solver(case, script)
     # THE SECTION DISTRIBUTIONS SIT HERE, between the solver being initialised
     # and being started, which is where the reference working scripts put
     # them: `SCRIPT-POLAR-3267` reads INITIALIZE_SOLVER at 12779, twelve
@@ -621,6 +678,8 @@ def _script_solve_and_export(
     start is a sweep model rather than a flag.
     """
     _raw_commands(case, script, "exec")
+    if unsteady and _a_march_turning_a_rotor(case):
+        _vorticity_list_before_the_solve(script)
     helpers.start_solver(script)
     if not unsteady:
         _setup_link.loads_selections(case, script)

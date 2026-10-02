@@ -892,11 +892,16 @@ class _MarchHistory:
         The last step the history holds, where the averaging window ends.
     said : str
         What the post log states about how the history was put together.
+    idle : tuple of str
+        One warning per run of the chain whose export adds no time step to the
+        march it continues (FR-396 R3), naming both runs; empty where every
+        continuation marched on.
     """
 
     text: str
     last_step: int
     said: str
+    idle: tuple[str, ...] = ()
 
 
 def _plots_export(path: Path) -> _PlotsExport | None:
@@ -1079,16 +1084,23 @@ def _march_history(
     chain, missing = _chain(sim_dir, record, output, end, manifest)
     history: _History | None = None
     told: list[str] = []
+    idle: list[str] = []
+    before = ""
     for run_id, export in [*chain, (record.run_id, end)]:
         joined = _join(history, export) if history is not None else None
-        if joined is None:
+        if history is None or joined is None:
             if history is not None:
                 missing = f"the export of {run_id!r} cannot be joined to the run before it"
             history = (export.rows, export.values, export.steps)
             told = [f"{run_id!r} steps {int(export.steps[0])} to {int(export.steps[-1])}"]
+            before = run_id
             continue
+        reached = int(history[2][-1])
         history, how = joined
         told.append(f"{run_id!r} {how} to step {int(history[2][-1])}")
+        if int(history[2][-1]) <= reached:
+            idle.append(_adds_no_step(run_id, before, reached))
+        before = run_id
     rows, _, steps = history if history is not None else (end.rows, end.values, end.steps)
     said = (
         f"point={record.run_id} product=plots: this run continues {record.continues!r}, and "
@@ -1101,7 +1113,25 @@ def _march_history(
         )
         + f"The averaging window ends at step {int(steps[-1])}, the last step the table holds."
     )
-    return _MarchHistory("\n".join([*end.head, *rows, *end.tail]), int(steps[-1]), said)
+    text = "\n".join([*end.head, *rows, *end.tail])
+    return _MarchHistory(text, int(steps[-1]), said, tuple(idle))
+
+
+def _adds_no_step(run_id: str, continued: str, reached: int) -> str:
+    """Return the warning for a continuation whose export adds no time step (FR-396 R3).
+
+    The shape RPT-134 measured on 26.124 for the continuation 0.34.0 emitted:
+    the solver cleared the reopened state and marched again from step 1, so the
+    export restates the march it continues and ends where that march ended. The
+    table is still posted, as the march stands; the warning names the two runs.
+    """
+    return (
+        f"point={run_id} product=plots: this continuation of {continued!r} adds no time "
+        f"step to its march: {continued!r} had reached step {reached} and the "
+        f"continuation's plots export ends there or before, so no continued step is in the "
+        "table. A continuation that clears the reopened state marches again from step 1 "
+        "(RPT-134); the table is posted as the march stands."
+    )
 
 
 def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -> list[RunRecord]:
@@ -1136,5 +1166,7 @@ def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, pa
         march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
         if march is not None:
             warn(march.said, PyflightstreamWarning, stacklevel=2)
+            for idle in march.idle:
+                warn(idle, PyflightstreamWarning, stacklevel=2)
             return march.text
     return path.read_text(encoding="utf-8", errors="replace")
