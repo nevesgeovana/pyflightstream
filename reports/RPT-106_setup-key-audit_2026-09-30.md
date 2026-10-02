@@ -204,3 +204,16 @@ with `vorticity_drag_families` emitting `SET_VORTICITY_DRAG_BOUNDARIES` before
 `START_SOLVER`, to measure whether the solver accepts it there and whether the
 step exports then report the induced drag by vorticity integration. Until it
 runs, the order stays as the database documents it.
+
+## Addendum, 2026-10-02: the wake end plane is covered from 0.34.0
+
+The table above is the audit as it ran on 2026-09-30 and is left as it ran.
+From 0.34.0 the row `INITIALIZE_SOLVER wake_termination_x` moves to covered:
+the setup key `wake_termination_x` (FR-324) takes `DEFAULT` or an X in metres
+in the simulation's frame, validated in `cases/settings.py`, routed in
+`cases/_setup_keys.py`, and written as the `WAKE_TERMINATION_X` argument of the
+skeleton's `INITIALIZE_SOLVER` call (`cases/workflows/_freestream.py`
+`wake_end_plane`). A setup that does not state the key writes `DEFAULT`, as
+0.33.0 did, and the plan warns on every rotor point whose plane is the
+solver's `DEFAULT` or sits before the wake length (FR-325). The release's own
+setup-key recount carries the row as covered.
