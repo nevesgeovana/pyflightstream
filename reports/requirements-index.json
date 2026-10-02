@@ -2891,9 +2891,9 @@
    "id": "FR-388",
    "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-389",

@@ -79,7 +79,7 @@ def workspace(tmp_path: Path) -> Path:
         script_path=old_path,
         script_sha256=old_sha,
         inputs_sha256={"pproc/p1.toml": "a" * 64},
-        solver_setup={"flags": {"wake": False}},
+        solver_setup={"flags": {"wake": {"provenance": "explicit", "value": False}}},
         flight_condition={"mach": 0.1},
     )
     new = _record(
@@ -89,7 +89,7 @@ def workspace(tmp_path: Path) -> Path:
         script_path=new_path,
         script_sha256=new_sha,
         inputs_sha256={"pproc/p1.toml": "b" * 64},
-        solver_setup={"flags": {"wake": True}},
+        solver_setup={"flags": {"wake": {"provenance": "explicit", "value": True}}},
         flight_condition={"mach": 0.2},
     )
     _write(tmp_path / "runs.json", [old, new])
@@ -147,7 +147,7 @@ def test_diff_compares_recorded_fields_and_attributes_script_lines(workspace, ca
     assert code == 0
     assert fields["package_version"]["a"] == "0.34.0"
     assert fields["package_version"]["b"] == "0.35.0"
-    assert fields["solver_setup.flags.wake"]["a"] is False
+    assert fields["solver_setup.flags.wake.value"]["a"] is False
     assert fields["flight_condition.mach"]["b"] == 0.2
     assert fields["point.alpha"]["b"] == 2.0
     assert fields["status"]["a"] == "WALLTIME_REACHED"
@@ -258,14 +258,33 @@ def test_python_query_results_are_plain_json_data(workspace, capsys):
     ]
     for result in results:
         assert result and json.loads(json.dumps(result)) == result
-    assert activity_rows(snapshot, sims=["2006"], stage="run", run=NEXT) == events
+    expected = [{**events[0], "source": "logs/activity.log.jsonl"}]
+    assert activity_rows(snapshot, sims=["2006"], stage="run", run=NEXT) == expected
     assert activity_rows(snapshot, sims=["9999"]) == []
     assert results[4][0]["count"] == 2
-    assert results[5][0]["runs"][0]["record"]["run_id"] == NEXT
+    assert results[5][0]["runs"][0]["identity"]["run_id"] == NEXT
     _, out, _ = _call(workspace, capsys, "status", "--json")
     assert json.loads(out)["rows"] == results[0]
     assert point_card(snapshot, "absent") is None
     assert trace_product(snapshot, "absent.csv") == []
+    # The Python rows are the command line's rows once the CLI-only alias
+    # decoration is set aside (FR-388).
+    for argv, python_rows in (
+        (("show", NEXT), [results[2]]),
+        (("log",), results[3]),
+        (("trace", "post/sample/polar.csv"), results[5]),
+    ):
+        _, out, _ = _call(workspace, capsys, *argv, "--json")
+        assert _undecorated(json.loads(out)["rows"]) == python_rows
+
+
+def _undecorated(value):
+    """Drop the ``run_id_alias`` keys the command line adds to its rows."""
+    if isinstance(value, list):
+        return [_undecorated(item) for item in value]
+    if isinstance(value, dict):
+        return {k: _undecorated(v) for k, v in value.items() if k != "run_id_alias"}
+    return value
 
 
 def test_python_query_import_and_calls_need_no_pandas(workspace):

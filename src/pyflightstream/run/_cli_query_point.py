@@ -20,14 +20,30 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._alias import alias_lines, planned_from_plan_files
 from pyflightstream.workspace._query_files import _json
 from pyflightstream.workspace._query_logs import (
-    _activity,
-    _additional,
-    _post_groups,
     _select_logs,
     _storage,
 )
-from pyflightstream.workspace._query_point import _card, _trace, _trace_run
-from pyflightstream.workspace.ledger import Ledger, listed_sims, read_ledger
+from pyflightstream.workspace._query_point import _trace_run
+from pyflightstream.workspace.ledger import (
+    Ledger,
+    listed_sims,
+    read_ledger,
+)
+from pyflightstream.workspace.ledger import (
+    activity_rows as _activity,
+)
+from pyflightstream.workspace.ledger import (
+    additional_rows as _additional,
+)
+from pyflightstream.workspace.ledger import (
+    point_card as _card,
+)
+from pyflightstream.workspace.ledger import (
+    post_log_groups as _post_groups,
+)
+from pyflightstream.workspace.ledger import (
+    trace_product as _trace,
+)
 
 
 def _add_parsers(subparsers: Any) -> None:
@@ -140,7 +156,7 @@ def _log(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     if args.post:
         if any((args.run, args.stage, args.since, args.problems, args.open_only)):
             raise ValueError("post (CLI: --post) combines only with sims (CLI: --sims)")
-        return _post_groups(ledger, args.post, sims)
+        return _post_groups(ledger, args.post, sims=sims)
     run = args.run
     if run and "/" not in run:
         run = _resolve(ledger, run)

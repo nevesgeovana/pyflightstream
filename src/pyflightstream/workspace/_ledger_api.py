@@ -6,13 +6,10 @@ the command renderers use. No optional dependency is imported here.
 
 from __future__ import annotations
 
-import json
-import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._ledger_history import diff_rows, history_rows
 
 if TYPE_CHECKING:
@@ -118,13 +115,15 @@ def point_card(
     Returns
     -------
     dict or None
-        JSON-serializable record, or None when absent.
+        JSON-serializable outcome-first card, or None when absent.
 
     Examples
     --------
     >>> point_card("campaign", "camp/sim_2006/A0")  # doctest: +SKIP
     """
-    return _snapshot(root, runs).card(run_id)
+    from pyflightstream.workspace._query_point import _card
+
+    return _card(_snapshot(root, runs), run_id)
 
 
 def history(
@@ -185,17 +184,6 @@ def diff(
     return diff_rows(_snapshot(root, runs), run_a, run_b)
 
 
-def _read_json(path: Path, default: Any) -> Any:
-    if not path.is_file():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        raise WorkspaceError(
-            f"workspace (CLI: --workspace): cannot read {path}: {error}"
-        ) from error
-
-
 def additional_rows(root: str | Path | Ledger) -> list[dict[str, Any]]:
     """Return the additional register's fields exactly as recorded (FR-393).
 
@@ -218,10 +206,9 @@ def additional_rows(root: str | Path | Ledger) -> list[dict[str, Any]]:
     --------
     >>> additional_rows("campaign")  # doctest: +SKIP
     """
-    rows = _read_json(_snapshot(root, None).root / "additional.json", [])
-    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
-        raise WorkspaceError("additional (CLI: --additional): expected a list of records")
-    return rows
+    from pyflightstream.workspace._query_logs import _additional
+
+    return _additional(_snapshot(root, None))
 
 
 def activity_rows(
@@ -230,6 +217,9 @@ def activity_rows(
     sims: Iterable[str] | None = None,
     run: str | None = None,
     stage: str | None = None,
+    since: str | None = None,
+    problems: bool = False,
+    open_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Return recorded activity rows oldest first, optionally selected by identity.
 
@@ -243,6 +233,12 @@ def activity_rows(
         Run id.
     stage : str, optional
         Recorded stage name.
+    since : str, optional
+        ISO time or duration.
+    problems : bool, optional
+        Only events carrying problems or failure.
+    open_only : bool, optional
+        Only started stages without a finish.
 
     Returns
     -------
@@ -258,32 +254,16 @@ def activity_rows(
     --------
     >>> activity_rows("campaign", stage="run")  # doctest: +SKIP
     """
-    path = _snapshot(root, None).root / "logs" / "activity.log.jsonl"
-    rows = []
-    wanted = None if sims is None else set(sims)
-    for position, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines() if path.is_file() else [], 1
-    ):
-        try:
-            row = json.loads(line)
-            if not isinstance(row, dict):
-                raise ValueError("expected a record")
-        except ValueError as error:
-            raise WorkspaceError(
-                f"workspace (CLI: --workspace): {path} row {position}: {error}"
-            ) from error
-        if _activity_selected(row, wanted, run, stage):
-            rows.append(row)
-    return sorted(rows, key=lambda row: str(row.get("timestamp", "")))
+    from pyflightstream.workspace._query_logs import _activity, _select_logs
 
-
-def _activity_selected(
-    row: dict[str, Any], sims: set[str] | None, run: str | None, stage: str | None
-) -> bool:
-    return (
-        (sims is None or str(row.get("sim_id")) in sims)
-        and (run is None or row.get("run_id") == run)
-        and (stage is None or row.get("stage") == stage)
+    return _select_logs(
+        _activity(_snapshot(root, None)),
+        sims=list(sims or ()),
+        run=run,
+        stage=stage,
+        since=since,
+        problems=problems,
+        open_only=open_only,
     )
 
 
@@ -310,24 +290,9 @@ def post_log_groups(
     --------
     >>> post_log_groups("campaign", "sample")  # doctest: +SKIP
     """
-    from pyflightstream.workspace.ledger import matrix_stem
+    from pyflightstream.workspace._query_logs import _post_groups
 
-    path = _snapshot(root, None).root / "post" / matrix_stem(matrix) / "post.log.json"
-    document = _read_json(path, {"records": []})
-    wanted = None if sims is None else {f"sim_{sim}" for sim in sims}
-    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
-    for row in document["records"]:
-        if wanted is not None and not wanted.intersection(str(row.get("point", "")).split("/")):
-            continue
-        message = str(row.get("message", ""))
-        shape = re.sub(r"\b\d+(?:\.\d+)?\b", "<number>", message)
-        key = str(row.get("category", "postprocessing")), str(row.get("product", "stage")), shape
-        group = groups.setdefault(
-            key,
-            {"category": key[0], "family": key[1], "shape": shape, "count": 0, "example": message},
-        )
-        group["count"] += 1
-    return [groups[key] for key in sorted(groups)]
+    return _post_groups(_snapshot(root, None), matrix, list(sims or ()))
 
 
 def trace_product(root: str | Path | Ledger, product: str) -> list[dict[str, Any]]:
@@ -349,30 +314,6 @@ def trace_product(root: str | Path | Ledger, product: str) -> list[dict[str, Any
     --------
     >>> trace_product("campaign", "post/sample/polar.csv")  # doctest: +SKIP
     """
-    ledger = _snapshot(root, None)
-    target = (ledger.root / product).resolve()
-    rows = []
-    for index in sorted((ledger.root / "post").glob("*/products.json")):
-        document = _read_json(index, {})
-        for name, entry in document.get("products", {}).items():
-            if target not in ((ledger.root / name).resolve(), (index.parent / name).resolve()):
-                continue
-            rows.append(
-                {
-                    "product": name,
-                    "index": index.relative_to(ledger.root).as_posix(),
-                    "entry": entry,
-                    "runs": [
-                        _trace_run(ledger, document, run_id) for run_id in entry.get("runs", [])
-                    ],
-                }
-            )
-    return rows
+    from pyflightstream.workspace._query_point import _trace
 
-
-def _trace_run(ledger: Ledger, document: dict[str, Any], run_id: str) -> dict[str, Any]:
-    return {
-        "run_id": run_id,
-        "record": ledger.card(run_id),
-        "provenance": document.get("provenance", {}).get(run_id),
-    }
+    return _trace(_snapshot(root, None), product)

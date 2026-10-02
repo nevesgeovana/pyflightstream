@@ -9049,11 +9049,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-LOG; release 0.35.0.
 
-!!! requirement "FR-388 The query functions in Python without pandas <span class='srs-pending'>pending</span>"
+!!! requirement "FR-388 The query functions in Python without pandas <span class='srs-implemented'>implemented</span>"
 
     Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
-    Integration remaining: QV1 owns the richer show, log and trace rows. Their CLI readers must share the public Python wrappers before R3 is evidenced; status, history and diff already share theirs. The Python data functions and the no-pandas import path are implemented and tested here.
+    Parity: `::test_python_query_results_are_plain_json_data` asserts the show, log and trace `--json` rows equal the card, activity and trace functions' rows; the CLI alias decoration (`run_id_alias`) is added by the command line only and is set aside in that comparison.
 
     Requirement: Each query shall be available in `pyflightstream.workspace.ledger` as a function that returns the rows its `--json` form prints, as plain dictionaries, without requiring pandas.
 
