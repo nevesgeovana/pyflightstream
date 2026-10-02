@@ -3,10 +3,9 @@
 Pipeline role: the entries of ``PROBE_SPECS`` for the settings, refinement
 zones, relaxed trailing edges, control-surface variants and exports of the
 three CCS meshing chapters (FR-333, FR-334), written from one table so the
-three families read alike. Every entry lofts the same synthetic curve twice
-or three times, the target between the lofts, exports each loft as OBJ and
-compares the meshes: a setting that changes the mesh is verified, a deletion
-that restores the first mesh is verified, and silence records unprobed.
+three families read alike. Every entry captures its loft immediately. Undo
+probes compare reference, modified, unchanged control and restored lofts;
+relaxed trailing edges also compare the saved mesh state (FR-401).
 
 The module is imported by ``pyflightstream.qa.specs`` and registers into the
 shared registry of ``pyflightstream.qa._spec_kit``.
@@ -14,10 +13,12 @@ shared registry of ``pyflightstream.qa._spec_kit``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from pyflightstream._fsm import MeshReadError, mesh_face_counts
 from pyflightstream.qa._spec_ccs_noise import (
     _ccs_curve,
     _ccs_select,
@@ -30,6 +31,7 @@ from pyflightstream.qa._spec_ccs_noise import (
     _mesh_signature,
     _revolve_loft,
     _wing_loft,
+    ccs_probe_text,
 )
 from pyflightstream.qa._spec_kit import _emit, _seq, _spec
 from pyflightstream.qa.probes import ProbeArtifacts
@@ -56,17 +58,35 @@ _FUSELAGE = _Family("FUSELAGE", 2, _fuselage_loft, "AXIAL", "RADIAL")
 _REVOLVE = _Family("REVOLVE", 3, _revolve_loft, "AXIAL", "AZIMUTH")
 
 
+def _capture(
+    family: _Family, name: str, filename: str, clear: int = 0, saved: bool = False
+) -> Build:
+    """Export a loft before changing its definition; clear every surface it made."""
+
+    def build(script: Script, workdir: Path) -> None:
+        _ccs_select(script, workdir)
+        family.loft(name)(script, workdir)
+        _export_obj(1, filename + ".obj")(script, workdir)
+        if saved:
+            script.emit("SAVEAS", workdir / (filename + ".fsm"))
+        delete = (
+            "DELETE_SURFACES"
+            if "DELETE_SURFACES" in script.registry.for_version(script.version)
+            else "SURFACE_DELETE"
+        )
+        for _ in range(clear):
+            script.emit(delete, 1)
+        _ccs_select(script, workdir)
+
+    return build
+
+
 def _reference(family: _Family) -> Build:
-    return _seq(_ccs_curve(family.component), family.loft("PYFS_REFERENCE"))
+    return _seq(_ccs_curve(family.component), _capture(family, "PYFS_REFERENCE", "reference", 1))
 
 
 def _variant(family: _Family) -> Build:
-    return _seq(
-        _ccs_select,
-        family.loft("PYFS_VARIANT"),
-        _export_obj(1, "reference.obj"),
-        _export_obj(2, "variant.obj"),
-    )
+    return _capture(family, "PYFS_VARIANT", "variant")
 
 
 def _restored_differs_from_modified(artifacts: ProbeArtifacts) -> bool | None:
@@ -74,11 +94,23 @@ def _restored_differs_from_modified(artifacts: ProbeArtifacts) -> bool | None:
     first = _mesh_signature(artifacts.workdir, "reference.obj")
     modified = _mesh_signature(artifacts.workdir, "variant.obj")
     restored = _mesh_signature(artifacts.workdir, "restored.obj")
-    if first is None or modified is None or restored is None or not first[1] or not restored[1]:
+    control = _mesh_signature(artifacts.workdir, "control.obj")
+    if any(state is None or not state[1] for state in (first, modified, restored, control)):
         return None
-    if first == modified:
+    return _restoration(first, modified, control, restored)
+
+
+def _restoration(first: object, modified: object, control: object, restored: object) -> bool | None:
+    """Require the control to preserve a demonstrated modification before judging the undo.
+
+    FR-333 R2 records equal or missing lofts as unprobed. False ("not
+    restored") is returned only here, where a valid control differing from the
+    reference proves the setup moved the mesh and the restored state still
+    equals that control.
+    """
+    if first == modified or control != modified:
         return None
-    return True if restored == first else None
+    return restored == first and restored != control
 
 
 def _set_chapter(family: _Family, command: str, build: Build, note: str) -> None:
@@ -94,23 +126,129 @@ def _set_chapter(family: _Family, command: str, build: Build, note: str) -> None
     )
 
 
-def _undo_chapter(family: _Family, command: str, build: Build, undo: Build, note: str) -> None:
+def _undo_chapter(
+    family: _Family, command: str, build: Build, undo: Build, note: str, *, saved: bool = False
+) -> None:
     """Register an undoing command: set, loft, undo, loft; the last loft equals the first."""
+    count = 3 if command == "DELETE_CCS_WING_CONTROL_SURFACE" else 1
+    initial = _emit(command, family.first) if command.startswith("DEFAULT_") else _seq()
     _spec(
         command=command,
         build_target=undo,
-        prelude=_seq(_reference(family), build, _ccs_select, family.loft("PYFS_MODIFIED")),
-        epilogue=_seq(
-            _ccs_select,
-            family.loft("PYFS_RESTORED"),
-            _export_obj(1, "reference.obj"),
-            _export_obj(2, "variant.obj"),
-            _export_obj(3, "restored.obj"),
+        prelude=_seq(
+            _ccs_curve(family.component),
+            initial,
+            _capture(family, "PYFS_REFERENCE", "reference", 1, saved),
+            build,
+            _capture(family, "PYFS_MODIFIED", "variant", count, saved),
+            _capture(family, "PYFS_CONTROL", "control", count, saved),
         ),
-        assert_effect=_restored_differs_from_modified,
-        observe=_mesh_read,
+        epilogue=_capture(family, "PYFS_RESTORED", "restored", saved=saved),
+        assert_effect=_saved_restored if saved else _restored_differs_from_modified,
+        observe=_saved_read if saved else _mesh_read,
         effect_note=note,
     )
+
+
+def _saved_mesh(workdir: Path, name: str) -> tuple[str, ...] | None:
+    """Read only the saved mesh payload, excluding display names and colours.
+
+    The relaxed-TE diagnosis locates its effect in per-face state, not in
+    vertex/face counts. Compare that payload against the unchanged control;
+    no undocumented row is assigned a guessed meaning.
+    """
+    path = workdir / f"{name}.fsm"
+    try:
+        counts = mesh_face_counts(path)
+        if counts is None or not counts[0]:
+            return None
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start, end = lines.index("$MESH_START$"), lines.index("$MESH_END$")
+        boundaries = int(lines[start + 3])
+        payload = lines[start + 4 + 3 * boundaries : end]
+        if end <= start or not _complete_saved_payload(payload, counts[0]):
+            return None
+        return tuple(
+            ",".join(_state_token(token) for token in line.split(",") if token.strip())
+            for line in payload
+        )
+    except (OSError, ValueError, IndexError, MeshReadError):
+        return None
+
+
+def _complete_saved_payload(lines: list[str], faces: int) -> bool:
+    """Require sized per-face rows, five flag rows and complete vertex coordinates."""
+    rows = [[token.strip() for token in line.split(",") if token.strip()] for line in lines]
+    flags = next((at for at, row in enumerate(rows[3:], 3) if set(row) <= {"T", "F"}), None)
+    if flags is None or len(rows) < flags + 10:
+        return False
+    if any(len(row) != faces for row in rows[1 : flags + 5]):
+        return False
+    if any(not set(row) <= {"T", "F"} for row in rows[flags : flags + 5]):
+        return False
+    if rows[flags + 5] != ["0"] or len(rows[flags + 6]) != 1:
+        return False
+    points = int(rows[flags + 6][0])
+    return points > 0 and all(len(row) == points for row in rows[flags + 7 : flags + 10])
+
+
+def _state_token(token: str) -> str:
+    token = token.strip()
+    if token in {"T", "F"}:
+        return token
+    number = float(token.replace("D", "E"))
+    if not math.isfinite(number):
+        raise ValueError("saved mesh state contains a non-finite value")
+    return str(number + 0.0)
+
+
+def _saved_restored(artifacts: ProbeArtifacts) -> bool | None:
+    names = ("reference", "variant", "control", "restored")
+    geometry = [_mesh_signature(artifacts.workdir, name + ".obj") for name in names]
+    if any(state is None or not state[1] for state in geometry) or len(set(geometry)) != 1:
+        return None
+    states = [_saved_mesh(artifacts.workdir, name) for name in names]
+    if any(state is None for state in states):
+        return None
+    return _restoration(*states)
+
+
+def _saved_read(artifacts: ProbeArtifacts) -> str:
+    states = {
+        name: _saved_mesh(artifacts.workdir, name)
+        for name in ("reference", "variant", "control", "restored")
+    }
+    return (
+        _mesh_read(artifacts)
+        + "; saved mesh state: "
+        + ", ".join(
+            f"{name} {'read' if state is not None else 'unreadable'}"
+            for name, state in states.items()
+        )
+        + f"; control equals modified: {states['control'] == states['variant']}"
+        + f"; restored equals reference: {states['restored'] == states['reference']}"
+    )
+
+
+def _wing_zone(script: Script, workdir: Path) -> None:
+    """Place a spanwise zone inside the synthetic loft, with a tenth-span margin.
+
+    This command accepts parametric V bounds, not a Cartesian box. Derive
+    the physical interval from the same sections the loft imports, then
+    map it to V. Forty-seven extra nodes make the interval denser.
+    """
+    wing = ccs_probe_text().split("Component;", 2)[1]
+    span = [
+        float(value)
+        for line in wing.splitlines()
+        if line.startswith("CrossSection;")
+        for value in line.split(";")[2::3]
+    ]
+    low, high = min(span), max(span)
+    width = high - low
+    margin = 0.1 * width
+    start, end = low + margin, high - margin
+    script.emit("NEW_CCS_WING_REFINEMENT_ZONE", (start - low) / width, (end - low) / width, 47)
 
 
 def _family_settings(family: _Family) -> None:
@@ -143,11 +281,7 @@ def _family_settings(family: _Family) -> None:
         _emit(f"{prefix}_PERIODICITY", second, 2),
         f"a {name.lower()} lofted after a {second.lower()} periodicity of 2 has a different mesh",
     )
-    zone = (
-        _emit("NEW_CCS_WING_REFINEMENT_ZONE", 0.2, 0.6, 12)
-        if name == "WING"
-        else _emit(f"NEW_CCS_{name}_REFINEMENT_ZONE", 0.2, 0.6, 12)
-    )
+    zone = _wing_zone if name == "WING" else _emit(f"NEW_CCS_{name}_REFINEMENT_ZONE", 0.2, 0.6, 12)
     _set_chapter(
         family,
         f"NEW_CCS_{name}_REFINEMENT_ZONE",
@@ -185,7 +319,9 @@ def _relaxed_trailing_edges(family: _Family) -> None:
         f"DELETE_CCS_{name}_RELAXED_TE",
         relaxed,
         _emit(f"DELETE_CCS_{name}_RELAXED_TE", 1),
-        "after a relaxed trailing edge was added and deleted, the loft equals the first loft",
+        "the saved per-face state returns to the reference after relaxed trailing-edge deletion, "
+        "while an unchanged control retains the modification and all four geometries agree",
+        saved=True,
     )
 
 

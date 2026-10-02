@@ -105,11 +105,16 @@ def test_an_undoing_command_needs_the_restored_loft_to_equal_the_first_fr_333(tm
     """FR-333 R2, marker P0340-QA-PROMOTE: set, undo, and the first mesh comes back."""
     first = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
     changed = first + "v 1 1 0\nf 2 4 3\n"
-    for name, text in (("reference", first), ("variant", changed), ("restored", first)):
+    for name, text in (
+        ("reference", first),
+        ("variant", changed),
+        ("control", changed),
+        ("restored", first),
+    ):
         (tmp_path / f"{name}.obj").write_text(text, encoding="utf-8")
     assert _effect("DELETE_CCS_WING_REFINEMENT_ZONES", tmp_path) is True
     (tmp_path / "restored.obj").write_text(changed, encoding="utf-8")
-    assert _effect("DELETE_CCS_WING_REFINEMENT_ZONES", tmp_path) is None
+    assert _effect("DELETE_CCS_WING_REFINEMENT_ZONES", tmp_path) is False
 
 
 def _saved(workdir, filename: str, names) -> None:

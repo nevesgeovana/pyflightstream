@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 349,
-  "total": 409,
+  "cited_by_a_test": 350,
+  "total": 410,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2989,6 +2989,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_collect_discard.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-401",
+   "text": "Requirement: the CCS probe specifications shall capture each loft before later settings can invalidate it, and judge the observed effect against a reference and an unchanged control.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02, the ten CN commands carried into 0.35.0. Evidence: tests/tier1_offline/test_p0350_cn_specs.py::test_restore_matches_reference_and_differs_from_control, ::test_restored_equal_to_control_is_not_restored, ::test_restore_requires_a_valid_changed_control, ::test_group_names_and_numeric_format_do_not_change_geometry, ::test_zone_mesh_change_is_observed, ::test_lofts_are_exported_and_cleared_as_made, ::test_wing_zone_intersects_the_synthetic_loft_extents, ::test_relaxed_te_judge_reads_saved_face_state, ::test_relaxed_te_spec_saves_each_loft, ::test_prelude_abort_is_not_called_environment_drift.*",
    "verification": "test"
   },
   {

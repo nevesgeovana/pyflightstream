@@ -183,21 +183,43 @@ def _name_in_saved(name: str, strict: bool) -> Callable[[ProbeArtifacts], bool |
 
 
 def _mesh_signature(workdir: Path, filename: str) -> tuple[int, int, int] | None:
-    """Return (vertices, faces, hash of both) of an OBJ export, or None when it is absent."""
+    """Read normalized OBJ geometry, ignoring names, normals and texture metadata."""
     path = workdir / filename
     if not path.is_file():
         return None
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    kept = [line for line in lines if line.startswith(("v ", "f "))]
-    vertices = sum(1 for line in kept if line.startswith("v "))
-    return vertices, len(kept) - vertices, hash(tuple(kept))
+    vertices: list[tuple[float, ...]] = []
+    faces: list[tuple[tuple[float, ...], ...]] = []
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            words = line.partition("#")[0].split()
+            if words[:1] == ["v"]:
+                point = tuple(float(value) for value in words[1:])
+                if len(point) != 3 or not all(math.isfinite(value) for value in point):
+                    return None
+                vertices.append(point)
+            elif words[:1] == ["f"]:
+                faces.append(_obj_face(words[1:], vertices))
+    except (ValueError, IndexError):
+        return None
+    return len(vertices), len(faces), hash((tuple(sorted(vertices)), tuple(sorted(faces))))
+
+
+def _obj_face(words: list[str], vertices: list[tuple[float, ...]]) -> tuple[tuple[float, ...], ...]:
+    """Resolve face indices to coordinates and normalize its cyclic starting corner."""
+    indices = [int(word.split("/")[0]) for word in words]
+    if len(indices) < 3 or any(index == 0 or abs(index) > len(vertices) for index in indices):
+        raise ValueError("OBJ face has an invalid vertex index")
+    points = tuple(vertices[index - 1 if index > 0 else index] for index in indices)
+    return min(points[at:] + points[:at] for at in range(len(points)))
 
 
 def _meshes_differ(artifacts: ProbeArtifacts, left: str, right: str) -> bool | None:
     """Judge whether two exported lofts differ; equal or absent records unprobed.
 
-    Equal meshes are not broken: the second loft may not have been made at all,
-    and a probe may never guess.
+    FR-333 R2: equal lofts are what a setting that failed to move the mesh
+    produces, so they are never a refutation here. Only the restore judge of
+    FR-401, which holds a control that proves the setup moved the mesh, may
+    return False.
     """
     first = _mesh_signature(artifacts.workdir, left)
     second = _mesh_signature(artifacts.workdir, right)
@@ -213,7 +235,7 @@ def _mesh_differs(artifacts: ProbeArtifacts) -> bool | None:
 
 def _mesh_read(artifacts: ProbeArtifacts) -> str:
     parts = []
-    for name in ("reference.obj", "variant.obj", "restored.obj"):
+    for name in ("reference.obj", "variant.obj", "control.obj", "restored.obj"):
         sig = _mesh_signature(artifacts.workdir, name)
         if sig is not None:
             parts.append(f"{name[:-4]} {sig[0]} vertices {sig[1]} faces")

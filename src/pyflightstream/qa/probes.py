@@ -1571,9 +1571,10 @@ def _judge(
             return ProbeResult(
                 outcome=ProbeOutcome.UNPROBED,
                 detail=(
-                    "the solver exported neither sentinel log although the baseline "
-                    "probe passed; inconclusive, environment drifted mid-run "
-                    f"(return code {execution.return_code})"
+                    "the probe prelude did not reach the BEGIN sentinel although the "
+                    "baseline passed; the target was not judged. Inspect the prelude "
+                    f"and its support commands (return code {execution.return_code}). "
+                    + "; ".join(_scan_errors(execution.log_text or "", error_patterns)[:3])
                 ),
                 **common,
             )
