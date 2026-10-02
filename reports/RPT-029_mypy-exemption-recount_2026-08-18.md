@@ -462,7 +462,7 @@ The final line of that run is the measurement:
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 236 source files
+    Success: no issues found in 242 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1212,7 +1212,7 @@ this report are this run's.
 MESHFACES, the public architecture section, the migration page and the kill
 tests committed, the tree clean, as the script reported), with python 3.12.0,
 numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic 2.13.5 (the script
-printed mypy's version as unknown): 160 errors in 16 of 240 modules on 75
+printed mypy's version as unknown): 160 errors in 16 of 242 modules on 75
 distinct source lines. The tracked package holds two modules more than the
 234 of the wave-1 tip, each reported CLEAN and neither exempted:
 `pyflightstream._textio`, the LF write route of NFR-32, and

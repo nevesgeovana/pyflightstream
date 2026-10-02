@@ -4,10 +4,13 @@ The residual history and the per-solve residuals (:func:`parse_residual_history`
 :func:`parse_residual_solves`), the frozen time steps of an unsteady solve
 (:func:`frozen_time_steps`), the run's wall times (:func:`parse_log_times`)
 and the trailing edges the solver reports it imported
-(:func:`imported_trailing_edges`).
+(:func:`imported_trailing_edges`); and, since 0.35.0, the cumulative log of a job that
+ran several points cut into each point's own log (:func:`split_job_log`,
+:func:`point_log_text`).
 
-Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+Every public name of 0.34.0 is re-exported, unchanged, by :mod:`pyflightstream.results`,
+its path of 0.32.0 (AD-11, since 0.33.0); the four names of 0.35.0 stay here, in the
+dev wheel, where the grouped collect reads them.
 """
 
 from __future__ import annotations
@@ -25,7 +28,9 @@ from pyflightstream.results.core import (
 )
 
 __all__ = [
+    "RESTART_MARKER",
     "FrozenSolve",
+    "LogSegment",
     "LogTimes",
     "ResidualSample",
     "UnjudgeableSolve",
@@ -34,6 +39,8 @@ __all__ = [
     "parse_log_times",
     "parse_residual_history",
     "parse_residual_solves",
+    "point_log_text",
+    "split_job_log",
 ]
 
 
@@ -577,3 +584,107 @@ def imported_trailing_edges(log_text: str) -> dict[str, int]:
     for count, boundary in _IMPORTED_TRAILING_EDGES_LINE.findall(clean):
         counts[boundary] = counts.get(boundary, 0) + int(count)
     return counts
+
+
+#: The line the solver prints when one instance clears a solution to run the
+#: next point (0.35.0, FR-368). MEASURED on 26.124 build 8172026 (the
+#: re-initialisation probes of 2026-10-02): printed by REMOVE_INITIALIZATION
+#: and by NEW_SIMULATION, so in the cumulative log of a job it opens every
+#: point but the first.
+RESTART_MARKER = "Solution cleared. Initialization removed."
+
+#: The first line of the solver's initialisation echo. A point's own run
+#: starts here; what a polar's first segment prints before it (the OPEN
+#: echo, the wake-edge import lines) is the polar's preamble.
+_INITIALIZATION_ECHO = "Following geometry is being initialized"
+
+
+@dataclass(frozen=True)
+class LogSegment:
+    """One point's run inside the cumulative log of a job (0.35.0, FR-368).
+
+    Attributes
+    ----------
+    index : int
+        The segment's position in the log, from 0; a job's point of order
+        ``i`` is segment ``i - 1``.
+    first_line : int
+        The segment's first line, a 0-based index into the log's lines.
+    last_line : int
+        The segment's last line, inclusive. The marker lines belong to no
+        segment.
+    complete : bool
+        True when a later marker follows the segment. The last segment of a
+        log is never complete here: whether its point finished is known only
+        to a caller that knows the job ended.
+    """
+
+    index: int
+    first_line: int
+    last_line: int
+    complete: bool
+
+
+def split_job_log(text: str) -> list[LogSegment]:
+    """Cut the cumulative log of a job at every :data:`RESTART_MARKER`.
+
+    Parameters
+    ----------
+    text : str
+        The cumulative log, a point's own ``EXPORT_LOG`` copy inside a job or
+        the job's native log. NUL bytes are ignored where the marker is
+        looked for.
+
+    Returns
+    -------
+    list of LogSegment
+        One segment per point, in the order the job ran them; empty for an
+        empty text. Line indexes count the lines of ``text.splitlines()``.
+    """
+    lines = text.splitlines()
+    if not lines:
+        return []
+    markers = [at for at, line in enumerate(lines) if RESTART_MARKER in line.replace("\x00", "")]
+    starts = [0, *(at + 1 for at in markers)]
+    ends = [*(at - 1 for at in markers), len(lines) - 1]
+    return [
+        LogSegment(index=index, first_line=start, last_line=end, complete=index < len(markers))
+        for index, (start, end) in enumerate(zip(starts, ends, strict=True))
+    ]
+
+
+def point_log_text(text: str, segment: LogSegment, *, polar_start: LogSegment) -> str:
+    """Return one point's own log: its polar's preamble, then its own segment.
+
+    A point after the first of its polar runs in an instance that opened the
+    model once, so its segment carries neither the ``OPEN`` echo nor the
+    wake-edge import lines; they are in the polar's first segment, before its
+    initialisation echo, and they are put in front of the point's segment so
+    its log reads as the log of the point run alone (the trailing-edge import
+    count is judged per point). The process banner with the build is printed
+    once per job (MEASURED, 2026-10-02), so a point of a later polar does not
+    carry it; nothing of the package reads it off a log.
+
+    Parameters
+    ----------
+    text : str
+        The cumulative log :func:`split_job_log` cut.
+    segment : LogSegment
+        The point's segment.
+    polar_start : LogSegment
+        The segment of the first point of the same polar; the point's own
+        segment when it is that first point, which then takes no preamble.
+
+    Returns
+    -------
+    str
+        The point's log, every line ending in a line feed.
+    """
+    lines = text.splitlines()
+    own = lines[segment.first_line : segment.last_line + 1]
+    preamble: list[str] = []
+    if polar_start.index != segment.index:
+        head = lines[polar_start.first_line : polar_start.last_line + 1]
+        cut = next((at for at, line in enumerate(head) if _INITIALIZATION_ECHO in line), 0)
+        preamble = head[:cut]
+    return "".join(f"{line}\n" for line in [*preamble, *own])
