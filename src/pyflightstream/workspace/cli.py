@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
+from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
@@ -703,6 +704,11 @@ def _profile_shape(
         return "BP", profile, stated, [], f"Betz-Prandtl, J = {args.advance_ratio:g}"
     if (args.table is None) == (args.pol is None):
         raise WorkspaceError("name the sectional loads table, or --pol to find it; one of the two.")
+    if args.pol is None and args.family is not None:
+        raise WorkspaceError(
+            "--family names the family whose table --pol finds; a named table is read as it is, "
+            "so leave --family out."
+        )
     family = args.family or "Blade1"
     table = (
         args.table
@@ -719,9 +725,18 @@ def _profile_shape(
         "negative_stations_set_to_zero": loads.clipped,
         **({"pol": args.pol, "family": family} if args.pol is not None else {}),
     }
-    inputs: list[dict[str, object]] = [{"path": str(table), "sha256": file_sha256(table)}]
+    inputs: list[dict[str, object]] = [_table_input(Path(table), Path(args.workspace))]
     what = f"{table}, thrust {component}, {len(loads.stations)} stations, {loads.clipped} set to 0"
     return "SECTIONS", _profiles.sections_profile(loads, disc), parameters, inputs, what
+
+
+def _table_input(table: Path, root: Path) -> dict[str, object]:
+    """Return the record of a table read: workspace-relative inside the workspace, else as named."""
+    try:
+        path = table.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        path = str(table)
+    return {"path": path, "sha256": file_sha256(table)}
 
 
 def _cmd_profile(args: argparse.Namespace) -> int:

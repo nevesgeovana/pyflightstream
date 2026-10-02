@@ -122,8 +122,8 @@ THRUST_COMPONENTS = ("-Fx", "Fx", "-Fz", "Fz")
 DEFAULT_STATIONS = 61
 #: The largest relative miss of ``B * integral(F dr)`` against the target.
 INTEGRAL_TOLERANCE = 1e-9
-#: Where a uniform shape's inner zero sits inside the hub, as a fraction of the tip radius.
-_HUB_STEP_FRACTION = 1e-4
+#: How far inside the hub radius every shape's inner zero sits, in m (the profiles of RPT-137).
+_HUB_STEP_M = 1e-4
 
 
 @dataclass(frozen=True)
@@ -373,21 +373,22 @@ def thrust_target(
     if (thrust_n is None) == (ct is None):
         raise WorkspaceError(
             "state the target once: thrust_n, a thrust in newtons, or ct (CLI: --ct), a thrust "
-            "coefficient, with rho_kg_m3, the density, and rpm (CLI: --rpm); not both and not "
-            "neither."
+            "coefficient, with rho_kg_m3 (CLI: --rho), the density, and rpm (CLI: --rpm); not "
+            "both and not neither."
         )
     if thrust_n is not None:
         if rho_kg_m3 is not None or rpm is not None:
             raise WorkspaceError(
-                "rho_kg_m3, the density, and rpm (CLI: --rpm) state the basis of a CT; with a "
-                "thrust in newtons they would not be read, so leave them out."
+                "rho_kg_m3 (CLI: --rho), the density, and rpm (CLI: --rpm) state the basis of a "
+                "CT; with a thrust in newtons they would not be read, so leave them out."
             )
         _positive(thrust_n, "the thrust, in N")
         return ThrustTarget(thrust_n, "thrust", {"thrust_n": thrust_n})
     if rho_kg_m3 is None or rpm is None:
         raise WorkspaceError(
-            "a CT is worked out to a thrust with the density and the speed: state rho_kg_m3, "
-            "the density in kg/m^3, and rpm (CLI: --rpm), in rev/min, beside ct (CLI: --ct)."
+            "a CT is worked out to a thrust with the density and the speed: state rho_kg_m3 "
+            "(CLI: --rho), the density in kg/m^3, and rpm (CLI: --rpm), in rev/min, beside ct "
+            "(CLI: --ct)."
         )
     assert ct is not None  # the first refusal above: one of the two is stated
     for value, what in ((ct, "the CT"), (rho_kg_m3, "the density"), (rpm, "the speed")):
@@ -479,9 +480,16 @@ def _recorded_tables(folder: Path, pol: str, family: str) -> list[Path]:
         and "_sloads_" in key
         and isinstance(entry, Mapping)
         and str(entry.get("sim_id")) == pol
-        and family in (entry.get("families") or ())
+        and family in _families(entry.get("families"))
         and (folder / key).is_file()
     ]
+
+
+def _families(stated: object) -> list[str]:
+    """Return a products.json entry's families as a list: one name or a list of names."""
+    if isinstance(stated, str):
+        return [stated]
+    return [str(name) for name in stated] if isinstance(stated, (list, tuple)) else []
 
 
 def read_section_loads(
@@ -635,8 +643,8 @@ def sections_profile(loads: SectionLoads, disc: DiscGeometry) -> RadialProfile:
     Returns
     -------
     RadialProfile
-        ``(0, 0)``, ``(hub, 0)`` when the hub is not the axis, the stations,
-        then ``(tip, 0)``; not yet scaled.
+        ``(0, 0)``, ``(hub - 1e-4 m, 0)`` when that lies off the axis, the
+        stations, then ``(tip, 0)``; not yet scaled.
 
     Raises
     ------
@@ -648,7 +656,7 @@ def sections_profile(loads: SectionLoads, disc: DiscGeometry) -> RadialProfile:
     >>> from pathlib import Path
     >>> given = SectionLoads(((0.2, 1.0), (0.4, 2.0)), (None,), 0, "-Fx", Path("t.csv"))
     >>> sections_profile(given, DiscGeometry(0.5, 0.1, 3)).rows
-    ((0.0, 0.0), (0.1, 0.0), (0.2, 1.0), (0.4, 2.0), (0.5, 0.0))
+    ((0.0, 0.0), (0.0999, 0.0), (0.2, 1.0), (0.4, 2.0), (0.5, 0.0))
     """
     hub, tip = disc.hub_radius_m, disc.tip_radius_m
     outside = [r for r, _ in loads.stations if not hub < r < tip]
@@ -658,8 +666,13 @@ def sections_profile(loads: SectionLoads, disc: DiscGeometry) -> RadialProfile:
             f"({hub!r} m < r < {tip!r} m); the profile is zero from the axis to the hub and at "
             "the tip. State the disc the table's blade belongs to."
         )
-    inner = ((0.0, 0.0), (hub, 0.0)) if hub > 0.0 else ((0.0, 0.0),)
-    return RadialProfile((*inner, *loads.stations, (tip, 0.0)))
+    return RadialProfile((*_inner_zeros(hub), *loads.stations, (tip, 0.0)))
+
+
+def _inner_zeros(hub: float) -> tuple[tuple[float, float], ...]:
+    """Return the zeros inside the hub: the axis, and ``hub - 1e-4 m`` when that is off it."""
+    step = hub - _HUB_STEP_M
+    return ((0.0, 0.0), (step, 0.0)) if step > 0.0 else ((0.0, 0.0),)
 
 
 def _radii(disc: DiscGeometry, stations: int) -> list[float]:
@@ -675,7 +688,8 @@ def uniform_profile(disc: DiscGeometry, *, stations: int = DEFAULT_STATIONS) -> 
     A uniform jump ``dp`` loads each blade with ``F = dp 2 pi r / B``, a force
     per unit span proportional to the radius. Inside the hub the profile is
     zero: a row ``(0, 0)`` and one just inside the hub radius, at
-    ``hub - 1e-4 R``, so the step at the hub is between two radii.
+    ``hub - 1e-4 m`` as in the profiles RPT-137 summarises, so the step at the
+    hub is between two radii.
 
     Parameters
     ----------
@@ -700,10 +714,7 @@ def uniform_profile(disc: DiscGeometry, *, stations: int = DEFAULT_STATIONS) -> 
     ((0.0, 0.0), (0.5, 0.5), (1.0, 1.0))
     """
     rows = [(r, r) for r in _radii(disc, stations)]
-    step = disc.hub_radius_m - _HUB_STEP_FRACTION * disc.tip_radius_m
-    inner = [(0.0, 0.0)] if rows[0][0] > 0.0 else []
-    if step > 0.0:
-        inner.append((step, 0.0))
+    inner = _inner_zeros(disc.hub_radius_m) if rows[0][0] > 0.0 else ()
     return RadialProfile((*inner, *rows))
 
 
@@ -746,7 +757,7 @@ def betz_prandtl_profile(
     Examples
     --------
     >>> shape = betz_prandtl_profile(DiscGeometry(1.0, 0.2, 4), advance_ratio=1.0, stations=5)
-    >>> shape.rows[1], shape.rows[-1]
+    >>> shape.rows[2], shape.rows[-1]
     ((0.2, 0.0), (1.0, 0.0))
     """
     _positive(advance_ratio, "the advance ratio")
@@ -759,7 +770,7 @@ def betz_prandtl_profile(
         sin_phi = math.sin(math.atan2(advance_ratio * tip, math.pi * r))
         f_hub = _prandtl(r - hub, hub, blades, sin_phi) if hub > 0.0 else 1.0
         rows.append((r, r * _prandtl(tip - r, r, blades, sin_phi) * f_hub))
-    inner = [(0.0, 0.0)] if rows[0][0] > 0.0 else []
+    inner = _inner_zeros(hub) if rows[0][0] > 0.0 else ()
     return RadialProfile((*inner, *rows))
 
 
