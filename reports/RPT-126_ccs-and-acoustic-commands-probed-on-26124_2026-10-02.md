@@ -2,13 +2,14 @@
 report: RPT-126
 requirements: FR-333, FR-334, FR-335, FR-336
 ccs2_real_verdict: refusal_stays
-ccs2_real_cause: "The REAL token is not the cause: REAL with the limits 0.5 and 0.9 lofts as PARAMETRIC does, while the limits 2.0 and 3.6 end the solver process after the command line and before any loft is written in both spaces and along either axis, so the REAL row of RPT-097 neither solved nor saved."
+ccs2_real_cause: "The REAL token is not the cause: REAL with the limits 0.5 and 0.9 is lofted without error, as PARAMETRIC is, while the limits 2.0 and 3.6 end the solver process after the command line and before any loft is written in both spaces and along either axis, so the REAL row of RPT-097 neither solved nor saved."
 ---
 
 # RPT-126 - The acoustic and CCS commands probed on FlightStream 26.124, the arity of two CCS exports, and the REAL control-surface form (2026-10-02)
 
-The licensed tier-2 run **FR-333**, **FR-334**, **FR-335** and **FR-336** owe, run after the 0.34.0
-release, and one re-probe of the CCS meshing commands that run left unjudged. Everything ran on
+This report records the licensed tier-2 run that **FR-333** to **FR-336** require, made after the
+0.34.0 release, and one re-probe of the CCS meshing commands that this run left unjudged.
+Everything ran on
 **FlightStream 26.124, build 8172026**, executable SHA-256 withheld from the public tree per
 NFR-31, one solver instance at a time, hidden.
 
@@ -155,8 +156,8 @@ process; no loft and no saved simulation followed it.
 
 RPT-097's REAL row ended FAILED_EXECUTION with no saved simulation and no log line naming a
 cause; the package's window log of that row recorded one empty dialog. The arms separate it:
-the REAL token is not the cause, because REAL with the limits 0.5 and 0.9 lofts as PARAMETRIC
-does (R against P); the limits 2.0 and 3.6 end the solver process in both spaces (RL against R,
+the REAL token is not the cause, because REAL with the limits 0.5 and 0.9 is lofted without error, as PARAMETRIC
+is (R against P); the limits 2.0 and 3.6 end the solver process in both spaces (RL against R,
 PL against P) and along either axis (RX against RL). RPT-097's row, RL_s, neither solved nor
 saved, so by the rule fixed before the run (`form_works` only when RL_s solves and saves)
 `ccs2_real_verdict: refusal_stays`.
@@ -191,7 +192,8 @@ of DP, DR or DS (checked before the run).
 
 Arm I confirmed the cause: in eight of the nine specs the first surface, re-exported at the end,
 had 0 vertices; in the ninth (`DELETE_CCS_WING_REFINEMENT_ZONES`) index 1 at the end was another
-surface.
+surface (the first export slot held a different surface, so the comparison was not
+possible).
 
 **The merge rule, fixed before the run.** An arm's line counts when its outcome is verified or
 broken, every judged mesh export names exactly the surface the spec lofted into it, and, in a
@@ -212,6 +214,8 @@ the rate 1.2 the loft after the successive scheme has the same counts (1975 vert
 faces) and a different mesh. Its line in the report states the re-probe and the arm.
 
 ## 7. The ten commands that stay unprobed on 26.124, each owed to 0.35.0
+
+None of these ten is verified on 26.124; the counts below are observations, not verdicts.
 
 Each keeps its 26.124 status (FR-333 R4). Judging any of them needs a change of a probe
 specification or of a judge, which is in `src/`.

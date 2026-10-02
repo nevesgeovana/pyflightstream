@@ -60,7 +60,8 @@ def test_the_database_and_the_emitted_line_agree_on_the_arity_fr_335(command):
 
 ARITY_UNDETERMINED = (
     "on 26.124 no form of the CCS export wrote a file in the arity arms of RPT-126, so the arity "
-    "is undetermined; RPT-126; owed to 0.35.0 (the arity and its emitter)"
+    "is undetermined; RPT-126; owed to 0.35.0 (0.35.0 measures the arity, and corrects the "
+    "emitter if needed)"
 )
 
 
