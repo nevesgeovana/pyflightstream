@@ -139,7 +139,11 @@ def test_phase_progression_counters_and_log(tmp_path):
     rows = [line for line in lines if line and not line.startswith("#")][1:]
     assert any("0.3" in line for line in comments)  # validity boundary stated
     assert len(rows) == 11
-    assert all(row.endswith(config_sha256(cfg)) for row in rows)
+    # The hash keeps its 0.33.0 column, the thirteenth; FR-339 (0.34.0) appends
+    # tip_flap_signed_m after it as the log's last column.
+    header = next(line for line in lines if line.startswith("call,")).split(",")
+    assert header.index("config_sha256") == 12
+    assert all(row.split(",")[12] == config_sha256(cfg) for row in rows)
     # State: two completed revolutions, recording bounded to two steps.
     state = load_state(tmp_path / driver.STATE_FILE)
     assert [s.revolution for s in state.revolution_history] == [1, 2]

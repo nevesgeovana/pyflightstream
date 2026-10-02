@@ -131,7 +131,7 @@ _LOG_HEADER = (
     "# n Omega / omega_n stays at or below about 0.3 (DLV-007 Section 4.1)\n"
     "call,step,phase,revolutions,solver_iteration,total_normal_force_n,"
     "tip_flap_m,tip_twist_deg,inner_solves,twist_residual_rad,"
-    "twist_tolerance_rad,relaxation,config_sha256\n"
+    "twist_tolerance_rad,relaxation,config_sha256,tip_flap_signed_m\n"
 )
 
 
@@ -373,6 +373,48 @@ def _averaged_history(history: list[LoadSample]) -> tuple[np.ndarray, np.ndarray
     return flap, torsion
 
 
+def _refuse_a_log_this_run_cannot_append_to(log_path: Path, state_path: Path) -> None:
+    """Refuse a convergence log the rows of this call would not belong to.
+
+    Two cases, both before the call writes anything. A log with no
+    ``state.json`` beside it is a previous run's history in a folder being
+    reused (PFS-2011.02): the log APPENDS, so this run's rows would land
+    under the other run's with nothing separating them. A log whose column
+    line is not this package's is a run started by another release and
+    resumed by this one (FR-339): 0.33.0 wrote thirteen columns, so a row
+    of fourteen under that header would file its last value under no name
+    and the file would mix two layouts with nothing marking the switch.
+
+    Raises
+    ------
+    FsiInputError
+        In either case, naming the file and what to do with it.
+    """
+    if not log_path.is_file():
+        return
+    if not state_path.is_file():
+        raise FsiInputError(
+            f"{log_path} exists and {state_path.name} does not, so this folder holds "
+            "a previous run's convergence history and no state to resume from. The "
+            "log APPENDS, so continuing would write this run's rows under the other "
+            "run's, with nothing in the file separating them. Use a fresh working "
+            f"directory, or move {log_path.name} aside if the previous history is "
+            "wanted."
+        )
+    columns = _LOG_HEADER.splitlines()[-1]
+    with log_path.open(encoding="utf-8") as handle:
+        found = next((line.rstrip("\r\n") for line in handle if not line.startswith("#")), "")
+    if found and found != columns:
+        raise FsiInputError(
+            f"{log_path} was started under the columns {found!r}, and this release "
+            f"writes {columns!r} (FR-339 added tip_flap_signed_m as the last one). "
+            "Appending would put rows of one layout under the header of another. Move "
+            f"{log_path.name} aside to resume this run (its rows so far stay in the moved "
+            "file, and the resumed rows start a new log with this release's header), or "
+            "resume it under the release that started it."
+        )
+
+
 def _append_log(run_dir: Path, row: dict[str, object]) -> None:
     """Append one convergence-log row, writing the header on first use."""
     path = run_dir / LOG_FILE
@@ -381,13 +423,31 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
         f"{row['solver_iteration']},{row['total_normal_force_n']},"
         f"{row['tip_flap_m']},{row['tip_twist_deg']},{row['inner_solves']},"
         f"{row['twist_residual_rad']},{row['twist_tolerance_rad']},"
-        f"{row['relaxation']},{row['config_sha256']}\n"
+        f"{row['relaxation']},{row['config_sha256']},{row['tip_flap_signed_m']}\n"
     )
     if not path.is_file():
         path.write_text(_LOG_HEADER + line, encoding="utf-8")
     else:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(line)
+
+
+def _tip_columns(tip_flap_m: Sequence[float], tip_twist_deg: Sequence[float]) -> dict[str, str]:
+    """Return the convergence log's tip columns from the tip value of each blade.
+
+    ``tip_flap_m`` and ``tip_twist_deg`` keep their reading: the largest
+    magnitude over the blades. ``tip_flap_signed_m`` (FR-339, the last
+    column) is the deflection of that same blade with its sign, the sign the
+    displacement file carries: positive along the section's normal toward
+    the suction side, so a wing bending down under its weight reads negative.
+    The first of equal magnitudes is the one written.
+    """
+    signed = max(tip_flap_m, key=abs)
+    return {
+        "tip_flap_m": f"{abs(signed):.6e}",
+        "tip_twist_deg": f"{max(abs(v) for v in tip_twist_deg):.6e}",
+        "tip_flap_signed_m": f"{signed:.6e}",
+    }
 
 
 def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
@@ -439,6 +499,7 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
             "twist_tolerance_rad": "",
             "relaxation": "",
             "config_sha256": config_sha256(cfg),
+            "tip_flap_signed_m": "",
         },
     )
     write_state_atomic(state, run_dir / STATE_FILE)
@@ -671,9 +732,9 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
             solutions=solutions,
             total_normal_force_n=total_normal_force,
             log={
-                "tip_flap_m": f"{max(abs(s.flap_deflection_m[-1]) for s in solutions):.6e}",
-                "tip_twist_deg": (
-                    f"{max(abs(math.degrees(s.elastic_twist_rad[-1])) for s in solutions):.6e}"
+                **_tip_columns(
+                    [s.flap_deflection_m[-1] for s in solutions],
+                    [math.degrees(s.elastic_twist_rad[-1]) for s in solutions],
                 ),
                 "inner_solves": max(result.inner_solves for result in solved),
                 "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
@@ -727,8 +788,9 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
             solutions=(solution,),
             total_normal_force_n=total_normal_force,
             log={
-                "tip_flap_m": f"{abs(solution.flap_deflection_m[-1]):.6e}",
-                "tip_twist_deg": f"{abs(math.degrees(solution.elastic_twist_rad[-1])):.6e}",
+                **_tip_columns(
+                    [solution.flap_deflection_m[-1]], [math.degrees(solution.elastic_twist_rad[-1])]
+                ),
                 "inner_solves": 1,
                 "twist_residual_rad": "",
                 "twist_tolerance_rad": "",
@@ -780,6 +842,9 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         on every call after the first, and refusing that would refuse the
         normal case.
 
+        Also if the log's column line is not this release's: a run
+        started under 0.33.0 and resumed under 0.34.0 (FR-339).
+
         Also if the loads export carries no time increment, so it comes
         from a steady solve.
     StaleLoadsError
@@ -795,16 +860,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     # call of a second run. `state.json` can: it is written atomically at
     # the end of every call and removed by nothing, so a log without it
     # is a previous run's history in a folder being reused.
-    log_path = run_dir / LOG_FILE
-    if not state_path.is_file() and log_path.is_file():
-        raise FsiInputError(
-            f"{log_path} exists and {state_path.name} does not, so this folder holds "
-            "a previous run's convergence history and no state to resume from. The "
-            "log APPENDS, so continuing would write this run's rows under the other "
-            "run's, with nothing in the file separating them. Use a fresh working "
-            f"directory, or move {log_path.name} aside if the previous history is "
-            "wanted."
-        )
+    _refuse_a_log_this_run_cannot_append_to(run_dir / LOG_FILE, state_path)
     state = load_state(state_path) if state_path.is_file() else initial_state()
     # PYFS-012: a resumed state must describe the configured blade. Checked
     # here, at the single point where a persisted state meets its config,
@@ -1059,8 +1115,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "revolutions": f"{revolutions:.6f}",
             "solver_iteration": report.current_iteration,
             "total_normal_force_n": f"{total_normal_force:.6f}",
-            "tip_flap_m": f"{max(abs(v) for v in tip_flap_m):.6e}",
-            "tip_twist_deg": f"{max(abs(v) for v in tip_twist_deg):.6e}",
+            **_tip_columns(tip_flap_m, tip_twist_deg),
             "inner_solves": inner_solves,
             "twist_residual_rad": "" if twist_residual is None else f"{twist_residual:.6e}",
             "twist_tolerance_rad": ("" if twist_tolerance is None else f"{twist_tolerance:.1e}"),

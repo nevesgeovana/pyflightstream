@@ -160,6 +160,14 @@ sections_m = [
   states it). Its row in `fsi_convergence_log.csv` states the phase
   `fixed_wing`.
 
+The convergence log `fsi_convergence_log.csv` of every route keeps the
+columns it had in 0.33.0 and ends with `tip_flap_signed_m` (0.34.0): the tip
+flap deflection in metres with its sign, the sign the displacement file
+`FSIDisp.txt` carries, positive along the section's normal toward the
+suction side, so a wing bending down under its own weight reads negative.
+`tip_flap_m` stays its magnitude; on a rotor both name the blade of largest
+magnitude. A frozen replay leaves both empty.
+
 The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124
 (reports/RPT-092) the route converged and mapped 1052 of 1052 vertices, and

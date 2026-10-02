@@ -154,9 +154,9 @@
    "positional": 5
   },
   "fsi/driver.py:coupling_step": {
-   "complexity": 21,
-   "branches": 22,
-   "statements": 101,
+   "complexity": 20,
+   "branches": 21,
+   "statements": 99,
    "positional": 1
   },
   "fsi/nodes.py:NodeOrderingMap._consistent": {
