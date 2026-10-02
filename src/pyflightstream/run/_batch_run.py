@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePath
 from typing import Any, Literal
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream.cases import CampaignConfigError, SimCase, case_at_point
 from pyflightstream.cases._unsteady_actions import (
     UNSTEADY_ACTION_PROGRAM,

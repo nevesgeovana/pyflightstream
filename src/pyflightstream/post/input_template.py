@@ -746,9 +746,10 @@ _HPC_EXAMPLE = """\
 
 application_id = "flightstream"   # the scheduler's own name for the application; required
 
-# What {walltime} carries, @WALLTIME_ARITHMETIC@: wall is the row's WALLTIME as
-# written (4h), seconds the whole clock in seconds (14400).
+# {walltime} carries, @WALLTIME_ARITHMETIC@: wall = the row's WALLTIME as written, seconds = 14400.
 walltime_arithmetic = "wall"
+max_walltime = "48:00:00"      # the longest wall clock the cluster grants a job
+job_root = "{work_dir}"           # where a grouped job's script paths start
 
 # The descriptor file written in each point's folder, and its fields: the keys
 # this scheduler expects, each a text in which {name} is replaced by the
@@ -768,8 +769,7 @@ ncpus = "{ncpus}"
 walltime = "{walltime}"
 version = "{fs_build_alias}"
 
-# The submission, argument by argument, never one string through a shell;
-# {descriptor_path} is the descriptor just written.
+# The submission, argument by argument, never one shell string; {descriptor_path} is the file.
 [submit]
 command = ["esub", "{descriptor_path}"]
 

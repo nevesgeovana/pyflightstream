@@ -1437,7 +1437,8 @@ def row_walltime_s(case: SimCase) -> float | None:
     if row_walltime_is_best(case):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}. BEST asks the "
-            "package for the walltime, which plan --batch and --polar-sweep compute; "
+            "package for the walltime, which batch (CLI: --batch) and polar_sweep "
+            "(CLI: --polar-sweep) compute; "
             "write a wall clock with its unit for the default mode."
         )
     unit = stated[-1:].lower()

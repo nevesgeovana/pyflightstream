@@ -137,6 +137,11 @@ CANONICAL_FORMS = {
         "grid counts, then space-separated .17g finite values, LF between rows "
         "and one final LF. Source/effective paths are provenance, not hash input."
     ),
+    "run/_batch_exec.py": (
+        "the UTF-8 encoding of the grouping receipt's JSON form, rendered with "
+        "sorted keys and ASCII escaping, so the same receipt always hashes alike. "
+        "No path or clock enters the text."
+    ),
     "run/_continuation_frame.py": (
         "pending input bytes unchanged, or UTF-8 encoded pending text. For text, "
         "both the unmodified encoding and its LF-to-CRLF replacement are compared "

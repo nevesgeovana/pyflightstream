@@ -5,8 +5,7 @@ WHEN a point is copied (it settled while the job runs) and when the rest of a
 simulation is moved (the job ended); this module only does it, file by file,
 and reports what it did.
 
-Two rules carry the whole module (FR-367, her rules of 2026-10-02 ~16:30 and
-~15:36):
+Two rules carry the whole module (FR-367, recorded 2026-10-02):
 
 - **A copy never writes under the batch folder.** :func:`copy_point` reads
   ``sims/batch/<label>/sim_<id>/`` and writes only under ``sims/sim_<id>/``;

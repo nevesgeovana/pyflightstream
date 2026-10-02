@@ -57,9 +57,13 @@ def _batch_count(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"--batch takes a whole number, not {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"batch (CLI: --batch) takes a whole number, not {text!r}"
+        ) from None
     if value < 1:
-        raise argparse.ArgumentTypeError(f"--batch takes a whole number of at least 1, not {value}")
+        raise argparse.ArgumentTypeError(
+            f"batch (CLI: --batch) takes a whole number of at least 1, not {value}"
+        )
     return value
 
 

@@ -17,7 +17,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePath
 from typing import Any, Literal, cast
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream.cases import ScriptRecipe, SimCase, case_at_point, resolve_recipe
 from pyflightstream.cases._unsteady_actions import documents_actions
