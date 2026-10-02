@@ -150,6 +150,41 @@ def test_the_rigid_export_is_the_control_that_can_say_different_fr_338():
     assert _cdo("coupled") == 0.0
 
 
+#: Each recorded export, by the start of its row in RPT-128's `CDo` table.
+_TABLE_ROWS = {
+    "9341, own export": "rigid",
+    "9342, own export": "coupled",
+    "9342, head export of the last pass": "coupled_head_last_pass",
+    "9343, head export": "capped_head",
+    "9343, own export": "capped_own",
+}
+
+
+def test_each_recorded_export_reads_the_cdo_rpt128_tabulates_fr_338():
+    """P0340-FSI-CDO, FR-338 R1: every fixture is the export RPT-128's `CDo` table states.
+
+    The head export of the coupled point's last pass decides nothing (it follows the updates of
+    every earlier pass); its row is read like the others, so no recorded export is unread.
+    """
+    report, _ = _front_matter(128)
+    stated: dict[str, float] = {}
+    for line in report.read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 2:
+            continue
+        for start, name in _TABLE_ROWS.items():
+            if cells[0].startswith(start) and re.match(r"[-+.\d]", cells[1]):
+                stated[name] = float(cells[1].split()[0])
+    assert sorted(stated) == sorted(_TABLE_ROWS.values()), (
+        f"{report.name}: the `CDo` table has rows for {sorted(stated)}, not all five exports"
+    )
+    for name, value in stated.items():
+        assert _cdo(name) == value, (
+            f"{report.name} tabulates CDo {value} for {name}; "
+            f"its recorded export reads {_cdo(name)}"
+        )
+
+
 def test_a_planted_reading_moves_the_cause_fr_338():
     """P0340-FSI-CDO, FR-338: the control of the cause table, each branch reached by one change."""
     assert cdo_cause(0.0094, 0.0, 0.0, 0.0, True) == "solver"
