@@ -1045,6 +1045,13 @@
   "requires": "SOLUTION",
   "version": "26.120"
  },
+ "SET_WAKE_TERMINATION_TIME_STEPS": {
+  "build": [
+   "SET_WAKE_TERMINATION_TIME_STEPS 137"
+  ],
+  "requires": "SIM",
+  "version": "26.120"
+ },
  "SOLVER_MINIMUM_CP": {
   "build": [
    "SOLVER_MINIMUM_CP -4.5"

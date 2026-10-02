@@ -126,12 +126,18 @@ What a matrix must allow:
   and the solver's `DEFAULT` plane, whose position the plan cannot know (FR-325).
   The same holds for a blades-only wheel.
 
-No golden render and no tier-3 matrix of the package is refused by the hover
-rule: the parity run of `v0.33.1` against the integrated tree renders all 194
-scripts. The plan file `plan.json` gains one key per point, `wake_termination`,
-with the three recorded values for a rotor point and empty for any other. A
-result recorded by 0.33.0 or earlier keeps the script it ran in its run
-record.
+No golden render and no tier-3 matrix of the package is refused by the
+zero-speed refusal (FR-323): the parity run of `v0.33.1` against the integrated
+tree renders all 194 scripts. The plan file `plan.json` gains one key per point,
+`wake_termination`, with the three recorded values for a rotor point and empty
+for any other. A result recorded by 0.33.0 or earlier keeps the script it ran in
+its run record.
+
+A matrix row that states `REmi` at zero or negative speed (`TASmps:0`,
+`MACH:0` or a negative `TASmps`) is now refused at plan with a
+`FlightConditionError` naming the POL and both cells, instead of stopping the
+plan with a `ZeroDivisionError`; state its density by `ALTFT` with `dISA` or by
+`RHOkgm3`.
 
 ## The guides are renumbered
 

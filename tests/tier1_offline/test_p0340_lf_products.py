@@ -506,15 +506,44 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
 
 
 def test_the_change_log_fragment_names_the_lf_change_first_in_its_migration() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R5: the migration paragraph names the LF change, citing NFR-32."""
-    fragment = (REPO / "changelog.d" / "0-34-lf.md").read_text(encoding="utf-8")
-    section = fragment.split("## Migration", 1)[1]
-    first = next(line for line in section.splitlines() if line.startswith("- "))
-    assert "LF" in first and "NFR-32" in first
-    for line in fragment.splitlines():
-        if line.startswith("- "):
-            assert "NFR-32" in line, f"a bullet cites no requirement: {line[:60]}"
-    assert "no switch" in section.lower()
+    """P0340-LF-PRODUCTS, NFR-32 R5: the migration paragraph names the LF change, citing NFR-32.
+
+    Before the integration the entries are the fragment ``changelog.d/0-34-lf.md``;
+    ``scripts/assemble_changelog.py`` then folds its bullets into the change log
+    and deletes it, and the release's migration page carries the migration
+    paragraph. Whichever form the tree holds is read, and held to the same rule.
+    """
+    fragment_path = REPO / "changelog.d" / "0-34-lf.md"
+    if fragment_path.is_file():
+        fragment = fragment_path.read_text(encoding="utf-8")
+        section = fragment.split("## Migration", 1)[1]
+        first = next(line for line in section.splitlines() if line.startswith("- "))
+        assert "LF" in first and "NFR-32" in first
+        for line in fragment.splitlines():
+            if line.startswith("- "):
+                assert "NFR-32" in line, f"a bullet cites no requirement: {line[:60]}"
+        assert "no switch" in section.lower()
+        return
+    # Folded: the first section of the 0.34.0 migration page is the LF change.
+    page = (REPO / "docs" / "migrating-to-0.34.0.md").read_text(encoding="utf-8")
+    first_heading, first_body = page.split("\n## ", 2)[1].split("\n", 1)
+    assert "LF" in first_heading and "NFR-32" in first_body
+    assert "no switch" in first_body.lower()
+    # Folded: every bullet the fragment carried is in the 0.34.0 section and cites NFR-32.
+    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    released = changelog.split("\n## [0.34.0]", 1)[1].split("\n## [", 1)[0]
+    bullets = [line for line in released.splitlines() if line.startswith("- ")]
+    for marker in (
+        "`pyflightstream._textio`, the one floor module",
+        "`scripts/lf_products_check.py` posts the recorded offline campaigns",
+        "RPT-140, the census of the text writers",
+        "Every text file the package writes has LF line ends on every platform",
+        "The products snapshot judges line ends",
+        "`scripts/check_parity.py` compares the post of 0.33.1 with CR before LF removed",
+    ):
+        carrying = [line for line in bullets if marker in line]
+        assert len(carrying) == 1, f"the 0.34.0 section has {len(carrying)} bullets of {marker!r}"
+        assert "NFR-32" in carrying[0], f"a bullet cites no requirement: {carrying[0][:60]}"
 
 
 def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:

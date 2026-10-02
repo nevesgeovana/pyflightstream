@@ -452,8 +452,11 @@ _MIGRATION_NAMES_0_34_0 = {
         "SET_WAKE_TERMINATION_TIME_STEPS",
         "`wake_termination_length`",
     ),
+    # The old overview's name may not stand on this page, which is not one of
+    # the historical records (test_p0340_guides, FR-329 R2), so the map is read
+    # by the old cheatsheet name it carries and the new overview name.
     "The guides are numbered from 01 and the cheatsheet is guide 04.": (
-        "`pyfts-guide-00-fts-overview.pdf`",
+        "`pyfts-cheatsheet-pyfs-matrix.pdf`",
         "`pyfts-guide-01-fts-overview.pdf`",
     ),
     "`pyfs-matrix run --sims` runs a selection and a second run names its command.": (

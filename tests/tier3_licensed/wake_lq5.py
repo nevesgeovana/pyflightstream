@@ -1,6 +1,6 @@
 """The licensed run LQ5 of 0.34.0: the wake a rotor keeps, and the speed it convects at.
 
-GOAL-039, arm MW, package WAKE; the report it will feed is RPT-130 (FR-321 R3,
+Package WAKE; the report it will feed is RPT-130 (FR-321 R3,
 FR-324), owed by a commit after the 0.34.0 release, when this run is made.
 One synthetic propeller (the tier-3 ``31_BLADE_PHY`` blade of the public
 shape law of :mod:`tests.tier3_licensed.recipes`, tip radius
