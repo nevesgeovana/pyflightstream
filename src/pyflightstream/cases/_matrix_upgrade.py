@@ -685,7 +685,7 @@ def _expand_to_nineteen(data: bytes, source: str) -> bytes:
                 continue
             if name in arriving:
                 value = arriving[name]
-                text = UNSTATED_CELL if value in (None, "") else value
+                text = value if value else UNSTATED_CELL
                 row.append(_pad_like(text, max(len(name), 4), first=index == 0))
                 continue
             cell = old[name]

@@ -35,6 +35,8 @@ import warnings
 import zlib
 from pathlib import Path
 
+from pyflightstream._maturity import maturity_level, validate_maturity
+
 REPO = Path(__file__).resolve().parents[1]
 PACKAGE = "pyflightstream"
 
@@ -191,7 +193,8 @@ def subpackage_page(module_name: str, words: set[str]) -> str:
         else ("public definitions (the module declares no `__all__`)")
     )
     lines = [
-        f"# `{module_name}`",
+        f"# `{module_name}`"
+        + (f" ({maturity_level(module_name)})" if module_name != PACKAGE else ""),
         "",
         f"Generated from the docstrings at build time: every one of the {len(names)} "
         f"names in the {source} of `{module_name}` has an entry below. The names a "
@@ -282,6 +285,7 @@ def api_reference_pages(repo: Path = REPO) -> dict[str, str]:
     """
     words = guide_words(repo)
     modules = public_subpackages()
+    validate_maturity([name for name in modules if name != PACKAGE])
     index = [
         "# Python API",
         "",
@@ -293,8 +297,14 @@ def api_reference_pages(repo: Path = REPO) -> dict[str, str]:
         "is the place to start, and the [exceptions catalog](../exceptions.md) lists "
         "every refusal.",
         "",
-        "| Module | Names | What it holds |",
-        "|---|---:|---|",
+        "Maturity comes from the package's module maturity table (FR-409): "
+        "stable, provisional, experimental or internal. Internal modules are not "
+        "public and have no rows here. The package-root page is an overview, "
+        "outside the affirmed public-module inventory. API maturity does not "
+        "claim solver verification or scientific validation.",
+        "",
+        "| Module | Maturity | Names | What it holds |",
+        "|---|---|---:|---|",
     ]
     pages: dict[str, str] = {}
     children: dict[str, list[str]] = {}
@@ -307,7 +317,10 @@ def api_reference_pages(repo: Path = REPO) -> dict[str, str]:
         slug = page_slug(module_name)
         pages[f"{slug}.md"] = subpackage_page(module_name, words)
         count = len(public_surface(module_name))
-        index.append(f"| [`{module_name}`]({slug}.md) | {count} | {_summary(module_name)} |")
+        level = maturity_level(module_name) if module_name != PACKAGE else "Package overview"
+        index.append(
+            f"| [`{module_name}`]({slug}.md) | {level} | {count} | {_summary(module_name)} |"
+        )
         if module_name.count(".") >= 2:
             continue  # listed under its parent below
         if module_name in children:

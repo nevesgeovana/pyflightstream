@@ -9554,9 +9554,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, `tests/tier1_offline/test_p0351_bwsw.py`, carrying the marker P0351-SWEEP-DUPLICATE (FR-408); release 0.35.1.
 
-!!! requirement "FR-409 API and capability maturity <span class='srs-pending'>pending</span>"
+!!! requirement "FR-409 API and capability maturity <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference.*
 
     Need: A reader of the API reference must be able to find the maturity of every public module in one place.
 
@@ -9566,7 +9566,9 @@ Requirements written after the specification was last reconciled with the packag
     - R2 Both set differences are empty: public modules minus table rows, and table rows minus public modules. A repeated module row is refused even if its levels agree.
     - R3 The API reference renders the committed table rather than maintaining another list.
 
-    Verification: tier 1, a test carrying P0360-MATURITY and FR-409 checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
+    Verification: tier 1, `tests/tier1_offline/test_p0360_mm.py`, carrying P0360-MATURITY (FR-409), checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
+
+    Evidence: `test_public_modules_have_exactly_one_maturity`, `test_maturity_controls_reject_missing_extra_duplicate_and_unknown_rows`, `test_generated_reference_shows_each_modules_maturity` and `test_reference_validation_refuses_planted_table_defects` in `tests/tier1_offline/test_p0360_mm.py`.
 
 !!! requirement "FR-410 Coupled steady and quasi-steady rows stay out of grouped modes <span class='srs-implemented'>implemented</span>"
 

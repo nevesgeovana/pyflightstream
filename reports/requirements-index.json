@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 359,
+  "cited_by_a_test": 360,
   "total": 427,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -3051,9 +3051,9 @@
    "id": "FR-409",
    "text": "Need: A reader of the API reference must be able to find the maturity of every public module in one place.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference.*",
+   "verification": "review"
   },
   {
    "id": "FR-410",

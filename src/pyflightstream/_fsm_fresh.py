@@ -313,7 +313,7 @@ def block_lines(text: str) -> dict[str, tuple[str, ...]]:
         name, side = marker.groups()
         if side == "START" and open_name is None:
             open_name, start = name, index
-        elif side == "END" and name == open_name:
+        elif side == "END" and open_name is not None and name == open_name:
             if name in found:
                 raise FreshResetError(f"the block {name} appears twice")
             found[name] = tuple(lines[start + 1 : index])
