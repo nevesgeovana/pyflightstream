@@ -8863,11 +8863,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: Every reader of a point record must read a batched point unchanged.
 
-    Requirement: At submission, each point of a grouped job shall be recorded `SUBMITTED` with the batch name and the job's folder in its submission entry (`submission.batch`); a steady polar inside a batch shall keep its one job record; every other field shall equal what the same point run alone records, with the same run id and the same status words.
+    Requirement: At submission, each point of a grouped job shall be recorded `SUBMITTED` with the batch name and the job's folder in its submission entry (`submission.batch`); a steady polar inside a batch shall keep its one job record; every other field shall equal what the same point run alone records, with the same run id and the same status words. A point that `collect` completes shall carry the same fields a point run alone carries: `outputs_sha256` over its output files at their home location, and `wall_time_s` read from the point's own clock file (else the solver run time of its sliced log), with the basis, or the reason none could be measured, in `submission.job.wall_time_basis`.
 
     Verification: The marker P0350-BATCH-RECORDS: a tier-1 test records the same point alone and in a batch and asserts that the two records differ only in the submission entry.
 
-    Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr366_records_are_a_point_run_alone`. Verified offline by tier-1 tests.
+    Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr366_records_are_a_point_run_alone` and the `test_p0350_batch_records_fr366_*` tests of `tests/tier1_offline/test_p0350_batch_collect.py`. Verified offline by tier-1 tests.
 
 !!! requirement "FR-367 `collect` completes a grouped job's points while it runs, and copies, then moves, its sims <span class='srs-implemented'>implemented</span>"
 

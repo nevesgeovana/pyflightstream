@@ -56,6 +56,7 @@ vocabulary for; the answer to that question must not be that so was a ninth.
 
 from __future__ import annotations
 
+import json
 import shutil
 import time
 import warnings
@@ -79,10 +80,12 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
+from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
 from ..cases.acoustics import acoustic_section_outputs
+from ..cases.workflows import WALLTIME_CLOCK_STATE
 from ..results import translate_surface_exports
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
@@ -1102,22 +1105,20 @@ def _complete(
         status,
         verdict,
     )
+    try:
+        digests = workspace.output_digests(record.sim_id, collected)
+    except WorkspaceError as error:
+        return _refused(workspace, record, error)
     update: dict[str, object] = {
         **stamped,
         "status": status,
         "outputs": list(collected),
+        "outputs_sha256": digests,
         "error": verdict,
         **clock_stop_update(record, _working_dir(workspace, record), status),
+        **_wall_time_update(record, _working_dir(workspace, record), stamped),
     }
-    from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
-    from pyflightstream.run import action_count
-
-    try:
-        counter = action_count(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT)
-    except (OSError, ValueError, KeyError, TypeError):
-        counter = None
-    if counter is None:
-        counter = record.action_count
+    counter = _action_counter(workspace, record)
     update["action_count"] = counter
     raw_steps = stamped.get("time_steps", record.time_steps)
     steps = raw_steps if isinstance(raw_steps, int) and not isinstance(raw_steps, bool) else None
@@ -1150,6 +1151,82 @@ def _complete(
 #: point carrying any other axis sweeps a flow variable, and the job's one
 #: recorded velocity is then not that point's.
 _ATTITUDE_AXES = frozenset({"alpha", "beta", "advance_ratio"})
+
+
+def _action_counter(workspace: CampaignWorkspace, record: RunRecord) -> int | None:
+    """Return the point's step counter as its action program wrote it, else what the record has."""
+    from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
+    from pyflightstream.run import action_count
+
+    try:
+        counter = action_count(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT)
+    except (OSError, ValueError, KeyError, TypeError):
+        counter = None
+    return record.action_count if counter is None else counter
+
+
+def _wall_time_update(
+    record: RunRecord, work_dir: Path, stamped: Mapping[str, object]
+) -> dict[str, object]:
+    """Return the wall time a collected point is recorded with, and how it was measured (FR-366).
+
+    A point run alone records its wall time from the process clock. A point
+    collected from a job has no process of its own, so the time is read from
+    what the job measured for it: the point's own clock file (the elapsed
+    seconds from the point's start to its last step callback), else the
+    solver run time its sliced log prints. A point with neither records no
+    time AND says why, in ``submission.job.wall_time_basis`` for a grouped
+    point, so a null is never silent. A point submitted alone has no job
+    entry; it records the clock file's time when one was written and is
+    otherwise left as it was.
+    """
+    elapsed: float | None = None
+    basis: str | None = None
+    state_path = work_dir / WALLTIME_CLOCK_STATE
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+    except (OSError, ValueError):
+        state = {}
+    raw = state.get("elapsed_s") if isinstance(state, dict) else None
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw >= 0:
+        elapsed = float(raw)
+        basis = (
+            f"the point's own clock file ({WALLTIME_CLOCK_STATE}): elapsed_s from the point's "
+            "start to its last step callback, measured inside the solver run"
+        )
+    else:
+        solver = stamped.get("solver_run_time_s")
+        if isinstance(solver, (int, float)) and not isinstance(solver, bool):
+            elapsed = float(solver)
+            basis = "the solver run time printed in the point's sliced log (solver_run_time_s)"
+    entry = job_of(record)
+    update: dict[str, object] = {}
+    if elapsed is not None:
+        update["wall_time_s"] = elapsed
+    if entry is not None:
+        submission = dict(record.submission or {})
+        submission["job"] = {
+            **entry,
+            "wall_time_basis": basis
+            or (
+                "not measured: the point wrote no clock file and its log prints no solver run "
+                "time, so the job has no time of its own for it"
+            ),
+        }
+        update["submission"] = submission
+    return update
+
+
+def _refused_entry(tag: str, point: dict, outputs: list[str] | None) -> dict[str, object]:
+    """Return the ``points_ran`` entry of a point of a job whose outputs were refused."""
+    entry: dict[str, object] = {
+        "tag": tag,
+        "point": point,
+        "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+    }
+    if outputs:
+        entry["outputs"] = list(outputs)
+    return entry
 
 
 def _is_a_sweep_job(record: RunRecord) -> bool:
@@ -1261,15 +1338,8 @@ def _complete_sweep(
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
-            refused_entry: dict[str, object] = {
-                "tag": tag,
-                "point": point,
-                "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-            }
-            if collected_by_tag.get(tag):
-                refused_entry["outputs"] = list(collected_by_tag[tag])
-                collected_all.extend(collected_by_tag[tag])
-            ran.append(refused_entry)
+            ran.append(_refused_entry(tag, point, collected_by_tag.get(tag)))
+            collected_all.extend(collected_by_tag.get(tag) or [])
             worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")
             continue
@@ -1319,10 +1389,15 @@ def _complete_sweep(
             error_lines.append(f"{tag}: {verdict or status}")
         worst = worse_of(worst, status)
 
+    try:
+        sweep_digests = workspace.output_digests(record.sim_id, collected_all)
+    except WorkspaceError as error:
+        return _refused(workspace, record, error)
     completed = record.model_copy(
         update={
             "status": worst,
             "outputs": collected_all,
+            "outputs_sha256": sweep_digests,
             "error": "; ".join(error_lines) or None,
             "warnings": job_warnings,
             "points_ran": ran,

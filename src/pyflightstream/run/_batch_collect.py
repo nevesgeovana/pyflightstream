@@ -446,7 +446,12 @@ def _move_job(workspace: CampaignWorkspace, job: _Job, sims: set[str]) -> None:
             job.notes.append(
                 f"WARNING: {sim.name}/{name} changed after it was copied and the job's file "
                 "replaced the copy"
-                + (f"; {', '.join(judged)} was completed from the earlier copy" if judged else "")
+                + (
+                    f"; {', '.join(judged)} was completed from the earlier copy, and its recorded "
+                    "outputs_sha256 is of that copy"
+                    if judged
+                    else ""
+                )
             )
 
 

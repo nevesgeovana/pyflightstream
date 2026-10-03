@@ -130,6 +130,7 @@ FlightStream versions.
 
 ### Fixed
 
+- A point `collect` completes from a grouped job (`run --batch`, `run --polar-sweep`), and a submitted point collected alone, now records `outputs_sha256` (the digests of its output files at their home location) and `wall_time_s` as a point run alone does; a grouped point's time is read from its own clock file, else from the solver run time its sliced log prints, with the basis (or why none could be measured) in `submission.job.wall_time_basis`. Found by the licensed architecture test on 0.35.0.dev3, where 12 of 12 grouped points recorded an empty digest and a null time (FR-366).
 - FULL-POLAR and BATCH scripts resolve action files in the job's absolute `actions/` folder and point-local input paths in the corresponding datapoint folder when splicing, preserving single-point script output (FR-359, design FR-B7b).
 - **A `RESTART` continuation no longer re-initializes a reopened state (FR-396,
   the known defect of FR-96).** The continuation script reopens the saved

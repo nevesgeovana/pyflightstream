@@ -10,6 +10,7 @@ solver runs.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -357,3 +358,109 @@ def test_p0350_collect_fr370_a_clock_stopped_point_is_collected_from_its_stamped
     assert first.status is RunStatus.WALLTIME_REACHED, requirement
     assert all(path.is_file() for path in plain), "every declared output under its plain name"
     assert _status(workspace, "AL+020").status is RunStatus.CONVERGED
+
+
+def _clock_file(folder: Path, elapsed: float | None) -> None:
+    """The point's own clock state, as the job's clock program writes it each step."""
+    (folder / "actions").mkdir(parents=True, exist_ok=True)
+    state: dict[str, object] = {"started_at": 1.0, "steps": 30, "fired": False}
+    if elapsed is not None:
+        state["elapsed_s"] = elapsed
+    (folder / "actions" / "pfs_walltime_clock.json").write_text(json.dumps(state), "utf-8")
+
+
+def _populated(record: RunRecord) -> set[str]:
+    return {k for k, v in record.model_dump(mode="json").items() if v not in (None, [], {}, "")}
+
+
+def _home_digests(workspace: CampaignWorkspace, record: RunRecord) -> dict[str, str]:
+    sim = workspace.sim_dir(record.sim_id)
+    return {name: hashlib.sha256((sim / name).read_bytes()).hexdigest() for name in record.outputs}
+
+
+def _alone(tmp_path: Path, elapsed: float | None) -> tuple[CampaignWorkspace, RunRecord]:
+    """The control: the same point with no job entry, collected, with the same clock file."""
+    workspace = CampaignWorkspace(tmp_path / "alone")
+    workspace.init(tmp_path / "alone")
+    folder = workspace.sim_dir("2006") / "datapoints" / "DP-AL+000"
+    _write_point(folder, "AL+000", 1)
+    (folder / "P2006-AL+000_log.txt").write_bytes(_expected_log(1).encode())
+    _clock_file(folder, elapsed)
+    workspace.append_record(_record("AL+000", job=None))
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    return workspace, _status(workspace, "AL+000")
+
+
+def test_p0350_batch_records_fr366_a_copied_then_moved_point_carries_digests_and_time(tmp_path):
+    """P0350-BATCH-RECORDS (FR-366): digests of the home files, a wall time and its basis."""
+    requirement = "FR-366"
+    workspace, job_dir, _ = _workspace(tmp_path, "batch")
+    for tag, seconds in (("AL+000", 12.5), ("AL+020", 20.25)):
+        _clock_file(job_dir / "sim_2006" / "datapoints" / f"DP-{tag}", seconds)
+    collect_once(
+        workspace, interval=0.0, sleep=_no_sleep, observer=_growing("AL+020"), assessor=_converged
+    )
+    copied = _status(workspace, "AL+000")
+    assert copied.outputs_sha256 == _home_digests(workspace, copied), requirement
+    assert copied.outputs_sha256, requirement
+    assert copied.wall_time_s == 12.5, requirement
+    basis = copied.submission["job"]["wall_time_basis"]
+    assert "clock file" in basis, basis
+    (job_dir / "BATCH-2006-2006.end.json").write_bytes(b'{"returncode": 0}\n')
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    moved = _status(workspace, "AL+020")
+    assert moved.outputs_sha256 == _home_digests(workspace, moved), requirement
+    assert moved.wall_time_s == 20.25, requirement
+    # The point completed while the job ran keeps the digests of the files it was judged from.
+    assert _status(workspace, "AL+000").outputs_sha256 == copied.outputs_sha256
+
+
+def test_p0350_batch_records_fr366_a_changed_file_after_the_copy_is_named_in_the_note(tmp_path):
+    """P0350-BATCH-RECORDS (FR-366): a digest of the earlier copy is stated, not left silent."""
+    workspace, job_dir, _ = _workspace(tmp_path, "batch")
+    collect_once(
+        workspace, interval=0.0, sleep=_no_sleep, observer=_growing("AL+020"), assessor=_converged
+    )
+    first = _status(workspace, "AL+000")
+    (job_dir / "sim_2006" / "datapoints" / "DP-AL+000" / "P2006-AL+000.txt").write_bytes(b"later")
+    (job_dir / "BATCH-2006-2006.end.json").write_bytes(b'{"returncode": 0}\n')
+    with pytest.warns(PyflightstreamWarning, match="outputs_sha256 is of that copy"):
+        collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    assert _status(workspace, "AL+000").outputs_sha256 == first.outputs_sha256
+    assert _home_digests(workspace, first) != first.outputs_sha256
+
+
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep"])
+def test_p0350_batch_records_fr366_the_same_fields_are_populated_as_a_point_run_alone(
+    tmp_path, kind
+):
+    """P0350-BATCH-RECORDS (FR-366): a grouped record fills the keys the alone record fills."""
+    workspace, job_dir, _ = _workspace(tmp_path, kind)
+    base = job_dir / "sim_2006" if kind == "batch" else job_dir
+    _clock_file(base / "datapoints" / "DP-AL+000", 12.5)
+    _clock_file(base / "datapoints" / "DP-AL+020", 20.25)
+    if kind == "batch":
+        (job_dir / "BATCH-2006-2006.end.json").write_bytes(b'{"returncode": 0}\n')
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    grouped = _status(workspace, "AL+000")
+    _, alone = _alone(tmp_path, 12.5)
+    assert _populated(grouped) == _populated(alone), sorted(_populated(grouped) ^ _populated(alone))
+    assert grouped.outputs_sha256 and grouped.wall_time_s == alone.wall_time_s == 12.5
+
+
+def test_p0350_batch_records_fr366_a_point_with_no_time_says_why(tmp_path):
+    """P0350-BATCH-RECORDS (FR-366): no clock file and no log time: null with its reason."""
+    workspace, _, _ = _workspace(tmp_path, "polar_sweep")
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    record = _status(workspace, "AL+000")
+    assert record.wall_time_s is None
+    assert record.submission["job"]["wall_time_basis"].startswith("not measured")
+    assert record.outputs_sha256
+
+
+def test_p0350_batch_records_fr366_a_point_submitted_alone_carries_its_digests(tmp_path):
+    """P0350-BATCH-RECORDS (FR-366): the gap was the same for a plain submitted point."""
+    workspace, alone = _alone(tmp_path, None)
+    assert alone.outputs_sha256 == _home_digests(workspace, alone)
+    assert alone.outputs_sha256 and alone.wall_time_s is None
+    assert "job" not in (alone.submission or {})

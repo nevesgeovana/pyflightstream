@@ -682,8 +682,8 @@
    "positional": 1
   },
   "run/collect.py:_complete": {
-   "complexity": 14,
-   "branches": 14,
+   "complexity": 13,
+   "branches": 13,
    "statements": 45,
    "positional": 5
   },
