@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
+from types import MappingProxyType
 
 import yaml
 
@@ -45,9 +46,9 @@ _CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
 #: A build without an entry uses the newest listed build's vocabulary,
 #: ordered by this module's version registry. A log without build identity
 #: uses that same fallback.
-SETUP_RESET_LOG_PREFIXES: dict[str, tuple[str, ...]] = {
-    "26.124": ("Solver mode:", "Symmetry is "),
-}
+SETUP_RESET_LOG_PREFIXES: Mapping[str, tuple[str, str]] = MappingProxyType(
+    {"26.124": ("Solver mode:", "Symmetry is ")}
+)
 
 
 class UnknownVersionError(PyflightstreamError, ValueError):

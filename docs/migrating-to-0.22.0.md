@@ -1,6 +1,6 @@
 # Migrating to 0.22.0
 
-> Frozen record: not edited after its release.
+> Frozen record of its release; the historical-context section at the end was appended at 0.36.0, when the reference pages stopped narrating versions, and is frozen too.
 
 0.22.0 changes one thing about your matrix, and it is a breaking change:
 
