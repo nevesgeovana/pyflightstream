@@ -9480,7 +9480,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Rationale: A steady polar run alone costs one solver start per point; grouping it removes the starts without changing what each point records.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_steady.py`, carrying the marker P0351-BATCH-STEADY (FR-403); the licensed confirmation (each point's coefficients, iterations and products equal to the point run alone, on 26.124) is owed; release 0.35.1.
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_steady.py`, carrying the marker P0351-BATCH-STEADY (FR-403); the licensed confirmation (each point's coefficients, iterations and products equal to the point run alone, on 26.124) is recorded in RPT-148 window 2 (equal in the final receipt); release 0.35.1.
 
     Evidence: `tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job`, `::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section`, `::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind`, `::test_p0351_steady_fr403_what_stays_out_is_named`, `::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone`, `::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing`; `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named`. Verified offline by tier-1 tests.
 
@@ -9500,7 +9500,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Rationale: a user action is part of the physics or the bookkeeping of the row that states it, and a grouped job must neither drop it nor run it on a polar that does not state it.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_user_actions.py`, carrying the marker P0351-BATCH-USER-ACTIONS (FR-405); each test was red on 0.35.0. A licensed comparison of the same points grouped and alone, with a synthetic marker action, is prepared under the 0.35.1 release folder and owed. Release 0.35.1.
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_user_actions.py`, carrying the marker P0351-BATCH-USER-ACTIONS (FR-405); each test was red on 0.35.0. A licensed comparison of the same points grouped and alone, with a synthetic marker action, is recorded in RPT-148 window 2 (equal in the final receipt); the grouping of a relative `SCRIPT` file (R4) has tier-1 evidence only, no licensed comparison. Release 0.35.1.
 
 !!! requirement "FR-406 An acoustic row joins a grouped job <span class='srs-implemented'>implemented</span>"
 
@@ -9518,7 +9518,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Rationale: The observers are model objects, which outlive `REMOVE_INITIALIZATION` (DESIGN-0350 arms A and D) and possibly `NEW_SIMULATION`, as the actions do; a later point of a polar is restated from an anchor after its acoustic setup, so without the restatement its sources switch would be an earlier point's, and with it but without the delete its observers would be created twice.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_acoustic.py`, carrying the marker P0351-BATCH-ACOUSTIC (FR-406); the licensed comparison of the same acoustic points grouped and alone (signals, section files and coefficients) is owed on FlightStream 26.124.
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_acoustic.py`, carrying the marker P0351-BATCH-ACOUSTIC (FR-406); the licensed comparison of the same acoustic points grouped and alone (signals, section files and coefficients) on FlightStream 26.124 is recorded in RPT-148 window 2 (4 of 4 identical).
 
     Evidence: `tests/tier1_offline/test_p0351_batch_acoustic.py::test_p0351_acoustic_fr406_an_acoustic_row_joins_a_grouped_job`, `::test_p0351_acoustic_fr406_each_point_restates_its_own_setup`, `::test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point`. Verified offline by tier-1 tests.
 
@@ -9536,7 +9536,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Rationale: `REMOVE_INITIALIZATION` keeps the model loaded, and with it the mesh an earlier point's coupling morphed; reopening the geometry from its pristine file (FR-378) is the transition that cannot carry a deformation. The post-processing script names its targets relative to the folder a point run alone runs in, which the job's process does not run in.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_fsi.py`, carrying the marker P0351-BATCH-FSI (FR-407); the licensed comparison of the same coupled points grouped and alone (coefficients, sectional loads, deflection log) is owed on FlightStream 26.124.
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_fsi.py`, carrying the marker P0351-BATCH-FSI (FR-407); the licensed comparison of the same coupled points grouped and alone (coefficients, sectional loads, deflection log) on FlightStream 26.124 is recorded in RPT-148 window 3 (5 of 5 identical).
 
     Evidence: `tests/tier1_offline/test_p0351_batch_fsi.py::test_p0351_fsi_fr407_a_coupled_unsteady_row_joins`, `::test_p0351_fsi_fr407_every_coupled_point_reopens_its_model`, `::test_p0351_fsi_fr407_a_coupled_point_s_log_is_its_own_segment`, `::test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy`. Verified offline by tier-1 tests.
 

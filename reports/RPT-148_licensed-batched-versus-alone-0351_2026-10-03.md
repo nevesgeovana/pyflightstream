@@ -111,21 +111,25 @@ between initializations. Commit 2a848c3e corrects that split by retaining a rese
 only when both the preceding solver-mode line and following symmetry line
 identify initialization. This correction was included in the next window.
 
-### Window 3: 03:28-03:37, 0.35.1.dev2 at ae2fec53: not equal
+### Window 3: 03:28-03:37, 0.35.1.dev2 at ae2fec53: equal
 
 The coupled set contained 5 points in 3 polars: 4 coupled-wing points and one
 uncoupled control. Both execution arms exited 0 and ran at most one solver at a
 time (`lv_fsi_run.log:7-19`). The comparison checked 16 files for each coupled
-point and 10 for the control, 74 file pairs in total (`lv_fsi_run.log:21-29`).
+point and 10 for the control, 74 file pairs in total.
 
-All four coupled points were DIFFERENT: their convergence-log CSV comparisons
-were refused by rule 9 because row 1 had 1 cell where 2 were expected
-(`lv_fsi_run.log:22,24,26,28`). The uncoupled control was IDENTICAL. The final
-verdict was `FSI: 1 of 5 identical`, comparison exit 1, followed by the end marker
-at 03:37:05 (`lv_fsi_run.log:521-529`). No `fsi.json` receipt was present when this
-report was written. The window-3 result is **not equal**; it does not establish
-licensed coupled equality after the log-split correction. FSI-specific equality
-citation changes stop here.
+The first pass of the comparison reported the four coupled points DIFFERENT,
+`FSI: 1 of 5 identical`, exit 1 (`lv_fsi_run.log:21-29, 521-529`): its CSV rule
+refused each point's coupling convergence log because the file opens with comment
+lines that are not CSV rows (row 1 had 1 cell where 2 were expected). Those four
+logs are byte-identical between the grouped and the alone arm. The comparison was
+corrected to treat byte-identical files as equal before parsing them, and re-run on
+the same workspaces: every record is equal in status (CONVERGED), iteration count,
+time steps and residual (`lv_fsi_compare2.log:256, 310, 364, 418, 464`), each
+convergence log is byte-identical (`lv_fsi_compare2.log:232, 286, 340, 394`), and
+the verdict is `FSI: 5 of 5 identical`, exit 0 (`lv_fsi_compare2.log:2-6, 494-500`).
+The window-3 result is **equal**: grouped coupled points reproduce the points run
+alone after the log-split correction of window 2.
 
 ## Limits
 
@@ -135,6 +139,6 @@ comparison definition, not proof that entire records or files are byte-identical
 The acoustic termination is localized to opening/setup of the next polar, not
 to a proven individual command. Section persistence is supported by the saved
 scripts and doubled products, not a separate isolated solver experiment.
-The time-average repeat and the coupled comparison retain their failing exact
-verdicts. No requirement status is promoted from implemented to verified by this
+The time-average repeat retains its failing exact verdict; the coupled first
+pass is kept with the reason it failed. No requirement status is promoted from implemented to verified by this
 report.
