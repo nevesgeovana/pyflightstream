@@ -62,7 +62,7 @@ FlightStream versions.
   scripts (FR-359) and the CCS mesh probe judges (FR-401) are likewise
   verified offline and wait for a licensed run.
 
-- `pyfs-qa apply-compat` writes a 26.124 row into a command's multi-line version block itself; in 0.35.0 the `SET_NEW_UNSTEADY_SOLVER_ACTION` row was folded by hand as the tool directs, and a tier-1 test checks it (FR-342).
+- **`pyfs-qa apply-compat` writing a 26.124 row into a command's multi-line version block itself is owed.** In 0.35.0 the `SET_NEW_UNSTEADY_SOLVER_ACTION` row was folded by hand as the tool directs, and a tier-1 test checks the result (FR-342).
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
