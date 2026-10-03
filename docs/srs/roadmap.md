@@ -88,6 +88,20 @@ functions), the readability pass of the documentation (one home per concept,
 the definitions page split), and the lines the 0.33.0 plan of GEO-066 held,
 in GEO-071 section 4.
 
+## The 0.36.0 structural work
+
+The pending architecture decisions state the cuts and their evidence.
+Every row keeps AD-15's evolution policy and the v0.35.1 parity contract
+of NFR-40; no structural move alone changes behaviour.
+
+| Release | Work package | Content | Architecture decision |
+|---|---|---|---|
+| 0.36.0 | WP7 | Workspace record model, matrix layout and three registries out of the root; G1 exit and G8 reduction | AD-19 |
+| 0.36.0 | WP9c | `resolve_matrix` phased over a private `_Binding` context; `workspace/matrix.py` leaves G1 | AD-20 |
+| 0.36.0 | WP9d | Private matrix layouts and upgrader; every moved line type-clean | AD-21 |
+| 0.36.0 | WP10a | `run_campaign`, `_execute_point`, `_execute_sweep` and `LoadsAssessor.__call__` decomposed within G2 | AD-22 |
+| 0.36.0 | WP10b | `_rotor_tables`, `_write_the_products`, `_campaign_products` and `_point_reductions` decomposed within G2 | AD-23 |
+
 ## Open lines
 
 | Line | Content | Gate |

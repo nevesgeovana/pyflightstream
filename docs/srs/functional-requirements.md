@@ -9532,6 +9532,7 @@ Requirements written after the specification was last reconciled with the packag
 
     - R1 Collect shall cut a coupled point's log from its own segment, without the preamble of its polar's first point, because its own segment opens the model.
     - R2 A coupled row on `steady` or `qsteady_rotor` stays left out as a steady row: its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once and is ended by any line after it (`cases/fsi_workspace.py`, `emit_steady_aeroelastic_analysis` and `refuse_lines_after_steady_analysis`), and the run stops its process on the completion line, so no point can follow it in one instance. `unsteady_rotor` refuses FSI alone and grouped alike (`FSI_ROTOR_IN_DEBUG`).
+      Amended by FR-410 (0.36.0).
     - R3 A job without a coupled point shall be byte-for-byte the job of 0.35.0.
 
     Rationale: `REMOVE_INITIALIZATION` keeps the model loaded, and with it the mesh an earlier point's coupling morphed; reopening the geometry from its pristine file (FR-378) is the transition that cannot carry a deformation. The post-processing script names its targets relative to the folder a point run alone runs in, which the job's process does not run in.
@@ -9552,3 +9553,32 @@ Requirements written after the specification was last reconciled with the packag
     Rationale: A matrix row must be refused with an actionable row error before two points can share one run identity.
 
     Verification: tier 1, `tests/tier1_offline/test_p0351_bwsw.py`, carrying the marker P0351-SWEEP-DUPLICATE (FR-408); release 0.35.1.
+
+!!! requirement "FR-409 API and capability maturity <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: A reader of the API reference must be able to find the maturity of every public module in one place.
+
+    Requirement: Every public module of `pyflightstream` shall have exactly one maturity level in one committed table, rendered by the API reference.
+
+    - R1 The level is exactly one member of `{stable, provisional, experimental, internal}`.
+    - R2 Both set differences are empty: public modules minus table rows, and table rows minus public modules. A repeated module row is refused even if its levels agree.
+    - R3 The API reference renders the committed table rather than maintaining another list.
+
+    Verification: tier 1, a test carrying P0360-MATURITY and FR-409 checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
+
+!!! requirement "FR-410 Coupled steady and quasi-steady rows in grouped modes, conditional on the licensed probe <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: A coupled row on `steady` or `qsteady_rotor` must join the grouped modes when the solver permits it, or carry a measured reason why it cannot.
+
+    Requirement: The licensed GF probe shall decide between branches (a) and (b) below: decided by the probe; the branch not taken is withdrawn.
+
+    - R1 Branch (a): a coupled row on `steady` or `qsteady_rotor` joins `--batch` and `--polar-sweep`. Each coupled point enters with `NEW_SIMULATION` + `OPEN` of the pristine geometry, including a point following one of its own polar, so no deformation is inherited.
+    - R2 Branch (a): a job without such a coupled steady or quasi-steady row is byte-for-byte the job of 0.35.1. An RPT compares at least 4 points in 2 polars grouped versus alone on FlightStream 26.124, far field 5, with receipt `lv/fsi_steady.json`.
+    - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming the RPT that measured why. The proof is `fsi_steady_infeasible.json`, with log `path:line` citations, and a tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
+    - R4 This requirement conditionally amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference.
+
+    Verification: tier 1, tests carrying P0360-BATCH-FSI-STEADY and FR-410 exercise the selected branch and its unchanged control; the licensed GF probe and its RPT supply either the grouped-versus-alone comparison and `lv/fsi_steady.json` of R2, or the infeasibility proof and cited logs of R3. Neither branch is claimed as measured by this pending requirement. Release 0.36.0.

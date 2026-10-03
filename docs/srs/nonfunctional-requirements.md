@@ -1146,3 +1146,135 @@
     - R7 The writers that produce CRLF on Windows in 0.33.0 are measured
       at the start of the work package (the writer census) and listed in
       its record, with the platforms the measurement ran on.
+
+!!! requirement "NFR-33 One home per documentation topic <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: A topic must have one defining paragraph, so its explanations cannot drift between pages.
+
+    Requirement: Each topic below shall have the stated home; pointer pages shall link to it rather than repeat its defining paragraph. Page names are relative to `docs/` unless stated otherwise.
+
+    | Topic | Home page | Pointer pages |
+    |---|---|---|
+    | sync | `storage-and-sync.md` | `sync-folders-and-matrix-homes.md` |
+    | archive and restore | `restore-and-rebuild.md` | `continuation-recovery.md`, `pproc-artifact.md` |
+    | saved simulation | `continuation-recovery.md` | |
+    | evidence discipline | `docs/srs/philosophy.md` | |
+    | rotor facts | the rotor family page of the definitions split (NFR-34) | |
+    | entry pages | `index.md` (the single entry page) | |
+
+    - R1 A topic's defining paragraph exists only on its home page.
+    - R2 Every pointer page links to the home for the definition; the rotor home is the family page produced by NFR-34.
+
+    Verification: tier 1, a guard carrying P0360-DOC-ONE-HOME and NFR-33 checks the home table, definitions and pointer links, with a duplicated defining paragraph planted on a pointer page as its failing control. Release 0.36.0.
+
+!!! requirement "NFR-34 The definitions split preserves every anchor <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Readers must be able to use a focused definitions page without losing existing links or code and test pins.
+
+    Requirement: `docs/post-processing-definitions.md` shall become an index page that stays the definition of record, with one page per top-level (`##`) family.
+
+    - R1 Every one of the original 53 heading slugs stays resolvable from `post-processing-definitions.md`, through an anchor per old slug on the index or a redirect section linking to the family page.
+    - R2 Every code and test pin keeps its anchor value and names the new family page. Moving a pin changes its target page only, never the anchor value.
+
+    Verification: tier 1, tests carrying P0360-DOC-DEFINITIONS-SPLIT and NFR-34 resolve a pre-split fixture of all 53 slugs, check one page per `##` family, and check every code and test pin's page and unchanged anchor. A removed anchor and a stale page pin are failing controls. Release 0.36.0.
+
+!!! requirement "NFR-35 The mesh inputs split preserves every anchor <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Mesh instructions, reference details and examples must be independently readable while existing links keep working.
+
+    Requirement: `docs/mesh-inputs.md` shall be split into how-to, reference and example pages.
+
+    - R1 Every one of its original 31 heading slugs remains resolvable from `mesh-inputs.md`.
+    - R2 The original page links each preserved heading to its destination in the split.
+
+    Verification: tier 1, tests carrying P0360-DOC-MESH-SPLIT and NFR-35 check the three page roles and resolve the pre-split fixture of all 31 slugs, with a removed anchor as a failing control. Release 0.36.0.
+
+!!! requirement "NFR-36 No version narrative on reference pages <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Reference pages must state the current contract without a narrative of earlier releases.
+
+    Requirement: The following case-insensitive regex shall match nothing on any `docs/*.md` page except `migrating-to-*.md`, `release-notes.md` and `upgrading.md`; this is the reference-page set for this requirement.
+
+    ```text
+    \b(since|until|before|from|as of)\s+v?0\.\d+(\.\d+)?\b|\b(added|new|introduced|changed|removed|renamed)\s+in\s+v?0\.\d+
+    ```
+
+    - R1 The guard applies that exact regex, case-insensitively, to every page in the stated glob with only the three stated exclusions; its accepted match count is zero.
+    - R2 The baseline measured on 2026-10-03 at W0 (`42cf219a`) is 242 matching lines across 51 eligible pages, counting a line once even when it contains several matches. The approximate S1 count of 297 is not the measured baseline for this regex and page set.
+
+    Verification: tier 1, a guard carrying P0360-DOC-NARRATIVE and NFR-36 checks zero matches and fails on a planted matching phrase on a reference page; an excluded migration page is the unchanged control. Release 0.36.0.
+
+!!! requirement "NFR-37 The upgrading index and frozen release records <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Readers must find every migration record from one index and know that release records are frozen.
+
+    Requirement: `docs/upgrading.md` shall list every `docs/migrating-to-*.md` page, and every migration page and `docs/release-notes.md` shall carry the frozen-record line below.
+
+    - R1 The index's migration-page count equals the glob count, with each glob member listed exactly once and no nonexistent migration page listed.
+    - R2 Each migrating page and `release-notes.md` carries the exact line `> Frozen record: not edited after its release.`
+
+    Verification: tier 1, tests carrying P0360-DOC-UPGRADING and NFR-37 compare the index to the glob and check the exact line on each record; a missing index entry and a missing frozen line are failing controls. Release 0.36.0.
+
+!!! requirement "NFR-38 Requirement ids belong in the test functions that prove them <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: A module-level claim must not stand for evidence that no test function identifies.
+
+    Requirement: An FR or NFR id named by a tier-1 test module only in a module comment or module docstring, and in no test function's own source, shall fail a guard.
+
+    - R1 The guard uses an AST scan of tier-1 test modules to identify test functions and reads each function's own source, including its docstring.
+    - R2 A module-only id fails; the same id in a test function's own source satisfies this placement rule. Placement alone does not prove the requirement's behaviour.
+
+    Verification: tier 1, a guard carrying P0360-FR-IN-FUNCTIONS and NFR-38, with planted module-comment-only and module-docstring-only controls that fail, and a function-local control that passes. Release 0.36.0.
+
+!!! requirement "NFR-39 Shared test helpers have one support module <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*
+
+    Need: The shared helpers named by review rows A1 and A2 must not drift between test modules.
+
+    Requirement: The helpers named by the 0.33 review rows A1 and A2 shall live in one module under `tests/tier1_offline/support/` and shall not be redefined elsewhere.
+
+    - R1 Every test needing those helpers imports them from that one support module.
+    - R2 A second definition of any of those helpers outside that module is refused.
+
+    Verification: tier 1, tests carrying P0360-RV-A1 and P0360-RV-A2 with NFR-39 check the single home and its consumers; a planted duplicate helper is a failing control. Release 0.36.0.
+
+!!! requirement "NFR-40 No behaviour change for structure <span class='srs-pending'>pending</span>"
+
+    *Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Structural work must preserve the results and observable behaviour of v0.35.1.
+
+    Requirement: The emitted scripts (per point and grouped job scripts), product bytes, records, console text and exit codes of 0.36.0 shall be identical to v0.35.1 except where a requirement names the difference.
+
+    - R1 Every named difference cites its FR id and appears in `docs/migrating-to-0.36.0.md`; a structural move alone authorizes no difference. AD-15's evolution policy applies with v0.35.1 as this release's baseline.
+    - R2 `scripts/check_parity.py` uses `PREVIOUS = "v0.35.1"` and compares both workspaces. The products snapshot also compares the product bytes. The parity rule's file pattern is limited to the files of the named difference, so an unrelated changed file cannot pass under that rule (review row O7-QA-1).
+    - R3 The licensed parity reproduction is an RPT on FlightStream 26.124, build 8172026, never identified by an executable hash. It uses far field 5, records `farfield_layers = 5`, and records a run window not overlapping another solver run.
+    - R4 The reproduction is nondimensional: every status, iteration and step count is equal, and every coefficient, section, probe and reduction table is identical in every cell, as RPT-113 did. The report states the comparison population and the measured result; a pending requirement is not evidence of equality.
+
+    Verification: tier 1, tests carrying P0360-NOBEHAVIOUR and NFR-40 check the parity contract and products snapshot, with a planted difference as a failing control. P0360-RV35-O7-QA-1 with NFR-40 checks the parity rule's file pattern with an unrelated changed file as its failing control. `scripts/check_parity.py`, the products snapshot and the licensed RPT of R3 and R4 together verify the release. Release 0.36.0.
+
+!!! requirement "NFR-41 Tier-1 tests never import the licensed tier <span class='srs-pending'>pending</span>"
+
+    *Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*
+
+    Need: Offline verification must not depend on a licensed test tier.
+
+    Requirement: No `tests/tier1_offline` module shall import `tests.tier3_licensed` or any other licensed-tier module.
+
+    - R1 The rule covers module-level and deferred imports throughout `tests/tier1_offline`, including imports used only for annotations.
+    - R2 Shared test support is imported without a licensed-tier dependency.
+
+    Verification: tier 1, a guard carrying P0360-RV35-C2-ARCH-1 and NFR-41 scans imports and fails on a planted import of a licensed-tier module. Release 0.36.0.

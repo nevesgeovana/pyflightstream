@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 357,
-  "total": 416,
+  "total": 427,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3048,6 +3048,22 @@
    "verification": "test"
   },
   {
+   "id": "FR-409",
+   "text": "Need: A reader of the API reference must be able to find the maturity of every public module in one place.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-410",
+   "text": "Need: A coupled row on steady or qsteady_rotor must join the grouped modes when the solver permits it, or carry a measured reason why it cannot.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
    "id": "NFR-01",
    "text": "The package is didactic by construction: NFR-01a to NFR-01d state what that means in four claims.",
    "priority": "M",
@@ -3333,6 +3349,78 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author decision of 2026-10-01 to standardise LF in every product (scope record GEO-071, section 4.10), a behaviour change with a migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039, arm LF). Built on 2026-10-01; the status stays pending until accepted. Evidence: tests/tier1_offline/test_p0340_lf_products.py (R2 by the walk of src/ and its twenty-eight planted bypasses, R1 and R3 by the route and by campaigns and emitted scripts posted with text mode forced to CRLF, with a bypassed route as the control, R4 by the parity comparison, R5 by the change-log fragment, R7 by the census note), scripts/lf_products_check.py, and reports/RPT-140_text-writers-crlf-census_2026-10-01.md (the writer census of R7, measured on win32). Verification method: a tier-1 guard carrying the marker, with a planted control; the products snapshot judged on both platforms; the parity receipt of the release; and, for the files the solver reads, the licensed runs of R6. Evidence owed: the writer census of R7; a guard that walks src/ and refuses a text write that bypasses the one LF route, with a planted bypass as its control; a test that a campaign posted on Windows holds no CR byte in any product and that its emitted scripts hold none, run with text mode forced to write CRLF as Windows does, so that it fails on Linux too when a writer bypasses the route; the products snapshot comparing line ends on Linux and Windows, which is evidence of the ci.yml matrix (the windows-latest runner), not of a Linux-only tier 1; the parity receipt naming the difference under this requirement; the paragraph of the migration page.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-33",
+   "text": "Need: A topic must have one defining paragraph, so its explanations cannot drift between pages.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-34",
+   "text": "Need: Readers must be able to use a focused definitions page without losing existing links or code and test pins.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-35",
+   "text": "Need: Mesh instructions, reference details and examples must be independently readable while existing links keep working.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-36",
+   "text": "Need: Reference pages must state the current contract without a narrative of earlier releases.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-37",
+   "text": "Need: Readers must find every migration record from one index and know that release records are frozen.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-38",
+   "text": "Need: A module-level claim must not stand for evidence that no test function identifies.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-39",
+   "text": "Need: The shared helpers named by review rows A1 and A2 must not drift between test modules.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-40",
+   "text": "Need: Structural work must preserve the results and observable behaviour of v0.35.1.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-41",
+   "text": "Need: Offline verification must not depend on a licensed test tier.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*",
    "verification": "none"
   }
  ]

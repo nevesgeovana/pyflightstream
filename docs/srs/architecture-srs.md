@@ -622,16 +622,17 @@ one of them keeps.
     0.33.0 section of this chapter; the receipt of the release is
     produced on the release commit.
 
-### The 0.34.0 architecture decisions
+### The architecture decisions shipped in 0.34.0
 
 The decisions below are the three cuts of the 0.34.0 scope (scope record
 GEO-071, section 4.11; the release goal GOAL-039, arms W8 and W9): only
 the cuts that the release's features must wait for, by the rule that a
 module or function in the size tables of AD-08 may only shrink, so a
 feature that would add lines to one lands after its cut, in the cut's new
-home. The other cuts the architecture review GEO-072 proposed are 0.35.0
-work. Each decision is pending until its work package lands and is
-accepted; each keeps everything 0.33.0 does, under the evolution policy of
+home. The remaining cuts are now specified for 0.36.0 in AD-19 to AD-23.
+AD-16 to AD-18 shipped in 0.34.0; their named modules are tracked at HEAD
+(`42cf219a`, checked with `git ls-files` on 2026-10-03), and their statuses
+are reconciled to implemented. Each keeps everything 0.33.0 does, under the evolution policy of
 AD-15 carried into 0.34.0 (every public path and every `__all__` in content
 and order kept, a facade may re-export a private name under the G5
 ratchet until the tag and none re-exported through a facade at the tag
@@ -640,7 +641,7 @@ proved by the oracles of the review (the 29 goldens, the tier-3 golden
 diff, the products snapshot, the record fixtures and
 `scripts/check_parity.py`), run in the commit that could break them.
 
-!!! decision "AD-16 The models of the cases root leave for six modules <span class='srs-pending'>pending</span>"
+!!! decision "AD-16 The models of the cases root leave for six modules <span class='srs-implemented'>implemented</span>"
     *Work package WP8 of the 0.34.0 scope (GEO-072, section 4.6), which
     lands before WAKE-LENGTH (FR-321 to FR-325) because `SolverSettings`
     holds the wake keys. Evidence owed: G1 for `cases/__init__.py` (under
@@ -737,7 +738,7 @@ diff, the products snapshot, the record fixtures and
     are left to the 0.35.0 cuts that open those files. The API reference
     pages and the six modules' own docstrings cite the new modules.
 
-!!! decision "AD-17 The solver settings are emitted by family, behind the facade of solver_settings <span class='srs-pending'>pending</span>"
+!!! decision "AD-17 The solver settings are emitted by family, behind the facade of solver_settings <span class='srs-implemented'>implemented</span>"
     *Work package WP9a of the 0.34.0 scope (GEO-072, section 4.7), which
     lands before WAKE-LENGTH because the wake emission is in
     `solver_settings`. Evidence owed: `script/helpers.py` out of the G1
@@ -811,7 +812,7 @@ diff, the products snapshot, the record fixtures and
     keyword; the public path of every moved name), and the goldens of
     tests/tier1_offline/test_workflows.py unchanged.
 
-!!! decision "AD-18 The parser of pyfs-matrix is built by family, and run/cli.py leaves its size exemption <span class='srs-pending'>pending</span>"
+!!! decision "AD-18 The parser of pyfs-matrix is built by family, and run/cli.py leaves its size exemption <span class='srs-implemented'>implemented</span>"
     *Work package WP9b of the 0.34.0 scope (GEO-072, section 4.7), which
     lands before the run-usability commands (FR-326, FR-327) and the
     thin-blade command (FR-330). Evidence owed: `run/cli.py` under 1000
@@ -853,6 +854,104 @@ diff, the products snapshot, the record fixtures and
     functions of plan and of the storage commands moved to `run/_cli_print.py`.
 
     Evidence: tests/tier1_offline/test_p0340_cli_cut.py.
+
+### The 0.36.0 architecture decisions
+
+The five cuts below remain pending until their work packages and evidence
+land. Each carries AD-15's evolution policy into 0.36.0: every public path
+and every `__all__` in content and order is kept, private facade re-exports
+remain under G5 and are retargeted before the tag, and each package and the
+integration have a recount. NFR-40 is the no-behaviour-change clause, with
+v0.35.1 as the baseline for scripts, products, records, console text and
+exit codes. A named difference needs its FR id and migration entry.
+
+!!! decision "AD-19 WP7 The workspace root becomes a facade over its record, layout and registries <span class='srs-pending'>pending</span>"
+    *Work package WP7 of 0.36.0. Verification is owed: the public-path
+    comparison, the G1 and G8 recount, the layer guards and NFR-40 parity.*
+
+    The record model moves to `workspace/manifest.py`, the matrix layout
+    to `workspace/_layout.py`, and the three registries (post stages,
+    post diagnostics and input guides) to `workspace/registries.py`.
+    `workspace/__init__.py` keeps every public import path under AD-15's
+    evolution policy. It leaves the G1 table, and its G8 facade lines
+    fall by at least the code moved out; neither baseline grows.
+    NFR-40 governs every observable output of the cut.
+
+    ARCH-3: AD-01's order is `run` above `workspace` above `cases` above
+    `script` and `results`. A module-level import by `workspace` of
+    `cases.matrix` or `cases.workflows` is DOWNWARD and legal. It is
+    pinned by NFR-23's module-level guard,
+    `tests/tier1_offline/test_goal028_module_level_layering.py::test_no_module_level_import_reaches_a_higher_layer`,
+    whose legitimate-shapes control includes `workspace` importing
+    `cases.matrix`. The work package extends that control to both named
+    edges and an upward-import failing control, alongside AD-08 G3;
+    `test_architecture_metrics.py::test_the_workspace_to_run_count_is_an_exact_ratchet`
+    keeps `workspace` to `run` at zero. Cross-package consumers use
+    public re-exports, including `cases.workflows` and `workspace.ledger`,
+    never another package's private modules.
+
+!!! decision "AD-20 WP9c Matrix binding is phased over one private context <span class='srs-pending'>pending</span>"
+    *Work package WP9c of 0.36.0. Verification is owed: the G1 recount,
+    the binding and record fixtures, the layer guards and NFR-40 parity.*
+
+    `workspace/matrix.py::resolve_matrix` is decomposed into phases over
+    one `_Binding` context in private `workspace` modules, and
+    `workspace/matrix.py` leaves G1. The phase module names are listed
+    here when the work package lands; this pending decision assigns none.
+    Every public path is kept under AD-15's evolution policy, and NFR-40
+    preserves scripts, products, records, console text and exit codes.
+
+    ARCH-3 has the same answer as AD-19: AD-01 places `workspace` above
+    `cases`, so module-level imports of `cases.matrix` and
+    `cases.workflows` are legal downward edges. The NFR-23 guard and the
+    AD-08 G3 controls named in AD-19 pin that direction; moving binding
+    into private modules does not permit an import of `run` or a
+    cross-package reach into a private module.
+
+!!! decision "AD-21 WP9d Matrix layouts and upgrading have private homes <span class='srs-pending'>pending</span>"
+    *Work package WP9d of 0.36.0. Verification is owed: the layout and
+    upgrade fixtures, the type-check exemption ratchet and NFR-40 parity.*
+
+    The column layouts of `cases/matrix.py` move to
+    `cases/_matrix_layouts.py`, and the upgrader moves to
+    `cases/_matrix_upgrade.py`. Both are private modules below the
+    `cases.matrix` entry point; neither imports that entry point back.
+    They remain in the cases layer of AD-01. Every moved line is
+    type-clean, and the mypy exemption list shrinks or stays unchanged,
+    as NFR-27 requires; no extraction earns a new exemption.
+    AD-15's evolution policy keeps every public path, and NFR-40 keeps
+    the emitted scripts, product bytes, records, console text and exit
+    codes unchanged except for a named requirement's difference.
+
+!!! decision "AD-22 WP10a The long run functions are decomposed within G2 <span class='srs-pending'>pending</span>"
+    *Work package WP10a of 0.36.0. Verification is owed: the G2 recount,
+    the run and assessment fixtures, and NFR-40 parity.*
+
+    `run_campaign`, `_execute_point`, `_execute_sweep` and
+    `LoadsAssessor.__call__` are decomposed into private helpers in
+    `run/`. The work package chooses the module names and lists them in
+    this decision when it lands. Every resulting function is within
+    AD-08 G2: complexity 10, branches 12, statements 50 and positional
+    arguments 5, with no raised baseline. The modules obey the run
+    package's guarded order and AD-01's layer direction.
+    AD-15's evolution policy keeps every public path, and NFR-40 is the
+    no-behaviour-change clause. This decision imposes no order between
+    the GF probe and WP10a work in `run/_batch_plan.py`.
+
+!!! decision "AD-23 WP10b The long post functions are decomposed within G2 <span class='srs-pending'>pending</span>"
+    *Work package WP10b of 0.36.0. Verification is owed: the G2 recount,
+    the products snapshot and NFR-40 parity.*
+
+    `_rotor_tables`, `_write_the_products`, `_campaign_products` and
+    `_point_reductions` are decomposed into private helpers in `post/`,
+    each within AD-08 G2 (complexity 10, branches 12, statements 50 and
+    positional arguments 5), with no raised baseline. The helper module
+    names are recorded here when the work package lands. The modules
+    stay in the post layer and obey AD-01.
+    AD-15's evolution policy keeps every public path. NFR-40 is the
+    no-behaviour-change clause: the products snapshot and parity
+    comparisons must preserve product bytes as well as scripts,
+    records, console text and exit codes.
 
 ## Command-line surface
 

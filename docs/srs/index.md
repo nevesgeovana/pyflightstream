@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.69.1 |
+| Version | 1.70.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,9 +41,9 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-408, each with origin, status, and evidence.
+   FR-410, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-32.
+   NFR-01 to NFR-41.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.70.0 | 2026-10-03 | The 0.36.0 S1 requirements: FR-409 and conditional FR-410, NFR-33 to NFR-41, all pending with their verification obligations; FR-407 R2 points to its conditional amendment. AD-16 to AD-18 are reconciled to implemented from their tracked modules and shipped evidence; AD-19 to AD-23 specify the five pending structural work packages under AD-15 and NFR-40, with the ARCH-3 downward-edge answer and roadmap mappings. The 0.36.0 marker map is completed and the requirement ranges and generated index are refreshed. |
 | 1.69.1 | 2026-10-02 | **THE QUERY VERBS AND THE OTHER 0.35.0 REQUIREMENTS ARE WRITTEN BEFORE THEY ARE BUILT, FR-379 TO FR-399; THIS ROW MOVES NO STATUS.** FR-379 to FR-394 specify `pyfs-matrix status` by polar with its selection, its planned points and its freshness footer, one effective record per datapoint, read-only queries, recorded words, machine output, `show`, `log`, the Python mirror `pyflightstream.workspace.ledger`, `trace`, `history`, `diff`, `log --storage`, `status --additional` and the coupled-run block of `show`; FR-395 the run id alias `<sim>_<index>`; FR-396 the continuation fix (RPT-134); FR-397 the post writing no `archive/` folder by default; FR-398 the cost file; FR-399 the nested pytest runs. FR-318 gains clause R6 (the vorticity drag list before `START_SOLVER`, RPT-133) and FR-96 a forward reference to FR-396; its known-defect line stays until the fix ships. Every requirement is pending, with its P0350 marker in `docs/srs/markers-0350.json`. |
 | 1.69.0 | 2026-10-02 | **THE 0.35.0 BATCHED CLUSTER RUNS ARE WRITTEN BEFORE THEY ARE BUILT, AND THE FUNCTIONAL RANGE READS FR-01 TO FR-378.** For the release goal GOAL-040 (arms BP, BR and BC), FR-350 to FR-378 are added, all pending: `run --polar-sweep` and `run --batch <n>` (FR-350, FR-351); the transitions inside one instance, the solver initialization removed between two points of a polar and the instance refreshed between two polars, the actions registered once and the clock state reset at each point (FR-352 to FR-355); the per-point scripts kept as the record, the job script names, the package-assigned batch ID and working directory, absolute paths, the datapoint folders created first (FR-356 to FR-361); `plan --batch <n>`, its split, estimate, walltime with `max_walltime`, table and receipt (FR-362 to FR-365, FR-377); the records of a batched point, `collect` copying while a batch runs and moving once it ended, the log sliced per point, one wall clock and the points never started (FR-366 to FR-371); the transparency of every other command (FR-372); node-local running with a site sync flag as one entry of the profile's submit list (FR-373); the sims inside the batch folder while it runs (FR-374); `--local` with both modes and `run` without a post (FR-375, FR-376); and the refusal of a batch whose geometry to open carries saved unsteady actions (FR-378). Each marker of the three arms is mapped to its requirement ids in `docs/srs/markers-0350.json`. FR-350 to FR-378 follow FR-349 (revision 1.68.5); no existing requirement text changes and no status moves. The R-items that resolve a design reading (FR-350 R1, FR-362 R1 and R2, FR-363 R1, FR-364 R1 to R3, FR-367 R1 and R2, FR-368 R1, FR-373 R1) are proposals and stay pending until accepted. |
 | 1.68.8 | 2026-10-02 | **FR-348, THE FACE COUNT OF A GEOMETRY IN ITS INVENTORY AND IN THE LAST COLUMN OF THE SUPER FILE AND THE UNSTEADY POLAR, IS WRITTEN AND BUILT; THIS ROW MOVES NO STATUS.** By the author decision of 2026-10-01 the wave-2 package MESHFACES of GOAL-039 adds FR-348, pending: the inventory states `mesh_faces`, `boundary_faces` where the reader gives it, and the `mesh_sha256` of the file counted; the two products carry `MESH_FACES` last, from the inventory of each row's geometry whenever it states the count, `NA` otherwise, the post log warning where its digest is not the run's (the integration decision of 2026-10-02 following her words), and the post never counts. The parity script and the products snapshot name the column under FR-348. FR-348 sits between FR-347 (revision 1.68.7) and FR-349 (revision 1.68.5), inside the functional range FR-01 to FR-349. After the adversarial reading of the package the box quotes her decision and records the sha256 gate of R3 as decided on her behalf, R4 names the super file measurement report, R6 names the super file's `legacy_polar` form, and the evidence names the test of the digests taken before and after the count. |
