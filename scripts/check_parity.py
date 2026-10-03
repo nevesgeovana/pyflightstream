@@ -454,8 +454,11 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
         "*_g[0-9][0-9].dat",
         r"\A((?:[^\n]*\n){2})[A-Z][a-z]{2} [A-Z][a-z]{2} \d\d \d\d:\d\d:\d\d  \d{4}(?=\r?\n)",
         r"\1<TIME>",
-        "line 3 of a custom polar group file is its write time by definition (FR-94, "
-        "post/custom_polar.py); measured 2026-10-03 as the only difference of 305 such files",
+        "line 3 of a custom polar group file is its write time by definition (the "
+        "format's specification PFS-2014.01.02, post/custom_polar.py "
+        "write_custom_polar_format); measured 2026-10-03: the research-corpus parity "
+        "receipt of the 0.35.1 candidate 20d23064 listed 305 differing files, every one "
+        "a *_gNN.dat file differing on that line only",
     ),
 ]
 
