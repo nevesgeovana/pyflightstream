@@ -2,12 +2,15 @@
 
 Marker P0351-BATCH-STEADY (FR-403). No solver runs here. The matrix is the
 synthetic rotor rig of the matrix tests: its steady row 7002 (two points) and a
-copy of it, 7004, at other incidences; the mixed matrix adds the unsteady rotor
-row 7001. A steady point after an unsteady one in one instance is not measured,
+copy of it, 7004, at other incidences, or sweeping the Reynolds number (a flow
+state, whose points differ before ``SOLVER_SET_AOA``); the mixed matrix adds
+the unsteady rotor row 7001. A steady point after an unsteady one in one instance is not measured,
 so the plan splits the two kinds into jobs of their own. Inside a steady job a
 later point of a polar is restated from ``SOLVER_SET_AOA`` after
 ``REMOVE_INITIALIZATION``, and the first point of a later polar after
-``NEW_SIMULATION``, exactly as an unsteady job restates its points.
+``NEW_SIMULATION``, exactly as an unsteady job restates its points; a later
+point that differs before that anchor reopens its geometry after
+``NEW_SIMULATION`` too.
 
 The collect test runs the job through a stand-in solver that writes every save
 and export target the script names, the loads table at the point's incidence,
@@ -40,7 +43,7 @@ from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run._batch_plan import eligibility, plan_grouped_matrix
 from pyflightstream.run._batch_split import PolarUnit, split_polars
 from pyflightstream.run.collect import collect_once
-from pyflightstream.run.matrix import run_matrix
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_matrix_run import FIXTURES
 from tests.tier1_offline.test_p0350_batch_run import (
@@ -63,6 +66,12 @@ POINTS = (
     ("7004", "V0300RE120AL+000"),
     ("7004", "V0300RE120AL+040"),
 )
+#: The transitions of the job's points after its first: 7004 at other incidences, or
+#: sweeping the Reynolds number, whose second point differs in its fluid.
+TRANSITIONS = {
+    False: ["REMOVE_INITIALIZATION", "NEW_SIMULATION", "REMOVE_INITIALIZATION"],
+    True: ["REMOVE_INITIALIZATION", "NEW_SIMULATION", "NEW_SIMULATION"],
+}
 #: The batch folder of the steady job, relative to the workspace root.
 HOME = f"sims/batch/{MATRIX}_b1/"
 #: The recorded log of a steady job on 26.124, the source of one synthetic solve.
@@ -81,14 +90,22 @@ def _placed(row: str) -> str:
     return row
 
 
-def _matrix(tmp_path: Path, *, unsteady: bool = False) -> Path:
-    """Steady 7002 (0 and 2 deg) and 7004 (0 and 4 deg); with ``unsteady``, rotor 7001 first."""
+def _matrix(tmp_path: Path, *, unsteady: bool = False, flow: bool = False) -> Path:
+    """Steady 7002 (0 and 2 deg) and 7004 (0 and 4 deg, or REmi 1.2 and 1.5 with ``flow``).
+
+    With ``unsteady``, the rotor row 7001 first.
+    """
     header, rule, *rows = (
         (FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8").splitlines()
     )
     steady = _placed(next(row for row in rows if row.startswith("7002")))
-    assert "| 0.0,2.0        |" in steady, steady
-    kept = [steady, steady.replace("7002 ", "7004 ", 1).replace("0.0,2.0 ", "0.0,4.0 ")]
+    assert "| 0.0,2.0        |" in steady and "REmi:1.20, ALPHA:sweep" in steady, steady
+    other = steady.replace("7002 ", "7004 ", 1).replace("0.0,2.0 ", "0.0,4.0 ")
+    if flow:
+        other = other.replace("REmi:1.20, ALPHA:sweep", "REmi:sweep, ALPHA:0.0").replace(
+            "0.0,4.0 ", "1.2,1.5 "
+        )
+    kept = [steady, other]
     if unsteady:
         kept.insert(0, _placed(next(row for row in rows if row.startswith("7001"))))
     matrix = tmp_path / f"{MATRIX}.fs"
@@ -111,11 +128,21 @@ def _plan(workspace, matrix, *, batch: int = 1):
         )
 
 
-def _alone(tmp_path: Path, executor_of=None):
+def _points(workspace, matrix) -> list[tuple[str, str]]:
+    """The (sim, point name) of every point of the matrix, in matrix order."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_matrix(
+            matrix, workspace, name=MATRIX, recipes={}, recipe_registry=workflow_registry()
+        )
+    return [(entry.sim_id, entry.run_id.rsplit("/", 1)[1]) for entry in plan.points]
+
+
+def _alone(tmp_path: Path, *, flow: bool = False):
     """Run every point ALONE, one ``--sims S --points P`` run each; return the workspace."""
     workspace, profile, _ = _workspace(tmp_path)
-    matrix = _matrix(tmp_path)
-    for sim, tag in POINTS:
+    matrix = _matrix(tmp_path, flow=flow)
+    for sim, tag in _points(workspace, matrix):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             run_matrix(
@@ -207,7 +234,8 @@ def _alone_lines(workspace, sim: str, tag: str) -> list[str]:
     return _trimmed(lines[:-1])
 
 
-def test_p0351_steady_fr403_each_point_restates_the_alone_solver_section(tmp_path):
+@pytest.mark.parametrize("flow", [False, True], ids=["incidences", "flow-sweep"])
+def test_p0351_steady_fr403_each_point_restates_the_alone_solver_section(tmp_path, flow):
     """P0351-BATCH-STEADY (FR-403): every block of the job is the point's alone script.
 
     The control is each point run ALONE (``--sims S --points P``, one script each).
@@ -216,18 +244,25 @@ def test_p0351_steady_fr403_each_point_restates_the_alone_solver_section(tmp_pat
     polar is ``REMOVE_INITIALIZATION`` then its alone script from its solver
     section on (``SOLVER_SET_AOA``: the settings, the initialisation, the solve,
     the exports), the geometry, frames and fluid before it being its polar's
-    first point's, line for line. Each comparison reads the point's folder as
-    its alone script names it and its cumulative log as its declared log.
+    first point's, line for line. A later point of the Reynolds sweep differs in
+    its fluid, before that anchor, so it reopens its geometry: ``NEW_SIMULATION``
+    then its alone script whole, and the plan says so. Each comparison reads the
+    point's folder as its alone script names it and its cumulative log as its
+    declared log.
     """
-    alone = _alone(tmp_path / "alone")
+    alone = _alone(tmp_path / "alone", flow=flow)
     workspace, profile, _ = _workspace(tmp_path / "grouped")
-    matrix = _matrix(tmp_path / "grouped")
-    _plan(workspace, matrix)
+    matrix = _matrix(tmp_path / "grouped", flow=flow)
+    points = _points(workspace, matrix)
+    plan = _plan(workspace, matrix)
+    assert plan.grouping.left_out == (), plan.grouping.left_out
+    reopened = [line for line in plan.grouping.warnings if "reopens its geometry" in line]
+    assert [line.split(":")[0] for line in reopened] == (["POL 7004"] if flow else [])
     _run(workspace, matrix, executor=_submitting(profile, submit=False))
     blocks = _blocks(_job_text(workspace))
-    assert len(blocks) == 4, [block[:1] for block in blocks]
+    assert len(blocks) == len(points) == 4, [block[:1] for block in blocks]
     seen = []
-    for block, (sim, tag) in zip(blocks, POINTS, strict=True):
+    for block, (sim, tag) in zip(blocks, points, strict=True):
         mine = _grouped_lines(block, workspace.root, sim, tag)
         theirs = _alone_lines(alone, sim, tag)
         solver = theirs.index(next(line for line in theirs if line.startswith("SOLVER_SET_AOA")))
@@ -239,11 +274,7 @@ def test_p0351_steady_fr403_each_point_restates_the_alone_solver_section(tmp_pat
         else:
             assert mine == theirs, (sim, tag)
         seen.append(theirs)
-    assert [block[0] for block in blocks[1:]] == [
-        "REMOVE_INITIALIZATION",
-        "NEW_SIMULATION",
-        "REMOVE_INITIALIZATION",
-    ]
+    assert [block[0] for block in blocks[1:]] == TRANSITIONS[flow]
 
 
 def test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind(tmp_path):
@@ -459,15 +490,18 @@ def test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone(tmp_path)
 
     The steady job runs locally through the stand-in, ``collect`` moves its
     polars home and cuts the job log into each point's own log; each point is
-    then judged by the package's own assessor. The control is each point
-    submitted alone, run through the same stand-in in its datapoint folder and
+    then judged by the package's own assessor. Polar 7004 sweeps the Reynolds
+    number, so its second point reopens its geometry inside its polar and its
+    log segment carries its own opening echo, which the cut does not repeat.
+    The control is each point submitted alone, run through the same stand-in in
+    its datapoint folder and
     collected the same way. Each grouped record equals its control but the named
     fields: the same CONVERGED status, outputs, ``outputs_sha256``, iterations,
     residual, log read and ``wall_time_s``, which is the solver run time of the
     point's sliced log, with that basis in ``submission.job.wall_time_basis``.
     """
     program = _stand_in(tmp_path / "solver")
-    alone = _alone(tmp_path / "alone")
+    alone = _alone(tmp_path / "alone", flow=True)
     for record in alone.read_manifest():
         folder = alone.sim_dir(record.sim_id) / record.submission["working_dir"]
         script = alone.sim_dir(record.sim_id) / record.script_path
@@ -476,7 +510,7 @@ def test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone(tmp_path)
 
     workspace, _profile, _ = _workspace(tmp_path / "grouped")
     (workspace.inputs_dir / "hpc" / "h001.toml").unlink()
-    matrix = _matrix(tmp_path / "grouped")
+    matrix = _matrix(tmp_path / "grouped", flow=True)
     _plan(workspace, matrix)
 
     class Solver(StubSolver):

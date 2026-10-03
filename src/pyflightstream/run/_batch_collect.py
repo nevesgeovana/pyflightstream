@@ -37,6 +37,7 @@ from pyflightstream.cases.workflows import (
     JOB_LOG_SUFFIX,
     WALLTIME_CLOCK_STATE,
 )
+from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, REINIT_VERB
 from pyflightstream.results.log import point_log_text, split_job_log
 from pyflightstream.run._pending import _walltime_stop
 from pyflightstream.workspace import (
@@ -343,6 +344,31 @@ def _write_log(point: _Point, source: Path, *, complete: bool, start: int) -> No
         _textio.write_text(target, body)
 
 
+def _opening_orders(workspace: CampaignWorkspace, job: JobEntry) -> tuple[int, ...] | None:
+    """Return the orders of a job's points that open their geometry, read off its script.
+
+    The job's first point and every point after a ``NEW_SIMULATION`` open the
+    geometry, and their log segment carries the opening echo; a point after a
+    ``REMOVE_INITIALIZATION`` takes it from the latest opening point before it.
+    A steady polar may reopen inside itself (FR-403), so the polar's first
+    point is not always the one. None when the script cannot be read or its
+    blocks do not count the job's points.
+    """
+    path = _job_dir(workspace, job) / PurePosixPath(job["script"]).name
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    opening, order = [1], 1
+    for line in lines:
+        word = line.strip()
+        if word in (REINIT_VERB, REFRESH_VERB):
+            order += 1
+            if word == REFRESH_VERB:
+                opening.append(order)
+    return tuple(opening) if order == job["points"] else None
+
+
 @dataclass
 class _Job:
     """One grouped job of the sweep: its entry, its records, and the step's context."""
@@ -353,9 +379,17 @@ class _Job:
     watch: _Watch
     notes: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
+    opening: tuple[int, ...] | None = None
 
     def polar_start(self, record: RunRecord) -> int:
-        """Return the order of the first point of the record's polar (its simulation)."""
+        """Return the order of the point whose segment opens the record's geometry.
+
+        The latest opening point at or before the record (:func:`_opening_orders`),
+        else the first point of its polar (its simulation).
+        """
+        entry = job_of(record)
+        if self.opening is not None and entry is not None:
+            return max(order for order in self.opening if order <= entry["order"])
         orders = [
             entry["order"]
             for member in self.members
@@ -535,7 +569,13 @@ def prepare_grouped_points(
         entry = job_of(submitted[0]) if submitted else None
         if entry is None:
             continue
-        job = _Job(job=entry, members=jobs[key], profile=profile, watch=watch)
+        job = _Job(
+            job=entry,
+            members=jobs[key],
+            profile=profile,
+            watch=watch,
+            opening=_opening_orders(workspace, entry),
+        )
         try:
             _sweep_job(workspace, job, submitted)
         except (OSError, WorkspaceError) as error:

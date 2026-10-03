@@ -39,6 +39,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.cases.workflows._batch_script import (
     JobPoint,
     job_point,
+    refreshes,
     refuse_a_second_initialization,
     refuse_unspliceable,
 )
@@ -83,6 +84,13 @@ from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 __all__ = ["eligibility", "grouping_table_lines", "plan_grouped_matrix"]
 
+#: The note a steady polar whose later points reopen their geometry earns (FR-403).
+_REOPENED = (
+    "POL {sim}: {count} later point(s) differ from the polar's first before SOLVER_SET_AOA "
+    "(a swept flow state or a turning free stream), so each reopens its geometry after "
+    "NEW_SIMULATION, as a new polar does (FR-403)"
+)
+
 #: The polar-sweep job's script stem: one job per polar, ``sims/sim_<id>/FULL-POLAR.txt``.
 _FULL_POLAR = "FULL-POLAR"
 
@@ -114,7 +122,9 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     not be), a RESTART row (it opens a datapoint's ``.fsm``), an FSI row, an acoustic row, a row
     whose setup states ``unsteady_solver_actions`` (a user action cannot be withdrawn between
     polars), a row whose post-processing asks ``[time_averaging]``, and, for an unsteady row, a
-    build that does not document the unsteady action command.
+    build that does not document the unsteady action command. A steady polar whose later
+    points differ before ``SOLVER_SET_AOA`` is not left out: those points reopen their
+    geometry, and the plan says so (:func:`_splice_refusal`).
 
     Parameters
     ----------
@@ -364,22 +374,25 @@ def _splice_refusal(
     workspace: CampaignWorkspace,
     version: str,
     registry: Mapping[str, ScriptRecipe] | None,
-) -> str | None:
+) -> tuple[str | None, int]:
     """Dry-splice a polar: render each pending point and refuse the first that cannot splice.
 
     Each point is rendered as the plan renders it, without its WALLTIME, turned into a
     :class:`~pyflightstream.cases.workflows._batch_script.JobPoint` under the datapoint folder
     it would run in, refused when it is a steady point initialising the solver more than once
-    (FR-403), and compared with the polar's first pending point.
+    (FR-403), and compared with the polar's first pending point: an unsteady point that cannot
+    be restated is refused, a steady one reopens its geometry and is counted (FR-403).
 
     Returns
     -------
-    str or None
-        The refusal naming the line, or None when every point splices.
+    tuple of str or None and int
+        The refusal naming the line, or None when every point splices; and how many points
+        reopen their geometry.
     """
     own = grouped_case(case)
     recipe = (registry or {}).get(case.recipe) or cast(ScriptRecipe, resolve_recipe(case.recipe))
     first: JobPoint | None = None
+    reopened = 0
     try:
         for entry in pending:
             stem, outputs = _point_names(resolved.campaign, own, entry.point, workspace)
@@ -398,11 +411,13 @@ def _splice_refusal(
             refuse_a_second_initialization(point)
             if first is None:
                 first = point
+            elif refreshes(first, point):
+                reopened += 1
             else:
                 refuse_unspliceable(first, point)
     except Exception as error:  # recipes are user code; a polar that cannot splice is left out
-        return f"its points do not splice into one instance: {error}"
-    return None
+        return f"its points do not splice into one instance: {error}", 0
+    return None, reopened
 
 
 def _block(plan: CampaignPlan, run_ids: Sequence[str], error: str) -> None:
@@ -421,11 +436,12 @@ def _eligible_units(
     resolved: ResolvedMatrix,
     workspace: CampaignWorkspace,
     registry: Mapping[str, ScriptRecipe] | None,
-) -> tuple[list[PolarUnit], list[dict[str, Any]]]:
-    """Walk the polars in matrix order: the units that can group, the polars left out."""
+) -> tuple[list[PolarUnit], list[dict[str, Any]], list[str]]:
+    """Walk the polars in matrix order: the units that can group, the polars left out, notes."""
     costs = {cost.run_id: cost for cost in plan.costs}
     units: list[PolarUnit] = []
     left_out: list[dict[str, Any]] = []
+    notes: list[str] = []
     for order, case in enumerate(resolved.campaign.sims, start=1):
         pending = [
             entry
@@ -450,15 +466,17 @@ def _eligible_units(
         if refusal is not None:
             _block(plan, [entry.run_id for entry in pending], refusal)
             continue
-        unspliceable = _splice_refusal(
+        unspliceable, reopened = _splice_refusal(
             resolved, case, pending, workspace=workspace, version=version, registry=registry
         )
         if unspliceable is not None:
             left_out.append({"sim": case.sim_id, "reason": unspliceable})
             continue
+        if reopened:
+            notes.append(_REOPENED.format(sim=case.sim_id, count=reopened))
         build = case.fs_build or plan.fs_version
         units.append(_unit_of(case, pending, costs, build, order))
-    return units, left_out
+    return units, left_out, notes
 
 
 def _profile_warnings(profile: HpcProfile | None) -> list[str]:
@@ -555,7 +573,9 @@ def plan_grouped_matrix(
         keywords.get("points"),
         workspace,
     )
-    units, left_out = _eligible_units(plan, resolved, workspace, keywords.get("recipe_registry"))
+    units, left_out, reopened = _eligible_units(
+        plan, resolved, workspace, keywords.get("recipe_registry")
+    )
     profile = resolve_hpc_profile(workspace.inputs_dir)
     splits, warnings = (
         split_polars(units, int(batch or 1))
@@ -576,6 +596,7 @@ def plan_grouped_matrix(
         if refusal is not None:
             warnings.append(f"{job.label}: {refusal}")
             _block(plan, job.points, refusal)
+    warnings.extend(reopened)
     warnings.extend(_profile_warnings(profile))
     known = [job.estimate_s for job in jobs if job.estimate_s is not None]
     receipt = GroupingReceipt(

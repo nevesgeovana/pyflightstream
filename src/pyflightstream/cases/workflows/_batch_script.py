@@ -26,11 +26,15 @@ measured there:
 6. the registration block is rendered by the one emitter of those lines;
 7. every save and export target of the job is absolute, or the job is refused.
 
-A STEADY JOB (FR-403) follows the same rules with two differences: it
+A STEADY JOB (FR-403) follows the same rules with three differences: it
 registers no action (a steady point registers none, so rule 1 keeps the first
-point's text whole and rule 3 has nothing to drop), and a later point of a
-polar is restated from :data:`STEADY_RESTATE_ANCHORS`, the first line of its
-solver block, after the same ``REMOVE_INITIALIZATION``. A steady point after an
+point's text whole and rule 3 has nothing to drop); a later point of a polar
+is restated from :data:`STEADY_RESTATE_ANCHORS`, the first line of its solver
+block, after the same ``REMOVE_INITIALIZATION``; and a later point whose text
+differs from its polar's first point before that anchor (a swept flow state, a
+quasi-steady rotor's turning free stream) is not refused: it follows
+``NEW_SIMULATION`` with its whole text, as the first point of a polar does
+(rule 3, measured identical to a fresh instance). A steady point after an
 unsteady one in one instance is not measured, so the two kinds never share a
 job; the split keeps them apart and :func:`assemble_job` refuses a mix.
 """
@@ -64,6 +68,7 @@ __all__ = [
     "assemble_job",
     "drop_registrations",
     "job_point",
+    "refreshes",
     "refuse_a_second_initialization",
     "refuse_unspliceable",
     "registration_block",
@@ -351,6 +356,35 @@ def refuse_unspliceable(first: JobPoint, point: JobPoint) -> None:
     _anchor_index(first, point)
 
 
+def refreshes(first: JobPoint, point: JobPoint) -> bool:
+    """Return whether a later point of a polar reopens its geometry rather than re-initialising.
+
+    A steady point whose text differs from its polar's first point before
+    :data:`STEADY_RESTATE_ANCHORS` follows ``NEW_SIMULATION`` with its whole
+    text (FR-403); an unsteady point never does, it is refused instead
+    (:func:`refuse_unspliceable`).
+
+    Parameters
+    ----------
+    first : JobPoint
+        The polar's first point.
+    point : JobPoint
+        A later point of the same polar.
+
+    Returns
+    -------
+    bool
+        True for a steady point that cannot be restated from its anchor.
+    """
+    if not point.steady:
+        return False
+    try:
+        _anchor_index(first, point)
+    except CampaignConfigError:
+        return True
+    return False
+
+
 def refuse_a_second_initialization(point: JobPoint) -> None:
     """Refuse a steady point whose script initialises the solver more than once (FR-403).
 
@@ -579,7 +613,7 @@ def _parts(polars: Sequence[JobPolar], block: str) -> list[tuple[JobPoint, Trans
         for order, point in enumerate(polar.points):
             if number == 0 and order == 0:
                 parts.append((point, "start", _start_lines(point, block)))
-            elif order == 0:
+            elif order == 0 or refreshes(lead, point):
                 parts.append((point, "refresh", _point_lines(lead, point, "refresh")))
             else:
                 parts.append((point, "reinit", _point_lines(lead, point, "reinit")))

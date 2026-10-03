@@ -174,7 +174,10 @@ setup states `unsteady_solver_actions` or whose post asks `[time_averaging]`, an
 unsteady row on a build without the action command, and a polar whose points do
 not splice into one script. A steady job registers no solver action: a later
 point of a polar is restated from `SOLVER_SET_AOA` after
-`REMOVE_INITIALIZATION`, and each point is recorded as the point run alone.
+`REMOVE_INITIALIZATION`; a later point that differs before it (a swept flow
+state, a quasi-steady rotor's turning free stream) reopens its geometry after
+`NEW_SIMULATION`, and the plan names its polar in a warning. Each point is
+recorded as the point run alone.
 A receipt in which every polar was left out holds no job, and `run` refuses it. The split is recorded per batch in the plan receipt
 `post/<matrix>/plan.json`, and `run --batch N` refuses a receipt that has no
 batches or was made for another N or another matrix (FR-365).
