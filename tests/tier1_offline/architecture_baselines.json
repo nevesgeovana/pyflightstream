@@ -16,7 +16,7 @@
   "workspace/setup_standards.py:render_guidelines": 263,
   "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
-  "run/_campaign.py:run_campaign": 422,
+  "run/_campaign.py:run_campaign": 412,
   "run/_points.py:_execute_point": 449,
   "run/_sweep.py:_execute_sweep": 348
  },
@@ -1747,15 +1747,15 @@
   }
  },
  "metrics": {
-  "top1_share": 2.0,
-  "top5_share": 8.7,
-  "top13_share": 17.7,
+  "top1_share": 1.8,
+  "top5_share": 8.1,
+  "top13_share": 16.7,
   "modules_over_1000": 7,
   "modules_over_2000": 0,
   "functions_over_100": 71,
   "functions_over_200": 15,
   "functions_over_300": 4,
-  "functions_over_limits": 224,
+  "functions_over_limits": 221,
   "cross_package_sccs": 1,
   "largest_fan_out": 36,
   "largest_fan_out_deferred": 10,

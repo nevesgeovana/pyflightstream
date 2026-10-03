@@ -96,6 +96,13 @@ the measured bound is not exact equality in window 2. The averaged products
 themselves were byte-identical (`lv_run.log:725-734`), but the complete comparison
 was `FR-402 VERIFICATION: NOT EQUAL` (`lv_run.log:735-736`, exit 1).
 
+After the FR-366 correction, every grouped record of window 2 carries the solver
+identity: 29 of 29 grouped records read `fs_version_reported` 26.1 and `fs_build`
+8172026, as their alone counterparts do (`lv_run.log:110-111, 263-264` and the
+other PROVENANCE lines); in window 3, 5 of 5 (`lv_fsi_compare2.log:254-255` and
+the other PROVENANCE lines). The equality method excludes version and build
+columns, so this readback, not the equality verdict, is the evidence for FR-366.
+
 The steady count is 54 declared outputs and 33 post products. The user-action
 count is 80 declared outputs and 12 polar products across the grouped and
 polar-sweep arms, with no per-step files. The final receipts for steady, user

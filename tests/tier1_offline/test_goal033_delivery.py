@@ -488,6 +488,12 @@ _MIGRATION_NAMES_BY_RELEASE = {
             "point name",
             "FR-408",
         ),
+        "The refusal of a geometry carrying saved solver actions states its reason": (
+            "saved solver actions",
+            "pyfs-matrix inventory",
+            "--clean",
+            "FR-378",
+        ),
     },
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
