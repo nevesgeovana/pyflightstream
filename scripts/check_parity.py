@@ -450,6 +450,13 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
         '"time": "<TIME>"',
         "the same stamp in the machine-readable log",
     ),
+    (
+        "*_g[0-9][0-9].dat",
+        r"\A((?:[^\n]*\n){2})[A-Z][a-z]{2} [A-Z][a-z]{2} \d\d \d\d:\d\d:\d\d  \d{4}(?=\r?\n)",
+        r"\1<TIME>",
+        "line 3 of a custom polar group file is its write time by definition (FR-94, "
+        "post/custom_polar.py); measured 2026-10-03 as the only difference of 305 such files",
+    ),
 ]
 
 #: The one difference of NFR-32, named whole: a text file of 0.33.0 holds CR before LF where
