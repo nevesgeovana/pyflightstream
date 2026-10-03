@@ -50,3 +50,41 @@ def test_parity_comparison_lists_the_sorted_base_names() -> None:
     release = {"alpha.txt": "same\n", "zeta.txt": "new\n", "added.txt": "extra\n"}
     block = module.compare_texts("scripts", "script", base, release, set())
     assert block.get("compared") == ["alpha.txt", "zeta.txt"]
+
+
+def test_plan_resolves_the_patched_cold_start_check(tmp_path, monkeypatch):
+    """P0360-RV-QA2 (FR-364): the shared cold-start patch changes the plan."""
+    import pyflightstream.run._ids as ids_mod
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import PlanStatus
+    from pyflightstream.run.matrix import plan_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, _steady_sweep_matrix
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+
+    def plan():
+        return plan_matrix(
+            matrix,
+            workspace,
+            name="cold",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+        )
+
+    assert {point.status for point in plan().points} == {PlanStatus.READY}
+    seen = []
+
+    def refuse(case):
+        seen.append(case.sim_id)
+        raise CampaignConfigError("COLD_START: patched shared check refused this row")
+
+    monkeypatch.setattr(ids_mod, "_is_cold_start", refuse)
+    blocked = plan()
+    assert {point.status for point in blocked.points} == {PlanStatus.BLOCKED}
+    assert len(seen) == len(blocked.points) == 3
+    assert all(
+        point.error == "COLD_START: patched shared check refused this row"
+        for point in blocked.points
+    )

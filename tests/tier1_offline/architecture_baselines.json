@@ -10,11 +10,7 @@
  "function_lines": {
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
-  "workspace/setup_standards.py:render_guidelines": 263,
-  "run/_assessment.py:LoadsAssessor.__call__": 271,
-  "run/_campaign.py:run_campaign": 412,
-  "run/_points.py:_execute_point": 449,
-  "run/_sweep.py:_execute_sweep": 348
+  "workspace/setup_standards.py:render_guidelines": 263
  },
  "function_limits": {
   "_deprecations.py:_promise_text": {
@@ -1235,12 +1231,6 @@
    "statements": 73,
    "positional": 1
   },
-  "run/_assessment.py:LoadsAssessor.__call__": {
-   "complexity": 31,
-   "branches": 32,
-   "statements": 85,
-   "positional": 3
-  },
   "run/_assessment.py:_judge_the_clockings": {
    "complexity": 14,
    "branches": 14,
@@ -1252,12 +1242,6 @@
    "branches": 15,
    "statements": 34,
    "positional": 4
-  },
-  "run/_campaign.py:run_campaign": {
-   "complexity": 44,
-   "branches": 44,
-   "statements": 187,
-   "positional": 3
   },
   "run/_executors.py:_run_until_the_analysis_ends": {
    "complexity": 16,
@@ -1294,18 +1278,6 @@
    "branches": 6,
    "statements": 15,
    "positional": 6
-  },
-  "run/_points.py:_execute_point": {
-   "complexity": 44,
-   "branches": 45,
-   "statements": 159,
-   "positional": 0
-  },
-  "run/_sweep.py:_execute_sweep": {
-   "complexity": 31,
-   "branches": 31,
-   "statements": 125,
-   "positional": 0
   }
  },
  "baseline_sccs": [

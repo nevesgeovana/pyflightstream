@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -324,6 +324,47 @@ def _no_local_log_verdict(
     )
 
 
+@dataclass(kw_only=True)
+class _PointJob:
+    """Inputs and phase results of one ordered execution."""
+
+    campaign: Campaign
+    canonical: str
+    fs_exe: str | Path
+    fs_version: str
+    fs_version_source: str
+    case: SimCase
+    point: dict[str, float]
+    run_id: str
+    recipe: ScriptRecipe | None
+    preparation_error: str | None
+    inputs_sha256: dict[str, str]
+    staged_geometry: str | None
+    name_from: str | None
+    executor: Executor
+    workspace: CampaignWorkspace
+    sim_dir: Path
+    assess: OutcomeAssessor
+    continues: str | None
+    recovered_continuation: Mapping[str, object] | None
+    progress: _PointProgress | None
+    base: dict[str, Any] = field(init=False)
+    stem: str = field(init=False)
+    point_case: SimCase = field(init=False)
+    script: Script = field(init=False)
+    work_dir: Path = field(init=False)
+    predecessor: RunRecord | None = field(init=False)
+    rendered: str = field(init=False)
+    script_path: Path = field(init=False)
+    script_sha: str = field(init=False)
+    probe_points_file: str | None = field(init=False)
+    counter: dict[str, object] | None = field(init=False)
+    result: ExecutionResult = field(init=False)
+    local_log: _LocalLog = field(init=False)
+    collected: list[str] = field(init=False)
+    post_warnings: list[str] = field(init=False)
+
+
 def _execute_point(
     *,
     campaign: Campaign,
@@ -354,6 +395,47 @@ def _execute_point(
     an ``OSError`` this raises records the point from them rather than
     leaving it with no record.
     """
+    job = _PointJob(
+        campaign=campaign,
+        canonical=canonical,
+        fs_exe=fs_exe,
+        fs_version=fs_version,
+        fs_version_source=fs_version_source,
+        case=case,
+        point=point,
+        run_id=run_id,
+        recipe=recipe,
+        preparation_error=preparation_error,
+        inputs_sha256=inputs_sha256,
+        staged_geometry=staged_geometry,
+        name_from=name_from,
+        executor=executor,
+        workspace=workspace,
+        sim_dir=sim_dir,
+        assess=assess,
+        continues=continues,
+        recovered_continuation=recovered_continuation,
+        progress=progress,
+    )
+    if (record := _prepare_point_script(job)) is not None:
+        return record
+    if (record := _retain_point_provenance(job)) is not None:
+        return record
+    if (record := _retain_point_translations(job)) is not None:
+        return record
+    if (record := _write_point_script(job)) is not None:
+        return record
+    if (record := _write_point_pending_files(job)) is not None:
+        return record
+    if (record := _run_point_solver(job)) is not None:
+        return record
+    if (record := _collect_point_outputs(job)) is not None:
+        return record
+    return _assess_point_record(job)
+
+
+def _prepare_point_script(job: _PointJob) -> RunRecord | None:
+    """Prepare point script."""
     package_commit, package_dirty = package_vcs_state()
     # THE STATE OF THIS POINT, NOT OF THE ROW (0.24.0). Every state field below
     # read `case.*`, the simulation-level case, while the point's own case went
@@ -362,40 +444,40 @@ def _execute_point(
     # and the rotor table then divided one point's force by another's density.
     # `case_at_point` is the one function that resolves a point; asking it here
     # is what makes the record describe what the solver was given.
-    at_point = case_at_point(case, point)
-    base: dict[str, Any] = {
-        "run_id": run_id,
-        "sim_id": case.sim_id,
-        "point": dict(point),
-        "point_name": point_name(case, point),
-        "sweep_name": sweep_name(case),
-        "matrix_stem": campaign.matrix_stem,
+    at_point = case_at_point(job.case, job.point)
+    job.base = {
+        "run_id": job.run_id,
+        "sim_id": job.case.sim_id,
+        "point": dict(job.point),
+        "point_name": point_name(job.case, job.point),
+        "sweep_name": sweep_name(job.case),
+        "matrix_stem": job.campaign.matrix_stem,
         # The run this one CONTINUES, in the base dict so that a continuation
         # that fails says so as well: the chain is a fact about the attempt,
         # not about its success. None for every point that continues nothing.
-        "continues": continues,
-        "restart": (recovered_continuation or {}).get("restart") if continues else None,
-        "fs_version_requested": canonical,
+        "continues": job.continues,
+        "restart": (job.recovered_continuation or {}).get("restart") if job.continues else None,
+        "fs_version_requested": job.canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
         # v0.23.0 item 12. CAPTURED HERE because this is the only moment it
         # is knowable: who submitted a run cannot be recovered afterwards.
         "submitted_by": submitted_by(),
-        "recipe": case.recipe,
-        "recipe_sha256": _recipe_digest(recipe),
+        "recipe": job.case.recipe,
+        "recipe_sha256": _recipe_digest(job.recipe),
         # The BUILD's executable, which is the campaign's unless the case
         # named another. Recording campaign.fs_exe unconditionally is what
         # made a per-case build unstatable: the record would name an
         # executable the point never ran (PFS-2009.05).
-        "fs_exe": str(fs_exe),
-        "fs_exe_sha256": _file_digest(fs_exe),
+        "fs_exe": str(job.fs_exe),
+        "fs_exe_sha256": _file_digest(job.fs_exe),
         # WHICH of the two sources chose that build, beside WHICH build it
         # was. The pair above reproduces the run; without this a reader of
         # a finished record cannot tell a build chosen FOR THIS ROW from
         # one inherited from the campaign, and the two are different facts
         # about how the study was configured (PFS-2009.08.02).
-        "fs_version_source": fs_version_source,
+        "fs_version_source": job.fs_version_source,
         # The velocity the case ASKED for, in the base dict rather than in
         # the success path: four early returns below build the record from
         # `base` alone, so a field written later would be absent from
@@ -405,12 +487,12 @@ def _execute_point(
         # The post-processing artifact the row named (PFS-2029.16), so a
         # reader of the record knows which sections, plots and products
         # the point was run for without opening the matrix.
-        "pproc": case.pproc_id,
-        "inventory_source": case.inventory_source,
+        "pproc": job.case.pproc_id,
+        "inventory_source": job.case.inventory_source,
         "mesh_import": None
-        if case.mesh_import is None
-        else case.mesh_import.model_dump(mode="json", exclude_none=True),
-        "motions": [dict(record) for record in case.motions],
+        if job.case.mesh_import is None
+        else job.case.mesh_import.model_dump(mode="json", exclude_none=True),
+        "motions": [dict(record) for record in job.case.motions],
         # The windows of every reduction the products stage will write for
         # this point (PFS-2015.04), resolved off the row HERE, where the
         # clock and the blade count are stated, so the stage reads the
@@ -426,7 +508,7 @@ def _execute_point(
         #
         # The unit case for that fix passed while this path still failed,
         # because the case it builds carries its point and this one did not.
-        "reductions": reduction_windows(case_at_point(case, point)),
+        "reductions": reduction_windows(case_at_point(job.case, job.point)),
         # 0.30.0 (M1): each rotor's tip and helical Mach numbers at THIS point,
         # from the point's own resolved state; None (and absent from the file)
         # where rotor_machs covers nothing: a row turning no rotor at a stated
@@ -437,17 +519,19 @@ def _execute_point(
         **dict(
             zip(
                 ("staged_as", "staged_as_reason"),
-                workspace.staged_as(case.sim_id) if staged_geometry is not None else (None, None),
+                job.workspace.staged_as(job.case.sim_id)
+                if job.staged_geometry is not None
+                else (None, None),
                 strict=True,
             )
         ),
         # The template that rendered this point's names (PFS-2029.19.01),
         # so a reader can tell a name from the identity beside it.
-        "point_name_template": workspace.naming.point_name,
-        "description": case.description or None,
+        "point_name_template": job.workspace.naming.point_name,
+        "description": job.case.description or None,
         "mach": at_point.mach,
-        "reference": _reference_block(case),
-        "campaign_name_from": name_from,
+        "reference": _reference_block(job.case),
+        "campaign_name_from": job.name_from,
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(at_point.flight_condition),
@@ -458,14 +542,14 @@ def _execute_point(
         "viscosity_pa_s": None if at_point.fluid is None else at_point.fluid.viscosity_pa_s,
         "density_source": None if at_point.fluid is None else at_point.fluid.source,
         "reference_length_m": None if at_point.fluid is None else at_point.fluid.reference_length_m,
-        "inputs_sha256": inputs_sha256,
+        "inputs_sha256": job.inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,
         "waived_commands": [],
         # PFS-2033.02: the setup's raw commands, as the script carried them.
-        "raw_commands": [entry.model_dump(mode="json") for entry in case.raw_commands],
+        "raw_commands": [entry.model_dump(mode="json") for entry in job.case.raw_commands],
         # The design decision of 2026-09-09: the setup's aliases, for the products stage.
-        "aliases": {name: list(members) for name, members in case.aliases.items()},
+        "aliases": {name: list(members) for name, members in job.case.aliases.items()},
         # PFS-2012.04: how the solver was called, read off the executor
         # and its result once the point has run, and None on the four
         # early returns below, where no solver ran. `argv` beside it is
@@ -481,11 +565,11 @@ def _execute_point(
         # this version writes DOES carry it, and says so here.
         "manifest_schema": MANIFEST_SCHEMA,
     }
-    if progress is not None:
-        progress.base = base
-    if preparation_error is not None or recipe is None:
-        error: str | None = preparation_error or "recipe resolution failed"
-        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=error)
+    if job.progress is not None:
+        job.progress.base = job.base
+    if job.preparation_error is not None or job.recipe is None:
+        error: str | None = job.preparation_error or "recipe resolution failed"
+        return RunRecord(**job.base, status=RunStatus.FAILED_SCRIPT, error=error)
 
     # A POINT ALREADY IN A QUEUE IS NOT SUBMITTED AGAIN, and it is refused
     # BEFORE ANY OF ITS FILES IS WRITTEN (the independent review of the
@@ -496,13 +580,16 @@ def _execute_point(
     # passed, because the queued job had written nothing yet. The guard is
     # per simulation AND point: different points of one row still submit
     # together, which is the refusal that was lifted and stays lifted.
-    queued = _queued_record_of_point(workspace, case.sim_id, point_name(case, point))
+    queued = _queued_record_of_point(
+        job.workspace, job.case.sim_id, point_name(job.case, job.point)
+    )
     if queued is not None:
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_SCRIPT,
             error=(
-                f"point {point_name(case, point)} of simulation {case.sim_id} is already in a "
+                f"point {point_name(job.case, job.point)} of simulation {job.case.sim_id} "
+                "is already in a "
                 f"scheduler's queue as {queued.run_id!r}, and a submitted point runs in its "
                 "own datapoint folder, which that job has not finished writing. Collect it "
                 "(pyfs-matrix collect) before submitting this point again; nothing of it was "
@@ -510,96 +597,98 @@ def _execute_point(
             ),
         )
     try:
-        stem, outputs = _point_names(campaign, case, point, workspace)
+        job.stem, outputs = _point_names(job.campaign, job.case, job.point, job.workspace)
     except NamingTemplateError as exc:
-        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=str(exc))
+        return RunRecord(**job.base, status=RunStatus.FAILED_SCRIPT, error=str(exc))
     update: dict[str, object] = {"outputs": outputs}
-    if staged_geometry is not None:
-        update["geometry"] = staged_geometry
-    point_case = _with_the_profile_s_log(case_at_point(case, point, **update), executor)
+    if job.staged_geometry is not None:
+        update["geometry"] = job.staged_geometry
+    job.point_case = _with_the_profile_s_log(
+        case_at_point(job.case, job.point, **update), job.executor
+    )
     # The BUILD's version, so a case sent to a second installation emits
     # the commands that installation documents rather than the campaign's.
-    script = Script(version=fs_version)
+    job.script = Script(version=job.fs_version)
     # G02: the folder this point runs in (see below), given to the script before
     # the build, so a data file it parks is named there and not beside the
     # staged geometry, a link into the library every simulation on the mesh shares.
-    work_dir = sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
-    script.working_dir = str(work_dir)
+    job.work_dir = (
+        job.sim_dir
+        / SIM_DATAPOINTS_DIR
+        / datapoint_dir_name(PointName(point_name(job.case, job.point)))
+    )
+    job.script.working_dir = str(job.work_dir)
     try:
-        recipe(point_case, script)
+        job.recipe(job.point_case, job.script)
         # G02: before the solver starts, and knowing the machine this time.
-        _refuse_an_import_count_nothing_logs(point_case, script, executor)
+        _refuse_an_import_count_nothing_logs(job.point_case, job.script, job.executor)
     except Exception as exc:  # recipes are user code; any failure is a build failure
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(exc).__name__}: {exc}",
         )
     # Provenance (decision 4 of 2026-07-22): a script built through the
     # curated solver_settings helper carries the snapshot of every
     # solver flag's effective value; record it with the run.
-    base["probe_field_layout"] = list(script.probe_field_layout) or None
-    base["surface_probe_layout"] = list(script.surface_probe_layout) or None
-    base["frame_motions"] = script.frame_motions or None
-    base["custom_field_coverage"] = script.custom_field_coverage
-    base["freestream_units"] = case.variables.get("FREESTREAM_UNITS") or case.freestream_units
-    setup = script.solver_setup
-    if setup is not None:
-        base["solver_setup"] = setup.model_dump(mode="json")
-    if continues is not None:
-        predecessor = next(
-            (record for record in workspace.read_manifest() if record.run_id == continues), None
-        )
-        if predecessor is None:
-            return RunRecord(
-                **base,
-                status=RunStatus.FAILED_SCRIPT,
-                error=f"cannot recover surface averaging provenance of predecessor {continues!r}",
-            )
-        from pyflightstream.run._field_motion import continued_field_inputs, continued_frame_motions
+    return None
 
-        base["frame_motions"] = continued_frame_motions(predecessor.frame_motions, script)
+
+def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
+    """Retain point provenance."""
+    job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
+    job.base["surface_probe_layout"] = list(job.script.surface_probe_layout) or None
+    job.base["frame_motions"] = job.script.frame_motions or None
+    job.base["custom_field_coverage"] = job.script.custom_field_coverage
+    job.base["freestream_units"] = (
+        job.case.variables.get("FREESTREAM_UNITS") or job.case.freestream_units
+    )
+    setup = job.script.solver_setup
+    if setup is not None:
+        job.base["solver_setup"] = setup.model_dump(mode="json")
+    if job.continues is not None:
+        job.predecessor = next(
+            (record for record in job.workspace.read_manifest() if record.run_id == job.continues),
+            None,
+        )
+        if job.predecessor is None:
+            return RunRecord(
+                **job.base,
+                status=RunStatus.FAILED_SCRIPT,
+                error=(
+                    f"cannot recover surface averaging provenance of predecessor {job.continues!r}"
+                ),
+            )
+        from pyflightstream.run._field_motion import continued_frame_motions
+
+        job.base["frame_motions"] = continued_frame_motions(
+            job.predecessor.frame_motions, job.script
+        )
         if (
-            not script.raw_flag
-            and not script.surface_operations
-            and base["frame_motions"] == predecessor.frame_motions
+            not job.script.raw_flag
+            and not job.script.surface_operations
+            and job.base["frame_motions"] == job.predecessor.frame_motions
         ):
-            base["custom_field_coverage"] = predecessor.custom_field_coverage
+            job.base["custom_field_coverage"] = job.predecessor.custom_field_coverage
         else:
-            base["custom_field_coverage"] = {
+            job.base["custom_field_coverage"] = {
                 "state": "unknown",
                 "reason": "Continuation changed geometry or frame provenance.",
             }
-        if not script.surface_probe_layout and predecessor.surface_probe_layout:
-            base["surface_probe_layout"] = [
-                dict(entry) for entry in predecessor.surface_probe_layout
+        if not job.script.surface_probe_layout and job.predecessor.surface_probe_layout:
+            job.base["surface_probe_layout"] = [
+                dict(entry) for entry in job.predecessor.surface_probe_layout
             ]
-        if not script.probe_field_layout:
-            try:
-                inherited_fields = continued_field_inputs(predecessor, sim_dir)
-            except (OSError, ValueError, KeyError) as exc:
-                return RunRecord(
-                    **base,
-                    status=RunStatus.FAILED_SCRIPT,
-                    error=f"cannot retain continued field evidence: {exc}",
-                )
-            for key, value in inherited_fields.items():
-                if base.get(key) is None:
-                    base[key] = value
-            if inherited_fields:
-                inherited_path = str(inherited_fields["probe_points_file"])
-                inputs_sha256 = {
-                    **inputs_sha256,
-                    inherited_path: file_sha256(sim_dir / inherited_path),
-                }
-                base["inputs_sha256"] = inputs_sha256
+        if not job.script.probe_field_layout:
+            if (record := _retain_continued_field_inputs(job, job.predecessor)) is not None:
+                return record
         # Preserve the original recorded request when reopening the saved state,
         # including its UNVERIFIED qualification; today's pproc cannot replace it.
-        script.surface_time_averaging = predecessor.surface_time_averaging
+        job.script.surface_time_averaging = job.predecessor.surface_time_averaging
         # G25: the window the stopped run was averaged over, not today's pproc's.
-        script.surface_average_window = predecessor.surface_average_window
-    base["surface_time_averaging"] = script.surface_time_averaging
-    base["surface_average_window"] = script.surface_average_window
+        job.script.surface_average_window = job.predecessor.surface_average_window
+    job.base["surface_time_averaging"] = job.script.surface_time_averaging
+    job.base["surface_average_window"] = job.script.surface_average_window
     # G45. WHAT THE RUN WRITES FROM THE VTK, and the loads frame the solver
     # writes it in. A continuation's is the saved simulation's, which the run it
     # continues placed and recorded; one that recorded none cannot be undone,
@@ -609,26 +698,31 @@ def _execute_point(
     # ledger still reports the reference frame at the origin it starts from,
     # which is placed and is not the frame the solver writes the VTK in
     # (reading C32 of 0.28.0).
-    translations = [dict(translation) for translation in script.surface_translations]
-    inherits = continues is not None and not script.sets_loads_frame
-    if continues is not None and any(inherits or _unplaced(entry) for entry in translations):
-        carried = _recorded_loads_frame(predecessor)
+    return None
+
+
+def _retain_point_translations(job: _PointJob) -> RunRecord | None:
+    """Retain point translations."""
+    translations = [dict(translation) for translation in job.script.surface_translations]
+    inherits = job.continues is not None and not job.script.sets_loads_frame
+    if job.continues is not None and any(inherits or _unplaced(entry) for entry in translations):
+        carried = _recorded_loads_frame(job.predecessor)
         frame_proof: dict[str, object] = {}
-        if carried is None and recovered_continuation is not None:
-            recovered = recovered_continuation.get("recovered_frame")
-            proof = recovered_continuation.get("frame_recovery")
+        if carried is None and job.recovered_continuation is not None:
+            recovered = job.recovered_continuation.get("recovered_frame")
+            proof = job.recovered_continuation.get("frame_recovery")
             if isinstance(recovered, Mapping) and not _unplaced({"frame": recovered}):
                 carried = dict(recovered)
                 if isinstance(proof, Mapping):
                     frame_proof = {"frame_recovery": dict(proof)}
         if carried is None:
             return RunRecord(
-                **base,
+                **job.base,
                 status=RunStatus.FAILED_SCRIPT,
                 error=(
                     f"the Tecplot surface of this continuation is written by the package from "
                     f"the VTK the solver exports in the analysis loads frame (RPT-074), and "
-                    f"the run it continues, {continues!r}, recorded no placement of that "
+                    f"the run it continues, {job.continues!r}, recorded no placement of that "
                     "frame: it was recorded before 0.28.0 or exported no Tecplot. Set "
                     "tecplot = false under the pproc's [exports] to continue it without one."
                 ),
@@ -639,9 +733,16 @@ def _execute_point(
             else entry
             for entry in translations
         ]
-    base["surface_translations"] = translations or None
-    rendered = script.render()
-    script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", rendered)
+    job.base["surface_translations"] = translations or None
+    return None
+
+
+def _write_point_script(job: _PointJob) -> RunRecord | None:
+    """Write point script."""
+    job.rendered = job.script.render()
+    job.script_path, job.script_sha = job.workspace.write_script(
+        job.case.sim_id, f"{job.stem}.txt", job.rendered
+    )
     # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
     # script that placed them. An unsteady plots export numbers its columns
     # `MACH7`, `VELOCITY7` and never says where vertex 7 is, so this file is
@@ -655,38 +756,40 @@ def _execute_point(
     # build failure around it records the point and carries on, and a seat
     # is the scarce thing here.
     try:
-        probe_points_file = _write_probe_points(sim_dir, case.sim_id, script.probe_points)
+        job.probe_points_file = _write_probe_points(
+            job.sim_dir, job.case.sim_id, job.script.probe_points
+        )
     except PyflightstreamError as exc:
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(exc).__name__}: {exc}",
         )
-    if probe_points_file is not None:
-        base["probe_points_file"] = probe_points_file
-    if script.plot_groups and isinstance(base.get("reductions"), dict):
-        base["reductions"]["plot_groups"] = [dict(group) for group in script.plot_groups]
+    if job.probe_points_file is not None:
+        job.base["probe_points_file"] = job.probe_points_file
+    if job.script.plot_groups and isinstance(job.base.get("reductions"), dict):
+        job.base["reductions"]["plot_groups"] = [dict(group) for group in job.script.plot_groups]
     # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
     # beside the script that created the distributions, and the empty layout
     # where it created none (`_sections_layout`). A CONTINUATION CREATES NONE
     # AND REOPENS THOSE OF THE RUN IT CONTINUES, whose saved simulation carries
     # them, so it records that run's layout, as it keeps its averaging window.
-    if continues is not None:
+    if job.continues is not None:
         # A continuation reached here holds the record it continues: a missing
         # one returned a failed record above, so the cast states a fact.
         layout = (
             None
-            if creates_surface_sections(script.render())
-            else cast(RunRecord, predecessor).sections_layout
+            if creates_surface_sections(job.script.render())
+            else cast(RunRecord, job.predecessor).sections_layout
         )
     else:
-        layout = _sections_layout(script)
+        layout = _sections_layout(job.script)
     if layout is not None:
-        base["sections_layout"] = [dict(block) for block in layout]
+        job.base["sections_layout"] = [dict(block) for block in layout]
     # R03 of 0.27.0: the names the script was built over, beside the layout
     # whose selections the post reads over them.
-    if script.boundary_inventory is not None:
-        base["inventory"] = list(script.boundary_inventory)
+    if job.script.boundary_inventory is not None:
+        job.base["inventory"] = list(job.script.boundary_inventory)
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative
@@ -718,31 +821,42 @@ def _execute_point(
     # G02: and the data files a command reads, the trailing-edge node file,
     # whose digests join the inputs the record states; one that shares its
     # name with another input is refused here, before the solver starts.
+    return None
+
+
+def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
+    """Write point pending files."""
     try:
         written = _pending._write_pending_files(
-            script,
-            work_dir,
-            case=case,
-            recorded=inputs_sha256,
+            job.script,
+            job.work_dir,
+            case=job.case,
+            recorded=job.inputs_sha256,
             run_writes=(
-                Path(script_path),
-                *([sim_dir / probe_points_file] if probe_points_file is not None else []),
-                *_descriptor_of(executor, work_dir),
+                Path(job.script_path),
+                *(
+                    [job.sim_dir / job.probe_points_file]
+                    if job.probe_points_file is not None
+                    else []
+                ),
+                *_descriptor_of(job.executor, job.work_dir),
             ),
         )
     except CampaignConfigError as exc:
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(exc).__name__}: {exc}",
         )
     if written:
-        inputs_sha256 = {**inputs_sha256, **written}
-        base["inputs_sha256"] = inputs_sha256
+        job.inputs_sha256 = {**job.inputs_sha256, **written}
+        job.base["inputs_sha256"] = job.inputs_sha256
     # PFS-2031.18, FR-314: the counter program the script registers, count-only on a
     # row that asks no per-step export (`run._actions_counter.stage_counter`).
-    counter = stage_counter(work_dir, script, point_case, fs_version, inputs_sha256)
-    base.update(counter or {})
+    job.counter = stage_counter(
+        job.work_dir, job.script, job.point_case, job.fs_version, job.inputs_sha256
+    )
+    job.base.update(job.counter or {})
     # FR-98. THE CLOCK PAIR, written the same way and for
     # the same reason: the program is rendered with this row's deadline so
     # the emitted file states the number the run will use, and the script
@@ -750,33 +864,35 @@ def _execute_point(
     # until the clock fires. The state of an EARLIER point of this case is
     # removed, because a clock carried over would fire the second point
     # before its first step.
-    if any(use.name == WALLTIME_CLOCK_ACTION for use in script.unsteady_actions):
-        clock = work_dir / WALLTIME_CLOCK_PROGRAM
+    if any(use.name == WALLTIME_CLOCK_ACTION for use in job.script.unsteady_actions):
+        clock = job.work_dir / WALLTIME_CLOCK_PROGRAM
         clock.parent.mkdir(parents=True, exist_ok=True)
         _textio.write_text(
             clock,
             walltime_clock_program(
-                point_case, workflow_conventions_for(point_case), version=fs_version
+                job.point_case, workflow_conventions_for(job.point_case), version=job.fs_version
             ),
         )
-        (work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
-        base["inputs_sha256"] = {
-            **base.get("inputs_sha256", inputs_sha256),
+        (job.work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
+        job.base["inputs_sha256"] = {
+            **job.base.get("inputs_sha256", job.inputs_sha256),
             WALLTIME_CLOCK_PROGRAM: file_sha256(clock),
-            WALLTIME_STOP_SCRIPT: file_sha256(work_dir / WALLTIME_STOP_SCRIPT),
+            WALLTIME_STOP_SCRIPT: file_sha256(job.work_dir / WALLTIME_STOP_SCRIPT),
         }
-        base["walltime_s"] = row_walltime_s(point_case)
-        base["walltime_margin_s"] = walltime_margin_s(point_case)
-    base["script_sha256"] = script_sha
-    base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
-    base["raw_flag"] = script.raw_flag
-    base["march_strategy"] = script.march_strategy
+        job.base["walltime_s"] = row_walltime_s(job.point_case)
+        job.base["walltime_margin_s"] = walltime_margin_s(job.point_case)
+    job.base["script_sha256"] = job.script_sha
+    job.base["script_path"] = str(Path(job.script_path).relative_to(job.sim_dir).as_posix())
+    job.base["raw_flag"] = job.script.raw_flag
+    job.base["march_strategy"] = job.script.march_strategy
     # FR-48: a recipe may waive a command the database records broken.
     # The waiver is the recipe's, so the record of it belongs with the
     # run, not with the recipe: this is the only place a reader of the
     # manifest can learn that the numbers below came from a command a
     # probe measured not to work.
-    base["waived_commands"] = [use.model_dump(mode="json") for use in script.waived_commands]
+    job.base["waived_commands"] = [
+        use.model_dump(mode="json") for use in job.script.waived_commands
+    ]
 
     # PYFS-006. Every point of a case ran in the same simulation folder until
     # 0.27.0, and collection asks only whether the declared output EXISTS, never
@@ -796,14 +912,19 @@ def _execute_point(
     # submitted point and, since 0.27.0, for a local one: a file an earlier run
     # of the point left there is exactly what this refuses to collect as the
     # new run's evidence.
-    stale = [name for name in point_case.outputs if (work_dir / name).exists()]
+    return None
+
+
+def _run_point_solver(job: _PointJob) -> RunRecord | None:
+    """Run point solver."""
+    stale = [name for name in job.point_case.outputs if (job.work_dir / name).exists()]
     if stale:
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
             error=(
                 f"declared output(s) {', '.join(stale)} already exist in "
-                f"{work_dir.relative_to(sim_dir).as_posix()}/, the folder this point runs "
+                f"{job.work_dir.relative_to(job.sim_dir).as_posix()}/, the folder this point runs "
                 "in, before it ran, so collecting them would attribute somebody else's "
                 "file to this run: collection cannot tell a file this solver wrote from "
                 "one that was already there. Redo the point with pyfs-matrix run "
@@ -812,10 +933,10 @@ def _execute_point(
             ),
         )
     # 0.32.0 (E2): a section's files are listed after the run, so one already there is refused.
-    leftover = acoustic_section_leftovers(work_dir, sim_dir)
+    leftover = acoustic_section_leftovers(job.work_dir, job.sim_dir)
     if leftover is not None:
-        return RunRecord(**base, status=RunStatus.FAILED_INCOMPLETE_OUTPUT, error=leftover)
-    work_dir.mkdir(parents=True, exist_ok=True)
+        return RunRecord(**job.base, status=RunStatus.FAILED_INCOMPLETE_OUTPUT, error=leftover)
+    job.work_dir.mkdir(parents=True, exist_ok=True)
 
     # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS
     # GONE FROM THIS PATH, and deliberately from this path only (the
@@ -828,36 +949,38 @@ def _execute_point(
     # bound per point because a descriptor names the simulation, its wall
     # clock and its processor count, and those are the row's. A local
     # executor has no such method and is handed nothing.
-    bind_submission_values(executor, case, point_case)
-    if progress is not None:
-        progress.solver_started = True
-    result = executor.run_script(script_path, working_dir=work_dir, timeout_s=case.solver.timeout_s)
+    bind_submission_values(job.executor, job.case, job.point_case)
+    if job.progress is not None:
+        job.progress.solver_started = True
+    job.result = job.executor.run_script(
+        job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
+    )
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
     # timeout. Reproducing a run from its record used to mean re-deriving
     # all three from a class that may have changed since.
-    base["argv"] = list(result.argv)
-    base["cwd"] = result.cwd
-    base["timeout_s"] = result.timeout_s
-    base["executor"] = invocation_record(executor, result)
+    job.base["argv"] = list(job.result.argv)
+    job.base["cwd"] = job.result.cwd
+    job.base["timeout_s"] = job.result.timeout_s
+    job.base["executor"] = invocation_record(job.executor, job.result)
     # PFS-2012.08.01. WHEN the solver ran, for the provenance document's
     # activity; None where the executor reports no clock.
-    base["started_at"] = result.started_at
-    base["finished_at"] = result.finished_at
+    job.base["started_at"] = job.result.started_at
+    job.base["finished_at"] = job.result.finished_at
     # PFS-2031.18. How far the counter got, read from the file the
     # program left, on every path below: a failed execution's count is
     # evidence about the failure. None when the file was never written,
     # which is a run with no counter or a solver that never reached a
     # time step.
-    if counter is not None:
-        base["action_count"] = action_count(work_dir / UNSTEADY_ACTION_COUNT)
+    if job.counter is not None:
+        job.base["action_count"] = action_count(job.work_dir / UNSTEADY_ACTION_COUNT)
     # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
     # This is the only thing that knows: the solver reports a run that
     # ended, and the difference between ending because it finished and
     # ending because the watchdog stopped it is here or nowhere.
-    stopped = _walltime_stop(work_dir / WALLTIME_CLOCK_STATE)
+    stopped = _walltime_stop(job.work_dir / WALLTIME_CLOCK_STATE)
     if stopped is not None:
-        base["stopped_at"] = stopped
+        job.base["stopped_at"] = stopped
     # FR-99. READ BEFORE THE FAILURE BRANCH, because the likeliest cluster
     # failure is a REJECTED SUBMISSION and the descriptor is written before
     # the scheduler is called. Read after it, a rejected job produced a
@@ -866,16 +989,16 @@ def _execute_point(
     # missing from the record of the case that most needs it (the
     # architect lens, round two). `submitted` distinguishes not-sent from
     # sent-and-refused, so the failure record needs no new vocabulary.
-    submitted = _submission_record(executor)
-    if result.failed:
+    submitted = _submission_record(job.executor)
+    if job.result.failed:
         # One composer, never a chain here: the timeout branch used to
         # discard every captured channel, and the timeout branch is the
         # one a pre-script failure takes (INC-20260809-2230).
-        error = result.diagnosis()
+        error = job.result.diagnosis()
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_EXECUTION,
-            wall_time_s=result.wall_time_s,
+            wall_time_s=job.result.wall_time_s,
             error=error,
             submission=submitted,
         )
@@ -889,7 +1012,7 @@ def _execute_point(
     # found again.
     if submitted is not None:
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.SUBMITTED,
             wall_time_s=None,
             outputs=[],
@@ -903,44 +1026,53 @@ def _execute_point(
             # what it was BUILT to write.
             submission={
                 **submitted,
-                "declared_outputs": list(point_case.outputs),
+                "declared_outputs": list(job.point_case.outputs),
                 # GOAL-021 item 3: WHERE the job runs and writes, relative to
                 # the simulation folder so a moved workspace still resolves;
                 # the collector waits on the declared outputs here.
-                "working_dir": work_dir.relative_to(sim_dir).as_posix(),
+                "working_dir": job.work_dir.relative_to(job.sim_dir).as_posix(),
                 # G02: the points the script imports, which the collector
                 # compares with the count the solver logs.
                 **(
-                    {"wake_edge_points": script.wake_edge_points}
-                    if script.wake_edge_points is not None
+                    {"wake_edge_points": job.script.wake_edge_points}
+                    if job.script.wake_edge_points is not None
                     else {}
                 ),
                 # G06: every file the point was told to write its log to,
                 # whatever its name, the output its LOG_OUTPUT names among them;
                 # the collector reads the four lines in each.
-                "declared_logs": _declared_logs(point_case, rendered),
+                "declared_logs": _declared_logs(job.point_case, job.rendered),
             },
         )
 
     # G45: THE TECPLOT IS WRITTEN FROM THE VTK before anything is collected, at
     # the name the solver's own had, and each per-step VTK into its own step's.
-    if base.get("surface_translations"):
-        base["surface_translations"] = translate_surface_exports(
-            work_dir,
-            base["surface_translations"],  # type: ignore[arg-type]
+    return None
+
+
+def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
+    """Collect point outputs."""
+    if job.base.get("surface_translations"):
+        job.base["surface_translations"] = translate_surface_exports(
+            job.work_dir,
+            job.base["surface_translations"],  # type: ignore[arg-type]
         )
     # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, the declared log is
     # written from what the solver printed, or, with nothing printed, excused:
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
-    local_log = _the_local_log(executor, point_case.outputs, work_dir, result)
+    job.local_log = _the_local_log(job.executor, job.point_case.outputs, job.work_dir, job.result)
     # 0.30.0: what the package's own post-processing of an output could not
     # write, where the solver wrote its sources (`untranslated_surfaces`).
-    post_warnings: list[str] = []
+    job.post_warnings = []
     try:
-        collected = workspace.collect_outputs(
-            case.sim_id,
-            [work_dir / name for name in point_case.outputs if name != local_log.excused],
+        job.collected = job.workspace.collect_outputs(
+            job.case.sim_id,
+            [
+                job.work_dir / name
+                for name in job.point_case.outputs
+                if name != job.local_log.excused
+            ],
             # FR-92. THE POINT'S OWN FOLDER, always, steady or unsteady.
             # Every point of one case collected into one `outputs/` until
             # 0.16.0, so from the second point of a swept row onward that
@@ -948,39 +1080,45 @@ def _execute_point(
             # nothing in the layout said which point either belonged to.
             # The point's checked NAME is passed and the folder is rendered
             # there, so a caller cannot name a folder the assessor will not read.
-            datapoint=PointName(point_name(case, point)),
+            datapoint=PointName(point_name(job.case, job.point)),
             # 0.27.0: every point runs in that folder, so its outputs are
             # filed where the solver wrote them.
             ran_in_datapoint=True,
         )
         # 0.32.0 (E2): an acoustic section's files, listed where the solver wrote them.
-        collected = acoustic_section_outputs(workspace.sim_dir(case.sim_id), collected)
+        job.collected = acoustic_section_outputs(
+            job.workspace.sim_dir(job.case.sim_id), job.collected
+        )
     except MissingOutputsError as exc:
-        exc.collected = acoustic_section_outputs(workspace.sim_dir(case.sim_id), exc.collected)
+        exc.collected = acoustic_section_outputs(
+            job.workspace.sim_dir(job.case.sim_id), exc.collected
+        )
         # A COMPLETED SOLVE IS NOT DEMOTED BY THE PACKAGE'S OWN POST-PROCESSING
         # (0.30.0). A Tecplot the package failed to write from the VTK the
         # solver did write is not a missing solver output: the point is
         # assessed as any other and the failure is a warning on the record.
         untranslated = untranslated_surfaces(
-            base.get("surface_translations"), exc.missing, exc.collected
+            job.base.get("surface_translations"), exc.missing, exc.collected
         )
         if untranslated is None:
             # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
             # only what is missing (0.27.0). An empty record here left a point's
             # exports out of every product (measured on a cluster, 2026-09-24).
             return RunRecord(
-                **base,
+                **job.base,
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                wall_time_s=result.wall_time_s,
+                wall_time_s=job.result.wall_time_s,
                 outputs=exc.collected,
-                outputs_sha256=workspace.output_digests(case.sim_id, exc.collected),
-                residual_note=local_log.note,
-                error=str(exc) + _translation_problems(base.get("surface_translations")),
+                outputs_sha256=job.workspace.output_digests(job.case.sim_id, exc.collected),
+                residual_note=job.local_log.note,
+                error=str(exc) + _translation_problems(job.base.get("surface_translations")),
             )
-        collected = exc.collected
-        post_warnings = untranslated
+        job.collected = exc.collected
+        job.post_warnings = untranslated
         for line in untranslated:
-            warnings.warn(f"{point_name(case, point)}: {line}", PyflightstreamWarning, stacklevel=2)
+            warnings.warn(
+                f"{point_name(job.case, job.point)}: {line}", PyflightstreamWarning, stacklevel=2
+            )
     except (WorkspaceError, CampaignConfigError) as exc:
         # BOTH, because collection can refuse for two reasons and only one of
         # them used to be caught. `collect_outputs` renders the point's folder
@@ -991,13 +1129,18 @@ def _execute_point(
         # `sweep.points()`, which yields only points keyed by a known axis, and
         # caught anyway: the thing this costs is a licensed seat.
         return RunRecord(
-            **base,
+            **job.base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            wall_time_s=result.wall_time_s,
+            wall_time_s=job.result.wall_time_s,
             error=str(exc),
         )
 
-    assessment = assess(point_case, result, sim_dir)
+    return None
+
+
+def _assess_point_record(job: _PointJob) -> RunRecord:
+    """Assess point record."""
+    assessment = job.assess(job.point_case, job.result, job.sim_dir)
     # FR-98. THE CLOCK'S VERDICT WINS, and only over a converged one.
     # A run the watchdog stopped did not converge and did not fail: it
     # ran out of clock with its outputs written, which is a state of
@@ -1005,7 +1148,7 @@ def _execute_point(
     # then hit the clock is still diverged, so a failure is left alone.
     status = (
         RunStatus.WALLTIME_REACHED
-        if base.get("stopped_at") and not str(assessment.status).startswith("FAILED")
+        if job.base.get("stopped_at") and not str(assessment.status).startswith("FAILED")
         else assessment.status
     )
     # G02. A run that imported trailing edges is held to the count the solver
@@ -1015,23 +1158,23 @@ def _execute_point(
     # the solver's printed output need not read as a residual history to carry
     # the count.
     named_log = assessment.log_file_used or (
-        Path(local_log.written).name if local_log.written else None
+        Path(job.local_log.written).name if job.local_log.written else None
     )
     # On a machine that cannot export the log, what the solver printed is the
     # point's log when nothing else is, as it is a local steady job's: a row that
     # declares no log output wrote none from it above.
     printed = (
-        result.captured_output()
-        if isinstance(executor, LocalExecutor) and not executor.export_log
+        job.result.captured_output()
+        if isinstance(job.executor, LocalExecutor) and not job.executor.export_log
         else ""
     )
-    log_text = _run_log_text(sim_dir, collected, named_log, result) or (printed or None)
+    log_text = _run_log_text(job.sim_dir, job.collected, named_log, job.result) or (printed or None)
     status, error = with_wake_edge_verdict(
         status,
         assessment.error,
-        _no_local_log_verdict(script.wake_edge_points, log_text, local_log.note)
-        if local_log.excused and local_log.note
-        else wake_edge_import_verdict(script.wake_edge_points, log_text),
+        _no_local_log_verdict(job.script.wake_edge_points, log_text, job.local_log.note)
+        if job.local_log.excused and job.local_log.note
+        else wake_edge_import_verdict(job.script.wake_edge_points, log_text),
     )
     # G06. A run whose log says the solver could not use its actuator disc's
     # profile file went on to the end with a loading that is not the file's, and
@@ -1044,25 +1187,29 @@ def _execute_point(
         error,
         actuator_profile_verdict(
             log_text,
-            result.log_text,
+            job.result.log_text,
             printed,
-            *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
+            *collected_log_texts(
+                job.sim_dir, job.collected, _declared_logs(job.point_case, job.rendered)
+            ),
         ),
     )
     step_warning = missing_step_warning(
-        base.get("action_program"),
-        base.get("action_count"),
-        base.get("export_window"),
+        job.base.get("action_program"),
+        job.base.get("action_count"),
+        job.base.get("export_window"),
         assessment.time_steps,
     )
     # 0.31.0: what the judgment did without (an unreadable quasi-steady record).
     for line in assessment.warnings or []:
-        warnings.warn(f"{point_name(case, point)}: {line}", PyflightstreamWarning, stacklevel=2)
+        warnings.warn(
+            f"{point_name(job.case, job.point)}: {line}", PyflightstreamWarning, stacklevel=2
+        )
     return RunRecord(
-        **base,
+        **job.base,
         status=status,
         warnings=[
-            *post_warnings,
+            *job.post_warnings,
             *(assessment.warnings or []),
             *([step_warning] if step_warning else []),
         ],
@@ -1070,14 +1217,14 @@ def _execute_point(
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,
         fs_build=assessment.fs_build,
-        wall_time_s=result.wall_time_s,
-        outputs=collected,
+        wall_time_s=job.result.wall_time_s,
+        outputs=job.collected,
         # PYFS-006, the other half of "which file is this record about".
         # The refusal above stops a stale file becoming evidence; this
         # states which bytes the evidence WAS, so a file edited or
         # replaced after the run stops matching its own record. inputs
         # have carried this since the first manifest; outputs never did.
-        outputs_sha256=workspace.output_digests(case.sim_id, collected),
+        outputs_sha256=job.workspace.output_digests(job.case.sim_id, job.collected),
         # REV010-001. The decision is persisted, not just acted on: a later
         # reader of the manifest can see which axes were compared, by how
         # much the export deviated, and what tolerance let it through. A
@@ -1085,7 +1232,9 @@ def _execute_point(
         # point it claims", and that question is the whole finding.
         conditions=assessment.conditions,
         log_file_used=assessment.log_file_used,
-        residual_note="; ".join(note for note in (assessment.residual_note, local_log.note) if note)
+        residual_note="; ".join(
+            note for note in (assessment.residual_note, job.local_log.note) if note
+        )
         or None,
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
@@ -1093,3 +1242,28 @@ def _execute_point(
         clocking_verdicts=assessment.clocking_verdicts,
         error=error,
     )
+
+
+def _retain_continued_field_inputs(job: _PointJob, predecessor: RunRecord) -> RunRecord | None:
+    """Retain a predecessor's field evidence and input digests."""
+    from pyflightstream.run._field_motion import continued_field_inputs
+
+    try:
+        inherited_fields = continued_field_inputs(predecessor, job.sim_dir)
+    except (OSError, ValueError, KeyError) as exc:
+        return RunRecord(
+            **job.base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"cannot retain continued field evidence: {exc}",
+        )
+    for key, value in inherited_fields.items():
+        if job.base.get(key) is None:
+            job.base[key] = value
+    if inherited_fields:
+        inherited_path = str(inherited_fields["probe_points_file"])
+        job.inputs_sha256 = {
+            **job.inputs_sha256,
+            inherited_path: file_sha256(job.sim_dir / inherited_path),
+        }
+        job.base["inputs_sha256"] = job.inputs_sha256
+    return None

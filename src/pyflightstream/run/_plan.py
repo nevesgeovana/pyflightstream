@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import pyflightstream
 import pyflightstream._textio as _textio
+import pyflightstream.run._ids as _ids
 from pyflightstream._digest import (
     file_sha256,
 )
@@ -75,7 +76,6 @@ from pyflightstream.run._identity import (
     _file_digest,
 )
 from pyflightstream.run._ids import (
-    _is_cold_start,
     _point_names,
     _points_the_recorded_job_ran,
     _run_id,
@@ -1338,7 +1338,7 @@ def _plan_point(
         # An unreadable COLD_START is refused here, where the plan reports it
         # BLOCKED, and not first inside run_campaign's loop after earlier
         # rows have spent the seat.
-        _is_cold_start(case)
+        _ids._is_cold_start(case)
         rehearsed = resolve_continuation(
             workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version
         )
