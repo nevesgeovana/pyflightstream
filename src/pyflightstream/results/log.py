@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from pyflightstream import versions
 from pyflightstream.results.core import (
     RESIDUAL_PAGE,
     IncompleteOutputError,
@@ -634,10 +635,14 @@ def _initialization_reset(lines: list[str], at: int) -> bool:
     A new model's opening echo, or a reset after a solve, is a point boundary.
     Keep this setup reset inside the point so its opening evidence and solve
     reach the same LoadsAssessor as a point run alone (FR-407).
+    The splitter carries no build identity, so it uses the newest listed
+    build's vocabulary, also the fallback for a build without an entry.
     """
     before = next((line for line in reversed(lines[:at]) if line.strip()), "")
     after = next((line for line in lines[at + 1 :] if line.strip()), "")
-    return before.strip().startswith("Solver mode:") and after.strip().startswith("Symmetry is ")
+    newest = max(versions.SETUP_RESET_LOG_PREFIXES, key=versions.resolve)
+    mode, symmetry = versions.SETUP_RESET_LOG_PREFIXES[newest]
+    return before.strip().startswith(mode) and after.strip().startswith(symmetry)
 
 
 def split_job_log(text: str) -> list[LogSegment]:

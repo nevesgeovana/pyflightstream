@@ -28,9 +28,7 @@ from pyflightstream.run import records as run_records
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
-from pyflightstream.workspace.naming import (
-    MATRIX_POINT_NAME,
-)
+from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 
 
 def _a_word_that_means_false(word: str) -> bool:
@@ -80,14 +78,16 @@ def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
         "--polar-sweep",
         action="store_true",
         help="run each simulation's points as ONE solver job (one polar per job). Combines "
-        "with --local; a job holds steady or unsteady polars, never both",
+        "with --local; a job holds steady or unsteady polars, never both. RESTART and LEGACY "
+        "rows are left out, each named by the plan.",
     )
     group.add_argument(
         "--batch",
         type=_batch_count,
         metavar="N",
         help="run the simulations' points as N solver jobs, polars split across them. "
-        "Combines with --local; a job holds steady or unsteady polars, never both",
+        "Combines with --local; a job holds steady or unsteady polars, never both. RESTART and "
+        "LEGACY rows are left out, each named by the plan.",
     )
 
 
