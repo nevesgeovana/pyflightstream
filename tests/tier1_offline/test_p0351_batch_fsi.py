@@ -46,7 +46,7 @@ from pyflightstream.cases.workflows._batch_script import (
     write_targets,
 )
 from pyflightstream.results.log import point_log_text, split_job_log
-from pyflightstream.run import SubmittingExecutor
+from pyflightstream.run import LoadsAssessor, SubmittingExecutor
 from pyflightstream.run._batch_plan import eligibility
 from pyflightstream.run._batch_run import run_grouped_matrix
 from pyflightstream.run.collect import collect_once
@@ -294,3 +294,140 @@ def test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy(tmp_path):
         assert script.count(f"{POST}\n{copy}\n") == 1, copy
     assert script.count("REMOVE_INITIALIZATION") == 0
     assert not relative_paths(script), relative_paths(script)
+
+
+def _fsi_native_log(iteration: int, residual: float) -> str:
+    """Synthetic double initialization followed by one complete unsteady solve."""
+    return (
+        "1 bodies, 3 vertices and 1 faces imported.\n"
+        "Symmetry is disabled.\nSolver initialized in 0.1 seconds\n"
+        "Solver mode: Unsteady\n\n"
+        "Solution cleared. Initialization removed.\x00\n\n"
+        "Symmetry is disabled.\nSolver initialized in 0.2 seconds\n"
+        "Solver mode: Unsteady\n"
+        "Solving unsteady time-step iteration (3/3)...\n"
+        "----------------------------------------\n"
+        "Iteration Res. Vel. Res. Pres.\n"
+        "----------------------------------------\n"
+        f"{iteration} {residual} {residual / 2}\n"
+        "----------------------------------------\n"
+        "Unsteady solver run time: 0.1 minutes\n"
+    )
+
+
+def _fsi_loads(iteration: int) -> str:
+    """Synthetic unsteady loads with the native report's required fields."""
+    return f"""Aerodynamic loads
+Simulation file:                            synthetic.fsm
+Angle of attack (Deg)                       0.000
+Side-slip angle (Deg)                       0.000
+Freestream velocity (m/s)                   12.000
+Requested solver iterations                 500
+Solver convergence limit                     1.000E-05
+Force solver to run all iterations           F
+Time increment (sec)                        0.01
+Solver model:                               Subsonic (Prandtl-Glauert)
+Solver mode:                                Unsteady
+Reference velocity (m/s)                    12.000
+Reference length (m)                        1.000
+Reference area (m^2)                        1.000
+Coordinate frame for analysis:              MRP
+Current solver iteration number:            {iteration}
+----------------------------------------------------------------------------------------------------
+Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+----------------------------------------------------------------------------------------------------
+Panel,0,0,1,1,0.01,0.01,0,0,0
+Total,0,0,1,1,0.01,0.01,0,0,0
+----------------------------------------------------------------------------------------------------
+Force Units: Coefficients
+Moment Units: Coefficients
+Software : Flightstream version 26.1, build #8172026
+"""
+
+
+def _fsi_assessment_workspace(tmp_path: Path, kind: str, ended: bool):
+    """Stage synthetic coupled points and assess the same outputs individually."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(workspace.root)
+    job = _job(kind, 1)
+    job_dir = workspace.root / str(job["dir"])
+    sim = job_dir / "sim_2006" if kind == "batch" else job_dir
+    (sim / "scripts").mkdir(parents=True)
+    cumulative = ""
+    alone = []
+    for order, tag in enumerate(TAGS, 1):
+        stem = f"P2006-{tag}"
+        iteration, residual = 10 + order, order * 2e-7
+        native = _fsi_native_log(iteration, residual)
+        cumulative += ("Solution cleared. Initialization removed.\n" if order > 1 else "") + native
+        folder = sim / "datapoints" / f"DP-{tag}"
+        folder.mkdir(parents=True)
+        files = {
+            f"{stem}.txt": _fsi_loads(iteration),
+            f"{stem}_log.txt": native,
+            f"{stem}_plot_residuals.txt": f"Iteration,Residual\n{iteration},{residual}\n",
+            "fsi_convergence_log.csv": (
+                "step,time_s,tip_z\n1,0.01,0.001\n2,0.02,0.002\n3,0.03,0.003\n"
+            ),
+            "fsi-provenance.json": json.dumps(
+                {"schema": "synthetic-fsi", "source": "synthetic.obj"}
+            ),
+        }
+        alone_sim = tmp_path / f"alone_{order}"
+        outputs = alone_sim / "outputs"
+        outputs.mkdir(parents=True)
+        for name, body in files.items():
+            (outputs / name).write_text(body, encoding="utf-8")
+            if name != f"{stem}_log.txt":
+                (folder / name).write_text(body, encoding="utf-8")
+        (folder / f"{stem}.cumulative-log.txt").write_text(cumulative, encoding="utf-8")
+        (sim / "scripts" / f"{stem}.txt").write_text("synthetic script\n", encoding="utf-8")
+        record = _record(tag, job=_job(kind, order)).model_copy(
+            update={"inputs_sha256": {"fsi-provenance.json": "a" * 64}}
+        )
+        workspace.append_record(record)
+        alone.append(LoadsAssessor()(None, None, alone_sim))
+    (job_dir / str(job["script"])).write_text("synthetic job\n", encoding="utf-8")
+    if ended:
+        (job_dir / f"{Path(str(job['script'])).stem}.end.json").write_text(
+            json.dumps({"returncode": 0}), encoding="utf-8"
+        )
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert len(report.collected) == 2, report.lines()
+    return workspace.read_manifest(), alone
+
+
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep"])
+@pytest.mark.parametrize("ended", [False, True])
+def test_p0351_fsi_fr407_grouped_assessment_matches_alone(tmp_path, kind, ended):
+    """P0351-BATCH-FSI (FR-407): setup resets retain the first point's residual evidence."""
+    records, alone = _fsi_assessment_workspace(tmp_path, kind, ended)
+    expected = alone[0]
+    assert expected.status is RunStatus.CONVERGED, expected.error
+    assert expected.time_steps == 3
+    assert expected.residual == 2e-7
+    record = records[0]
+    assert record.status is expected.status, record.error
+    assert (record.iterations, record.time_steps, record.residual) == (
+        expected.iterations,
+        expected.time_steps,
+        expected.residual,
+    )
+
+
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep"])
+@pytest.mark.parametrize("ended", [False, True])
+def test_p0351_fsi_fr407_grouped_does_not_use_previous_points_log(tmp_path, kind, ended):
+    """P0351-BATCH-FSI (FR-407): the next point avoids false FAILED_INCOMPLETE_OUTPUT."""
+    records, alone = _fsi_assessment_workspace(tmp_path, kind, ended)
+    expected = alone[1]
+    assert expected.status is RunStatus.CONVERGED, expected.error
+    assert expected.iterations == 12
+    assert expected.residual == 4e-7
+    record = records[1]
+    assert record.status is expected.status, record.error
+    assert (record.iterations, record.time_steps, record.residual) == (
+        expected.iterations,
+        expected.time_steps,
+        expected.residual,
+    )

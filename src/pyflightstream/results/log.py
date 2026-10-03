@@ -625,8 +625,23 @@ class LogSegment:
     complete: bool
 
 
+def _initialization_reset(lines: list[str], at: int) -> bool:
+    """Recognize the reset between two initializations of the same model.
+
+    On 26.124 a second INITIALIZE_SOLVER prints the same reset as a new
+    point. Its preceding nonblank line is the first initialization's solver
+    mode, and its next is the symmetry echo of the second initialization.
+    A new model's opening echo, or a reset after a solve, is a point boundary.
+    Keep this setup reset inside the point so its opening evidence and solve
+    reach the same LoadsAssessor as a point run alone (FR-407).
+    """
+    before = next((line for line in reversed(lines[:at]) if line.strip()), "")
+    after = next((line for line in lines[at + 1 :] if line.strip()), "")
+    return before.strip().startswith("Solver mode:") and after.strip().startswith("Symmetry is ")
+
+
 def split_job_log(text: str) -> list[LogSegment]:
-    """Cut the cumulative log of a job at every :data:`RESTART_MARKER`.
+    r"""Cut a job log at point resets, retaining resets between initializations.
 
     Parameters
     ----------
@@ -640,11 +655,24 @@ def split_job_log(text: str) -> list[LogSegment]:
     list of LogSegment
         One segment per point, in the order the job ran them; empty for an
         empty text. Line indexes count the lines of ``text.splitlines()``.
+
+    Examples
+    --------
+    >>> setup = f"Solver mode: Unsteady\n{RESTART_MARKER}\nSymmetry is disabled."
+    >>> len(split_job_log(setup))
+    1
+    >>> len(split_job_log(f"{setup}\nsolve ended\n{RESTART_MARKER}\nnext point"))
+    2
     """
     lines = text.splitlines()
+    clean = [line.replace("\x00", "") for line in lines]
     if not lines:
         return []
-    markers = [at for at, line in enumerate(lines) if RESTART_MARKER in line.replace("\x00", "")]
+    markers = [
+        at
+        for at, line in enumerate(clean)
+        if RESTART_MARKER in line and not _initialization_reset(clean, at)
+    ]
     starts = [0, *(at + 1 for at in markers)]
     ends = [*(at - 1 for at in markers), len(lines) - 1]
     return [
