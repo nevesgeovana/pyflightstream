@@ -92,7 +92,8 @@ def test_the_committed_index_is_what_the_srs_generates() -> None:
         capture_output=True,
         text=True,
         cwd=REPO,
-        timeout=120,
+        # Measured on 2026-10-03 with 427 requirements: 134 s isolated and 162 s.
+        timeout=300,
         # Explicit, and identical to the inherited default. The generator
         # needs the ambient environment to find its own interpreter, and
         # the spawn-environment rule is that the call SAYS so rather than
