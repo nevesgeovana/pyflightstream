@@ -166,7 +166,7 @@ naming both.
 
 A research study of the disc on 26.124 (build 8172026), summarised in
 [RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md),
-measured four things a reader would not assume. They are stated here with the
+measured five things a reader would not assume. They are stated here with the
 case they were measured on; on another build they are unmeasured.
 
 **THE HAND.** A disc whose block states `rpm_sign = 1` swirls its

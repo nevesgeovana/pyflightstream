@@ -226,6 +226,7 @@ nav:
           # One section, newest first, so a release adds a line here.
           - Upgrade index: upgrading.md
           - Release notes: release-notes.md
+          - Migrating to 0.36.0: migrating-to-0.36.0.md
           - Migrating to 0.35.1: migrating-to-0.35.1.md
           - Migrating to 0.35.0: migrating-to-0.35.0.md
           - Migrating to 0.34.0: migrating-to-0.34.0.md

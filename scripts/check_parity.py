@@ -455,11 +455,12 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
         r"\A(FlightStream - [^\n]*\n[^\n]*\n)"
         r"[A-Z][a-z]{2} [A-Z][a-z]{2} \d\d \d\d:\d\d:\d\d  \d{4}(?=\r?\n)",
         r"\1<TIME>",
-        "line 3 of a custom polar file (line 1 the title FlightStream - ...) is its write time "
-        "by definition (the format's specification PFS-2014.01.02, post/custom_polar.py "
-        "write_custom_polar_format); measured 2026-10-03: the research-corpus parity receipts "
-        "of the 0.35.1 candidates listed custom polar files, numbered groups *_gNN.dat and "
-        "named groups such as *_ROTOR.dat, differing on that line only",
+        "the custom polar format (PFS-2014.01.02, post/custom_polar.py "
+        "write_custom_polar_format) defines line 3 as the write time, with "
+        "FlightStream - ... as the title on line 1; measured 2026-10-03: "
+        "research-corpus parity at 20d23064 found 305 custom polar files differing "
+        "on that line only; at d51347d9, 90 named-group *_ROTOR.dat files differed "
+        "on that line only (release-0351/parity_research_d51347d9_rotor-evidence.json)",
     ),
 ]
 

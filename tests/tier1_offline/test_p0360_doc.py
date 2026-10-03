@@ -57,6 +57,7 @@ RECORD_BANNERS = {
     "migrating-to-0.34.0.md": FROZEN,
     "migrating-to-0.35.0.md": FROZEN,
     "migrating-to-0.35.1.md": FROZEN,
+    "migrating-to-0.36.0.md": FROZEN,
     "release-notes.md": FROZEN,
 }
 

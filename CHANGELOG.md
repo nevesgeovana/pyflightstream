@@ -73,30 +73,62 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+## [0.36.0] - 2026-10-03
+
+### Added
+
+- Every public module has an API maturity level in one table, rendered beside
+  its Python API reference heading and in the reference overview; missing,
+  extra, duplicate and invalid rows are checked offline (FR-409).
+
+### Changed
+
+- **Grouped plans always name the acoustic polars that run in their own jobs**,
+  with all their points together (FR-406, R-API-1).
+- **The `--batch` and `--polar-sweep` help states which rows are left out.**
+  RESTART and LEGACY rows are left out and each is named by the plan
+  (FR-362 R2, R-API-2).
+- **The campaign, point, sweep and loads-assessment run paths use private phases**
+  within the existing modules (AD-22, NFR-40).
+
+### Fixed
+
+- A coupled row on steady or qsteady_rotor is left out of --batch and
+  --polar-sweep; the 0.35.1 notes promised the exclusion, but the 0.35.1 code
+  planned the row into a job (FR-410, RPT-150).
+- Make planning consult the shared cold-start check through its module
+  attribute, so replacing that check affects the plan as well as the run
+  (QA2, FR-364).
+
+### Migration
+
+- Read [Migrating to 0.36.0](docs/migrating-to-0.36.0.md) for the grouped-plan
+  exclusion, plan notes, public Python names and documentation index. Inputs
+  from 0.35.1 need no changes.
+
 ## [0.35.1] - 2026-10-03
 
 ### Added
 
 - **Steady and quasi-steady polars join the grouped jobs** (FR-403; compared on
-  26.124, RPT-148 window 2). `plan --batch N` and `plan --polar-sweep` no longer leave
-  every `steady` and `qsteady_rotor` row out: they are grouped in jobs of their own,
-  never with an unsteady polar, each later point of a polar restated from
+  26.124, RPT-148 window 2). `plan --batch N` and `plan --polar-sweep` no longer
+  leave every `steady` and `qsteady_rotor` row out: they are grouped in jobs of
+  their own, never with an unsteady polar, each later point of a polar restated from
   `SOLVER_SET_AOA` after `REMOVE_INITIALIZATION`, or reopened after `NEW_SIMULATION`
   where it differs before that line, and each point recorded and collected as the
-  point run alone. A steady
-  row stating `COLD_START` false, and a steady point that initializes the solver more
-  than once, are left out and named.
+  point run alone. A steady row stating `COLD_START` false, and a steady point that
+  initializes the solver more than once, are left out and named.
 - **A polar whose post-processing asks `[time_averaging]` joins the grouped jobs**
   (FR-402; compared on 26.124, RPT-148: equal in window 1; a repeat differed by at most
   1.1e-19 on one point's last step). Each point's per-step surface exports land in its
   own datapoint folder under the names the point run alone writes, and the post
   averages each point as it does alone.
-- **A polar whose setup states `unsteady_solver_actions` joins a grouped job** (FR-405;
-  compared on 26.124, RPT-148 window 2). The split groups polars by their set of user actions
-  beside processor count and build, so a job holds one set; the job registers that set
-  once, before the package's own counter and clock, as a point run alone does, and keeps
-  each user action's lines as the setup wrote them. A job mixing two sets is refused by
-  the assembler.
+- **A polar whose setup states `unsteady_solver_actions` joins a grouped job**
+  (FR-405; compared on 26.124, RPT-148 window 2). The split groups polars by their
+  set of user actions beside processor count and build, so a job holds one set; the
+  job registers that set once, before the package's own counter and clock, as a
+  point run alone does, and keeps each user action's lines as the setup wrote them.
+  A job mixing two sets is refused by the assembler.
 - **A `SCRIPT` user action named by a relative file also joins the grouped job**
   (FR-405; offline evidence only). The plan warns once per job registering it, naming
   the file and the job folder, that the file resolves there and must be placed there.
@@ -104,11 +136,11 @@ FlightStream versions.
   states that a relative path inside a `COMMAND_LINE` action resolves in the job's
   folder.
 - **An acoustic polar joins the grouped modes as a job of its own**, all its points
-  together (FR-406; compared on 26.124, RPT-148 window 2). Each point after the job's first
-  deletes the observers that earlier points left in the solver and states its own
-  acoustic setup again just before its unsteady solver block, so its observers are
-  created once and its sources switch is its own. The signals export and the section
-  folder stay in each point's own datapoint folder.
+  together (FR-406; compared on 26.124, RPT-148 window 2). Each point after the
+  job's first deletes the observers that earlier points left in the solver and
+  states its own acoustic setup again just before its unsteady solver block, so its
+  observers are created once and its sources switch is its own. The signals export
+  and the section folder stay in each point's own datapoint folder.
 - **A row coupled with the structure (FSI) on `unsteady` joins a grouped job** (FR-407;
   compared on 26.124, RPT-148 window 3). Each coupled point starts its part of the job
   with `NEW_SIMULATION` and its whole script, which reopens the geometry from its file,
@@ -380,13 +412,11 @@ FlightStream versions.
 
 ### Changed
 
-- Docstrings state what a function takes, returns and raises (NFR-30, DOC-B part 1). Every exported function outside the modules DOC-B part 2 completes, and outside the package roots `cases` and `farfield`, which keep their definitions until they become facades, carries numpydoc `Parameters` naming every parameter, `Returns` or `Yields` where it gives a value, and `Raises` where it raises a catalogued error; every exported docstring parses cleanly, so the API reference renders none with the parser's warnings off. A tier-1 test (P0330-DOCSTRINGS-NUMPYDOC) walks every exported function, the modules left pinned on a list that only shrinks; its Raises half reads each function's own `raise` of a catalogued error that no handler of its own catches, and six docstrings that named `ValueError` or omitted an error for what the code raises now name the catalogued class.
+- Docstrings state what a function takes, returns and raises (NFR-30, DOC-B parts 1 and 2). Exported functions carry numpydoc `Parameters` naming every parameter, `Returns` or `Yields` where they give a value, and `Raises` naming the catalogued class where they raise a catalogued error; every exported docstring parses cleanly, so the API reference renders none with the parser's warnings off. This includes the case windows; the post tables, polars, rotor tables, probe fields, products, guides and glossary; the `results` readers, tables and surfaces; the run planner, executors, campaign loop and command line; and the workspace hardware profiles, inputs and sidecars. The tier-1 test (P0330-DOCSTRINGS-NUMPYDOC) walks every exported function and keeps four package roots pinned for these sections, `cases`, `farfield`, `probes` and `workspace`, and three for `Examples`, `cases`, `script` and `workspace`, on lists that only shrink: the facade ratchet admits no growth in a root that still defines functions, and their docstrings are completed as each becomes a facade. Its Raises half reads each function's own `raise` of a catalogued error that no handler of its own catches; six docstrings that named `ValueError` or omitted an error now name the catalogued class.
 - Forty-three public modules declare `__all__`, naming exactly the public names they define; a module-level `logger` is not listed. Every name a module exported before still imports from the same path, and the API reference pages carry the same names but the five FSI modules' `logger`. What narrows is the star import: `from <module> import *` now gives the module's own public names, and no longer the names it imports (such as `PyflightstreamError` from `qa.errors`), which still import by name. A tier-1 test (NFR-29, P0330-DOC-API-COMPLETE) holds each of these `__all__` to every public name its module defines.
-- The documented entry points carry an `Examples` section the executable-examples step runs: the solver helpers, `resolve`, `support_level`, the matrix reader and converter, the field operations, the FSI configuration, beam and sections, the test-wing geometry and the naming template. Fourteen whose example would need the solver, a workbook or a recorded workspace are named with the reason (NFR-30 R3, P0330-DOC-EXAMPLES).
+- The documented entry points carry an `Examples` section the executable-examples step runs: the solver helpers, `resolve`, `support_level`, the matrix reader and converter, the field operations, the FSI configuration, beam and sections, the test-wing geometry and the naming template; the `results` exports, loads, surface and tables entry points, the probe field writer, `LocalExecutor`, `LoadsAssessor`, `PlanStatus` and `workspace.inputs.resolve_geometry`. Fourteen whose example would need the solver, a workbook or a recorded workspace, and four more that need the solver or a recorded workspace, are named with their reasons (NFR-30 R3, P0330-DOC-EXAMPLES).
 - The reductions of an unsteady point are defined on one page, the definitions page, under "The reductions of an unsteady point"; the unsteady workflow page links to it and keeps its worked example, and the unsteady-rotor page links to both (NFR-30 R4, P0330-DOC-REDUCTIONS-HOME).
-- Docstrings state what a function takes, returns and raises in the modules DOC-B part 1 left (NFR-30, DOC-B part 2). The case windows, the post tables, polars, rotor tables, probe fields, products, guides and glossary, the `results` readers, tables and surfaces, the run planner, executors, campaign loop and command line, and the workspace hardware profiles, inputs and sidecars carry numpydoc `Parameters`, `Returns` and `Raises`, the catalogued class named where a docstring said `ValueError`. The tier-1 test (P0330-DOCSTRINGS-NUMPYDOC) keeps four package roots pinned for these sections, `cases`, `farfield`, `probes` and `workspace`, and three for `Examples`, `cases`, `script` and `workspace`, because the facade ratchet admits no growth in a root that still defines functions; their docstrings are completed as each becomes a facade.
 - Ruff's rule D417 is selected, which the numpy convention switches off, and reports nothing over `src`: a parameter missing from its `Parameters` section is now an error (NFR-30 R1). Ten findings stood at the base of part 2; the documented modules cleared seven, and `post.point_condition` (`clock`), `run.campaign_executor` (three parameters) and `CampaignWorkspace.expand_group` (`boundaries`) were completed.
-- More documented entry points carry an `Examples` section the executable-examples step runs: the `results` exports, loads, surface and tables entry points, the probe field writer, `LocalExecutor`, `LoadsAssessor`, `PlanStatus` and `workspace.inputs.resolve_geometry`. Four that need the solver or a recorded workspace are named with their reason (NFR-30 R3).
 - **Every unsteady row registers the step counter.** On a build that documents the unsteady solver action (26.122 and later): a row asking no per-step export registers it alone, counting only, with no exports file and no exports action, so the progress bar of a local run appears on every unsteady row. The script of such a row gains three lines against 0.32.0, the counter's registration; its `march_strategy` stays `single_march`, and its record names the count-only program as `action_program` and keeps `action_count`; the frame recovery of a stopped run ignores the counter's registration, so a run 0.32.0 recorded without it still continues (FR-314; [Unsteady rotor](docs/workflow-unsteady-rotor.md#exports-that-begin-after-a-threshold)).
 - `pyfs-matrix rebuild` without `--matrix` refuses a matrix stem held in both homes with different bytes, naming both, where it left it out with a note; the Excel synchronization reads a name held in both homes with equal bytes once, where it refused it as ambiguous (FR-310).
 - A bare matrix name given to a `pyfs-matrix` command run outside its workspace, found in a matrix home while the working directory holds a file of that name with different bytes, is refused naming both, where 0.32.0 read the working directory's file; with the same bytes it is read once (FR-310).
@@ -426,7 +456,7 @@ FlightStream versions.
 
 See [the migration guide](docs/migrating-to-0.33.0.md) for the matrix homes, the FAILED_MARKED status, the saved solver actions, the unsteady counter registration, the setup keys and the removal of `stamp_derived_campaign`.
 
-### Changed (the type-checker debt, re-measured on the release tree)
+### Changed (type-checker debt)
 
 - mypy recount 2026-10-01: 192 errors in 17 of 219 modules, on `rel/0-33`
   with work packages WP4, WP5 and WP6 merged: the exempted set shrank from
@@ -14184,7 +14214,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...v0.36.0
 [0.35.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.35.0
 [0.34.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.34.0

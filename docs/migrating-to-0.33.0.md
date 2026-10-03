@@ -13,10 +13,11 @@ every public name, console command, emitted script and product byte stayed
 where it was, with the exceptions the sections below name: one public name
 removed (`stamp_derived_campaign`), one change to the emitted scripts (the
 step counter of the unsteady rows), and products that change only for a
-continued point and for the fields of another 26.124 build. What a user meets is a new run status, one lookup of the run
-matrix over both of its homes, a way to clean a saved geometry, and a few new
-options. The sections are in the order of their impact on an existing
-workspace; each names what a script of yours must allow.
+continued point and for the fields of another 26.124 build. What a user
+meets is a new run status, one lookup of the run matrix over both of its
+homes, a way to clean a saved geometry, and a few new options. The sections
+are in the order of their impact on an existing workspace; each names what a
+script of yours must allow.
 
 ## A run can be marked failed: FAILED_MARKED
 
@@ -203,13 +204,14 @@ became sibling modules (AD-13), under the architecture guards of AD-08. None
 of this moved a public import path, a console command or option, an emitted
 script or a product byte: every name every `__all__` of 0.32.0 offered still
 imports from the same dotted path, except `stamp_derived_campaign`, removed
-by its own decision (below) and named as such by the parity script, and `scripts/check_parity.py` compares
-the release with the tag `v0.32.0` for the public names and signatures, the
-commands and options, the emitted scripts of the golden and tier-3 campaigns
-(FR-314 the one named exception) and the products of a post over a recorded
-workspace, stamps normalized (AD-15). Some names are now defined in a new
-module and re-exported where they were, for example `parse_sectional_loads`
-in `pyflightstream.results.sectional_loads`, re-exported by
+by its own decision (below) and named as such by the parity script, and
+`scripts/check_parity.py` compares the release with the tag `v0.32.0` for
+the public names and signatures, the commands and options, the emitted
+scripts of the golden and tier-3 campaigns (FR-314 the one named exception)
+and the products of a post over a recorded workspace, stamps normalized
+(AD-15). Some names are now defined in a new module and re-exported where
+they were, for example `parse_sectional_loads` in
+`pyflightstream.results.sectional_loads`, re-exported by
 `pyflightstream.fsi.loads`; import them from the path you used.
 
 What narrows is the star import: a public module that now declares `__all__`
