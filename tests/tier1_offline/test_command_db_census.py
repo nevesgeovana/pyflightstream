@@ -171,7 +171,7 @@ VERIFIED = {
     # RPT-126 (CMP-26124_2026-10-02_qa-promote) verified the nine acoustic
     # commands, CCS_IMPORT, DELETE_SURFACES and fifteen CCS meshing commands: 115.
     # +3 in 0.35.0 (FR-342): the pyfs-qa probe run of RPT-127
-    # (CMP-26124_2026-10-02_rpt127) verified ROTATE_SURFACE,
+    # (CMP-26124_2026-10-02_t1-probe) verified ROTATE_SURFACE,
     # SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS: 118.
     "26.124": 118,
 }

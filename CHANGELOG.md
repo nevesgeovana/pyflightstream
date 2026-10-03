@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Owed
 
+- **The Zenodo archive row of v0.35.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
@@ -20,7 +25,8 @@ FlightStream versions.
   implemented:
   - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
     `START_SOLVER`, and every step export then carries it; in the order 0.34.0
-    emits, only the final export does. Moving the list is 0.35.0 scope.
+    emits, only the final export does. Moving the list is done in 0.35.0
+    (FR-318 R6).
   - RPT-134 (FR-96): when the reopened state is kept, a continuation's plots
     export holds the whole march numbered from 1, which the post joins with
     every step once. The continuation 0.34.0 emits does not keep that state
@@ -28,7 +34,7 @@ FlightStream versions.
   - RPT-135 (FR-312): 26.124 opens and runs a file whose blocks are reset to
     the 26.124 fresh import; the uncleaned control differs in its saved
     actions only, and the blocks are compared offline. Registering the 26.124
-    table in the package is 0.35.0 scope.
+    table in the package is not in 0.35.0 and stays owed.
   - RPT-127 (FR-342): tier 2 verifies `ROTATE_SURFACE`,
     `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS`
     on 26.124. The command database follows these verdicts in 0.35.0 (FR-342).
@@ -42,11 +48,13 @@ FlightStream versions.
     database follows the run's report. Ten CCS commands stay unprobed, the
     arity of the two CCS exports stays undetermined because neither wrote a
     file, and the REAL control-surface form stays refused: its failure follows
-    the limits, not the REAL token. Judging the ten, measuring the arity and
-    citing RPT-126 in the refusal message are 0.35.0 scope. Four tier-1 tests
-    (the two CCS export arity cases and the two `DELETE_CCS_*_RELAXED_TE` probe
-    scripts) are marked as strict expected failures with their cause until 0.35.0
-    measures the arity (and corrects the emitter if needed) and adds the probe waiver.
+    the limits, not the REAL token. Citing RPT-126 in the refusal message is done in
+    0.35.0 (FR-336 R4), and 0.35.0 adds the probe waiver (FR-333), which removes the
+    two strict expected failures of the `DELETE_CCS_*_RELAXED_TE` probe scripts.
+    Judging the ten unprobed commands and measuring the arity of the two CCS exports
+    stay owed: the two strict expected failures of the CCS export arity case
+    (`test_p0340_arity_2003_06`) remain until the arity is measured and the emitter
+    corrected if needed.
 
 - **The licensed confirmations of 0.35.0 are owed after the release.** The continuation the
   package emits no longer re-initializes a reopened state (FR-396); this is
@@ -109,7 +117,7 @@ FlightStream versions.
 
 ### Changed
 
-- The command database follows the tier-2 verdicts of RPT-127 (FR-342): `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` are `verified` on 26.124, promoted from `reports/compat/CMP-26124_2026-10-02_rpt127.yaml`, the run's compatibility report.
+- The command database follows the tier-2 verdicts of RPT-127 (FR-342): `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` are `verified` on 26.124, promoted from `reports/compat/CMP-26124_2026-10-02_t1-probe.yaml`, the run's compatibility report.
 - **`pyfs-matrix post` writes no `archive/` folder unless `--archive` is given.**
   (FR-397, P0350-ARCHIVE-OPT-IN) A rebuild overwrites the products, `products.json` and the post
   logs in place. `--archive`, and `archive=True` on `write_campaign_products`, archive

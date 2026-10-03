@@ -103,6 +103,25 @@ def _relative_name(value: str) -> str:
 
 
 def _category(product: str, message: str) -> str:
+    """Return the family of one post warning, read from its product and message words.
+
+    Parameters
+    ----------
+    product : str
+        The product the warning names.
+    message : str
+        The warning's text.
+
+    Returns
+    -------
+    str
+        The family word (``section-layout``, ``reference-frame``, ``convergence`` and so on).
+
+    Examples
+    --------
+    >>> _category("loads", "residual did not converge")
+    'convergence'
+    """
     text = f"{product} {message}".lower()
     groups = (
         ("section-layout", ("section", "distribution", "layout", "block")),

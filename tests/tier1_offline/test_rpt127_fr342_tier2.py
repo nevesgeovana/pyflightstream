@@ -2,7 +2,7 @@
 
 The run's compatibility report is committed twice, byte for byte as the run wrote it: as
 ``reports/probes/RPT-127_<date>_evidence.yaml``, which RPT-127 names by digest, and as
-``reports/compat/CMP-26124_2026-10-02_rpt127.yaml``, the file ``pyfs-qa apply-compat`` promoted
+``reports/compat/CMP-26124_2026-10-02_t1-probe.yaml``, the file ``pyfs-qa apply-compat`` promoted
 the command database from (FR-342 R3). The tests read RPT-127's front matter against the outcomes
 the report records for the three commands that 26.124 holds, check that each database status
 equals that recorded verdict and cites the compat report, and plant a mismatch as the control.
@@ -115,7 +115,7 @@ def test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342(
     from pyflightstream.versions import resolve
 
     _, document = _evidence()
-    compat = REPORTS / "compat" / "CMP-26124_2026-10-02_rpt127.yaml"
+    compat = REPORTS / "compat" / "CMP-26124_2026-10-02_t1-probe.yaml"
     probes_copy, _ = _evidence()
     assert _lf(compat) == _lf(probes_copy), "the compat copy is not the committed run report"
     registry = CommandRegistry.load()
@@ -124,5 +124,5 @@ def test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342(
         assert status is not None, name
         assert (str(status.status), status.report) == (
             outcome,
-            "reports/compat/CMP-26124_2026-10-02_rpt127.yaml",
+            "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml",
         ), name

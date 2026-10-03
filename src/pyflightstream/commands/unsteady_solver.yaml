@@ -460,4 +460,4 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
         invocations for eight steps, none before the first; no arguments,
         no solver-named environment, working directory the simulation
         folder; exports from an action script are stamped _iteration=N.
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_rpt127.yaml", note: "SRC-752 p.353, the SRC-751 file, carried from 26.123"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "SRC-752 p.353, the SRC-751 file, carried from 26.123"}
