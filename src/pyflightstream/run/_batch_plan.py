@@ -84,7 +84,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     A polar is left out and NAMED, never refused: a steady or quasi-steady row (a steady point
     after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), an
     FSI row, an acoustic row, a row whose setup states ``unsteady_solver_actions`` (a user action
-    cannot be withdrawn between polars), a row whose post-processing asks ``[time_averaging]``,
+    cannot be withdrawn between polars),
     and a build that does not document the unsteady action command.
 
     Parameters
@@ -116,11 +116,6 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
             bool(case.solver.unsteady_solver_actions),
             "its setup states unsteady_solver_actions, and a user action cannot be "
             "withdrawn between polars",
-        ),
-        (
-            case.pproc is not None and case.pproc.time_averaging is not None,
-            "its post-processing asks [time_averaging], whose native per-step surface "
-            "export in one instance is not measured",
         ),
     )
     for found, reason in reasons:
