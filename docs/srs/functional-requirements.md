@@ -8214,6 +8214,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-331 An actuator disc with rpm_sign +1 swirls the way a rotor with rpm_sign +1 turns <span class='srs-pending'>pending</span>"
 
+    Status: shipped in 0.34.0 and pending by the acceptance convention: FR-330 to FR-345 read pending until their licensed acceptance runs (0.33 review row T3).
+
     Read with PFS-2075, PFS-2075.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124 by a research study of the actuator disc: a disc with `rpm_sign +1` swirled against a rotor with `rpm_sign +1`, contrary to the docstring, and needed -1. RPT-137 is the summary report of that measured study: no new licensed run, nondimensional, no geometry. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Built on 2026-10-01; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_p0340_act_swirl_sign.py` (the emitted disc speed line for `rpm_sign +1` and `-1` on a steady and an unsteady row and by the advance ratio, the reference block's docstring, and the parity entry accepting the sign flip alone against a changed magnitude, index or other line), the expected disc speed lines of `tests/tier1_offline/test_g06_actuator_disc.py` and `tests/tier1_offline/test_goal034_setup_operational_commands.py` turned to the new sign, the two tier-3 goldens of `matriz_gui` whose diff is the disc speed line alone, the `NAMED_DIFFERENCES` entry of `scripts/check_parity.py` under this requirement, the migration paragraph of `changelog.d/0-34-act.md`, and `reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md`. Verification method: a tier-1 test carrying the marker that pins the emitted sign (it checks the code path, not the solver), the parity script's named difference, and RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for `rpm_sign +1` and `-1`; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*
@@ -8231,6 +8233,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module turning `rpm_sign` into the solver's disc speed). `pyflightstream.cases.workflows._motion` also reads the hand of a disc, for the signed `rpm` of its Mach record in the plan and the run record, and keeps it as the block's hand times the speed, the opposite sign of the script's `SET_PROP_ACTUATOR_RPM`.
 
 !!! requirement "FR-332 The measured actuator-disc behaviours are documented, and a RELAXED disc naming a profile is warned about <span class='srs-pending'>pending</span>"
+
+    Status: shipped in 0.34.0 and pending by the acceptance convention: FR-330 to FR-345 read pending until their licensed acceptance runs (0.33 review row T3).
 
     Read with PFS-2075, PFS-2075.06 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
@@ -8396,7 +8400,7 @@ Requirements written after the specification was last reconciled with the packag
     - R4 The option is refused, naming the reason, where its preconditions fail (a build or a geometry the test did not cover).
     - R5 If the vendor's answer on the displacement file format blocks the route, the work stops and the option is not added; this requirement then changes only by a dated product decision.
 
-    Solution (planned for 0.34.0): a new module of `pyflightstream.fsi` and the workflow state of `pyflightstream.cases.fsi_workspace`.
+    Solution (planned for 0.36.0): a new module of `pyflightstream.fsi` and the workflow state of `pyflightstream.cases.fsi_workspace`.
 
     Moved to 0.36.0 on 2026-10-01 (26.124 has no script command for Direct mesh morphing; the vendor's return format is unknown).
 
@@ -8408,10 +8412,10 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: A command the package emits that has no probe specification is never re-measured, so a change in the solver would not be seen.
 
-    Requirement: every command the package emits that has no probe specification carries one in the probe catalog, and a tier-2 native run on 26.124 re-measures it.
+    Requirement: each command in the set defined by R1 carries a probe specification in the catalog, and a tier-2 native run re-measures the commands of that set available on 26.124.
 
-    - R1 The set is every command the package's emitters write whose `pyfs-qa probe` outcome is `unprobed` for want of a probe specification (`pyflightstream.qa.probes`), counted at the start of the work package on the 0.34.0 base (four when the item was written; five by the work package's census, the commands the committed workflow goldens render on the build of each golden, held by that build's database, with no catalog entry: `ROTATE_SURFACE` and `SURFACE_ROTATE`, one rotation command by build, `SET_NEW_UNSTEADY_SOLVER_ACTION`, `SET_MOTION_ANGULAR_VELOCITY` and `SET_MOTION_IS_ROTOR`, of which `ROTATE_SURFACE` and `SET_NEW_UNSTEADY_SOLVER_ACTION` exist on 26.124) and listed in RPT-127.
-    - R2 Each has a catalog entry; the census test refuses a command of the set without one.
+    - R1 The set is the commands the package's emitters write whose `pyfs-qa probe` outcome is `unprobed` for want of a probe specification (`pyflightstream.qa.probes`), counted at the start of the work package on the 0.34.0 base and reachable by an authorised run: `ROTATE_SURFACE` and `SURFACE_ROTATE`, one rotation command by build, and `SET_NEW_UNSTEADY_SOLVER_ACTION`. Of these, `ROTATE_SURFACE` and `SET_NEW_UNSTEADY_SOLVER_ACTION` exist on 26.124 and are listed in RPT-127. The historical census found five commands; `SET_MOTION_ANGULAR_VELOCITY` and `SET_MOTION_IS_ROTOR` exist only in builds before 26.101, are unreachable by an authorised run and are excluded from the catalog-entry requirement.
+    - R2 Each of the three commands in R1 has a catalog entry; the census test refuses a command of that set without one.
     - R3 A tier-2 native run on 26.124, far field 5, re-measures them; RPT-127 carries the verdicts and the command database follows them through the promotion tool, under the rule of FR-333 R4.
 
     Solution (delivered in 0.35.0): catalog entries after the cut of `qa/specs.py`, and RPT-127.
@@ -8452,6 +8456,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.34.0): the amendment of RPT-050 and `tests/tier1_offline/test_p0340_vendor_digests.py`, beside the NFR-31 guard.
 
 !!! requirement "FR-345 The report-index test reads the release section that carries its report <span class='srs-pending'>pending</span>"
+
+    Status: shipped in 0.34.0 and pending by the acceptance convention: FR-330 to FR-345 read pending until their licensed acceptance runs (0.33 review row T3).
 
     Read with PFS-2075, PFS-2075.16 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 

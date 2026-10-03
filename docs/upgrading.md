@@ -2,6 +2,7 @@
 
 Read the migration records for the releases between your installed version and the version you are adopting. Each record states the changes a workspace needs.
 
+- [Migrating to 0.36.0](migrating-to-0.36.0.md)
 - [Migrating to 0.35.1](migrating-to-0.35.1.md)
 - [Migrating to 0.35.0](migrating-to-0.35.0.md)
 - [Migrating to 0.34.0](migrating-to-0.34.0.md)

@@ -135,7 +135,7 @@ alone after the log-split correction of window 2.
 
 Added after the first transcription, at the release review; the window 3 section
 above was revised at the closing push review, after the comparison correction it
-describes. After the FR-366 correction every grouped record read carries the solver
+describes. After the FR-366 correction every grouped record checked carries the solver
 identity, `fs_version_reported` 26.1 and `fs_build` 8172026, as its alone
 counterpart does. Window 2: 29 of 29 grouped records, namely 4 time-averaged, 10
 with user actions (5 in the batch arm, 5 in the polar-sweep arm), 6 steady, 4

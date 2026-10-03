@@ -482,6 +482,22 @@ _MIGRATION_NAMES_0_35_0 = {
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
+    "0.36.0": {
+        "Grouped plans always name the acoustic polars that run in their own jobs": (
+            "acoustic-isolation note",
+            "FR-406",
+        ),
+        "The `--batch` and `--polar-sweep` help states which rows are left out.": (
+            "`RESTART`",
+            "`LEGACY`",
+            "FR-362",
+        ),
+        "The campaign, point, sweep and loads-assessment run paths use private phases": (
+            "no caller changes",
+            "AD-22",
+            "NFR-40",
+        ),
+    },
     "0.35.1": {
         "Repeated sweep values are refused before planning.": (
             "SWEEP_VALUES",
@@ -508,6 +524,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
 #: The inputs each release's summary refuses, each of which its section and
 #: its migration page must name, and further words its page must carry.
 _REFUSED_BY_RELEASE = {
+    "0.36.0": ("steady", "qsteady_rotor", "FR-410", "RPT-150"),
     "0.35.1": ("COLD_START",),
     "0.29.0": (
         "ROTOR_SHEDDING",
@@ -524,6 +541,23 @@ _REFUSED_BY_RELEASE = {
     "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
+    "0.36.0": (
+        "no changes to its inputs",
+        "--batch",
+        "--polar-sweep",
+        "FR-405",
+        "FR-407",
+        "FR-409",
+        "__module__",
+        "SETUP_RESET_LOG_PREFIXES",
+        "read-only",
+        "NFR-33",
+        "NFR-34",
+        "NFR-35",
+        "NFR-36",
+        "NFR-37",
+        "upgrading.md",
+    ),
     "0.35.1": ("--batch", "--polar-sweep", "FR-402", "FR-405", "FR-406", "FR-407"),
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
     "0.29.0": ("[[inlets]]", "refused"),
