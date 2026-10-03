@@ -967,6 +967,7 @@ def compare_texts(
         differing.append({key: name, **name_difference(kind, name, old, new, defined)})
     return {
         "checked": len(base),
+        "compared": sorted(base),
         "differing": differing,
         "added_at_release": sorted(set(release) - set(base)),
         "cr_removed": cr_removed,

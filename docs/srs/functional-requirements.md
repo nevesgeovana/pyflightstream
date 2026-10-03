@@ -7373,8 +7373,8 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2074, PFS-2074.14 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
-    *Origin: G2 of the 0.31.0 scope (P0310-G2-PER-REV). Evidence:
-    `tests/tier1_offline/test_goal036_per_revolution.py`.*
+    *Origin: G2 of the 0.31.0 scope (P0310-G2-PER-REV).
+    Evidence: `tests/tier1_offline/test_goal036_per_revolution.py`.*
 
     An `unsteady_rotor` point writes
     `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns:
