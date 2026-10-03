@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -50,6 +51,7 @@ from pyflightstream.workspace.naming import sweep_file_stem
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
+    from pyflightstream.workspace.inputs import ReferenceArtifact, RotorReference
 
 
 # `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
@@ -408,154 +410,22 @@ def _rotor_tables(
     #: Which plot group each rotor's history was read from, for the manifest.
     sources_read: dict[str, str] = {}
 
-    def _state(point: PolarPoint) -> RunRecord | None:
-        """Return the record of THIS point, or None -- never another point's.
-
-        No fallback to `records[0]`, for the reason the superfile writer states
-        at its own `by_run.get`: a borrowed value is worse than a missing one,
-        because a reader sees a missing cell and cannot see a wrong one. Here it
-        would not even be a cell -- it would be the divisor of every coefficient
-        in the row.
-        """
-        run_id = (sources.get(point.name) or [""])[0]
-        return by_run.get(run_id)
-
-    #: The six components a plots table states for one group, in NEWTONS, and
-    #: the order `rotor_shaft_loads` reads them back in as coefficients.
-    _PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
-
-    def _averaged_newtons(
-        point: PolarPoint, alias: str, families: Sequence[str]
-    ) -> tuple[dict[str, float] | None, str, str | None]:
-        """Return the rotor's six components averaged over the point's window, or why not.
-
-        ITEM 16 SAYS ONE WINDOW FOR EVERY UNSTEADY PRODUCT OF THE POINT, and the
-        rotor table was the product it did not reach: it was built from
-        `point.loads`, the native export, which states THE LAST TIME STEP. So an
-        unsteady rotor table published one instant of a cycle beside a polar that
-        averaged correctly, and nothing in either file said which was which.
-
-        IT LOOKED FOR `FX_<alias>` AND NO RUN PRINTED THAT NAME (L6-04). A force
-        plot is named for its pproc GROUP, so the columns read `FX_HUB_PUSHER`;
-        the lookup missed on every campaign and the fallback was silent. The
-        columns are found through :func:`rotor_plot_source` now.
-
-        The second value is the reason, for the caller to record; the third is the
-        group the history was read from, which the manifest states.
-        """
-        span = (windows or {}).get(point.name, window)
-        if plots is None or span is None:
-            return None, "the row states no averaging window", None
-        where = f"over steps {span[0]} to {span[1]}"
-        source = plots.get(point.name)
-        if source is None or not source.is_file():
-            return None, f"it has no plots table to average {where}", None
-        try:
-            columns, series = plots_table_series(source)
-        except (PyflightstreamError, OSError, ValueError) as error:
-            return None, f"its plots table could not be read: {error}", None
-        inventory = list(point.loads.surfaces) if point.loads is not None else []
-        candidates, refused = rotor_plot_source(
-            pproc, alias, rotor_families=families, inventory=inventory, aliases=aliases
-        )
-        group = next(
-            (
-                name
-                for name in candidates
-                if all(f"{part}_{name}" in columns for part in _PLOT_COMPONENTS)
-            ),
-            None,
-        )
-        groups = [group] if group is not None else []
-        record = _state(point)
-        recorded_plan = None if record is None else record.reductions
-        if isinstance(recorded_plan, Mapping) and "plot_groups" in recorded_plan:
-            groups = _recorded_rotor_plot_groups(recorded_plan["plot_groups"], families)
-            if not groups or not all(
-                f"{part}_{name}" in columns for name in groups for part in _PLOT_COMPONENTS
-            ):
-                # THE EXPLANATION TRAVELS WITH THIS REFUSAL TOO. A run that
-                # records its emitted plot groups reached here BEFORE the
-                # collision was explained, so a pproc taking the ROTOR_<ALIAS>
-                # name in the rotor's own frame got a generic sentence naming
-                # neither the group nor the remedy -- the very repair this
-                # release made, bypassed on the path a 0.24.0 run takes (the
-                # third independent reading, 2026-09-22).
-                said = (
-                    f"recorded plot groups do not provide an exact, unambiguous MRP history "
-                    f"of rotor {alias!r} with all six components {where}"
-                )
-                return None, said if refused is None else f"{said}; {refused}", None
-        if not groups:
-            looked = ", ".join(f"FX_{name}" for name in candidates) or "none"
-            reason = (
-                f"its plots table holds the six components of no plot group of rotor {alias!r} "
-                f"in the global MRP frame (looked for {looked} and their five siblings) to "
-                f"average {where}"
-            )
-            return None, reason if refused is None else f"{reason}; {refused}", None
-        steps = series.steps
-        if not len(steps) or int(steps[0]) > span[0] or int(steps[-1]) < span[1]:
-            held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
-            return (
-                None,
-                f"the row states steps {span[0]} to {span[1]} and its history holds {held}",
-                None,
-            )
-        try:
-            read_steps: set[int] = set()
-            averaged = blade_passage_average(series, window=span, read_steps=read_steps)
-        except (PyflightstreamError, ValueError) as error:
-            return None, f"its history could not be averaged {where}: {error}", None
-        refusal = _judge_average(
-            (frozen or {}).get(point.name),
-            read_steps,
-            point=point.name,
-            product=f"polars/P{sim_id}-{alias}_rotor.csv",
-        )
-        if refusal is not None:
-            return None, refusal, None
-        return (
-            {
-                part: sum(float(averaged.fields[f"{part}_{name}"][0]) for name in groups)
-                for part in _PLOT_COMPONENTS
-            },
-            "",
-            ", ".join(groups),
-        )
-
-    def _as_coefficients(newtons: Mapping[str, float], *, density: float, speed: float) -> dict:
-        """Turn the averaged Newtons back into the export's own coefficients.
-
-        WHY THIS ROUND TRIP RATHER THAN A SECOND FORCE PATH. `rotor_shaft_loads`
-        holds the family selection, the moment transfer to the hub, the shaft
-        projection, the analysis-frame refusal and the wind-axis rotation --
-        every one of them tested. A second entry point taking Newtons would be
-        a second implementation of all of it, which is how two published numbers
-        come to disagree. Dividing by the same dynamic pressure the export
-        divided by is exact, not an approximation.
-        """
-        pressure = 0.5 * float(density) * float(speed) ** 2
-        # `sref_m2` AND `cref_m`, WITH THEIR UNITS IN THE NAME. This read
-        # `reference.sref` and `reference.cref`, which do not exist on this
-        # class: an AttributeError the moment the averaging path ran, and NO
-        # TEST REACHED IT because reaching it needs a plots table carrying
-        # `FX_<alias>`. The type checker is what caught it, which is the whole
-        # argument for running that gate rather than trusting a green suite.
-        area = reference.sref_m2 or 0.0
-        length = reference.cref_m or 0.0
-        if pressure <= 0.0 or area <= 0.0 or length <= 0.0:
-            return {}
-        force = pressure * area
-        moment = force * length
-        return {
-            "Cx": newtons["FX"] / force,
-            "Cy": newtons["FY"] / force,
-            "Cz": newtons["FZ"] / force,
-            "CMx": newtons["MX"] / moment,
-            "CMy": newtons["MY"] / moment,
-            "CMz": newtons["MZ"] / moment,
-        }
+    ctx = _RotorTablePlan(
+        sim_id=sim_id,
+        sources=sources,
+        reference=reference,
+        matrix_row=matrix_row,
+        plots=plots,
+        window=window,
+        pproc=pproc,
+        windows=windows,
+        aliases=aliases,
+        frozen=frozen,
+        artifact=artifact,
+        rotors=rotors,
+        by_run=by_run,
+        sources_read=sources_read,
+    )
 
     tables: list[tuple[Path, str, dict[str, object]]] = []
     for alias, rotor in rotors.items():
@@ -569,200 +439,9 @@ def _rotor_tables(
         # reintroduced three hours later by the fix for a different one.
         left_out: list[tuple[str, str]] = []
         for point in points:
-            record = _state(point)
-            run_id = (sources.get(point.name) or [""])[0]
-            if record is None:
-                left_out.append((run_id, f"{point.name}: no run record resolves for this point"))
-                continue
-            reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
-            stated = reductions.get("rotors")
-            rpm: float | None = None
-            if isinstance(stated, Mapping):
-                block = stated.get(str(alias))
-                if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
-                    rpm = float(block["rpm"])
-            flat = reductions.get(FLAT_RPM_KEY)
-            if (
-                rpm is None
-                and not (isinstance(stated, Mapping) and stated)
-                and len(rotors) == 1
-                and isinstance(flat, int | float)
-                and not isinstance(flat, bool)
-            ):
-                # A ROW THAT STATES ITS ROTOR WITH FLAT KEYS plans no per-rotor
-                # block and records its speed at the top of the plan. With ONE
-                # rotor in the reference that speed can only be this rotor's;
-                # with several nothing says whose it is, and the skip stays.
-                rpm = float(flat)
-            # A QUASI-STEADY ROTOR'S SPEED IS IN ITS OWN RECORD (L1 of 0.30.0,
-            # RPT-090 and RPT-091). The run is steady and plans no reductions, so
-            # neither source above states it; the builder wrote the row's speed,
-            # the one the free stream turns at, in the record beside the loads
-            # export, and the table reads it there as an unsteady rotor's reads
-            # its plan's. The loads (docs/post-processing-definitions.md, the
-            # quasi-steady rotor): a sector's one solve, read as it stands, the
-            # package never multiplying by the copies; a WHEEL's mean over its
-            # clockings (0.31.0, P0310-ROTOR-MEAN), below.
-            quasi: QsteadyRecord | None = None
-            if getattr(record, "recipe", None) == QSTEADY_ROTOR:
-                # A RECORD THAT CANNOT BE READ costs this point its row, named
-                # (0.31.0: one reader, one refusal, the caller decides).
-                try:
-                    quasi = read_qsteady_record(point.loads_path)
-                except QsteadyRecordError as error:
-                    left_out.append((run_id, f"{point.name}: {error}"))
-                    continue
-                if rpm is None:
-                    rpm = _qsteady.rotor_speed(quasi, str(alias))
-            own = getattr(point, "state", None)
-            density = (
-                own.density_kg_m3
-                if own is not None and own.density_kg_m3 is not None
-                else record.density_kg_m3
-            )
-            # THE VELOCITY THE EXPORT REPORTS, NOT THE ONE THE MATRIX ASKED FOR.
-            #
-            # The export's surface
-            # coefficients are normalised by its REFERENCE velocity. So that is
-            # the number this dimensionalisation must divide by, and the loads
-            # header states it on its own line.
-            #
-            # IT READ `record.velocity_requested_m_s`, which is what the MATRIX
-            # asked for -- disobeying the rule this package states in
-            # `point_condition`'s own docstring, that the REPORTED condition
-            # wins over the requested one, because the two differ exactly when
-            # something went wrong. A fixture in this suite already carries a
-            # run whose free stream is 50 and whose reference velocity is 100,
-            # in Unsteady mode: a factor of four in dynamic pressure.
-            #
-            # When the two velocities agree, existing numbers do not change.
-            # The published sentence about a static point stays
-            # TRUE: with the two equal, hover really is divided by zero.
-            reported = getattr(point.loads, "reference_velocity_m_s", None) if point.loads else None
-            speed = reported if isinstance(reported, int | float) else None
-            if rpm is None:
-                left_out.append((run_id, f"{point.name}: its record states no speed for {alias!r}"))
-                continue
-            if not isinstance(density, int | float):
-                left_out.append((run_id, f"{point.name}: its record states no air density"))
-                continue
-            if speed is None:
-                left_out.append(
-                    (
-                        run_id,
-                        f"{point.name}: its loads export states no reference velocity, "
-                        "which is what its coefficients are normalised by",
-                    )
-                )
-                continue
-            # BOTH ADVANCE RATIOS ARE IN THE ROW, and the stage says when they part
-            # (0.24.0, NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
-            # rotor RAN at, from its own speed and diameter, and it is the one every
-            # coefficient of the table uses. On the rotor the row sweeps the two
-            # should agree; on a second rotor of the row they are not expected to,
-            # so nothing is said about it.
-            requested = (point.point or {}).get("advance_ratio")
-            flight = point.loads.freestream_velocity_m_s if point.loads is not None else None
-            span = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
-            clock = str(getattr(matrix_row, "variables", {}).get("CLOCK_MOTION", "") or "")
-            if (
-                isinstance(requested, int | float)
-                and isinstance(flight, int | float)
-                and span > 0.0
-                and rpm
-                and (len(rotors) == 1 or clock == str(alias))
-            ):
-                ran = float(flight) / (abs(rpm) / 60.0 * span)
-                if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
-                    warn(
-                        f"{point.name}: the row asks for J = {float(requested):g} and rotor "
-                        f"{alias} ran at J_{alias} = {ran:.5g} ({float(flight):g} m/s, "
-                        f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its rotor "
-                        f"table use J_{alias}.",
-                        PyflightstreamWarning,
-                        stacklevel=2,
-                    )
-            # THE WINDOW AVERAGE WHERE THE HISTORY HAS IT, the last time step
-            # where it does not -- and the file says which, every time.
-            surfaces: Mapping[str, Mapping[str, float]] = (
-                point.loads.surfaces if point.loads is not None else {}
-            )
-            carried = _rotor_surfaces_carried(rotor, surfaces, aliases)
-            newtons, why_not, read_from = _averaged_newtons(point, str(alias), carried)
-            if newtons is None and (windows or {}).get(point.name, window) is not None:
-                # A ROW THAT STATES A WINDOW NEVER GETS AN INSTANT (RI-01). The table
-                # used to fall back to the native export, the last time step, and
-                # write it beside averaged rows under one header. The unsteady polar
-                # beside it leaves such a point out and names it; so does this.
-                left_out.append((run_id, f"{point.name}: {why_not}"))
-                continue
-            instant = True
-            if newtons is not None:
-                sources_read[str(alias)] = str(read_from)
-                averaged_surfaces = _as_coefficients(
-                    newtons, density=float(density), speed=float(speed)
-                )
-                families = list(getattr(rotor, "families_blades", None) or [])
-                if averaged_surfaces and families:
-                    # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE
-                    # ROTOR'S FIRST FAMILY NAME. The plots table states the
-                    # group's RESULTANT, already summed over every family, so it
-                    # must enter under exactly ONE name the rotor's own family
-                    # selection will pick -- putting it under all of them would
-                    # sum the whole rotor once per blade.
-                    surfaces = {str(families[0]): averaged_surfaces}
-                    instant = False
-            # A QUASI-STEADY WHEEL'S ROW IS THE MEAN OF ITS k CLOCKINGS (0.31.0,
-            # P0310-ROTOR-MEAN), not clocking 0 alone:
-            # each surface's loads averaged over the clockings' own exports, so
-            # the statics below take every coefficient of the MEAN loads, never
-            # a mean of per-clocking ETA. A clocking that cannot be read costs
-            # the point its row, named: a mean of the rest is not its mean.
-            clockings: int | None = None
-            if quasi is not None and quasi.case == "wheel":
-                meaned = _qsteady.mean_clocking_surfaces(
-                    quasi, point.loads_path.parent, speed_m_s=float(speed)
-                )
-                if isinstance(meaned, str):
-                    left_out.append(
-                        (
-                            run_id,
-                            f"{point.name}: {meaned}; the row of a wheel is the mean of all "
-                            "its clockings, never of the others",
-                        )
-                    )
-                    continue
-                surfaces = meaned.surfaces
-                clockings = meaned.clockings
-            rows.append(
-                {
-                    "run_id": run_id,
-                    "surfaces": surfaces,
-                    "aliases": aliases,
-                    "instant": instant,
-                    # 0.31.0: k, where the row is the mean of a wheel's clockings.
-                    "clockings": clockings,
-                    "condition": point_condition(
-                        point,
-                        mach=record.mach or 0.0,
-                        clock=clock_rotor_facts(record, matrix_row, artifact),
-                    ),
-                    "rpm": rpm,
-                    "density": float(density),
-                    "speed": float(speed),
-                    "free_stream": (
-                        point.loads.freestream_velocity_m_s if point.loads is not None else None
-                    ),
-                    # 0.30.0 (M1): the free-stream speed and the speed of sound
-                    # the point resolved to, for its tip and helical Mach numbers.
-                    "air": _free_stream_and_sound(record),
-                    # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
-                    # IN. Carried from the point to the coefficient rather than
-                    # assumed, because `ETAW` rotates that force into wind axes
-                    # and the rotation is only valid from the geometry frame.
-                    "frame": (point.loads.frame if point.loads is not None else None),
-                }
-            )
+            row = _plan_rotor_row(ctx, point, alias, rotor, left_out=left_out)
+            if row is not None:
+                rows.append(row)
         # THE ALIAS REACHES A FILE NAME SANITISED (NL-04), by the function the
         # passage reductions of this same rotor already use. Raw, a slash wrote
         # the table into a subfolder the manifest then keyed with a slash, and a
@@ -800,3 +479,450 @@ def _rotor_tables(
             )
         )
     return tables
+
+
+@dataclass(frozen=True)
+class _RotorTablePlan:
+    """Per-simulation inputs and plot-source provenance shared by rotor rows."""
+
+    sim_id: str
+    sources: Mapping[str, Sequence[str]]
+    reference: ReferenceValues
+    matrix_row: MatrixRow
+    plots: Mapping[str, Path] | None
+    window: tuple[int, int] | None
+    pproc: object | None
+    windows: Mapping[str, tuple[int, int]] | None
+    aliases: Mapping[str, Sequence[str]] | None
+    frozen: Mapping[str, FrozenSolve] | None
+    artifact: ReferenceArtifact
+    rotors: Mapping[str, RotorReference]
+    by_run: Mapping[str, RunRecord]
+    sources_read: dict[str, str]
+
+
+def _rotor_point_record(ctx: _RotorTablePlan, point: PolarPoint) -> RunRecord | None:
+    """Return the record of THIS point, or None -- never another point's.
+
+    No fallback to `records[0]`, for the reason the superfile writer states
+    at its own `by_run.get`: a borrowed value is worse than a missing one,
+    because a reader sees a missing cell and cannot see a wrong one. Here it
+    would not even be a cell -- it would be the divisor of every coefficient
+    in the row.
+    """
+    run_id = (ctx.sources.get(point.name) or [""])[0]
+    return ctx.by_run.get(run_id)
+
+
+#: The six components a plots table states for one group, in NEWTONS, and
+#: the order `rotor_shaft_loads` reads them back in as coefficients.
+_PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+
+
+def _averaged_rotor_newtons(
+    ctx: _RotorTablePlan, point: PolarPoint, alias: str, families: Sequence[str]
+) -> tuple[dict[str, float] | None, str, str | None]:
+    """Return the rotor's six components averaged over the point's window, or why not.
+
+    ITEM 16 SAYS ONE WINDOW FOR EVERY UNSTEADY PRODUCT OF THE POINT, and the
+    rotor table was the product it did not reach: it was built from
+    `point.loads`, the native export, which states THE LAST TIME STEP. So an
+    unsteady rotor table published one instant of a cycle beside a polar that
+    averaged correctly, and nothing in either file said which was which.
+
+    IT LOOKED FOR `FX_<alias>` AND NO RUN PRINTED THAT NAME (L6-04). A force
+    plot is named for its pproc GROUP, so the columns read `FX_HUB_PUSHER`;
+    the lookup missed on every campaign and the fallback was silent. The
+    columns are found through :func:`rotor_plot_source` now.
+
+    The second value is the reason, for the caller to record; the third is the
+    group the history was read from, which the manifest states.
+    """
+    span = (ctx.windows or {}).get(point.name, ctx.window)
+    if ctx.plots is None or span is None:
+        return None, "the row states no averaging window", None
+    where = f"over steps {span[0]} to {span[1]}"
+    source = ctx.plots.get(point.name)
+    if source is None or not source.is_file():
+        return None, f"it has no plots table to average {where}", None
+    try:
+        columns, series = plots_table_series(source)
+    except (PyflightstreamError, OSError, ValueError) as error:
+        return None, f"its plots table could not be read: {error}", None
+    groups, reason = _rotor_history_groups(
+        ctx,
+        point,
+        alias,
+        families,
+        columns=columns,
+        where=where,
+    )
+    if reason is not None:
+        return None, reason, None
+    steps = series.steps
+    if not len(steps) or int(steps[0]) > span[0] or int(steps[-1]) < span[1]:
+        held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
+        return (
+            None,
+            f"the row states steps {span[0]} to {span[1]} and its history holds {held}",
+            None,
+        )
+    try:
+        read_steps: set[int] = set()
+        averaged = blade_passage_average(series, window=span, read_steps=read_steps)
+    except (PyflightstreamError, ValueError) as error:
+        return None, f"its history could not be averaged {where}: {error}", None
+    refusal = _judge_average(
+        (ctx.frozen or {}).get(point.name),
+        read_steps,
+        point=point.name,
+        product=f"polars/P{ctx.sim_id}-{alias}_rotor.csv",
+    )
+    if refusal is not None:
+        return None, refusal, None
+    return (
+        {
+            part: sum(float(averaged.fields[f"{part}_{name}"][0]) for name in groups)
+            for part in _PLOT_COMPONENTS
+        },
+        "",
+        ", ".join(groups),
+    )
+
+
+def _rotor_coefficients_from_newtons(
+    reference: ReferenceValues, newtons: Mapping[str, float], *, density: float, speed: float
+) -> dict:
+    """Turn the averaged Newtons back into the export's own coefficients.
+
+    WHY THIS ROUND TRIP RATHER THAN A SECOND FORCE PATH. `rotor_shaft_loads`
+    holds the family selection, the moment transfer to the hub, the shaft
+    projection, the analysis-frame refusal and the wind-axis rotation --
+    every one of them tested. A second entry point taking Newtons would be
+    a second implementation of all of it, which is how two published numbers
+    come to disagree. Dividing by the same dynamic pressure the export
+    divided by is exact, not an approximation.
+    """
+    pressure = 0.5 * float(density) * float(speed) ** 2
+    # `sref_m2` AND `cref_m`, WITH THEIR UNITS IN THE NAME. This read
+    # `reference.sref` and `reference.cref`, which do not exist on this
+    # class: an AttributeError the moment the averaging path ran, and NO
+    # TEST REACHED IT because reaching it needs a plots table carrying
+    # `FX_<alias>`. The type checker is what caught it, which is the whole
+    # argument for running that gate rather than trusting a green suite.
+    area = reference.sref_m2 or 0.0
+    length = reference.cref_m or 0.0
+    if pressure <= 0.0 or area <= 0.0 or length <= 0.0:
+        return {}
+    force = pressure * area
+    moment = force * length
+    return {
+        "Cx": newtons["FX"] / force,
+        "Cy": newtons["FY"] / force,
+        "Cz": newtons["FZ"] / force,
+        "CMx": newtons["MX"] / moment,
+        "CMy": newtons["MY"] / moment,
+        "CMz": newtons["MZ"] / moment,
+    }
+
+
+def _rotor_history_groups(
+    ctx: _RotorTablePlan,
+    point: PolarPoint,
+    alias: str,
+    families: Sequence[str],
+    *,
+    columns: Sequence[str],
+    where: str,
+) -> tuple[list[str], str | None]:
+    """Select complete, unambiguous recorded or legacy rotor plot groups."""
+    inventory = list(point.loads.surfaces) if point.loads is not None else []
+    candidates, refused = rotor_plot_source(
+        ctx.pproc, alias, rotor_families=families, inventory=inventory, aliases=ctx.aliases
+    )
+    group = next(
+        (
+            name
+            for name in candidates
+            if all(f"{part}_{name}" in columns for part in _PLOT_COMPONENTS)
+        ),
+        None,
+    )
+    groups = [group] if group is not None else []
+    record = _rotor_point_record(ctx, point)
+    recorded_plan = None if record is None else record.reductions
+    if isinstance(recorded_plan, Mapping) and "plot_groups" in recorded_plan:
+        groups = _recorded_rotor_plot_groups(recorded_plan["plot_groups"], families)
+        if not groups or not all(
+            f"{part}_{name}" in columns for name in groups for part in _PLOT_COMPONENTS
+        ):
+            # THE EXPLANATION TRAVELS WITH THIS REFUSAL TOO. A run that
+            # records its emitted plot groups reached here BEFORE the
+            # collision was explained, so a pproc taking the ROTOR_<ALIAS>
+            # name in the rotor's own frame got a generic sentence naming
+            # neither the group nor the remedy -- the very repair this
+            # release made, bypassed on the path a 0.24.0 run takes (the
+            # third independent reading, 2026-09-22).
+            said = (
+                f"recorded plot groups do not provide an exact, unambiguous MRP history "
+                f"of rotor {alias!r} with all six components {where}"
+            )
+            return [], said if refused is None else f"{said}; {refused}"
+    if not groups:
+        looked = ", ".join(f"FX_{name}" for name in candidates) or "none"
+        reason = (
+            f"its plots table holds the six components of no plot group of rotor {alias!r} "
+            f"in the global MRP frame (looked for {looked} and their five siblings) to "
+            f"average {where}"
+        )
+        return [], reason if refused is None else f"{reason}; {refused}"
+    return groups, None
+
+
+def _recorded_rotor_rpm(record: RunRecord, alias: str, rotor_count: int) -> float | None:
+    """Read the rotor speed, using flat keys only for a single-rotor plan."""
+    reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
+    stated = reductions.get("rotors")
+    rpm: float | None = None
+    if isinstance(stated, Mapping):
+        block = stated.get(str(alias))
+        if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
+            rpm = float(block["rpm"])
+    flat = reductions.get(FLAT_RPM_KEY)
+    if (
+        rpm is None
+        and not (isinstance(stated, Mapping) and stated)
+        and rotor_count == 1
+        and isinstance(flat, int | float)
+        and not isinstance(flat, bool)
+    ):
+        # A ROW THAT STATES ITS ROTOR WITH FLAT KEYS plans no per-rotor
+        # block and records its speed at the top of the plan. With ONE
+        # rotor in the reference that speed can only be this rotor's;
+        # with several nothing says whose it is, and the skip stays.
+        rpm = float(flat)
+    return rpm
+
+
+def _warn_rotor_advance_ratio(
+    ctx: _RotorTablePlan,
+    point: PolarPoint,
+    alias: str,
+    rotor: RotorReference,
+    *,
+    rpm: float,
+) -> None:
+    # BOTH ADVANCE RATIOS ARE IN THE ROW, and the stage says when they part
+    # (0.24.0, NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
+    # rotor RAN at, from its own speed and diameter, and it is the one every
+    # coefficient of the table uses. On the rotor the row sweeps the two
+    # should agree; on a second rotor of the row they are not expected to,
+    # so nothing is said about it.
+    """Warn when the swept rotor's actual advance ratio differs from the row."""
+    requested = (point.point or {}).get("advance_ratio")
+    flight = point.loads.freestream_velocity_m_s if point.loads is not None else None
+    span = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
+    clock = str(getattr(ctx.matrix_row, "variables", {}).get("CLOCK_MOTION", "") or "")
+    if (
+        isinstance(requested, int | float)
+        and isinstance(flight, int | float)
+        and span > 0.0
+        and rpm
+        and (len(ctx.rotors) == 1 or clock == str(alias))
+    ):
+        ran = float(flight) / (abs(rpm) / 60.0 * span)
+        if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
+            warn(
+                f"{point.name}: the row asks for J = {float(requested):g} and rotor "
+                f"{alias} ran at J_{alias} = {ran:.5g} ({float(flight):g} m/s, "
+                f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its rotor "
+                f"table use J_{alias}.",
+                PyflightstreamWarning,
+                stacklevel=4,
+            )
+
+
+def _rotor_row_surfaces(
+    ctx: _RotorTablePlan,
+    point: PolarPoint,
+    alias: str,
+    rotor: RotorReference,
+    *,
+    density: float,
+    speed: float,
+    quasi: QsteadyRecord | None,
+    run_id: str,
+    left_out: list[tuple[str, str]],
+) -> tuple[Mapping[str, Mapping[str, float]], bool, int | None] | None:
+    # THE WINDOW AVERAGE WHERE THE HISTORY HAS IT, the last time step
+    # where it does not -- and the file says which, every time.
+    """Select averaged, instant or wheel-mean surfaces for one rotor row."""
+    surfaces: Mapping[str, Mapping[str, float]] = (
+        point.loads.surfaces if point.loads is not None else {}
+    )
+    carried = _rotor_surfaces_carried(rotor, surfaces, ctx.aliases)
+    newtons, why_not, read_from = _averaged_rotor_newtons(ctx, point, str(alias), carried)
+    if newtons is None and (ctx.windows or {}).get(point.name, ctx.window) is not None:
+        # A ROW THAT STATES A WINDOW NEVER GETS AN INSTANT (RI-01). The table
+        # used to fall back to the native export, the last time step, and
+        # write it beside averaged rows under one header. The unsteady polar
+        # beside it leaves such a point out and names it; so does this.
+        left_out.append((run_id, f"{point.name}: {why_not}"))
+        return None
+    instant = True
+    if newtons is not None:
+        ctx.sources_read[str(alias)] = str(read_from)
+        averaged_surfaces = _rotor_coefficients_from_newtons(
+            ctx.reference, newtons, density=float(density), speed=float(speed)
+        )
+        families = list(getattr(rotor, "families_blades", None) or [])
+        if averaged_surfaces and families:
+            # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE
+            # ROTOR'S FIRST FAMILY NAME. The plots table states the
+            # group's RESULTANT, already summed over every family, so it
+            # must enter under exactly ONE name the rotor's own family
+            # selection will pick -- putting it under all of them would
+            # sum the whole rotor once per blade.
+            surfaces = {str(families[0]): averaged_surfaces}
+            instant = False
+    # A QUASI-STEADY WHEEL'S ROW IS THE MEAN OF ITS k CLOCKINGS (0.31.0,
+    # P0310-ROTOR-MEAN), not clocking 0 alone:
+    # each surface's loads averaged over the clockings' own exports, so
+    # the statics below take every coefficient of the MEAN loads, never
+    # a mean of per-clocking ETA. A clocking that cannot be read costs
+    # the point its row, named: a mean of the rest is not its mean.
+    clockings: int | None = None
+    if quasi is not None and quasi.case == "wheel":
+        meaned = _qsteady.mean_clocking_surfaces(
+            quasi, point.loads_path.parent, speed_m_s=float(speed)
+        )
+        if isinstance(meaned, str):
+            left_out.append(
+                (
+                    run_id,
+                    f"{point.name}: {meaned}; the row of a wheel is the mean of all "
+                    "its clockings, never of the others",
+                )
+            )
+            return None
+        surfaces = meaned.surfaces
+        clockings = meaned.clockings
+    return surfaces, instant, clockings
+
+
+def _plan_rotor_row(
+    ctx: _RotorTablePlan,
+    point: PolarPoint,
+    alias: str,
+    rotor: RotorReference,
+    *,
+    left_out: list[tuple[str, str]],
+) -> dict[str, object] | None:
+    """Assemble one rotor row from its own record, or retain its omission reason."""
+    record = _rotor_point_record(ctx, point)
+    run_id = (ctx.sources.get(point.name) or [""])[0]
+    if record is None:
+        left_out.append((run_id, f"{point.name}: no run record resolves for this point"))
+        return None
+    rpm = _recorded_rotor_rpm(record, alias, len(ctx.rotors))
+    # A QUASI-STEADY ROTOR'S SPEED IS IN ITS OWN RECORD (L1 of 0.30.0,
+    # RPT-090 and RPT-091). The run is steady and plans no reductions, so
+    # neither source above states it; the builder wrote the row's speed,
+    # the one the free stream turns at, in the record beside the loads
+    # export, and the table reads it there as an unsteady rotor's reads
+    # its plan's. The loads (docs/post-processing-definitions.md, the
+    # quasi-steady rotor): a sector's one solve, read as it stands, the
+    # package never multiplying by the copies; a WHEEL's mean over its
+    # clockings (0.31.0, P0310-ROTOR-MEAN), below.
+    quasi: QsteadyRecord | None = None
+    if getattr(record, "recipe", None) == QSTEADY_ROTOR:
+        # A RECORD THAT CANNOT BE READ costs this point its row, named
+        # (0.31.0: one reader, one refusal, the caller decides).
+        try:
+            quasi = read_qsteady_record(point.loads_path)
+        except QsteadyRecordError as error:
+            left_out.append((run_id, f"{point.name}: {error}"))
+            return None
+        if rpm is None:
+            rpm = _qsteady.rotor_speed(quasi, str(alias))
+    own = getattr(point, "state", None)
+    density = (
+        own.density_kg_m3
+        if own is not None and own.density_kg_m3 is not None
+        else record.density_kg_m3
+    )
+    # THE VELOCITY THE EXPORT REPORTS, NOT THE ONE THE MATRIX ASKED FOR.
+    #
+    # The export's surface
+    # coefficients are normalised by its REFERENCE velocity. So that is
+    # the number this dimensionalisation must divide by, and the loads
+    # header states it on its own line.
+    #
+    # IT READ `record.velocity_requested_m_s`, which is what the MATRIX
+    # asked for -- disobeying the rule this package states in
+    # `point_condition`'s own docstring, that the REPORTED condition
+    # wins over the requested one, because the two differ exactly when
+    # something went wrong. A fixture in this suite already carries a
+    # run whose free stream is 50 and whose reference velocity is 100,
+    # in Unsteady mode: a factor of four in dynamic pressure.
+    #
+    # When the two velocities agree, existing numbers do not change.
+    # The published sentence about a static point stays
+    # TRUE: with the two equal, hover really is divided by zero.
+    reported = getattr(point.loads, "reference_velocity_m_s", None) if point.loads else None
+    speed = reported if isinstance(reported, int | float) else None
+    if rpm is None:
+        left_out.append((run_id, f"{point.name}: its record states no speed for {alias!r}"))
+        return None
+    if not isinstance(density, int | float):
+        left_out.append((run_id, f"{point.name}: its record states no air density"))
+        return None
+    if speed is None:
+        left_out.append(
+            (
+                run_id,
+                f"{point.name}: its loads export states no reference velocity, "
+                "which is what its coefficients are normalised by",
+            )
+        )
+        return None
+    _warn_rotor_advance_ratio(ctx, point, alias, rotor, rpm=rpm)
+    selected = _rotor_row_surfaces(
+        ctx,
+        point,
+        alias,
+        rotor,
+        density=float(density),
+        speed=float(speed),
+        quasi=quasi,
+        run_id=run_id,
+        left_out=left_out,
+    )
+    if selected is None:
+        return None
+    surfaces, instant, clockings = selected
+    return {
+        "run_id": run_id,
+        "surfaces": surfaces,
+        "aliases": ctx.aliases,
+        "instant": instant,
+        # 0.31.0: k, where the row is the mean of a wheel's clockings.
+        "clockings": clockings,
+        "condition": point_condition(
+            point,
+            mach=record.mach or 0.0,
+            clock=clock_rotor_facts(record, ctx.matrix_row, ctx.artifact),
+        ),
+        "rpm": rpm,
+        "density": float(density),
+        "speed": float(speed),
+        "free_stream": (point.loads.freestream_velocity_m_s if point.loads is not None else None),
+        # 0.30.0 (M1): the free-stream speed and the speed of sound
+        # the point resolved to, for its tip and helical Mach numbers.
+        "air": _free_stream_and_sound(record),
+        # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
+        # IN. Carried from the point to the coefficient rather than
+        # assumed, because `ETAW` rotates that force into wind axes
+        # and the rotation is only valid from the geometry frame.
+        "frame": (point.loads.frame if point.loads is not None else None),
+    }

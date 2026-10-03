@@ -316,6 +316,7 @@ def _discovered_modules() -> list[str]:
 
 
 def _is_private(name: str) -> bool:
+    # AD-23: post._products_campaign holds private campaign phases and their context.
     # FR-408: cases._sweep_names is private matrix sweep construction and name validation.
     # QV1: run._cli_query_point, workspace._query_files/_query_logs/_query_point
     # are deliberately private, including their shared warning grouping.

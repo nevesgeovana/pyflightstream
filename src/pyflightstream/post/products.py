@@ -93,7 +93,7 @@ the post log.
 from __future__ import annotations
 
 import json
-import os
+import os as os
 import warnings
 from collections import Counter as Counter
 from collections.abc import Collection, Mapping, Sequence
@@ -101,7 +101,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pyflightstream.post._stage as _stage
+import pyflightstream.post._stage as _stage  # noqa: F401  # existing private path
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import (
@@ -115,6 +115,7 @@ from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
     DEFAULT_DRIFT_LIMIT_PCT,
+    PprocSpec,
     classify_outputs,
 )
 from pyflightstream.post._additional import (
@@ -130,6 +131,18 @@ from pyflightstream.post._condition import (
 from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_facts
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
+from pyflightstream.post._products_campaign import (
+    _admit_campaign_records,
+    _CampaignProducts,
+    _index_record_surfaces,
+    _warn_unreadable_matrix,
+)
+from pyflightstream.post._products_campaign import (
+    surface_export_metadata as surface_export_metadata,
+)
+from pyflightstream.post._products_campaign import (
+    translated_surface as translated_surface,
+)
 from pyflightstream.post._rotor_plan import rotor_plot_source as rotor_plot_source
 from pyflightstream.post._rotor_products import (
     _point_series,
@@ -288,10 +301,6 @@ from pyflightstream.post.rotor_table import write_rotor_table as write_rotor_tab
 from pyflightstream.post.section_distributions import (
     write_section_distributions as write_section_distributions,
 )
-from pyflightstream.post.series import (
-    surface_export_metadata,
-    translated_surface,
-)
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     matrix_rows,
@@ -308,15 +317,25 @@ from pyflightstream.post.unsteady_polar import (
 )
 from pyflightstream.post.unsteady_polar import global_frame_plot_groups as global_frame_plot_groups
 from pyflightstream.results import (
-    FrozenSolve,
-    UnjudgeableSolve,
+    FrozenSolve as FrozenSolve,
+)
+from pyflightstream.results import (
+    UnjudgeableSolve as UnjudgeableSolve,
+)
+from pyflightstream.results import (
     parse_loads,
     superseded_by_a_continuation,
 )
 from pyflightstream.workspace import (
-    RunStatus,
-    WorkspaceError,
-    find_matrix,
+    RunStatus as RunStatus,
+)
+from pyflightstream.workspace import (
+    WorkspaceError as WorkspaceError,
+)
+from pyflightstream.workspace import (
+    find_matrix as find_matrix,
+)
+from pyflightstream.workspace import (
     selected_sims,
 )
 from pyflightstream.workspace.naming import (
@@ -847,74 +866,15 @@ def _campaign_products(
     superseded = superseded_by_a_continuation(points)
     sim_of_point = {point.run_id: point.sim_id for point in points}
     skipped: dict[str, str] = {}
-    for record in records:
-        if sims is not None and record.sim_id not in sims:
-            continue  # FR-307: another simulation's records are not read.
-        # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
-        # before its status is read. A steady row is one job since 0.17.0
-        # and its record carries every point of the sweep; unexpanded, the
-        # product stage classified all of their outputs together, selected
-        # ONE loads file, and wrote a three-point polar with one row. And
-        # the aggregate status was the filter, so one failed point
-        # excluded every successful point of the same job.
-        #
-        # `as_points()` exists for exactly this and was called by the
-        # sweep table and the QA matrix and not here: a method built and
-        # not wired, in the one place nobody looked. Found by the
-        # independent Codex review of `main`, 2026-09-13 (GEO-047-C02).
-        # A record that is one point returns itself, so nothing written
-        # before 0.17.0 changes.
-        for point_record in record.as_points():
-            if point_record.run_id in superseded:
-                continue
-            frozen_failure = False
-            if point_record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
-                warn(
-                    f"point={point_record.run_id} product=available-exports: "
-                    f"the recorded status is {point_record.status.value}. "
-                    "Collect complete outputs or run the point again to settle its status.",
-                    PyflightstreamWarning,
-                    stacklevel=2,
-                )
-            # THE READING THAT ADMITS A POINT IS NOT THE READING THAT REFUSES
-            # ITS AVERAGES, so it is not behind `check_frozen`: gating it
-            # excluded every frozen failure by default, the opposite of
-            # "nothing is refused unless asked" (the architect lens of the
-            # closing round, 2026-09-22). This opens a failed point's log to
-            # ask whether the failure was a freeze, and refuses nothing.
-            if point_record.status is RunStatus.FAILED_DIVERGED:
-                kinds = classify_outputs(point_record.outputs)
-                log_name = kinds.get("log")
-                log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
-                if log_path is not None and log_path.is_file():
-                    # A LOG THAT PROVES A FREEZE ADMITS ITS POINT, even when
-                    # another block of it could not be read: excluding every
-                    # UnjudgeableSolve removed the point's histories, instants
-                    # and earlier averages before their own checks could run,
-                    # against the preservation rule of the definitions page (the
-                    # independent review of GitHub main, 2026-09-22). A log that
-                    # proves NOTHING is not a freeze to post and stays out, as
-                    # it did before; it no longer raises here either.
-                    verdict = _stage.freeze_of_log(log_path)
-                    frozen_failure = verdict is not None and (
-                        not isinstance(verdict, UnjudgeableSolve) or verdict.frozen_from is not None
-                    )
-            if (
-                not check_frozen
-                or frozen_failure
-                or point_record.status
-                in (
-                    RunStatus.CONVERGED,
-                    RunStatus.COMPLETED_MAX_ITER,
-                )
-            ):
-                by_sim.setdefault(point_record.sim_id, []).append(point_record)
-            else:
-                skipped[f"runs/{point_record.run_id}"] = (
-                    f"the recorded status is {point_record.status.value}; check_frozen=True "
-                    "withholds this run's products. Collect complete outputs or run the "
-                    "point again to settle its status."
-                )
+    _admit_campaign_records(
+        workspace,
+        records,
+        sims=sims,
+        superseded=superseded,
+        check_frozen=check_frozen,
+        by_sim=by_sim,
+        skipped=skipped,
+    )
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
     manifest: dict[str, object] = {
@@ -944,29 +904,7 @@ def _campaign_products(
     # carries what that file holds by carrying the same row rather than by
     # assembling one that looks like it.
     rows_of_the_matrix = matrix_rows(workspace.root, matrix_stem)
-    if matrix_stem and not rows_of_the_matrix:
-        # SAID, NOT SWALLOWED (PO-06). `matrix_rows` answers `{}` for a matrix that
-        # is in neither home, for one it cannot parse, and (0.32.0, RST-1) for a
-        # stem held in both homes with different bytes, and every post-only
-        # choice then falls back to the run records in silence: an edited window
-        # does nothing and the rotor tables, which need the row's reference, are
-        # not written at all.
-        try:
-            found = find_matrix(workspace.root, matrix_stem)
-            state = (
-                "cannot be read"
-                if found is not None
-                else "is in neither the workspace root nor inputs/matrices/"
-            )
-        except WorkspaceError as two_homes:
-            state = f"is refused: {two_homes}"
-        warn(
-            f"the matrix {matrix_stem}.fs {state}. Every post-only choice falls back to the run "
-            "records, and the rotor tables, which take their geometry from the row's "
-            "reference, are not written.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+    _warn_unreadable_matrix(workspace, matrix_stem, rows_of_the_matrix)
     sweep_rows = _sweep_rows(workspace, matrix_stem)
     drafts: list[SuperfileDraft] = []
     # THE MANIFEST DESCRIBES THE DISK EVEN WHEN THE REBUILD DIES (MT-08). It was
@@ -976,30 +914,16 @@ def _campaign_products(
     # the PREVIOUS manifest naming files the archiver had just moved away. The old
     # one is invalidated first and the new one is written in a `finally`, saying it
     # is incomplete and why.
-    previous = out / PRODUCTS_MANIFEST
-    previous_document: dict[str, Any] = {}
-    if previous.is_file():
-        previous_document = json.loads(previous.read_text(encoding="utf-8"))
-        # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
-        # `restore products` has the file this rebuild replaces.
-        _retire_previous_manifest(workspace.root, previous, matrix=out.name, archive=archive)
-    previous_products = previous_document.get("products", {})
-    partial: _PartialPost | None = None
-    if sims is not None:
-        # FR-307: every other simulation's entries and the cross-simulation
-        # products are carried as they were; what is retired below is only
-        # ever a named simulation's.
-        partial = _partial_post(
-            workspace, records, sims, previous_document, matrix_stem=matrix_stem
-        )
-        previous_products = {
-            name: entry for name, entry in previous_products.items() if name not in partial.products
-        }
-        products_index.update(partial.products)
-        manifest["partial"] = {"sims": sorted(sims), "not_rebuilt": partial.not_rebuilt}
-        for kept in ("superfile_report", "sections_report"):
-            if kept in previous_document and kept in partial.not_rebuilt:
-                manifest[kept] = previous_document[kept]
+    previous_products, partial = _prepare_campaign_rebuild(
+        workspace,
+        out,
+        records=records,
+        sims=sims,
+        matrix_stem=matrix_stem,
+        archive=archive,
+        products_index=products_index,
+        manifest=manifest,
+    )
     try:
         _write_the_products(
             workspace,
@@ -1020,42 +944,15 @@ def _campaign_products(
             check_frozen=check_frozen,
             partial=partial,
         )
-        # 0.30.0: what a previous post made from steps free-space has since
-        # pruned stays, file and entry, and is therefore not retired below.
-        for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
-            products_index.setdefault(name, entry)
-        # Retire refused generated tables under both rebuild policies. Native exports
-        # outside this folder remain evidence and are never removed here.
-        for name, entry in previous_products.items():
-            if (
-                name.startswith(f"{POLARS_DIR}/")
-                and entry.get("sim_id") in by_sim
-                and name not in products_index
-            ):
-                skipped.setdefault(
-                    name,
-                    f"retired previous table of simulation {entry['sim_id']}: no current "
-                    "product uses this name; polar names follow contributing records",
-                )
-        # G12: an additional product no current extraction supplies is retired,
-        # archived like a refused table, rather than left in its folder unnamed.
-        for name in previous_products:
-            if name.startswith(f"{ADDITIONAL_DIR}/") and name not in products_index:
-                skipped.setdefault(
-                    name,
-                    "retired previous additional product: no current extraction supplies this file",
-                )
-        refused = products_to_retire(skipped, previous_products)
-        for name in refused - products_index.keys():
-            if name in previous_products:
-                skipped.setdefault(
-                    name, "retired previous product; its inputs no longer supply this file"
-                )
-            path = out / name
-            if path.resolve().is_relative_to(out.resolve()) and path.is_file():
-                _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
-                if not archive:
-                    path.unlink()
+        _retire_campaign_products(
+            out,
+            skipped=skipped,
+            previous_products=previous_products,
+            products_index=products_index,
+            by_sim=by_sim,
+            archive=archive,
+            archive_stamp=archive_stamp,
+        )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
         _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
@@ -1106,172 +1003,26 @@ def _write_the_products(
     not written, and the provenance and the sections measurement are measured
     over every record of the matrix, as a whole post measures them.
     """
-    for sim_id, sim_records in tracked("post: simulations", by_sim.items(), label=_sim_label):
-        simulation_metadata = _simulation_metadata(sim_records)
-        effective_pproc = _effective_pproc(
-            workspace, sim_id, simulation_metadata, rows_of_the_matrix.get(sim_id)
-        )
-        recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
-        try:
-            for record in sim_records:
-                loads_name = classify_outputs(record.outputs).get("loads")
-                loads_path = workspace.sim_dir(sim_id) / loads_name if loads_name else None
-                if record.reference and loads_path is not None and loads_path.is_file():
-                    try:
-                        reference_report = parse_loads(
-                            loads_path.read_text(encoding="utf-8", errors="replace")
-                        )
-                    except PyflightstreamError:
-                        continue  # The individual writers explain malformed exports.
-                    for reference_block in (simulation_metadata.reference, record.reference):
-                        if reference_block is None:
-                            continue
-                        _refuse_a_reference_the_solver_did_not_use(
-                            sim_id,
-                            [
-                                PolarPoint(
-                                    name=loads_path.stem,
-                                    loads=reference_report,
-                                    loads_path=loads_path,
-                                )
-                            ],
-                            ReferenceValues.from_mapping(reference_block),
-                        )
-        except ProductError as error:
-            skipped[sim_id] = str(error)
-            continue
-        # PFS-2031.18.01: the per-step exports of a windowed point as a
-        # series, written before the polar so a simulation the polar
-        # refuses (no Mach, a sideslip) keeps its series, which rest on
-        # the stamped files and the record alone.
-        # A stamped file the parsers cannot read (a run stopped mid-window
-        # leaves one) is that point's skip, recorded under series/<run id>,
-        # and never the stage's abort: the same rule the polar below follows
-        # since 2026-09-08 (the V&V lens of REL-0140).
-        for record in sim_records:
-            # THE RECORD'S OWN RELEASE reads its outputs (G05): a 0.26.0 record's
-            # `_vsec.vtk` is the surface export it was when written.
-            output_kinds = classify_outputs(record.outputs, package_version=record.package_version)
-            surface_freeze: FrozenSolve | None = None
-            averages = (record.surface_time_averaging, record.surface_average_window)
-            if any(window is not None for window in averages) and "log" in output_kinds:
-                log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
-                if log_path is not None:
-                    surface_freeze = _stage.freeze_of_log(log_path)
-            for kind, name in output_kinds.items():
-                if kind not in ("tecplot", "vtk", "csv"):
-                    continue
-                path = workspace.sim_dir(sim_id) / name
-                relative = Path(os.path.relpath(path, out)).as_posix()
-                if not path.is_file():
-                    skipped[relative] = f"the recorded {kind} surface export is missing: {path}"
-                    continue
-                metadata = surface_export_metadata(record)
-                reason = _surface_export_skip(
-                    metadata, surface_freeze, point=record.run_id, product=relative
-                )
-                if reason is not None:
-                    skipped[relative] = reason
-                    continue
-                products_index[relative] = {
-                    "sim_id": sim_id,
-                    "pproc": record.pproc,
-                    "runs": [record.run_id],
-                    "format": kind,
-                    **metadata,
-                    **(translated_surface(record, path) if kind == "tecplot" else {}),
-                }
-            # G45: A TECPLOT THE RUN COULD NOT WRITE FROM ITS VTK is said, by the
-            # sentence the run recorded, never left for a reader to notice.
-            problems = [
-                str(problem)
-                for translation in record.surface_translations or []
-                if isinstance(translation, Mapping)
-                for problem in translation.get("problems") or []  # type: ignore[attr-defined]
-            ]
-            if problems:
-                skipped[f"tecplot/{record.run_id}"] = "; ".join(problems)
-            said = set(skipped)
-            if record.pproc not in recorded_pprocs:
-                recorded_pprocs[record.pproc] = _resolve_post_pproc(workspace, record.pproc)[1]
-            try:
-                series_files, series_names = _point_series(
-                    workspace,
-                    sim_id,
-                    record,
-                    out,
-                    overwrite=overwrite,
-                    archive=archive,
-                    archive_stamp=archive_stamp,
-                    matrix_row=rows_of_the_matrix.get(sim_id),
-                    skipped=skipped,
-                    pproc=effective_pproc[1],
-                    recorded_pproc=recorded_pprocs[record.pproc],
-                    pproc_error=effective_pproc[2],
-                    surface_freeze=surface_freeze,
-                )
-            except ProductExistsError:
-                raise
-            except ProductError as error:
-                skipped[f"series/{record.run_id}"] = str(error)
-                warn(
-                    f"series of {record.run_id} not written: {error}",
-                    PyflightstreamWarning,
-                    stacklevel=2,
-                )
-                continue
-            for name in sorted(set(skipped) - said):
-                # SAID, as every other product the stage leaves out is (MT-06).
-                warn(f"{name} not written: {skipped[name]}", PyflightstreamWarning, stacklevel=2)
-            written.extend(series_files)
-            for name, entry in series_names.items():
-                # The package's own average was judged before it was written.
-                reason = (
-                    None
-                    if entry.get("averaged_by") == "pyflightstream"
-                    else _surface_export_skip(
-                        entry, surface_freeze, point=record.run_id, product=name
-                    )
-                )
-                if reason is not None:
-                    skipped[name] = reason
-                    continue
-                products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
-        try:
-            files, names, reductions_skipped = _sim_products(
-                workspace,
-                sim_id,
-                _march_records(workspace, sim_records),
-                out,
-                overwrite=overwrite,
-                archive=archive,
-                archive_stamp=archive_stamp,
-                matrix_row=rows_of_the_matrix.get(sim_id),
-                sweep_rows=sweep_rows,
-                drafts=drafts,
-                check_frozen=check_frozen,
-                effective_pproc=effective_pproc,
-            )
-        except ProductExistsError:
-            raise
-        except ProductError as error:
-            skipped[sim_id] = str(error)
-            warn(
-                f"products of simulation {sim_id} not written: {error}",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-            continue
-        written.extend(files)
-        for name, entry in names.items():
-            products_index[name] = {
-                "sim_id": sim_id,
-                "pproc": effective_pproc[0],
-                **entry,
-            }
-        # A reduction the row could not window is a skip under the file it
-        # would have been (PFS-2015.04), beside the simulations refused whole.
-        skipped.update(reductions_skipped)
+    ctx = _CampaignProducts(
+        workspace=workspace,
+        records=records,
+        by_sim=by_sim,
+        out=out,
+        written=written,
+        products_index=products_index,
+        manifest=manifest,
+        skipped=skipped,
+        drafts=drafts,
+        rows_of_the_matrix=rows_of_the_matrix,
+        sweep_rows=sweep_rows,
+        matrix_stem=matrix_stem,
+        overwrite=overwrite,
+        archive=archive,
+        archive_stamp=archive_stamp,
+        check_frozen=check_frozen,
+        partial=partial,
+    )
+    _write_simulation_products(ctx)
     # G12: THE PRODUCTS OF THE ADDITIONAL POST, from the current extractions of
     # the points this post admitted, under additional/<pid>/ and marked as such.
     _additional_products(
@@ -1289,67 +1040,125 @@ def _write_the_products(
         check_frozen=check_frozen,
         sims=None if partial is None else partial.sims,
     )
-    if partial is not None:
+    _write_campaign_superfiles(ctx)
+    _finish_campaign_products(ctx)
+
+
+def _write_simulation_products(ctx: _CampaignProducts) -> None:
+    """Write simulation products."""
+    for sim_id, sim_records in tracked("post: simulations", ctx.by_sim.items(), label=_sim_label):
+        simulation_metadata = _simulation_metadata(sim_records)
+        effective_pproc = _effective_pproc(
+            ctx.workspace, sim_id, simulation_metadata, ctx.rows_of_the_matrix.get(sim_id)
+        )
+        try:
+            _validate_simulation_references(ctx, sim_id, sim_records, simulation_metadata)
+        except ProductError as error:
+            ctx.skipped[sim_id] = str(error)
+            continue
+        _write_simulation_series(ctx, sim_id, sim_records, effective_pproc)
+        try:
+            files, names, reductions_skipped = _sim_products(
+                ctx.workspace,
+                sim_id,
+                _march_records(ctx.workspace, sim_records),
+                ctx.out,
+                overwrite=ctx.overwrite,
+                archive=ctx.archive,
+                archive_stamp=ctx.archive_stamp,
+                matrix_row=ctx.rows_of_the_matrix.get(sim_id),
+                sweep_rows=ctx.sweep_rows,
+                drafts=ctx.drafts,
+                check_frozen=ctx.check_frozen,
+                effective_pproc=effective_pproc,
+            )
+        except ProductExistsError:
+            raise
+        except ProductError as error:
+            ctx.skipped[sim_id] = str(error)
+            warn(
+                f"products of simulation {sim_id} not written: {error}",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+            continue
+        ctx.written.extend(files)
+        for name, entry in names.items():
+            ctx.products_index[name] = {
+                "sim_id": sim_id,
+                "pproc": effective_pproc[0],
+                **entry,
+            }
+        # A reduction the row could not window is a skip under the file it
+        # would have been (PFS-2015.04), beside the simulations refused whole.
+        ctx.skipped.update(reductions_skipped)
+
+
+def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
+    """Write campaign superfiles."""
+    if ctx.partial is not None:
         # FR-307: A PARTIAL VERSION OF A CROSS-SIMULATION PRODUCT IS NEVER
         # WRITTEN. The drafts of the named simulations alone would give a
         # header that is not the matrix's union; each super file stays as the
         # last whole post wrote it, and one it never wrote is said too.
-        for draft in drafts:
-            name = draft.path.relative_to(out).as_posix()
-            partial.not_rebuilt.setdefault(
+        for draft in ctx.drafts:
+            name = draft.path.relative_to(ctx.out).as_posix()
+            ctx.partial.not_rebuilt.setdefault(
                 name,
                 "a super file's columns are the union over every simulation of the matrix, "
                 "so a post limited to some simulations does not write it; "
-                f"{partial.whole} writes it",
+                f"{ctx.partial.whole} writes it",
             )
-        if partial.not_rebuilt:
+        if ctx.partial.not_rebuilt:
             warn(
-                f"post limited to simulation(s) {', '.join(sorted(partial.sims))}: "
-                f"{len(partial.not_rebuilt)} cross-simulation product(s) not rebuilt, each "
+                f"post limited to simulation(s) {', '.join(sorted(ctx.partial.sims))}: "
+                f"{len(ctx.partial.not_rebuilt)} cross-simulation product(s) not rebuilt, each "
                 "named with its reason under partial.not_rebuilt in products.json: "
-                f"{', '.join(partial.not_rebuilt)}. {partial.whole} rebuilds them.",
+                f"{', '.join(ctx.partial.not_rebuilt)}. {ctx.partial.whole} rebuilds them.",
                 PyflightstreamWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
     # FR-89: the superfiles LAST, and all of them together. Their header is
     # the union over every draft of this campaign, so a steady polar's file
     # and a rotor's carry the same columns and a reader cannot tell from the
     # file which kind of run is behind a row.
-    if drafts and partial is None:
+    if ctx.drafts and ctx.partial is None:
         super_files, super_entries, super_columns = write_superfiles(
-            drafts,
+            ctx.drafts,
             target=lambda path: _refuse_an_existing_product(
-                path, archive=archive, stamp=archive_stamp
+                path, archive=ctx.archive, stamp=ctx.archive_stamp
             ),
         )
-        written.extend(super_files)
+        ctx.written.extend(super_files)
         for path, entry in super_entries.items():
-            products_index[path.relative_to(out).as_posix()] = entry
+            ctx.products_index[path.relative_to(ctx.out).as_posix()] = entry
         # THE MEASUREMENT, and the union in it is built from the WORKSPACE
         # and not from the columns just written: a report whose `known` were
         # the file's own columns would pass a superset test by construction,
         # which is a check that accepts everything.
         known = union_the_workspace_knows(
-            workspace.root,
-            out,
-            matrix_stem,
+            ctx.workspace.root,
+            ctx.out,
+            ctx.matrix_stem,
             polars_dir=POLARS_DIR,
             probes_dir=PROBES_DIR,
-            raw_records=workspace.read_raw_manifest(),
+            raw_records=ctx.workspace.read_raw_manifest(),
         )
         import pyflightstream
 
         report = write_superfile_report(
-            workspace.reports_root(matrix_stem),
+            ctx.workspace.reports_root(ctx.matrix_stem),
             version=pyflightstream.__version__,
             files=[
                 (path, super_columns, len(draft.rows))
-                for path, draft in zip(super_files, drafts, strict=True)
+                for path, draft in zip(super_files, ctx.drafts, strict=True)
             ],
             known=known,
         )
-        manifest["superfile_report"] = report.relative_to(workspace.root).as_posix()
+        ctx.manifest["superfile_report"] = report.relative_to(ctx.workspace.root).as_posix()
 
+
+def _finish_campaign_products(ctx: _CampaignProducts) -> None:
     # THE SECTIONS MEASUREMENT, written the same way as the superfile one: from
     # the workspace rather than from this stage's own arithmetic. It counts what
     # each point's ARTIFACT declared against what its SCRIPT emitted, two
@@ -1361,32 +1170,224 @@ def _write_the_products(
     # file, but it sat in the branch that writes one, and a windowed unsteady
     # campaign drafts none: the rotor campaigns, which are the ones that declare
     # sections, never got their report.
+    """Finish campaign products."""
     import pyflightstream as _package
 
     section_cases = (
-        measure_sections(workspace.root, [record.model_dump(mode="json") for record in records])
-        if partial is None or partial.rebuild_sections
+        measure_sections(
+            ctx.workspace.root, [record.model_dump(mode="json") for record in ctx.records]
+        )
+        if ctx.partial is None or ctx.partial.rebuild_sections
         else []
     )
     if section_cases:
         sections_report = write_sections_report(
-            workspace.reports_root(matrix_stem),
+            ctx.workspace.reports_root(ctx.matrix_stem),
             version=_package.__version__,
             cases=section_cases,
         )
-        manifest["sections_report"] = sections_report.relative_to(workspace.root).as_posix()
-    manifest["skipped"] = skipped if partial is None else {**partial.skipped, **skipped}
+        ctx.manifest["sections_report"] = sections_report.relative_to(ctx.workspace.root).as_posix()
+    ctx.manifest["skipped"] = (
+        ctx.skipped if ctx.partial is None else {**ctx.partial.skipped, **ctx.skipped}
+    )
     # PFS-2012.08.01: one document per recorded run, whatever its status.
     provenance = _run_provenance(
-        workspace,
-        records,
-        out,
-        overwrite=overwrite,
-        archive=archive,
-        archive_stamp=archive_stamp,
-        sims=None if partial is None else partial.sims,
+        ctx.workspace,
+        ctx.records,
+        ctx.out,
+        overwrite=ctx.overwrite,
+        archive=ctx.archive,
+        archive_stamp=ctx.archive_stamp,
+        sims=None if ctx.partial is None else ctx.partial.sims,
     )
-    manifest["provenance"] = provenance if partial is None else {**partial.provenance, **provenance}
-    manifest["complete"] = True
-    out.mkdir(parents=True, exist_ok=True)
-    _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
+    ctx.manifest["provenance"] = (
+        provenance if ctx.partial is None else {**ctx.partial.provenance, **provenance}
+    )
+    ctx.manifest["complete"] = True
+    ctx.out.mkdir(parents=True, exist_ok=True)
+    _textio.write_text(ctx.out / PRODUCTS_MANIFEST, json.dumps(ctx.manifest, indent=1) + "\n")
+
+
+def _validate_simulation_references(
+    ctx: _CampaignProducts,
+    sim_id: str,
+    sim_records: Sequence[RunRecord],
+    simulation_metadata: RunRecord,
+) -> None:
+    """Validate simulation references."""
+    for record in sim_records:
+        loads_name = classify_outputs(record.outputs).get("loads")
+        loads_path = ctx.workspace.sim_dir(sim_id) / loads_name if loads_name else None
+        if record.reference and loads_path is not None and loads_path.is_file():
+            try:
+                reference_report = parse_loads(
+                    loads_path.read_text(encoding="utf-8", errors="replace")
+                )
+            except PyflightstreamError:
+                continue  # The individual writers explain malformed exports.
+            for reference_block in (simulation_metadata.reference, record.reference):
+                if reference_block is None:
+                    continue
+                _refuse_a_reference_the_solver_did_not_use(
+                    sim_id,
+                    [
+                        PolarPoint(
+                            name=loads_path.stem,
+                            loads=reference_report,
+                            loads_path=loads_path,
+                        )
+                    ],
+                    ReferenceValues.from_mapping(reference_block),
+                )
+
+
+def _write_simulation_series(
+    ctx: _CampaignProducts,
+    sim_id: str,
+    sim_records: Sequence[RunRecord],
+    effective_pproc: tuple[str | None, PprocSpec | None, str | None],
+) -> None:
+    # PFS-2031.18.01: the per-step exports of a windowed point as a
+    # series, written before the polar so a simulation the polar
+    # refuses (no Mach, a sideslip) keeps its series, which rest on
+    # the stamped files and the record alone.
+    # A stamped file the parsers cannot read (a run stopped mid-window
+    # leaves one) is that point's skip, recorded under series/<run id>,
+    # and never the stage's abort: the same rule the polar below follows
+    # since 2026-09-08 (the V&V lens of REL-0140).
+    """Write simulation series."""
+    recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
+    for record in sim_records:
+        surface_freeze = _index_record_surfaces(ctx, sim_id, record)
+        said = set(ctx.skipped)
+        if record.pproc not in recorded_pprocs:
+            recorded_pprocs[record.pproc] = _resolve_post_pproc(ctx.workspace, record.pproc)[1]
+        try:
+            series_files, series_names = _point_series(
+                ctx.workspace,
+                sim_id,
+                record,
+                ctx.out,
+                overwrite=ctx.overwrite,
+                archive=ctx.archive,
+                archive_stamp=ctx.archive_stamp,
+                matrix_row=ctx.rows_of_the_matrix.get(sim_id),
+                skipped=ctx.skipped,
+                pproc=effective_pproc[1],
+                recorded_pproc=recorded_pprocs[record.pproc],
+                pproc_error=effective_pproc[2],
+                surface_freeze=surface_freeze,
+            )
+        except ProductExistsError:
+            raise
+        except ProductError as error:
+            ctx.skipped[f"series/{record.run_id}"] = str(error)
+            warn(
+                f"series of {record.run_id} not written: {error}",
+                PyflightstreamWarning,
+                stacklevel=4,
+            )
+            continue
+        for name in sorted(set(ctx.skipped) - said):
+            # SAID, as every other product the stage leaves out is (MT-06).
+            warn(f"{name} not written: {ctx.skipped[name]}", PyflightstreamWarning, stacklevel=4)
+        ctx.written.extend(series_files)
+        for name, entry in series_names.items():
+            # The package's own average was judged before it was written.
+            reason = (
+                None
+                if entry.get("averaged_by") == "pyflightstream"
+                else _surface_export_skip(entry, surface_freeze, point=record.run_id, product=name)
+            )
+            if reason is not None:
+                ctx.skipped[name] = reason
+                continue
+            ctx.products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
+
+
+def _retire_campaign_products(
+    out: Path,
+    *,
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: dict[str, dict[str, object]],
+    by_sim: Mapping[str, list[RunRecord]],
+    archive: bool,
+    archive_stamp: datetime,
+) -> None:
+    # 0.30.0: what a previous post made from steps free-space has since
+    # pruned stays, file and entry, and is therefore not retired below.
+    """Retire campaign products."""
+    for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
+        products_index.setdefault(name, entry)
+    # Retire refused generated tables under both rebuild policies. Native exports
+    # outside this folder remain evidence and are never removed here.
+    for name, entry in previous_products.items():
+        if (
+            name.startswith(f"{POLARS_DIR}/")
+            and entry.get("sim_id") in by_sim
+            and name not in products_index
+        ):
+            skipped.setdefault(
+                name,
+                f"retired previous table of simulation {entry['sim_id']}: no current "
+                "product uses this name; polar names follow contributing records",
+            )
+    # G12: an additional product no current extraction supplies is retired,
+    # archived like a refused table, rather than left in its folder unnamed.
+    for name in previous_products:
+        if name.startswith(f"{ADDITIONAL_DIR}/") and name not in products_index:
+            skipped.setdefault(
+                name,
+                "retired previous additional product: no current extraction supplies this file",
+            )
+    refused = products_to_retire(skipped, previous_products)
+    for name in refused - products_index.keys():
+        if name in previous_products:
+            skipped.setdefault(
+                name, "retired previous product; its inputs no longer supply this file"
+            )
+        path = out / name
+        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
+            _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
+            if not archive:
+                path.unlink()
+
+
+def _prepare_campaign_rebuild(
+    workspace: CampaignWorkspace,
+    out: Path,
+    *,
+    records: Sequence[RunRecord],
+    sims: frozenset[str] | None,
+    matrix_stem: str | None,
+    archive: bool,
+    products_index: dict[str, dict[str, object]],
+    manifest: dict[str, object],
+) -> tuple[Mapping[str, dict[str, Any]], _PartialPost | None]:
+    """Prepare campaign rebuild."""
+    previous = out / PRODUCTS_MANIFEST
+    previous_document: dict[str, Any] = {}
+    if previous.is_file():
+        previous_document = json.loads(previous.read_text(encoding="utf-8"))
+        # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
+        # `restore products` has the file this rebuild replaces.
+        _retire_previous_manifest(workspace.root, previous, matrix=out.name, archive=archive)
+    previous_products = previous_document.get("products", {})
+    partial: _PartialPost | None = None
+    if sims is not None:
+        # FR-307: every other simulation's entries and the cross-simulation
+        # products are carried as they were; what is retired below is only
+        # ever a named simulation's.
+        partial = _partial_post(
+            workspace, records, sims, previous_document, matrix_stem=matrix_stem
+        )
+        previous_products = {
+            name: entry for name, entry in previous_products.items() if name not in partial.products
+        }
+        products_index.update(partial.products)
+        manifest["partial"] = {"sims": sorted(sims), "not_rebuilt": partial.not_rebuilt}
+        for kept in ("superfile_report", "sections_report"):
+            if kept in previous_document and kept in partial.not_rebuilt:
+                manifest[kept] = previous_document[kept]
+    return previous_products, partial
