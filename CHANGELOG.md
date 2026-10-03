@@ -77,12 +77,13 @@ FlightStream versions.
 
 ### Added
 
-- **Steady and quasi-steady polars join the grouped jobs** (FR-403). `plan --batch N`
-  and `plan --polar-sweep` no longer leave every `steady` and `qsteady_rotor` row out:
-  they are grouped in jobs of their own, never with an unsteady polar, each later
-  point of a polar restated from `SOLVER_SET_AOA` after `REMOVE_INITIALIZATION` (or,
-  where it differs before that line, reopened after `NEW_SIMULATION`), and each point
-  recorded and collected as the point run alone (compared on 26.124, RPT-148). A steady
+- **Steady and quasi-steady polars join the grouped jobs** (FR-403; compared on
+  26.124, RPT-148 window 2). `plan --batch N` and `plan --polar-sweep` no longer leave
+  every `steady` and `qsteady_rotor` row out: they are grouped in jobs of their own,
+  never with an unsteady polar, each later point of a polar restated from
+  `SOLVER_SET_AOA` after `REMOVE_INITIALIZATION`, or reopened after `NEW_SIMULATION`
+  where it differs before that line, and each point recorded and collected as the
+  point run alone. A steady
   row stating `COLD_START` false, and a steady point that initializes the solver more
   than once, are left out and named.
 - **A polar whose post-processing asks `[time_averaging]` joins the grouped jobs**
@@ -91,7 +92,7 @@ FlightStream versions.
   own datapoint folder under the names the point run alone writes, and the post
   averages each point as it does alone.
 - **A polar whose setup states `unsteady_solver_actions` joins a grouped job** (FR-405;
-  compared on 26.124, RPT-148). The split groups polars by their set of user actions
+  compared on 26.124, RPT-148 window 2). The split groups polars by their set of user actions
   beside processor count and build, so a job holds one set; the job registers that set
   once, before the package's own counter and clock, as a point run alone does, and keeps
   each user action's lines as the setup wrote them. A job mixing two sets is refused by
@@ -103,7 +104,7 @@ FlightStream versions.
   states that a relative path inside a `COMMAND_LINE` action resolves in the job's
   folder.
 - **An acoustic polar joins the grouped modes as a job of its own**, all its points
-  together (FR-406; compared on 26.124, RPT-148). Each point after the job's first
+  together (FR-406; compared on 26.124, RPT-148 window 2). Each point after the job's first
   deletes the observers that earlier points left in the solver and states its own
   acoustic setup again just before its unsteady solver block, so its observers are
   created once and its sources switch is its own. The signals export and the section
@@ -135,8 +136,8 @@ FlightStream versions.
 - **No false short-walltime warning.** Jobs without recorded point estimates no longer
   warn that their own WALLTIME cells are short (FR-364).
 - **BEST rows count in a mixed job's walltime.** Mixed jobs add each BEST row's priced
-  estimate to the cell budgets; an unknown BEST point asks `max_walltime` or is refused
-  without one (FR-364).
+  estimate to the cell budgets; an unknown BEST point uses `max_walltime`, and the plan
+  refuses the job when the profile states none (FR-364).
 - **Collected points keep the solver identity.** A grouped point's record carries the
   solver version and build read by the same assessor as a point run alone (FR-366;
   the defect and the fixed records on 26.124 in RPT-148).

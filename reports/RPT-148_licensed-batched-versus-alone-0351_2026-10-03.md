@@ -96,13 +96,6 @@ the measured bound is not exact equality in window 2. The averaged products
 themselves were byte-identical (`lv_run.log:725-734`), but the complete comparison
 was `FR-402 VERIFICATION: NOT EQUAL` (`lv_run.log:735-736`, exit 1).
 
-After the FR-366 correction, every grouped record of window 2 carries the solver
-identity: 29 of 29 grouped records read `fs_version_reported` 26.1 and `fs_build`
-8172026, as their alone counterparts do (`lv_run.log:110-111, 263-264` and the
-other PROVENANCE lines); in window 3, 5 of 5 (`lv_fsi_compare2.log:254-255` and
-the other PROVENANCE lines). The equality method excludes version and build
-columns, so this readback, not the equality verdict, is the evidence for FR-366.
-
 The steady count is 54 declared outputs and 33 post products. The user-action
 count is 80 declared outputs and 12 polar products across the grouped and
 polar-sweep arms, with no per-step files. The final receipts for steady, user
@@ -137,6 +130,20 @@ convergence log is byte-identical (`lv_fsi_compare2.log:232, 286, 340, 394`), an
 the verdict is `FSI: 5 of 5 identical`, exit 0 (`lv_fsi_compare2.log:2-6, 494-500`).
 The window-3 result is **equal**: grouped coupled points reproduce the points run
 alone after the log-split correction of window 2.
+
+## Addendum, release review of 2026-10-03: solver identity readback (FR-366)
+
+Added after the first transcription, at the release review; the window 3 section
+above was revised at the closing push review, after the comparison correction it
+describes. After the FR-366 correction every grouped record read carries the solver
+identity, `fs_version_reported` 26.1 and `fs_build` 8172026, as its alone
+counterpart does. Window 2: 29 of 29 grouped records, namely 4 time-averaged, 10
+with user actions (5 in the batch arm, 5 in the polar-sweep arm), 6 steady, 4
+acoustic and the 5 coupled records whose status window 3 corrected (the PROVENANCE
+lines of `lv_run.log`, first at 110-111). Window 3: 5 of 5
+(`lv_fsi_compare2.log:254-255` and the other PROVENANCE lines). The equality method
+excludes version and build columns, so this readback, not the equality verdict, is
+the evidence for FR-366.
 
 ## Limits
 
