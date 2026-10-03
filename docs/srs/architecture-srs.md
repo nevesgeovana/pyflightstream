@@ -938,6 +938,36 @@ exit codes. A named difference needs its FR id and migration entry.
     no-behaviour-change clause. This decision imposes no order between
     the GF probe and WP10a work in `run/_batch_plan.py`.
 
+    WP10a keeps the helpers in their existing modules; no module is added.
+    The campaign phases share `_CampaignState`, the point and sweep phases
+    use `_PointJob` and `_SweepJob`, and assessment uses `_LoadsJudgment`.
+    The private helpers are:
+
+    - `run/_campaign.py`: `_resolve_campaign_schedule`,
+      `_schedule_campaign_case`, `_resolve_campaign_redo`,
+      `_check_campaign_staged_inputs`, `_preflight_campaign_schedule`,
+      `_start_campaign_progress`, `_prepare_campaign_case`,
+      `_start_campaign_sweep`, `_execute_campaign_sweep`,
+      `_execute_campaign_points`, `_resolve_campaign_continuation`,
+      `_execute_campaign_point`, `_finish_campaign`.
+    - `run/_points.py`: `_prepare_point_script`, `_retain_point_provenance`,
+      `_retain_point_translations`, `_write_point_script`,
+      `_write_point_pending_files`, `_run_point_solver`,
+      `_collect_point_outputs`, `_assess_point_record`,
+      `_retain_continued_field_inputs`.
+    - `run/_sweep.py`: `_prepare_sweep_script`, `_write_sweep_script`,
+      `_run_sweep_solver`, `_collect_sweep_outputs`, `_assess_sweep_points`,
+      `_record_sweep_outcome`.
+    - `run/_assessment.py`: `_find_assessment_outputs`,
+      `_read_assessment_loads`, `_validate_assessment_loads`,
+      `_find_assessment_log`, `_judge_assessment_log`,
+      `_judge_assessment_iterations`.
+
+    The four entry points leave both G2 baseline tables. The plan resolves
+    `_is_cold_start` through `run._ids`, the same module attribute as the
+    campaign. Evidence for QA2 (FR-364):
+    `tests/tier1_offline/test_p0360_rv.py::test_plan_resolves_the_patched_cold_start_check`.
+
 !!! decision "AD-23 WP10b The long post functions are decomposed within G2 <span class='srs-pending'>pending</span>"
     *Work package WP10b of 0.36.0. Verification is owed: the G2 recount,
     the products snapshot and NFR-40 parity.*

@@ -16,7 +16,7 @@ import random
 import time
 import warnings
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -283,6 +283,66 @@ def _leave_sweep_table(
     return None
 
 
+@dataclass(kw_only=True)
+class _CampaignState:
+    """Inputs and phase results of one ordered execution."""
+
+    campaign: Campaign
+    executor: Executor
+    workspace: CampaignWorkspace
+    assess: OutcomeAssessor
+    recipes: dict[str, ScriptRecipe] | None
+    resume: bool
+    force_rerun: Sequence[str] | None
+    preflight: bool
+    builds: Mapping[str, SolverBuild] | None
+    name_from: str | None
+    quiet: bool
+    accept_unregistered_build: bool
+    sweep_csv: str | Path | None
+    case_builds: list[SolverBuild | None] = field(init=False)
+    manifest: dict[str, RunRecord] = field(init=False)
+    recorded: set[str] = field(init=False)
+    records: list[RunRecord] = field(init=False)
+    failures: list[RunRecord] = field(init=False)
+    outcomes: list[str] = field(init=False)
+    scheduled: list[tuple[SimCase, SolverBuild | None, list[tuple[dict[str, float], str]]]] = field(
+        init=False
+    )
+    to_supersede: list[tuple[SimCase, list[dict[str, float]], list[str]]] = field(init=False)
+    unmatched: set[str] = field(init=False)
+    case: SimCase = field(init=False)
+    build: SolverBuild | None = field(init=False)
+    case_points: list[dict[str, float]] = field(init=False)
+    run_ids: list[str] = field(init=False)
+    already: list[str] = field(init=False)
+    continuing: bool = field(init=False)
+    redoing: bool = field(init=False)
+    pending: list[tuple[dict[str, float], str]] = field(init=False)
+    to_run: int = field(init=False)
+    started: float = field(init=False)
+    number: int = field(init=False)
+    ran_here: int = field(init=False)
+    case_executor: Executor = field(init=False)
+    runs_here: bool = field(init=False)
+    case_version: str = field(init=False)
+    case_exe: str | Path = field(init=False)
+    case_version_source: str = field(init=False)
+    canonical: str = field(init=False)
+    sim_dir: Path = field(init=False)
+    recipe: ScriptRecipe | None = field(init=False)
+    preparation_error: str | None = field(init=False)
+    inputs_sha256: dict[str, str] = field(init=False)
+    staged_geometry: str | None = field(init=False)
+    job_recorded: bool = field(init=False)
+    job_run: str = field(init=False)
+    point: dict[str, float] = field(init=False)
+    run_id: str = field(init=False)
+    point_extra: dict[str, object] = field(init=False)
+    continues: str | None = field(init=False)
+    continuation: dict[str, object] | None = field(init=False)
+
+
 @workspace_activity("run")
 def run_campaign(
     campaign: Campaign,
@@ -457,19 +517,60 @@ def run_campaign(
         When the automatic sweep table could not be written. The runs
         themselves are unaffected and the manifest is complete.
     """
+    state = _CampaignState(
+        campaign=campaign,
+        executor=executor,
+        workspace=workspace,
+        assess=assess,
+        recipes=recipes,
+        resume=resume,
+        force_rerun=force_rerun,
+        preflight=preflight,
+        builds=builds,
+        name_from=name_from,
+        quiet=quiet,
+        accept_unregistered_build=accept_unregistered_build,
+        sweep_csv=sweep_csv,
+    )
+    _resolve_campaign_schedule(state)
+    _preflight_campaign_schedule(state)
+    _start_campaign_progress(state)
+    for case, build, pending in state.scheduled:
+        state.case, state.build, state.pending = case, build, pending
+        _prepare_campaign_case(state)
+        if (
+            _runs_as_one_job(state.campaign, state.case, state.case_executor)
+            and len(state.pending) > 1
+            and not state.job_recorded
+        ):
+            _start_campaign_sweep(state)
+            # Keep the shared lookup on the campaign entry path.
+            try:
+                cold = _ids._is_cold_start(state.case)
+            except CampaignConfigError as error:
+                cold = True
+                state.preparation_error = state.preparation_error or str(error)
+            _execute_campaign_sweep(state, cold=cold)
+        else:
+            _execute_campaign_points(state)
+    return _finish_campaign(state)
+
+
+def _resolve_campaign_schedule(state: _CampaignState) -> None:
+    """Resolve campaign schedule."""
     # EVERY case's build is resolved before the FIRST one runs. Doing it
     # inside the loop looked equivalent and was not: the campaign would run
     # its first cases, then refuse on a later one, leaving a half-recorded
     # manifest for a mistake that was fully knowable before anything
     # started. A missing build is a configuration error, not a run outcome.
-    case_builds = [_case_build(case, builds) for case in campaign.sims]
-    manifest = {record.run_id: record for record in workspace.read_manifest()}
-    recorded = set(manifest)
-    records: list[RunRecord] = []
-    failures: list[RunRecord] = []
+    state.case_builds = [_case_build(case, state.builds) for case in state.campaign.sims]
+    state.manifest = {record.run_id: record for record in state.workspace.read_manifest()}
+    state.recorded = set(state.manifest)
+    state.records = []
+    state.failures = []
     # One status per POINT this call ran, for the closing table (G43): a job is
     # one record and several points, and the table counts points.
-    outcomes: list[str] = []
+    state.outcomes = []
     # PASS ONE decides what is left to run, for every case, and touches
     # nothing. The whole schedule is knowable from the campaign and the
     # manifest, so every refusal that rests on it belongs here rather than
@@ -478,276 +579,307 @@ def run_campaign(
     # the manifest holds begin with the campaign's name, so a workspace
     # renamed since its first run derives a name that matches none of them,
     # and every point would read as new rather than as recorded.
-    recorded_names = sorted({run_id.split("/", 1)[0] for run_id in recorded})
-    if resume and recorded_names and campaign.name not in recorded_names:
+    recorded_names = sorted({run_id.split("/", 1)[0] for run_id in state.recorded})
+    if state.resume and recorded_names and state.campaign.name not in recorded_names:
         raise WorkspaceError(
-            f"cannot resume under the campaign name {campaign.name!r}: the manifest of "
-            f"{workspace.root} records {', '.join(repr(n) for n in recorded_names)}, and a "
+            f"cannot resume under the campaign name {state.campaign.name!r}: the manifest of "
+            f"{state.workspace.root} records {', '.join(repr(n) for n in recorded_names)}, and a "
             "run id begins with the name, so nothing here would be recognised as "
             "recorded. Resume under the recorded name with name (CLI: --name), or "
             "choose a new campaign root for a new campaign."
         )
-    if resume and force_rerun:
+    if state.resume and state.force_rerun:
         raise WorkspaceError(
             "resume (CLI: --resume) and force_rerun (CLI: --force-rerun) ask for "
             "opposite things: resume SKIPS a recorded point and force_rerun REDOES "
             "it. Name one."
         )
-    scheduled: list[tuple[SimCase, SolverBuild | None, list[tuple[dict[str, float], str]]]] = []
+    state.scheduled = []
     #: WHAT A FORCED RE-RUN WILL SUPERSEDE, decided in pass one and executed
     #: AFTER pass two, never during. Pass one's own comment says it touches
     #: nothing, and a supersede inside it left records removed and evidence
     #: archived when a later refusal fired -- a staged-inputs conflict, or any
     #: preflight failure -- with nothing executed (the architecture and
     #: interface lenses, FIX-0212).
-    to_supersede: list[tuple[SimCase, list[dict[str, float]], list[str]]] = []
+    state.to_supersede = []
     #: Every point name the caller asked to redo that no recorded point carries.
-    unmatched: set[str] = set(force_rerun or ())
-    for case, build in zip(campaign.sims, case_builds, strict=True):
-        # PYFS-004. Which points of this case still need running is decided
-        # BEFORE anything is prepared, because preparation is not read-only:
-        # _prepare_case stages the inputs, and staging overwrites the copy in
-        # inputs/ that the already-recorded points were run against. Deciding
-        # afterwards meant a resume with nothing left to do still replaced the
-        # staged file while the manifest kept the OLD hash, so the manifest
-        # stopped describing the bytes on disk and nothing reported it. The
-        # skip has to happen at the CASE, because that is the level staging
-        # works at; skipping per point (which is what the loop below did) is
-        # already too late.
-        case_points = list(case.sweep.points())
-        run_ids = [_run_id(campaign, case, point) for point in case_points]
-        already = [run_id for run_id in run_ids if run_id in recorded]
-        # A JOB IS RECORDED UNDER ONE ID, not under its points'. The skip
-        # above reads point ids, so without this a recorded job looked
-        # entirely unrun and a resume re-ran every point of it, which is
-        # the opposite of what resume is for and would spend the seat twice.
-        # `plan_campaign` asks the same question of the same helper, so what
-        # the plan calls READY is what this runs.
-        ran = _points_the_recorded_job_ran(campaign, case, manifest)
-        if ran is not None:
-            already = [_job_run_id(campaign, case)]
-            # WHICH POINTS THE JOB ACTUALLY RAN, read off its record, and
-            # not "all of them because the job id is there". A sweep
-            # extended from two angles to three and re-run with resume
-            # returned successfully having executed NOTHING: the branch
-            # discarded every requested point on the strength of the job
-            # id alone, and a user reads that as done. Found by the
-            # independent Codex review of `main`, 2026-09-13
-            # (GEO-047-C05); `points_ran` is what it is for.
-            remaining = [point for point in case_points if point_name(case, point) not in ran]
-            case_points = remaining
-            run_ids = [_run_id(campaign, case, point) for point in remaining]
-        # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
-        # points are its subject and not a fork (GOAL-021).
-        # Until 0.18.1 such a row, under the campaign that recorded
-        # the stopped run, was refused as a fork without `resume` and skipped
-        # as done with it, and ran only under another campaign name. A point
-        # of it is pending when the most recent record of that point stopped
-        # continuably, when nothing records it at all, or when its most recent
-        # run FAILED, and in the last two the continuation resolver refuses it
-        # by name rather than skipping it in silence (the quality and V&V
-        # lenses, closing round). FR-96, 0.33.0: a CONVERGED march continues
-        # once per request (`continuation_verdict`), so a completed continuation
-        # is not continued again, and a point not continued is said.
-        continuing = restart_request(case) is not None
-        redoing = False
-        if already and force_rerun:
-            asked = _points_asked_to_redo(campaign, case, force_rerun)
-            unmatched -= asked.named
-            if asked.points and continuing:
+    state.unmatched = set(state.force_rerun or ())
+    for case, build in zip(state.campaign.sims, state.case_builds, strict=True):
+        state.case, state.build = case, build
+        _schedule_campaign_case(state)
+
+
+def _schedule_campaign_case(state: _CampaignState) -> None:
+    """Schedule campaign case."""
+    # PYFS-004. Which points of this case still need running is decided
+    # BEFORE anything is prepared, because preparation is not read-only:
+    # _prepare_case stages the inputs, and staging overwrites the copy in
+    # inputs/ that the already-recorded points were run against. Deciding
+    # afterwards meant a resume with nothing left to do still replaced the
+    # staged file while the manifest kept the OLD hash, so the manifest
+    # stopped describing the bytes on disk and nothing reported it. The
+    # skip has to happen at the CASE, because that is the level staging
+    # works at; skipping per point (which is what the loop below did) is
+    # already too late.
+    state.case_points = list(state.case.sweep.points())
+    state.run_ids = [_run_id(state.campaign, state.case, point) for point in state.case_points]
+    state.already = [run_id for run_id in state.run_ids if run_id in state.recorded]
+    # A JOB IS RECORDED UNDER ONE ID, not under its points'. The skip
+    # above reads point ids, so without this a recorded job looked
+    # entirely unrun and a resume re-ran every point of it, which is
+    # the opposite of what resume is for and would spend the seat twice.
+    # `plan_campaign` asks the same question of the same helper, so what
+    # the plan calls READY is what this runs.
+    ran = _points_the_recorded_job_ran(state.campaign, state.case, state.manifest)
+    if ran is not None:
+        state.already = [_job_run_id(state.campaign, state.case)]
+        # WHICH POINTS THE JOB ACTUALLY RAN, read off its record, and
+        # not "all of them because the job id is there". A sweep
+        # extended from two angles to three and re-run with resume
+        # returned successfully having executed NOTHING: the branch
+        # discarded every requested point on the strength of the job
+        # id alone, and a user reads that as done. Found by the
+        # independent Codex review of `main`, 2026-09-13
+        # (GEO-047-C05); `points_ran` is what it is for.
+        remaining = [
+            point for point in state.case_points if point_name(state.case, point) not in ran
+        ]
+        state.case_points = remaining
+        state.run_ids = [_run_id(state.campaign, state.case, point) for point in remaining]
+    # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
+    # points are its subject and not a fork (GOAL-021).
+    # Until 0.18.1 such a row, under the campaign that recorded
+    # the stopped run, was refused as a fork without `resume` and skipped
+    # as done with it, and ran only under another campaign name. A point
+    # of it is pending when the most recent record of that point stopped
+    # continuably, when nothing records it at all, or when its most recent
+    # run FAILED, and in the last two the continuation resolver refuses it
+    # by name rather than skipping it in silence (the quality and V&V
+    # lenses, closing round). FR-96, 0.33.0: a CONVERGED march continues
+    # once per request (`continuation_verdict`), so a completed continuation
+    # is not continued again, and a point not continued is said.
+    state.continuing = restart_request(state.case) is not None
+    state.redoing = False
+    _resolve_campaign_redo(state)
+    # A FORCED RE-RUN SKIPS WHAT IT DID NOT NAME, which is the only shape
+    # that works on a real matrix. Naming one point to redo says "this one
+    # again"; it does not say the other rows are a fork. Refusing them made
+    # the flag unusable on any matrix with more than one recorded row --
+    # measured by its own test, which could not get past the second case.
+    if state.already and state.force_rerun and not state.continuing and not state.redoing:
+        return
+    # A CASE THE FLAG PARTIALLY NAMED IS NOT A FORK. Its unasked recorded
+    # points are left exactly as they are -- not re-run, not removed -- so
+    # the refusal below, which exists for a re-run nobody asked for, must
+    # not fire on them.
+    if state.already and not state.resume and not state.continuing and not state.redoing:
+        # FR-327: the refusal counts the recorded points and the ones --resume runs.
+        raise already_recorded_error(
+            state.campaign, state.manifest, state.already[0], state.workspace.root
+        )
+    if state.continuing:
+        state.pending = pending_restart_points(
+            state.case,
+            list(zip(state.case_points, state.run_ids, strict=True)),
+            state.workspace,
+            lambda text: _say(text, quiet=state.quiet),
+        )
+    else:
+        state.pending = [
+            (point, run_id)
+            for point, run_id in zip(state.case_points, state.run_ids, strict=True)
+            if run_id not in state.recorded
+        ]
+    if not state.pending:
+        # Nothing to run, so nothing may be touched. This is the case the
+        # review reproduced, and the fix is the whole of it: return without
+        # creating the sim directory or staging anything.
+        return
+    _check_campaign_staged_inputs(state)
+    state.scheduled.append((state.case, state.build, state.pending))
+
+
+def _resolve_campaign_redo(state: _CampaignState) -> None:
+    """Resolve campaign redo."""
+    if state.already and state.force_rerun:
+        asked = _points_asked_to_redo(state.campaign, state.case, state.force_rerun)
+        state.unmatched -= asked.named
+        if asked.points and state.continuing:
+            warnings.warn(
+                f"force_rerun names {', '.join(sorted(asked.named))} of simulation "
+                f"{state.case.sim_id}, whose row states RESTART. A continuation's records "
+                "are its subject rather than a fork, so it is CONTINUED and not "
+                "superseded; nothing was archived for it.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        elif asked.points:
+            # THE NAMED POINTS RUN AGAIN, and only those. The narrowing
+            # above exists for RESUME -- it drops the points a recorded job
+            # already ran, which for a fully run job is all of them -- so a
+            # forced re-run that inherited it would archive the evidence and
+            # then execute nothing, the very failure this flag exists to be
+            # distinguishable from.
+            # WHAT IS SUPERSEDED IS WHAT IS RE-RUN, and the two were not the
+            # same set. The queue took EVERY recorded id of the case while
+            # only the NAMED points were scheduled, so a second recorded
+            # point of the same case left the manifest and was never run
+            # again: neither kept nor redone, with the only remaining copy
+            # the archived one nobody reads. Measured on a campaign
+            # recording two points of one case, `force_rerun` given one of
+            # them (an independent review from another provider, FIX-0220).
+            #
+            # A JOB IS INDIVISIBLE, so naming any point of one redoes the
+            # WHOLE job: one process ran every point of that row, and
+            # re-running a part of it while its record goes would orphan the
+            # rest. That is why the points come back from the resolver as
+            # every point of the sweep in that case, and why the id taken
+            # out of the manifest is the JOB's.
+            recorded_here = set(state.already)
+            job = _job_run_id(state.campaign, state.case)
+            state.case_points = asked.points
+            # G37 of 0.28.0: A POINT OF A RECORDED JOB REDOES THE WHOLE JOB, which
+            # the paragraph above promised and the code did not do for a point
+            # name or a point's run_id: the job's record was archived and the
+            # named point ran alone, cold, leaving its siblings in no record. The
+            # selection is resolved here, before anything is archived, and said.
+            if job in recorded_here and job not in asked.named:
+                state.case_points = list(state.case.sweep.points())
                 warnings.warn(
-                    f"force_rerun names {', '.join(sorted(asked.named))} of simulation "
-                    f"{case.sim_id}, whose row states RESTART. A continuation's records "
-                    "are its subject rather than a fork, so it is CONTINUED and not "
-                    "superseded; nothing was archived for it.",
+                    f"force_rerun names {', '.join(sorted(asked.named))}, a point of the "
+                    f"recorded job {job!r}; a job is indivisible, so every point of it "
+                    "runs again as one job: "
+                    + ", ".join(point_name(state.case, point) for point in state.case_points)
+                    + ".",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
-            elif asked.points:
-                # THE NAMED POINTS RUN AGAIN, and only those. The narrowing
-                # above exists for RESUME -- it drops the points a recorded job
-                # already ran, which for a fully run job is all of them -- so a
-                # forced re-run that inherited it would archive the evidence and
-                # then execute nothing, the very failure this flag exists to be
-                # distinguishable from.
-                # WHAT IS SUPERSEDED IS WHAT IS RE-RUN, and the two were not the
-                # same set. The queue took EVERY recorded id of the case while
-                # only the NAMED points were scheduled, so a second recorded
-                # point of the same case left the manifest and was never run
-                # again: neither kept nor redone, with the only remaining copy
-                # the archived one nobody reads. Measured on a campaign
-                # recording two points of one case, `force_rerun` given one of
-                # them (an independent review from another provider, FIX-0220).
-                #
-                # A JOB IS INDIVISIBLE, so naming any point of one redoes the
-                # WHOLE job: one process ran every point of that row, and
-                # re-running a part of it while its record goes would orphan the
-                # rest. That is why the points come back from the resolver as
-                # every point of the sweep in that case, and why the id taken
-                # out of the manifest is the JOB's.
-                recorded_here = set(already)
-                job = _job_run_id(campaign, case)
-                case_points = asked.points
-                # G37 of 0.28.0: A POINT OF A RECORDED JOB REDOES THE WHOLE JOB, which
-                # the paragraph above promised and the code did not do for a point
-                # name or a point's run_id: the job's record was archived and the
-                # named point ran alone, cold, leaving its siblings in no record. The
-                # selection is resolved here, before anything is archived, and said.
-                if job in recorded_here and job not in asked.named:
-                    case_points = list(case.sweep.points())
-                    warnings.warn(
-                        f"force_rerun names {', '.join(sorted(asked.named))}, a point of the "
-                        f"recorded job {job!r}; a job is indivisible, so every point of it "
-                        "runs again as one job: "
-                        + ", ".join(point_name(case, point) for point in case_points)
-                        + ".",
-                        PyflightstreamWarning,
-                        stacklevel=2,
-                    )
-                run_ids = [_run_id(campaign, case, point) for point in case_points]
-                # THE JOB AND EVERY POINT OF IT RECORDED ON ITS OWN. A row extended
-                # after its job ran records the new point by itself (--resume); the
-                # job's re-run runs that point too, so its record goes with the job's
-                # rather than staying active beside the replacement (reading A28).
-                # Read off the manifest, not `already`: a recorded job's `already`
-                # is the job's id alone.
-                superseding = [job] if job in recorded_here else []
-                superseding += [
-                    run_id for run_id in run_ids if run_id in recorded and run_id != job
-                ]
-                # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
-                # writing its folder, and archiving the record it will be collected
-                # into would leave the job writing where the new run writes.
-                queued = queued_points(workspace, manifest, superseding)
-                if queued:
-                    raise WorkspaceError(
-                        f"force_rerun names {', '.join(queued)}, which is still in a "
-                        "scheduler's queue (SUBMITTED): its job has not finished writing its "
-                        "folder, and redoing it now would archive the record the job will be "
-                        "collected into and write where the job writes. Collect it "
-                        "(pyfs-matrix collect) first; nothing was archived or run."
-                    )
-                to_supersede.append((case, list(case_points), superseding))
-                redoing = True
-                already = [run_id for run_id in already if run_id not in set(superseding)]
-                # AND THEY STOP COUNTING AS RECORDED, which is the half the
-                # first writing missed. `recorded` is frozen before the loop
-                # and `pending` below keeps only the points NOT in it, so
-                # clearing `already` alone left every superseded point filtered
-                # out: the case was dropped, and the run archived the evidence
-                # and executed nothing -- the very failure the paragraph above
-                # claims to prevent, one level down (the qa lens, FIX-0212).
-                recorded.difference_update(superseding)
-                recorded.difference_update(run_ids)
-        # A FORCED RE-RUN SKIPS WHAT IT DID NOT NAME, which is the only shape
-        # that works on a real matrix. Naming one point to redo says "this one
-        # again"; it does not say the other rows are a fork. Refusing them made
-        # the flag unusable on any matrix with more than one recorded row --
-        # measured by its own test, which could not get past the second case.
-        if already and force_rerun and not continuing and not redoing:
-            continue
-        # A CASE THE FLAG PARTIALLY NAMED IS NOT A FORK. Its unasked recorded
-        # points are left exactly as they are -- not re-run, not removed -- so
-        # the refusal below, which exists for a re-run nobody asked for, must
-        # not fire on them.
-        if already and not resume and not continuing and not redoing:
-            # FR-327: the refusal counts the recorded points and the ones --resume runs.
-            raise already_recorded_error(campaign, manifest, already[0], workspace.root)
-        if continuing:
-            pending = pending_restart_points(
-                case,
-                list(zip(case_points, run_ids, strict=True)),
-                workspace,
-                lambda text: _say(text, quiet=quiet),
-            )
-        else:
-            pending = [
-                (point, run_id)
-                for point, run_id in zip(case_points, run_ids, strict=True)
-                if run_id not in recorded
+            state.run_ids = [
+                _run_id(state.campaign, state.case, point) for point in state.case_points
             ]
-        if not pending:
-            # Nothing to run, so nothing may be touched. This is the case the
-            # review reproduced, and the fix is the whole of it: return without
-            # creating the sim directory or staging anything.
-            continue
-        # A SIMULATION FOLDER HOLDS ONE CAMPAIGN'S QUEUED WORK. The folder carries
-        # no campaign name, so another campaign's row with this simulation id
-        # stages its inputs, writes its scripts and runs its points in the very
-        # folder a queued job of the first will read: staging re-links or
-        # re-copies inputs/, whatever the executor. Refused before anything is
-        # prepared, while that work is in a queue.
-        foreign = sorted(
-            record.run_id
-            for record in manifest.values()
-            if record.sim_id == case.sim_id
-            and record.status is RunStatus.SUBMITTED
-            and not record.run_id.startswith(f"{campaign.name}/")
-        )
-        if foreign:
-            raise WorkspaceError(
-                f"simulation {case.sim_id} holds another campaign's work in a scheduler's "
-                f"queue ({', '.join(foreign[:3])}{', ...' if len(foreign) > 3 else ''}), and "
-                "a simulation's folder holds one campaign's queued work: its staged inputs, "
-                "its scripts and its datapoint folders are what those jobs will read. "
-                f"Collect it (pyfs-matrix collect) before campaign {campaign.name!r} runs "
-                "there, or give this row another simulation id. Nothing was run or written."
-            )
-        # A QUEUED POINT OF THIS SIMULATION READS THE STAGED INPUTS TOO, whether or
-        # not this request names it: a job still in a queue opens the copy in
-        # inputs/ when it starts, so staging other bytes over it now would give
-        # it a file its record does not hash.
-        queued_here = [
-            record.run_id
-            for record in manifest.values()
-            if record.sim_id == case.sim_id
-            and record.status is RunStatus.SUBMITTED
-            and record.run_id not in already
-        ]
-        # AND STAGING CHANGES NOTHING THE QUEUED JOB OPENS: the junction to the
-        # library is retargeted when this row's geometry sits in another folder,
-        # which swaps every file of inputs/ at once, whatever its name (9r).
-        queued_in_sim = [
-            record.run_id
-            for record in manifest.values()
-            if record.sim_id == case.sim_id and record.status is RunStatus.SUBMITTED
-        ]
-        if queued_in_sim and case.geometry is not None:
-            change = workspace.staging_would_change(case.sim_id, [case.geometry])
-            if change is not None:
+            # THE JOB AND EVERY POINT OF IT RECORDED ON ITS OWN. A row extended
+            # after its job ran records the new point by itself (--resume); the
+            # job's re-run runs that point too, so its record goes with the job's
+            # rather than staying active beside the replacement (reading A28).
+            # Read off the manifest, not `already`: a recorded job's `already`
+            # is the job's id alone.
+            superseding = [job] if job in recorded_here else []
+            superseding += [
+                run_id for run_id in state.run_ids if run_id in state.recorded and run_id != job
+            ]
+            # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
+            # writing its folder, and archiving the record it will be collected
+            # into would leave the job writing where the new run writes.
+            queued = queued_points(state.workspace, state.manifest, superseding)
+            if queued:
                 raise WorkspaceError(
-                    f"cannot run {campaign.name}/sim_{case.sim_id}: "
-                    f"{queued_in_sim[0]!r} is still in a scheduler's queue and opens "
-                    f"this simulation's inputs when it starts, and {change}. Collect it "
-                    "first (pyfs-matrix collect), or run this row with the geometry the "
-                    "queued point staged; nothing was run."
+                    f"force_rerun names {', '.join(queued)}, which is still in a "
+                    "scheduler's queue (SUBMITTED): its job has not finished writing its "
+                    "folder, and redoing it now would archive the record the job will be "
+                    "collected into and write where the job writes. Collect it "
+                    "(pyfs-matrix collect) first; nothing was archived or run."
                 )
-        if already or queued_here:
-            # Partially recorded: some points ran against the inputs staged
-            # last time. Re-staging different content would silently retire
-            # the evidence behind those records, so the inputs are verified
-            # rather than overwritten.
-            conflict = _staged_inputs_conflict(
-                campaign, case, workspace, manifest, [*already, *queued_here], set(queued_here)
+            state.to_supersede.append((state.case, list(state.case_points), superseding))
+            state.redoing = True
+            state.already = [run_id for run_id in state.already if run_id not in set(superseding)]
+            # AND THEY STOP COUNTING AS RECORDED, which is the half the
+            # first writing missed. `recorded` is frozen before the loop
+            # and `pending` below keeps only the points NOT in it, so
+            # clearing `already` alone left every superseded point filtered
+            # out: the case was dropped, and the run archived the evidence
+            # and executed nothing -- the very failure the paragraph above
+            # claims to prevent, one level down (the qa lens, FIX-0212).
+            state.recorded.difference_update(superseding)
+            state.recorded.difference_update(state.run_ids)
+
+
+def _check_campaign_staged_inputs(state: _CampaignState) -> None:
+    """Check campaign staged inputs."""
+    # A SIMULATION FOLDER HOLDS ONE CAMPAIGN'S QUEUED WORK. The folder carries
+    # no campaign name, so another campaign's row with this simulation id
+    # stages its inputs, writes its scripts and runs its points in the very
+    # folder a queued job of the first will read: staging re-links or
+    # re-copies inputs/, whatever the executor. Refused before anything is
+    # prepared, while that work is in a queue.
+    foreign = sorted(
+        record.run_id
+        for record in state.manifest.values()
+        if record.sim_id == state.case.sim_id
+        and record.status is RunStatus.SUBMITTED
+        and not record.run_id.startswith(f"{state.campaign.name}/")
+    )
+    if foreign:
+        raise WorkspaceError(
+            f"simulation {state.case.sim_id} holds another campaign's work in a scheduler's "
+            f"queue ({', '.join(foreign[:3])}{', ...' if len(foreign) > 3 else ''}), and "
+            "a simulation's folder holds one campaign's queued work: its staged inputs, "
+            "its scripts and its datapoint folders are what those jobs will read. "
+            f"Collect it (pyfs-matrix collect) before campaign {state.campaign.name!r} runs "
+            "there, or give this row another simulation id. Nothing was run or written."
+        )
+    # A QUEUED POINT OF THIS SIMULATION READS THE STAGED INPUTS TOO, whether or
+    # not this request names it: a job still in a queue opens the copy in
+    # inputs/ when it starts, so staging other bytes over it now would give
+    # it a file its record does not hash.
+    queued_here = [
+        record.run_id
+        for record in state.manifest.values()
+        if record.sim_id == state.case.sim_id
+        and record.status is RunStatus.SUBMITTED
+        and record.run_id not in state.already
+    ]
+    # AND STAGING CHANGES NOTHING THE QUEUED JOB OPENS: the junction to the
+    # library is retargeted when this row's geometry sits in another folder,
+    # which swaps every file of inputs/ at once, whatever its name (9r).
+    queued_in_sim = [
+        record.run_id
+        for record in state.manifest.values()
+        if record.sim_id == state.case.sim_id and record.status is RunStatus.SUBMITTED
+    ]
+    if queued_in_sim and state.case.geometry is not None:
+        change = state.workspace.staging_would_change(state.case.sim_id, [state.case.geometry])
+        if change is not None:
+            raise WorkspaceError(
+                f"cannot run {state.campaign.name}/sim_{state.case.sim_id}: "
+                f"{queued_in_sim[0]!r} is still in a scheduler's queue and opens "
+                f"this simulation's inputs when it starts, and {change}. Collect it "
+                "first (pyfs-matrix collect), or run this row with the geometry the "
+                "queued point staged; nothing was run."
             )
-            if conflict is not None:
-                raise WorkspaceError(conflict)
-        scheduled.append((case, build, pending))
+    if state.already or queued_here:
+        # Partially recorded: some points ran against the inputs staged
+        # last time. Re-staging different content would silently retire
+        # the evidence behind those records, so the inputs are verified
+        # rather than overwritten.
+        conflict = _staged_inputs_conflict(
+            state.campaign,
+            state.case,
+            state.workspace,
+            state.manifest,
+            [*state.already, *queued_here],
+            set(queued_here),
+        )
+        if conflict is not None:
+            raise WorkspaceError(conflict)
+
+
+def _preflight_campaign_schedule(state: _CampaignState) -> None:
+    """Preflight campaign schedule."""
     # PASS TWO asks every installation that still has work which build it
     # is, once each, and refuses the whole campaign if any of them answers
     # wrongly. It is still LAZY: a schedule with nothing in it asks
     # nothing, so a resume with no pending point launches no process.
-    if preflight and scheduled:
+    if state.preflight and state.scheduled:
         _check_scheduled_builds(
-            campaign,
-            executor,
-            [(case, build) for case, build, _ in scheduled],
-            accept_unregistered_build=accept_unregistered_build,
+            state.campaign,
+            state.executor,
+            [(case, build) for case, build, _ in state.scheduled],
+            accept_unregistered_build=state.accept_unregistered_build,
         )
-    if unmatched:
+    if state.unmatched:
         raise WorkspaceError(
-            f"force_rerun names {', '.join(sorted(unmatched))}, which no recorded point "
-            f"of this campaign carries in {workspace.root}. A name that matches nothing "
+            f"force_rerun names {', '.join(sorted(state.unmatched))}, which no recorded point "
+            f"of this campaign carries in {state.workspace.root}. A name that matches nothing "
             "is refused rather than passed over, because a forced re-run that quietly "
             "redid nothing reads exactly like one that worked. Name a point by its point "
             "name or by its full run_id, as the manifest spells it."
@@ -755,289 +887,336 @@ def run_campaign(
     # SUPERSEDE HERE, once, with the schedule settled and the preflight passed:
     # every refusal that could still fire has fired, so nothing is archived for
     # a run that will not happen.
-    if to_supersede:
-        _supersede_recorded_points(workspace, to_supersede)
+    if state.to_supersede:
+        _supersede_recorded_points(state.workspace, state.to_supersede)
 
     # PASS THREE is the only one that stages, executes or records.
     # G43 of 0.28.0: A BANNER, EACH POINT NUMBERED, A TABLE AT THE END, so a long
     # local run reads at a glance: what runs, how far it is, how it ended.
-    to_run = sum(len(pending) for _case, _build, pending in scheduled)
-    started = time.perf_counter()
-    if to_run:
+
+
+def _start_campaign_progress(state: _CampaignState) -> None:
+    """Start campaign progress."""
+    state.to_run = sum(len(pending) for _case, _build, pending in state.scheduled)
+    state.started = time.perf_counter()
+    if state.to_run:
         # 0.30.0: one of the two approved aircraft, drawn at random; the text
         # stays on the wing line, as before.
         top, mast, wing = random.choice(_RUN_BANNERS)
-        _say(top, quiet=quiet)
-        _say(mast, quiet=quiet)
+        _say(top, quiet=state.quiet)
+        _say(mast, quiet=state.quiet)
         _say(
             f"{wing}   pyflightstream {pyflightstream.__version__}: "
-            f"campaign {campaign.name}, {to_run} point(s) to run",
-            quiet=quiet,
+            f"campaign {state.campaign.name}, {state.to_run} point(s) to run",
+            quiet=state.quiet,
         )
-    number = 0
+    state.number = 0
     # The points this call ran on THIS machine, for the submitted line (G43): a
     # point handed to a scheduler did not run here, whether it was queued or the
     # scheduler refused it (reading A29).
-    ran_here = 0
-    for case, build, pending in scheduled:
-        case_executor = build.executor if build is not None else executor
-        runs_here = not isinstance(case_executor, Submitting)
-        case_version = build.fs_version if build is not None else campaign.fs_version
-        case_exe = build.fs_exe if build is not None else campaign.fs_exe
-        # Read off the SAME condition the three lines above read, so the
-        # record cannot say one thing while the point runs on another
-        # (PFS-2009.08.02).
-        case_version_source = FS_VERSION_FROM_ROW if build is not None else FS_VERSION_FROM_DEFAULT
-        canonical = resolve(case_version).canonical
-        # 0.30.0: A FOLDER THAT CANNOT BE WRITTEN IS THIS ROW'S RECORDED FAILURE,
-        # never the end of the run: a workspace on a network share that refuses
-        # one write left a row's planned points with no record at all.
-        try:
-            sim_dir = workspace.create_sim(case.sim_id)
-            recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
-                campaign, case, workspace, recipes
+    state.ran_here = 0
+
+
+def _prepare_campaign_case(state: _CampaignState) -> None:
+    """Prepare campaign case."""
+    state.case_executor = state.build.executor if state.build is not None else state.executor
+    state.runs_here = not isinstance(state.case_executor, Submitting)
+    state.case_version = (
+        state.build.fs_version if state.build is not None else state.campaign.fs_version
+    )
+    state.case_exe = state.build.fs_exe if state.build is not None else state.campaign.fs_exe
+    # Read off the SAME condition the three lines above read, so the
+    # record cannot say one thing while the point runs on another
+    # (PFS-2009.08.02).
+    state.case_version_source = (
+        FS_VERSION_FROM_ROW if state.build is not None else FS_VERSION_FROM_DEFAULT
+    )
+    state.canonical = resolve(state.case_version).canonical
+    # 0.30.0: A FOLDER THAT CANNOT BE WRITTEN IS THIS ROW'S RECORDED FAILURE,
+    # never the end of the run: a workspace on a network share that refuses
+    # one write left a row's planned points with no record at all.
+    try:
+        state.sim_dir = state.workspace.create_sim(state.case.sim_id)
+        state.recipe, state.preparation_error, state.inputs_sha256, state.staged_geometry = (
+            _prepare_case(state.campaign, state.case, state.workspace, state.recipes)
+        )
+    except OSError as error:
+        state.sim_dir = state.workspace.sim_dir(state.case.sim_id)
+        state.recipe, state.inputs_sha256, state.staged_geometry = None, {}, None
+        state.preparation_error = _unwritable(error, "while its simulation folder was prepared")
+    # FR-95: A STEADY ROW IS ONE JOB. Every point of it
+    # goes through one script and one process, because that is what warm
+    # start IS: point two begins from point one's converged solution
+    # because nothing cleared it. The unsteady run types keep the point
+    # path below unchanged, and correctly: a point that marches in time
+    # starts from its own initial state and is its own job.
+    #
+    # A ROW WHOSE JOB IS RECORDED RUNS ITS NEW POINTS ONE EACH, as one new
+    # point always has: the row's job id is the recorded job's, so a second
+    # job of the row ran, spent the seat, and was then refused its record
+    # as a duplicate id. A redo supersedes the job first, which takes its id
+    # out of `recorded`, and runs the whole row as one job again.
+    state.job_recorded = _job_run_id(state.campaign, state.case) in state.recorded
+    if (
+        _runs_as_one_job(state.campaign, state.case, state.case_executor)
+        and len(state.pending) > 1
+        and state.job_recorded
+    ):
+        _say(
+            f"  -> {_job_run_id(state.campaign, state.case)} is recorded; its "
+            f"{len(state.pending)} new point(s) run one each",
+            quiet=state.quiet,
+        )
+
+
+def _start_campaign_sweep(state: _CampaignState) -> None:
+    """Start campaign sweep."""
+    state.job_run = _job_run_id(state.campaign, state.case)
+    _say(
+        f"  -> {_job_run_id(state.campaign, state.case)}  [{state.case.recipe}]  "
+        f"{len(state.pending)} point(s) in one job  "
+        f"({state.number + 1}-{state.number + len(state.pending)} of {state.to_run})",
+        quiet=state.quiet,
+    )
+    state.number += len(state.pending)
+    # A refused COLD_START is this row's recorded failure, like every
+    # other preparation failure, and never an escape from the loop.
+
+
+def _execute_campaign_sweep(state: _CampaignState, *, cold: bool) -> None:
+    """Execute campaign sweep."""
+    progress = _PointProgress()
+    try:
+        record = _execute_sweep(
+            campaign=state.campaign,
+            canonical=state.canonical,
+            fs_exe=state.case_exe,
+            fs_version=state.case_version,
+            fs_version_source=state.case_version_source,
+            case=state.case,
+            pending=state.pending,
+            preparation_error=state.preparation_error,
+            inputs_sha256=state.inputs_sha256,
+            staged_geometry=state.staged_geometry,
+            name_from=state.name_from,
+            executor=state.case_executor,
+            workspace=state.workspace,
+            sim_dir=state.sim_dir,
+            assess=state.assess,
+            cold=cold,
+            progress=progress,
+        )
+    except OSError as error:
+        record = _record_of_an_unwritable_point(
+            progress,
+            error,
+            fallback=_bare_record(state.campaign, state.case, {}, state.job_run, state.canonical),
+        )
+    _say(
+        f"     {record.run_id}  {record.status}"
+        + (f"  ({record.error})" if record.error else "")
+        + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
+        quiet=state.quiet,
+    )
+    if state.accept_unregistered_build:
+        record = record.model_copy(update={"accept_unregistered_build": True})
+    state.workspace.append_record(record)
+    state.recorded.add(record.run_id)
+    state.records.append(record)
+    state.outcomes.extend(_job_point_statuses(record, len(state.pending)))
+    state.ran_here += len(state.pending) if state.runs_here and record.executor is not None else 0
+    if record.status.startswith("FAILED"):
+        state.failures.append(record)
+
+
+def _execute_campaign_points(state: _CampaignState) -> None:
+    """Execute campaign points."""
+    for point, run_id in state.pending:
+        state.point, state.run_id = point, run_id
+        if _resolve_campaign_continuation(state):
+            _execute_campaign_point(state)
+
+
+def _resolve_campaign_continuation(state: _CampaignState) -> bool:
+    """Resolve campaign continuation."""
+    # FR-96, 0.18.0. A CONTINUATION IS RESOLVED BEFORE ANYTHING IS
+    # BUILT, because it changes three things at once: which script
+    # the builder writes, which run id the record carries, and what
+    # is in the datapoint folder when the solver starts. Resolving
+    # it later would mean a run id already printed and a folder
+    # already read.
+    state.point_extra = {}
+    state.continues = None
+    try:
+        state.continuation = resolve_continuation(
+            state.workspace,
+            state.case,
+            state.point,
+            run_id=state.run_id,
+            recipe=state.recipe,
+            fs_version=state.case_version,
+        )
+        # Archive what the continuation replaces, per
+        # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
+        # MORE THAN ONE RESTART. It happens before the solver starts,
+        # so a continuation never writes into the folder holding the
+        # evidence of the run it continues. INSIDE the refusal since
+        # 0.30.0: an archive the folder refuses is this point's
+        # recorded failure, not the end of the run.
+        stamp = datetime.now()
+        archived = (
+            state.workspace.archive_datapoint(
+                state.case.sim_id, PointName(point_name(state.case, state.point)), stamp=stamp
             )
-        except OSError as error:
-            sim_dir = workspace.sim_dir(case.sim_id)
-            recipe, inputs_sha256, staged_geometry = None, {}, None
-            preparation_error = _unwritable(error, "while its simulation folder was prepared")
-        # FR-95: A STEADY ROW IS ONE JOB. Every point of it
-        # goes through one script and one process, because that is what warm
-        # start IS: point two begins from point one's converged solution
-        # because nothing cleared it. The unsteady run types keep the point
-        # path below unchanged, and correctly: a point that marches in time
-        # starts from its own initial state and is its own job.
+            if state.continuation is not None
+            else None
+        )
+    except (CampaignConfigError, WorkspaceError, OSError) as error:
+        # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
+        # branch put the record in the returned list alone: nothing in
+        # the manifest, nothing in `failures`, so a campaign whose
+        # continuation could not start returned as though it had
+        # succeeded, to any caller that did not read the list.
         #
-        # A ROW WHOSE JOB IS RECORDED RUNS ITS NEW POINTS ONE EACH, as one new
-        # point always has: the row's job id is the recorded job's, so a second
-        # job of the row ran, spent the seat, and was then refused its record
-        # as a duplicate id. A redo supersedes the job first, which takes its id
-        # out of `recorded`, and runs the whole row as one job again.
-        job_recorded = _job_run_id(campaign, case) in recorded
-        if _runs_as_one_job(campaign, case, case_executor) and len(pending) > 1 and job_recorded:
-            _say(
-                f"  -> {_job_run_id(campaign, case)} is recorded; its "
-                f"{len(pending)} new point(s) run one each",
-                quiet=quiet,
+        # UNDER AN ID OF ITS OWN WHEN THE POINT'S IS TAKEN, which it is
+        # whenever there was a run to continue: the stopped run holds
+        # the plain id, and the manifest refuses a second row under it.
+        # The stamped form is the one a continuation would have carried.
+        refused = RunRecord(
+            run_id=(
+                _unused_continuation_run_id(state.run_id, datetime.now(), state.recorded)
+                if state.run_id in state.recorded
+                else state.run_id
+            ),
+            sim_id=state.case.sim_id,
+            point=dict(state.point),
+            matrix_stem=state.campaign.matrix_stem,
+            fs_version_requested=state.case_version,
+            package_version=pyflightstream.__version__,
+            manifest_schema=MANIFEST_SCHEMA,
+            script_sha256="",
+            raw_flag=False,
+            # FAILED_SCRIPT, because that is what happened: the
+            # script could not be built. No new status, and no
+            # guessing at one that may not exist.
+            status=RunStatus.FAILED_SCRIPT,
+            error=str(error),
+        )
+        state.workspace.append_record(refused)
+        state.recorded.add(refused.run_id)
+        state.records.append(refused)
+        state.failures.append(refused)
+        # IT IS ONE OF THE POINTS THE BANNER COUNTED (reading A31): it takes
+        # its number and its line, and the closing table counts it.
+        state.number += 1
+        _say(
+            f"  -> {state.run_id}  [{state.case.recipe}]  refused before it was built  "
+            f"({state.number} of {state.to_run})",
+            quiet=state.quiet,
+        )
+        _say(f"     {refused.run_id}  {refused.status}  ({refused.error})", quiet=state.quiet)
+        state.outcomes.append(str(refused.status))
+        return False
+    if state.continuation is not None:
+        # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
+        # MOVED the saved simulation out of the datapoint folder, and
+        # this used to hand the solver the path it had been moved from,
+        # relative to a working directory a submitted point does not
+        # have, so the script named a file that was no longer there.
+        saved = str(state.continuation["saved"])
+        source = (
+            archived / Path(saved).name
+            if archived is not None
+            else state.workspace.sim_dir(state.case.sim_id) / saved
+        )
+        state.point_extra = {
+            RESTART_FROM_VARIABLE: str(source.resolve()),
+            RESTART_ITERATIONS_VARIABLE: str(state.continuation["iterations"]),
+        }
+        state.run_id = _unused_continuation_run_id(state.run_id, stamp, state.recorded)
+        state.continues = str(state.continuation["continues"])
+        _say(
+            f"  -> continuing {state.continuation['continues']} for "
+            f"{state.continuation['iterations']} more step(s)",
+            quiet=state.quiet,
+        )
+    return True
+
+
+def _execute_campaign_point(state: _CampaignState) -> None:
+    """Execute campaign point."""
+    # FR-78: the point is named as it STARTS, not when it ends. A
+    # forty-point campaign that printed only on completion told a
+    # reader nothing about the point currently burning the licence.
+    state.number += 1
+    _say(
+        f"  -> {state.run_id}  [{state.case.recipe}]  building and running  "
+        f"({state.number} of {state.to_run})",
+        quiet=state.quiet,
+    )
+    progress = _PointProgress()
+    try:
+        record = _execute_point(
+            campaign=state.campaign,
+            canonical=state.canonical,
+            fs_exe=state.case_exe,
+            fs_version=state.case_version,
+            fs_version_source=state.case_version_source,
+            case=state.case.model_copy(
+                update={"variables": {**state.case.variables, **state.point_extra}}
             )
-        if (
-            _runs_as_one_job(campaign, case, case_executor)
-            and len(pending) > 1
-            and not job_recorded
-        ):
-            job_run = _job_run_id(campaign, case)
-            _say(
-                f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "
-                f"{len(pending)} point(s) in one job  "
-                f"({number + 1}-{number + len(pending)} of {to_run})",
-                quiet=quiet,
-            )
-            number += len(pending)
-            # A refused COLD_START is this row's recorded failure, like every
-            # other preparation failure, and never an escape from the loop.
-            try:
-                cold = _ids._is_cold_start(case)
-            except CampaignConfigError as error:
-                cold, preparation_error = True, preparation_error or str(error)
-            progress = _PointProgress()
-            try:
-                record = _execute_sweep(
-                    campaign=campaign,
-                    canonical=canonical,
-                    fs_exe=case_exe,
-                    fs_version=case_version,
-                    fs_version_source=case_version_source,
-                    case=case,
-                    pending=pending,
-                    preparation_error=preparation_error,
-                    inputs_sha256=inputs_sha256,
-                    staged_geometry=staged_geometry,
-                    name_from=name_from,
-                    executor=case_executor,
-                    workspace=workspace,
-                    sim_dir=sim_dir,
-                    assess=assess,
-                    cold=cold,
-                    progress=progress,
-                )
-            except OSError as error:
-                record = _record_of_an_unwritable_point(
-                    progress, error, fallback=_bare_record(campaign, case, {}, job_run, canonical)
-                )
-            _say(
-                f"     {record.run_id}  {record.status}"
-                + (f"  ({record.error})" if record.error else "")
-                + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
-                quiet=quiet,
-            )
-            if accept_unregistered_build:
-                record = record.model_copy(update={"accept_unregistered_build": True})
-            workspace.append_record(record)
-            recorded.add(record.run_id)
-            records.append(record)
-            outcomes.extend(_job_point_statuses(record, len(pending)))
-            ran_here += len(pending) if runs_here and record.executor is not None else 0
-            if record.status.startswith("FAILED"):
-                failures.append(record)
-            continue
-        for point, run_id in pending:
-            # FR-96, 0.18.0. A CONTINUATION IS RESOLVED BEFORE ANYTHING IS
-            # BUILT, because it changes three things at once: which script
-            # the builder writes, which run id the record carries, and what
-            # is in the datapoint folder when the solver starts. Resolving
-            # it later would mean a run id already printed and a folder
-            # already read.
-            point_extra: dict[str, object] = {}
-            continues: str | None = None
-            try:
-                continuation = resolve_continuation(
-                    workspace, case, point, run_id=run_id, recipe=recipe, fs_version=case_version
-                )
-                # Archive what the continuation replaces, per
-                # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
-                # MORE THAN ONE RESTART. It happens before the solver starts,
-                # so a continuation never writes into the folder holding the
-                # evidence of the run it continues. INSIDE the refusal since
-                # 0.30.0: an archive the folder refuses is this point's
-                # recorded failure, not the end of the run.
-                stamp = datetime.now()
-                archived = (
-                    workspace.archive_datapoint(
-                        case.sim_id, PointName(point_name(case, point)), stamp=stamp
-                    )
-                    if continuation is not None
-                    else None
-                )
-            except (CampaignConfigError, WorkspaceError, OSError) as error:
-                # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
-                # branch put the record in the returned list alone: nothing in
-                # the manifest, nothing in `failures`, so a campaign whose
-                # continuation could not start returned as though it had
-                # succeeded, to any caller that did not read the list.
-                #
-                # UNDER AN ID OF ITS OWN WHEN THE POINT'S IS TAKEN, which it is
-                # whenever there was a run to continue: the stopped run holds
-                # the plain id, and the manifest refuses a second row under it.
-                # The stamped form is the one a continuation would have carried.
-                refused = RunRecord(
-                    run_id=(
-                        _unused_continuation_run_id(run_id, datetime.now(), recorded)
-                        if run_id in recorded
-                        else run_id
-                    ),
-                    sim_id=case.sim_id,
-                    point=dict(point),
-                    matrix_stem=campaign.matrix_stem,
-                    fs_version_requested=case_version,
-                    package_version=pyflightstream.__version__,
-                    manifest_schema=MANIFEST_SCHEMA,
-                    script_sha256="",
-                    raw_flag=False,
-                    # FAILED_SCRIPT, because that is what happened: the
-                    # script could not be built. No new status, and no
-                    # guessing at one that may not exist.
-                    status=RunStatus.FAILED_SCRIPT,
-                    error=str(error),
-                )
-                workspace.append_record(refused)
-                recorded.add(refused.run_id)
-                records.append(refused)
-                failures.append(refused)
-                # IT IS ONE OF THE POINTS THE BANNER COUNTED (reading A31): it takes
-                # its number and its line, and the closing table counts it.
-                number += 1
-                _say(
-                    f"  -> {run_id}  [{case.recipe}]  refused before it was built  "
-                    f"({number} of {to_run})",
-                    quiet=quiet,
-                )
-                _say(f"     {refused.run_id}  {refused.status}  ({refused.error})", quiet=quiet)
-                outcomes.append(str(refused.status))
-                continue
-            if continuation is not None:
-                # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
-                # MOVED the saved simulation out of the datapoint folder, and
-                # this used to hand the solver the path it had been moved from,
-                # relative to a working directory a submitted point does not
-                # have, so the script named a file that was no longer there.
-                saved = str(continuation["saved"])
-                source = (
-                    archived / Path(saved).name
-                    if archived is not None
-                    else workspace.sim_dir(case.sim_id) / saved
-                )
-                point_extra = {
-                    RESTART_FROM_VARIABLE: str(source.resolve()),
-                    RESTART_ITERATIONS_VARIABLE: str(continuation["iterations"]),
-                }
-                run_id = _unused_continuation_run_id(run_id, stamp, recorded)
-                continues = str(continuation["continues"])
-                _say(
-                    f"  -> continuing {continuation['continues']} for "
-                    f"{continuation['iterations']} more step(s)",
-                    quiet=quiet,
-                )
-            # FR-78: the point is named as it STARTS, not when it ends. A
-            # forty-point campaign that printed only on completion told a
-            # reader nothing about the point currently burning the licence.
-            number += 1
-            _say(
-                f"  -> {run_id}  [{case.recipe}]  building and running  ({number} of {to_run})",
-                quiet=quiet,
-            )
-            progress = _PointProgress()
-            try:
-                record = _execute_point(
-                    campaign=campaign,
-                    canonical=canonical,
-                    fs_exe=case_exe,
-                    fs_version=case_version,
-                    fs_version_source=case_version_source,
-                    case=case.model_copy(update={"variables": {**case.variables, **point_extra}})
-                    if point_extra
-                    else case,
-                    point=point,
-                    run_id=run_id,
-                    recipe=recipe,
-                    preparation_error=preparation_error,
-                    inputs_sha256=inputs_sha256,
-                    staged_geometry=staged_geometry,
-                    name_from=name_from,
-                    executor=case_executor,
-                    workspace=workspace,
-                    sim_dir=sim_dir,
-                    assess=assess,
-                    continues=continues,
-                    recovered_continuation=continuation,
-                    progress=progress,
-                )
-            except OSError as error:
-                # 0.30.0: A FILE THIS POINT COULD NOT WRITE IS THIS POINT'S
-                # FAILURE, recorded, and the run goes on with the next point.
-                record = _record_of_an_unwritable_point(
-                    progress, error, fallback=_bare_record(campaign, case, point, run_id, canonical)
-                )
-            # And as it ENDS, with the status, so the two lines bracket the
-            # wait and a reader can see which point a warning between them
-            # belonged to.
-            _say(
-                f"     {run_id}  {record.status}"
-                + (f"  ({record.error})" if record.error else "")
-                + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
-                quiet=quiet,
-            )
-            if accept_unregistered_build:
-                record = record.model_copy(update={"accept_unregistered_build": True})
-            workspace.append_record(record)
-            recorded.add(record.run_id)
-            records.append(record)
-            outcomes.append(str(record.status))
-            # Run here means the local executor was CALLED: a point refused before
-            # it (a recipe that did not resolve, a name that did not render) carries
-            # no executor record and ran nowhere (reading B30).
-            ran_here += 1 if runs_here and record.executor is not None else 0
-            if record.status.startswith("FAILED"):
-                failures.append(record)
+            if state.point_extra
+            else state.case,
+            point=state.point,
+            run_id=state.run_id,
+            recipe=state.recipe,
+            preparation_error=state.preparation_error,
+            inputs_sha256=state.inputs_sha256,
+            staged_geometry=state.staged_geometry,
+            name_from=state.name_from,
+            executor=state.case_executor,
+            workspace=state.workspace,
+            sim_dir=state.sim_dir,
+            assess=state.assess,
+            continues=state.continues,
+            recovered_continuation=state.continuation,
+            progress=progress,
+        )
+    except OSError as error:
+        # 0.30.0: A FILE THIS POINT COULD NOT WRITE IS THIS POINT'S
+        # FAILURE, recorded, and the run goes on with the next point.
+        record = _record_of_an_unwritable_point(
+            progress,
+            error,
+            fallback=_bare_record(
+                state.campaign, state.case, state.point, state.run_id, state.canonical
+            ),
+        )
+    # And as it ENDS, with the status, so the two lines bracket the
+    # wait and a reader can see which point a warning between them
+    # belonged to.
+    _say(
+        f"     {state.run_id}  {record.status}"
+        + (f"  ({record.error})" if record.error else "")
+        + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
+        quiet=state.quiet,
+    )
+    if state.accept_unregistered_build:
+        record = record.model_copy(update={"accept_unregistered_build": True})
+    state.workspace.append_record(record)
+    state.recorded.add(record.run_id)
+    state.records.append(record)
+    state.outcomes.append(str(record.status))
+    # Run here means the local executor was CALLED: a point refused before
+    # it (a recipe that did not resolve, a name that did not render) carries
+    # no executor record and ran nowhere (reading B30).
+    state.ran_here += 1 if state.runs_here and record.executor is not None else 0
+    if record.status.startswith("FAILED"):
+        state.failures.append(record)
+
+
+def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
+    """Finish campaign."""
     # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
     # `CampaignErrors` is raised by a campaign that RAN and had failing
     # points, and those points have records; writing the table after it
@@ -1055,29 +1234,34 @@ def run_campaign(
     # A point in a queue has no outputs
     # yet, so the post could only print a skip per point; one line says what
     # was submitted and the command that collects and then posts.
-    if outcomes:
-        _say_the_summary(outcomes, time.perf_counter() - started, quiet=quiet)
+    if state.outcomes:
+        _say_the_summary(state.outcomes, time.perf_counter() - state.started, quiet=state.quiet)
     # 0.30.0: EVERY ROW SAYS HOW MANY OF ITS PLANNED POINTS HAVE A RECORD, and
     # names the ones none carries: a row of ten planned points once recorded
     # six, and nothing said so until the scripts were counted by hand.
-    if to_run:
-        _say_the_rows(campaign, workspace, [*manifest.values(), *records], quiet=quiet)
-    submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
+    if state.to_run:
+        _say_the_rows(
+            state.campaign,
+            state.workspace,
+            [*state.manifest.values(), *state.records],
+            quiet=state.quiet,
+        )
+    submitted = [record for record in state.records if record.status is RunStatus.SUBMITTED]
     if submitted:
-        queued_count = outcomes.count(str(RunStatus.SUBMITTED))
-        refused_count = len(outcomes) - queued_count - ran_here
+        queued_count = state.outcomes.count(str(RunStatus.SUBMITTED))
+        refused_count = len(state.outcomes) - queued_count - state.ran_here
         _say(
-            f"submitted {queued_count} point(s) to the scheduler and ran {ran_here} here"
+            f"submitted {queued_count} point(s) to the scheduler and ran {state.ran_here} here"
             + (f"; {refused_count} failed before they ran" if refused_count else "")
             + f"; nothing is posted until they are collected: pyfs-matrix collect "
-            f"--workspace {workspace.root} (add --watch to wait), which posts once "
+            f"--workspace {state.workspace.root} (add --watch to wait), which posts once "
             "their outputs land."
         )
-    elif recorded:
-        problem = _leave_products(workspace, campaign.matrix_stem)
+    elif state.recorded:
+        problem = _leave_products(state.workspace, state.campaign.matrix_stem)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-        problem = _leave_sweep_table(workspace, campaign.matrix_stem, sweep_csv)
+        problem = _leave_sweep_table(state.workspace, state.campaign.matrix_stem, state.sweep_csv)
         if problem is not None:
             # The one residual, stated rather than hidden: under
             # `-W error` this warning is promoted to an exception and
@@ -1085,9 +1269,9 @@ def run_campaign(
             # the caller's explicit request, and the manifest is complete
             # either way; silence would not be.
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-    if failures:
-        raise CampaignErrors(failures, records)
-    return records
+    if state.failures:
+        raise CampaignErrors(state.failures, state.records)
+    return state.records
 
 
 def _say_the_rows(

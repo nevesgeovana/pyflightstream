@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -370,447 +370,507 @@ class LoadsAssessor:
 
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Judge one executed point from its collected outputs."""
-        # THE POINT'S OWN FOLDER, OR THE TWO A CAMPAIGN WROTE INTO BEFORE
-        # 0.16.0, AND NEVER BOTH (FR-92). A point collects into
-        # `datapoints/DP-<point>/` since this release, so what is there is
-        # that point's evidence and nothing else; `outputs/` held every
-        # point of the simulation at once, and `raw/` was its name before
-        # 0.16.0. A workspace recorded under an older layout must keep
-        # every one of its points, so both are still read -- but ONLY
-        # where the point has no folder of its own. Mixing them would put
-        # a sweep's shared folder back beside the point's own, which is
-        # what this layout exists to prevent.
-        #
-        # The `break` below therefore ranks nothing on the first branch,
-        # which holds one folder; it ranks `outputs/` before `raw/` on the
-        # legacy branch, where a workspace can hold both.
-        # `case` is None where a caller judges a folder directly rather
-        # than a point, which the unit tests do and which is why this
-        # reads through getattr like the declared-outputs narrowing below.
-        point = getattr(case, "point", None)
-        # `if point` and not `is not None`: an EMPTY mapping has no folder to
-        # be judged from, and it cannot reach here carrying evidence anyway,
-        # because `collect_outputs` refuses it before anything is moved.
-        # 0.21.0: a record carried across as a case names its folder by the name
-        # the run recorded; a real case is named by `point_name`.
-        recorded_name = getattr(case, "datapoint_name", None)
-        if recorded_name:
-            own_name: str | None = datapoint_dir_name(PointName(recorded_name))
-        elif point and hasattr(case, "condition_order"):
-            # A REAL CASE, asked by what only a case has, and not by whether a
-            # name happened to be recorded. 0.21.1: a record carried across as a
-            # case can reach here with NO recorded name -- a 0.20.x swept row
-            # carries neither a point name nor a working directory, because the
-            # whole sweep was one job in the simulation folder -- and it then
-            # fell into this branch and raised AttributeError on
-            # `condition_order`. That is not a WorkspaceError, so the collecting
-            # sweep does not catch it and one such record aborts the collection
-            # of every other point in the workspace (the qa lens, FIX-0211).
-            own_name = datapoint_dir_name(PointName(point_name(case, point)))
-        else:
-            # No name recorded and nothing that can compute one: the point is
-            # judged from the simulation folder, as it was before 0.21.0.
-            own_name = None
-        own = None if own_name is None else Path(sim_dir) / SIM_DATAPOINTS_DIR / own_name
-        # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
-        # is a wrong answer (the architecture and verification lenses,
-        # 2026-09-11). A point whose folder EXISTS is judged from that
-        # folder whatever is in it: an empty one earns this point's own
-        # refusal. Falling through to the shared folder because the
-        # point's own was empty is how a point whose collection failed
-        # got judged on ANOTHER point's export.
-        #
-        # MEASURED, because on an alpha sweep the operating-point binding
-        # below hides it: a loads export prints alpha, beta and velocity
-        # and NEVER prints the advance ratio, so on a J sweep the binding
-        # cannot tell two points apart, and the point at J=1.7 was
-        # recorded CONVERGED on the export of J=1.3 in silence. That is
-        # the defect REV010-001 exists against, re-entered by a new door.
-        folders = (
-            [f"{SIM_DATAPOINTS_DIR}/{own_name}"]
-            if own is not None and own.is_dir()
-            else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
+        judgment = _LoadsJudgment(assessor=self, case=case, sim_dir=sim_dir)
+        if (assessment := _find_assessment_outputs(judgment)) is not None:
+            return assessment
+        if (assessment := _read_assessment_loads(judgment)) is not None:
+            return assessment
+        if (assessment := _validate_assessment_loads(judgment)) is not None:
+            return assessment
+        if (assessment := _find_assessment_log(judgment)) is not None:
+            return assessment
+        if (assessment := _judge_assessment_log(judgment)) is not None:
+            return assessment
+        return _judge_assessment_iterations(judgment)
+
+
+@dataclass(kw_only=True)
+class _LoadsJudgment:
+    """Inputs and phase results of one ordered execution."""
+
+    assessor: LoadsAssessor
+    case: SimCase
+    sim_dir: Path
+    collected: list[Path] = field(init=False)
+    report_path: Path = field(init=False)
+    report: LoadsReport = field(init=False)
+    stamp: dict[str, Any] = field(init=False)
+    mode: str | None = field(init=False)
+    stopped_early: bool = field(init=False)
+    log_path: Path | None = field(init=False)
+    clockings: tuple[QsteadyClocking, ...] | None = field(init=False)
+
+
+def _find_assessment_outputs(job: _LoadsJudgment) -> Assessment | None:
+    """Find assessment outputs."""
+    # THE POINT'S OWN FOLDER, OR THE TWO A CAMPAIGN WROTE INTO BEFORE
+    # 0.16.0, AND NEVER BOTH (FR-92). A point collects into
+    # `datapoints/DP-<point>/` since this release, so what is there is
+    # that point's evidence and nothing else; `outputs/` held every
+    # point of the simulation at once, and `raw/` was its name before
+    # 0.16.0. A workspace recorded under an older layout must keep
+    # every one of its points, so both are still read -- but ONLY
+    # where the point has no folder of its own. Mixing them would put
+    # a sweep's shared folder back beside the point's own, which is
+    # what this layout exists to prevent.
+    #
+    # The `break` below therefore ranks nothing on the first branch,
+    # which holds one folder; it ranks `outputs/` before `raw/` on the
+    # legacy branch, where a workspace can hold both.
+    # `case` is None where a caller judges a folder directly rather
+    # than a point, which the unit tests do and which is why this
+    # reads through getattr like the declared-outputs narrowing below.
+    point = getattr(job.case, "point", None)
+    # `if point` and not `is not None`: an EMPTY mapping has no folder to
+    # be judged from, and it cannot reach here carrying evidence anyway,
+    # because `collect_outputs` refuses it before anything is moved.
+    # 0.21.0: a record carried across as a case names its folder by the name
+    # the run recorded; a real case is named by `point_name`.
+    recorded_name = getattr(job.case, "datapoint_name", None)
+    if recorded_name:
+        own_name: str | None = datapoint_dir_name(PointName(recorded_name))
+    elif point and hasattr(job.case, "condition_order"):
+        # A REAL CASE, asked by what only a case has, and not by whether a
+        # name happened to be recorded. 0.21.1: a record carried across as a
+        # case can reach here with NO recorded name -- a 0.20.x swept row
+        # carries neither a point name nor a working directory, because the
+        # whole sweep was one job in the simulation folder -- and it then
+        # fell into this branch and raised AttributeError on
+        # `condition_order`. That is not a WorkspaceError, so the collecting
+        # sweep does not catch it and one such record aborts the collection
+        # of every other point in the workspace (the qa lens, FIX-0211).
+        own_name = datapoint_dir_name(PointName(point_name(job.case, point)))
+    else:
+        # No name recorded and nothing that can compute one: the point is
+        # judged from the simulation folder, as it was before 0.21.0.
+        own_name = None
+    own = None if own_name is None else Path(job.sim_dir) / SIM_DATAPOINTS_DIR / own_name
+    # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
+    # is a wrong answer (the architecture and verification lenses,
+    # 2026-09-11). A point whose folder EXISTS is judged from that
+    # folder whatever is in it: an empty one earns this point's own
+    # refusal. Falling through to the shared folder because the
+    # point's own was empty is how a point whose collection failed
+    # got judged on ANOTHER point's export.
+    #
+    # MEASURED, because on an alpha sweep the operating-point binding
+    # below hides it: a loads export prints alpha, beta and velocity
+    # and NEVER prints the advance ratio, so on a J sweep the binding
+    # cannot tell two points apart, and the point at J=1.7 was
+    # recorded CONVERGED on the export of J=1.3 in silence. That is
+    # the defect REV010-001 exists against, re-entered by a new door.
+    folders = (
+        [f"{SIM_DATAPOINTS_DIR}/{own_name}"]
+        if own is not None and own.is_dir()
+        else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
+    )
+    job.collected = []
+    for folder in folders:
+        found = sorted(
+            (path for path in (Path(job.sim_dir) / folder).glob("*") if path.is_file()),
+            key=lambda path: path.name,
         )
-        collected: list[Path] = []
-        for folder in folders:
-            found = sorted(
-                (path for path in (Path(sim_dir) / folder).glob("*") if path.is_file()),
-                key=lambda path: path.name,
-            )
-            if found:
-                collected = found
-                break
-        # THE POINT'S OWN OUTPUTS, when the case declares them. This
-        # narrowed a SHARED folder to the files this point declared, and
-        # it is kept for the older layouts above, where the folder is
-        # still shared. In a datapoint folder it selects everything and
-        # changes nothing. A case that declares no outputs is judged over
-        # the whole folder.
-        declared = {Path(name).name for name in getattr(case, "outputs", None) or ()}
-        if declared:
-            own_outputs = [path for path in collected if path.name in declared]
-            if own_outputs:
-                collected = own_outputs
-        if self.loads_file is not None:
-            wanted = Path(self.loads_file).name
-            found = [path for path in collected if path.name == wanted]
-            if not found:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    error=(
-                        f"no collected output named {wanted!r} to judge; collected: "
-                        f"{', '.join(path.name for path in collected) or 'nothing'}. The "
-                        "name must match the file the recipe exported, or leave "
-                        "LoadsAssessor() unnamed to judge whichever output parses as a "
-                        "loads table"
-                    ),
-                )
-            report_path = found[0]
-            report, error = _read_loads(found[0], self.requested_version)
-            if report is None:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    error=f"loads spreadsheet {wanted!r} unusable: {error}",
-                )
-        else:
-            usable = [
-                (path, report)
-                for path, (report, _) in (
-                    (path, _read_loads(path, self.requested_version)) for path in collected
-                )
-                if report
-            ]
-            if len(usable) > 1:
-                # A WORKSPACE RECORDED BEFORE 0.16.0 SHARES ONE FOLDER
-                # between the points of a case, so from the second point
-                # onward every earlier point's export is still sitting
-                # there and parses just as well. Points collected under
-                # this release each have their own folder (FR-92) and
-                # never reach here. Ask REV010-001's binding,
-                # thirty lines below, which of them the solver actually ran at
-                # THIS point's conditions: a loads export prints the alpha,
-                # the sideslip and the velocity it ran, so the file that
-                # belongs to this point identifies itself.
-                #
-                # THIS IS NOT A RELAXATION. Where the binding does not settle
-                # it -- none match, or several do -- the refusal below stands
-                # exactly as it was, because attributing another point's
-                # result to this one is the defect REV010-001 exists against
-                # and it is worse than refusing. Naming the file cannot fix
-                # this and never could: the message used to offer that, forty
-                # lines under the sentence saying no literal names them all on
-                # a swept case.
-                mine = [
-                    (path, report)
-                    for path, report in usable
-                    if not _bind_case_conditions(case, report).mismatches
-                ]
-                if len(mine) == 1:
-                    usable = mine
-            if len(usable) != 1:
-                names = ", ".join(path.name for path in collected) or "nothing"
-                reason = "none of them parses" if not usable else "several of them parse"
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    error=(
-                        f"no single collected output reads as a loads table ({reason}); "
-                        f"collected: {names}. Each point collects into its own "
-                        f"{SIM_DATAPOINTS_DIR}/ folder since 0.16.0, so this folder "
-                        "should hold one point's exports: either the point exported "
-                        "no loads spreadsheet, or it exported several. A workspace "
-                        "recorded before 0.16.0 shares one folder between the points "
-                        "of a case, and there this assessor keeps the export whose "
-                        "printed conditions match the point it is judging; reaching "
-                        "here means none of them did, or more than one did. Naming a "
-                        "file is not offered as a remedy: a swept case names its "
-                        "outputs per point, so no single literal names them all. "
-                        "Check what this point exported, or judge the row from Python "
-                        "with an assessor that knows which file is which"
-                    ),
-                )
-            report_path = usable[0][0]
-            report = usable[0][1]
-        # REV010-001, the check whose absence let a converged result for one
-        # flight condition be recorded as the evidence of another. The
-        # assessor received `case` and never read it, so a valid, complete,
-        # genuinely converged export printing alpha=2 deg was accepted as
-        # CONVERGED for a point requesting alpha=0 deg. Nothing about that
-        # file is malformed, which is exactly why no parser guard could see
-        # it. The tabular layer already had the comparison and the manifest
-        # never consults it, so the status was authorized long before
-        # anything disagreed.
-        #
-        # It runs FIRST, before divergence and before the mode, because
-        # those two judge a file that is assumed to be this run's evidence.
-        # Calling a result diverged when it belongs to another point
-        # attributes a physical outcome to a case that never produced it.
-        # The binding rides in `stamp` so every outcome below carries it:
-        # what was requested, what was printed, by how much they differ, and
-        # whether that was accepted (REV010-001's closure asks for the
-        # decision to be persisted, not just acted on).
-        binding = _bind_case_conditions(case, report)
-        # A keyword bag for Assessment: values differ by key and the record
-        # checks each one when it is built, hence ``Any``.
-        stamp: dict[str, Any] = {
-            "fs_version_reported": report.fs_version_reported,
-            "fs_build": report.fs_build,
-            "conditions": binding.as_records(),
-        }
-        if binding.mismatches:
+        if found:
+            job.collected = found
+            break
+    # THE POINT'S OWN OUTPUTS, when the case declares them. This
+    # narrowed a SHARED folder to the files this point declared, and
+    # it is kept for the older layouts above, where the folder is
+    # still shared. In a datapoint folder it selects everything and
+    # changes nothing. A case that declares no outputs is judged over
+    # the whole folder.
+    declared = {Path(name).name for name in getattr(job.case, "outputs", None) or ()}
+    if declared:
+        own_outputs = [path for path in job.collected if path.name in declared]
+        if own_outputs:
+            job.collected = own_outputs
+    return None
+
+
+def _read_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
+    """Read assessment loads."""
+    if job.assessor.loads_file is not None:
+        wanted = Path(job.assessor.loads_file).name
+        found = [path for path in job.collected if path.name == wanted]
+        if not found:
             return Assessment(
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                iterations=report.current_iteration,
                 error=(
-                    "the collected export is evidence of a different operating "
-                    f"point than this run requested: {binding.describe()}. A loads "
-                    "export prints the conditions the solver actually ran, so this "
-                    "file is a valid result of another case rather than a bad "
-                    "result of this one. Each point collects into its own "
-                    "folder, so a later sweep point no longer overwrites a same "
-                    "named export there; give each point a uniquely named output "
-                    "anyway, because the post-processing products of a point are "
-                    "named after it and two points sharing it collide in the "
-                    "product tree"
+                    f"no collected output named {wanted!r} to judge; collected: "
+                    f"{', '.join(path.name for path in job.collected) or 'nothing'}. The "
+                    "name must match the file the recipe exported, or leave "
+                    "LoadsAssessor() unnamed to judge whichever output parses as a "
+                    "loads table"
                 ),
-                **stamp,
             )
-        diverged = report.diverged_columns()
-        if diverged:
+        job.report_path = found[0]
+        job.report, error = _read_loads(found[0], job.assessor.requested_version)
+        if job.report is None:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                error=f"loads spreadsheet {wanted!r} unusable: {error}",
+            )
+    else:
+        usable = [
+            (path, report)
+            for path, (report, _) in (
+                (path, _read_loads(path, job.assessor.requested_version)) for path in job.collected
+            )
+            if report
+        ]
+        if len(usable) > 1:
+            # A WORKSPACE RECORDED BEFORE 0.16.0 SHARES ONE FOLDER
+            # between the points of a case, so from the second point
+            # onward every earlier point's export is still sitting
+            # there and parses just as well. Points collected under
+            # this release each have their own folder (FR-92) and
+            # never reach here. Ask REV010-001's binding,
+            # thirty lines below, which of them the solver actually ran at
+            # THIS point's conditions: a loads export prints the alpha,
+            # the sideslip and the velocity it ran, so the file that
+            # belongs to this point identifies itassessor.
+            #
+            # THIS IS NOT A RELAXATION. Where the binding does not settle
+            # it -- none match, or several do -- the refusal below stands
+            # exactly as it was, because attributing another point's
+            # result to this one is the defect REV010-001 exists against
+            # and it is worse than refusing. Naming the file cannot fix
+            # this and never could: the message used to offer that, forty
+            # lines under the sentence saying no literal names them all on
+            # a swept case.
+            mine = [
+                (path, report)
+                for path, report in usable
+                if not _bind_case_conditions(job.case, report).mismatches
+            ]
+            if len(mine) == 1:
+                usable = mine
+        if len(usable) != 1:
+            names = ", ".join(path.name for path in job.collected) or "nothing"
+            reason = "none of them parses" if not usable else "several of them parse"
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                error=(
+                    f"no single collected output reads as a loads table ({reason}); "
+                    f"collected: {names}. Each point collects into its own "
+                    f"{SIM_DATAPOINTS_DIR}/ folder since 0.16.0, so this folder "
+                    "should hold one point's exports: either the point exported "
+                    "no loads spreadsheet, or it exported several. A workspace "
+                    "recorded before 0.16.0 shares one folder between the points "
+                    "of a case, and there this assessor keeps the export whose "
+                    "printed conditions match the point it is judging; reaching "
+                    "here means none of them did, or more than one did. Naming a "
+                    "file is not offered as a remedy: a swept case names its "
+                    "outputs per point, so no single literal names them all. "
+                    "Check what this point exported, or judge the row from Python "
+                    "with an assessor that knows which file is which"
+                ),
+            )
+        job.report_path = usable[0][0]
+        job.report = usable[0][1]
+    # REV010-001, the check whose absence let a converged result for one
+    # flight condition be recorded as the evidence of another. The
+    # assessor received `case` and never read it, so a valid, complete,
+    # genuinely converged export printing alpha=2 deg was accepted as
+    # CONVERGED for a point requesting alpha=0 deg. Nothing about that
+    # file is malformed, which is exactly why no parser guard could see
+    # it. The tabular layer already had the comparison and the manifest
+    # never consults it, so the status was authorized long before
+    # anything disagreed.
+    #
+    # It runs FIRST, before divergence and before the mode, because
+    # those two judge a file that is assumed to be this run's evidence.
+    # Calling a result diverged when it belongs to another point
+    # attributes a physical outcome to a case that never produced it.
+    # The binding rides in `stamp` so every outcome below carries it:
+    # what was requested, what was printed, by how much they differ, and
+    # whether that was accepted (REV010-001's closure asks for the
+    # decision to be persisted, not just acted on).
+    return None
+
+
+def _validate_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
+    """Validate assessment loads."""
+    binding = _bind_case_conditions(job.case, job.report)
+    # A keyword bag for Assessment: values differ by key and the record
+    # checks each one when it is built, hence ``Any``.
+    job.stamp = {
+        "fs_version_reported": job.report.fs_version_reported,
+        "fs_build": job.report.fs_build,
+        "conditions": binding.as_records(),
+    }
+    if binding.mismatches:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=job.report.current_iteration,
+            error=(
+                "the collected export is evidence of a different operating "
+                f"point than this run requested: {binding.describe()}. A loads "
+                "export prints the conditions the solver actually ran, so this "
+                "file is a valid result of another case rather than a bad "
+                "result of this one. Each point collects into its own "
+                "folder, so a later sweep point no longer overwrites a same "
+                "named export there; give each point a uniquely named output "
+                "anyway, because the post-processing products of a point are "
+                "named after it and two points sharing it collide in the "
+                "product tree"
+            ),
+            **job.stamp,
+        )
+    diverged = job.report.diverged_columns()
+    if diverged:
+        return Assessment(
+            status=RunStatus.FAILED_DIVERGED,
+            iterations=job.report.current_iteration,
+            error=f"non-finite Total coefficients: {', '.join(diverged)}",
+            **job.stamp,
+        )
+    # REV010-002. The mode decides WHICH judgment rule applies, so an
+    # unrecognized one is checked before any rule is chosen, including
+    # the residual path below. The old code tested for "steady" and let
+    # everything else fall through to the unsteady branch, which returns
+    # COMPLETED_MAX_ITER with error=None: a solver mode this package has
+    # never seen became a successful terminal state, indistinguishable
+    # from a genuine unsteady run. Failing closed here is the difference
+    # between "we judged this" and "we did not recognize it".
+    job.mode = classify_solver_mode(job.report.solver_mode)
+    if job.mode is None:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=job.report.current_iteration,
+            error=(
+                f"the loads footer prints solver mode {job.report.solver_mode.strip()!r}, "
+                f"which is not one this package knows ({', '.join(SOLVER_MODES)}). The "
+                "mode selects the judgment rule, so an unrecognized one means the "
+                "export cannot be assessed rather than that it completed. Either the "
+                "solver version prints a mode this package has not been taught, or "
+                "the footer is malformed"
+            ),
+            **job.stamp,
+        )
+    job.stopped_early = (
+        job.mode == "steady" and job.report.current_iteration < job.report.requested_iterations
+    )
+    # PYFS-008. The iteration-count judgment below reads an early stop
+    # as "the convergence threshold stopped the solver", and that
+    # inference holds only while the threshold is what can stop it.
+    # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
+    # is told to run the full budget whatever the residual does. So
+    # under forced iterations an early stop means the opposite of
+    # convergence, because the one mechanism that could legitimately
+    # end the loop early was disabled. The field was parsed
+    # (LoadsReport.forced_iterations) and never consulted, so a run
+    # that stopped at 312 of a forced 500 was published CONVERGED,
+    # indistinguishable from one that met the threshold at 312.
+    #
+    # BEFORE THE LOG, since 0.24.0. This check sat below the log branch,
+    # which returns, so a collected log turned the refusal into
+    # COMPLETED_MAX_ITER or CONVERGED: a residual says how far the
+    # iteration it was printed at had come, and says nothing about the
+    # iterations a run that was told to do all of them never did.
+    # Completeness is established first and the residual judged after.
+    if job.stopped_early and job.report.forced_iterations:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=job.report.current_iteration,
+            error=(
+                f"the solver stopped at iteration {job.report.current_iteration} of "
+                f"{job.report.requested_iterations} with forced iterations enabled, "
+                "so the convergence threshold was not what ended the loop: it "
+                "was disabled. The loads file describes an unfinished solve. "
+                "A solver log, which is found by content and does not have to be "
+                "named, does not change this: a residual cannot stand in for "
+                "iterations that were required and not run. Find why the solver "
+                "stopped"
+            ),
+            **job.stamp,
+        )
+    return None
+
+
+def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
+    """Find assessment log."""
+    job.log_path = None
+    # A QUASI-STEADY WHEEL SOLVED AT k CLOCKINGS exports ONE log holding its
+    # k solves in sequence, each counter starting at 1 (L1 of 0.30.0,
+    # RPT-091): the run's own record beside the loads export says so, and
+    # the log is then read and judged solve by solve.
+    job.clockings, record_warning = _wheel_clockings(
+        job.report_path, quasi_steady=None if job.case is None else job.case.recipe == QSTEADY_ROTOR
+    )
+    if record_warning is not None:
+        # 0.31.0: THE RECORD'S ONE REFUSAL, decided here: the log is judged
+        # as one solve, and the point's record says why.
+        job.stamp["warnings"] = [record_warning]
+    solves = 1 if job.clockings is None else len(job.clockings)
+    if job.assessor.log_file is None:
+        # AUTO-DETECTION BY CONTENT, on the same ground the loads
+        # table is found by content: a swept case names its outputs
+        # per point, so no literal could name them all, and a file
+        # collected from THIS run's folder that parses as a residual
+        # history is this run's solver log.
+        #
+        # WHAT THIS CHANGES, said plainly because it changes a
+        # published status. Until now an unsteady run was recorded
+        # COMPLETED_MAX_ITER unconditionally, since the time loop
+        # always reaches its prescribed end and the iteration
+        # counter therefore says nothing. That is a statement about
+        # this package's evidence and it reads as a statement about
+        # the solver: a run that converged at every time step and a
+        # run that never converged at any came out with the same
+        # word. A collected log settles it, and a run that exports
+        # one should not have to be asked twice for permission to
+        # use it. Nothing is auto-detected when no collected file
+        # parses as a history, so a campaign that exports no log is
+        # judged exactly as it was.
+        #
+        # Several candidates are NOT resolved by choosing: that
+        # would be a guess about which is the log of this point.
+        candidates = [
+            path
+            for path in job.collected
+            if path != job.report_path and reads_as_residual_history(path, solves=solves)
+        ]
+        if len(candidates) == 1:
+            job.log_path = candidates[0]
+        elif len(candidates) > 1:
+            # SEVERAL IS A REFUSAL, exactly as it is for the loads
+            # table one branch up, and for the same reason: choosing
+            # one would be a guess about which is the log of THIS
+            # point. The first version fell through silently to the
+            # iteration-count judgment, which is the verdict this
+            # whole path exists to replace, so a campaign that had
+            # gone to the trouble of exporting a log got the old
+            # answer and no way to tell.
+            names = ", ".join(path.name for path in candidates)
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=job.report.current_iteration,
+                error=(
+                    f"{len(candidates)} collected outputs read as a solver log "
+                    f"({names}), so which one carries this point's residuals is a "
+                    "guess. Name it with LoadsAssessor(log_file='<name>'), or give "
+                    "each point a uniquely named log"
+                ),
+                **job.stamp,
+            )
+    if job.assessor.log_file is not None:
+        wanted_log = Path(job.assessor.log_file).name
+        matches = [path for path in job.collected if path.name == wanted_log]
+        if not matches:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                error=(
+                    f"no collected output named {wanted_log!r} to read residuals "
+                    f"from; collected: "
+                    f"{', '.join(path.name for path in job.collected) or 'nothing'}. A "
+                    "solver log of a swept case carries the point in its name, so "
+                    "name it as the recipe exported it, or drop log_file and accept "
+                    "the iteration-count judgment"
+                ),
+                **job.stamp,
+            )
+        job.log_path = matches[0]
+    return None
+
+
+def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
+    """Judge assessment log."""
+    if job.log_path is not None:
+        job.stamp["log_file_used"] = job.log_path.name
+        log_text = job.log_path.read_text(encoding="utf-8", errors="replace")
+        # 0.21.0: the times the log prints ride on every verdict read from it.
+        times = parse_log_times(log_text)
+        job.stamp["solver_run_time_s"] = times.solver_run_time_s
+        job.stamp["solver_initialization_s"] = times.solver_initialization_s
+        job.stamp["time_steps"] = times.time_steps
+        if job.clockings is not None:
+            return _judge_the_clockings(
+                log_text, job.log_path, job.report, job.report_path, job.clockings, job.stamp
+            )
+        try:
+            history = parse_residual_history(log_text)
+            final = history[-1]
+        except (IncompleteOutputError, ValueError) as exc:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                error=f"solver log unusable: {exc}",
+                **job.stamp,
+            )
+        # THE LOG AND THE EXPORT END AT ONE ITERATION, OR THE LOG IS NOT
+        # THIS EXPORT'S. A log is found by content or by name, and neither
+        # says it belongs to the loads file beside it: an export of
+        # iteration 312 was judged CONVERGED on the residual a log printed
+        # at iteration 1575. Both files print the solver's own counter, and
+        # the recorded pair of one run agrees on it, so a disagreement means
+        # the residual describes a state the coefficients were not read at.
+        if final.iteration != job.report.current_iteration:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=job.report.current_iteration,
+                error=(
+                    f"the solver log {job.log_path.name} ends at iteration "
+                    f"{final.iteration} and the loads export {job.report_path.name} was "
+                    f"written at iteration {job.report.current_iteration}, so the residual "
+                    "is not the residual of the exported coefficients and no "
+                    "convergence judgment is made from it. The log is of another "
+                    "run or another point, or one of the two files was written "
+                    "before the solve ended; export both at the end of the same solve"
+                ),
+                **job.stamp,
+            )
+        try:
+            frozen = frozen_time_steps(log_text)
+        except IncompleteOutputError as exc:
+            # A residual block the solver stopped under is unusable
+            # evidence at assessment time, the same verdict the residual
+            # history gives above; it escaped as an exception once the
+            # reader learned to call a cut a cut (0.26.0).
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=final.iteration,
+                error=f"solver log unusable: {exc}",
+                **job.stamp,
+            )
+        if frozen is not None:
             return Assessment(
                 status=RunStatus.FAILED_DIVERGED,
-                iterations=report.current_iteration,
-                error=f"non-finite Total coefficients: {', '.join(diverged)}",
-                **stamp,
-            )
-        # REV010-002. The mode decides WHICH judgment rule applies, so an
-        # unrecognized one is checked before any rule is chosen, including
-        # the residual path below. The old code tested for "steady" and let
-        # everything else fall through to the unsteady branch, which returns
-        # COMPLETED_MAX_ITER with error=None: a solver mode this package has
-        # never seen became a successful terminal state, indistinguishable
-        # from a genuine unsteady run. Failing closed here is the difference
-        # between "we judged this" and "we did not recognize it".
-        mode = classify_solver_mode(report.solver_mode)
-        if mode is None:
-            return Assessment(
-                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                iterations=report.current_iteration,
-                error=(
-                    f"the loads footer prints solver mode {report.solver_mode.strip()!r}, "
-                    f"which is not one this package knows ({', '.join(SOLVER_MODES)}). The "
-                    "mode selects the judgment rule, so an unrecognized one means the "
-                    "export cannot be assessed rather than that it completed. Either the "
-                    "solver version prints a mode this package has not been taught, or "
-                    "the footer is malformed"
-                ),
-                **stamp,
-            )
-        stopped_early = mode == "steady" and report.current_iteration < report.requested_iterations
-        # PYFS-008. The iteration-count judgment below reads an early stop
-        # as "the convergence threshold stopped the solver", and that
-        # inference holds only while the threshold is what can stop it.
-        # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
-        # is told to run the full budget whatever the residual does. So
-        # under forced iterations an early stop means the opposite of
-        # convergence, because the one mechanism that could legitimately
-        # end the loop early was disabled. The field was parsed
-        # (LoadsReport.forced_iterations) and never consulted, so a run
-        # that stopped at 312 of a forced 500 was published CONVERGED,
-        # indistinguishable from one that met the threshold at 312.
-        #
-        # BEFORE THE LOG, since 0.24.0. This check sat below the log branch,
-        # which returns, so a collected log turned the refusal into
-        # COMPLETED_MAX_ITER or CONVERGED: a residual says how far the
-        # iteration it was printed at had come, and says nothing about the
-        # iterations a run that was told to do all of them never did.
-        # Completeness is established first and the residual judged after.
-        if stopped_early and report.forced_iterations:
-            return Assessment(
-                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                iterations=report.current_iteration,
-                error=(
-                    f"the solver stopped at iteration {report.current_iteration} of "
-                    f"{report.requested_iterations} with forced iterations enabled, "
-                    "so the convergence threshold was not what ended the loop: it "
-                    "was disabled. The loads file describes an unfinished solve. "
-                    "A solver log, which is found by content and does not have to be "
-                    "named, does not change this: a residual cannot stand in for "
-                    "iterations that were required and not run. Find why the solver "
-                    "stopped"
-                ),
-                **stamp,
-            )
-        log_path = None
-        # A QUASI-STEADY WHEEL SOLVED AT k CLOCKINGS exports ONE log holding its
-        # k solves in sequence, each counter starting at 1 (L1 of 0.30.0,
-        # RPT-091): the run's own record beside the loads export says so, and
-        # the log is then read and judged solve by solve.
-        clockings, record_warning = _wheel_clockings(
-            report_path, quasi_steady=None if case is None else case.recipe == QSTEADY_ROTOR
-        )
-        if record_warning is not None:
-            # 0.31.0: THE RECORD'S ONE REFUSAL, decided here: the log is judged
-            # as one solve, and the point's record says why.
-            stamp["warnings"] = [record_warning]
-        solves = 1 if clockings is None else len(clockings)
-        if self.log_file is None:
-            # AUTO-DETECTION BY CONTENT, on the same ground the loads
-            # table is found by content: a swept case names its outputs
-            # per point, so no literal could name them all, and a file
-            # collected from THIS run's folder that parses as a residual
-            # history is this run's solver log.
-            #
-            # WHAT THIS CHANGES, said plainly because it changes a
-            # published status. Until now an unsteady run was recorded
-            # COMPLETED_MAX_ITER unconditionally, since the time loop
-            # always reaches its prescribed end and the iteration
-            # counter therefore says nothing. That is a statement about
-            # this package's evidence and it reads as a statement about
-            # the solver: a run that converged at every time step and a
-            # run that never converged at any came out with the same
-            # word. A collected log settles it, and a run that exports
-            # one should not have to be asked twice for permission to
-            # use it. Nothing is auto-detected when no collected file
-            # parses as a history, so a campaign that exports no log is
-            # judged exactly as it was.
-            #
-            # Several candidates are NOT resolved by choosing: that
-            # would be a guess about which is the log of this point.
-            candidates = [
-                path
-                for path in collected
-                if path != report_path and reads_as_residual_history(path, solves=solves)
-            ]
-            if len(candidates) == 1:
-                log_path = candidates[0]
-            elif len(candidates) > 1:
-                # SEVERAL IS A REFUSAL, exactly as it is for the loads
-                # table one branch up, and for the same reason: choosing
-                # one would be a guess about which is the log of THIS
-                # point. The first version fell through silently to the
-                # iteration-count judgment, which is the verdict this
-                # whole path exists to replace, so a campaign that had
-                # gone to the trouble of exporting a log got the old
-                # answer and no way to tell.
-                names = ", ".join(path.name for path in candidates)
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    iterations=report.current_iteration,
-                    error=(
-                        f"{len(candidates)} collected outputs read as a solver log "
-                        f"({names}), so which one carries this point's residuals is a "
-                        "guess. Name it with LoadsAssessor(log_file='<name>'), or give "
-                        "each point a uniquely named log"
-                    ),
-                    **stamp,
-                )
-        if self.log_file is not None:
-            wanted_log = Path(self.log_file).name
-            matches = [path for path in collected if path.name == wanted_log]
-            if not matches:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    error=(
-                        f"no collected output named {wanted_log!r} to read residuals "
-                        f"from; collected: "
-                        f"{', '.join(path.name for path in collected) or 'nothing'}. A "
-                        "solver log of a swept case carries the point in its name, so "
-                        "name it as the recipe exported it, or drop log_file and accept "
-                        "the iteration-count judgment"
-                    ),
-                    **stamp,
-                )
-            log_path = matches[0]
-        if log_path is not None:
-            stamp["log_file_used"] = log_path.name
-            log_text = log_path.read_text(encoding="utf-8", errors="replace")
-            # 0.21.0: the times the log prints ride on every verdict read from it.
-            times = parse_log_times(log_text)
-            stamp["solver_run_time_s"] = times.solver_run_time_s
-            stamp["solver_initialization_s"] = times.solver_initialization_s
-            stamp["time_steps"] = times.time_steps
-            if clockings is not None:
-                return _judge_the_clockings(
-                    log_text, log_path, report, report_path, clockings, stamp
-                )
-            try:
-                history = parse_residual_history(log_text)
-                final = history[-1]
-            except (IncompleteOutputError, ValueError) as exc:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    error=f"solver log unusable: {exc}",
-                    **stamp,
-                )
-            # THE LOG AND THE EXPORT END AT ONE ITERATION, OR THE LOG IS NOT
-            # THIS EXPORT'S. A log is found by content or by name, and neither
-            # says it belongs to the loads file beside it: an export of
-            # iteration 312 was judged CONVERGED on the residual a log printed
-            # at iteration 1575. Both files print the solver's own counter, and
-            # the recorded pair of one run agrees on it, so a disagreement means
-            # the residual describes a state the coefficients were not read at.
-            if final.iteration != report.current_iteration:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    iterations=report.current_iteration,
-                    error=(
-                        f"the solver log {log_path.name} ends at iteration "
-                        f"{final.iteration} and the loads export {report_path.name} was "
-                        f"written at iteration {report.current_iteration}, so the residual "
-                        "is not the residual of the exported coefficients and no "
-                        "convergence judgment is made from it. The log is of another "
-                        "run or another point, or one of the two files was written "
-                        "before the solve ended; export both at the end of the same solve"
-                    ),
-                    **stamp,
-                )
-            try:
-                frozen = frozen_time_steps(log_text)
-            except IncompleteOutputError as exc:
-                # A residual block the solver stopped under is unusable
-                # evidence at assessment time, the same verdict the residual
-                # history gives above; it escaped as an exception once the
-                # reader learned to call a cut a cut (0.26.0).
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    iterations=final.iteration,
-                    error=f"solver log unusable: {exc}",
-                    **stamp,
-                )
-            if frozen is not None:
-                return Assessment(
-                    status=RunStatus.FAILED_DIVERGED,
-                    iterations=final.iteration,
-                    error=frozen.reason,
-                    **stamp,
-                )
-            judged = _judge_final_residuals(history, report.convergence_limit)
-            if judged.note:
-                stamp["residual_note"] = judged.note
-            return Assessment(
-                status=judged.status,
                 iterations=final.iteration,
-                residual=judged.residual,
-                error=judged.error,
-                **stamp,
+                error=frozen.reason,
+                **job.stamp,
             )
-        if mode == "steady":
-            # forced_iterations is None when the loads footer does not print
-            # the line; the count judgment then stands, because nothing says
-            # the threshold was off. Stated rather than left implicit: the
-            # falsy branch covers False and None, and they mean different
-            # things.
-            return Assessment(
-                status=RunStatus.CONVERGED if stopped_early else RunStatus.COMPLETED_MAX_ITER,
-                iterations=report.current_iteration,
-                **stamp,
-            )
+        judged = _judge_final_residuals(history, job.report.convergence_limit)
+        if judged.note:
+            job.stamp["residual_note"] = judged.note
         return Assessment(
-            status=RunStatus.COMPLETED_MAX_ITER,
-            iterations=report.current_iteration,
-            error=None,
-            **stamp,
+            status=judged.status,
+            iterations=final.iteration,
+            residual=judged.residual,
+            error=judged.error,
+            **job.stamp,
         )
+    return None
+
+
+def _judge_assessment_iterations(job: _LoadsJudgment) -> Assessment:
+    """Judge assessment iterations."""
+    if job.mode == "steady":
+        # forced_iterations is None when the loads footer does not print
+        # the line; the count judgment then stands, because nothing says
+        # the threshold was off. Stated rather than left implicit: the
+        # falsy branch covers False and None, and they mean different
+        # things.
+        return Assessment(
+            status=RunStatus.CONVERGED if job.stopped_early else RunStatus.COMPLETED_MAX_ITER,
+            iterations=job.report.current_iteration,
+            **job.stamp,
+        )
+    return Assessment(
+        status=RunStatus.COMPLETED_MAX_ITER,
+        iterations=job.report.current_iteration,
+        error=None,
+        **job.stamp,
+    )
 
 
 @dataclass(frozen=True)
