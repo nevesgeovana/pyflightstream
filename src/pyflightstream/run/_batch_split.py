@@ -12,7 +12,8 @@ has one processor count, one build, one kind and one set of the setup's own unst
 solver actions. A steady point after an unsteady one in one instance is not measured,
 so steady and unsteady polars never share a job (FR-403); an action survives
 ``NEW_SIMULATION`` and no command withdraws one, so it would run on every later polar
-of the job (FR-405). Inside a group the polars stay in matrix order
+of the job (FR-405). Each acoustic polar forms its own group (FR-406).
+Inside a group the polars stay in matrix order
 and a job is a CONTIGUOUS run of them: the optimal linear partition, the one
 whose longest job is shortest. A polar is never cut, and ``n`` above the polars
 warns and uses only what it needs.
@@ -77,6 +78,8 @@ class PolarUnit:
         (FR-405).
     steady : bool
         Whether the polar is of a steady run type (FR-403); a job holds one kind.
+    acoustic : bool
+        Whether the polar must run alone in its job (FR-406).
     """
 
     sim_id: str
@@ -91,6 +94,7 @@ class PolarUnit:
     margin_s: float
     actions: tuple[tuple[str, str, str], ...] = ()
     steady: bool = False
+    acoustic: bool = False
 
 
 @dataclass(frozen=True)
@@ -212,7 +216,8 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
     least one job, cuts
     each group into the optimal contiguous partition that minimises its longest job, and hands
     the remaining jobs one at a time to the group whose longest job is longest while a polar can
-    still be split off. A polar is never cut.
+    still be split off. A polar is never cut. Each acoustic polar forms a group of its own
+    so no other polar joins its job (FR-406).
 
     Parameters
     ----------
@@ -227,9 +232,13 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
         The jobs in matrix order of their first polar, and the warnings: ``n`` above the polars
         (only what is needed is used) and ``n`` below the number of groups (one job per group).
     """
-    groups: dict[tuple[int, str, bool, tuple[tuple[str, str, str], ...]], list[PolarUnit]] = {}
+    groups: dict[
+        tuple[int, str, bool, tuple[tuple[str, str, str], ...], str | None], list[PolarUnit]
+    ] = {}
     for unit in units:
-        groups.setdefault((unit.ncpus, unit.fs_build, unit.steady, unit.actions), []).append(unit)
+        isolated = unit.sim_id if unit.acoustic else None
+        key = (unit.ncpus, unit.fs_build, unit.steady, unit.actions, isolated)
+        groups.setdefault(key, []).append(unit)
     warnings: list[str] = []
     if n > len(units):
         warnings.append(
@@ -243,6 +252,8 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
             "and a job holds one of each, so one "
             "job per group is planned."
         )
+        if any(unit.acoustic for unit in units):
+            warnings.append("An acoustic polar runs alone in its job (FR-406).")
     counts = dict.fromkeys(groups, 1)
     for _ in range(max(0, min(n, len(units)) - len(groups))):
         open_groups = [key for key, members in groups.items() if counts[key] < len(members)]

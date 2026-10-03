@@ -8802,7 +8802,11 @@ Requirements written after the specification was last reconciled with the packag
     - R1 The grouping shall be by `NCPUS` AND solver build AND kind (steady or unsteady, FR-403) AND the setup's own `unsteady_solver_actions` (FR-405, 0.35.1): the polars are grouped by these four keys, in matrix order, so that no job mixes two builds, steady and unsteady polars, or two sets of user actions. Every group gets at least one job; the jobs beyond the number of groups go one at a time to the group whose longest job estimate is longest, while a polar can still be split off a job; a polar is never cut; a warning is printed for n above the number of polars and for n below the number of groups. This R-item is a design proposal; it stays pending until accepted.
     - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars, and since 0.35.1 steady and quasi-steady ones in jobs of their own (FR-403), and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a LEGACY row, a warm steady row or a steady point that initialises the solver twice (FR-403 R5), a `RESTART` row (it opens a datapoint's own `.fsm`), a row whose setup states a `SCRIPT` entry of `unsteady_solver_actions` by a relative file (FR-405; a row stating them otherwise joins a job of its own action set), an unsteady row on a build that does not document the action command, and a polar whose points do not splice into one script. The refusal of FR-378 is not a reason to leave out: it blocks the plan. An acoustic row and a coupled structural row on `unsteady` are not left out since 0.35.1 (FR-406, FR-407). This R-item is a design proposal; it stays pending until accepted.
 
+    - R3 Sections persist across REMOVE_INITIALIZATION (measured 2026-10-03), so a restated block does not create them again; a block opened by NEW_SIMULATION creates them.
+
     Verification: The markers P0350-BATCH-SPLIT and P0350-BATCH-TABLE: tier-1 tests with synthetic costs assert the grouping, the contiguity, the optimal cut against a brute-force partition, the warning for n above the polars, the refusal of a second build, and the rows and total line of the printed table.
+
+    Evidence: `tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_restated_sections_are_created_once` verifies section reuse in steady and unsteady polars and creation after `NEW_SIMULATION`.
 
     Evidence: `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr362_failed_points_are_pending_again`, `::test_p0350_plan_fr362_the_command_line_prints_the_table`, `::test_p0350_plan_fr362_the_table`; `tests/tier1_offline/test_p0350_batch_split.py::test_p0350_split_fr362_contiguous_whole_polars_grouped_by_ncpus`, `::test_p0350_split_fr362_matches_the_brute_force_oracle_on_many_shapes`, `::test_p0350_split_fr362_n_above_the_polars_warns`, `::test_p0350_split_fr362_n_below_the_groups_warns`. Verified offline by tier-1 tests.
 
@@ -8870,7 +8874,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Requirement: At submission, each point of a grouped job shall be recorded `SUBMITTED` with the batch name and the job's folder in its submission entry (`submission.batch`); a steady polar inside a batch records each point as a point run alone, never the one job record of FR-95 (FR-403 R3); every other field shall equal what the same point run alone records, with the same run id and the same status words. A point that `collect` completes shall carry the same fields a point run alone carries: `outputs_sha256` over its output files at their home location, and `wall_time_s` read from the point's own clock file (else the solver run time of its sliced log), with the basis, or the reason none could be measured, in `submission.job.wall_time_basis`.
 
+    A completed point also records `fs_version_reported` and `fs_build` from its own products through the same assessor as a point run alone.
+
     Verification: The marker P0350-BATCH-RECORDS: a tier-1 test records the same point alone and in a batch and asserts that the two records differ only in the submission entry.
+
+    Evidence: `tests/tier1_offline/test_p0350_batch_collect.py::test_p0351_collect_records_the_solver_identity` (P0351-BATCH-RECORDS, FR-366) verifies the reported version and build for grouped, polar-sweep and plain submitted points.
 
     Evidence: `tests/tier1_offline/test_p0350_batch_run.py::test_p0350_run_fr366_records_are_a_point_run_alone` and the `test_p0350_batch_records_fr366_*` tests of `tests/tier1_offline/test_p0350_batch_collect.py`. Verified offline by tier-1 tests.
 
@@ -9466,6 +9474,8 @@ Requirements written after the specification was last reconciled with the packag
     - R5 Left out and named, never refused: a LEGACY row (its own recipe builds it); a steady row stating `COLD_START` false (a warm sweep, which a re-initialisation before each point would not be); a steady point whose script initialises the solver more than once (a quasi-steady wheel of several clockings, a wake termination read from a file), because each later initialisation prints the line the job log is cut at; and every reason FR-362 R2 names for any row. The unsteady-action build check applies to unsteady rows only.
     - R6 `run --batch` and `run --polar-sweep` refuse a receipt that holds no job (FR-365), and start no solver.
 
+    Evidence: `tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_restated_sections_are_created_once` verifies the section lifetime of FR-362 R3.
+
     Rationale: A steady polar run alone costs one solver start per point; grouping it removes the starts without changing what each point records.
 
     Verification: tier 1, `tests/tier1_offline/test_p0351_batch_steady.py`, carrying the marker P0351-BATCH-STEADY (FR-403); the licensed confirmation (each point's coefficients, iterations and products equal to the point run alone, on 26.124) is owed; release 0.35.1.
@@ -9498,6 +9508,9 @@ Requirements written after the specification was last reconciled with the packag
 
     - R1 The signals export and the section's `STORAGE_PATH` of each point shall be absolute in that point's own datapoint folder (FR-359); the run writes each point's section note into its own folder, and collect lists the section files as for a point run alone (FR-268).
     - R2 A job without an acoustic point shall be byte-for-byte the job of 0.35.0.
+    - R3 An acoustic polar runs alone in its job: a second polar opened after an acoustic one in the same instance ended the solver process on 26.124 (measured 2026-10-03).
+
+    Evidence: `tests/tier1_offline/test_p0351_batch_acoustic.py::test_p0351_acoustic_polars_run_alone_in_their_jobs` verifies that two acoustic polars and one plain unsteady polar form three jobs even with `--batch 1`.
 
     Rationale: The observers are model objects, which outlive `REMOVE_INITIALIZATION` (DESIGN-0350 arms A and D) and possibly `NEW_SIMULATION`, as the actions do; a later point of a polar is restated from an anchor after its acoustic setup, so without the restatement its sources switch would be an earlier point's, and with it but without the delete its observers would be created twice.
 

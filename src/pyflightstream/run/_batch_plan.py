@@ -28,6 +28,7 @@ from pyflightstream.cases import (
     resolve_recipe,
 )
 from pyflightstream.cases._unsteady_actions import documents_actions
+from pyflightstream.cases.acoustics import acoustic_request
 from pyflightstream.cases.workflows import (
     STEADY_RUN_TYPES,
     WORKFLOW_KEY,
@@ -291,6 +292,7 @@ def _unit_of(
         margin_s=walltime_margin_s(case),
         actions=user_actions_of(case),
         steady=str(case.variables.get(WORKFLOW_KEY, "")).strip() in STEADY_RUN_TYPES,
+        acoustic=acoustic_request(case) is not None,
     )
 
 

@@ -38,9 +38,7 @@ from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_p0350_batch_plan import _fixture as _plan_fixture
 from tests.tier1_offline.test_p0350_batch_plan import _plan as _grouped_plan
 from tests.tier1_offline.test_p0350_batch_run import (
-    MATRIX,
     _matrix,
-    _plan,
     _run,
     _submitting,
     _workspace,
@@ -110,7 +108,7 @@ def test_p0351_acoustic_fr406_an_acoustic_row_joins_a_grouped_job(tmp_path):
 
     ``eligibility`` answers None for an unsteady case stating every acoustic key, and the
     grouped plan of a matrix whose two rotor polars state them puts both into its jobs with
-    nothing left out. Control: the same matrix with a steady row is still left out, named.
+    nothing left out. The steady merge also admits the same fixture's steady row.
     """
     workspace, matrix = _plan_fixture(tmp_path, walltimes=("1h", "1h"), sweep="0.0,2.0")
     text = matrix.read_text(encoding="utf-8").splitlines()
@@ -119,12 +117,26 @@ def test_p0351_acoustic_fr406_an_acoustic_row_joins_a_grouped_job(tmp_path):
     )
     plan = _grouped_plan(workspace, matrix, batch=1)
     assert plan.grouping.left_out == (), plan.grouping.left_out
-    assert [job.sims for job in plan.grouping.jobs] == [("7001", "7002")]
-    assert len(plan.grouping.jobs[0].points) == 4
+    assert [job.sims for job in plan.grouping.jobs] == [("7001",), ("7002",)]
+    assert [len(job.points) for job in plan.grouping.jobs] == [2, 2]
     case = unsteady_case(**ACOUSTIC)
     assert eligibility(case, workspace=workspace, version=BUILD) is None
     steady = case.model_copy(update={"variables": {**case.variables, WORKFLOW_KEY: "steady"}})
-    assert "unsteady rows only" in str(eligibility(steady, workspace=workspace, version=BUILD))
+    assert eligibility(steady, workspace=workspace, version=BUILD) is None
+
+
+def test_p0351_acoustic_polars_run_alone_in_their_jobs(tmp_path):
+    """P0351-BATCH-ACOUSTIC (FR-406): --batch 1 keeps each acoustic polar alone, points together."""
+    workspace, matrix = _plan_fixture(tmp_path, walltimes=("1h", "1h", "1h"), sweep="0.0,2.0")
+    header, rule, *rows = matrix.read_text(encoding="utf-8").splitlines()
+    matrix.write_text(
+        "\n".join([header, rule, rows[0] + CELL, rows[1], rows[2] + CELL]) + "\n",
+        encoding="utf-8",
+    )
+    plan = _grouped_plan(workspace, matrix, batch=1)
+    assert plan.grouping.left_out == ()
+    assert [job.sims for job in plan.grouping.jobs] == [("7001",), ("7002",), ("7003",)]
+    assert [len(job.points) for job in plan.grouping.jobs] == [2, 2, 2]
 
 
 def test_p0351_acoustic_fr406_each_point_restates_its_own_setup():
@@ -185,7 +197,7 @@ def test_p0351_acoustic_fr406_each_point_restates_its_own_setup():
 def test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point(tmp_path):
     """P0351-BATCH-ACOUSTIC (FR-406): run --batch writes each point's section note in its folder.
 
-    Two rotor polars stating every acoustic key, run as one batch through the real submitting
+    Two rotor polars stating every acoustic key, run in separate jobs through the real submitting
     executor (submit off): every point is SUBMITTED, every point's datapoint folder under the batch
     holds its own section folder with the run's note, and the job script names each of those
     folders and each point's signals export once, with the observers deleted before each later
@@ -197,14 +209,16 @@ def test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point(tmp
     matrix.write_text(
         "\n".join([*rows[:2], *(row + CELL for row in rows[2:])]) + "\n", encoding="utf-8"
     )
-    _plan(workspace, matrix, mode="batch", batch=1)
+    _grouped_plan(workspace, matrix, batch=1)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         records = _run(workspace, matrix, executor=_submitting(profile, submit=False))
     assert [r.status for r in records] == [RunStatus.SUBMITTED] * 3
-    job_dir = workspace.root / "sims" / "batch" / f"{MATRIX}_b1"
-    script = (job_dir / "BATCH-7001-7003.txt").read_text(encoding="utf-8")
-    notes = sorted(job_dir.rglob(acoustics.ACOUSTIC_SECTION_NOTE))
+    batch_dir = workspace.root / "sims" / "batch"
+    scripts = sorted(batch_dir.glob("*/BATCH-*.txt"))
+    assert [path.name for path in scripts] == ["BATCH-7001-7001.txt", "BATCH-7003-7003.txt"]
+    script = "\n".join(path.read_text(encoding="utf-8") for path in scripts)
+    notes = sorted(batch_dir.rglob(acoustics.ACOUSTIC_SECTION_NOTE))
     assert len(notes) == 3, notes
     for note in notes:
         folder = note.parent
@@ -214,5 +228,5 @@ def test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point(tmp
             acoustics.ACOUSTIC_SECTION_SUFFIX, acoustics.ACOUSTIC_SIGNALS_SUFFIX
         )
         assert script.count(str(signals)) == 1, signals
-    assert script.count("DELETE_ALL_ACOUSTIC_OBSERVERS") == 2
+    assert script.count("DELETE_ALL_ACOUSTIC_OBSERVERS") == 1
     assert not relative_paths(script), relative_paths(script)

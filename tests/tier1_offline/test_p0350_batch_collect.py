@@ -36,6 +36,36 @@ def _no_sleep(_seconds: float) -> None:
     """The clock, injected."""
 
 
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep", "plain"])
+def test_p0351_collect_records_the_solver_identity(tmp_path, kind):
+    """P0351-BATCH-RECORDS (FR-366): each collected point keeps its own solver identity."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(workspace.root)
+    fixture = Path(__file__).parent / "fixtures" / "loads_steady_26.120.txt"
+    loads = fixture.read_text(encoding="utf-8")
+    for order, (tag, build) in enumerate(zip(TAGS, ("8172026", "8242026"), strict=True), 1):
+        job = None if kind == "plain" else _job(kind, order)
+        record = _record(tag, job=job).model_copy(update={"fs_build": None})
+        workspace.append_record(record)
+        sim = workspace.sim_dir("2006")
+        if kind == "batch":
+            sim = workspace.root / str(job["dir"]) / "sim_2006"
+        folder = sim / "datapoints" / f"DP-{tag}"
+        _write_point(folder, tag, order)
+        banner = f"Software : Flightstream version 26.1, build #{build}"
+        (folder / f"P2006-{tag}.txt").write_text(
+            loads.replace("build #7012026", f"build #{build}"), encoding="utf-8"
+        )
+        log_name = f"P2006-{tag}_log.txt" if job is None else f"P2006-{tag}.cumulative-log.txt"
+        (folder / log_name).write_text(banner + "\n" + _cumulative(order), encoding="utf-8")
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert len(report.collected) == 2, report.lines()
+    for tag, build in zip(TAGS, ("8172026", "8242026"), strict=True):
+        record = _status(workspace, tag)
+        assert record.fs_version_reported == "26.1"
+        assert record.fs_build == build
+
+
 def _converged(_record, _sim_dir):
     """The judgement, injected: what is tested here is where the files are, not the physics."""
     return RunStatus.CONVERGED, None

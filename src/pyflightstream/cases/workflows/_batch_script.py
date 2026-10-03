@@ -88,6 +88,7 @@ from pyflightstream.script import Script, helpers
 from ._batch_actions import absolute_output_lines, is_absolute_target
 from ._clock import unsteady_counter_steps, unsteady_export_threshold, walltime_stop_text
 from ._conventions import WorkflowConventions, select_workflow
+from ._pproc import SECTION_DISTRIBUTION_COMMAND
 from ._vocabulary import STEADY_RUN_TYPES, WALLTIME_STOP_VERB
 
 __all__ = [
@@ -747,7 +748,24 @@ def _point_lines(first: JobPoint, point: JobPoint, transition: Transition) -> li
     body, _ = _without_registrations("\n".join(_body(point)))
     if transition == "refresh":
         return [REFRESH_VERB, "", *body]
-    return [REINIT_VERB, "", *body[_shifted(point, _anchor_index(first, point)) :]]
+    restated = body[_shifted(point, _anchor_index(first, point)) :]
+    return [REINIT_VERB, "", *_without_created_sections(first, restated)]
+
+
+def _without_created_sections(first: JobPoint, lines: list[str]) -> list[str]:
+    """Keep existing sections across reinitialisation, including their exports (FR-362)."""
+    creations = {SECTION_DISTRIBUTION_COMMAND, "CREATE_NEW_SURFACE_SECTION"}
+    emitted = {line.split()[0] for line in _lines(first.text) if line.split()} & creations
+    commands = CommandRegistry.load().commands
+    kept: list[str] = []
+    dropping = False
+    for line in lines:
+        words = line.split()
+        if words and words[0] in commands:
+            dropping = words[0] in emitted
+        if not dropping:
+            kept.append(line)
+    return kept
 
 
 def _shifted(point: JobPoint, cut: int) -> int:
@@ -905,6 +923,21 @@ def _is_user_registration(words: Sequence[str]) -> bool:
     )
 
 
+def _keyword_path_indices(
+    lines: list[str], index: int, entry: CommandEntry
+) -> Iterable[tuple[int, str, bool]]:
+    """Locate the path arguments of one keyword block."""
+    if entry.layout is not Layout.KEYWORD_BLOCK:
+        return
+    keys = {arg.name.upper() for arg in entry.args if arg.type == "path"}
+    for offset, argument in enumerate(lines[index + 1 :], index + 1):
+        if not argument.strip():
+            break
+        key, separator, _ = argument.partition(" ")
+        if key in keys and separator:
+            yield offset, key + separator, False
+
+
 def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, str, bool]]:
     """Locate path arguments with the database, including keyword blocks and shell actions."""
     view = CommandRegistry.load().for_version(version)
@@ -921,14 +954,7 @@ def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, st
         for offset, arg in enumerate(_line_args(entry), 1):
             if arg.type == "path" and index + offset < len(lines):
                 yield index + offset, "", shell
-        if entry.layout is Layout.KEYWORD_BLOCK:
-            keys = {arg.name.upper() for arg in entry.args if arg.type == "path"}
-            for offset, argument in enumerate(lines[index + 1 :], index + 1):
-                if not argument.strip():
-                    break
-                key, separator, _ = argument.partition(" ")
-                if key in keys and separator:
-                    yield offset, key + separator, False
+        yield from _keyword_path_indices(lines, index, entry)
 
 
 def _absolute_splice(

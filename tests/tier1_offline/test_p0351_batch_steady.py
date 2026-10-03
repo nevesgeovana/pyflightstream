@@ -22,6 +22,7 @@ alone through the same stand-in are the control.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -30,13 +31,14 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.cases.workflows import WORKFLOW_KEY, workflow_registry
+from pyflightstream.cases.workflows import WORKFLOW_KEY, build_script, workflow_registry
 from pyflightstream.cases.workflows._batch_script import (
     JobPoint,
     JobPolar,
     assemble_job,
+    job_point,
     refuse_a_second_initialization,
 )
 from pyflightstream.exceptions import PyflightstreamWarning
@@ -44,6 +46,7 @@ from pyflightstream.run._batch_plan import eligibility, plan_grouped_matrix
 from pyflightstream.run._batch_split import PolarUnit, split_polars
 from pyflightstream.run.collect import collect_once
 from pyflightstream.run.matrix import plan_matrix, run_matrix
+from pyflightstream.script import Script
 from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_matrix_run import FIXTURES
 from tests.tier1_offline.test_p0350_batch_run import (
@@ -58,6 +61,7 @@ from tests.tier1_offline.test_p0350_batch_run import (
 )
 from tests.tier1_offline.test_p0350_batch_script import relative_paths
 from tests.tier1_offline.test_restart_continuation import _continuing_case
+from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case, unsteady_case
 
 #: The points of the two steady polars, in the order a job runs them.
 POINTS = (
@@ -77,6 +81,62 @@ HOME = f"sims/batch/{MATRIX}_b1/"
 #: The recorded log of a steady job on 26.124, the source of one synthetic solve.
 TWO_SOLVES = FIXTURES / "log_steady_job_two_solves_26.124.txt"
 MARKER = "Solution cleared. Initialization removed."
+
+
+@pytest.mark.parametrize("steady", [True, False], ids=["steady", "unsteady"])
+@pytest.mark.parametrize("polar_count", [1, 2])
+def test_p0351_restated_sections_are_created_once(tmp_path, steady, polar_count):
+    """P0351-BATCH-STEADY (FR-403); P0350-BATCH-SAME-POLAR (FR-352): sections persist.
+
+    Ten one-section distributions are created on each polar's first point.
+    Reinitialisation keeps their exports without creating them again; a fresh
+    simulation creates its own ten. The real workflow emits every command.
+    """
+    pproc = PprocSpec.model_validate(
+        {
+            "sections": {
+                "count": 1,
+                "distributions": [
+                    {"families": ["W"], "frame": "MRP", "planes": ["XZ"]} for _ in range(10)
+                ],
+            }
+        }
+    )
+    case = _with_pproc(steady_case() if steady else unsteady_case(), _wb_geometry(tmp_path), pproc)
+    polars = []
+    for sim in range(1, polar_count + 1):
+        points = []
+        for alpha in (0, 2):
+            stem = f"P{sim}-AL{alpha}"
+            point_case = case.model_copy(
+                update={
+                    "sim_id": str(sim),
+                    "point": {"alpha": float(alpha)},
+                    "outputs": [f"{stem}.txt", f"{stem}_cp.txt", f"{stem}_sloads.txt"],
+                }
+            )
+            script = Script(BUILD)
+            build_script(point_case, script)
+            points.append(
+                job_point(
+                    point_case,
+                    run_id=f"m/sim_{sim}/{stem}",
+                    text=script.render(),
+                    datapoint_dir=tmp_path / str(sim) / stem,
+                    version=BUILD,
+                )
+            )
+        polars.append(JobPolar(str(sim), tuple(points)))
+    job = assemble_job(polars, kind="batch", version=BUILD, job_log=None, job_dir=tmp_path)
+    lines = job.text.splitlines()
+    for index, block in enumerate(job.blocks):
+        mine = lines[block.first_line - 1 : block.last_line]
+        assert mine.count("NEW_SURFACE_SECTION_DISTRIBUTION") == (10 if index % 2 == 0 else 0)
+        assert mine.count("NUM_SECTIONS 1") == (10 if index % 2 == 0 else 0)
+        assert any(line.startswith("EXPORT_ALL_SURFACE_SECTIONS") for line in mine)
+        assert any(line.startswith("EXPORT_SURFACE_SECTIONAL_LOADS") for line in mine)
+        if index:
+            assert mine[0] == ("NEW_SIMULATION" if index % 2 == 0 else "REMOVE_INITIALIZATION")
 
 
 def _placed(row: str) -> str:
@@ -509,7 +569,12 @@ def test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone(tmp_path)
     for record in alone.read_manifest():
         folder = alone.sim_dir(record.sim_id) / record.submission["working_dir"]
         script = alone.sim_dir(record.sim_id) / record.script_path
-        subprocess.run([sys.executable, str(program), str(script)], cwd=folder, check=True)
+        subprocess.run(
+            [sys.executable, str(program), str(script)],
+            cwd=folder,
+            check=True,
+            env=os.environ.copy(),
+        )
     theirs = _collected(alone)
 
     workspace, _profile, _ = _workspace(tmp_path / "grouped")

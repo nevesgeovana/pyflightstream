@@ -1072,6 +1072,8 @@ def _complete(
         assessment = assessment_of_collected(record, sim_dir)
         status, verdict = assessment.status, assessment.error
         for field_name in (
+            "fs_version_reported",
+            "fs_build",
             "iterations",
             "residual",
             "residual_note",
@@ -1084,9 +1086,8 @@ def _complete(
             # 0.24.0: WHAT WAS COMPARED, as the local path records it. The
             # verdict above rests on these checks, and a record that kept the
             # verdict and dropped the comparison could not say what the point
-            # was held to. The reported version, build and output hashes stay
-            # out: a hash taken at collection cannot say what bytes existed
-            # when the job wrote them.
+            # was held to. Solver identity comes from the same point's loads
+            # export through the same assessor as the local path (FR-366).
             "conditions",
         ):
             value = getattr(assessment, field_name, None)
