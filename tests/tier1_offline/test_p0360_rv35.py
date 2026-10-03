@@ -19,6 +19,45 @@ from tests.tier1_offline.test_p0350_batch_split import _unit
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _licensed_imports(source: str) -> list[str]:
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            prefix = node.module or ""
+            names = [prefix, *(f"{prefix}.{alias.name}" for alias in node.names)]
+        else:
+            continue
+        found.extend(name for name in names if "tier3_licensed" in name.split("."))
+    return found
+
+
+def test_tier1_never_imports_the_licensed_tier():
+    """P0360-RV35-C2-ARCH-1 (NFR-41): all import depths stay independent of tier 3."""
+    paths = sorted((REPO / "tests/tier1_offline").rglob("*.py"))
+    paths += [REPO / "tests/support_tier3.py", REPO / "tests/support_helpers.py"]
+    assert len(paths) > 100
+    assert not {
+        path.name: imports
+        for path in paths
+        if (imports := _licensed_imports(path.read_text(encoding="utf-8")))
+    }
+    controls = [
+        "from tests.tier3_licensed.fsi_lq1 import one_pass",
+        "import tests.tier3_licensed.offline as offline",
+        "from tests import tier3_licensed",
+        "def helper():\n    from tests.tier3_licensed import offline",
+        "if TYPE_CHECKING:\n    from tests.tier3_licensed import offline",
+        "from ..tier3_licensed import offline",
+    ]
+    for source in controls:
+        assert _licensed_imports(source), source
+        with pytest.raises(AssertionError):
+            assert not _licensed_imports(source)
+    assert not _licensed_imports("from tests.support_tier3 import one_pass")
+
+
 @pytest.mark.parametrize(("mode", "batch"), [("batch", 1), ("batch", 2), ("polar_sweep", None)])
 def test_command_line_alone_names_each_job_folder(tmp_path, mode, batch):
     """P0360-RV35-C2-QA-1 (FR-405): COMMAND_LINE alone names its resolving folder."""

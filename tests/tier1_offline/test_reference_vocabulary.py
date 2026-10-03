@@ -112,17 +112,20 @@ def _refused(tmp_path, body: str, artifact_id: str) -> str:
     return str(refused.value)
 
 
+@pytest.mark.requirement("FR-59")
 def test_a_reference_declares_its_aliases(tmp_path):
     reference = _reference(tmp_path, VOCABULARY_TOML)
     assert reference.aliases["airframe"] == ["W", "B", "K"]
 
 
+@pytest.mark.requirement("FR-72")
 def test_a_reference_declares_its_custom_frames(tmp_path):
     reference = _reference(tmp_path, VOCABULARY_TOML)
     assert [frame.name for frame in reference.frames] == ["NAC_PUSH"]
     assert reference.frames[0].origin == (7.2, 0.0, 0.0)
 
 
+@pytest.mark.requirement("FR-60")
 def test_an_engine_block_is_a_rotor(tmp_path):
     reference = _reference(tmp_path, VOCABULARY_TOML)
     pusher = reference.rotors["PUSHER"]

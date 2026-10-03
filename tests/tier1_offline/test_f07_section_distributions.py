@@ -1,6 +1,4 @@
 """F07 products use recorded export rows and preserve every stamped step."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-116.
 
 from __future__ import annotations
 
@@ -108,6 +106,7 @@ def _post(workspace):
     return out, json.loads((out / "products.json").read_text())
 
 
+@pytest.mark.requirement("FR-116")
 @pytest.mark.parametrize("stamped", [False, True])
 @pytest.mark.parametrize("submitted", [False, True])
 def test_two_distributions_keep_export_values_and_every_step(

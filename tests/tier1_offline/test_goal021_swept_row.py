@@ -11,8 +11,6 @@ Proved against a submitting executor that writes its descriptor and calls no
 scheduler, and a fake solver that writes into each point's working directory.
 Whether it holds on a real cluster is the owner's to run.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-130.
 
 from __future__ import annotations
 
@@ -81,6 +79,7 @@ def test_goal021_swept_row_every_point_is_submitted(tmp_path):
     ]
 
 
+@pytest.mark.requirement("FR-130")
 def test_g43_a_run_that_submits_does_not_post(tmp_path, capsys):
     """G43 of 0.28.0: a run that submits to a scheduler does not post.
     Points in a queue have no outputs yet, so the post could only print a skip per point:

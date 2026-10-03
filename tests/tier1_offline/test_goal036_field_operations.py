@@ -5,8 +5,6 @@ subtract, time mean), their command line ``pyfs-workspace field``, and the
 route that gives an airframe-only unsteady row its per-step probe fields.
 Every number below is exact in binary, so each result is compared with ``==``.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-184.
 
 from __future__ import annotations
 
@@ -53,6 +51,7 @@ def _rows(path: Path) -> list[list[float]]:
 # --- mirror -----------------------------------------------------------------
 
 
+@pytest.mark.requirement("FR-184")
 def test_mirror_through_y_zero_flips_y_and_vy_only():
     # P0310-G3-MIRROR
     field = Field("UNSTRUCTURED", SURVEY, source="survey.dat")

@@ -4,8 +4,6 @@ No em dash (U+2014) or en dash (U+2013) characters in Markdown or Python
 files, per the project style. Binary and local-only content guards run in
 pre-commit and in the CI guard job.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-177.
 
 import importlib.util
 import re
@@ -921,6 +919,7 @@ def _pdf_offenses(relative_posix_paths):
     )
 
 
+@pytest.mark.requirement("FR-177")
 @pytest.mark.requirement("NFR-03")
 def test_no_pdf_is_tracked_outside_the_guide():
     """A pdf in the public tree is refused unless it is a guide deck or a deck's figure."""

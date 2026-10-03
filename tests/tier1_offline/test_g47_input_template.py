@@ -25,8 +25,6 @@ against the generator:
   unbroken control, so the acceptance above is not satisfied by a reader that
   accepts everything.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-123.
 
 from __future__ import annotations
 
@@ -308,6 +306,7 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
     return read
 
 
+@pytest.mark.requirement("FR-123")
 def test_g47_every_example_of_the_template_init_writes_is_accepted_by_its_reader(tmp_path):
     """THE EXIT OF G47: init writes the page, and every example on it is a valid file.
 

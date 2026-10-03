@@ -24,16 +24,13 @@ from pyflightstream.run._batch_collect import job_ended
 from pyflightstream.run.collect import Stamp, collect_once, observe, settled
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.support_helpers import no_sleep as _no_sleep
 from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _write_profile
 
 LOGS = Path(__file__).parent / "fixtures" / "batch0350" / "logs"
 A2 = (LOGS / "A2.cumulative.txt").read_text(encoding="utf-8")
 TAGS = ("AL+000", "AL+020")
 STATE = {"fired": True, "steps": 30, "stopped_at": {"step": 30, "elapsed_s": 41.5}}
-
-
-def _no_sleep(_seconds: float) -> None:
-    """The clock, injected."""
 
 
 @pytest.mark.parametrize("kind", ["batch", "polar_sweep", "plain"])

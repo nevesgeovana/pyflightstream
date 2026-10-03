@@ -20,8 +20,6 @@ geometry library on restore. Each ``test_mutant_*`` function shows the same
 check passes against the real module and fails (returns the opposite of what
 the real behaviour proves) against the mutant.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-173, FR-175.
 
 from __future__ import annotations
 
@@ -144,6 +142,7 @@ def _sync_pair(tmp_path: Path, tag: str) -> tuple[CampaignWorkspace, CampaignWor
 # --------------------------------------------------------------------------- space-in-use
 
 
+@pytest.mark.requirement("FR-173")
 def test_space_in_use_groups_by_folder_sim_and_extension_and_records_a_call(tmp_path):
     workspace = _ws(tmp_path)
     _write(workspace.sim_dir("1001") / "datapoints" / "DP-1" / "loads.vtk", "a" * 100)
@@ -466,6 +465,7 @@ def _copied_paths(tmp_path: Path, other_root: Path, level: str, tag: str) -> set
     return {item["path"] for item in entry["files"]["copied"]}
 
 
+@pytest.mark.requirement("FR-175")
 def test_sync_level_is_cumulative_and_never_follows_the_inputs_junction(tmp_path):
     other_root = tmp_path / "levels_other"
     other = CampaignWorkspace(other_root)

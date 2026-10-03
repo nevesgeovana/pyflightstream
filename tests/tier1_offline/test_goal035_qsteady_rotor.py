@@ -12,8 +12,6 @@ wheel's for good.
 Every expected number below is worked by hand from those definitions and the
 fixture's own values, never read off the implementation.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-165, FR-166.
 
 from __future__ import annotations
 
@@ -143,6 +141,7 @@ def test_the_clockings_are_uniform_inside_one_blade_passage():
         arithmetic.clocking_angles(6, 0)
 
 
+@pytest.mark.requirement("FR-166")
 def test_the_reduced_frequency_is_the_hand_calculation():
     """k = Omega c / (2 sqrt(V^2 + (Omega r)^2)): 40 pi rad/s, c 0.2 m, r 0.5 m, V 30 m/s."""
     relative = math.hypot(30.0, OMEGA * 0.5)  # 69.63 m/s
@@ -179,6 +178,7 @@ def test_a_radial_inflow_is_accepted_and_a_crossflow_is_named():
 # --------------------------------------------------------------- the builder --
 
 
+@pytest.mark.requirement("FR-165")
 def test_a_wheel_is_solved_at_each_clocking_and_last_at_clocking_zero():
     """k = 3 on three blades: 0, 40 and 80 deg; clocking 0 last, with the point's exports."""
     # P0300-QS-WHEEL

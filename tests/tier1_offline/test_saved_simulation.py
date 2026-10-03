@@ -20,8 +20,6 @@ those (``test_a_row_declaring_a_loads_table_and_a_log_gets_exactly_those`` in
 ``test_workflows.py``), so the rows below are built as the matrix path builds
 them: the outputs a row naming a run type gets from its pproc artifact.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-121.
 
 from __future__ import annotations
 
@@ -121,6 +119,7 @@ def starts(lines: list[str]) -> list[int]:
 # --------------------------------------------------------------- the scripts --
 
 
+@pytest.mark.requirement("FR-121")
 @pytest.mark.parametrize(("name", "build"), CELLS, ids=[f"{n}-{b}" for n, b in CELLS])
 def test_g11_every_workflow_script_saves_its_final_simulation(name, build):
     """One SAVEAS of the point's .fsm, after the last solve and before the close."""

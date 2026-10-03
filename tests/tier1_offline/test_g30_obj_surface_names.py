@@ -26,8 +26,6 @@ one:
 The new names are reached through the module, not imported by name, so each
 test fails on its own assertion on a tree without the item.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-126.
 
 from __future__ import annotations
 
@@ -152,6 +150,7 @@ def test_g30_a_comment_on_a_group_line_is_not_part_of_the_name(tmp_path):
 # --- the plan writes the sidecar -----------------------------------------------------
 
 
+@pytest.mark.requirement("FR-126")
 def test_g30_the_plan_writes_an_objs_sidecar_from_its_groups(tmp_path, capsys):
     """THE EXIT OF G30: an OBJ with no sidecar gets one at plan, and then plans with it.
 

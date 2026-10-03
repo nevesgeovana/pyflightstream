@@ -1,8 +1,8 @@
 """A recorded skip is said on stderr by the CLI (PFS-2031.16, PFS-2031.19)."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-162.
 
 import json
+
+import pytest
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream.run.cli import _report_skips
@@ -25,6 +25,7 @@ def _cli_report(tmp_path, argv):
     return main(argv), out / "products.json"
 
 
+@pytest.mark.requirement("FR-162")
 def test_a_recorded_skip_is_counted_on_stderr_by_default(tmp_path, capsys):
     count, manifest = _cli_report(tmp_path, ["post", "m"])
     assert count == 1

@@ -21,110 +21,67 @@ second in the global frame, every row at x = 0.
 
 from __future__ import annotations
 
-import math
 import sys
-from collections.abc import Callable
-from pathlib import Path
 
-from pyflightstream._fsm import surface_mesh
-
-HERE = Path(__file__).resolve().parent
-FOLDER = HERE / "inputs" / "freestreams"
-WING = HERE / "inputs" / "geometries" / "12_WING_PHY.fsm"
+from tests.support_tier3 import (
+    FIELDS as FIELDS,
+)
+from tests.support_tier3 import (
+    FOLDER as FOLDER,
+)
+from tests.support_tier3 import HERE as HERE
+from tests.support_tier3 import (
+    MARGIN_M as MARGIN_M,
+)
+from tests.support_tier3 import (
+    MEANING as MEANING,
+)
+from tests.support_tier3 import (
+    SHEAR_PER_S as SHEAR_PER_S,
+)
+from tests.support_tier3 import (
+    SPEED_M_S as SPEED_M_S,
+)
+from tests.support_tier3 import (
+    STEP_Y_M as STEP_Y_M,
+)
+from tests.support_tier3 import (
+    STEP_Z_M as STEP_Z_M,
+)
+from tests.support_tier3 import (
+    WING as WING,
+)
+from tests.support_tier3 import (
+    axis as axis,
+)
+from tests.support_tier3 import (
+    expected as expected,
+)
+from tests.support_tier3 import (
+    extents as extents,
+)
+from tests.support_tier3 import (
+    field_text as field_text,
+)
+from tests.support_tier3 import (
+    grid as grid,
+)
+from tests.support_tier3 import (
+    provenance_text as provenance_text,
+)
+from tests.support_tier3 import (
+    stale as stale,
+)
 
 #: The rows' own speed, the ``TASmps`` of rows 5010 to 5014, m/s.
-SPEED_M_S = 30.0
 #: How far the grid reaches past the body on each side, m: half the wing's span,
 #: so the tip vortices and the wake's roll-up stay inside the field.
-MARGIN_M = 4.0
 #: The grid's spacing in y and in z, m. A linear field is reproduced exactly by
 #: any spacing; these keep the file small and its rows readable.
-STEP_Y_M = 2.0
-STEP_Z_M = 1.0
 #: The sheared field's gradient of vx in z, (m/s) per m.
-SHEAR_PER_S = 2.5
 
 #: Each field's vx at a height z, m/s, by the stem a row's FREESTREAM names.
-FIELDS: dict[str, Callable[[float], float]] = {
-    "fs_uniform": lambda z: SPEED_M_S,
-    "fs_shear": lambda z: SPEED_M_S + SHEAR_PER_S * z,
-}
 #: What each field is, for its provenance record.
-MEANING = {
-    "fs_uniform": "vx = 30 m/s everywhere (the rows' TASmps), vy = vz = 0",
-    "fs_shear": "vx = 30 + 2.5 z m/s (sheared in z about the rows' TASmps), vy = vz = 0",
-}
-
-
-def extents(path: Path = WING) -> tuple[float, float, float, float]:
-    """The body's (y min, y max, z min, z max), m, from its saved mesh block."""
-    vertices, _ = surface_mesh(path)
-    ys = [vertex[1] for vertex in vertices]
-    zs = [vertex[2] for vertex in vertices]
-    return min(ys), max(ys), min(zs), max(zs)
-
-
-def axis(low: float, high: float, step: float) -> list[float]:
-    """The stations from ``low - MARGIN_M`` to ``high + MARGIN_M``, outward to a whole step."""
-    start = math.floor((low - MARGIN_M) / step) * step
-    stop = math.ceil((high + MARGIN_M) / step) * step
-    return [start + index * step for index in range(round((stop - start) / step) + 1)]
-
-
-def grid() -> tuple[list[float], list[float]]:
-    """The field's y and z stations, covering the wing's YZ extent with the margin."""
-    ymin, ymax, zmin, zmax = extents()
-    return axis(ymin, ymax, STEP_Y_M), axis(zmin, zmax, STEP_Z_M)
-
-
-def field_text(name: str) -> str:
-    """The STRUCTURED file of one field: ``Npts Mpts``, then y outer and z inner."""
-    ys, zs = grid()
-    speed = FIELDS[name]
-    rows = [f"{len(ys)} {len(zs)}"]
-    rows += [f"0.0 {y:.1f} {z:.1f} {speed(z):.2f} 0.00 0.00" for y in ys for z in zs]
-    return "\n".join(rows) + "\n"
-
-
-def provenance_text(name: str) -> str:
-    """The provenance record beside one field."""
-    ymin, ymax, zmin, zmax = extents()
-    ys, zs = grid()
-    return (
-        f"# Provenance of the tier-3 custom free stream {name}.txt, read by the rows of\n"
-        f"# matriz_gui.fs stating FREESTREAM: {name} through SET_FREESTREAM CUSTOM STRUCTURED.\n"
-        "# Written by tests/tier3_licensed/freestreams.py from the mesh block of\n"
-        "# 12_WING_PHY.fsm, in the STRUCTURED form of the 26.124 manual. The package reads\n"
-        "# the file against that form at plan and converts nothing: metres and metres per\n"
-        "# second, in the global frame.\n"
-        'form = "STRUCTURED: Npts Mpts, then Npts x Mpts rows x y z vx vy vz, y outer, z inner"\n'
-        f'field = "{MEANING[name]}"\n'
-        f"body_y_m = [{ymin!r}, {ymax!r}]\n"
-        f"body_z_m = [{zmin!r}, {zmax!r}]\n"
-        f"margin_m = {MARGIN_M!r}\n"
-        f"grid_y_m = [{ys[0]!r}, {ys[-1]!r}]\n"
-        f"grid_z_m = [{zs[0]!r}, {zs[-1]!r}]\n"
-        f"points = [{len(ys)}, {len(zs)}]\n"
-        "x_m = 0.0\n"
-    )
-
-
-def expected() -> dict[Path, str]:
-    """Every file this module writes, by its path, with its text."""
-    files: dict[Path, str] = {}
-    for name in FIELDS:
-        files[FOLDER / f"{name}.txt"] = field_text(name)
-        files[FOLDER / f"{name}.provenance.toml"] = provenance_text(name)
-    return files
-
-
-def stale() -> list[str]:
-    """The files on disk that differ from what this module writes, by name."""
-    return [
-        path.name
-        for path, text in expected().items()
-        if not path.is_file() or path.read_text(encoding="utf-8").replace("\r\n", "\n") != text
-    ]
 
 
 def main(argv: list[str] | None = None) -> int:

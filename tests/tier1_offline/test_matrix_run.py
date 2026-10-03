@@ -29,7 +29,6 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
@@ -58,6 +57,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.flight_condition import FlightConditionError
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
+from tests.support_helpers import saved_mesh_fixture as _saved_simulation_with
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
@@ -937,6 +937,7 @@ def _steady_sweep_matrix(tmp_path, cell=""):
     return workspace, path
 
 
+@pytest.mark.requirement("FR-95")
 def test_goal019_warm_a_steady_row_is_one_job_for_all_its_points(tmp_path):
     """Her convention of 2026-09-12, and the shape the predecessor already had.
 
@@ -3980,15 +3981,6 @@ def test_mesh_order_list_is_refused_naming_the_inventory_command():
     message = str(caught.value)
     assert "mesh_order_list" in message and "pyfs-matrix inventory" in message
     assert ".boundaries.toml" in message
-
-
-def _saved_simulation_with(path, names):
-    body = [MESH_MARKER, "9999", "99", str(len(names))]
-    for offset, name in enumerate(names):
-        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
-    body += ["$MESH_END$"]
-    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
-    return path
 
 
 def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):

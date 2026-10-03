@@ -305,6 +305,7 @@ def test_g45_the_translated_nodes_are_the_reference_frames(tmp_path):
     assert np.abs(raw - points).max() > 9.0
 
 
+@pytest.mark.requirement("FR-113")
 def test_g45_every_cell_value_is_written_cell_centred_as_the_vtk_holds_it(tmp_path):
     from pyflightstream.results import read_vtk_surface
 

@@ -6,8 +6,6 @@ route (FSI-G, ``test_fsig_fixed_wing.py``). The rotor wiring that calls
 these pieces is exercised in ``test_aeroelastic_typed_setup.py`` with the
 guard opened for that module.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-168, FR-169, FR-171.
 
 import pytest
 
@@ -37,6 +35,7 @@ def test_unsteady_rotor_with_fsi_is_refused_as_in_debug(tmp_path):
     assert "fsi_callback.py" not in script.pending_input_files
 
 
+@pytest.mark.requirement("FR-169")
 @pytest.mark.parametrize("make", [steady_case, unsteady_case], ids=["steady", "unsteady"])
 def test_fixed_wing_workflows_refuse_a_rotor_blade_configuration(tmp_path, make):
     # THE EXPECTATION CHANGED BECAUSE THE OWNER CHANGED THE REQUIREMENT
@@ -53,6 +52,7 @@ def test_fixed_wing_workflows_refuse_a_rotor_blade_configuration(tmp_path, make)
     assert ws.fsi_workflow_refusal(make().variables["matrix_workflow"]) is None
 
 
+@pytest.mark.requirement("FR-168")
 def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_accepts_it():
     from pyflightstream.cases.workflows import WORKFLOWS
 
@@ -175,6 +175,7 @@ def test_the_frame_patch_refuses_a_line_that_is_not_the_node_block(saved, count,
 # FSI-1 item 4: the morphing kernel of a beam line.
 
 
+@pytest.mark.requirement("FR-171")
 def test_the_beam_line_kernel_is_emitted_where_the_row_states_none(tmp_path):
     # P0300-FSI1-BEAM-KERNEL
     case = coupled_case(tmp_path)

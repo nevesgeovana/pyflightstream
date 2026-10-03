@@ -9,7 +9,6 @@ SUBMITTED records of the named simulations. Every workspace is a real
 ``tmp_path`` tree built as a run leaves it.
 """
 # The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
-# FR-307.
 
 from __future__ import annotations
 
@@ -26,11 +25,13 @@ from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import collect as collect_module
 from pyflightstream.run.collect import collect_and_post, collect_once
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
-from tests.tier1_offline.test_post_superfile import _workspace
 
 #: The wing's body-axis normal force every loads export of the fixture states
 #: (the polar's CLB is built from it); a rerun is modelled by changing it in
 #: every export at once, which moves the group polar's CLB from 0.18716 to 0.28716.
+from tests.support_helpers import no_sleep as _no_sleep
+from tests.tier1_offline.test_post_superfile import _workspace
+
 _CL = "+0.1620516"
 _CL_AGAIN = "+0.2620516"
 _SECOND = datetime(2026, 9, 30, 12, 0, 0)
@@ -288,10 +289,6 @@ def test_mutant_ignoring_post_sims_turns_the_check_red_fr_307(tmp_path, monkeypa
 
 
 # --------------------------------------------------------------- collect --sims
-
-
-def _no_sleep(_seconds: float) -> None:
-    """The clock, injected."""
 
 
 def _submitted(tmp_path: Path) -> CampaignWorkspace:

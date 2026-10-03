@@ -78,6 +78,7 @@ def test_goal024_rpm_is_a_flight_condition_key_and_reaches_the_motion(tmp_path):
     assert "RPM" in row.condition_order
 
 
+@pytest.mark.requirement("FR-104")
 def test_goal024_rpm_sweeps_like_any_other_variable(tmp_path):
     """RPM:sweep is three points, three speeds and three names."""
     workspace, matrix = _matrix(

@@ -1228,9 +1228,9 @@
 
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_upgrading` checks the requirement and its failing controls.
 
-!!! requirement "NFR-38 Requirement ids belong in the test functions that prove them <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-38 Requirement ids belong in the test functions that prove them <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Evidence: `tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions` and its planted controls.*
 
     Need: A module-level claim must not stand for evidence that no test function identifies.
 
@@ -1239,20 +1239,20 @@
     - R1 The guard uses an AST scan of tier-1 test modules to identify test functions and reads each function's own source, including its docstring.
     - R2 A module-only id fails; the same id in a test function's own source satisfies this placement rule. Placement alone does not prove the requirement's behaviour.
 
-    Verification: tier 1, a guard carrying P0360-FR-IN-FUNCTIONS and NFR-38, with planted module-comment-only and module-docstring-only controls that fail, and a function-local control that passes. Release 0.36.0.
+    Verification: `tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions`, `::test_module_only_control_is_refused` and `::test_function_local_control_satisfies_placement`; explicit contextual leftovers in `LEFTOVERS`, each with its reason. Tier 1, a guard carrying P0360-FR-IN-FUNCTIONS and NFR-38, with planted module-comment-only and module-docstring-only controls that fail, and a function-local control that passes. Release 0.36.0.
 
-!!! requirement "NFR-39 Shared test helpers have one support module <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-39 Shared test helpers have one support module <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Evidence: `tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition` and `::test_shared_helpers_are_imported_by_their_consumers`.*
 
     Need: The shared helpers named by review rows A1 and A2 must not drift between test modules.
 
-    Requirement: The helpers named by the 0.33 review rows A1 and A2 shall live in one module under `tests/tier1_offline/support/` and shall not be redefined elsewhere.
+    Requirement: The helpers named by the 0.33 review rows A1 and A2 shall live in `tests/support_helpers.py` and shall not be redefined elsewhere.
 
     - R1 Every test needing those helpers imports them from that one support module.
     - R2 A second definition of any of those helpers outside that module is refused.
 
-    Verification: tier 1, tests carrying P0360-RV-A1 and P0360-RV-A2 with NFR-39 check the single home and its consumers; a planted duplicate helper is a failing control. Release 0.36.0.
+    Verification: `tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition` and `::test_shared_helpers_are_imported_by_their_consumers`. Tier 1, tests carrying P0360-RV-A1 and P0360-RV-A2 with NFR-39 check the single home and its consumers; a planted duplicate helper is a failing control. Release 0.36.0.
 
 !!! requirement "NFR-40 No behaviour change for structure <span class='srs-pending'>pending</span>"
 
@@ -1269,9 +1269,9 @@
 
     Verification: tier 1, tests carrying P0360-NOBEHAVIOUR and NFR-40 check the parity contract and products snapshot, with a planted difference as a failing control. P0360-RV35-O7-QA-1 with NFR-40 checks the parity rule's file pattern with an unrelated changed file as its failing control. `scripts/check_parity.py`, the products snapshot and the licensed RPT of R3 and R4 together verify the release. Release 0.36.0.
 
-!!! requirement "NFR-41 Tier-1 tests never import the licensed tier <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-41 Tier-1 tests never import the licensed tier <span class='srs-implemented'>implemented</span>"
 
-    *Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*
+    *Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Evidence: `tests/tier1_offline/test_p0360_rv35.py::test_tier1_never_imports_the_licensed_tier`.*
 
     Need: Offline verification must not depend on a licensed test tier.
 
@@ -1280,4 +1280,4 @@
     - R1 The rule covers module-level and deferred imports throughout `tests/tier1_offline`, including imports used only for annotations.
     - R2 Shared test support is imported without a licensed-tier dependency.
 
-    Verification: tier 1, a guard carrying P0360-RV35-C2-ARCH-1 and NFR-41 scans imports and fails on a planted import of a licensed-tier module. Release 0.36.0.
+    Verification: `tests/tier1_offline/test_p0360_rv35.py::test_tier1_never_imports_the_licensed_tier`, including the tier-neutral support modules. Tier 1, a guard carrying P0360-RV35-C2-ARCH-1 and NFR-41 scans imports and fails on a planted import of a licensed-tier module. Release 0.36.0.

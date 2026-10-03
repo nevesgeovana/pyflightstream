@@ -14,8 +14,6 @@ exports, on every point of a sweep. A row of an unsteady run type stating any of
 them is refused: set after the solve starts, a march's per-step exports would not
 see them. A point whose loads table is not in coefficients writes no polar row.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-114.
 
 from __future__ import annotations
 
@@ -24,14 +22,16 @@ import json
 import pytest
 
 from pyflightstream.cases import CampaignConfigError, SolverSettings, case_at_point
-from pyflightstream.cases.workflows import build_script, build_steady_sweep
+from pyflightstream.cases.workflows import build_steady_sweep
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import InputArtifactError
-from tests.tier1_offline.test_rel0250_f04_advanced_setup import setup_case
-from tests.tier1_offline.test_workflows import _wb_geometry, rotor_case, steady_case, unsteady_case
 
 #: (key, TOML value, the lines it emits). W is boundary 1 of the wing-body file and
 #: P is not in it: a family the geometry lacks is left out, as for the other lists.
+from tests.support_helpers import script_lines as _render
+from tests.tier1_offline.test_rel0250_f04_advanced_setup import setup_case
+from tests.tier1_offline.test_workflows import _wb_geometry, rotor_case, steady_case, unsteady_case
+
 KEYS = [
     ("load_units", '"NEWTONS"', ["SET_LOADS_AND_MOMENTS_UNITS NEWTONS"]),
     ("inviscid_loads", "true", ["SET_INVISCID_LOADS ENABLE"]),
@@ -40,16 +40,11 @@ KEYS = [
 COMMANDS = ("SET_LOADS_AND_MOMENTS_UNITS", "SET_SOLVER_ANALYSIS_BOUNDARIES", "SET_INVISCID_LOADS")
 
 
-def _render(case, build="26.124") -> list[str]:
-    script = Script(build)
-    build_script(case, script)
-    return script.render().splitlines()
-
-
 def _with_geometry(case, tmp_path):
     return case.model_copy(update={"geometry": str(_wb_geometry(tmp_path))})
 
 
+@pytest.mark.requirement("FR-114")
 @pytest.mark.parametrize(("key", "value", "emitted"), KEYS, ids=[key for key, _, _ in KEYS])
 def test_g09_each_setup_key_emits_its_command_after_the_solve(tmp_path, key, value, emitted):
     """Once, after START_SOLVER and before the first export, on 26.124."""

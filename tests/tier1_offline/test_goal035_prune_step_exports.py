@@ -13,8 +13,6 @@ call), in the series, the time-averaged surface and the section
 distributions, never a silent gap. A step that was never exported keeps the
 rule it had. Every workspace here is a real ``tmp_path`` tree.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-174.
 
 from __future__ import annotations
 
@@ -73,6 +71,7 @@ def test_the_preview_deletes_nothing_and_records_the_steps_it_would_delete(tmp_p
     assert read_storage_calls(workspace.root)[-1]["applied"] is False
 
 
+@pytest.mark.requirement("FR-174")
 def test_apply_keeps_the_last_step_of_each_export_and_records_the_steps_per_point(tmp_path):
     # P0300-S7-LAST-STEP
     workspace = _submitted_workspace(tmp_path)

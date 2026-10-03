@@ -40,8 +40,6 @@ the rows alone. So:
 Nothing here runs a solver; what T14 measured on the seat is read by
 ``tests/tier3_licensed/test_freestream.py``.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-125.
 
 from __future__ import annotations
 
@@ -60,12 +58,13 @@ from pyflightstream.cases import (
     case_at_point,
 )
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.cases.workflows import build_script, build_steady_sweep, workflow_registry
+from pyflightstream.cases.workflows import build_steady_sweep, workflow_registry
 from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, RunRecord, RunStatus
 from pyflightstream.workspace.matrix import resolve_matrix
+from tests.support_helpers import script_lines as lines_of
 from tests.tier1_offline.test_additional_post import (
     a_campaign,
     a_stub,
@@ -136,12 +135,6 @@ def with_field(case: SimCase, path: Path, *, stated: str | None = "stem") -> Sim
     return case.model_copy(update={"variables": variables, "freestream_profile": str(path)})
 
 
-def lines_of(case: SimCase, build: str = "26.124") -> list[str]:
-    script = Script(build)
-    build_script(case, script)
-    return script.render().splitlines()
-
-
 def free_stream_lines(lines: list[str]) -> list[str]:
     """Every SET_FREESTREAM line, with the path a CUSTOM one names on the next line."""
     found = []
@@ -156,6 +149,7 @@ def free_stream_lines(lines: list[str]) -> list[str]:
 # ------------------------------------------------------------- the emission --
 
 
+@pytest.mark.requirement("FR-125")
 @pytest.mark.parametrize(
     "make",
     [steady_case, unsteady_case, rotor_case],
@@ -801,7 +795,7 @@ def _read_field(path: Path) -> list[list[float]]:
 
 
 def test_g15_the_tier3_fields_are_what_their_generator_writes():
-    from tests.tier3_licensed import freestreams
+    from tests import support_tier3 as freestreams
 
     assert freestreams.stale() == [], (
         "regenerate with python -m tests.tier3_licensed.freestreams --write"
@@ -810,7 +804,7 @@ def test_g15_the_tier3_fields_are_what_their_generator_writes():
 
 def test_g15_the_tier3_fields_cover_the_wing_with_their_margin_at_the_rows_own_speed():
     from pyflightstream.cases.matrix import read_matrix
-    from tests.tier3_licensed import freestreams
+    from tests import support_tier3 as freestreams
 
     ymin, ymax, zmin, zmax = freestreams.extents()
     assert (ymin, ymax) == (-4.0, 4.0) and 0.0 < zmax < 0.1, "not the AR8 wing"
@@ -833,7 +827,7 @@ def test_g15_each_tier3_custom_row_differs_from_its_control_in_one_thing():
     """5012 and 5014 against their CONSTANT control 5013, in the free-stream lines
     alone, all three at zero incidence and sideslip, which is where a field runs."""
     from pyflightstream.cases.matrix import read_matrix
-    from tests.tier3_licensed import offline
+    from tests import support_tier3 as offline
 
     rows = {row.pol: row for row in read_matrix(GUI)}
     rendered = {

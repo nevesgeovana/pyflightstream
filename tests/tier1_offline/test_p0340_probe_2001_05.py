@@ -59,6 +59,7 @@ def test_the_section_export_probe_reads_the_folder_because_the_manual_names_no_f
     assert entry.prelude is not None, "the working folder is listed when the script is built"
 
 
+@pytest.mark.requirement("FR-333")
 def test_each_status_equals_the_verdict_the_runs_report_records_fr_334():
     """FR-334 R2, marker P0340-PROBE-2001-05: the database follows the report of the run.
 

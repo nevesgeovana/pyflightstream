@@ -742,6 +742,8 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
     }
 
 
+@pytest.mark.requirement("FR-348")
+@pytest.mark.requirement("NFR-32")
 @pytest.mark.parametrize("name", sorted(CAMPAIGNS))
 def test_the_products_of_a_recorded_campaign_are_byte_for_byte_the_stored_ones(name, monkeypatch):
     """P0330-PRODUCTS-SNAPSHOT. Every file under ``post/`` of the campaign, its

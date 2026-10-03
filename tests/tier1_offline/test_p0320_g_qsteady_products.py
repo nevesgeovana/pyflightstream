@@ -51,6 +51,7 @@ def _disc(out: Path, point: str, quantity: str) -> tuple[list[str], list[dict[st
 # ------------------------------------------------------------------ G5 --
 
 
+@pytest.mark.requirement("FR-270")
 @pytest.mark.parametrize("rpm", [1200.0, -1200.0])
 def test_a_wheel_s_disc_map_gives_back_the_load_at_every_radius_and_azimuth(
     tmp_path, monkeypatch, rpm
@@ -88,6 +89,7 @@ def test_a_wheel_s_disc_map_gives_back_the_load_at_every_radius_and_azimuth(
         assert entry["runs"] == ["camp/sim_7001/DP"]
 
 
+@pytest.mark.requirement("FR-271")
 def test_an_unsteady_rotor_s_disc_map_holds_its_last_revolution_only(tmp_path, monkeypatch):
     """Three blades over steps 7 to 12: 18 blade samples x 3 stations = 54 rows per quantity.
 
@@ -139,6 +141,7 @@ def test_the_disc_map_writer_maps_a_written_table_by_its_rotor(tmp_path, monkeyp
     assert len(rows) == 3 * 2 * len(RADII)
 
 
+@pytest.mark.requirement("FR-272")
 def test_a_table_with_no_blade_of_the_rotor_refuses_to_map_and_names_why(tmp_path, monkeypatch):
     """A rotor whose blades are named nowhere in the table has nothing to map: refused, by name."""
     # P0320-G5-DISC-MAP
@@ -228,6 +231,7 @@ def test_the_saved_simulation_tells_each_face_to_its_boundary(tmp_path):
     assert boundary_vertices(_fsm_of_blades(tmp_path / "no_row.fsm", owners=False)) is None
 
 
+@pytest.mark.requirement("FR-273")
 def test_the_plan_reads_the_chord_of_the_fsm_as_it_reads_the_obj(tmp_path):
     """The same wheel as an OBJ and as a saved simulation: the same chord at every station.
 
@@ -255,6 +259,7 @@ def test_the_plan_reads_the_chord_of_the_fsm_as_it_reads_the_obj(tmp_path):
     assert seen_fsm["k_max"] > arithmetic.REDUCED_FREQUENCY_LIMIT > seen_fsm["k_min"]
 
 
+@pytest.mark.requirement("FR-274")
 def test_the_plan_warns_before_the_run_when_the_fsm_chord_passes_the_limit(tmp_path):
     """k passes 0.1 over the inner span of this wheel: warned, never refused."""
     # P0320-G7-CHORD-PLAN

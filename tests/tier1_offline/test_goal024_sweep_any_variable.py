@@ -94,6 +94,7 @@ def test_goal024_sweep_any_variable_an_altitude_sweep_plans_and_names_its_points
     assert _names(workspace, matrix) == ["M200ALT00000AL+000", "M200ALT10000AL+000"]
 
 
+@pytest.mark.requirement("FR-104")
 def test_goal024_sweep_any_variable_each_point_carries_its_own_resolved_state(tmp_path):
     """The half that matters: the points differ in the FLOW, not only in the name.
 

@@ -265,6 +265,7 @@ def test_p0351_tavg_fr402_time_averaging_polars_are_grouped(tmp_path, mode):
     assert sum(len(job.points) for job in plan.grouping.jobs) == 4
 
 
+@pytest.mark.requirement("FR-355")
 @pytest.mark.parametrize("mode", ["batch", "polar_sweep"])
 def test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window(tmp_path, mode):
     """P0351-BATCH-TAVG (FR-402): the schedule re-points each point's per-step exports.

@@ -17,6 +17,8 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.post.superfile import union_the_workspace_knows
 from tests.tier1_offline.test_post_superfile import _post, _workspace
 
@@ -75,6 +77,7 @@ def test_an_alias_with_a_slash_names_one_file_in_the_polars_folder(tmp_path):
     assert not (manifest.parent / "polars" / "P6002-Left").exists(), "the alias made a folder"
 
 
+@pytest.mark.requirement("FR-89")
 def test_the_union_reads_a_rotor_tables_header_and_not_its_alias_line(tmp_path):
     workspace, written = _posted(tmp_path, "PUSHER")
     rotor = next(path for path in written if path.name.endswith("_rotor.csv"))

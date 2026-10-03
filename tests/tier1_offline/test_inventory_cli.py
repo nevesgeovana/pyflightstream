@@ -4,17 +4,8 @@ from __future__ import annotations
 
 import tomllib
 
-from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.run.cli import main
-
-
-def _saved_simulation(path, names):
-    body = [MESH_MARKER, "9999", "99", str(len(names))]
-    for offset, name in enumerate(names):
-        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
-    body += ["$MESH_END$"]
-    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
-    return path
+from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 
 
 def test_inventory_writes_the_sidecar_beside_the_geometry(tmp_path, capsys):

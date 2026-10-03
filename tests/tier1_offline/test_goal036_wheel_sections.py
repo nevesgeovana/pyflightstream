@@ -19,8 +19,6 @@ the blade's span.
 Every expected value is worked by hand from the fixture and the definitions,
 never read off the implementation.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-183.
 
 from __future__ import annotations
 
@@ -161,6 +159,7 @@ def _commands(lines: list[str]) -> list[str]:
     return [line.split(" ", 1)[0] for line in lines if re.fullmatch(r"[A-Z][A-Z_0-9]+( .*)?", line)]
 
 
+@pytest.mark.requirement("FR-183")
 def test_each_clocking_deletes_turns_creates_updates_and_exports_in_that_order(tmp_path):
     """Clockings 1, 2 and then 0: delete, rotate, initialise, create, solve, update, export.
 

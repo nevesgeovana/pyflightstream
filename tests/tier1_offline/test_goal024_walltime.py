@@ -83,6 +83,7 @@ def _profile(tmp_path, arithmetic=None, text=PROFILE):
     return read_hpc_profile(path)
 
 
+@pytest.mark.requirement("FR-106")
 def test_goal024_walltime_a_unit_is_read_and_the_units_are_the_four(tmp_path):
     """240m and 4h are the same four hours, and the seconds are what the clock counts."""
     assert row_walltime_s(_case("240m")) == 4 * 3600.0

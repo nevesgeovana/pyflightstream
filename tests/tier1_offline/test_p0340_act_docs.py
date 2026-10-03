@@ -19,8 +19,6 @@ controls, and warn of nothing.
 What it does NOT check: the measurements themselves. Those are RPT-137's, of
 one case on one build.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-332.
 
 from __future__ import annotations
 

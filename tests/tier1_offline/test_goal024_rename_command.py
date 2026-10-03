@@ -203,6 +203,7 @@ def _reopened(workspace: CampaignWorkspace) -> CampaignWorkspace:
     return CampaignWorkspace(workspace.root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME))
 
 
+@pytest.mark.requirement("FR-103")
 def test_goal024_rename_command_moves_the_folders_the_files_and_the_records(tmp_path):
     """The whole move, measured on a workspace that really ran under the old names."""
     workspace, _, records = _ran(tmp_path)

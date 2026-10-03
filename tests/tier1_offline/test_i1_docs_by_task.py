@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 import markdown
+import pytest
 import yaml
 from markdown.extensions.toc import slugify
 
@@ -51,6 +52,7 @@ def _group(name: str) -> list[str]:
     raise AssertionError(f"no {name!r} group in the nav")
 
 
+@pytest.mark.requirement("NFR-29")
 def test_the_nav_has_exactly_the_five_groups_in_order():
     names = [next(iter(item)) for item in _nav()]
     assert names == GROUPS, names

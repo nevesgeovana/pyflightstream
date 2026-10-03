@@ -36,6 +36,8 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 CHEATSHEET_DIR = REPO / "guide" / "latex-sources" / "04-cheatsheet"
 CHEATSHEET = CHEATSHEET_DIR / "text" / "01-matrix-and-tools.tex"
@@ -400,6 +402,7 @@ def test_a_flag_named_only_in_another_entry_or_cut_from_the_page_is_named():
     ]
 
 
+@pytest.mark.requirement("NFR-29")
 def test_the_cheatsheet_names_every_subcommand_and_option_of_every_tool():
     """Every console script and python -m entry, each subcommand in its own entry.
 

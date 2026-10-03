@@ -56,6 +56,7 @@ def _polar(workspace, sim: str, group: str) -> dict[str, dict[str, str]]:
     return {row["ALPHA"]: row for row in rows}
 
 
+@pytest.mark.requirement("FR-22a")
 def test_a_listed_surface_printed_at_zero_is_na_in_the_polar_and_named_in_a_warning(
     tmp_path, monkeypatch
 ):

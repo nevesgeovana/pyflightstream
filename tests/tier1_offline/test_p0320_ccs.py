@@ -13,8 +13,6 @@ direction of every ``Relaxed_TE`` shedding line with ``CCS_SHEDDING`` (G35).
 The fixtures are synthetic shapes written from public shape laws: a symmetric
 airfoil, a circular pod and an ellipse, never a research geometry.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-240, FR-241, FR-242, FR-243, FR-244, FR-295, FR-296, FR-297, FR-298.
 
 from __future__ import annotations
 
@@ -159,6 +157,7 @@ def _curve_route(lines: list[str], geometry: str, component: int) -> int:
 # --- CCS-1: the wing, the fuselage and the body of revolution ---------------------------
 
 
+@pytest.mark.requirement("FR-240")
 def test_p0320_ccs1_wing_is_lofted_from_the_rows_ccs_file_by_the_curve_route(tmp_path):
     """P0320-CCS1-WING: the row's GEOMETRY and its sidecar make the wing, nothing else opens."""
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n', ["WING"])
@@ -188,6 +187,7 @@ def test_p0320_ccs1_wing_states_its_loft_and_its_subdivisions_before_the_loft(tm
     assert selected < chord < span < loft
 
 
+@pytest.mark.requirement("FR-241")
 def test_p0320_ccs1_fuselage_is_lofted_from_its_component(tmp_path):
     """P0320-CCS1-FUSELAGE: the second component, radial and axial lofts C2 by default."""
     case = _row_case(tmp_path, "fus", 'kind = "fuselage"\ncomponent = 2\n', ["FUS"])
@@ -198,6 +198,7 @@ def test_p0320_ccs1_fuselage_is_lofted_from_its_component(tmp_path):
     assert script.entities.labels("boundaries") == {"FUS": 1}
 
 
+@pytest.mark.requirement("FR-242")
 def test_p0320_ccs1_revolution_is_revolved_about_the_reference_axis_it_names(tmp_path):
     """P0320-CCS1-REVOLUTION: the third component, revolved in the reference frame."""
     ccs = 'kind = "revolution"\ncomponent = 3\naxis = "X"\nend_angle_deg = 180.0\n'
@@ -209,6 +210,7 @@ def test_p0320_ccs1_revolution_is_revolved_about_the_reference_axis_it_names(tmp
     assert script.entities.labels("boundaries") == {"REV": 1}
 
 
+@pytest.mark.requirement("FR-242")
 def test_p0320_ccs1_revolution_default_is_a_full_turn(tmp_path):
     """P0320-CCS1-REVOLUTION: with no angles stated the body is 0 to 360 degrees about X."""
     case = _row_case(tmp_path, "rev", 'kind = "revolution"\ncomponent = 3\n', ["REV"])
@@ -216,6 +218,7 @@ def test_p0320_ccs1_revolution_default_is_a_full_turn(tmp_path):
     _index(lines, "CAD_CREATE_REVOLVE_MESH_FROM_CCS REV 1 X 0.0 360.0 TRUE C2 C2")
 
 
+@pytest.mark.requirement("FR-241")
 def test_p0320_ccs1_the_three_emitters_are_the_route_each_kind_takes(tmp_path):
     """P0320-CCS1-WING, -FUSELAGE, -REVOLUTION: each public emitter refuses another kind."""
     from pyflightstream.cases.ccs_fuselage import emit_ccs_fuselage
@@ -251,6 +254,7 @@ def test_p0320_ccs1_a_loft_that_cannot_be_made_is_refused_before_any_seat(
         assert needle in str(refusal.value)
 
 
+@pytest.mark.requirement("FR-241")
 def test_p0320_ccs1_a_loft_refuses_the_file_unit(tmp_path):
     """P0320-CCS1-FUSELAGE: the curve route states a unit; FILE belongs to the file route."""
     case = _row_case(tmp_path, "fus", 'kind = "fuselage"\ncomponent = 2\n', ["FUS"], units="FILE")
@@ -270,6 +274,7 @@ def test_p0320_ccs1_a_loft_refuses_the_unit_that_names_no_length(tmp_path):
         _built(case)
 
 
+@pytest.mark.requirement("FR-242")
 @pytest.mark.parametrize(
     ("ccs", "key"),
     [
@@ -344,6 +349,7 @@ AILERON = (
 )
 
 
+@pytest.mark.requirement("FR-243")
 def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_the_loft(
     tmp_path,
 ):
@@ -364,6 +370,7 @@ def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_th
     assert selected < surface < loft
 
 
+@pytest.mark.requirement("FR-298")
 def test_p0320_ccs2_control_surface_in_real_space_names_its_axis(tmp_path):
     """P0320-CCS2-CONTROL-SURFACE: REAL spanwise limits along a reference axis."""
     real = AILERON.replace("v0 = 0.5\nv1 = 0.9\n", "v0 = 2.0\nv1 = 3.6\n") + (
@@ -409,6 +416,8 @@ def _real_case(tmp_path):
     return _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + real, ["WING"])
 
 
+@pytest.mark.requirement("FR-295")
+@pytest.mark.requirement("FR-296")
 def test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097(tmp_path):
     """P0320-CCS2-CONTROL-SURFACE: REAL limits ended FAILED_EXECUTION on 26.124 (POL 3205).
 
@@ -421,6 +430,7 @@ def test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097(tmp_path):
     assert "RPT-097" in text and "PARAMETRIC" in text and "AIL" in text
 
 
+@pytest.mark.requirement("FR-297")
 @pytest.mark.parametrize("build", ["26.120", "26.121", "26.123", "26.124"])
 def test_p0320_ccs2_the_real_form_is_refused_on_every_build_that_has_it(tmp_path, build):
     """P0320-CCS2-CONTROL-SURFACE: no build measured REAL working, so none accepts it."""
@@ -430,6 +440,7 @@ def test_p0320_ccs2_the_real_form_is_refused_on_every_build_that_has_it(tmp_path
     assert "RPT-097" in str(refusal.value)
 
 
+@pytest.mark.requirement("FR-298")
 def test_p0320_ccs2_the_parametric_form_is_still_planned(tmp_path):
     """P0320-CCS2-CONTROL-SURFACE: the form round 2 confirmed on 26.124 (POL 3204) plans."""
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + AILERON, ["WING"])
@@ -511,6 +522,7 @@ def _ccs_import_file(lines: list[str]) -> str:
     return lines[start + 4].removeprefix("FILE ")
 
 
+@pytest.mark.requirement("FR-244")
 def test_p0320_g35_the_file_route_imports_the_staged_file_whole(tmp_path):
     """P0320-G35-SHEDDING: with no direction asked, CCS_IMPORT reads the file itself."""
     case = _file_case(tmp_path)

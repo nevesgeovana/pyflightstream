@@ -5,8 +5,6 @@ pool on its second row and "geoversegoddess sees you" on its second-to-last,
 on stderr, once per invocation. A successful post is always the koala; help
 and version keep one short line, so their output stays compact.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-178.
 
 import importlib
 import io
@@ -68,6 +66,7 @@ def test_help_has_one_signature_and_keeps_help_stdout(name, capsys):
     assert "help" in streams.err.lower()
 
 
+@pytest.mark.requirement("FR-178")
 def test_every_outcome_signs_once_on_stderr_with_the_fixed_phrase(capsys):
     """GOAL033:logging:checks:literal_signature_geoversegoddes.
 

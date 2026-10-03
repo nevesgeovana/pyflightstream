@@ -7,8 +7,6 @@ the one home of a blade's azimuth,
 ``datum + sign(rpm) * theta_i``. For a left-hand wheel the two disagreed. The
 clockings table now reads the same home, so both agree for either hand.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-182.
 
 from __future__ import annotations
 
@@ -56,6 +54,7 @@ def test_the_clockings_table_turns_blade_one_the_way_the_sections_do(tmp_path, r
     assert [clocking.azimuth_deg for clocking in clockings] == pytest.approx(sections)
 
 
+@pytest.mark.requirement("FR-182")
 def test_the_written_clockings_table_of_a_left_hand_wheel_states_the_signed_azimuth(tmp_path):
     """The AZIMUTH column of _qs_positions.csv, left hand: 0, 320 and 280 deg."""
     # P0310-QS-POSITIONS-AZIMUTH

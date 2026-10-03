@@ -36,156 +36,40 @@ which is a different artifact under a similar name.
 from __future__ import annotations
 
 import sys
-import tempfile
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[1]
-GOLDENS = HERE / "goldens"
-PLACEHOLDER = "<tier3>"
+from tests.support_tier3 import (
+    GOLDENS as GOLDENS,
+)
+from tests.support_tier3 import HERE as HERE
+from tests.support_tier3 import (
+    INTERPRETER as INTERPRETER,
+)
+from tests.support_tier3 import (
+    PLACEHOLDER as PLACEHOLDER,
+)
+from tests.support_tier3 import (
+    REPO as REPO,
+)
+from tests.support_tier3 import (
+    compare as compare,
+)
+from tests.support_tier3 import (
+    golden_of as golden_of,
+)
+from tests.support_tier3 import (
+    matrices as matrices,
+)
+from tests.support_tier3 import (
+    portable as portable,
+)
+from tests.support_tier3 import (
+    render as render,
+)
+
 #: The interpreter a row stating an export threshold names on its
 #: COMMAND_LINE registration line (PFS-2031.18): the one building the
 #: script, so the golden replaces it as it replaces this folder.
-INTERPRETER = "<python>"
-
-
-def matrices() -> list[Path]:
-    return sorted(HERE.glob("*.fs"))
-
-
-def portable(text: str) -> str:
-    """The rendered script with this folder's absolute path replaced, separators too.
-
-    A path the builders render under the placeholder is spelled with the
-    machine's own separator, so a golden written on Windows read
-    ``<tier3>\\inputs`` where Linux renders ``<tier3>/inputs``; CI measured
-    every tier-3 golden as differing on 2026-09-08. The placeholder's paths
-    are therefore written with forward slashes on every machine. The
-    interpreter of the machine that rendered is replaced the same way.
-
-    FROM THE PLACEHOLDER TO THE END OF ITS LINE, wherever it stands. Until
-    0.27.0 every such path began its line; a raw mesh's import writes
-    ``FILE <path>`` on one line (G01), so the separators of the path after
-    the keyword are rewritten too, and the text before the placeholder is
-    left as the builder wrote it.
-
-    THE WINDOWLESS SIBLING IS THE SAME INTERPRETER. Since 0.29 a Windows
-    action line names ``pythonw.exe`` beside the building interpreter so no
-    console opens per callback (``workflows._action_interpreter``), where
-    every other platform names the building interpreter itself; both are
-    replaced, so one golden holds on either. Which one Windows picks is
-    pinned by ``tests/tier1_offline/test_hidden_action_python.py``.
-    """
-    for spelling in (HERE.as_posix(), str(HERE), str(HERE).replace("\\", "\\\\")):
-        text = text.replace(spelling, PLACEHOLDER)
-    text = text.replace(str(Path(sys.executable).with_name("pythonw.exe")), INTERPRETER)
-    text = text.replace(sys.executable, INTERPRETER)
-    lines = []
-    for line in text.replace("\r\n", "\n").split("\n"):
-        at = line.find(PLACEHOLDER)
-        lines.append(line if at < 0 else line[:at] + line[at:].replace("\\", "/"))
-    return "\n".join(lines)
-
-
-def render(matrix: Path) -> tuple[int, dict[str, str]]:
-    """Plan one matrix against this workspace; return (points, {point: script})."""
-    for entry in (str(REPO / "src"), str(REPO)):
-        if entry not in sys.path:
-            sys.path.insert(0, entry)
-    import pyflightstream.run._plan as plan_module
-    from pyflightstream.cases import workflows
-    from pyflightstream.run.matrix import plan_matrix
-    from pyflightstream.script import Script
-    from pyflightstream.workspace import CampaignWorkspace
-    from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
-    from tests.tier3_licensed.prepare import ensure_mesh_inputs
-
-    # The raw meshes of the mesh matrix are generated and never committed:
-    # where no OBJ is on disk, its stand-in is written from the saved
-    # simulation's own mesh block, so a clone plans the matrix it cannot run.
-    ensure_mesh_inputs()
-
-    rendered: dict[str, str] = {}
-    original = plan_module._plan_point
-
-    def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version, **options):
-        plan = original(
-            campaign,
-            case,
-            point,
-            ws,
-            recipe,
-            case_error,
-            recorded,
-            fs_version=fs_version,
-            **options,
-        )
-        if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
-            stem, outputs = plan_module._point_names(campaign, case, point, ws)
-            point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
-            script = Script(version=fs_version)
-            recipe(point_case, script)
-            rendered[stem] = portable(script.render())
-        return plan
-
-    # THE ACTIVITY LOG GOES TO A THROWAWAY FOLDER (GEO-060 M5). The planner's
-    # stages log under ``<root>/logs`` unless an activity folder is already
-    # active, and the root here is this committed folder, so every offline
-    # render appended ``logs/activity.log(.jsonl)`` into the source tree. A
-    # render is a plan and never a campaign, so nothing reads that log.
-    from pyflightstream._progress import _ACTIVE
-
-    plan_module._plan_point = hooked
-    with tempfile.TemporaryDirectory(prefix="pyfs-offline-activity-") as activity:
-        token = _ACTIVE.set(Path(activity))
-        try:
-            plan = plan_matrix(
-                matrix,
-                CampaignWorkspace(HERE, naming=NamingTemplate(point_name=MATRIX_POINT_NAME)),
-                name=matrix.stem,
-                recipes={},
-                recipe_registry=workflows.workflow_registry(),
-                write_plan=False,
-            )
-        finally:
-            _ACTIVE.reset(token)
-            plan_module._plan_point = original
-    blocked = [p for p in plan.points if p.status.name not in ("READY", "ALREADY_RECORDED")]
-    if blocked:
-        first = blocked[0]
-        raise RuntimeError(
-            f"{matrix.name}: {len(blocked)} point(s) blocked at pre-flight, for example "
-            f"{first.run_id}: {first.error}"
-        )
-    return len(plan.points), rendered
-
-
-def golden_of(matrix: Path, stem: str) -> Path:
-    return GOLDENS / matrix.stem / f"{stem}.txt"
-
-
-def compare(matrix: Path) -> tuple[int, list[str], list[str], list[str]]:
-    """Return (points, scripts without a golden, scripts differing, orphan goldens).
-
-    An orphan is a golden no rendered point produced, left behind when a row
-    is renumbered, deactivated or deleted; it is reported so the goldens
-    folder cannot quietly carry a script of a row that no longer exists.
-    """
-    count, rendered = render(matrix)
-    absent, differ = [], []
-    for stem, text in rendered.items():
-        golden = golden_of(matrix, stem)
-        if not golden.is_file():
-            absent.append(stem)
-        elif golden.read_text(encoding="utf-8").replace("\r\n", "\n") != text:
-            differ.append(stem)
-    folder = GOLDENS / matrix.stem
-    orphans = (
-        sorted(p.stem for p in folder.glob("*.txt") if p.stem not in rendered)
-        if folder.is_dir()
-        else []
-    )
-    return count, absent, differ, orphans
 
 
 def write_goldens(matrix: Path) -> int:

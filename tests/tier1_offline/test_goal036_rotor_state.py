@@ -7,8 +7,6 @@ convention) and ``CT_PROPELLER``, ``MU_ROTOR``, ``LAMBDA_C``, the momentum-theor
 the mean loads over the clockings. An inflow that does not converge is ``NA``
 and a WARNING line of ``post.log``.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-187.
 
 from __future__ import annotations
 
@@ -164,6 +162,7 @@ def _average_rows(folder: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+@pytest.mark.requirement("FR-187")
 def test_the_average_table_and_the_validity_file_carry_the_state_of_the_mean_loads(tmp_path):
     """The recorded wheel of two clockings: T is the mean of 0.0274326 and 0.0374326 of q S.
 

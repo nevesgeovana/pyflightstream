@@ -11,8 +11,6 @@ exactly those families renders the same script for that rotor.
 the alias over OTHER families, and an expanding frame names its emissions `<alias>`
 in the rotor's own turning axes. Neither is the rotor's global-frame history.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-132.
 
 from __future__ import annotations
 
@@ -86,6 +84,7 @@ def test_a_group_over_the_rotors_families_in_its_own_frame_does_not_count(tmp_pa
     assert plots["FX_ROTOR_PUSHER"]["FRAME"] != plots["FX_OWN_PUSHER"]["FRAME"]
 
 
+@pytest.mark.requirement("FR-132")
 def test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name(tmp_path):
     """G42 of 0.28.0: a pproc group named like the automatic ROTOR_<ALIAS> group, in the
     rotor's own frame, takes the names the rotor table reads; the build (which the plan

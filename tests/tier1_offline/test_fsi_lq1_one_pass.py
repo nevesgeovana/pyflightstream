@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.tier3_licensed.fsi_lq1 import one_pass
+from tests.support_tier3 import one_pass
 
 LOG = (
     "# pyflightstream FSI convergence log\n"

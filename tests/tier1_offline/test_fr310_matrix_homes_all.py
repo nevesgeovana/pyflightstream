@@ -118,6 +118,7 @@ def test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup():
     assert _unresolved(parser) == {("collect", "baseline")}, requirement
 
 
+@pytest.mark.requirement("FR-380")
 @pytest.mark.parametrize("layout", LAYOUTS)
 @pytest.mark.parametrize("command", sorted(MATRIX_ARGUMENTS))
 def test_fr310_each_command_resolves_its_matrix_over_both_homes(

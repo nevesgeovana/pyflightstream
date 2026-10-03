@@ -29,6 +29,8 @@ import json
 import warnings
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.post.products import write_campaign_products
@@ -205,6 +207,7 @@ def _rewrite_row(workspace: CampaignWorkspace, **fields: object) -> None:
     workspace.manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-110")
 def test_the_post_writes_each_point_s_volume_section_from_the_job(tmp_path):
     """Row 5007 end to end: every point of the job gets its ``_vsec`` file."""
     workspace, record, _ = _run(tmp_path, {0.0: BUILD, 2.0: BUILD})

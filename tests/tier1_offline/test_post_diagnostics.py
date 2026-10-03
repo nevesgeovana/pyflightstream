@@ -1,6 +1,4 @@
 """Post warnings stay in durable records even when terminal reporting is disabled."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-120, FR-162.
 
 import json
 import warnings
@@ -12,6 +10,7 @@ from pyflightstream.post import products
 from pyflightstream.workspace import CampaignWorkspace
 
 
+@pytest.mark.requirement("FR-120")
 @pytest.mark.parametrize("obligation", ["stable_categories", "post_log_json"])
 def test_post_log_classifies_each_record_without_losing_detail(tmp_path, monkeypatch, obligation):
     # GOAL033:logging:checks:stable_categories
@@ -128,6 +127,7 @@ def test_diagnostics_reads_complete_record_without_mutating_any_file(tmp_path):
     assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in tmp_path.iterdir()}
 
 
+@pytest.mark.requirement("FR-162")
 def test_cli_diagnostics_does_not_invoke_stages(tmp_path, monkeypatch, capsys):
     # GOAL033:logging:checks:diagnostics_no_product_mutation
     from pyflightstream.run.cli import main

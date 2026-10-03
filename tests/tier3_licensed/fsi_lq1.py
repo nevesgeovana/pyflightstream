@@ -83,13 +83,19 @@ and 98.4 percent of that report.
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import re
 import sys
 from pathlib import Path
 
 import numpy as np
+
+from tests.support_tier3 import (
+    _one_file as _one_file,
+)
+from tests.support_tier3 import (
+    one_pass as one_pass,
+)
 
 #: The loads spreadsheet the probe adds at the head of the coupled point's post.
 CDO_FIRST = "lq1_cdo_first.txt"
@@ -444,48 +450,6 @@ def cdo_reading(
     if capped_own == 0.0:
         return "package_order"
     return "undetermined"
-
-
-def _one_file(folder: Path, name: str) -> Path | None:
-    """The point's own copy of ``name``, when exactly one exists.
-
-    The package keeps a per-call copy of each structural call's input under
-    the point's ``fsi_archive/`` folder (:data:`pyflightstream.fsi.cli.ARCHIVE_DIR`);
-    that copy is a different artifact, not a second pass of the post, so the
-    count leaves that folder out by name and counts everything else.
-    """
-    from pyflightstream.fsi.cli import ARCHIVE_DIR
-
-    found = sorted(
-        path for path in folder.rglob(name) if ARCHIVE_DIR not in path.relative_to(folder).parts
-    )
-    return found[0] if len(found) == 1 else None
-
-
-def one_pass(folder: Path) -> tuple[bool, str]:
-    """Whether the capped point's post ran once, and the evidence read.
-
-    One row in its convergence log, and the sectional loads export left on
-    disk carrying the solver iteration that row records: the last pass of the
-    post is the one the only structural call read.
-    """
-    from pyflightstream.fsi.driver import LOADS_FILE, LOG_FILE
-
-    log, loads = _one_file(folder, LOG_FILE), _one_file(folder, LOADS_FILE)
-    if log is None or loads is None:
-        return False, f"{folder}: not exactly one {LOG_FILE} and one {LOADS_FILE}"
-    body = [line for line in log.read_text(encoding="utf-8").splitlines() if line[:1] != "#"]
-    rows = list(csv.DictReader(body))
-    found = re.search(
-        r"Current solver iteration number:\s+(\d+)", loads.read_text(encoding="utf-8")
-    )
-    iteration = found.group(1) if found else None
-    evidence = f"{len(rows)} log row(s); the loads export left on disk is iteration {iteration}"
-    if len(rows) != 1 or iteration is None:
-        return False, evidence
-    return rows[0]["solver_iteration"].strip() == iteration, (
-        evidence + f", the row records {rows[0]['solver_iteration'].strip()}"
-    )
 
 
 def _cdo(folder: Path, name: str | None = None) -> float | None:

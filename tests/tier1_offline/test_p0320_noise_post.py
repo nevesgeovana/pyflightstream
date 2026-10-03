@@ -3,8 +3,6 @@
 The fixture ``data/acoustic_signals_probe_a1.txt`` is the export of the licensed
 round-1 probe on a tier-3 library geometry (three observers, 16 samples each).
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-261, FR-262, FR-263, FR-290.
 
 from __future__ import annotations
 
@@ -46,6 +44,7 @@ def _rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+@pytest.mark.requirement("FR-260")
 def test_p0320_noise_post_reads_the_real_export_fr_260():
     """P0320-NOISE-POST: the round-1 export is read into one signal per observer."""
     signals = acoustics.read_acoustic_signals(FIXTURE)
@@ -58,6 +57,7 @@ def test_p0320_noise_post_reads_the_real_export_fr_260():
     assert len(first.time_s) == len(first.pressure_pa) > 10
 
 
+@pytest.mark.requirement("FR-260")
 def test_p0320_noise_post_refuses_a_bad_export_fr_260(tmp_path):
     """P0320-NOISE-POST: a file that is not the export is refused naming the line."""
     with pytest.raises(ProductError, match="cannot be read"):
@@ -78,6 +78,7 @@ def test_p0320_noise_post_refuses_a_bad_export_fr_260(tmp_path):
         acoustics.read_acoustic_signals(bad)
 
 
+@pytest.mark.requirement("FR-261")
 def test_p0320_noise_post_spectrum_of_a_cosine_fr_261():
     """P0320-NOISE-POST: a cosine of amplitude A on a bin reads A; the sampling is stated."""
     signal = _cosine("m", frequency=50.0, amplitude=2.0, mean=0.5)
@@ -92,6 +93,7 @@ def test_p0320_noise_post_spectrum_of_a_cosine_fr_261():
     assert len(spectrum.frequency_hz) == 200 // 2 + 1
 
 
+@pytest.mark.requirement("FR-261")
 def test_p0320_noise_post_refuses_a_nonuniform_time_fr_261():
     """P0320-NOISE-POST: no spectrum from a record whose step is not constant (refuses)."""
     signal = AcousticSignal("m", 0, 0, 0, (0.0, 0.1, 0.5, 0.6), (1.0, 2.0, 3.0, 4.0))
@@ -101,6 +103,7 @@ def test_p0320_noise_post_refuses_a_nonuniform_time_fr_261():
         acoustics.spectrum_of(AcousticSignal("m", 0, 0, 0, (0.0,), (1.0,)))
 
 
+@pytest.mark.requirement("FR-262")
 def test_p0320_noise_post_oaspl_fr_262():
     """P0320-NOISE-POST: OASPL is 20 log10(p_rms / 20 uPa); a silent record is NA."""
     signal = _cosine("m", frequency=50.0, amplitude=math.sqrt(2.0) * 2e-5 * 10.0, mean=3.0)
@@ -115,6 +118,7 @@ def test_p0320_noise_post_oaspl_fr_262():
     assert acoustics.oaspl_db(real) == pytest.approx(20.0 * math.log10(rms / 20e-6))
 
 
+@pytest.mark.requirement("FR-263")
 def test_p0320_noise_post_blade_passage_harmonics_fr_263():
     """P0320-NOISE-POST: harmonics at n * blades * rpm / 60, NA beyond what the record resolves."""
     # 2 blades at 1500 rpm: 50 Hz; a 50 Hz and a 100 Hz component of the record
@@ -158,6 +162,7 @@ def _arc(count: int, radius: float = 10.0, centre=(1.0, 2.0, 3.0)):
     ]
 
 
+@pytest.mark.requirement("FR-264")
 def test_p0320_noise_post_arc_directivity_fr_264():
     """P0320-NOISE-POST: observers on an arc are detected, with centre, radius and angles."""
     fit = acoustics.arc_of(_arc(5))
@@ -174,6 +179,7 @@ def test_p0320_noise_post_arc_directivity_fr_264():
     assert acoustics.arc_of(acoustics.read_acoustic_signals(FIXTURE)) is None
 
 
+@pytest.mark.requirement("FR-264")
 def test_p0320_noise_post_writes_the_products_fr_261_to_fr_264(tmp_path):
     """P0320-NOISE-POST: the writer's files, columns and NA lines."""
     signals = _arc(5)
@@ -204,6 +210,7 @@ def test_p0320_noise_post_writes_the_products_fr_261_to_fr_264(tmp_path):
     assert made.notes == []
 
 
+@pytest.mark.requirement("FR-263")
 def test_p0320_noise_post_na_and_notes_when_the_record_lacks_blades_fr_263(tmp_path):
     """P0320-NOISE-POST: no blades or speed gives NA harmonics and a post-log line."""
     signals = list(acoustics.read_acoustic_signals(FIXTURE))
@@ -238,6 +245,8 @@ def _rotor():
     return {"main": (_harmonics.HarmonicRotor("main", (("a",), ("b",)), None, False), None)}
 
 
+@pytest.mark.requirement("FR-264")
+@pytest.mark.requirement("FR-290")
 def test_p0320_noise_post_the_post_stage_hook_fr_264(tmp_path):
     """P0320-NOISE-POST: a record that lists an export gets the products and manifest entries."""
     sim = tmp_path / "sim"
@@ -268,6 +277,8 @@ def test_p0320_noise_post_the_post_stage_hook_fr_264(tmp_path):
     assert not any("blade-passage harmonics are NA" in str(w.message) for w in caught)
 
 
+@pytest.mark.requirement("FR-264")
+@pytest.mark.requirement("FR-290")
 def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_blocks_fr_264(tmp_path):
     """P0320-NOISE-POST: no listing is silent; an unreadable export is skipped with a warning."""
     skipped: dict[str, str] = {}
@@ -390,6 +401,7 @@ def _unsteady_rotor_workspace(tmp_path, *, listed: bool):
     return workspace
 
 
+@pytest.mark.requirement("FR-290")
 def test_p0320_noise_post_the_record_lists_the_export_as_an_output_fr_290(tmp_path):
     """P0320-NOISE-POST, P0320-NOISE-COLLECT: end to end, the export E2 records among the
     outputs of an unsteady_rotor point reaches write_campaign_products, and the noise

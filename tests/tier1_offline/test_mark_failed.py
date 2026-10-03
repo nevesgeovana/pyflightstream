@@ -6,7 +6,6 @@ keeps its bytes, and runs.json is archived first. Every workspace is a real
 ``tmp_path`` tree.
 """
 # The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
-# FR-309.
 
 from __future__ import annotations
 

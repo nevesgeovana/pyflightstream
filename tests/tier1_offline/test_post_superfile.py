@@ -717,6 +717,7 @@ def test_one_row_per_converged_point_and_no_time_series(tmp_path):
         assert len(points) == len(rows), f"{name} repeats a point down the file"
 
 
+@pytest.mark.requirement("FR-68")
 def test_a_reader_cannot_tell_a_steady_polar_from_an_unsteady_one(tmp_path):
     """The steady file and the unsteady one carry the SAME columns, which is the transparency."""
     workspace = _workspace(tmp_path)

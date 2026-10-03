@@ -5,7 +5,6 @@ A simulation with a run still SUBMITTED is refused by ``delete-sims``; with
 is a real ``tmp_path`` tree.
 """
 # The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
-# FR-306.
 
 from __future__ import annotations
 

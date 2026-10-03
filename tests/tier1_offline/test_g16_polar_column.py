@@ -36,8 +36,6 @@ every table: the walk refuses any header that still names it, the fixed-width su
 included, and a table written before 0.27.0, which names the polar `POLAR` and has no `POL`,
 still reads into the super file's union as the polar.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-124.
 
 from __future__ import annotations
 
@@ -341,6 +339,7 @@ def _problems_of(workspace: CampaignWorkspace, out: Path) -> tuple[list[str], li
     return seen, problems
 
 
+@pytest.mark.requirement("FR-124")
 @pytest.mark.parametrize("campaign", sorted(CAMPAIGNS))
 def test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows(
     campaign, tmp_path, monkeypatch

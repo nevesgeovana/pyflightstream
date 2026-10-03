@@ -11,8 +11,6 @@ change, so the FSIDisp rows keep their meaning.
 The camber line is checked against the NACA four-digit mean line in closed
 form, not against the package's own crossing construction.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-170.
 
 import json
 import math
@@ -70,6 +68,7 @@ def _section_points(layout):
     return out
 
 
+@pytest.mark.requirement("FR-170")
 def test_nodes_sit_on_the_camber_line_at_their_chord_fractions():
     layout = nodes.generate_node_layout(_config())
     assert layout.roles == list(NODE_ROLES)

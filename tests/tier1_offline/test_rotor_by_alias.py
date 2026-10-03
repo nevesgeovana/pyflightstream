@@ -21,7 +21,6 @@ cannot be expressed at all.
 from __future__ import annotations
 
 import warnings
-from pathlib import Path
 
 import pytest
 
@@ -30,11 +29,11 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases import BladeDatum, ReferenceData, RotorBlock, SimCase, SweepAxis
 from pyflightstream.cases.workflows import ROTATE_VARIABLE, WORKFLOW_KEY, build_script, rotor_speed
 from pyflightstream.cases.workflows._motion import _motion_view
 from pyflightstream.script import Script
+from tests.support_helpers import saved_mesh_fixture as saved_simulation
 
 #: The two rotors of the use case, cut to what one row needs: a lifter of
 #: four blades at 1.20 m and a pusher of three at 1.80 m, which is the pair
@@ -73,16 +72,6 @@ MESH = [
     "Blade_3",
     "W",
 ]
-
-
-def saved_simulation(path: Path, names: list[str]) -> Path:
-    """Write the smallest saved simulation the mesh reader accepts."""
-    body = [MESH_MARKER, "9999", "99", str(len(names))]
-    for offset, name in enumerate(names):
-        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
-    body += ["$MESH_END$"]
-    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
-    return path
 
 
 def two_rotor_case(tmp_path, **overrides) -> SimCase:

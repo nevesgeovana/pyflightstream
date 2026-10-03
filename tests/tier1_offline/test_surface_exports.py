@@ -3,8 +3,6 @@
 Oracle: inclusive last-n windows; 360 / DELTA_THETA steps per revolution.
 Command payload expectations come from the committed command database.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-113.
 
 from __future__ import annotations
 
@@ -140,6 +138,7 @@ def test_invalid_surface_window_is_refused(window):
         PprocSpec(time_averaging=window)
 
 
+@pytest.mark.requirement("FR-113")
 def test_vtk_csv_are_opt_in_and_emit_the_documented_payloads():
     spec = PprocSpec(exports={"vtk": True, "csv": True}, vtk_variables=["X", "CP_FREESTREAM"])
     assert "{name}.vtk" in spec.outputs(True)

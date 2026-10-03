@@ -911,7 +911,7 @@ def test_p0340_wake_length_the_lq5_kit_plans_ready_offline(tmp_path):
     solver, keep 4R as 180 steps (L / (2 J) = 2.5 revolutions of 72 steps at J = 0.8), run
     288 steps, so the run reaches L; the control keeps WAKE_TERMINATION_X DEFAULT and is
     the one the plan warns about, the other row moves the plane to 8 R."""
-    from tests.tier3_licensed import wake_lq5
+    from tests import support_tier3 as wake_lq5
 
     requirement = "FR-321"
     workspace_root = tmp_path / "lq5"
@@ -944,7 +944,7 @@ def test_p0340_wake_length_the_lq5_analysis_recovers_a_known_convection_speed(tm
     """P0340-WAKE-LENGTH, FR-321 R3: the analysis RPT-130 will read, on a synthetic tip vortex
     convecting at 1.15 V_inf and ending at 4.5 R, returns that speed and that end, and the
     slipstream line's induced velocity; the momentum ratio of CT = 0.1 is worked by hand."""
-    from tests.tier3_licensed import wake_lq5 as kit
+    from tests import support_tier3 as kit
 
     requirement = "FR-321"
     v_ax = 1.15 * kit.V_INF

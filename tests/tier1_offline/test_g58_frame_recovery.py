@@ -1,6 +1,4 @@
 """G58: unchanged stopped rows recover their frame without a solver."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-163.
 
 from pathlib import Path
 
@@ -94,6 +92,7 @@ def test_g58_recovers_a_stopped_027_frame_without_changing_history(tmp_path):
     assert not (workspace.sim_dir("9001") / "datapoints" / "DP-AL+000" / "archive").exists()
 
 
+@pytest.mark.requirement("FR-163")
 @pytest.mark.parametrize("change", ["geometry", "script", "saved", "row"])
 def test_g58_refuses_changed_evidence_before_archiving(tmp_path, change):
     workspace, case, record, _ = _old_run(tmp_path)

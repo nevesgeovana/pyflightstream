@@ -68,6 +68,7 @@ def test_convert_prints_the_canonical_campaign_toml(capsys):
     assert data["sim"][0]["sim_id"] == "9001"
 
 
+@pytest.mark.requirement("FR-44")
 def test_convert_writes_a_loadable_file_with_output_option(tmp_path, capsys):
     target = tmp_path / "campaign.toml"
     assert main(convert_args("-o", str(target))) == 0

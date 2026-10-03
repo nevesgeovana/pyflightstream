@@ -5,12 +5,12 @@ said so. The other workspace's ``post/<stem>/plan.json`` lists what its plan
 called for; after the merge, a planned point no record carries was never
 attempted there. The sync entry records it per matrix and the CLI prints it.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-175.
 
 from __future__ import annotations
 
 import json
+
+import pytest
 
 from pyflightstream.run import _cli_print
 from pyflightstream.workspace import storage as storage_module
@@ -26,6 +26,7 @@ def _plan(workspace, stem: str, run_ids: list[str]) -> None:
     (folder / "plan.json").write_text(json.dumps({"points": points}), encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-175")
 def test_sync_names_the_planned_points_no_merged_record_carries(tmp_path, capsys):
     main, other = _sync_pair(tmp_path, "plan")
     _plan(other, "hpc", PLANNED)

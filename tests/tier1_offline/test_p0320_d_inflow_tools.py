@@ -7,8 +7,6 @@ P0320-FILL-INTERIOR: the probes inside the body take the value of the ray outsid
 
 Every fixture is synthetic and built from the formulas of the requirement.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-250, FR-251, FR-252, FR-253.
 
 from __future__ import annotations
 
@@ -55,6 +53,7 @@ def _steps(paths: list[Path]) -> list[wfields.StepField]:
 # ------------------------------------------------- P0320-INFLOW-FLUCTUATION
 
 
+@pytest.mark.requirement("FR-250")
 def test_p0320_inflow_fluctuation_population_std_of_a_sine(tmp_path):
     """P0320-INFLOW-FLUCTUATION: K steps of v0 + a sin(2 pi k/K) give std a/sqrt(2)."""
     report = wfields.fluctuation_report(_steps(_write_steps(tmp_path, 8, amplitude=2.0)))
@@ -174,6 +173,7 @@ def _rows(path: Path, *, skip: int = 0) -> list[dict[str, str]]:
     return list(csv.DictReader(path.read_text().splitlines()[skip:]))
 
 
+@pytest.mark.requirement("FR-251")
 def test_p0320_installed_frame_flips_the_classified_columns(tmp_path):
     """P0320-INSTALLED-FRAME: FY MX MZ CS CMN negated, FX MY CT kept, azimuth mirrored."""
     table = tmp_path / "loads.csv"
@@ -272,6 +272,7 @@ def test_p0320_inflow_harmonics_uniform_field_at_aoa_is_first_harmonic():
     assert station.k_eff == pytest.approx(station.k_1p, rel=1e-12)
 
 
+@pytest.mark.requirement("FR-252")
 def test_p0320_inflow_harmonics_n95_agrees_with_the_plan_inflow_fft():
     """P0320-INFLOW-HARMONICS: n95 is the plan's own (one home), not a second estimate."""
     rows = _plane_grid(lambda y, z: (30.0 + 4.0 * y * y - 3.0 * z, 0.0, 2.0 * y))
@@ -348,6 +349,7 @@ def _rings():
     return wfields.Field(form="UNSTRUCTURED", rows=tuple(rows))
 
 
+@pytest.mark.requirement("FR-253")
 def test_p0320_fill_interior_takes_the_nearest_value_on_the_same_ray():
     """P0320-FILL-INTERIOR: r < r_body copies the smallest radius at r >= r_body on the ray."""
     field = _rings()

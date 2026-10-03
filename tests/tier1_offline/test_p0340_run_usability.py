@@ -15,8 +15,6 @@ command that continues it, the counts of recorded and new points, and the same e
 What it does NOT check: a solver. A stub stands in for the executor, which counts its
 invocations.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-326, FR-327.
 
 from __future__ import annotations
 

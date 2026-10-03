@@ -21,6 +21,7 @@ from tests.tier1_offline.test_matrix_run import WRITES_EVERY_EXPORT, CountingStu
 POINTS = ("M100RE230AL-020BE+000", "M100RE230AL+000BE+000", "M100RE230AL+020BE+000")
 
 
+@pytest.mark.requirement("FR-95")
 @pytest.mark.parametrize(
     "named",
     ["M100RE230AL+000BE+000", "warm/sim_5001/M100RE230AL+000BE+000"],

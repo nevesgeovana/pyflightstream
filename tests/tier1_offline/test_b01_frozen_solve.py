@@ -1,6 +1,4 @@
 """B01: recorded residual freezes must fail assessment and suppress affected averages."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-119.
 
 from __future__ import annotations
 
@@ -189,6 +187,7 @@ def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None, status
     return workspace
 
 
+@pytest.mark.requirement("FR-119")
 @pytest.mark.parametrize("window", [(58, 60), (60, 61), (61, 61)])
 def test_post_skips_frozen_averages_by_name_and_keeps_healthy_control(tmp_path, window):
     for row in (2411, 2413):

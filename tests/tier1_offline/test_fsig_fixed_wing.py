@@ -10,8 +10,6 @@ weight, with no centrifugal term.
 Each test here was proved by a mutant of the code it holds, reverted and the
 file restored byte-identical (the FSI-G commit message lists them).
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-169, FR-171.
 
 from __future__ import annotations
 
@@ -182,6 +180,8 @@ def _commands(lines: list[str]) -> list[str]:
     return [line for line in lines if line.strip()]
 
 
+@pytest.mark.requirement("FR-169")
+@pytest.mark.requirement("FR-171")
 def test_the_steady_wing_script_ends_at_the_analysis_and_exports_from_the_post(tmp_path):
     # P0300-FSIG-STEADY
     case = steady_wing_case(tmp_path)

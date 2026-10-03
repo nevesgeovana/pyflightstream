@@ -9,8 +9,6 @@ blade one's azimuth placed (n - 1) / N of a turn ahead, through
 definitions page states, ahead of blade one whatever the sense of rotation:
 the sense turns the CLOCK (the step), never the place of a blade on the disc.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-182.
 
 from __future__ import annotations
 
@@ -33,6 +31,7 @@ def _blade_one(step: int, sign: int) -> float:
     return (DATUM + sign * step * 360.0 / PER_REVOLUTION) % 360.0
 
 
+@pytest.mark.requirement("FR-182")
 @pytest.mark.parametrize("rpm", [1200.0, -1200.0])
 def test_a_four_blade_unsteady_rotor_states_four_azimuths_ninety_degrees_apart(
     tmp_path, monkeypatch, rpm

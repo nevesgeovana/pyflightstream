@@ -7,8 +7,6 @@ to bring back but its own copies. Each test writes twice through the real writer
 restores the FIRST content end to end, byte for byte, from what the writer archived.
 The oracle is the archive form ``restore`` reads, named in its docstring.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-291, FR-292, FR-293, FR-294.
 
 from __future__ import annotations
 
@@ -51,6 +49,7 @@ def _extraction(name: str) -> AdditionalRecord:
     )
 
 
+@pytest.mark.requirement("FR-291")
 def test_p0320_restore_archive_the_storage_record(tmp_path):
     """P0320-RESTORE-ARCHIVE: a second call archives the file that held the first."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -65,6 +64,7 @@ def test_p0320_restore_archive_the_storage_record(tmp_path):
     assert len(read_storage_calls(workspace.root)) == 1
 
 
+@pytest.mark.requirement("FR-292")
 def test_p0320_restore_archive_the_additional_record(tmp_path):
     """P0320-RESTORE-ARCHIVE: a second extraction archives additional.json as it stood."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -94,6 +94,7 @@ def _campaign(tmp_path) -> Campaign:
     )
 
 
+@pytest.mark.requirement("FR-293")
 def test_p0320_restore_archive_the_plan(tmp_path):
     """P0320-RESTORE-ARCHIVE: planning again archives the plan.json it replaces."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -131,6 +132,7 @@ def _post_workspace(tmp_path) -> CampaignWorkspace:
     return workspace
 
 
+@pytest.mark.requirement("FR-293")
 def test_p0320_restore_archive_the_products_record_is_archived_not_removed(tmp_path):
     """P0320-RESTORE-ARCHIVE: a rebuild archives products.json before it rewrites it."""
     workspace = _post_workspace(tmp_path)
@@ -148,6 +150,7 @@ def test_p0320_restore_archive_the_products_record_is_archived_not_removed(tmp_p
     assert first  # the first post wrote one
 
 
+@pytest.mark.requirement("FR-294")
 def test_p0320_restore_archive_a_failed_copy_warns_and_never_raises(tmp_path):
     """P0320-RESTORE-ARCHIVE: the archive is a courtesy; the writer goes on."""
     target = tmp_path / "additional.json"

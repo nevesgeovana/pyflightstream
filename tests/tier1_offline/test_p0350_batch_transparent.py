@@ -7,7 +7,6 @@ workspaces are hand built in the layout of IMPL-0350 sections 4.2 and 4.3, with 
 control beside each refusal: the same workspace with the job's end record written.
 """
 # The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
-# FR-372.
 
 from __future__ import annotations
 

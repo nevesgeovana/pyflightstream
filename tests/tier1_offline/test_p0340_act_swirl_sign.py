@@ -17,8 +17,6 @@ What it does NOT check: what the solver does with the line. That is RPT-137's
 measurement, of one build; on another build the rule is the same and
 unmeasured.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-331.
 
 from __future__ import annotations
 

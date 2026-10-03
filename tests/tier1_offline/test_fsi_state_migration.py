@@ -91,6 +91,7 @@ def _legacy_state_document() -> str:
     )
 
 
+@pytest.mark.requirement("NFR-20")
 def test_a_state_written_before_the_rename_still_loads(tmp_path):
     """The run folder is the user's only copy; the rename must not eat it.
 

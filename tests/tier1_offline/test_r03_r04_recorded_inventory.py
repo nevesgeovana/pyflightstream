@@ -20,8 +20,6 @@ block 3). In a frame spelt like a rotor's the builder resolved an expanding
 entry against the reference's rotor families, never over the names alone, so
 there the match is 0.26.0's: a user's own `X_RMRP` stays refused by name.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-122.
 
 from __future__ import annotations
 
@@ -81,6 +79,7 @@ def _run(workspace, matrix):
 # --- R03: the writer ----------------------------------------------------------
 
 
+@pytest.mark.requirement("FR-122")
 @pytest.mark.parametrize("shape", ["point", "job", "no-mesh-block"])
 def test_r03_every_record_carries_the_inventory_its_script_opened(tmp_path, shape):
     """Both run paths record the names; a geometry declaring none writes no key.

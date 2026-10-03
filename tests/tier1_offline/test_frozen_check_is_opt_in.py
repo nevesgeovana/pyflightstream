@@ -1,8 +1,8 @@
 """Since 0.26.0 the post always warns; check_frozen opts into refusing averages."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-119.
 
 from __future__ import annotations
+
+import pytest
 
 import pyflightstream.post._stage as stage_module
 import pyflightstream.workspace as workspace_module
@@ -18,6 +18,7 @@ from tests.tier1_offline.test_b01_frozen_solve import (
 AVERAGE = "probes/AL-020_time_average.csv"
 
 
+@pytest.mark.requirement("FR-119")
 def test_by_default_the_log_warns_and_a_frozen_average_is_published(tmp_path):
     """Row 2413 freezes at step 60, and its average is written all the same."""
     workspace = _post_workspace(tmp_path, 2413, (60, 61))

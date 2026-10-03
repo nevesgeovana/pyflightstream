@@ -19,8 +19,6 @@ the loads are written from the known harmonics at those azimuths, and the
 fit must give the harmonics back. Nothing expected is read off the module
 under test.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-181.
 
 from __future__ import annotations
 
@@ -237,6 +235,7 @@ def _assert_known(rows: list[dict[str, str]], *, samples: int, distinct: int, to
         assert float(row["RESIDUAL_RMS"]) == pytest.approx(0.0, abs=tol)
 
 
+@pytest.mark.requirement("FR-181")
 @pytest.mark.parametrize("rpm", [1200.0, -1200.0])
 def test_a_wheel_of_six_blades_at_two_clockings_gives_back_its_harmonics(
     tmp_path, monkeypatch, rpm

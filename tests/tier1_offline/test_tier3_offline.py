@@ -25,7 +25,7 @@ from pyflightstream.cases.matrix import _COLUMNS, MatrixError
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
-from tests.tier3_licensed import offline
+from tests import support_tier3 as offline
 
 MATRICES = offline.matrices()
 
@@ -766,7 +766,7 @@ def test_the_probe_verdict_says_no_when_only_the_registration_text_ever_ran(tmp_
     registration-time export of a NO world is probe_export_initial_iteration=N.txt
     and not probe_export_initial.txt; a verdict that told the two worlds apart by
     that literal name scored the NO world as YES."""
-    from tests.tier3_licensed import actions_probe
+    from tests import support_tier3 as actions_probe
 
     def world(name, exports):
         sim = tmp_path / name
@@ -1371,7 +1371,7 @@ def test_t07_each_points_file_is_its_saved_simulations_trailing_edge_and_passes_
     import numpy as np
 
     from pyflightstream.workspace import trailing_edge_midpoints
-    from tests.tier3_licensed import prepare
+    from tests import support_tier3 as prepare
 
     prepare.ensure_mesh_inputs()
     counts = {}
@@ -1397,7 +1397,7 @@ def test_t07_the_millimetre_mesh_is_the_metre_mesh_times_a_thousand():
     """The unit row asks one question, so its mesh differs in one thing."""
     import numpy as np
 
-    from tests.tier3_licensed import prepare
+    from tests import support_tier3 as prepare
 
     prepare.ensure_mesh_inputs()
     metre = prepare.read_obj(prepare.mesh_path("16_WING_OBJ_DET"))

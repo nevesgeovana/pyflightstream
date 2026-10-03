@@ -1,9 +1,9 @@
 """Acceptance of the files users request while planning a workspace."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-150.
 
 import re
 import tomllib
+
+import pytest
 
 from pyflightstream.cases import SolverSettings
 from pyflightstream.run.cli import main
@@ -29,6 +29,7 @@ def test_plan_writes_guidelines_to_the_existing_setup_directory(tmp_path, capsys
     assert not (workspace.inputs_dir / "setup").exists()
 
 
+@pytest.mark.requirement("FR-150")
 def test_plan_writes_complete_standards_without_requiring_the_guide(tmp_path, capsys):
     """GOAL033:standards:checks:cli_standards"""
     # GOAL033:capability_ids:items:G65

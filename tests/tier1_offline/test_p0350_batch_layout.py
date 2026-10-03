@@ -4,8 +4,6 @@ Pipeline role: quality gate on the workspace-layer contract every grouped
 package builds on: folder names and IDs, the receipt and its JSON, the gate that
 refuses a run whose receipt does not match, and the entry a grouped point carries.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-358, FR-365, FR-366.
 
 from __future__ import annotations
 
@@ -72,6 +70,7 @@ def _receipt() -> GroupingReceipt:
     )
 
 
+@pytest.mark.requirement("FR-358")
 def test_p0350_layout_fr358_ids_labels_and_names(tmp_path: Path) -> None:
     """P0350-BATCH-RECEIPT: labels, folders, script names and the next free ID."""
     assert batch_label("mtx", 3) == "mtx_b3"
@@ -88,6 +87,7 @@ def test_p0350_layout_fr358_ids_labels_and_names(tmp_path: Path) -> None:
     assert batch_sim_dirs(tmp_path) == {"2006": [tmp_path / "sims/batch/mtx_b3/sim_2006"]}
 
 
+@pytest.mark.requirement("FR-365")
 def test_p0350_layout_fr365_receipt_round_trip() -> None:
     """P0350-BATCH-RECEIPT: to_json then from_json is identity; another schema is refused."""
     receipt = _receipt()
@@ -135,6 +135,7 @@ def test_p0350_layout_fr365_the_gate_refuses_by_name(tmp_path: Path) -> None:
     assert "no grouping" in (batch_receipt_error(bare, bare_matrix, "mtx", **ask) or "")
 
 
+@pytest.mark.requirement("FR-366")
 def test_p0350_layout_fr366_job_of_reads_the_entry() -> None:
     """P0350-BATCH-RECEIPT: job_of returns submission["job"], and None without one."""
     base = {

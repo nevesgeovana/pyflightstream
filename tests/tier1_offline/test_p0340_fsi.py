@@ -14,8 +14,6 @@ and its RPT-129 test stay on that branch with it.
 Each test here was proved by a mutant of the code it holds, reverted and the
 file restored (the commit message lists them).
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-339.
 
 from __future__ import annotations
 

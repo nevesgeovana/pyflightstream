@@ -38,6 +38,9 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+
+# --- A. the build-identity pre-flight ----------------------------------------
+from tests.support_helpers import no_sleep as _no_sleep
 from tests.tier1_offline.test_goal031_local_run_log import (
     FIXTURES,
     LOG,
@@ -52,8 +55,6 @@ from tests.tier1_offline.test_matrix_run import (
     CountingStub,
     workflow_registry,
 )
-
-# --- A. the build-identity pre-flight ----------------------------------------
 
 
 class _Machine(LocalExecutor):
@@ -240,10 +241,6 @@ def test_an_additional_post_off_the_cluster_still_exports_its_log(tmp_path, monk
 
 
 # --- B. a submitted steady job of several points -----------------------------
-
-
-def _no_sleep(_seconds: float) -> None:
-    """The clock, injected: the watch's rounds are counted, not waited."""
 
 
 def _submitted_steady_job(tmp_path, *, native=LOG):

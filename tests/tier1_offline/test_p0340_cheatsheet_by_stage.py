@@ -28,6 +28,8 @@ import argparse
 import re
 from pathlib import Path
 
+import pytest
+
 from tests.tier1_offline.test_p0330_cheatsheet import (
     CHEATSHEET_PDF,
     _generator,
@@ -152,6 +154,7 @@ def test_the_cheatsheet_by_stage_is_eight_pages_with_the_decks_metadata():
     assert b"/PTEX.FileName" not in BY_STAGE_PDF.read_bytes()
 
 
+@pytest.mark.requirement("NFR-29")
 def test_every_command_and_option_the_sheet_names_exists_in_a_parser():
     """Each command named exists; each block's options are its command's own.
 

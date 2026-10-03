@@ -58,6 +58,7 @@ def test_the_vocabulary_matrix_still_carries_the_rows_the_guide_points_at():
     )
 
 
+@pytest.mark.requirement("NFR-11")
 @pytest.mark.requirement("FR-61")
 def test_every_row_the_guide_quotes_exists_in_the_matrix():
     """A page that quotes a POL quotes one the workspace holds.

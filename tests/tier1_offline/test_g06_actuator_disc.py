@@ -40,8 +40,6 @@ refused in a modal dialog and logged as unreadable, and the same rows without
 the final newline are read. The thrust and the enable ran without abort on
 26.120 to 26.124 with their effect unobserved.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-128.
 
 from __future__ import annotations
 
@@ -143,6 +141,7 @@ def _lines(case: SimCase, build: str = "26.124") -> tuple[list[str], Script]:
     return script.render().splitlines(), script
 
 
+@pytest.mark.requirement("FR-109")
 @pytest.mark.parametrize(
     "make",
     [steady_case, unsteady_case, rotor_case],
@@ -1413,6 +1412,7 @@ def test_g06_a_saved_simulation_whose_actuators_cannot_be_read_is_refused(tmp_pa
         _lines(case)
 
 
+@pytest.mark.requirement("FR-128")
 @pytest.mark.parametrize(
     "make",
     [steady_case, unsteady_case],

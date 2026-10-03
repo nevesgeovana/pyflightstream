@@ -10,8 +10,6 @@ record. The command order is the one the licensed round-1 probe A1 ran on
 26.124 (``reports/compat/CMP-26124_2026-09-30_acoustics.yaml``). Every fixture
 is synthetic.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-266, FR-267, FR-268.
 
 from __future__ import annotations
 
@@ -36,6 +34,7 @@ from pyflightstream.run.collect import acoustic_section_outputs, collect_once
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script, helpers
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from tests.support_helpers import script_lines as _lines
 from tests.tier1_offline.test_collect_stage import _submitted_workspace
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import RECIPES, STUB_BODY, CountingStub, converged
@@ -52,12 +51,6 @@ SECTION = (
 OBSERVER_FILE = "2\n0.0,-10.0,0.0\n5.0,0.0,10.0\n"
 
 
-def _lines(case, build: str = "26.124") -> list[str]:
-    script = Script(build)
-    build_script(case, script)
-    return script.render().splitlines()
-
-
 def _first(lines: list[str], command: str) -> int:
     return next(i for i, line in enumerate(lines) if line.split(" ", 1)[0] == command)
 
@@ -72,6 +65,7 @@ def _acoustic(make, stem: str = "loads_a+00.0", **variables):
 # --- P0320-NOISE-SOURCES -------------------------------------------------------
 
 
+@pytest.mark.requirement("FR-265")
 @pytest.mark.parametrize("make", [rotor_case, unsteady_case], ids=["unsteady_rotor", "unsteady"])
 @pytest.mark.parametrize("mode", ["ENABLE", "DISABLE"])
 def test_p0320_noise_sources_row_key_switches_acoustic_sources_before_initialization(make, mode):
@@ -85,6 +79,7 @@ def test_p0320_noise_sources_row_key_switches_acoustic_sources_before_initializa
     assert not any("ACOUSTIC" in line for line in _lines(make()))
 
 
+@pytest.mark.requirement("FR-265")
 def test_p0320_noise_sources_reach_a_motions_row(tmp_path):
     """P0320-NOISE-SOURCES: a row that names its rotors in MOTIONS builds through its
     own branch, and the sources are switched on there too, before the solver
@@ -93,6 +88,7 @@ def test_p0320_noise_sources_reach_a_motions_row(tmp_path):
     assert lines.index("ACOUSTIC_SOURCES ENABLE") < _first(lines, "INITIALIZE_SOLVER")
 
 
+@pytest.mark.requirement("FR-265")
 def test_p0320_noise_sources_are_registered_on_the_unsteady_run_types_only():
     """P0320-NOISE-SOURCES: the five keys belong to the two unsteady run types, and a
     steady run type does not read them."""
@@ -102,6 +98,7 @@ def test_p0320_noise_sources_are_registered_on_the_unsteady_run_types_only():
         assert not set(acoustics.ACOUSTIC_KEYS) & set(WORKFLOWS[name].keys), name
 
 
+@pytest.mark.requirement("FR-265")
 def test_p0320_noise_sources_value_outside_the_command_is_refused():
     """P0320-NOISE-SOURCES: a value the command does not take is refused naming the key."""
     with pytest.raises(CampaignConfigError, match=r"ACOUSTIC_SOURCES: ON; it is ENABLE"):
@@ -111,6 +108,7 @@ def test_p0320_noise_sources_value_outside_the_command_is_refused():
 # --- P0320-NOISE-OBSERVERS -----------------------------------------------------
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_as_points_with_the_observer_time():
     """P0320-NOISE-OBSERVERS: each named point is created by name at its position, the
     observer time follows, both in the setup and in the order probe A1 ran."""
@@ -136,6 +134,7 @@ def test_p0320_noise_observers_as_points_with_the_observer_time():
     assert order == sorted(order)
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file(tmp_path):
     """P0320-NOISE-OBSERVERS: a file of observers is imported by the solver from the
     point's own copy, in the folder the point runs in, which the run writes byte for
@@ -158,6 +157,7 @@ def test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file(tmp_path
     assert lines.index("ACOUSTIC_OBSERVERS_IMPORT") < _first(lines, "INITIALIZE_SOLVER")
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused(tmp_path):
     """P0320-NOISE-OBSERVERS: the solver reads the file's coordinates in the
     simulation's own unit and the package does not rewrite the file, so on a
@@ -183,6 +183,7 @@ def test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused(t
     assert "CREATE_NEW_ACOUSTIC_OBSERVER MIC1 0.0 500.0 0.0" in in_millimetres.render()
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_as_an_acoustic_section_after_the_signals():
     """P0320-NOISE-OBSERVERS: the section is created after the signals are computed, in
     the reference coordinate system unless FRAME names a frame the run creates, into the
@@ -223,6 +224,7 @@ def test_p0320_noise_observers_as_an_acoustic_section_after_the_signals():
     assert framed[framed.index("CREATE_ACOUSTIC_SECTION") + 1] != "FRAME 1"
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names():
     """P0320-NOISE-OBSERVERS: FRAME carries the index of the very frame the record
     names among those the run created, not merely some frame other than the
@@ -243,6 +245,7 @@ def test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names():
     assert lines[lines.index("CREATE_ACOUSTIC_SECTION") + 1] == "FRAME 5"
 
 
+@pytest.mark.requirement("FR-266")
 @pytest.mark.parametrize(
     ("variables", "words"),
     [
@@ -283,6 +286,7 @@ def test_p0320_noise_observers_a_malformed_declaration_is_refused_naming_the_key
         _lines(_acoustic(rotor_case, ACOUSTIC_SOURCES="ENABLE", **variables))
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_without_sources_are_refused():
     """P0320-NOISE-OBSERVERS: observers with no ACOUSTIC_SOURCES are refused rather than
     defaulted, since a signal computed with no source recorded is zero."""
@@ -290,6 +294,7 @@ def test_p0320_noise_observers_without_sources_are_refused():
         _lines(_acoustic(rotor_case, ACOUSTIC_OBSERVERS=OBSERVERS, ACOUSTIC_OBSERVER_TIME=TIME))
 
 
+@pytest.mark.requirement("FR-266")
 def test_p0320_noise_observers_file_resolves_at_bind_and_refuses_a_malformed_file(tmp_path):
     """P0320-NOISE-OBSERVERS: the file key names inputs/acoustics/<stem>.csv; a missing
     file, a file not in the solver's form, and the key on a LEGACY row are refused when
@@ -320,6 +325,7 @@ def test_p0320_noise_observers_file_resolves_at_bind_and_refuses_a_malformed_fil
 # --- P0320-NOISE-COMPUTE-EXPORT ------------------------------------------------
 
 
+@pytest.mark.requirement("FR-267")
 @pytest.mark.parametrize("make", [rotor_case, unsteady_case], ids=["unsteady_rotor", "unsteady"])
 def test_p0320_noise_compute_export_at_the_end_of_the_run(make):
     """P0320-NOISE-COMPUTE-EXPORT: COMPUTE_ACOUSTIC_SIGNALS follows the solve, then
@@ -379,6 +385,7 @@ def test_p0320_noise_observers_a_malformed_row_is_a_blocked_point_at_pre_flight(
     assert stub.invocations == []
 
 
+@pytest.mark.requirement("FR-267")
 def test_p0320_noise_compute_export_sources_alone_compute_nothing():
     """P0320-NOISE-COMPUTE-EXPORT: a row that switches the sources on and declares no
     observer records them and computes and exports nothing, and declares no file."""
@@ -389,6 +396,7 @@ def test_p0320_noise_compute_export_sources_alone_compute_nothing():
     assert "COMPUTE_ACOUSTIC_SIGNALS" not in lines
 
 
+@pytest.mark.requirement("FR-267")
 def test_p0320_noise_compute_export_needs_its_declared_output():
     """P0320-NOISE-COMPUTE-EXPORT: a case built in Python without the export among its
     outputs is refused naming the helper that declares it, never exported to a literal."""
@@ -416,6 +424,7 @@ WRITES_THE_ACOUSTIC_EXPORTS = (
 )
 
 
+@pytest.mark.requirement("FR-268")
 def test_p0320_noise_collect_the_export_and_the_section_are_collected_and_hashed(tmp_path):
     """P0320-NOISE-COLLECT: a matrix row with observers, a file and a section runs
     through the real plan and run path: the signals file is declared, collected into
@@ -494,6 +503,7 @@ def _run_the_section_row(root: Path, executor, leftover: str | None = None):
     )
 
 
+@pytest.mark.requirement("FR-268")
 def test_p0320_noise_collect_refuses_a_section_file_left_before_the_run(tmp_path):
     """P0320-NOISE-COLLECT: a file already in the point's section folder before the
     solver runs is refused as a leftover, never listed and hashed as this run's
@@ -518,6 +528,7 @@ def test_p0320_noise_collect_refuses_a_section_file_left_before_the_run(tmp_path
     assert stub.invocations == []
 
 
+@pytest.mark.requirement("FR-268")
 def test_p0320_noise_collect_a_submitted_point_names_its_section_files(tmp_path):
     """P0320-NOISE-COLLECT: a submitted point collected by pyfs-matrix collect (run/collect.py)
     names each file its section wrote in the record's outputs, the run's own note
@@ -569,6 +580,7 @@ def test_p0320_noise_collect_the_acoustic_files_are_never_classified_as_an_expor
     assert not {signals, section} & set(claimed.values()), claimed
 
 
+@pytest.mark.requirement("FR-268")
 def test_p0320_noise_collect_lists_the_section_files_beside_the_collected_outputs(tmp_path):
     """P0320-NOISE-COLLECT: the collect's listing finds each section folder in the
     datapoint folders the collected outputs sit in, every file but the run's own note,
@@ -590,6 +602,7 @@ def test_p0320_noise_collect_lists_the_section_files_beside_the_collected_output
 # --- P0320-NOISE-ORDER ---------------------------------------------------------
 
 
+@pytest.mark.requirement("FR-269")
 def test_p0320_noise_order_sources_after_initialization_are_refused():
     """P0320-NOISE-ORDER: the acoustic setup emitted into a script that already
     initialised the solver is refused, since sources switched on after the
@@ -602,6 +615,7 @@ def test_p0320_noise_order_sources_after_initialization_are_refused():
         )
 
 
+@pytest.mark.requirement("FR-269")
 def test_p0320_noise_order_compute_and_export_on_a_steady_run_are_refused():
     """P0320-NOISE-ORDER: computing or exporting the signals on a steady run, or before
     the solver started, is refused: there is no unsteady solution to read."""
@@ -622,6 +636,7 @@ def test_p0320_noise_order_compute_and_export_on_a_steady_run_are_refused():
         )
 
 
+@pytest.mark.requirement("FR-269")
 def test_p0320_noise_order_a_steady_row_stating_the_keys_is_refused():
     """P0320-NOISE-ORDER: a steady row stating an acoustic key is refused by the row-key
     guard, naming the unsteady run types that read it."""
@@ -629,6 +644,7 @@ def test_p0320_noise_order_a_steady_row_stating_the_keys_is_refused():
         _lines(steady_case(ACOUSTIC_SOURCES="ENABLE"))
 
 
+@pytest.mark.requirement("FR-269")
 def test_p0320_noise_order_a_continuation_with_acoustic_keys_is_refused():
     """P0320-NOISE-ORDER: a continuation of a stopped march is refused when the row asks
     for acoustic signals, since whether the recorded sources survive the save is not

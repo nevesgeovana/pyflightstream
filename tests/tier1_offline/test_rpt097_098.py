@@ -32,6 +32,7 @@ def _paths(report: str) -> tuple[Path, Path]:
     return REPO / "reports" / f"{stem}.md", REPO / "reports" / f"{stem}.json"
 
 
+@pytest.mark.requirement("NFR-31")
 @pytest.mark.parametrize("report", sorted(STEMS))
 def test_the_report_names_the_release_the_build_and_the_hash(report):
     md, sidecar = _paths(report)

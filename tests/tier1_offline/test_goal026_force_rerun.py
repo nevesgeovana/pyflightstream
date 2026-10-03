@@ -68,6 +68,7 @@ def _point_names(workspace):
     return [str(record.point_name) for record in workspace.read_manifest()]
 
 
+@pytest.mark.requirement("FR-108")
 def test_goal026_force_rerun_redoes_the_named_point(tmp_path):
     """The named point runs again, and the manifest holds a record of the new run.
 
@@ -200,6 +201,7 @@ def test_goal026_a_name_no_recorded_point_carries_is_refused(tmp_path):
     assert "no recorded point" in detail, detail
 
 
+@pytest.mark.requirement("FR-34")
 def test_goal026_force_rerun_and_resume_together_are_refused(tmp_path):
     """Opposite instructions, named together, are not guessed between."""
     workspace = _ran_once(tmp_path)

@@ -792,6 +792,7 @@ def test_goal019_plan_a_run_without_a_plan_is_refused_naming_the_command(tmp_pat
     assert not workspace.read_manifest(), "a run with no plan reached the solver"
 
 
+@pytest.mark.requirement("FR-97")
 def test_goal019_plan_a_stale_plan_is_refused_naming_both_digests(tmp_path, capsys):
     """THE PIN, and it is what separates a gate from a ritual.
 

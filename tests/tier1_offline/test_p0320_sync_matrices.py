@@ -20,8 +20,6 @@
 
 Every workspace here is synthetic.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-220, FR-221, FR-222, FR-225, FR-226, FR-227.
 
 from __future__ import annotations
 
@@ -85,6 +83,7 @@ class _Rebuilds:
 # --------------------------------------------------------------------------- all folders
 
 
+@pytest.mark.requirement("FR-220")
 def test_p0320_sync_all_folders_names_every_sim_folder_of_both_sides(tmp_path):
     # P0320-SYNC-ALL-FOLDERS
     main, other = _orphan_pair(tmp_path, "allfolders")
@@ -105,6 +104,7 @@ def test_p0320_sync_all_folders_names_every_sim_folder_of_both_sides(tmp_path):
     assert again["only_main"] == ["3000"]
 
 
+@pytest.mark.requirement("FR-220")
 def test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them(tmp_path, capsys):
     # P0320-SYNC-ALL-FOLDERS
     main, other = _orphan_pair(tmp_path, "allcli")
@@ -119,6 +119,7 @@ def test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them(t
     assert "--restore" in out
 
 
+@pytest.mark.requirement("FR-220")
 def test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold(
     tmp_path, monkeypatch
 ):
@@ -144,6 +145,7 @@ def test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold(
     assert whole["sims"]["without_record"] == ["2002", "2003", "2004", "3000"]
 
 
+@pytest.mark.requirement("FR-220")
 def test_p0320_sync_all_folders_leaves_out_a_folder_a_delete_sims_note_names(tmp_path):
     # P0320-SYNC-ALL-FOLDERS: a simulation deleted in main and still on disk in
     # the other workspace is accounted for by its note, never offered to restore.
@@ -157,6 +159,7 @@ def test_p0320_sync_all_folders_leaves_out_a_folder_a_delete_sims_note_names(tmp
     assert entry["sims"]["without_record"] == ["2002", "3000"]
 
 
+@pytest.mark.requirement("FR-221")
 def test_p0320_sync_the_cli_passes_restore_and_include_archives(tmp_path, monkeypatch, capsys):
     # P0320-SYNC-RESTORE-OPTIN and P0320-SYNC-SKIP-ARCHIVES: the two switches
     # of the command line reach the sync, not only the library's keywords.
@@ -175,6 +178,7 @@ def test_p0320_sync_the_cli_passes_restore_and_include_archives(tmp_path, monkey
 # --------------------------------------------------------------------------- restore opt-in
 
 
+@pytest.mark.requirement("FR-221")
 def test_p0320_sync_restore_is_off_by_default(tmp_path, monkeypatch):
     # P0320-SYNC-RESTORE-OPTIN
     rebuilds = _Rebuilds()
@@ -188,6 +192,8 @@ def test_p0320_sync_restore_is_off_by_default(tmp_path, monkeypatch):
     assert args.restore is False
 
 
+@pytest.mark.requirement("FR-221")
+@pytest.mark.requirement("FR-225")
 def test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released(tmp_path, monkeypatch):
     # P0320-SYNC-RESTORE-OPTIN and P0320-RST-6: the rebuild takes the lease itself.
     rebuilds = _Rebuilds()
@@ -208,6 +214,7 @@ def test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released(tmp
     assert "records" not in entry["restore"]["result"]
 
 
+@pytest.mark.requirement("FR-221")
 def test_p0320_sync_restore_reports_a_refused_rebuild_and_keeps_the_sync(tmp_path, monkeypatch):
     # P0320-SYNC-RESTORE-OPTIN: a refused rebuild is said in the entry, the copy stands.
     def refuse(root, **kwargs):
@@ -222,6 +229,7 @@ def test_p0320_sync_restore_reports_a_refused_rebuild_and_keeps_the_sync(tmp_pat
     assert calls[-1]["restore"]["error"] == entry["restore"]["error"]
 
 
+@pytest.mark.requirement("FR-221")
 def test_p0320_sync_restore_with_another_manifest_is_refused(tmp_path):
     # P0320-SYNC-RESTORE-OPTIN: the rebuild appends to runs.json only (B1 contract).
     main, _ = _orphan_pair(tmp_path, "restorename")
@@ -246,6 +254,7 @@ def _interrupt_copies_of(monkeypatch, name: str) -> None:
     monkeypatch.setattr(shutil, "copy2", interrupted)
 
 
+@pytest.mark.requirement("FR-222")
 def test_p0320_sync_atomic_an_interrupted_copy_leaves_no_partial_target(tmp_path, monkeypatch):
     # P0320-SYNC-ATOMIC
     main, other = _sync_pair(tmp_path, "atomic")
@@ -258,6 +267,7 @@ def test_p0320_sync_atomic_an_interrupted_copy_leaves_no_partial_target(tmp_path
     assert not folder.is_dir() or list(folder.iterdir()) == []
 
 
+@pytest.mark.requirement("FR-222")
 def test_p0320_sync_atomic_an_interrupted_overwrite_keeps_mains_copy_in_place(
     tmp_path, monkeypatch
 ):
@@ -273,6 +283,7 @@ def test_p0320_sync_atomic_an_interrupted_overwrite_keeps_mains_copy_in_place(
     assert [path.name for path in folder.iterdir()] == ["point.fs"]
 
 
+@pytest.mark.requirement("FR-222")
 def test_p0320_sync_atomic_a_finished_copy_leaves_no_temporary_file(tmp_path):
     # P0320-SYNC-ATOMIC
     main, other = _sync_pair(tmp_path, "atomicdone")
@@ -283,6 +294,7 @@ def test_p0320_sync_atomic_a_finished_copy_leaves_no_temporary_file(tmp_path):
     assert (folder / "point.fs").read_text("utf-8") == "whole"
 
 
+@pytest.mark.requirement("FR-222")
 def test_p0320_sync_atomic_a_temporary_file_a_killed_sync_left_is_never_brought(tmp_path):
     # P0320-SYNC-ATOMIC: the half-written name of an interrupted sync stays behind.
     main, other = _sync_pair(tmp_path, "atomicleft")
@@ -479,6 +491,7 @@ def test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both(tmp_p
 # --------------------------------------------------------------------------- RST-6
 
 
+@pytest.mark.requirement("FR-225")
 def test_p0320_rst6_the_sync_holds_the_runs_lease_so_a_second_writer_is_refused(
     tmp_path, monkeypatch
 ):
@@ -506,6 +519,7 @@ def test_p0320_rst6_the_sync_holds_the_runs_lease_so_a_second_writer_is_refused(
 # --------------------------------------------------------------------------- --runs NAME
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_sync_merges_into_the_named_manifest_only(tmp_path):
     # P0320-RUNS-NAME
     main, other = _sync_pair(tmp_path, "runsname")
@@ -522,6 +536,7 @@ def test_p0320_runs_name_sync_merges_into_the_named_manifest_only(tmp_path):
     assert list((main.root / ARCHIVE_DIR).glob("runs-alt-*.json"))
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_a_bad_name_is_refused_before_any_work(tmp_path):
     # P0320-RUNS-NAME
     main, _ = _sync_pair(tmp_path, "runsbad")
@@ -534,6 +549,7 @@ def test_p0320_runs_name_a_bad_name_is_refused_before_any_work(tmp_path):
     assert storage_module.read_storage_calls(main.root) == []
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_delete_sims_edits_the_named_manifest_only(tmp_path):
     # P0320-RUNS-NAME
     main, _ = _sync_pair(tmp_path, "runsdelete")
@@ -551,6 +567,7 @@ def test_p0320_runs_name_delete_sims_edits_the_named_manifest_only(tmp_path):
     assert not main.sim_dir("7200").exists()
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_delete_sims_regenerate_with_another_manifest_is_refused(tmp_path):
     # P0320-RUNS-NAME: the post of another manifest is `post --runs`, not this command.
     main, _ = _sync_pair(tmp_path, "runsregen")
@@ -560,6 +577,7 @@ def test_p0320_runs_name_delete_sims_regenerate_with_another_manifest_is_refused
         )
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_free_space_protects_what_the_named_manifest_names(tmp_path):
     # P0320-RUNS-NAME: the named manifest adds protection; runs.json keeps its own.
     main, _ = _sync_pair(tmp_path, "runsfree")
@@ -585,6 +603,7 @@ def test_p0320_runs_name_free_space_protects_what_the_named_manifest_names(tmp_p
     assert not (folder / "junk.vtk").exists()
 
 
+@pytest.mark.requirement("FR-226")
 def test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage(tmp_path, monkeypatch):
     # P0320-RUNS-NAME: sync, free-space and delete-sims no longer refuse another name.
     seen: dict[str, object] = {}
@@ -621,6 +640,7 @@ def test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage(tmp_path, m
 # --------------------------------------------------------------------------- progress
 
 
+@pytest.mark.requirement("FR-227")
 def test_p0320_sync_reports_its_three_stages_to_the_progress(tmp_path, monkeypatch):
     # The hook of package A: sync's hash, merge and copy stages, in that order.
     import contextlib

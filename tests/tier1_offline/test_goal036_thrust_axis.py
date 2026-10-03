@@ -12,8 +12,6 @@ Every blade here is cut in a frame whose axes are NOT the export's reading of
 the shaft: a rotor turning about z cut in its blade frame's XZ plane, whose
 ``Fx`` lies in the disc, and a tilted rotor cut in the geometry's frame.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-191.
 
 from __future__ import annotations
 
@@ -72,6 +70,7 @@ def _share(values: list[float]) -> float:
     return 100.0 * sum(v for v, hot in zip(values, HOT, strict=True) if hot) / sum(values)
 
 
+@pytest.mark.requirement("FR-191")
 def test_a_rotor_turning_about_z_takes_its_thrust_from_fz_in_its_blade_frame(tmp_path):
     """The blade frame's z is the shaft, so the export's Fz is the thrust and Fx is in the disc.
 

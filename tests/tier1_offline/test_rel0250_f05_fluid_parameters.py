@@ -3,8 +3,6 @@
 SRC-750 and SRC-751 p.352 list all six for both fluid plots and surface
 probes. SRC-003 p.347 has only the eight non-BL fluid parameters.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-115.
 
 import pytest
 
@@ -41,6 +39,7 @@ def probe_case(tmp_path, parameter):
     )
 
 
+@pytest.mark.requirement("FR-115")
 @pytest.mark.parametrize("parameter", BL_PARAMETERS)
 @pytest.mark.parametrize("build", ["26.121", "26.122", "26.123", "26.124"])
 def test_pproc_accepts_documented_boundary_layer_parameter(tmp_path, parameter, build):
