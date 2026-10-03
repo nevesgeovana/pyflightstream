@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 352,
-  "total": 411,
+  "cited_by_a_test": 353,
+  "total": 412,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3005,6 +3005,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner report of 2026-10-03 (her batched cluster campaigns are unsteady rotor polars with time averaging, and 0.35.0 left every one of them out of --batch and --polar-sweep), and her design of 2026-10-02 for FR-355: the job's action re-points each point's files at the point's first step precisely so that its exports land in its own folder. Evidence: tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped, ::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window, ::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-405",
+   "text": "Requirement: a polar whose setup states [[unsteady_solver_actions]] (FR-319) shall join a grouped job (plan --batch, plan --polar-sweep), and each of its points shall run exactly the actions its setup states, once a step, as the point run alone runs them.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): 0.35.0 left every polar whose setup states unsteady_solver_actions out of --batch and --polar-sweep. Evidence: tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written, ::test_p0351_user_actions_fr405_a_job_of_one_set_only, ::test_p0351_user_actions_fr405_the_split_groups_by_action_set, ::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script, ::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder, ::test_p0351_user_actions_fr405_records_equal_the_points_run_alone.*",
    "verification": "test"
   },
   {

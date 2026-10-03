@@ -22,7 +22,12 @@ and E). Every rule below was measured there:
 5. the job ends with its own ``EXPORT_LOG`` when the points export their
    logs, then ``CLOSE_FLIGHTSTREAM``;
 6. the registration block is rendered by the one emitter of those lines;
-7. every save and export target of the job is absolute, or the job is refused.
+7. every save and export target of the job is absolute, or the job is refused;
+8. a setup's own ``unsteady_solver_actions`` (FR-405, 0.35.1) are registered
+   once, in the job's registration block and BEFORE the package's actions, as
+   a point run alone registers them; their lines are kept as the setup wrote
+   them. Every polar of the job must state the same set, because an action
+   survives ``NEW_SIMULATION`` and no command withdraws one.
 """
 
 from __future__ import annotations
@@ -34,7 +39,13 @@ from pathlib import PurePath
 from typing import Literal
 
 from pyflightstream.cases import CampaignConfigError, SimCase
-from pyflightstream.cases._unsteady_actions import register_unsteady_actions
+from pyflightstream.cases._unsteady_actions import (
+    UNSTEADY_COUNTER_ACTION,
+    UNSTEADY_EXPORTS_ACTION,
+    WALLTIME_CLOCK_ACTION,
+    WALLTIME_STOP_ACTION,
+    register_unsteady_actions,
+)
 from pyflightstream.commands import ArgSpec, CommandEntry, CommandRegistry, Layout
 from pyflightstream.script import Script, helpers
 
@@ -49,6 +60,7 @@ __all__ = [
     "JobPoint",
     "JobPolar",
     "JobScript",
+    "UserAction",
     "absolutize_outputs",
     "assemble_job",
     "drop_registrations",
@@ -56,6 +68,7 @@ __all__ = [
     "refuse_unspliceable",
     "registration_block",
     "restate_anchor",
+    "user_actions_of",
     "write_targets",
 ]
 
@@ -71,8 +84,49 @@ REFRESH_VERB = "NEW_SIMULATION"
 #: The token a point's own datapoint folder becomes when two texts are compared.
 DATAPOINT_TOKEN = "<datapoint>"
 
+#: The names of the actions the package itself registers; any other registration is the user's.
+PACKAGE_ACTIONS = frozenset(
+    (UNSTEADY_COUNTER_ACTION, UNSTEADY_EXPORTS_ACTION, WALLTIME_CLOCK_ACTION, WALLTIME_STOP_ACTION)
+)
+
 Transition = Literal["start", "reinit", "refresh"]
 JobKind = Literal["batch", "polar_sweep"]
+#: One user action as a setup states it: ``(type, name, filename)``.
+UserAction = tuple[str, str, str]
+
+
+def user_actions_of(case: SimCase) -> tuple[UserAction, ...]:
+    """Return the setup's own unsteady solver actions of a case, in registration order (FR-405).
+
+    Parameters
+    ----------
+    case : SimCase
+        A row's case.
+
+    Returns
+    -------
+    tuple of (str, str, str)
+        ``(type, name, filename)`` of each ``[[unsteady_solver_actions]]`` entry, as written;
+        empty when the setup states none.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
+    >>> marker = {"type": "COMMAND_LINE", "name": "marker", "filename": "python marker.py"}
+    >>> case = SimCase(
+    ...     sim_id="7003",
+    ...     aircraft="RotorRig",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     recipe="unsteady",
+    ...     solver=SolverSettings(unsteady_solver_actions=[marker]),
+    ... )
+    >>> user_actions_of(case)
+    (('COMMAND_LINE', 'marker', 'python marker.py'),)
+    """
+    return tuple(
+        (action.type, action.name, action.filename)
+        for action in case.solver.unsteady_solver_actions or ()
+    )
 
 
 @dataclass(frozen=True)
@@ -101,6 +155,8 @@ class JobPoint:
         What the clock writes when it stops this point, relative names.
     time_steps : int
         The time steps the point marches.
+    user_actions : tuple of (str, str, str)
+        The setup's own unsteady solver actions, ``(type, name, filename)`` (FR-405).
     """
 
     run_id: str
@@ -113,6 +169,7 @@ class JobPoint:
     first_export_step: int | None
     stop_text: str
     time_steps: int
+    user_actions: tuple[UserAction, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -244,6 +301,7 @@ def job_point(
         first_export_step=threshold.first_step if threshold is not None else None,
         stop_text=walltime_stop_text(point_case, conventions, version=version),
         time_steps=unsteady_counter_steps(point_case),
+        user_actions=user_actions_of(point_case),
     )
 
 
@@ -405,8 +463,17 @@ def drop_registrations(text: str) -> str:
     return "\n".join(_without_registrations(text)[0]) + "\n"
 
 
-def registration_block(version: str, *, exports: bool, walltime: bool) -> str:
+def registration_block(
+    version: str,
+    *,
+    exports: bool,
+    walltime: bool,
+    user_actions: Sequence[UserAction] = (),
+) -> str:
     """Return the job's action registrations, rendered by their one emitter.
+
+    The setup's own actions come first, then the package's, the order a point run
+    alone registers them in (FR-319, FR-405); the solver runs actions in creation order.
 
     Parameters
     ----------
@@ -416,13 +483,23 @@ def registration_block(version: str, *, exports: bool, walltime: bool) -> str:
         Whether any point states a per-step export threshold.
     walltime : bool
         Whether the job registers the clock pair.
+    user_actions : sequence of (str, str, str), optional
+        The setup's own actions, ``(type, name, filename)``; none by default.
 
     Returns
     -------
     str
-        The lines ``register_unsteady_actions`` renders on a fresh script.
+        The lines the user actions and ``register_unsteady_actions`` render on a fresh script.
+
+    Examples
+    --------
+    >>> block = registration_block("26.124", exports=False, walltime=False)
+    >>> block.splitlines()[0].split()[:3]
+    ['SET_NEW_UNSTEADY_SOLVER_ACTION', 'COMMAND_LINE', 'pfs_unsteady_counter']
     """
     script = Script(version)
+    for kind, name, filename in user_actions:
+        helpers.unsteady_action(script, name=name, kind=kind, filename=filename)
     register_unsteady_actions(script, True if exports else None, walltime=walltime)
     return script.render()
 
@@ -502,6 +579,15 @@ def _absolute_path_token(token: str, point_dir: PurePath, job_dir: PurePath) -> 
     return f"{quote}{root / portable}{quote}"
 
 
+def _is_user_registration(words: Sequence[str]) -> bool:
+    """Whether a line registers an action the setup states, not one of the package's."""
+    return (
+        len(words) >= 3
+        and words[0] == helpers.UNSTEADY_ACTION_COMMAND
+        and words[2] not in PACKAGE_ACTIONS
+    )
+
+
 def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, str, bool]]:
     """Locate path arguments with the database, including keyword blocks and shell actions."""
     view = CommandRegistry.load().for_version(version)
@@ -509,6 +595,8 @@ def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, st
         words = line.split()
         if not words or words[0] not in view or _is_target_command(words[0]):
             continue
+        if _is_user_registration(words):
+            continue  # FR-405: the setup's own line is kept as written, as alone
         entry = view[words[0]]
         shell = words[:2] == [helpers.UNSTEADY_ACTION_COMMAND, "COMMAND_LINE"]
         for offset, arg in enumerate(_line_args(entry), 1):
@@ -540,7 +628,8 @@ def _absolute_splice(
     - ``_freestream`` / ``prepare_field``: ``pfs-field-<sha24>.txt`` or ``.dat``
       for converted fields, otherwise the bound source path.
 
-    FSI and user actions are refused by the grouped planner. Non-action inputs
+    FSI is refused by the grouped planner. A setup's own action (FR-405) is kept
+    exactly as the setup wrote it, as the point run alone registers it. Non-action inputs
     belong to the point's working folder. Count/state/provenance files are not
     named in the emitted solver text; the action programs locate their own files.
     Geometry imports may be whole-line or keyword-block paths. Save/export paths
@@ -564,6 +653,25 @@ def _absolute_splice(
             value = _absolute_path_token(value, point_dir, job_dir)
         out[index] = prefix + value
     return out
+
+
+def _job_user_actions(polars: Sequence[JobPolar]) -> tuple[UserAction, ...]:
+    """Return the one set of setup actions every point of the job states, or refuse (FR-405).
+
+    An action registered on the instance survives ``REMOVE_INITIALIZATION`` and
+    ``NEW_SIMULATION`` (RPT-141, Test 2), a second registration runs it twice a
+    step, and no command withdraws one, so a job can run a set of user actions on
+    exactly the points that state it only when every point states the same set.
+    """
+    sets = {point.user_actions for polar in polars for point in polar.points}
+    if len(sets) > 1:
+        named = sorted({polar.sim_id for polar in polars})
+        raise CampaignConfigError(
+            f"the polars {named} of one job state different unsteady_solver_actions; an action "
+            "registered on the instance survives NEW_SIMULATION and cannot be withdrawn, so "
+            "only polars stating the same actions share a job (FR-405)."
+        )
+    return next(iter(sets))
 
 
 def assemble_job(
@@ -608,7 +716,9 @@ def assemble_job(
     if not polars or not all(polar.points for polar in polars):
         raise CampaignConfigError("a job needs at least one polar with at least one point.")
     exports = any(p.first_export_step is not None for polar in polars for p in polar.points)
-    block = registration_block(version, exports=exports, walltime=walltime)
+    block = registration_block(
+        version, exports=exports, walltime=walltime, user_actions=_job_user_actions(polars)
+    )
     lines: list[str] = []
     blocks: list[JobBlock] = []
     for point, transition, part in _parts(polars, block):

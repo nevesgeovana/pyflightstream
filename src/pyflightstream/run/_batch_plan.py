@@ -1,6 +1,6 @@
 """Plan a grouped matrix: which polars share one FlightStream instance, and for how long.
 
-Covers FR-362 to FR-365, FR-378 and FR-379.
+Covers FR-362 to FR-365, FR-378, FR-379 and FR-405.
 
 Private to :mod:`pyflightstream.run`. ``plan --batch N`` and ``plan --polar-sweep`` first plan
 the matrix as any plan does (with the cost table), then group the unsteady polars: leave out and
@@ -21,17 +21,18 @@ import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream.cases import ScriptRecipe, SimCase, case_at_point, resolve_recipe
 from pyflightstream.cases._unsteady_actions import documents_actions
-from pyflightstream.cases.acoustics import acoustic_request
 from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     parse_restart,
     row_ncpus,
     walltime_margin_s,
 )
+from pyflightstream.cases.workflows._batch_actions import is_absolute_target
 from pyflightstream.cases.workflows._batch_script import (
     JobPoint,
     job_point,
     refuse_unspliceable,
+    user_actions_of,
 )
 from pyflightstream.cases.workflows._rows import (
     row_walltime_is_best,
@@ -82,10 +83,17 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     """Return the reason a polar cannot join a grouped job, or None when it can (reading 7).
 
     A polar is left out and NAMED, never refused: a steady or quasi-steady row (a steady point
-    after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), an
-    FSI row, an acoustic row, a row whose setup states ``unsteady_solver_actions`` (a user action
-    cannot be withdrawn between polars),
+    after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), a
+    row whose setup states a SCRIPT ``unsteady_solver_actions`` entry by a relative file,
     and a build that does not document the unsteady action command.
+
+    A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
+    0.35.1): the split puts it only with polars stating the same actions, and the job registers
+    them once, before the package's actions, as the point run alone does. A user action cannot
+    be withdrawn between polars. A relative SCRIPT
+    file is the exception, because a point run alone reads it in its own datapoint folder (the
+    solver's working directory) and one registration in one instance, whose working directory
+    is the job's folder for the whole job (RPT-141), can name only one file.
 
     Parameters
     ----------
@@ -103,19 +111,15 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     """
     del workspace
     workflow = str(case.variables.get(WORKFLOW_KEY, "")).strip()
+    actions = user_actions_of(case)
     if workflow not in UNSTEADY_WORKFLOWS:
         return f"a {workflow or 'LEGACY'} row: grouped modes run unsteady rows only"
     reasons = (
         (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
-        (case.fsi is not None, "an FSI row: a coupled run is not grouped in this release"),
         (
-            acoustic_request(case) is not None,
-            "an acoustic row: its section folder in one instance is not measured",
-        ),
-        (
-            bool(case.solver.unsteady_solver_actions),
-            "its setup states unsteady_solver_actions, and a user action cannot be "
-            "withdrawn between polars",
+            any(kind == "SCRIPT" and not is_absolute_target(name) for kind, _, name in actions),
+            "its setup states a SCRIPT unsteady_solver_actions entry by a relative file, which "
+            "a point run alone reads in its own datapoint folder; state the file absolute",
         ),
     )
     for found, reason in reasons:
@@ -127,7 +131,17 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
 
 
 def _pristine_refusal(case: SimCase) -> str | None:
-    """Return the block a geometry carrying saved solver actions earns (decision 3, FR-378)."""
+    """Return the block a geometry carrying saved solver actions earns (decision 3, FR-378).
+
+    Re-examined for 0.35.1 and KEPT, on three measurements. ``OPEN`` loads a file's saved
+    actions (RPT-141, arm G). A saved action runs beside the script's action of the same name,
+    both firing each step (RPT-135: twice the runtime commands, a step counter of 24 for 12
+    steps). An action survives ``NEW_SIMULATION`` and no command withdraws one (RPT-141, Test
+    2). The job's counter re-indexes ONE invocation per step into (point, step) (FR-355), so a
+    saved counter beside it misplaces every point's steps, exports and clock, and a saved action
+    of another name would run on every later polar of the job. ``pyfs-matrix inventory <file>
+    --clean`` (FR-308) removes the saved actions, and the cleaned polar groups.
+    """
     geometry = case.geometry
     if not geometry or Path(str(geometry)).suffix.lower() != ".fsm":
         return None
@@ -221,7 +235,28 @@ def _unit_of(
         walltime_cell_text=None if best else row_walltime_text(case),
         best=best,
         margin_s=walltime_margin_s(case),
+        actions=user_actions_of(case),
     )
+
+
+def _user_action_warnings(split: JobSplit) -> list[str]:
+    """Return the warning a job running the setup's own actions earns (FR-405).
+
+    The job registers them once, before the package's actions, as a point run alone does;
+    what differs is the working directory: a point run alone runs them from its datapoint
+    folder, a job from its own folder for every point (RPT-141), so a relative path inside a
+    COMMAND_LINE action resolves there.
+    """
+    actions = split.units[0].actions
+    if not actions:
+        return []
+    sims = ", ".join(unit.sim_id for unit in split.units)
+    names = ", ".join(name for _, name, _ in actions)
+    return [
+        f"POL {sims}: the setup's unsteady_solver_actions ({names}) are registered once for "
+        "the job and run on every point of it, from the job's folder and not from each point's "
+        "datapoint folder, so a relative path inside a COMMAND_LINE action resolves there."
+    ]
 
 
 def _job_of(
@@ -242,6 +277,7 @@ def _job_of(
     walltime, source, fits, short, warnings, refusal = job_walltime(
         split, estimate, max_walltime_s=maximum
     )
+    warnings = [*warnings, *_user_action_warnings(split)]
     if mode == "batch" and batch_id is not None:
         label = batch_label(matrix_stem, batch_id)
         script_name = batch_script_name(sims[0], sims[-1])
@@ -472,7 +508,8 @@ def plan_grouped_matrix(
 
     Plans the matrix with its costs as :func:`pyflightstream.run.matrix.plan_matrix` does, then
     leaves out and names the polars a job cannot hold (FR-379), blocks a polar whose geometry
-    carries saved solver actions (FR-378), splits the rest (``batch`` jobs, or one per polar
+    carries saved solver actions (FR-378), splits the rest (a job holds one set of the setup's
+    own unsteady solver actions, FR-405) (``batch`` jobs, or one per polar
     for ``polar_sweep``), estimates each job, prices its wall clock and gives each batch the next
     free ID. The decision is written into ``plan.json`` as ``grouping`` and returned on the plan.
 

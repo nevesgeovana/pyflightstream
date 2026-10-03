@@ -1,5 +1,8 @@
 {
   "P0351-BATCH-TAVG": [
     "FR-402"
+  ],
+  "P0351-BATCH-USER-ACTIONS": [
+    "FR-405"
   ]
 }
