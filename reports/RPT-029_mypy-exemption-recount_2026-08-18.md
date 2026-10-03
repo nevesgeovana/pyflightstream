@@ -130,14 +130,14 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 160 errors in 16 files (checked 268 source files)
->     Success: no issues found in 236 source files
+>     Found 159 errors in 16 files (checked 269 source files)
+>     Success: no issues found in 269 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-02: 160 errors in 16 of 268 modules.**
+**mypy recount 2026-10-03: 159 errors in 16 of 269 modules.**
 
 The module total is the 236 the tracked package holds on `rel/0-34` with the
 wave-2 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
@@ -458,7 +458,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 160 errors in 16 files (checked 268 source files)
+    Found 159 errors in 16 files (checked 269 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1212,7 +1212,7 @@ this report are this run's.
 MESHFACES, the public architecture section, the migration page and the kill
 tests committed, the tree clean, as the script reported), with python 3.12.0,
 numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic 2.13.5 (the script
-printed mypy's version as unknown): 160 errors in 16 of 268 modules on 75
+printed mypy's version as unknown): 160 errors in 16 of 236 modules on 75
 distinct source lines. The tracked package holds two modules more than the
 234 of the wave-1 tip, each reported CLEAN and neither exempted:
 `pyflightstream._textio`, the LF write route of NFR-32, and
@@ -1224,3 +1224,17 @@ are in `qa.probes` (79), `script.solver_setup` (22), `script` (17),
 override list of `pyproject.toml` is unchanged, and the shipped
 configuration is green over all 236. The quoted mypy lines and the sentence
 at the top of this report are this run's.
+
+## Re-measured 2026-10-03, `rel/0-36` with the wave-1 cuts and MM merged: one error fewer, the count of dirty modules unchanged
+
+`python scripts/mypy_recount.py` on 2026-10-03, on `rel/0-36` after the merges of
+WP7, WP9c, WP9d, WP10a, WP10b, GF and MM, the tree clean as the script reported,
+with python 3.12.0, numpy 2.5.2, xarray 2026.7.0, pandas 3.0.5 and pydantic
+2.13.4: 159 errors in 16 of 269 modules on 74 distinct source lines; the shipped
+configuration is green over all 269. The package grew by eight modules since the
+0.35.1 recount (the WP7, WP9c, WP9d and WP10b homes and `pyflightstream._maturity`),
+each reported clean and none exempted. The override list of `pyproject.toml` is
+unchanged. The sentence at the top of this report is this run's. (The 0.35.1.dev1
+and the first 0.36.0 module recounts changed only the module figure of the
+2026-10-02 sentence; this run re-measures the errors as well, and the dated
+section above is restored to the 236 modules it measured.)
