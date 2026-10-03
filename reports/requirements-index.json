@@ -3004,7 +3004,7 @@
    "text": "Requirement: a polar whose post-processing asks [time_averaging] shall join a grouped job (plan --batch, plan --polar-sweep); each of its points' per-step exports shall land in that point's own datapoint folder under the names the point run alone writes, over the window the point run alone exports.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner report of 2026-10-03 (her batched cluster campaigns are unsteady rotor polars with time averaging, and 0.35.0 left every one of them out of --batch and --polar-sweep), and her design of 2026-10-02 for FR-355: the job's action re-points each point's files at the point's first step precisely so that its exports land in its own folder. Evidence: tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped, ::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window, ::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave.*",
+   "evidence": "*Origin: user report of 2026-10-03 (cluster campaigns of unsteady rotor polars with time averaging were left out of the grouped modes), and the design of 2026-10-02 for FR-355: the job action re-points each point's files at its first step so its exports land in its own folder. Evidence: tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped, ::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window, ::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave.*",
    "verification": "test"
   },
   {
@@ -3012,7 +3012,7 @@
    "text": "Requirement: plan --batch <n> and plan --polar-sweep shall group the polars of the steady run types steady and qsteady_rotor as they group the unsteady ones, in jobs that hold one kind only, and run and collect shall record each steady point of a job as the same point run alone is recorded.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1, \"nao deixa nada de fora que não for comprovadamente inviável\". Evidence: tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job, ::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section, ::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind, ::test_p0351_steady_fr403_what_stays_out_is_named, ::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone, ::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing; tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named.*",
+   "evidence": "*Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include every row unless grouping is demonstrably infeasible. Evidence: tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job, ::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section, ::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind, ::test_p0351_steady_fr403_what_stays_out_is_named, ::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone, ::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing; tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named.*",
    "verification": "test"
   },
   {
@@ -3020,7 +3020,7 @@
    "text": "Requirement: a polar whose setup states [[unsteady_solver_actions]] (FR-319) shall join a grouped job (plan --batch, plan --polar-sweep), and each of its points shall run exactly the actions its setup states, once a step, as the point run alone runs them.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): 0.35.0 left every polar whose setup states unsteady_solver_actions out of --batch and --polar-sweep. Evidence: tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written, ::test_p0351_user_actions_fr405_a_job_of_one_set_only, ::test_p0351_user_actions_fr405_the_split_groups_by_action_set, ::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script, ::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder, ::test_p0351_user_actions_fr405_records_equal_the_points_run_alone.*",
+   "evidence": "*Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include setup-declared unsteady_solver_actions, which 0.35.0 left out of --batch and --polar-sweep. Evidence: tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written, ::test_p0351_user_actions_fr405_a_job_of_one_set_only, ::test_p0351_user_actions_fr405_the_split_groups_by_action_set, ::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script, ::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder, ::test_p0351_user_actions_fr405_records_equal_the_points_run_alone.*",
    "verification": "test"
   },
   {
@@ -3028,7 +3028,7 @@
    "text": "Need: An acoustic polar must run in a --batch or --polar-sweep job and leave, at each point, what the same point run alone leaves.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): the grouped plan of 0.35.0 left an acoustic polar out because its section folder in one instance was not measured.*",
+   "evidence": "*Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include acoustic polars, which 0.35.0 left out because the section folder in one instance was not measured.*",
    "verification": "review"
   },
   {
@@ -3036,7 +3036,7 @@
    "text": "Need: A coupled polar on unsteady must run in a --batch or --polar-sweep job and leave, at each point, what the same point run alone leaves. Its coupling loop runs inside the solver instance (the solver runs the post-processing script and then the structural program once per time step, in the point's working directory), so no step of it needs Python between two solver passes outside the instance.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): the grouped plan of 0.35.0 left a coupled polar out because a coupled run was not grouped in that release.*",
+   "evidence": "*Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include coupled unsteady polars, which were not grouped in 0.35.0.*",
    "verification": "review"
   },
   {
@@ -3044,7 +3044,7 @@
    "text": "Requirement: A repeated sweep value is refused naming its POL, the value and its positions.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner request for 0.35.1. Evidence: tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol.*",
+   "evidence": "*Origin: user requirement for 0.35.1. Evidence: tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol.*",
    "verification": "test"
   },
   {

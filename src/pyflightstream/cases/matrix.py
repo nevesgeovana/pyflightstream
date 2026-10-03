@@ -87,6 +87,8 @@ from pyflightstream.cases import (
     multiplied_sweep,
 )
 from pyflightstream.cases._sweep_names import _HELD_POINT_KEYS as _HELD_POINT_KEYS
+from pyflightstream.cases._sweep_names import ATTITUDE_KEYS as ATTITUDE_KEYS
+from pyflightstream.cases._sweep_names import FLIGHT_CONDITION_KEYS as FLIGHT_CONDITION_KEYS
 from pyflightstream.cases._sweep_names import _condition_sweep_axes, _sweep_of_condition
 from pyflightstream.cases.naming import POINT_AXIS_KEYS as POINT_AXIS_KEYS
 
@@ -597,86 +599,6 @@ class MatrixRow:
     #: row wrote them, the swept key included; the point name follows it.
     condition_order: list[str] = field(default_factory=list)
 
-
-#: The CLOSED set of flight-condition keys, each with the unit it is
-#: written in and the quantity it constrains (PFS-2027.01).
-#:
-#: A flight condition is a SET OF CONSTRAINTS on one flow state, and the
-#: keys given decide which quantity is solved for. That sentence is the
-#: whole design: the same resolver answers ``MACH:0.20, REmi:5.5`` and
-#: ``TASmps:68.08, ALTFT:10000, dISA:5`` by solving for a different
-#: unknown each time. This table is the vocabulary; the resolving lives
-#: one layer up, where a row can reach the reference artifact.
-#:
-#: WHY THE SET IS CLOSED. An unrecognised key is REFUSED here rather
-#: than ignored, which is the difference between a typo that costs a
-#: message and a typo that costs a campaign. Extending it later costs
-#: one row in this table and no rewrite, which is why the first cut can
-#: be narrow without being a trap.
-#:
-#: THE UNITS RIDE THE KEYS rather than the values, which is why the
-#: names are not plain words: ``ALTFT`` is feet, ``dISA`` is Celsius and
-#: ``REmi`` is millions. A cell that said ``ALTITUDE:10000`` would be
-#: ambiguous between feet and metres in a repository that has already
-#: shipped a solver command whose metres argument three builds read as
-#: feet.
-FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
-    "MACH": (
-        "dimensionless",
-        "velocity, through the speed of sound at the state's own temperature",
-    ),
-    "TASmps": ("m/s", "velocity directly"),
-    # The second element is the quantity the key CONSTRAINS, which for
-    # REmi is the density alone. It read "density, velocity and reference
-    # length over viscosity" until a release review pointed out that this
-    # is the DEFINITION of a Reynolds number rather than a constraint, and
-    # that read as a constraint list it says REmi pins three things.
-    "REmi": ("millions", "density"),
-    "ALTFT": ("feet", "pressure, and temperature through the standard lapse"),
-    "dISA": ("Celsius, a DELTA", "temperature, as an offset on the standard value"),
-    # THE FIVE PINS (FR-54, PFS-2030.02). Each overrides the constant the
-    # standard atmosphere would otherwise supply, so a row can state the
-    # fluid the reference scripts pinned and the emitted FLUID_PROPERTIES
-    # block carries those numbers and no others. The units ride the keys.
-    "RHOkgm3": ("kg/m^3", "density directly, overriding both the atmosphere and REmi"),
-    "MUPas": ("Pa s", "dynamic viscosity, which REmi then solves the density against"),
-    "ASMPS": ("m/s", "sonic velocity, which MACH is then taken against"),
-    "TK": ("kelvin", "temperature, stated rather than lapsed"),
-    "PPA": ("pascal", "pressure, stated rather than lapsed"),
-}
-
-#: THE ATTITUDE KEYS (FR-69, the rule of 2026-09-10), which the same cell
-#: carries and which are NOT part of the flow state: they fix where the
-#: aircraft points, not what the air is doing, so they are parsed here and
-#: never handed to the atmosphere resolver. A row states both on every
-#: row, so that no run reaches the solver at an angle nobody wrote; the
-#: swept one carries the word `sweep` and the other a number.
-#:
-#: ADVANCE_RATIO joins them (FR-70): stated here it governs every motion
-#: of the row that states no speed of its own.
-ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
-    "ALPHA": ("degrees", "the incidence of the free stream"),
-    "BETA": ("degrees", "the sideslip of the free stream"),
-    "ADVANCE_RATIO": ("dimensionless", "the speed of every motion that states none"),
-    # RPM JOINS THEM AT 0.21.0, on the cluster feedback of 2026-09-15: a rotor
-    # study varies the SPEED and holds the flow, and the speed had no home in
-    # the cell at all -- it could only be written on a motion record, where it
-    # cannot be swept and where every motion of the row needs its own copy.
-    # Stated here it reaches every motion that states none, exactly as the
-    # advance ratio does, and a MOTIONS record naming a speed still wins.
-    "RPM": (
-        "rev/min",
-        "the speed of every motion that states none, a magnitude: the sense is "
-        "the reference's rpm_sign",
-    ),
-    # THE BODY RATES (0.21.0, the cluster feedback of 2026-09-15). One of
-    # them, non-zero, turns the free stream about the moment reference point
-    # of the row's REF: it is how a run states a pull-up, a roll or a yaw
-    # rather than a straight flight. Flight-mechanics signs, deg/s.
-    "roll_rate": ("deg/s", "the roll rate of the aircraft, about the REF's MRP"),
-    "pitch_rate": ("deg/s", "the pitch rate of the aircraft, about the REF's MRP"),
-    "yaw_rate": ("deg/s", "the yaw rate of the aircraft, about the REF's MRP"),
-}
 
 #: The three keys that turn the free stream, in the order a name writes them.
 RATE_KEYS = ("roll_rate", "pitch_rate", "yaw_rate")
@@ -1742,7 +1664,12 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
             flight_condition=state,
-            sweep=_sweep_of_condition(condition, record["SWEEP_VALUES"], record["POL"]),
+            sweep=_sweep_of_condition(
+                condition,
+                record["SWEEP_VALUES"],
+                record["POL"],
+                error=MatrixError,
+            ),
             ref_code=record["REF"],
             set_code=record["SET"],
             pproc_code=record["PPROC"],

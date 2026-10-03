@@ -8802,7 +8802,7 @@ Requirements written after the specification was last reconciled with the packag
     - R1 The grouping shall be by `NCPUS` AND solver build AND kind (steady or unsteady, FR-403) AND the setup's own `unsteady_solver_actions` (FR-405, 0.35.1): the polars are grouped by these four keys, in matrix order, so that no job mixes two builds, steady and unsteady polars, or two sets of user actions. Every group gets at least one job; the jobs beyond the number of groups go one at a time to the group whose longest job estimate is longest, while a polar can still be split off a job; a polar is never cut; a warning is printed for n above the number of polars and for n below the number of groups. This R-item is a design proposal; it stays pending until accepted.
     - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars, and since 0.35.1 steady and quasi-steady ones in jobs of their own (FR-403), and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a LEGACY row, a warm steady row or a steady point that initialises the solver twice (FR-403 R5), a `RESTART` row (it opens a datapoint's own `.fsm`), a row whose setup states a `SCRIPT` entry of `unsteady_solver_actions` by a relative file (FR-405; a row stating them otherwise joins a job of its own action set), an unsteady row on a build that does not document the action command, and a polar whose points do not splice into one script. The refusal of FR-378 is not a reason to leave out: it blocks the plan. An acoustic row and a coupled structural row on `unsteady` are not left out since 0.35.1 (FR-406, FR-407). This R-item is a design proposal; it stays pending until accepted.
 
-    - R3 Sections persist across REMOVE_INITIALIZATION (measured 2026-10-03), so a restated block does not create them again; a block opened by NEW_SIMULATION creates them.
+    - R3 Sections persist across REMOVE_INITIALIZATION (measured on 26.124, RPT-148), so a restated block does not create them again; a block opened by NEW_SIMULATION creates them.
 
     Verification: The markers P0350-BATCH-SPLIT and P0350-BATCH-TABLE: tier-1 tests with synthetic costs assert the grouping, the contiguity, the optimal cut against a brute-force partition, the warning for n above the polars, the refusal of a second build, and the rows and total line of the printed table.
 
@@ -9448,22 +9448,22 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-402 A polar asking time averaging joins a grouped job <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner report of 2026-10-03 (her batched cluster campaigns are unsteady rotor polars with time averaging, and 0.35.0 left every one of them out of `--batch` and `--polar-sweep`), and her design of 2026-10-02 for FR-355: the job's action re-points each point's files at the point's first step precisely so that its exports land in its own folder. Evidence: `tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped`, `::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window`, `::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave`.*
+    *Origin: user report of 2026-10-03 (cluster campaigns of unsteady rotor polars with time averaging were left out of the grouped modes), and the design of 2026-10-02 for FR-355: the job action re-points each point's files at its first step so its exports land in its own folder. Evidence: `tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped`, `::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window`, `::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave`.*
 
     Requirement: a polar whose post-processing asks `[time_averaging]` shall join a grouped job (`plan --batch`, `plan --polar-sweep`); each of its points' per-step exports shall land in that point's own datapoint folder under the names the point run alone writes, over the window the point run alone exports.
 
     - R1 The grouped plan does not leave such a polar out for its `[time_averaging]` (FR-362 R2); every other reason stands.
     - R2 The per-step exports of a point are re-pointed by the job's schedule (FR-355): at the point's first step the job's counter makes it current, counts its steps from 1, and from the window's first step writes that point's own exports, the per-step lines of the counter program the point run alone is given with every output name made absolute in the point's own datapoint folder. No second mechanism is added.
-    - R3 The stamp the solver gives an action's export, `<stem>_iteration=<step><suffix>`, counts the steps of the simulation then marching, from 1 again after `REMOVE_INITIALIZATION` and after `NEW_SIMULATION` (MEASURED on 26.124, dev-wheel rehearsal arm R2 of 2026-10-02: point 2 of a re-initialized polar stamped 20 to 45, the first point of the next polar 10 and 11 at job count 100 and 101), so the stamped names equal those of the point run alone.
+    - R3 The stamp the solver gives an action's export, `<stem>_iteration=<step><suffix>`, counts the steps of the simulation then marching, from 1 again after `REMOVE_INITIALIZATION` and after `NEW_SIMULATION` (MEASURED on 26.124, RPT-142, arm R2: point 2 of a re-initialized polar stamped 20 to 45, the first point of the next polar 10 and 11), so the stamped names equal those of the point run alone.
     - R4 Collect moves the stamped files with the point's folder (FR-367), and the post averages each point's window from its own folder, the product equal to the one of the point run alone.
 
     Rationale: the time average of a grouped point must be the time average of the same point run alone, or the grouped mode cannot serve the campaigns it was built for.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_tavg.py`, carrying the marker P0351-BATCH-TAVG (FR-402), with a solver played from the measured behaviour; a licensed comparison of the same points grouped and alone is prepared under the 0.35.1 release folder. Release 0.35.1.
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_tavg.py`, carrying the marker P0351-BATCH-TAVG (FR-402), with a solver played from the measured behaviour; the licensed comparisons of the same points grouped and alone are recorded in RPT-148, including window 1 equality and the window 2 difference of at most 1.1e-19. Release 0.35.1.
 
 !!! requirement "FR-403 Steady and quasi-steady polars join the grouped jobs <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner rule of 2026-10-03 for 0.35.1, "nao deixa nada de fora que não for comprovadamente inviável". Evidence: `tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job`, `::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section`, `::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind`, `::test_p0351_steady_fr403_what_stays_out_is_named`, `::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone`, `::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing`; `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named`.*
+    *Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include every row unless grouping is demonstrably infeasible. Evidence: `tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job`, `::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section`, `::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind`, `::test_p0351_steady_fr403_what_stays_out_is_named`, `::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone`, `::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing`; `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named`.*
 
     Requirement: `plan --batch <n>` and `plan --polar-sweep` shall group the polars of the steady run types `steady` and `qsteady_rotor` as they group the unsteady ones, in jobs that hold one kind only, and `run` and `collect` shall record each steady point of a job as the same point run alone is recorded.
 
@@ -9484,7 +9484,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-405 A polar whose setup states unsteady_solver_actions joins a grouped job <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner rule of 2026-10-03 for 0.35.1 ("nao deixa nada de fora que não for comprovadamente inviável"): 0.35.0 left every polar whose setup states `unsteady_solver_actions` out of `--batch` and `--polar-sweep`. Evidence: `tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written`, `::test_p0351_user_actions_fr405_a_job_of_one_set_only`, `::test_p0351_user_actions_fr405_the_split_groups_by_action_set`, `::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script`, `::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder`, `::test_p0351_user_actions_fr405_records_equal_the_points_run_alone`.*
+    *Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include setup-declared `unsteady_solver_actions`, which 0.35.0 left out of `--batch` and `--polar-sweep`. Evidence: `tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written`, `::test_p0351_user_actions_fr405_a_job_of_one_set_only`, `::test_p0351_user_actions_fr405_the_split_groups_by_action_set`, `::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script`, `::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder`, `::test_p0351_user_actions_fr405_records_equal_the_points_run_alone`.*
 
     Requirement: a polar whose setup states `[[unsteady_solver_actions]]` (FR-319) shall join a grouped job (`plan --batch`, `plan --polar-sweep`), and each of its points shall run exactly the actions its setup states, once a step, as the point run alone runs them.
 
@@ -9500,7 +9500,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-406 An acoustic row joins a grouped job <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner rule of 2026-10-03 for 0.35.1 ("nao deixa nada de fora que não for comprovadamente inviável"): the grouped plan of 0.35.0 left an acoustic polar out because its section folder in one instance was not measured.*
+    *Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include acoustic polars, which 0.35.0 left out because the section folder in one instance was not measured.*
 
     Need: An acoustic polar must run in a `--batch` or `--polar-sweep` job and leave, at each point, what the same point run alone leaves.
 
@@ -9508,7 +9508,7 @@ Requirements written after the specification was last reconciled with the packag
 
     - R1 The signals export and the section's `STORAGE_PATH` of each point shall be absolute in that point's own datapoint folder (FR-359); the run writes each point's section note into its own folder, and collect lists the section files as for a point run alone (FR-268).
     - R2 A job without an acoustic point shall be byte-for-byte the job of 0.35.0.
-    - R3 An acoustic polar runs alone in its job: a second polar opened after an acoustic one in the same instance ended the solver process on 26.124 (measured 2026-10-03).
+    - R3 An acoustic polar runs alone in its job: a second polar opened after an acoustic one in the same instance ended the solver process on 26.124 (measured 2026-10-03, RPT-148).
 
     Evidence: `tests/tier1_offline/test_p0351_batch_acoustic.py::test_p0351_acoustic_polars_run_alone_in_their_jobs` verifies that two acoustic polars and one plain unsteady polar form three jobs even with `--batch 1`.
 
@@ -9520,7 +9520,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-407 A coupled (FSI) row on `unsteady` joins a grouped job <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner rule of 2026-10-03 for 0.35.1 ("nao deixa nada de fora que não for comprovadamente inviável"): the grouped plan of 0.35.0 left a coupled polar out because a coupled run was not grouped in that release.*
+    *Origin: user requirement of 2026-10-03 for 0.35.1: grouped modes include coupled unsteady polars, which were not grouped in 0.35.0.*
 
     Need: A coupled polar on `unsteady` must run in a `--batch` or `--polar-sweep` job and leave, at each point, what the same point run alone leaves. Its coupling loop runs inside the solver instance (the solver runs the post-processing script and then the structural program once per time step, in the point's working directory), so no step of it needs Python between two solver passes outside the instance.
 
@@ -9538,7 +9538,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-408 A repeated sweep value is refused naming its POL, the value and its positions <span class='srs-implemented'>implemented</span>"
 
-    *Origin: owner request for 0.35.1. Evidence: `tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol`.*
+    *Origin: user requirement for 0.35.1. Evidence: `tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol`.*
 
     Requirement: A repeated sweep value is refused naming its POL, the value and its positions.
 

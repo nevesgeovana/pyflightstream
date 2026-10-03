@@ -1746,7 +1746,7 @@ differences. The CCS mesh probe judges classify by geometry (FR-401).
 
 - `cases/_sweep_names.py` is private to the cases row. It builds a matrix row's
   sweep and refuses repeated point names (FR-408), importing `cases.SweepAxis`,
-  `cases.naming` and the public `cases.workflows.SWEEP_WORD`. Its deferred
-  imports from `cases.matrix` read the row error class and condition vocabulary
-  after that vocabulary is defined. `cases.matrix` keeps the existing helper
-  names; name precision remains defined only by `cases.naming.name_field`.
+  `cases.naming` and the public `cases.workflows.SWEEP_WORD`. It defines the condition
+  vocabulary and takes the row error class as a keyword-only parameter from
+  `cases.matrix`, with no import back into that module. `cases.matrix` keeps the
+  existing helper names; name precision remains defined only by `cases.naming.name_field`.

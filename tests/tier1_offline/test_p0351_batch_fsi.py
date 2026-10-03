@@ -70,13 +70,182 @@ from tests.tier1_offline.test_p0350_batch_run import PROFILE, RECORDS_ARGV
 from tests.tier1_offline.test_p0350_batch_run import _job as _run_job
 from tests.tier1_offline.test_p0350_batch_script import relative_paths
 from tests.tier1_offline.test_workflows import unsteady_case
-from tests.tier3_licensed import fsi_lq1
 
 BUILD = "26.124"
 ROOT = PurePosixPath("/ws/sims/batch/mtx_b1")
 POST = "SET_AEROELASTIC_POST_PROCESSING_SCRIPT"
 #: The matrix name the grouped run fixture of 0.35.0 labels its batch with (``rotor_b1``).
 RUN_MATRIX = "rotor"
+
+
+# Synthetic inputs from tests.tier3_licensed.fsi_lq1, defined inline for tier 1.
+NACA = "4412"
+CHORD_M, SEMI_SPAN_M, N_CHORD, N_SPAN = 1.0, 4.0, 25, 20
+
+
+_SETUP = """# s340: steady preset of LQ1 (0.34.0, RPT-128), the s110 of RPT-092;
+# far field at five layers.
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-5
+max_parallel_threads = 8
+NITER = 500
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "DISABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+induced_wake_velocity = true
+farfield_layers = 5
+significant_digits = 7
+convergence_iterations = 20
+solver_minimum_cp = -100
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325
+"""
+
+
+_REFERENCE = """# r340: the closed right half of the synthetic NACA 4412 wing (public shape law),
+# chord 1 m, semi-span 4 m, root at y = 0; moment point on the quarter chord, the
+# FSI-G pitch axis and the origin of the MRP frame the sections are cut in.
+area_m2 = 4.0
+chord_m = 1.0
+span_m = 4.0
+
+[moment_point]
+x_m = 0.25
+y_m = 0.0
+z_m = 0.0
+"""
+
+
+_PPROC = """# p340: the fixed wing: one spanwise distribution normal to Y in MRP
+# (the FSI-G route's).
+[groups]
+TOTAL = "all"
+
+[sections]
+count = 20
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["Wing"]
+frame = "MRP"
+planes = ["XZ"]
+
+[products]
+polars = true
+sections = true
+"""
+
+
+_MATRIX_HEADER = (
+    "POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | "
+    "SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | "
+    "WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 96 + "\n"
+)
+
+
+def _section_contour() -> list[list[float]]:
+    """The NACA 4412 contour as the FSI input takes it: (toward the LE, toward suction) [m]."""
+    from pyflightstream.qa.geometry import naca4_contour
+
+    contour = naca4_contour(NACA, N_CHORD)[:-1] * CHORD_M
+    return [[round(0.25 * CHORD_M - x, 9), round(z, 9)] for x, z in contour]
+
+
+def _wing_obj() -> tuple[str, int]:
+    """The closed half wing as OBJ text (one group), and its vertex count."""
+    from pyflightstream.qa.geometry import WingSpec, wing_triangles
+
+    spec = WingSpec(naca=NACA, chord_m=CHORD_M, span_m=SEMI_SPAN_M, n_chord=N_CHORD, n_span=N_SPAN)
+    triangles = wing_triangles(spec, translation_m=(0.0, SEMI_SPAN_M / 2.0, 0.0))
+    index: dict[tuple[float, float, float], int] = {}
+    vertices: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, int, int]] = []
+    for triangle in triangles:
+        ids = []
+        for point in triangle:
+            # Adding 0.0 turns a negative zero into zero and leaves every other value.
+            key = (
+                round(float(point[0]), 9) + 0.0,
+                round(float(point[1]), 9) + 0.0,
+                round(float(point[2]), 9) + 0.0,
+            )
+            if key not in index:
+                index[key] = len(vertices) + 1
+                vertices.append(key)
+            ids.append(index[key])
+        if len(set(ids)) == 3:
+            faces.append((ids[0], ids[1], ids[2]))
+    lines = [
+        f"# closed right half of the synthetic NACA {NACA} wing (public shape law), "
+        f"chord {CHORD_M:g} m, semi-span {SEMI_SPAN_M:g} m; metres",
+        "o Wing",
+        *(f"v {x:.9f} {y:.9f} {z:.9f}" for x, y, z in vertices),
+        *(f"f {a} {b} {c}" for a, b, c in faces),
+    ]
+    return "\n".join(lines) + "\n", len(vertices)
+
+
+def _trailing_edge_points() -> str:
+    """One trailing-edge point per spanwise panel, at mid-panel, in metres."""
+    rows = ["METER"]
+    for k in range(N_SPAN):
+        y = SEMI_SPAN_M * (k + 0.5) / N_SPAN
+        rows.append(f"{CHORD_M:.9f},{y:.9f},{0.0:.9f}")
+    return "\n".join(rows) + "\n"
+
+
+def _fsi_input() -> str:
+    """f340: the f011 of RPT-092 with the NACA 4412 contour at every station."""
+    stations = [0.5 * k for k in range(9)]
+    contour = json.dumps(_section_contour())
+    sections = ",\n  ".join(contour for _ in stations)
+    return (
+        f"# f340: the closed right half of the synthetic NACA {NACA} wing as SOLID Ti-6Al-4V\n"
+        "# (grade 5, annealed), clamped at the root, under its aerodynamic loads and its own\n"
+        "# weight (FSI-G). Sections: the contour of the mesh, toward the leading edge and\n"
+        "# toward the suction side, about the quarter chord (the pitch axis).\n"
+        'mode = "calculated"\nmaterial = "ti-6al-4v-grade5-annealed"\n\n'
+        "[config]\nblade_count = 1\nomega_rad_per_s = 0.0\n\n"
+        "[config.wing]\nself_weight = true\ngravity_m_per_s2 = [0.0, 0.0, -9.80665]\n"
+        'span_axis = "+Y"\norigin_m = [0.25, 0.0, 0.0]\n\n'
+        f"[sections]\nstation_radii_m = {json.dumps(stations)}\n"
+        f"chord_m = {json.dumps([CHORD_M] * len(stations))}\n"
+        f"geometric_pitch_deg = {json.dumps([0.0] * len(stations))}\n"
+        f'geometry_source = "Synthetic NACA {NACA} (public shape law, '
+        'pyflightstream.qa.geometry), chord 1 m, metres"\n'
+        "torsion_grid_cells = 64\n"
+        f"sections_m = [\n  {sections}\n]\n"
+    )
+
+
+def _build_coupled_inputs(root: Path) -> None:
+    """Stage the synthetic coupled wing inputs used by this offline submitting test."""
+    inputs = root / "inputs"
+    geometry = inputs / "geometries" / "coupled_wing"
+    geometry.mkdir(parents=True, exist_ok=True)
+    obj, _ = _wing_obj()
+    (geometry / "coupled_wing.obj").write_text(obj, encoding="utf-8")
+    (geometry / "coupled_wing.boundaries.toml").write_text(
+        'boundaries = ["Wing"]\n[import]\nunits = "METER"\n'
+        '[trailing_edges]\nfile = "coupled_wing.te.txt"\n[wake_termination]\ndetect = "auto"\n',
+        encoding="utf-8",
+    )
+    (geometry / "coupled_wing.te.txt").write_text(_trailing_edge_points(), encoding="utf-8")
+    for folder, name, body in (
+        ("setups", "s340.toml", _SETUP),
+        ("references", "r340.toml", _REFERENCE),
+        ("pproc", "p340.toml", _PPROC),
+        ("fsi", "f340.toml", _fsi_input()),
+        ("", "executables.toml", f'"{BUILD}" = "{Path(sys.executable).as_posix()}"\n'),
+    ):
+        (inputs / folder).mkdir(parents=True, exist_ok=True)
+        (inputs / folder / name).write_text(body, encoding="utf-8")
 
 
 def _point(case, sim: str, tag: str):
@@ -229,15 +398,15 @@ def test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy(tmp_path):
     """
     root = tmp_path / "camp"
     CampaignWorkspace.init(root)
-    fsi_lq1.build(root, sys.executable)
+    _build_coupled_inputs(root)
     workspace = CampaignWorkspace(root)
     row = (
         "7001 | 1 | 1 | WINGSYN | - | WING_FSI_UNSTEADY | MACH:0.147, REmi:3.42, ALPHA:sweep | "
-        f"0.0,2.0 | {fsi_lq1.GEOMETRY}.obj | r340 | s340 | p340 | NONE | - | 8 | - | {BUILD} | "
+        f"0.0,2.0 | coupled_wing.obj | r340 | s340 | p340 | NONE | - | 8 | - | {BUILD} | "
         "unsteady | DELTA_TIME: 0.01 / TIME_ITERATIONS: 20 / LAST_ITERS_AVG: 10 / FSI: f340\n"
     )
     matrix = root / f"{RUN_MATRIX}.fs"
-    matrix.write_text(fsi_lq1._MATRIX_HEADER + row, encoding="utf-8")
+    matrix.write_text(_MATRIX_HEADER + row, encoding="utf-8")
     profile = workspace.inputs_dir / "hpc" / "h001.toml"
     profile.parent.mkdir(parents=True, exist_ok=True)
     command = [sys.executable, "-c", RECORDS_ARGV, (tmp_path / "argv.json").as_posix()]
@@ -294,6 +463,25 @@ def test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy(tmp_path):
         assert script.count(f"{POST}\n{copy}\n") == 1, copy
     assert script.count("REMOVE_INITIALIZATION") == 0
     assert not relative_paths(script), relative_paths(script)
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("Solver mode: Unsteady", "1 bodies, 3 vertices and 1 faces imported."),
+        ("Solving unsteady time-step iteration (3/3)...", "Symmetry is disabled."),
+    ],
+    ids=["only-before", "only-after"],
+)
+def test_p0351_fsi_fr407_one_initialization_condition_still_splits(before, after):
+    """P0351-BATCH-FSI (FR-407): one setup-reset condition alone is a point boundary."""
+    text = f"{before}\nSolution cleared. Initialization removed.\n{after}\n"
+    segments = split_job_log(text)
+    assert len(segments) == 2
+    assert [(s.first_line, s.last_line, s.complete) for s in segments] == [
+        (0, 0, True),
+        (2, 2, False),
+    ]
 
 
 def _fsi_native_log(iteration: int, residual: float) -> str:

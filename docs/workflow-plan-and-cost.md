@@ -165,7 +165,11 @@ polars by processor count, build, kind and the setup's own `unsteady_solver_acti
 so that no job mixes two builds, a steady polar with an unsteady one, or two
 sets of user actions (FR-405), and cuts
 each group into contiguous batches of whole polars so that the largest batch
-estimate is the smallest possible. It prints the split as a table with each
+estimate is the smallest possible. Each acoustic polar is planned as a job of
+its own with all its points (FR-406): opening a second polar after an acoustic
+one ended the solver process on 26.124
+([RPT-148](../reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)).
+It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
 names every polar a grouped job cannot take, with the reason: a LEGACY row, a
 steady row stating `COLD_START` false, a steady point that initialises the solver
@@ -179,9 +183,16 @@ point of a polar is restated from `SOLVER_SET_AOA` after
 state, a quasi-steady rotor's turning free stream) reopens its geometry after
 `NEW_SIMULATION`, and the plan names its polar in a warning. Each point is
 recorded as the point run alone.
+A collected point records the solver version and build as the point run alone
+does (FR-366), and a restated point reuses its sections (FR-362).
+A polar whose post asks for `[time_averaging]` now groups, with each point's
+per-step exports landing in its own datapoint folder (FR-402).
 A receipt in which every polar was left out holds no job, and `run` refuses it. The split is recorded per batch in the plan receipt
 `post/<matrix>/plan.json`, and `run --batch N` refuses a receipt that has no
 batches or was made for another N or another matrix (FR-365).
+
+A repeated `SWEEP_VALUES` value is refused as a matrix error naming the POL,
+both values and their positions, and the shared point name (FR-408).
 
 The batch's estimate is the sum of the estimates of its points plus the start,
 re-initialization, reset and save overheads. A point with no estimate is
@@ -230,7 +241,10 @@ apart, would count wrong. The cleaned file groups like any other.
 
 ### Acoustic and coupled rows in a grouped job
 
-An acoustic row joins a grouped job like any other unsteady row (FR-406). Each
+Each acoustic polar is planned as a job of its own with all its points
+(FR-406), because opening a second polar after an acoustic one in the same
+instance ended the solver process on 26.124
+([RPT-148](../reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)). Each
 point after the first one of the job deletes the observers that earlier points
 left in the solver and then states its own acoustic setup again (the sources
 switch, its observers and their time window), just before its unsteady solver
@@ -273,8 +287,9 @@ The cell may read `BEST` instead. The package then prices the job itself: the
 estimate of the batch times 1.25, plus the walltime margin, rounded up to the
 next minute and written with its unit. `BEST` is a value of the grouped plan
 and a plan that uses neither `--polar-sweep` nor `--batch` refuses it, naming
-the row. A point with no estimate in a `BEST` job takes the profile's
-`max_walltime` with a warning naming the point.
+the row. In a mixed job, each `BEST` row adds its own priced estimate to the
+other rows' cell budgets (FR-364). An unknown `BEST` point uses the profile's
+`max_walltime` with a warning naming the point, or is refused without one.
 
 ## The window, said once
 
