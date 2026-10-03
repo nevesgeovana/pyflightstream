@@ -68,7 +68,7 @@ documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
 first documented in 26.122): the plots are declared before one solver
 start that runs every time step the row states, and every export is
 taken after it. It is also how a row asking for none of the features
-below runs on every build. Since 0.33.0 (FR-314) such a row, on a build
+below runs on every build. Such a row (FR-314), on a build
 that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
 local run (FR-129) appears on every unsteady row; its script differs from
@@ -144,7 +144,7 @@ swept row is submitted in one invocation and no queued job shares a file with
 another. The run record names the folder as `working_dir`, and
 `pyfs-matrix collect` waits for the declared outputs there and records them
 where they were written. A point run on this machine runs in the same
-folder since 0.27.0, so its exports, the per-step ones included, are written
+folder, so its exports, the per-step ones included, are written
 where they are filed, and a point whose run fails leaves them there rather
 than in the folder every point of the row shares; the script is the same
 either way, since its exports are named relative to the working directory and
@@ -159,15 +159,14 @@ its points, and its scheduler writes one log of the whole job. `collect`
 therefore waits for each point's other outputs and for that one log, and files
 the log once, under the job's script name with `_log.txt`
 (`P<POL>-<sweep name>_log.txt`), in the simulation folder where the job ran; no
-point waits for a log of its own, which until 0.27.0 kept `collect --watch`
-waiting for files no scheduler writes. Each point is judged from its loads
+point waits for a log of its own, so `collect --watch` does not wait for files no scheduler writes. Each point is judged from its loads
 export, and each point's `residual_note`, and the job's, names the job's log. A
 row that imports its trailing edges from a file holds every point to the count
 in that one log
 (`test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once`,
 `test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log`).
 
-**A job that ended without its log (since 0.33.0, FR-311).** `collect` waits
+**A job that ended without its log (FR-311).** `collect` waits
 for the solver log (`native_log`, or the declared `_log.txt`), and a job that
 died before writing it used to stay `SUBMITTED` for ever, looking like a job
 still running. The profile can name the files its scheduler writes when a job

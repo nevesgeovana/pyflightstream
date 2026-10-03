@@ -143,7 +143,7 @@ module, which is stated rather than left to be discovered:
   series and its quasi-steady, harmonic, noise and disc-map products) and
   :mod:`pyflightstream.post._additional` (the products of the additional post)
   and :mod:`pyflightstream.post._products_campaign` (the campaign products'
-  context, admission and native surface indexing, since 0.36.0, AD-23).
+  context, admission and native surface indexing, AD-23).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find

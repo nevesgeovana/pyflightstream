@@ -97,6 +97,9 @@ nav:
           - The quasi-steady rotor: workflow-qsteady-rotor.md
       - Geometry:
           - Mesh inputs and GUI-only operations: mesh-inputs.md
+          - Prepare a mesh input: mesh/how-to.md
+          - Mesh sidecar reference: mesh/reference.md
+          - Complete mesh example: mesh/example.md
           - CAD inputs: cad-inputs.md
           - CCS geometry: ccs-geometry.md
           - Surface translation: surface-translation.md
@@ -153,7 +156,43 @@ nav:
       - Command-line tools: cli/
       - Solver command reference: reference/
       - Exceptions catalog: exceptions.md
-      - Post-processing definitions: post-processing-definitions.md
+      - Post-processing definitions:
+          - Definition index: post-processing-definitions.md
+          - "Warnings and recorded diagnostics": definitions/warnings-and-recorded-diagnostics.md
+          - "The vocabulary": definitions/the-vocabulary.md
+          - "What every product states": definitions/what-every-product-states.md
+          - "The axes of a steady polar": definitions/the-axes-of-a-steady-polar.md
+          - "The sections table, and which row is which": definitions/the-sections-table-and-which-row-is-which.md
+          - "The probes table": definitions/the-probes-table.md
+          - "The reductions of an unsteady point": definitions/the-reductions-of-an-unsteady-point.md
+          - "time_average": definitions/time_average.md
+          - "per_blade": definitions/per_blade.md
+          - "phase_locked": definitions/phase_locked.md
+          - "per_revolution": definitions/per_revolution.md
+          - "The per-station harmonics": definitions/the-per-station-harmonics.md
+          - "The disc maps": definitions/the-disc-maps.md
+          - "Probe parameters": definitions/probe-parameters.md
+          - "The averaging window": definitions/the-averaging-window.md
+          - "Native surface flow exports": definitions/native-surface-flow-exports.md
+          - "The solver's own plots": definitions/the-solvers-own-plots.md
+          - "The boundary-layer profile is not produced": definitions/the-boundary-layer-profile-is-not-produced.md
+          - "A volume section": definitions/a-volume-section.md
+          - "Durable execution activity": definitions/durable-execution-activity.md
+          - "The additional post": definitions/the-additional-post.md
+          - "The unsteady POLAR": definitions/the-unsteady-polar.md
+          - "The mesh face count": definitions/the-mesh-face-count-since-0340.md
+          - "Rotor coefficients": definitions/rotor-coefficients.md
+          - "Tip and helical Mach numbers": definitions/tip-and-helical-mach-numbers.md
+          - "What the package does NOT judge": definitions/what-the-package-does-not-judge.md
+          - "The token for a value that does not exist": definitions/the-token-for-a-value-that-does-not-exist.md
+          - "Sampled velocity fields and reusable inflow": definitions/sampled-velocity-fields-and-reusable-inflow.md
+          - "The installed-frame copy of a product table": definitions/the-installed-frame-copy-of-a-product-table.md
+          - "The inflow tools' products": definitions/the-inflow-tools-products.md
+          - "The quasi-steady rotor": definitions/the-quasi-steady-rotor.md
+          - "Quasi-steady wheel corrections": definitions/quasi-steady-wheel-corrections.md
+          - "The acoustic signals product": definitions/the-acoustic-signals-product.md
+          - "The post of other records": definitions/the-post-of-other-records-since-0320.md
+          - "Posting and collecting some simulations": definitions/posting-and-collecting-some-simulations-since-0330.md
       - Workspace inputs:
           - The input glossary: inputs.md
           - Flight conditions: flight-conditions.md
@@ -185,6 +224,7 @@ nav:
       - Sister library (ITACA): sister-itaca.md
       - Upgrading:
           # One section, newest first, so a release adds a line here.
+          - Upgrade index: upgrading.md
           - Release notes: release-notes.md
           - Migrating to 0.35.1: migrating-to-0.35.1.md
           - Migrating to 0.35.0: migrating-to-0.35.0.md
@@ -203,3 +243,15 @@ nav:
           - Migrating to 0.23.0: migrating-to-0.23.0.md
           - Migrating to 0.22.0: migrating-to-0.22.0.md
           - Migrating to 0.21.0: migrating-to-0.21.0.md
+          - Migrating to 0.19.0: migrating-to-0.19.0.md
+          - Migrating to 0.18.0: migrating-to-0.18.0.md
+          - Migrating to 0.17.0: migrating-to-0.17.0.md
+          - Migrating to 0.16.0: migrating-to-0.16.0.md
+          - Migrating to 0.15.0: migrating-to-0.15.0.md
+          - Migrating to 0.14.0: migrating-to-0.14.0.md
+          - Migrating to 0.13.0: migrating-to-0.13.0.md
+          - Migrating to 0.11.0: migrating-to-0.11.0.md
+          - Migrating to 0.10.1: migrating-to-0.10.1.md
+          - Migrating to 0.10.0: migrating-to-0.10.0.md
+          - Migrating to 0.8.1: migrating-to-0.8.1.md
+          - Migrating to 0.5.0: migrating-to-0.5.0.md

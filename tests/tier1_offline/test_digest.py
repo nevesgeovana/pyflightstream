@@ -505,7 +505,8 @@ def test_a_page_that_promises_a_content_hash_states_which_hash_it_means():
         "no page under docs/ promises a content hash, so this guard measured "
         "nothing. Either the phrase moved or the scan is broken."
     )
-    assert any(page.name == "mesh-inputs.md" for page in pages), [p.name for p in pages]
+    assert docs / "mesh/how-to.md" in pages
+    assert docs / "mesh/reference.md" in pages
     offenders = pages_that_promise_a_hash_without_stating_the_rule(docs)
     assert not offenders, (
         "\n  ".join(offenders) + "\nA page that asks a reader to rely on a "

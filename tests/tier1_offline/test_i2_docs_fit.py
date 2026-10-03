@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from pyflightstream.script import helpers
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 GUIDE = Path(__file__).parents[2] / "guide" / "pyflightstream_user_guide.tex"
 
@@ -152,7 +153,7 @@ def test_p0320_i2_no_step_says_not_yet_for_what_a_key_already_does():
     assert not said_not_yet, f"a step a key covers still says not yet: {said_not_yet}"
 
 
-_DEFINITIONS = Path(__file__).parents[2] / "docs" / "post-processing-definitions.md"
+_DEFINITIONS = DEFINITION_DOCS
 
 
 def _section(text: str, heading: str) -> str:
@@ -165,7 +166,7 @@ def _section(text: str, heading: str) -> str:
 def test_p0320_i2_the_contents_lists_every_section_the_release_added():
     """P0320-I2-CONTENTS: a section a reader cannot find from the contents does not exist."""
     text = _DEFINITIONS.read_text(encoding="utf-8")
-    contents = _section(text, "Contents")
+    contents = text.split("<h2>Contents</h2>", 1)[1].split("\n## ", 1)[0]
     missing = [
         heading
         for heading in (

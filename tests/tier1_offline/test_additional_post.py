@@ -75,7 +75,7 @@ from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
-from tests.tier1_offline._workflow_docs import workflow_docs_text
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS, workflow_docs_text
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     REGISTRY_FIXTURE,
@@ -1502,9 +1502,7 @@ def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
         "`runs.json` is never written",
     ):
         assert phrase in workflows_page, phrase
-    definitions = " ".join(
-        (REPO / "docs" / "post-processing-definitions.md").read_text(encoding="utf-8").split()
-    )
+    definitions = " ".join((DEFINITION_DOCS).read_text(encoding="utf-8").split())
     for phrase in (
         "## The additional post",
         "additional/<pid>/",

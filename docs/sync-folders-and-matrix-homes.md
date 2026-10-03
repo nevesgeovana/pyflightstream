@@ -1,8 +1,6 @@
 # Sync every folder, and the two matrix homes
 
-This page covers what `pyfs-matrix sync` and the matrix lookup do since
-0.32.0. The sync itself, its levels, its conflicts and the matrix owners
-are described in [Storage and sync](storage-and-sync.md).
+See [Sync](storage-and-sync.md#sync) for the definition, levels, conflicts and matrix owners.
 
 ## Every simulation folder, recorded or not
 
@@ -85,7 +83,7 @@ wrote:
 
 A workspace keeps its matrices at its root or in `inputs/matrices/`, and
 both are equal homes for every command that takes a matrix or looks one up
-(since 0.33.0, FR-310): `upgrade`, `convert`, `plan`, `inspect-setups`,
+(FR-310): `upgrade`, `convert`, `plan`, `inspect-setups`,
 `run`, `post` (its matrix and `--additional-pproc`), `rebuild --matrix` and
 the rebuild's own scan, `rename`, `sync`, the Excel synchronization with and
 without `--matrix`, and the physics check of `pyfs-qa`. `space-in-use` and

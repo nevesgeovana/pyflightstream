@@ -160,7 +160,9 @@ def _slug(heading: str) -> str:
 
 def _anchors(page: Path) -> set[str]:
     text = re.sub(r"```.*?```", "", page.read_text(encoding="utf-8"), flags=re.S)
-    return {_slug(match) for match in re.findall(r"^#{1,6} (.+?)\s*$", text, re.M)}
+    return {_slug(match) for match in re.findall(r"^#{1,6} (.+?)\s*$", text, re.M)} | set(
+        re.findall(r'<a id="([^"]+)"></a>', text)
+    )
 
 
 def test_every_stage_has_one_table_of_the_four_columns():

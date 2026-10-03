@@ -48,7 +48,7 @@ Solver setup per case
     aliases: PORT
     Singularity_strength: not carried (pproc singularity_strength = false)
   POL 9002 (FlightStream 26.120, setup s002)
-    ...
+  ...
 
 Files written
   plan: C:\cases\camp\post\named\plan.json
@@ -115,8 +115,7 @@ inventory the geometry declares, which is what the builder does with them; a
 geometry this reader cannot open prints `-` there rather than the row's own
 count, because the two are different quantities and a reader could not tell
 them apart in one cell. A raw mesh's inventory is its sidecar's `boundaries`
-as the import's renames leave them, since the file carries no mesh block
-(since 0.27.0; before it, every raw-mesh row printed no count here).
+as the import's renames leave them, since the file carries no mesh block.
 `layers`, `visc` and `procs` are the solver preset's `farfield_layers`,
 `viscous_coupling` and `max_parallel_threads`. `steps` is what the row's clock
 works out to: a rotor row stating `DELTA_THETA: 15` and `REVOLUTIONS: 1.5`
@@ -160,7 +159,7 @@ its user and are never part of the package.
 
 `pyfs-matrix plan --batch N` plans the polars as N solver jobs, and
 `plan --polar-sweep` as one job for each polar (FR-362). The steady run types
-`steady` and `qsteady_rotor` join since 0.35.1 (FR-403). The plan groups the
+`steady` and `qsteady_rotor` join (FR-403). The plan groups the
 polars by processor count, build, kind and the setup's own `unsteady_solver_actions`,
 so that no job mixes two builds, a steady polar with an unsteady one, or two
 sets of user actions (FR-405), and cuts
@@ -293,11 +292,11 @@ other rows' cell budgets (FR-364). An unknown `BEST` point uses the profile's
 
 ## The window, said once
 
-**THE AVERAGING WINDOW HAS A KEY OF ITS OWN, AND SINCE 0.24.0 A ROW MUST STATE
+**THE AVERAGING WINDOW HAS A KEY OF ITS OWN, AND A ROW MUST STATE
 IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
 revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
 count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
-states NO window key. A retired `WINDOW_*` key is refused since 0.26.0. It is the one window the unsteady polar, the time average and
+states NO window key. A retired `WINDOW_*` key is refused. It is the one window the unsteady polar, the time average and
 `per_blade` use ([the reductions](post-processing-definitions.md#the-reductions-of-an-unsteady-point)). A window longer than the run is the whole run rather than a
 refusal.
 

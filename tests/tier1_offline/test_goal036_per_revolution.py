@@ -30,6 +30,7 @@ from pyflightstream.post.products import (
     revolution_drift_pct,
     write_campaign_products,
 )
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 from tests.tier1_offline.test_post_products import (
     PLOTS_HEADER,
     _products_manifest,
@@ -309,15 +310,12 @@ def test_the_drift_limit_is_a_declared_positive_key_defaulting_to_one():
 
 def test_the_glossary_and_the_definitions_page_state_the_key():
     # P0310-G2-PER-REV
-    from pathlib import Path
 
     from pyflightstream.post.guides import input_glossary_markdown
 
     text = input_glossary_markdown()
     assert "`[per_revolution]`" in text and "| `drift_limit_pct` |" in text
-    page = (
-        Path(__file__).resolve().parents[2] / "docs" / "post-processing-definitions.md"
-    ).read_text(encoding="utf-8")
+    page = (DEFINITION_DOCS).read_text(encoding="utf-8")
     assert "## `per_revolution`" in page and "drift_limit_pct" in page
 
 

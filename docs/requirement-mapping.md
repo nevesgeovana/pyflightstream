@@ -84,7 +84,9 @@ does not have to work out whether it was forgotten.
 | C10 | Closed as a citation | The owning seat closed it on FR-31 with no new requirement |
 | M4 (b), the PROV export | Deferred at the gate | Accepted the split (a) and deferred the standardized export |
 
-## From 0.25.0 to 0.32.0: the change log names the requirement
+<a id="from-0250-to-0320-the-change-log-names-the-requirement"></a>
+
+## The change log names the requirement
 
 The register above records one gate. After it, a capability reaches the SRS
 through the change log itself: every top-level bullet of the Added and Changed
@@ -104,8 +106,7 @@ change log and the SRS and fails on a bullet that does neither.
 
 Two requirements were restated because the release that followed them changed
 what they say, and each says so in its own text: the steady sweep of the
-run model is cold by default since 0.29.0, and the volume section is sampled
-since 0.29.0.
+run model is cold by default and the volume section is sampled.
 
 ## One tension this mapping surfaced, resolved 2026-08-03
 

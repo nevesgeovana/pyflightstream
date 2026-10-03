@@ -1,0 +1,35 @@
+# Upgrading
+
+Read the migration records for the releases between your installed version and the version you are adopting. Each record states the changes a workspace needs.
+
+- [Migrating to 0.35.1](migrating-to-0.35.1.md)
+- [Migrating to 0.35.0](migrating-to-0.35.0.md)
+- [Migrating to 0.34.0](migrating-to-0.34.0.md)
+- [Migrating to 0.33.1](migrating-to-0.33.1.md)
+- [Migrating to 0.33.0](migrating-to-0.33.0.md)
+- [Migrating to 0.32.0](migrating-to-0.32.0.md)
+- [Migrating to 0.31.0](migrating-to-0.31.0.md)
+- [Migrating to 0.30.0](migrating-to-0.30.0.md)
+- [Migrating to 0.29.0](migrating-to-0.29.0.md)
+- [Migrating to 0.28.0](migrating-to-0.28.0.md)
+- [Migrating to 0.27.0](migrating-to-0.27.0.md)
+- [Migrating to 0.26.0](migrating-to-0.26.0.md)
+- [Migrating to 0.25.0](migrating-to-0.25.0.md)
+- [Migrating to 0.24.0](migrating-to-0.24.0.md)
+- [Migrating to 0.23.0](migrating-to-0.23.0.md)
+- [Migrating to 0.22.0](migrating-to-0.22.0.md)
+- [Migrating to 0.21.0](migrating-to-0.21.0.md)
+- [Migrating to 0.19.0](migrating-to-0.19.0.md)
+- [Migrating to 0.18.0](migrating-to-0.18.0.md)
+- [Migrating to 0.17.0](migrating-to-0.17.0.md)
+- [Migrating to 0.16.0](migrating-to-0.16.0.md)
+- [Migrating to 0.15.0](migrating-to-0.15.0.md)
+- [Migrating to 0.14.0](migrating-to-0.14.0.md)
+- [Migrating to 0.13.0](migrating-to-0.13.0.md)
+- [Migrating to 0.11.0](migrating-to-0.11.0.md)
+- [Migrating to 0.10.1](migrating-to-0.10.1.md)
+- [Migrating to 0.10.0](migrating-to-0.10.0.md)
+- [Migrating to 0.8.1](migrating-to-0.8.1.md)
+- [Migrating to 0.5.0](migrating-to-0.5.0.md)
+
+[Release notes](release-notes.md) carry the earlier release records.

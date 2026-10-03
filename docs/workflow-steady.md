@@ -39,18 +39,14 @@ the sweep**, in degrees, under the same axis names. `held` is what makes
 `ALPHA:sweep, BETA:0.0` in a matrix row and the paired `AL/BE` cell it
 replaced plan the same three runs under the same three names: the point's
 NAME ends the `run_id`, so a held angle has to reach the point or the
-upgrade would rename every run that has one. That was the tag
-`a-04.0_b+00.0` until 0.20.x and is `AL-040BE+000` in a cell that declares
-those two variables since 0.21.0; what matters here is unchanged, which is
-that the held value is part of the point and not only of the row.
+upgrade would rename every run that has one. The tag is `AL-040BE+000` in a cell that declares those two variables; the held value is part of the point and not only of the row.
 
 It holds the two ANGLES and nothing else. A key that is not a point axis
 is refused naming the axes, and so is a `held` entry for the variable the
 sweep already varies. An advance ratio the case holds goes in its
 variables, where it went before this release.
 
-`held` is omitted when the row holds nothing, so a file written before
-0.15.0 loads unchanged. The paired `type = "alpha_beta"` still loads and
+`held` is omitted when the row holds nothing, so a file with no held values loads unchanged. The paired `type = "alpha_beta"` still loads and
 is deprecated: write `type = "alpha"` with the sideslip in `held`, which
 plans the identical runs.
 

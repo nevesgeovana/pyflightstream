@@ -1,5 +1,7 @@
 # Migrating to 0.25.0
 
+> Frozen record: not edited after its release.
+
 This release stops publishing averages of a frozen solve, changes where an
 unsteady probe gets its samples, and adds sections and Cp files named by
 distribution. Read this before upgrading a workspace recorded with 0.24.0.

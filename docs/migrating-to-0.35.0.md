@@ -1,5 +1,7 @@
 # Migrating to 0.35.0
 
+> Frozen record: not edited after its release.
+
 Keep a copy of the workspace and install the release in a separate Python
 environment before running existing matrices.
 

@@ -11,7 +11,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PAGE = Path(__file__).parents[2] / "docs" / "post-processing-definitions.md"
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
+
+PAGE = DEFINITION_DOCS
 
 
 def _lines() -> list[str]:
@@ -40,7 +42,7 @@ def test_the_page_still_states_its_own_authority():
 
 
 def test_source_and_srs_state_requirements_without_personal_attribution():
-    root = PAGE.parents[1]
+    root = Path(__file__).resolve().parents[2]
     paths = sorted(
         path
         for path in (root / "src").rglob("*")

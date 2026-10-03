@@ -51,7 +51,7 @@ rotor's surfaces about its shaft in the sense of its rotation, each followed
 by a new initialisation of the solver; clocking 0 is solved last, with the
 point's full set of exports, so its loads export is of that one solve. Each
 further clocking exports its loads as `<point>_qs<i>.txt` beside the
-point's own and, since 0.31.0, the section exports the row declares (the
+point's own and the section exports the row declares (the
 sections' Cp, their sectional loads, the section Cp plot), each with
 `_qs<i>` before its suffix: `<point>_qs01_sloads.txt`. The solver fixes a
 distribution's cuts when it creates it, over the blade's extent in the pose
@@ -166,7 +166,7 @@ mean and the per cent of the span with `k_eff > 0.1`; `n_max`, the highest
 `n95`; and the suggested `PASSAGE_POSITIONS >= n_max / N + 1`, rounded up,
 with a WARNING naming the point when the row states fewer. With the option
 the reduced-frequency warning reads `k_eff`. Without a chord at plan time
-the harmonics are read at equal bands from 0.2 R to the tip and `k_eff` is
+the harmonics are read at equal bands between 0.2 R and the tip and `k_eff` is
 not computed, and the plan says so.
 
 **nP is counted on the BLADE.** The harmonic order `n` is how many times ONE
@@ -226,14 +226,11 @@ every declared output it did write is still filed in its
 `datapoints/DP-<point>/`, listed in the record's `outputs` with its sha256 in
 `outputs_sha256`; the error names the missing files and nothing else
 (`test_a_missing_log_strands_no_other_output_of_a_local_point`,
-`test_collection_files_every_output_that_exists_and_names_only_the_missing`). Until
-0.27.0 one missing file, typically the solver log, left every other export
-of the point where the solver wrote it and a record naming no output, which
-the post then skipped. The collection method raises `MissingOutputsError`, a
+`test_collection_files_every_output_that_exists_and_names_only_the_missing`). A missing file does not prevent collection of the outputs that exist. The collection method raises `MissingOutputsError`, a
 `WorkspaceError` whose `collected` lists what it filed.
 
 **Every point of a row that names a run type leaves its final saved
-simulation** (a written guarantee since 0.27.0, G11). After the point's
+simulation** (G11). After the point's
 solve, first among its exports, the script saves the solver's state with
 `SAVEAS` under the point's file stem
 (`test_g11_every_workflow_script_saves_its_final_simulation`,
@@ -264,7 +261,7 @@ file is what [the additional post](workflow-additional-post.md#extracting-more-f
 reopens.
 
 **A point that imports its trailing edges from a file is held to the
-solver's own count** (since 0.27.0, G02). A point that matches no mesh edge
+solver's own count** (G02). A point that matches no mesh edge
 marks nothing, and the solver says nothing about it, so after the run the
 number of trailing edges the solver logs as imported is compared with the
 points the script wrote, and the point is recorded `FAILED_SCRIPT` when they

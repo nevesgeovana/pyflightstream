@@ -1,6 +1,6 @@
 # Geometry units and steady starts
 
-From 0.29.0 a steady attitude sweep starts every point cold, including the
+A steady attitude sweep starts every point cold, including the
 first point. The script clears the solution before each solve. To retain the
 previous warm behavior, set `COLD_START: false` in the matrix row. The Python
 builder uses `build_steady_sweep(..., cold=False)` for the same opt-in.

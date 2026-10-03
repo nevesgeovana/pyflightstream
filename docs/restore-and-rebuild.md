@@ -1,5 +1,7 @@
 # Restore and rebuild the run records
 
+## Archive and restore
+
 A campaign workspace keeps its run records in `runs.json`, and a few files of
 the same nature beside it: the storage record `storage_management.json`, the
 additional-post record `additional.json`, and per matrix the products record
@@ -143,7 +145,9 @@ declared output, and the cases above that are refused.
     with no record, the resume takes it as never run and runs it again.
     Settle the reason first and rebuild again.
 
-## Mark a run failed after the fact (since 0.33.0)
+<a id="mark-a-run-failed-after-the-fact-since-0330"></a>
+
+## Mark a run failed after the fact
 
 A run can end `CONVERGED` and still be wrong, which you find only later,
 reading its products. `mark-failed` records that verdict:

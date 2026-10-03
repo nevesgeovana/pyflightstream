@@ -92,17 +92,7 @@ beside it. `cites` is what makes that affordable: a chapter may spell
 one thing four ways and the checking stays one behaviour, because the
 emitter reads the declaration and nothing else.
 
-**Read that last clause strictly: there is ONE mechanism, and this
-document used to describe two.** Until v0.5.0 the emitter resolved by
-declaration first and fell back to matching the argument's NAME against
-two hardcoded lists, and this page said so. The fallback is deleted. A
-name that means different things in different chapters, as `index`
-does, was never resolvable by name anyway, and the arrangement's real
-cost was that an entry could be right by accident: an argument called
-`frame_index` cited a coordinate system with nothing in its own row
-saying so, so a chapter renaming it to match its page silently stopped
-being checked. Declaring is now the only way, and the declaration is
-visible in the row a reader is already looking at.
+**There is one entity-resolution mechanism: the argument declaration.** An argument name alone never selects an entity kind; the declaration is visible in its command-database row. See [the migration record](../migrating-to-0.5.0.md) for the historical behaviour.
 
 Forgetting is not silent, but the guard is a heuristic and is worth
 knowing as one. A tier 1 test fails on any index argument whose NAME
@@ -209,11 +199,10 @@ of the nine values of `pyflightstream.workspace.RunStatus`: CONVERGED,
 COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
 FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, WALLTIME_REACHED, the run
 stopped by its wall clock with its outputs written, SUBMITTED, the run
-handed to a scheduler and not yet collected, and, since 0.33.0,
+handed to a scheduler and not yet collected, and
 FAILED_MARKED, a run the person marked failed with `pyfs-matrix
 mark-failed`, whose record keeps under `marked` the status it had, when
-and why; a release before 0.33.0 has no FAILED_MARKED in its set, so a
-`runs.json` holding one is written for 0.33.0 and later), iterations, residual,
+and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../migrating-to-0.33.0.md)), iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
 
@@ -236,12 +225,12 @@ The managed folder tree of a campaign:
 <root>/
   inputs/            the reusable input-artifact library
     geometries/      geometry files, registered by filename stem, flat or one folder per geometry
-      30_WB/         the recommended form since 0.13.0 (PFS-2032.04): the geometry file,
+      30_WB/         the recommended form (PFS-2032.04): the geometry file,
                      its boundary inventory and its provenance record in one place;
                      GEOMETRY: 30_WB.fsm reads the folder first and the flat file second
     references/      reference-data artifacts (areas, lengths, moment points, rotor data)
     setups/          named solver-setup presets
-    pproc/           post-processing artifacts (named boundary groups and the product tables; groups/ until 0.11.0)
+    pproc/           post-processing artifacts (named boundary groups and the product tables)
     profiles/        input profiles (e.g. actuator loading shapes)
     freestreams/     custom free-stream fields a row's FREESTREAM names (G15): <stem>.txt or <stem>.dat
     calibrations/    quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml (0.31.0)

@@ -123,11 +123,14 @@ def test_p0340_act_docs_the_actuator_page_states_the_hand():
     and the change from 0.33.0."""
     _says(
         ACTUATOR_PAGE,
-        "THE HAND, SINCE 0.34.0",
+        "THE HAND.",
         "swirls its wake the way a rotor of `rpm_sign = 1` turns",
         "minus the block's sign times the row's speed",
-        "Up to 0.33.0 the script handed plus",
+        "migrating-to-0.34.0.md#an-actuator-disc-swirls-the-way-its-rotor-turns",
     )
+    migration = " ".join((DOCS / "migrating-to-0.34.0.md").read_text("utf-8").split())
+    assert "where 0.33.0 handed plus" in migration
+    assert "sets `rpm_sign = 1` from 0.34.0" in migration
 
 
 RELAXED = 'wake_type = "RELAXED"\n'

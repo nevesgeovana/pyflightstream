@@ -11,7 +11,7 @@ import pytest
 
 from pyflightstream.workspace import RunRecord
 from pyflightstream.workspace.inputs import PprocArtifact
-from tests.tier1_offline._workflow_docs import workflow_docs_text
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS, workflow_docs_text
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,9 +27,7 @@ def test_concurrent_log_limit_is_registered_and_linked():
     # report: a link to the reports tree is refused by the strict docs build
     # (the docs workflow on the v0.26.0 release commit). The CHANGELOG, which
     # is not built, may carry the file link.
-    assert "reports/RPT-058" in (ROOT / "docs/post-processing-definitions.md").read_text(
-        encoding="utf-8"
-    )
+    assert "reports/RPT-058" in (DEFINITION_DOCS).read_text(encoding="utf-8")
     assert report in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
@@ -71,7 +69,7 @@ def test_report_keeps_original_body_and_appends_closure(report):
 
 
 def test_reference_mismatch_points_to_the_default_policy():
-    text = (ROOT / "docs/post-processing-definitions.md").read_text(encoding="utf-8")
+    text = (DEFINITION_DOCS).read_text(encoding="utf-8")
     paragraph = text.split("**`SREF` and `CREF` are checked against the export.**")[1].split(
         "\n\n"
     )[0]

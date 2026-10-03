@@ -1,5 +1,7 @@
 # Migrating to 0.27.0
 
+> Frozen record: not edited after its release.
+
 This release takes the basic steps of a FlightStream session through pyfs and
 fixes inputs and outputs that were wrong. Nothing is removed, and recorded run
 manifests are read without rewriting them. What changes for you is what some
@@ -452,3 +454,7 @@ own.
   pressure and viscous force coefficients of every surface, saved as
   `<point>_force_distributions.txt` once at the end of the run. It is off by
   default, so a pproc that does not state it exports what it did (G10).
+
+## Historical row-key changes
+
+- v0.27.0: `ADDITIONAL_PPROC`, ONE pproc id (`ADDITIONAL_PPROC: p002`), on every run type and read by NO builder: a row stating it runs byte for byte as it would without it, and `pyfs-matrix post --additional-pproc` extracts that pproc from each point's final saved simulation with no solve (G12). Refused on a `LEGACY` row and on a build other than 26.124; a comma list is not one id and is refused like any id of the wrong shape. See [Extracting more from a finished point](workflow-additional-post.md#extracting-more-from-a-finished-point-the-additional-post)

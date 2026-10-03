@@ -170,8 +170,7 @@ judged.
 
 ### The physics report is read out of the workspace
 
-`pyfs-qa physics` is a reader of this workspace since 0.13.0
-(PFS-2031.17, the design decision B of 2026-09-08): it runs
+`pyfs-qa physics` is a reader of this workspace (PFS-2031.17, the design decision B of 2026-09-08): it runs
 `matriz_physics.fs` through the run layer exactly as `pyfs-matrix run`
 does, reduces the records with the qa functions and writes the same
 `reports/physics/PHY-*` pair the hand-built scripts wrote. The hand-built

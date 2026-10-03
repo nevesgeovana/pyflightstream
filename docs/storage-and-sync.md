@@ -306,6 +306,8 @@ simulation.
 
 ## Sync
 
+See [sync](#sync) for the definition.
+
 `sync` reads `inputs/sync-workspaces.toml`, which names the main workspace
 and every workspace it can pull from:
 

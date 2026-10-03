@@ -1,7 +1,7 @@
 # Extracting more from a finished point: the additional post
 
 A row may name a second post-processing artifact, `ADDITIONAL_PPROC: p<id>` in
-its `VAR_NAMES_VALUES` cell (since 0.27.0, G12). The row runs exactly as it
+its `VAR_NAMES_VALUES` cell (G12). The row runs exactly as it
 would without it: every point plans READY
 (`test_g12_a_row_stating_additional_pproc_plans_ready`), no builder reads the
 key, so the run script is byte for byte the one without it
@@ -94,8 +94,7 @@ name, with the path or the hashes involved, when:
   line the script defines or moves one with, so a frame turned or moved since
   the run under its old name counts as another
   (`test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped`).
-  The run's boundaries are the names its record states or, on a record written
-  before 0.27.0, the names of the geometry file whose sha256 the record carries
+  The run's boundaries are the names its record states or, when the record has no boundary names, the names of the geometry file whose sha256 the record carries
   (`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`);
   a point whose names nothing on disk recovers, while the geometry declares
   names today, is skipped naming the file
@@ -147,7 +146,7 @@ already done and a continued run ask nothing
 (`test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_skip_that_asks`).
 
 **The executor is the one `run` would build**, so `--local` means the same
-thing. Since 0.29.0 a submitting workspace records each extraction as
+thing. A submitting workspace records each extraction as
 `SUBMITTED`. The scheduler receives a separate working directory and a verified
 copy of the saved simulation. `pyfs-matrix collect <workspace>` waits for stable
 declared exports, checks the original simulation, script and private-copy hashes,

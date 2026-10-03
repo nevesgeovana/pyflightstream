@@ -17,6 +17,7 @@ import os
 import re
 from pathlib import Path
 
+import markdown
 import yaml
 from markdown.extensions.toc import slugify
 
@@ -63,10 +64,15 @@ def test_every_migration_page_is_listed_under_project():
     assert not [p for p in _pages(_nav()) if p.startswith("migrating-to-") and p not in listed]
 
 
-def test_the_definition_of_record_is_one_page_under_reference():
+def test_the_definition_of_record_is_an_index_under_reference():
     assert "post-processing-definitions.md" in _group("Reference")
     text = (DOCS / "post-processing-definitions.md").read_text(encoding="utf-8")
-    assert len(text.splitlines()) > 1000, "the definition of record was split or cut down"
+    families = sorted(DOCS.glob("definitions/*.md"))
+    assert families, "the definition index has no families"
+    for family in families:
+        relative = family.relative_to(DOCS).as_posix()
+        assert relative in _group("Reference")
+        assert f"]({relative}#" in text
     assert not list(DOCS.glob("post-processing-definitions-*.md"))
 
 
@@ -128,6 +134,14 @@ def test_every_link_between_pages_resolves_to_a_page_and_an_anchor():
             heading = re.match(r"^#{1,6} (.*?)\s*$", line)
             if heading and not fence:
                 found.add(slugify(heading.group(1), "-"))
+        found.update(
+            re.findall(
+                r'\bid="([^"]+)"',
+                markdown.markdown(
+                    path.read_text(encoding="utf-8"), extensions=["toc", "pymdownx.superfences"]
+                ),
+            )
+        )
         anchors[rel] = found
     broken = []
     for rel, path in pages.items():

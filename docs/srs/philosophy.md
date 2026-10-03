@@ -77,7 +77,7 @@ not yet cited or drafted, including when the answer is nothing. A
 smaller set of honest claims is always preferred over a larger set of
 assumed ones.
 
-Since v0.5.0 that report listed nothing for the editions swept in
+That report listed nothing for the editions swept in
 August 2026. Registering SRC-751 on 2026-08-17 put ONE command back on
 it, `SET_OUTLET_TRAILING_EDGES`, which is the rule working rather than
 failing: the queue names what is owed instead of the page claiming

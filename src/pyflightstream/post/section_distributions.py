@@ -1076,12 +1076,12 @@ def write_section_distributions(
         inner-iteration counter; stamps supply their own time steps. On a
         steady run it is the exported solver iteration. Unknown values are
         written as ``NA``. See `The sections table, and which row is which
-        <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
+        <../definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which>`_.
     pproc : PprocSpec or None, optional
         Recorded post-processing specification used to resolve legacy distribution
         ownership. Also selects strip integrals when current_pproc is omitted.
         See `Per-distribution sectional loads and Cp
-        <../post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250>`_.
+        <../definitions/the-sections-table-and-which-row-is-which.md#per-distribution-sectional-loads-and-cp-0250>`_.
     current_pproc : PprocSpec or None, optional
         Effective post specification selecting integration against recorded blocks.
     current_aliases : Mapping[str, Sequence[str]] or None, optional
@@ -1100,14 +1100,14 @@ def write_section_distributions(
         :data:`pyflightstream.post.products.CONDITION_KEY_ALIASES` are also
         accepted without unit conversion. Missing values are ``NA``. See
         `What every product states
-        <../post-processing-definitions.md#what-every-product-states>`_ and
+        <../definitions/what-every-product-states.md#what-every-product-states>`_ and
         `The axes of a steady polar
-        <../post-processing-definitions.md#the-axes-of-a-steady-polar>`_.
+        <../definitions/the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar>`_.
     reference : Mapping[str, object] or None, optional
         Reference dimensions, with case-insensitive keys ``SREF`` (m2),
         ``CREF`` and ``BREF`` (m); missing values are ``NA``. These scalars
         require no frame transformation. See `What every product states
-        <../post-processing-definitions.md#what-every-product-states>`_.
+        <../definitions/what-every-product-states.md#what-every-product-states>`_.
     rotors : Mapping[str, Mapping[str, object]] or None, optional
         Rotor alias to metadata: ``families`` is the list of owned geometry
         families, ``blade1_azimuth_deg`` is blade one's datum in degrees in
@@ -1117,7 +1117,7 @@ def write_section_distributions(
         identity or azimuth is ``NA``. Section coordinates and loads retain
         their recorded distribution frame. See `The sections table, and
         which row is which
-        <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
+        <../definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which>`_.
     inventory : Sequence[str] or None, optional
         The geometry's boundary names in the solver's order, as the caller
         recovered them for a record that states none
@@ -1132,7 +1132,7 @@ def write_section_distributions(
         give one name to two boundaries, leave the match to the cuts as well.
         See
         `Integrated sectional loads
-        <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
+        <../definitions/the-sections-table-and-which-row-is-which.md#integrated-sectional-loads-since-0260>`_.
 
     Returns
     -------

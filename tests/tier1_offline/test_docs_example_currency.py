@@ -30,7 +30,7 @@ import re
 from pathlib import Path
 
 from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
-from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
+from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
 PAGE = WORKFLOW_DOCS
@@ -501,12 +501,15 @@ def test_the_index_no_longer_promises_this_page_as_planned():
 
 def test_the_rotor_facts_argument_lives_on_the_mesh_inputs_page():
     """PFS-2029.08: the measured argument left the reference artifact for the page."""
-    page = (REPO / "docs" / "mesh-inputs.md").read_text(encoding="utf-8")
+    page = (MESH_DOCS).read_text(encoding="utf-8")
     heading = "## The four rotor facts a reference artifact once carried"
     assert heading in page
     section = page.split(heading, 1)[1]
-    for phrase in ("inboard", "clockwise", "RPM_SIGN", "ROTOR_AXIS", "rpm_sign_installed"):
+    for phrase in ("inboard", "clockwise", "rpm_sign", "axis", "rpm_sign_installed"):
         assert phrase in section, f"the argument on the page no longer names {phrase}"
+    assert "migrating-to-0.22.0.md" in section
+    history = (REPO / "docs/migrating-to-0.11.0.md").read_text(encoding="utf-8")
+    assert "RPM_SIGN" in history and "ROTOR_AXIS" in history
     from pyflightstream.workspace.inputs import ROTOR_FACT_KEYS
 
     for key in ROTOR_FACT_KEYS:

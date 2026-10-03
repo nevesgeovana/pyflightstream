@@ -25,6 +25,7 @@ import pytest
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._fsm import MESH_MARKER
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -499,11 +500,11 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
     requirement = "FR-348"
     from pyflightstream.workspace.sidecars import GEOMETRY_SIDECAR_KEYS
 
-    page = (REPO / "docs" / "post-processing-definitions.md").read_text(encoding="utf-8")
+    page = (DEFINITION_DOCS).read_text(encoding="utf-8")
     start = page.index("## The mesh face count")
     section = page[start : page.index("\n## ", start + 1)]
     for fact in ("`MESH_FACES`", "`mesh_faces`", "`NA`", "last column", "never", "`mesh_sha256`"):
         assert fact in section, (requirement, fact)
     assert "uns_avg" in section and "super file" in section, requirement
-    assert "(#the-mesh-face-count-since-0340)" in page, requirement
+    assert "(the-mesh-face-count-since-0340.md#the-mesh-face-count-since-0340)" in page, requirement
     assert {"mesh_faces", "boundary_faces", "mesh_sha256"} <= set(GEOMETRY_SIDECAR_KEYS)

@@ -132,7 +132,7 @@ PAGES = (
     "README.md",
     "CONTRIBUTING.md",
     "docs/index.md",
-    "docs/mesh-inputs.md",
+    "docs/mesh/how-to.md",
     "docs/srs/data-model.md",
     "docs/srs/philosophy.md",
     "docs/srs/roadmap.md",

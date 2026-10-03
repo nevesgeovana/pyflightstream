@@ -45,18 +45,19 @@ the last step rather than the first.
 
 ## Where to start
 
-1. [Getting started](getting-started.md): install, pick a version, build a
-   script, declare and pre-flight a campaign, read the results. Half an hour,
-   and no solver until the last step.
-2. [Which build do I have](builds.md): the identifier to pass for the solver
+[Getting started](getting-started.md): install, pick a version, build a
+script, declare and pre-flight a campaign, read the results. Half an hour,
+and no solver until the last step.
+
+1. [Which build do I have](builds.md): the identifier to pass for the solver
    you have, which is the question a version-aware driver exists for.
-3. [The workspace and the workflow](workspace-and-workflows.md): the reference
+2. [The workspace and the workflow](workspace-and-workflows.md): the reference
    chapter, from a filled-in run matrix to results.
-4. [From the GUI to pyfs](gui-to-pyfs.md): if you know FlightStream from its
+3. [From the GUI to pyfs](gui-to-pyfs.md): if you know FlightStream from its
    GUI, each step you take there and the key that takes it here, or `not yet`.
-5. Upgrading a workspace you already have? Read the newest page under
-   *Migrating to newer versions* below before you upgrade, then
-   [the release notes](release-notes.md) for anything older.
+4. Upgrading a workspace you already have? Start at the
+   [upgrading index](upgrading.md) for the migration records and
+   [release notes](release-notes.md).
 
 ## The command-line tools
 
@@ -116,33 +117,10 @@ a person. Both write only with an explicit `--write`.
   verified on; or `not yet`, and the raw route that takes the step meanwhile.
 * [Flight conditions](flight-conditions.md): what a row states about the
   flow it runs at, which quantity gets solved for, the units that ride
-  the key names, and what to run on a matrix written before v0.9.0.
-* Migrating to newer versions, newest first. Each page says what a release
-  asks of a file you already have, and the one command that carries it across:
-    * [Migrating to 0.25.0](migrating-to-0.25.0.md): frozen-solve averages,
-      probe histories, sections and Cp by distribution, and optional surface
-      exports; what posting a 0.24.0 record again recovers and what needs a
-      new run.
-    * [Migrating to 0.24.0](migrating-to-0.24.0.md): the numbers 0.23.0 published
-      that 0.24.0 states differently, among them `ETAW` under incidence, the
-      unsteady rotor table and the steady polar's axis columns; the averaging
-      window a new unsteady row must state; and what posting again gives you
-      without a solver run.
-    * [Migrating to 0.23.0](migrating-to-0.23.0.md): every product table
-      carries the flight condition it is a file of and no cell is ever blank.
-      What changes in the bytes your reader parses, and the one command that
-      moves the products you already have onto the named-group form.
-    * [Migrating to 0.22.0](migrating-to-0.22.0.md): a row's rotor speed is a
-      magnitude and the reference says which way the rotor turns. What to
-      change in your rows and reference blocks, and which recorded points have
-      to be re-run rather than renamed, because they turned the wrong way.
-    * [Migrating to 0.21.0](migrating-to-0.21.0.md): the one command that
-      renames a workspace written under 0.20.x, and what the `WALLTIME` unit,
-      the HPC profile's `[log]` table and the build flag ask of a file you
-      already have.
-* [Release notes](release-notes.md): what each release from v0.8.1 to v0.17.0
-  changed for a workspace that already existed. These stood on this page until
-  0.24.0; the complete record is `CHANGELOG.md` in the repository.
+  the key names, and how to upgrade legacy flight-condition cells.
+* [Upgrading](upgrading.md): every migration record, newest first, with the
+  changes each release asks of an existing workspace.
+* [Release notes](release-notes.md): the historical release records; the complete record is `CHANGELOG.md` in the repository.
 * [The workspace and the workflow](workspace-and-workflows.md): what a
   workspace is and what it is for, in plain language, then the path from a
   filled-in run matrix to results. Every artefact on it is lifted from an
@@ -193,19 +171,7 @@ a person. Both write only with an explicit `--write`.
 
 ## Evidence discipline
 
-The three QA tiers behind the statuses:
-
-* Tier 1 (`tests/tier1_offline`) runs in CI without the solver: schema
-  integrity, builder goldens, parser fixtures, and the offline control
-  over the tier-3 matrices.
-* Tier 2 (`tests/tier2_validity`, `pyfs-qa probe`) probes command
-  validity on a licensed machine; reports live under `reports/compat/`
-  and statuses are promoted only from them.
-* Tier 3 (`tests/tier3_licensed`) is a campaign workspace run on the
-  licensed machine: eleven matrices over a synthetic library, the qa
-  physics cases among them judged against `qa/references/`; the
-  cross-version drift suite (`pyfs-qa`) writes under `reports/physics/`.
-  [The tiers page](tiers.md) walks it.
+See [Evidence discipline](srs/philosophy.md#evidence-discipline) for the rule behind every solver claim.
 
 The [campaign from a run matrix](examples/campaign_matrix.md) example
 already walks the run-matrix to `campaign.toml` to pre-flight path
