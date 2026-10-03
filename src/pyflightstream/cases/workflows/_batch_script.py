@@ -23,6 +23,28 @@ and E). Every rule below was measured there:
    logs, then ``CLOSE_FLIGHTSTREAM``;
 6. the registration block is rendered by the one emitter of those lines;
 7. every save and export target of the job is absolute, or the job is refused.
+
+0.35.1 adds two kinds of point (FR-406, FR-407):
+
+8. an ACOUSTIC point after the job's first restates its acoustic setup at the
+   place a point run alone has it, just before its ``SET_SOLVER_UNSTEADY``,
+   after ``DELETE_ALL_ACOUSTIC_OBSERVERS``: the observers are model objects,
+   which outlive a re-initialization, so restating them without the delete
+   would create them twice, and leaving them out would leave the point's
+   ``ACOUSTIC_SOURCES`` to an earlier point. A point without acoustics that
+   follows one with acoustics gets the delete and ``ACOUSTIC_SOURCES
+   DISABLE``. The acoustic outputs need no rule of their own: the signals
+   export is a declared output (rule 4) and the section folder is an absolute
+   path argument, both in the point's own datapoint folder;
+9. a COUPLED point (the fixed wing on ``unsteady``, FSI-G) always enters by
+   ``NEW_SIMULATION`` and its whole text, even after a point of its own
+   polar: a re-initialization keeps the model loaded, and with it the mesh the
+   previous point's coupling morphed, while the whole text reopens the
+   geometry from its pristine file (FR-378). Its post-processing script, which
+   the solver runs after every coupling call, names its targets relative, so
+   the job runs a copy of it with every target absolute in the point's folder,
+   ``actions/pfs_fsi_post_<NNN>.txt``; a point without coupling that follows
+   a coupled one gets ``SET_AEROELASTIC_COUPLING_IN_UNSTEADY DISABLE``.
 """
 
 from __future__ import annotations
@@ -44,13 +66,16 @@ from ._conventions import WorkflowConventions
 from ._vocabulary import WALLTIME_STOP_VERB
 
 __all__ = [
+    "JOB_POST_SCRIPT",
     "RESTATE_ANCHORS",
+    "SOLVER_BLOCK",
     "JobBlock",
     "JobPoint",
     "JobPolar",
     "JobScript",
     "absolutize_outputs",
     "assemble_job",
+    "couples",
     "drop_registrations",
     "job_point",
     "refuse_unspliceable",
@@ -70,6 +95,25 @@ REINIT_VERB = "REMOVE_INITIALIZATION"
 REFRESH_VERB = "NEW_SIMULATION"
 #: The token a point's own datapoint folder becomes when two texts are compared.
 DATAPOINT_TOKEN = "<datapoint>"
+#: The command a point's acoustic setup and the coupling reset are placed before (rules 8, 9).
+SOLVER_BLOCK = "SET_SOLVER_UNSTEADY"
+#: The acoustic setup a point run alone states, the commands
+#: :func:`pyflightstream.cases.acoustics.emit_acoustic_setup` emits (rule 8).
+_ACOUSTIC_SETUP = (
+    "ACOUSTIC_SOURCES",
+    "CREATE_NEW_ACOUSTIC_OBSERVER",
+    "ACOUSTIC_OBSERVERS_IMPORT",
+    "SET_ACOUSTIC_OBSERVER_TIME",
+)
+#: The command and the line a coupled point's text states (rule 9).
+_COUPLING = "SET_AEROELASTIC_COUPLING_IN_UNSTEADY"
+_COUPLED_LINE = f"{_COUPLING} ENABLE"
+#: The command naming a coupled point's post-processing script (rule 9).
+_POST_COMMAND = "SET_AEROELASTIC_POST_PROCESSING_SCRIPT"
+#: The coupled point's structural command line, its program named relative to its folder.
+_STRUCTURAL_COMMAND = "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND"
+#: The job's copy of a coupled point's post-processing script, by the point's order in the job.
+JOB_POST_SCRIPT = "actions/pfs_fsi_post_{order:03d}.txt"
 
 Transition = Literal["start", "reinit", "refresh"]
 JobKind = Literal["batch", "polar_sweep"]
@@ -101,6 +145,8 @@ class JobPoint:
         What the clock writes when it stops this point, relative names.
     time_steps : int
         The time steps the point marches.
+    post_script : str
+        A coupled point's post-processing script as its run staged it ('' for any other point).
     """
 
     run_id: str
@@ -113,6 +159,7 @@ class JobPoint:
     first_export_step: int | None
     stop_text: str
     time_steps: int
+    post_script: str = ""
 
 
 @dataclass(frozen=True)
@@ -136,12 +183,18 @@ class JobBlock:
 
 @dataclass(frozen=True)
 class JobScript:
-    """The assembled job: its text, each point's block and every write target."""
+    """The assembled job: its text, each point's block, every write target, its own files.
+
+    ``files`` holds ``(path relative to the job folder, text)`` for each file
+    the job script names beside its action programs: the copy of a coupled
+    point's post-processing script (rule 9).
+    """
 
     kind: JobKind
     text: str
     blocks: tuple[JobBlock, ...]
     targets: tuple[str, ...]
+    files: tuple[tuple[str, str], ...] = ()
 
 
 def _lines(text: str) -> list[str]:
@@ -206,7 +259,13 @@ def write_targets(text: str, version: str) -> tuple[str, ...]:
 
 
 def job_point(
-    point_case: SimCase, *, run_id: str, text: str, datapoint_dir: PurePath, version: str
+    point_case: SimCase,
+    *,
+    run_id: str,
+    text: str,
+    datapoint_dir: PurePath,
+    version: str,
+    post_script: str = "",
 ) -> JobPoint:
     """Return one point of a job: its script and what its actions need, from its case.
 
@@ -222,6 +281,9 @@ def job_point(
         The point's datapoint folder, absolute, the job root applied.
     version : str
         The build the script was written for.
+    post_script : str, optional
+        A coupled point's post-processing script as its run staged it
+        (``fsi_post.txt`` in its datapoint folder); '' for any other point.
 
     Returns
     -------
@@ -244,7 +306,32 @@ def job_point(
         first_export_step=threshold.first_step if threshold is not None else None,
         stop_text=walltime_stop_text(point_case, conventions, version=version),
         time_steps=unsteady_counter_steps(point_case),
+        post_script=post_script,
     )
+
+
+def couples(point: JobPoint) -> bool:
+    """Return whether a point's script couples its structure inside the march (rule 9).
+
+    Parameters
+    ----------
+    point : JobPoint
+        A point of a job.
+
+    Returns
+    -------
+    bool
+        True when its text states ``SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE``.
+
+    Examples
+    --------
+    >>> from pathlib import PurePosixPath
+    >>> text = "SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE"
+    >>> point = JobPoint("m/s/DP-a", "s", "DP-a", text, PurePosixPath("/w"), (), "", None, "", 1)
+    >>> couples(point)
+    True
+    """
+    return any(line.strip() == _COUPLED_LINE for line in _lines(point.text))
 
 
 def _compared(point: JobPoint) -> list[str]:
@@ -288,6 +375,9 @@ def _anchor_index(first: JobPoint, point: JobPoint) -> int:
 def refuse_unspliceable(first: JobPoint, point: JobPoint) -> None:
     """Refuse a point whose text differs from its polar's first point before its anchor.
 
+    A coupled point is never refused: it enters by ``NEW_SIMULATION`` and its
+    whole text (rule 9), so nothing of its polar's first point stays loaded.
+
     Parameters
     ----------
     first : JobPoint
@@ -300,7 +390,8 @@ def refuse_unspliceable(first: JobPoint, point: JobPoint) -> None:
     CampaignConfigError
         Naming the first differing line, when no restate anchor precedes it.
     """
-    _anchor_index(first, point)
+    if not couples(point):
+        _anchor_index(first, point)
 
 
 def restate_anchor(first: JobPoint, point: JobPoint) -> str:
@@ -474,19 +565,113 @@ def _ending(polars: Sequence[JobPolar], job_log: PurePath | None) -> list[str]:
     return [*tail, WALLTIME_STOP_VERB]
 
 
-def _parts(polars: Sequence[JobPolar], block: str) -> list[tuple[JobPoint, Transition, list[str]]]:
+def _split_acoustic_setup(lines: list[str]) -> tuple[list[str], list[str]]:
+    """Return a text's acoustic setup lines (rule 8) and every other line, each in order."""
+    commands = CommandRegistry.load().commands
+    setup: list[str] = []
+    kept: list[str] = []
+    index = 0
+    while index < len(lines):
+        words = lines[index].split()
+        if words and words[0] in _ACOUSTIC_SETUP:
+            span = 1 + len(_line_args(commands[words[0]]))
+            setup += lines[index : index + span]
+            index += span
+            continue
+        kept.append(lines[index])
+        index += 1
+    return setup, kept
+
+
+def _emitted(version: str, commands: Sequence[tuple[str, ...]]) -> list[str]:
+    """Return the lines the one emitter renders for ``commands`` on a fresh script."""
+    script = Script(version)
+    for command, *arguments in commands:
+        script.emit(command, *arguments)
+    return _lines(script.render())
+
+
+@dataclass(frozen=True)
+class _Loaded:
+    """What the points the job ran before one point left loaded in the instance (rules 8, 9)."""
+
+    acoustic: bool = False
+    coupled: bool = False
+
+    def after(self, point: JobPoint) -> _Loaded:
+        """Return what is loaded once ``point`` ran too."""
+        setup, _ = _split_acoustic_setup(_lines(point.text))
+        return _Loaded(self.acoustic or bool(setup), self.coupled or couples(point))
+
+
+def _reset_lines(point: JobPoint, loaded: _Loaded, version: str) -> list[str]:
+    """Return what a later point states before its solver block (rules 8 and 9), or nothing."""
+    setup, _ = _split_acoustic_setup(_lines(point.text))
+    commands: list[tuple[str, ...]] = []
+    if setup or loaded.acoustic:
+        commands.append(("DELETE_ALL_ACOUSTIC_OBSERVERS",))
+        if not setup:
+            commands.append(("ACOUSTIC_SOURCES", "DISABLE"))
+    if loaded.coupled and not couples(point):
+        commands.append((_COUPLING, "DISABLE"))
+    return [*_emitted(version, commands), *setup] if commands else []
+
+
+def _restated(part: list[str], point: JobPoint, loaded: _Loaded, version: str) -> list[str]:
+    """Return a later point's lines with its reset and acoustic setup before its solver block."""
+    reset = _reset_lines(point, loaded, version)
+    if not reset:
+        return part
+    _, kept = _split_acoustic_setup(part)
+    at = next((i for i, line in enumerate(kept) if line.split()[:1] == [SOLVER_BLOCK]), None)
+    if at is None:
+        raise CampaignConfigError(
+            f"point {point.run_id!r} states no {SOLVER_BLOCK} after its transition, so its "
+            "acoustic setup or its coupling reset has no place before its solver block; the job "
+            "is not assembled."
+        )
+    return [*kept[:at], *reset, *kept[at:]]
+
+
+def _parts(
+    polars: Sequence[JobPolar], block: str, version: str
+) -> list[tuple[JobPoint, Transition, list[str]]]:
     """Return every point of the job with its transition and its lines, in job order."""
     parts: list[tuple[JobPoint, Transition, list[str]]] = []
+    loaded = _Loaded()
     for number, polar in enumerate(polars):
         lead = polar.points[0]
         for order, point in enumerate(polar.points):
             if number == 0 and order == 0:
                 parts.append((point, "start", _start_lines(point, block)))
-            elif order == 0:
-                parts.append((point, "refresh", _point_lines(lead, point, "refresh")))
             else:
-                parts.append((point, "reinit", _point_lines(lead, point, "reinit")))
+                transition: Transition = "refresh" if order == 0 or couples(point) else "reinit"
+                lines = _point_lines(lead, point, transition)
+                parts.append((point, transition, _restated(lines, point, loaded, version)))
+            loaded = loaded.after(point)
     return parts
+
+
+def _post_copy(
+    part: list[str], point: JobPoint, order: int, job_dir: PurePath, version: str
+) -> tuple[list[str], tuple[str, str] | None]:
+    """Rule 9: point a coupled point at the job's copy of its post-processing script."""
+    if not couples(point):
+        return part, None
+    at = next((i for i, line in enumerate(part) if line.split()[:1] == [_POST_COMMAND]), None)
+    if not point.post_script.strip() or at is None or at + 1 >= len(part):
+        raise CampaignConfigError(
+            f"point {point.run_id!r} couples its structure and its post-processing script "
+            f"was not read with its {_POST_COMMAND} line, so the job cannot "
+            "run it with its targets in the point's folder; the job is not assembled."
+        )
+    names = [
+        name for name in write_targets(point.post_script, version) if not is_absolute_target(name)
+    ]
+    text = absolute_output_lines(point.post_script, point.datapoint_dir, names)
+    name = JOB_POST_SCRIPT.format(order=order)
+    out = [*part[: at + 1], str(job_dir / name), *part[at + 2 :]]
+    return out, (name, text)
 
 
 def _absolute_path_token(token: str, point_dir: PurePath, job_dir: PurePath) -> str:
@@ -511,6 +696,8 @@ def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, st
             continue
         entry = view[words[0]]
         shell = words[:2] == [helpers.UNSTEADY_ACTION_COMMAND, "COMMAND_LINE"]
+        if words[0] == _STRUCTURAL_COMMAND and index + 1 < len(lines):
+            yield index + 1, "", True
         for offset, arg in enumerate(_line_args(entry), 1):
             if arg.type == "path" and index + offset < len(lines):
                 yield index + offset, "", shell
@@ -540,7 +727,11 @@ def _absolute_splice(
     - ``_freestream`` / ``prepare_field``: ``pfs-field-<sha24>.txt`` or ``.dat``
       for converted fields, otherwise the bound source path.
 
-    FSI and user actions are refused by the grouped planner. Non-action inputs
+    User actions are refused by the grouped planner; a coupled point's
+    post-processing script is already the job's absolute copy (rule 9), and its
+    structural nodes, working directory and structural program follow its folder
+    (the program's line is read as a command line, every relative token placed
+    there). Non-action inputs
     belong to the point's working folder. Count/state/provenance files are not
     named in the emitted solver text; the action programs locate their own files.
     Geometry imports may be whole-line or keyword-block paths. Save/export paths
@@ -611,7 +802,10 @@ def assemble_job(
     block = registration_block(version, exports=exports, walltime=walltime)
     lines: list[str] = []
     blocks: list[JobBlock] = []
-    for point, transition, part in _parts(polars, block):
+    files: list[tuple[str, str]] = []
+    for order, (point, transition, part) in enumerate(_parts(polars, block, version), 1):
+        part, copy = _post_copy(part, point, order, job_dir, version)
+        files += [copy] if copy is not None else []
         part = _absolute_splice(part, point.datapoint_dir, job_dir, version)
         lead = next(polar.points[0] for polar in polars if point in polar.points)
         anchor = restate_anchor(lead, point) if transition == "reinit" else None
@@ -621,10 +815,13 @@ def assemble_job(
         lines += [*part, ""]
     text = "\n".join([*lines, *_ending(polars, job_log)]) + "\n"
     targets = write_targets(text, version)
-    relative = [target for target in targets if not is_absolute_target(target)]
+    copied = [target for _, body in files for target in write_targets(body, version)]
+    relative = [target for target in (*targets, *copied) if not is_absolute_target(target)]
     if relative:
         raise CampaignConfigError(
             f"the job's save and export targets {relative} are relative; inside one instance "
             "every target must name its point's folder, so the job is not assembled."
         )
-    return JobScript(kind=kind, text=text, blocks=tuple(blocks), targets=targets)
+    return JobScript(
+        kind=kind, text=text, blocks=tuple(blocks), targets=targets, files=tuple(files)
+    )

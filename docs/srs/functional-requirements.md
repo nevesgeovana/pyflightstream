@@ -8800,7 +8800,7 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: `pyfs-matrix plan --batch <n>` shall decide the split of the selected polars: grouped by `NCPUS` first, one `NCPUS` per batch; contiguous, each batch taking consecutive sims, with the cuts placed so that the largest batch estimate is the smallest possible; whole polars only, a polar never spanning two batches; with n above the number of polars, a warning and only the batches needed; one solver build per batch, a row of another build refused for that batch by name. It shall print the split as a table with one row per batch (batch ID, sims, cpus, points, estimated time, walltime and its source, `matrix` or `BEST`) and a total line.
 
     - R1 The grouping shall be by `NCPUS` AND solver build: the polars are grouped by the pair, in matrix order, so that no job mixes two builds. Every group gets at least one job; the jobs beyond the number of groups go one at a time to the group whose longest job estimate is longest, while a polar can still be split off a job; a polar is never cut; a warning is printed for n above the number of polars and for n below the number of groups. This R-item is a design proposal; it stays pending until accepted.
-    - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars only, and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a steady row, a quasi-steady row, a `RESTART` row (it opens a datapoint's own `.fsm`), a coupled structural row, an acoustic row, a row whose setup states `unsteady_solver_actions`, a row whose post asks `[time_averaging]`, a build that does not document the action command, and a polar whose points do not splice into one script. The refusal of FR-378 is not a reason to leave out: it blocks the plan. This R-item is a design proposal; it stays pending until accepted.
+    - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars only, and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a steady row, a quasi-steady row, a `RESTART` row (it opens a datapoint's own `.fsm`), a row whose setup states `unsteady_solver_actions`, a row whose post asks `[time_averaging]`, a build that does not document the action command, and a polar whose points do not splice into one script. The refusal of FR-378 is not a reason to leave out: it blocks the plan. An acoustic row and a coupled structural row on `unsteady` are not left out since 0.35.1 (FR-406, FR-407); a coupled row on a steady run type is left out as a steady row. This R-item is a design proposal; it stays pending until accepted.
 
     Verification: The markers P0350-BATCH-SPLIT and P0350-BATCH-TABLE: tier-1 tests with synthetic costs assert the grouping, the contiguity, the optimal cut against a brute-force partition, the warning for n above the polars, the refusal of a second build, and the rows and total line of the printed table.
 
@@ -9430,3 +9430,38 @@ Requirements written after the specification was last reconciled with the packag
     - R6 Synthetic tier-1 observations verify these judges. Command-database verdicts change only after a licensed re-probe through the existing promotion path (FR-25, FR-333). These tests do not prove solver acceptance of the wing-zone or relaxed-TE preconditions.
 
     Verification: tier 1, `tests/tier1_offline/test_p0350_cn_specs.py`, carrying the marker P0350-CN (FR-401); release 0.35.0.
+
+!!! requirement "FR-406 An acoustic row joins a grouped job <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner rule of 2026-10-03 for 0.35.1 ("nao deixa nada de fora que não for comprovadamente inviável"): the grouped plan of 0.35.0 left an acoustic polar out because its section folder in one instance was not measured.*
+
+    Need: An acoustic polar must run in a `--batch` or `--polar-sweep` job and leave, at each point, what the same point run alone leaves.
+
+    Requirement: The grouped plan shall not leave an acoustic row out. In the job script, every point after the job's first shall state, immediately before its `SET_SOLVER_UNSTEADY`, `DELETE_ALL_ACOUSTIC_OBSERVERS` followed by exactly the acoustic setup lines of its own script (`ACOUSTIC_SOURCES`, `CREATE_NEW_ACOUSTIC_OBSERVER`, `ACOUSTIC_OBSERVERS_IMPORT`, `SET_ACOUSTIC_OBSERVER_TIME`), and no other copy of them; a point without acoustic setup that follows a point with one shall state `DELETE_ALL_ACOUSTIC_OBSERVERS` and `ACOUSTIC_SOURCES DISABLE` there. The job's first point keeps its own text.
+
+    - R1 The signals export and the section's `STORAGE_PATH` of each point shall be absolute in that point's own datapoint folder (FR-359); the run writes each point's section note into its own folder, and collect lists the section files as for a point run alone (FR-268).
+    - R2 A job without an acoustic point shall be byte-for-byte the job of 0.35.0.
+
+    Rationale: The observers are model objects, which outlive `REMOVE_INITIALIZATION` (DESIGN-0350 arms A and D) and possibly `NEW_SIMULATION`, as the actions do; a later point of a polar is restated from an anchor after its acoustic setup, so without the restatement its sources switch would be an earlier point's, and with it but without the delete its observers would be created twice.
+
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_acoustic.py`, carrying the marker P0351-BATCH-ACOUSTIC (FR-406); the licensed comparison of the same acoustic points grouped and alone (signals, section files and coefficients) is owed on FlightStream 26.124.
+
+    Evidence: `tests/tier1_offline/test_p0351_batch_acoustic.py::test_p0351_acoustic_fr406_an_acoustic_row_joins_a_grouped_job`, `::test_p0351_acoustic_fr406_each_point_restates_its_own_setup`, `::test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point`. Verified offline by tier-1 tests.
+
+!!! requirement "FR-407 A coupled (FSI) row on `unsteady` joins a grouped job <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner rule of 2026-10-03 for 0.35.1 ("nao deixa nada de fora que não for comprovadamente inviável"): the grouped plan of 0.35.0 left a coupled polar out because a coupled run was not grouped in that release.*
+
+    Need: A coupled polar on `unsteady` must run in a `--batch` or `--polar-sweep` job and leave, at each point, what the same point run alone leaves. Its coupling loop runs inside the solver instance (the solver runs the post-processing script and then the structural program once per time step, in the point's working directory), so no step of it needs Python between two solver passes outside the instance.
+
+    Requirement: The grouped plan shall not leave a coupled row on `unsteady` out. In the job script, a coupled point shall enter by `NEW_SIMULATION` and its whole script, even after a point of its own polar, and shall not be refused for a difference before a restate anchor; its `SET_AEROELASTIC_WORKING_DIRECTORY`, its structural nodes and its structural program shall name its own datapoint folder; its `SET_AEROELASTIC_POST_PROCESSING_SCRIPT` shall name the job's copy `actions/pfs_fsi_post_<NNN>.txt` (NNN its order in the job), written by the run, whose every target is absolute in the point's own folder, and a coupled point whose staged post-processing script was not read shall refuse the job; a point without coupling that follows a coupled point shall state `SET_AEROELASTIC_COUPLING_IN_UNSTEADY DISABLE` immediately before its `SET_SOLVER_UNSTEADY`.
+
+    - R1 Collect shall cut a coupled point's log from its own segment, without the preamble of its polar's first point, because its own segment opens the model.
+    - R2 A coupled row on `steady` or `qsteady_rotor` stays left out as a steady row: its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once and is ended by any line after it (`cases/fsi_workspace.py`, `emit_steady_aeroelastic_analysis` and `refuse_lines_after_steady_analysis`), and the run stops its process on the completion line, so no point can follow it in one instance. `unsteady_rotor` refuses FSI alone and grouped alike (`FSI_ROTOR_IN_DEBUG`).
+    - R3 A job without a coupled point shall be byte-for-byte the job of 0.35.0.
+
+    Rationale: `REMOVE_INITIALIZATION` keeps the model loaded, and with it the mesh an earlier point's coupling morphed; reopening the geometry from its pristine file (FR-378) is the transition that cannot carry a deformation. The post-processing script names its targets relative to the folder a point run alone runs in, which the job's process does not run in.
+
+    Verification: tier 1, `tests/tier1_offline/test_p0351_batch_fsi.py`, carrying the marker P0351-BATCH-FSI (FR-407); the licensed comparison of the same coupled points grouped and alone (coefficients, sectional loads, deflection log) is owed on FlightStream 26.124.
+
+    Evidence: `tests/tier1_offline/test_p0351_batch_fsi.py::test_p0351_fsi_fr407_a_coupled_unsteady_row_joins`, `::test_p0351_fsi_fr407_every_coupled_point_reopens_its_model`, `::test_p0351_fsi_fr407_a_coupled_point_s_log_is_its_own_segment`, `::test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy`. Verified offline by tier-1 tests.

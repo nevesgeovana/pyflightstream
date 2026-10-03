@@ -179,6 +179,37 @@ folder, or `BATCH-<first sim>-<last sim>.txt`, inside the batch's working
 directory `sims/batch/<matrix>_b<ID>/`, where `<ID>` is assigned by the
 package and never typed (FR-357, FR-358).
 
+### Acoustic and coupled rows in a grouped job
+
+An acoustic row joins a grouped job like any other unsteady row (FR-406). Each
+point after the first one of the job deletes the observers that earlier points
+left in the solver and then states its own acoustic setup again (the sources
+switch, its observers and their time window), just before its unsteady solver
+block, where a point run alone states it. Without the delete, a later point
+would create its observers a second time. A point without acoustics that
+follows an acoustic one switches the sources off. The signals export and the
+section folder of each point are written in that point's own datapoint folder,
+and collect lists the section's files as it does for a point run alone.
+
+A row coupled with the structure (FSI) on `unsteady` also joins a grouped job
+(FR-407). The coupling loop runs inside the solver: at every time step the
+solver runs the post-processing script and then the structural program, in the
+point's own folder. Each coupled point starts its part of the job with
+`NEW_SIMULATION` and its whole script, even after a point of the same polar.
+This reopens the geometry from its file, so a point never starts from the mesh
+that an earlier point's coupling deformed. The job runs a copy of each coupled
+point's post-processing script, `actions/pfs_fsi_post_<NNN>.txt` in the job's
+folder, in which every file the script writes is in the point's own folder. A
+point without coupling that follows a coupled one switches the coupling off. A
+coupled point costs one model load more than the estimate counts for it (about
+two seconds).
+
+A coupled row on `steady` or `qsteady_rotor` is left out with the other steady
+rows. Its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once
+and is ended by any line that follows it, so no other point can run after it in
+the same instance. `unsteady_rotor` refuses FSI, whether the point is run alone
+or in a grouped job.
+
 ### The walltime of a grouped job
 
 The `WALLTIME` cell of a row is the budget of one of its datapoints. A grouped

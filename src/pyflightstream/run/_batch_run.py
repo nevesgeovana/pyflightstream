@@ -30,6 +30,7 @@ from pyflightstream.cases._unsteady_actions import (
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_STOP_SCRIPT,
 )
+from pyflightstream.cases.fsi_workspace import POST_FILE
 from pyflightstream.cases.matrix import MatrixError, read_matrix, refuse_silent_rows_without_default
 from pyflightstream.cases.workflows import (
     EXPORT_LOG_VARIABLE,
@@ -358,16 +359,26 @@ def _job_points(
     for record in records:
         sim_dir = context.staging.sim_dir(record.sim_id)
         working = sim_dir / str((record.submission or {})["working_dir"])
+        case = _point_case(context, record)
         points.append(
             job_point(
-                _point_case(context, record),
+                case,
                 run_id=record.run_id,
                 text=(sim_dir / str(record.script_path)).read_text(encoding="utf-8"),
                 datapoint_dir=job_root / working.relative_to(job_dir),
                 version=record.fs_version_requested,
+                post_script=_post_script(case, working),
             )
         )
     return points
+
+
+def _post_script(case: SimCase, working: Path) -> str:
+    """Return the post-processing script a coupled point staged in its folder, else ''."""
+    staged = working / POST_FILE
+    if case.fsi is None or not staged.is_file():
+        return ""
+    return staged.read_text(encoding="utf-8")
 
 
 def _polars(points: Sequence[JobPoint]) -> list[JobPolar]:
@@ -381,7 +392,7 @@ def _polars(points: Sequence[JobPoint]) -> list[JobPolar]:
 def _write_job_files(
     job: GroupedJob, job_dir: Path, script: JobScript, points: Sequence[JobPoint]
 ) -> None:
-    """Write the job script, its schedule, its programs and its empty action scripts."""
+    """Write the job script, its schedule, its programs, its empty action scripts and copies."""
     deadline = None if job.walltime_s is None else max(job.walltime_s - job.margin_s, 0.0)
     schedule = job_schedule(points, deadline_s=deadline)
     _textio.write_json(job_dir / JOB_SCHEDULE, schedule)
@@ -396,6 +407,8 @@ def _write_job_files(
             job_dir / WALLTIME_CLOCK_PROGRAM, render_job_clock_program(interpreter=sys.executable)
         )
         _textio.write_text(job_dir / WALLTIME_STOP_SCRIPT, "")
+    for name, text in script.files:
+        _textio.write_text(job_dir / name, text)
     _textio.write_text(job_dir / PurePath(job.script).name, script.text)
 
 

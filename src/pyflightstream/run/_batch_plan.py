@@ -21,7 +21,6 @@ import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream.cases import ScriptRecipe, SimCase, case_at_point, resolve_recipe
 from pyflightstream.cases._unsteady_actions import documents_actions
-from pyflightstream.cases.acoustics import acoustic_request
 from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     parse_restart,
@@ -82,10 +81,17 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     """Return the reason a polar cannot join a grouped job, or None when it can (reading 7).
 
     A polar is left out and NAMED, never refused: a steady or quasi-steady row (a steady point
-    after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), an
-    FSI row, an acoustic row, a row whose setup states ``unsteady_solver_actions`` (a user action
-    cannot be withdrawn between polars), a row whose post-processing asks ``[time_averaging]``,
-    and a build that does not document the unsteady action command.
+    after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), a
+    row whose setup states ``unsteady_solver_actions`` (a user action cannot be withdrawn between
+    polars), a row whose post-processing asks ``[time_averaging]``, and a build that does not
+    document the unsteady action command.
+
+    An acoustic row and a coupled (FSI) row join since 0.35.1 (FR-406, FR-407): the job restates
+    each point's acoustic setup and enters each coupled point by ``NEW_SIMULATION``
+    (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
+    quasi-steady coupled row stays out under the first reason: its script ends at
+    ``EXECUTE_AEROELASTIC_ANALYSIS``, which returns at once and is ended by any line after it, so
+    no point can follow it in one instance. ``unsteady_rotor`` refuses FSI when it builds.
 
     Parameters
     ----------
@@ -107,11 +113,6 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
         return f"a {workflow or 'LEGACY'} row: grouped modes run unsteady rows only"
     reasons = (
         (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
-        (case.fsi is not None, "an FSI row: a coupled run is not grouped in this release"),
-        (
-            acoustic_request(case) is not None,
-            "an acoustic row: its section folder in one instance is not measured",
-        ),
         (
             bool(case.solver.unsteady_solver_actions),
             "its setup states unsteady_solver_actions, and a user action cannot be "
