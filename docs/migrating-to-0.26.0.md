@@ -1,5 +1,7 @@
 # Migrating to 0.26.0
 
+> Frozen record: not edited after its release.
+
 This development cycle removes six forms whose compatibility period ended at
 0.26.0. Update Python calls and editable matrix and pproc inputs as below.
 Recorded run manifests are read without rewriting them.

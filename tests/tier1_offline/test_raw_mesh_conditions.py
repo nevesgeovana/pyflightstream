@@ -59,6 +59,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
+from tests.tier1_offline._workflow_docs import MESH_DOCS
 from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE as NATIVE_LOG_TABLE
 from tests.tier1_offline.test_goal024_profile_log import PROFILE as NATIVE_LOG_PROFILE
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
@@ -173,7 +174,7 @@ def test_a_raw_mesh_whose_sidecar_declares_no_trailing_edge_is_refused_at_plan(t
     # a quoted phrase the page does not carry sends a blocked user nowhere.
     anchor = _vocabulary._CONDITIONS_PAGE_ANCHOR
     assert anchor in message, message
-    page = Path(__file__).resolve().parents[2] / "docs" / "mesh-inputs.md"
+    page = MESH_DOCS
     assert anchor in page.read_text(encoding="utf-8"), f"{page.name} does not carry {anchor!r}"
 
 

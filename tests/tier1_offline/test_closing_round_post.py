@@ -240,7 +240,7 @@ def test_u_log_parser_states_mode_or_unknown(text, mode):
 @pytest.mark.parametrize(
     "name",
     [
-        "docs/post-processing-definitions.md",
+        "docs/definitions/what-the-package-does-not-judge.md",
         "CHANGELOG.md",
         "reports/RPT-055_partial-residual-anchor_2026-09-22.md",
     ],

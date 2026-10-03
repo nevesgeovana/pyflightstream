@@ -6,7 +6,7 @@ The row keys `ROTATE` and `TRANSLATE`, which turn or move part of the geometry f
 
 An installed rotor's incidence is a parametric study: the same mesh, the
 blade and spinner families turned a few degrees in pitch or in toe, one
-run per angle. Since 0.14.0 a row states that turn in its cell
+run per angle. A row states that turn in its cell
 (PFS-2034.02, the design of 2026-09-09) and the geometry file stays what
 it was:
 
@@ -45,8 +45,7 @@ created after it spins about the pitched axis and the blade loads a pproc
 entry reads in those frames stay in the blade's own axes, with nothing
 else to write. An alias that is not a rotor owns no frame and turns none.
 
-`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is REFUSED since 0.15.0,
-naming `ALIAS` as the word to write. A record stating `ALIAS` and
+`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is REFUSED naming `ALIAS` as the word to write. A record stating `ALIAS` and
 `FAMILIES` both is refused for a second reason: one rotation turns ONE
 set.
 

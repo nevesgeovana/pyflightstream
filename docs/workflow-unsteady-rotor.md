@@ -41,8 +41,7 @@ work out to at the run's own velocity, so an `unsteady_rotor` row states
 the decisions and the package derives the rest.
 
 * `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / (J D)`, against
-  the velocity this row already resolves and the diameter `D`. **Since
-  0.15.0 that diameter is the ROTOR'S OWN** where the motion names an
+  the velocity this row already resolves and the diameter `D`. **That diameter is the ROTOR'S OWN** where the motion names a
   rotor block of the reference, so one ratio written once gives rotors
   of different sizes different speeds (FR-63); where no alias is cited it
   is the `rotor_diameter_m` the reference artifact carries, which is
@@ -166,28 +165,9 @@ rotor table), are in
 itself reads, and a cell of yours that already spells one of them is
 read by the package rather than ignored:
 
-| release | names it reserved |
-|---|---|
-| before v0.8.1 | `VELOCITY`, `RPM`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `ROTOR_SHEDDING`, `BLADES`, `MOVING_BOUNDARIES`, `DELTA_TIME`, `TIME_ITERATIONS`, `WINDOW_DEGREES`, `WINDOW_STEPS`, `WINDOW_REVOLUTIONS`, `OUTPUTS` |
-| v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
-| v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
-| v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
-| v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of a rotor point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
-| v0.11.0 | `BASE_REGIONS`, the boundaries that BECOME base regions, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`: a body's flat base (`BASE_REGIONS: Base`), never the body that carries it, which the command takes and marks nothing on, silently (stated since 0.27.0, RPT-066; see below). It overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
-| v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
-| v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
-| v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
-| v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: ROTOR_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](workflow-row-geometry-motion.md#one-row-one-geometry-turned) |
-| v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as a rotor block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
-| v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. REQUIRED on any row that states a `MOTIONS` list: a row that states the list and no key is refused, naming the motions it could have named. The flat pre-0.15.0 form, which names one rotor in its own keys, is exempt because it has nothing to choose between; that form becomes required at 0.17.0 too (FR-64) |
-| v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
-| v0.15.0 | `RAW`, a list of records, one raw solver command each or one file of them, in the order written: `RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}, {FILE: raw/extra.txt / BEFORE: init}`; a record states `COMMAND` or `FILE` and never both, and `BEFORE`, the phase it goes before, spelled as the preset's `[[raw]]` table spells it. **ITS PAIRS SPLIT ON A SPACED SLASH**, ` / `, and not on the bare one every other record kind uses, because its values are a path and a command line and both carry slashes of their own. A raw file is a path under `inputs/` whose blank lines and `#` lines are skipped (FR-67), see [What a solver preset may say](workflow-input-library.md#what-a-solver-preset-may-say-and-what-happens-to-a-key-that-reaches-nothing) |
-| v0.17.0 | `COLD_START`, whether a steady row clears the solver between the points of its sweep. Warm is the default and this is the opt-out (FR-95); and `RESTART`, how to continue a run the wall clock stopped, which v0.17.0 PARSED and refused to run (FR-96) |
-| v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
-| v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
-| v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](workflow-row-geometry-motion.md#one-row-one-geometry-moved) |
-| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. Since 0.26.0, `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](workflow-plan-and-cost.md#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
-| v0.27.0 | `ADDITIONAL_PPROC`, ONE pproc id (`ADDITIONAL_PPROC: p002`), on every run type and read by NO builder: a row stating it runs byte for byte as it would without it, and `pyfs-matrix post --additional-pproc` extracts that pproc from each point's final saved simulation with no solve (G12). Refused on a `LEGACY` row and on a build other than 26.124; a comma list is not one id and is refused like any id of the wrong shape. See [Extracting more from a finished point](workflow-additional-post.md#extracting-more-from-a-finished-point-the-additional-post) |
+The [input glossary](inputs.md) lists the current keys and their meanings.
+The [upgrade index](upgrading.md) links the release records for retired
+spellings and changes to their interpretation.
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
 `DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
@@ -281,15 +261,14 @@ time.** A row whose artifact's groups cite no name the opened file
 carries is BLOCKED naming the row, the artifact, the names, the file and
 its inventory: `"1" = ["Wing"]` against `14_WING_RENAMED.fsm`, whose
 inventory reads `MainWing` because the boundary was renamed in the solver
-before the save (RPT-044), planned READY until 0.13.0 and every polar
-table of the row would have summed nothing. What is refused is the
+before the save (RPT-044), is blocked instead of producing an empty polar sum. What is refused is the
 artifact and the geometry sharing NO name, not a member missing from one
 group: an artifact is written once for a study and shared by rows
 opening different geometries, so a family a file lacks is left out by
 design, and `p002`'s group 3 (`Body`, `Base`) sums to zero on the wing
 rows exactly as the reference products carry it.
 
-`angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
+`angle_sweep_deg` IS RESERVED TOO, and it is the one whose
 match FOLDS CASE rather than being exact: a cell spelling it in any
 casing is read as a sweep of a geometric rotation, and a row that also
 sweeps an aerodynamic axis is REFUSED for it. Its lookalike `angle_deg`
@@ -343,7 +322,7 @@ job.
 
 A rotor row states its motion flat, `RPM`, `RPM_SIGN`, `ROTOR_AXIS`,
 `ROTOR_ORIGIN` and `MOVING_BOUNDARIES` as keys of the cell, and that is one
-rotor. Since v0.11.0 a row may state several (PFS-2029.11): `MOTIONS: {...},
+rotor. A row may state several (PFS-2029.11): `MOTIONS: {...},
 {...}`, each pair of braces one rotor holding those same keys, the pairs
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub
@@ -358,7 +337,7 @@ and a motion on a point declared `kind = "airframe"` is refused naming the
 point and its kind. A name outside the convention is refused when the file is
 read, whatever kind it declares, because the names are what say how many
 propulsors the campaign describes (measured 2026-09-08 on the tier-3
-workspace, which had named a hub `HUB`). Since 0.13.0 the flat rotor row's
+workspace, which had named a hub `HUB`). The flat rotor row's
 own `ROTOR_ORIGIN` may name a point the same way (PFS-2031.12); until then
 only a `MOTIONS` record could, and the one-rotor row demanded three numbers. A flat row renders
 exactly as before; a row with a `MOTIONS` list and a flat motion key beside
@@ -385,9 +364,9 @@ pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.t
 ```
 
 An `.obj` gets its sidecar from its groups the same way, and from the plan
-itself when it has none (since 0.28.0, G30, `docs/mesh-inputs.md`).
+itself when it has none (G30, `docs/mesh-inputs.md`).
 
-A workspace written before v0.11.0 moves in one command:
+A workspace using the retired artifact names moves in one command:
 
 ```text
 pyfs-matrix upgrade matriz.fs --in-place --inputs inputs
@@ -397,7 +376,7 @@ which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
 to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
 comments and all), and gives the cells that named it their `p`.
 
-**A workspace written before v0.15.0 moves with the same command**, which
+**A workspace with a `SWEEP_TYPE` column moves with the same command**, which
 also folds `SWEEP_TYPE` into the flight condition: `AL` becomes
 `ALPHA:sweep`, `BE` becomes `BETA:sweep`, and a paired `AL/BE` whose second
 axis held one value becomes `ALPHA:sweep, BETA:<value>` with the same rows.
@@ -463,8 +442,7 @@ of the point: the run record names them as `action_program` and
 `action_count` the count the program reached, which is the number of time
 steps the solver completed.
 
-**A row that states neither key registers the counter alone** (since
-0.33.0, FR-314), on a build that documents the actions: only the first of
+**A row that states neither key registers the counter alone** (FR-314), on a build that documents the actions: only the first of
 the two registrations above, whose program counts the time steps and
 writes nothing else, so no exports file exists and no exports action runs.
 The record names the program as `action_program` and keeps `action_count`,
@@ -475,7 +453,7 @@ counter leaves the results unchanged is owed by the licensed round of
 
 What is exported per step is read from the row's outputs and nowhere
 else: the loads table, the surface (the VTK, from which the run writes each
-step's Tecplot file since 0.28.0), the sections, the sectional
+step's Tecplot file), the sections, the sectional
 loads and the probes, whichever the pproc artifact's export set kept.
 The saved simulation, the plots file and the log describe the whole run
 and stay at the end. A row stating both keys is refused naming both; a
@@ -507,8 +485,7 @@ series remain available. `products.json` records each distribution, its original
 families/alias and `steps_tabled`, with named skips for missing exports or steps.
 No recorded `sections_layout` means no split: post names the missing layout.
 A point whose script created no distribution records the empty layout, `[]`,
-and has nothing to split and nothing named; a record written before 0.27.0
-without a layout is given the empty one when its recorded script still hashes
+and has nothing to split and nothing named; a record without a layout is given the empty one when its recorded script still hashes
 as recorded and creates no surface section, and a continuation records the
 layout of the run it continues. Older layouts require an unambiguous match to their recorded pproc, read over the
 geometry's boundary names where the record carries them or its geometry hash
@@ -516,7 +493,7 @@ recovers them, for a block recorded in a common frame; a block in a frame spelt
 like a rotor's is matched over the recorded cuts, as in 0.26.0. See the
 [sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
 
-**The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty
+**The stamped files as a series** (PFS-2031.18.01). Thirty
 seven spreadsheets are not a history until something tables them, so the
 products stage writes, per windowed point, one table per export kind
 under `post/<matrix stem>/series/`:
@@ -527,31 +504,25 @@ post/matriz/series/P7001-M144RE438AL+000BE+000_sections_series.csv
 post/matriz/series/P7001-M144RE438AL+000BE+000_probes_series.csv
 ```
 
-Every table leads with `POL` (since 0.27.0), then `STEP` (spelled `step` until
-0.24.0), `time_s` and `azimuth_deg`, and then states the point's condition
+Every table leads with `POL`, then `STEP`, `time_s` and `azimuth_deg`, and then states the point's condition
 block; the probes series says WHICH probe each row is in `PROBE`, and the
 sections series leads with `POL`, `STEP`, `time_s`, `FAMILY`, `PLANE`, `ROTOR`,
 `AZIMUTH`, the identity the
 sections table carries. `time_s` and `azimuth_deg` are the step's
 time and azimuth computed from the clock the run record carries
-(`export_window.delta_time_s` and `step_deg`, written by the run since
-0.14.0) by the same arithmetic the counter program runs on the machine,
+(`export_window.delta_time_s` and `step_deg`, written by the run) by the same arithmetic the counter program runs on the machine,
 so the two agree by construction; a record written before the clock
-leaves the time unstated -- which the table writes as `NA`, blank until
-0.23.0 -- and reads the azimuth off its reductions plan. The
+leaves the time unstated -- which the table writes as `NA` -- and reads the azimuth off its reductions plan. The
 loads series is wide, one row per step and one column per surface and
 coefficient (`Total_CL`, `Blade1_CMx`, ...); its moment columns are about
-the row's moment point, and a loads series written before 0.27.0 from an
-unsteady row states them about the reference frame's origin, with its
-forces right (RPT-064); the sections series (from
+the row's moment point, and historical unsteady loads series affected by the moment-origin defect need the correction described in [the migration](migrating-to-0.27.0.md) (RPT-064); the sections series (from
 the sectional loads export, `_sloads`, the same export the sections
 table of the products reads) and the probes series are long, one row per
 step and section or probe, with the export's own columns. A kind with no
 stamped file is NOT written, and `products.json` names it under `skipped`
-with the folders that were searched (a header-only table recorded as written,
-until 0.24.0). The stamped files are looked for where the point RAN: its
-`datapoints/DP-<point>/`, where every point runs since 0.27.0, and the
-simulation folder, where a local point ran before 0.27.0. A
+with the folders that were searched. The stamped files are looked for where the point RAN: its
+`datapoints/DP-<point>/`, where every point runs, and the
+simulation folder used by historical local runs. A
 step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as

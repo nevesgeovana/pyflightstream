@@ -1,5 +1,7 @@
 # Migrating to 0.24.0
 
+> Frozen record: not edited after its release.
+
 This release changes NUMBERS that 0.23.0 published, changes the header of almost
 every table the post stage writes, and asks one new thing of a matrix row. Read
 this before you upgrade a workspace you care about.

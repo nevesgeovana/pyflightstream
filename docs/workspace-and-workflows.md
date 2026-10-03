@@ -80,7 +80,7 @@ POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGH
 ```
 
 **NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
-file is the suite's proof that a matrix written before v0.8.1 renders
+file is the suite's proof that a legacy matrix with no geometry keys renders
 exactly the bytes it always did, so it deliberately names none of the
 three keys; run as it stands, it solves whatever the solver already has
 open, which is the defect v0.8.1 exists to remove.
@@ -134,11 +134,11 @@ worse than no page at all.
   the solver model.** `BLADES` sizes the phase-locked and per-blade
   windows of a row that names NO rotor by alias, and nothing else: it
   does not configure the rotor and does not interact with `SYMMETRY`.
-  Since 0.15.0 a row that names its rotors takes each blade count from
+  A row that names its rotors takes each blade count from
   that rotor's own block (FR-68). The solver model is the setup preset's
   `solver_model`, `INCOMPRESSIBLE` when the preset states none; the row's
   `MACH` does not choose it. The reference (`REF`) and the fluid state of
-  the flight condition reach the script since 0.9.0.
+  the flight condition reach the script.
 
 - **You cannot add a workflow of your own.** The table is this
   package's, and there is deliberately no way to register into it: a
@@ -165,7 +165,7 @@ worse than no page at all.
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
-  refused at plan time naming the key (since 0.13.0), so rename the key
+  refused at plan time naming the key, so rename the key
   to `GEOMETRY` when you move it.
 - **There is no result-array facade.** No interpolation along a named
   axis, no re-parameterisation, no trim extraction. FR-20 carries that

@@ -28,26 +28,20 @@ at v0.9.0. What it means and which quantity gets solved for is
 and `SWEEP_VALUES` says over which values: `ALPHA:sweep` with `0.0,2.0`
 is an angle-of-attack sweep at zero and two degrees, so this one row is
 two runs. Exactly one key of the cell may carry the word `sweep`; every
-other key is a quantity the row HOLDS. Until v0.15.0 the swept variable
-was named a second time in a `SWEEP_TYPE` column, which is the column
-`pyfs-matrix upgrade` folds into this cell. `REF`, `SET` and `PPROC` are the
-three identifiers that reach into the input library; `PPROC` was `ENTRY`
-until v0.11.0, when the groups artifact it names became the
-post-processing artifact (PFS-2029.07). `FS_BUILD` names the FlightStream
+other key is a quantity the row HOLDS. `pyfs-matrix upgrade` folds a legacy `SWEEP_TYPE` column into this cell. `REF`, `SET` and `PPROC` are the
+three identifiers that reach into the input library; `PPROC` names the post-processing artifact (PFS-2029.07). `FS_BUILD` names the FlightStream
 build the row wants. `WORKFLOW` names the run type, and a row naming one
 needs nothing else to build its script; `LEGACY` means "none, use the
-recipe", which is what every matrix written before v0.8.0 means and what
-these two rows say, and such a row names its recipe code as the `RECIPE`
-key of its variables (until v0.11.0 that code sat in a column of its own,
-`FS_SCRIPT`, which `pyfs-matrix upgrade` moves). Since 0.13.0 that cell may
+recipe", as these two example rows declare, and such a row names its recipe code as the `RECIPE`
+key of its variables (`pyfs-matrix upgrade` moves a legacy `FS_SCRIPT` column here). The cell may
 carry the reference itself, `package.module:function`, and a row written so
 plans and runs with no `--recipe` option at all; a bare code such as `003`
 is still mapped by that option (PFS-2031.11). A `LEGACY` row's recipe also
 decides what it saves: these two rows declare a loads table and no `.fsm`,
-so since 0.27.0 `pyfs-matrix plan` warns, naming both, that no final saved
+so `pyfs-matrix plan` warns, naming both, that no final saved
 simulation of theirs is collected, and plans them as before
 (`test_g11_a_legacy_row_without_a_saved_simulation_is_warned_at_plan`). `HIDDEN` and
-`RUN` sit directly after `POL` since v0.17.0; `RUN` is the switch that says
+`RUN` sit directly after `POL`; `RUN` is the switch that says
 whether the row takes part at all, and `HIDDEN` whether the solver shows a
 window.
 
@@ -62,7 +56,7 @@ half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that
 come back are the whole aircraft's or the modelled slice's. `NCPUS` is the
 processor count, ONE number that reaches the solver's thread count and, on
 a cluster, the scheduler's request. `WALLTIME` is the wall clock, written
-WITH ITS UNIT since 0.21.0 (`240m`, `4h`, `90s`, `1d`; a bare number is
+WITH ITS UNIT (`240m`, `4h`, `90s`, `1d`; a bare number is
 refused by name), which on an unsteady row also arms the watchdog. What the
 scheduler's own field is given is the HPC profile's to say
 (`walltime_arithmetic`), and it never moves the watchdog's deadline.
@@ -91,7 +85,7 @@ else, as `KEY: value` pairs separated by ` / `. The rows above use
 and the recipe named by the row's `RECIPE` code is what resolves it and
 opens the file. That is still how a recipe works.
 
-**A WORKFLOW reads keys the package defines**, and since v0.8.1 three of
+**A WORKFLOW reads keys the package defines**, and three of
 them close the gap that made the capability unusable:
 
 * `GEOMETRY: <file name>` names a geometry staged under
@@ -99,10 +93,9 @@ them close the gap that made the capability unusable:
   `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
   `blade.v2.fsm` reads one way and no other. A bare stem is refused
   naming the files that carry it, and `pyfs-matrix upgrade` completes
-  every stem-only cell of an older matrix with `.fsm` (until v0.11.0 the
-  cell was the stem; PFS-2029.09). What the name buys is that the cell
+  every stem-only cell of an older matrix with `.fsm` (PFS-2029.09). What the name buys is that the cell
   says what the file is: a `.fsm` is a saved simulation and is opened,
-  and since 0.27.0 an `.obj` or `.stl` is a raw mesh and is imported.
+  and an `.obj` or `.stl` is a raw mesh and is imported.
   The workflow opens or imports the file first, before anything else,
   and it reads the STAGED copy, so the file the manifest hashed and the
   file the solver read are the same bytes.
@@ -113,14 +106,14 @@ them close the gap that made the capability unusable:
     `<stem>.boundaries.toml` beside it states them in an `[import]`
     table, `units = "MILLIMETER"`, beside the `boundaries` list: for an
     `.obj` with no sidecar the plan writes that list from the file's
-    groups, in the order the solver numbers them (since 0.28.0, G30), and
+    groups, in the order the solver numbers them (G30), and
     for an `.stl` it is written by hand. A raw mesh without the table is
     refused before any seat is spent, naming the key, because a defaulted
     unit is a body of the wrong size whose coefficients solve, export and
     report without a word. The file's unit goes to `IMPORT` alone and the
     simulation is set to metres, the unit of every length the row states.
     The same sidecar declares the mesh's trailing edge in a
-    `[trailing_edges]` table (since 0.27.0, G02): `file = "<points
+    `[trailing_edges]` table (G02): `file = "<points
     file>"`, the default route, whose edge mid-points are checked against
     the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
     26.124, or `detect = "auto"` (or by surface), detection, which applies
@@ -135,11 +128,9 @@ them close the gap that made the capability unusable:
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
   The accepted modes are read from the command database for the row's own
   build, never from a list written here. **This one is not a
-  convenience.** Until v0.8.1 symmetry was fixed at `NONE`, so a periodic
-  sector was solved as a one-bladed rotor: the run completed and the
-  numbers were wrong, silently.
+  convenience.** A periodic sector requires periodic symmetry; treating it as `NONE` solves a one-bladed rotor without diagnosing the physical error.
 
-    `MIRROR` carries three cautions, and since 0.13.1 the cell enforces
+    `MIRROR` carries three cautions, and the cell enforces
     one of them: a nonzero sideslip (a swept or held `BETA` in the flight
     condition) under `SYMMETRY: MIRROR` is refused at plan time, naming the
     cell, because a mirrored half model is a valid model of the full one
@@ -160,7 +151,7 @@ them close the gap that made the capability unusable:
 
 ## How a point is named
 
-Every export hangs off the point's NAME (since 0.21.0). The name writes
+Every export hangs off the point's NAME. The name writes
 every variable the row's `FLIGHT_CONDITION` declares, in the order the cell
 declares them, each as a code and a fixed-width integer so a folder of them
 sorts:
@@ -193,8 +184,7 @@ placeholders are `{polar}` (`P<sim>-<name>`), `{point}` (the name),
 `{alpha}`, `{beta}`, `{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`,
 and inside an output name `{name}` is the rendered stem. The run record
 carries the name (`point_name`), the name of its sweep (`sweep_name`) and
-the template that named each point (`point_name_template`). A workspace
-written before 0.21.0 carries the old names; `pyfs-matrix rename` renames
+the template that named each point (`point_name_template`). A workspace may carry the old names; `pyfs-matrix rename` renames
 it, as [migrating to 0.21.0](migrating-to-0.21.0.md) describes.
 
 ## Several matrices in one workspace
@@ -398,15 +388,15 @@ matrix/sim_8001/sweep
 matrix/sim_8002/sweep
 ```
 
-Two rows of a matrix, four points, TWO records, because since v0.17.0 a
+Two rows of a matrix, four points, TWO records, because a
 steady row is one job: its points run in one process, one after another.
-Since 0.29.0 every point starts cold, including the first. Set
+Every point starts cold, including the first. Set
 `COLD_START: false` to retain the previous warm behavior explicitly; see
 [geometry units and steady starts](geometry-units-and-starts.md).
 A run id that ends `sweep` names a job, and a run id that ends with a
 point NAME names a point; the token is the one the per-polar product
 tables already use for a swept variable, with the swept field written
-`<code>+sweep` since 0.21.0.
+`<code>+sweep`.
 
 Every point is still there and still named. The record lists them in the
 order the job ran them, with the status each ended in, and the sweep
@@ -456,10 +446,10 @@ point's own `archive/<stamp>/`. A name no recorded point carries is refused, and
 recorded points it does not name are skipped rather than refused. It cannot be
 combined with `--resume`, which SKIPS a recorded point instead of redoing it.
 Naming one point of a steady row recorded as one job redoes the whole job, and
-the run says which points run again (since 0.28.0).
+the run says which points run again.
 
 **To redo EVERY recorded point**, of the matrix or of some of its simulations,
-name none of them (since 0.28.0):
+name none of them:
 
 ```text
 pyfs-matrix run <matrix> --workspace . --force-rerun-all
@@ -475,7 +465,7 @@ points included. Refused beside `--resume` or `--force-rerun`, for an id the
 matrix does not carry, and when nothing of the selection is recorded.
 
 **To plan and run ONE simulation, or some of its points, without editing the
-matrix** (since 0.34.0), select them on both commands:
+matrix**, select them on both commands:
 
 ```text
 pyfs-matrix plan <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
@@ -492,7 +482,7 @@ already recorded follows the rules above (refused, `--resume`,
 simulations; in 0.33.0 that was refused.
 
 **A second run of the same matrix without `--resume`** is refused, as before,
-with exit status 2 and nothing run; since 0.34.0 the message says how many
+with exit status 2 and nothing run; the message says how many
 points are recorded and how many would run, and prints the command you typed
 with `--resume` added, ready to paste.
 

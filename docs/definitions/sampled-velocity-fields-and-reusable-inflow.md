@@ -1,0 +1,7 @@
+## Sampled velocity fields and reusable inflow
+
+The public `post.write_probe_field` writes finite REFERENCE-frame samples in meters and m/s. VTK uses one vertex per sample; Tecplot uses one single-point ordered zone per sample, so neither format invents edges or surface cells. Each sidecar records the solver setup, source hash, coordinate and velocity units, sample count and variable meanings. The optional six-column `x y z vx vy vz` inflow file is an UNSTRUCTURED global YZ-plane profile; it must have distinct, non-collinear sample positions at one x. The writer refuses unsupported frames and incomplete or non-finite arrays before writing. It never interpolates samples or installs the profile automatically.
+
+Example: `write_probe_field(stem, points_m, velocity_m_s, source=csv_path, provenance=record, formats=("vtk", "tecplot"), reusable_inflow=True)`. Tecplot zone dimensions and nodal POINT packing follow the [official data format guide](https://tecplot.azureedge.net/products/360/2024r1m1/360-data-format.html).
+
+A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_formats = ["vtk", "tecplot"]` and optionally `reusable_inflow = true`. These requests automatically sample VX, VY and VZ. The emitted sample IDs and native-to-meter factor are recorded with the run. Post writes `fields/<point>_field_<entry>[_step_<step>]` from complete probe tables; every actual transient step remains separate. Missing components or recorded sample IDs produce a named post warning and no interpolated replacement.

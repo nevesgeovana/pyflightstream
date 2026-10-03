@@ -27,11 +27,12 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.results.loads import parse_loads
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
 REPORTS = REPO / "reports"
 FSI_PAGE = REPO / "docs" / "fsi-workspace.md"
-DEFINITIONS = REPO / "docs" / "post-processing-definitions.md"
+DEFINITIONS = DEFINITION_DOCS
 FIX = Path(__file__).resolve().parent / "fixtures" / "rpt128"
 
 

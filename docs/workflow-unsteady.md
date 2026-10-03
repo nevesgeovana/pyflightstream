@@ -106,5 +106,5 @@ record](post-processing-definitions.md), which is the one place it is kept. And
 }
 ```
 
-A record written before 0.23.0 keeps the windows it recorded, so its
+A historical record keeps the windows it recorded, so its
 `per_blade` entry may still list one window per blade.

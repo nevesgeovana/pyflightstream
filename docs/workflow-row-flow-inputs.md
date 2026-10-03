@@ -4,7 +4,7 @@ The row keys that replace the uniform free stream: an actuator disc and a custom
 
 ## One row, one actuator disc
 
-Since 0.27.0 a row may carry an actuator disc, the solver's linearized
+A row may carry an actuator disc, the solver's linearized
 propeller slipstream (FR-109). The disc's GEOMETRY belongs to the
 configuration, so it is a block of the row's reference, beside the rotors and
 the frames; its LOADING belongs to the condition, so the row states it:
@@ -51,7 +51,7 @@ line:
 1.0,0.0
 ```
 
-`pyfs-workspace profile` (since 0.34.0) writes this file for you, from a POL's
+`pyfs-workspace profile` writes this file for you, from a POL's
 written sections or as the uniform or the Betz-Prandtl shape, scaled to a
 thrust or a CT, as `inputs/profiles/<stem>.csv` with its provenance record:
 see [actuator-disc profiles](actuator-profiles.md).
@@ -156,7 +156,7 @@ mirror symmetry; the loads of a disc whose profile the solver read; and the
 profile file on any build but 26.124. A continuation reopens the saved
 simulation, which carries the disc, and emits it again nowhere; a disc added
 to a row after its run stopped does not reach the continuation and is not yet
-refused there. Since 0.28.0 (G20) a row may state `ADVANCE_RATIO` instead of
+refused there. A row may state `ADVANCE_RATIO` (G20) instead of
 `ACTUATOR_RPM`, and the disc turns at n = V / (J D) with its own diameter (twice
 its `tip_radius_m`); a steady row that sweeps the advance ratio runs one job per
 point, so each point sets its own speed. A row stating neither is refused
@@ -169,14 +169,14 @@ A research study of the disc on 26.124 (build 8172026), summarised in
 measured four things a reader would not assume. They are stated here with the
 case they were measured on; on another build they are unmeasured.
 
-**THE HAND, SINCE 0.34.0.** A disc whose block states `rpm_sign = 1` swirls its
+**THE HAND.** A disc whose block states `rpm_sign = 1` swirls its
 wake the way a rotor of `rpm_sign = 1` turns (FR-331): `+1` is a positive
 rotation about the block's `axis` by the right-hand rule, as for a rotor block.
 The script hands `SET_PROP_ACTUATOR_RPM` minus the block's sign times the
 row's speed, because a disc handed plus swirled against a rotor of the same
-`rpm_sign` on 26.124 and a disc handed minus swirled with it (RPT-137). Up to
-0.33.0 the script handed plus, so a disc study that set `rpm_sign = -1` to swirl
-with its rotor sets `rpm_sign = 1` from 0.34.0.
+`rpm_sign` on 26.124 and a disc handed minus swirled with it (RPT-137). The
+[migration record](migrating-to-0.34.0.md#an-actuator-disc-swirls-the-way-its-rotor-turns)
+explains how to update a study that used the older sign convention.
 
 **THE SWIRL IS ONE GLOBAL FACTOR.** The block's `swirl` is one global factor,
 0 to 1, applied to the swirl the solver computes for the disc from its thrust
@@ -203,7 +203,7 @@ a RIGID disc reads the profile.
 
 ## One row, one custom free stream
 
-Since 0.27.0 a row may replace the uniform free stream with a velocity field
+A row may replace the uniform free stream with a velocity field
 read from a file (G15), the GUI's custom free stream, imported under the free
 stream's profile. The field varies within the YZ plane of the GLOBAL frame,
 which is how the solver reads it. The row names the file by its stem:
@@ -313,7 +313,7 @@ the report's evidence. `tests/tier3_licensed/test_freestream.py` holds 5012 to
 5014 to what they measured. Every other build is documented only, and the
 ROTATION form ran on 26.124 under RPT-052.
 
-SINCE 0.28.0 (G18), the rest of the field was run on 26.124 under the
+The rest of the field (G18) was run on 26.124 under the
 licensed probe T16 (RPT-077), each variant against a control of the same
 batch:
 

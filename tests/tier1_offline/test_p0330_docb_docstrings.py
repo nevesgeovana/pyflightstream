@@ -732,15 +732,16 @@ def test_the_unsteady_reductions_have_one_home():
     P0330-DOC-REDUCTIONS-HOME
     """
     # P0330-DOC-REDUCTIONS-HOME
-    home = (DOCS / REDUCTIONS_HOME).read_text(encoding="utf-8")
+    home = (DOCS / "definitions/the-reductions-of-an-unsteady-point.md").read_text(encoding="utf-8")
     heading = "## The reductions of an unsteady point\n"
     assert heading in home, f"{REDUCTIONS_HOME} has no section listing the reductions"
     section = home.split(heading, 1)[1].split("\n## ", 1)[0]
     for anchor in (*REDUCTIONS, "the-per-station-harmonics", "the-averaging-window"):
-        assert f"(#{anchor})" in section, f"the section does not link to #{anchor}"
+        assert f"({anchor}.md#{anchor})" in section, f"the section does not link to #{anchor}"
     for reduction in REDUCTIONS:
-        assert f"\n## `{reduction}`\n" in home, f"{REDUCTIONS_HOME} does not define {reduction}"
-    assert f"[`{REDUCTIONS[0]}`](#{REDUCTIONS[0]})" in section
+        family = DOCS / "definitions" / f"{reduction}.md"
+        assert f"## `{reduction}`\n" in family.read_text("utf-8"), family
+    assert f"[`{REDUCTIONS[0]}`]({REDUCTIONS[0]}.md#{REDUCTIONS[0]})" in section
 
     pages = _user_pages()
     naming = [name for name, text in pages.items() if _REDUCTION_NAMED.search(text)]

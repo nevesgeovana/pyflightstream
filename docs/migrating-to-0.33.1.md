@@ -1,5 +1,7 @@
 # Migrating to 0.33.1
 
+> Frozen record: not edited after its release.
+
 0.33.1 is a patch of [0.33.0](migrating-to-0.33.0.md). Its dependencies and
 extras are the ones 0.33.0 declared, except that the `dev` extra gains
 `pytest-xdist`. No public name, console command, option, setup key or

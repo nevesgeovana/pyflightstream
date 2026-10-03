@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 358,
+  "cited_by_a_test": 363,
   "total": 427,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -220,7 +220,7 @@
    "text": "A boundary without a user-defined trailing-edge condition, once assigned to the vorticity induced-drag list, returns a not-computed sentinel distinguishable from a physical zero.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until 0.27.0 (PFS-2006.03). Evidence: tests/tier1_offline/test_pfs2006_declined_induced_drag.py (a listed surface printed at zero is NA in the polar and named in a warning that reaches post.log, a surface off the list keeps its printed zero, and each recorded selection read one way).*",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27; delivered in 0.27.0 (PFS-2006.03). Evidence: tests/tier1_offline/test_pfs2006_declined_induced_drag.py (a listed surface printed at zero is NA in the polar and named in a warning that reaches post.log, a surface off the list keeps its printed zero, and each recorded selection read one way).*",
    "verification": "test"
   },
   {
@@ -548,7 +548,7 @@
    "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, TWO versions, the committed probe report and the justification in the script and in the run manifest. Two, because a hotfix build inherits its base release's record: version is the build the script targeted and source_version is the build whose record is broken, which is the build the cited report was run on. A record that carried one field for both would make an inherited waiver cite a report run on a version the manifest never names.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; waived_commands on RunRecord (broken_commands until 0.13.0, PFS-2022.01.05); the database-driven refusal guard and the waiver guards in tests/tier1_offline/test_script.py, tests/tier1_offline/test_script_helpers.py and tests/tier1_offline/test_run_campaign.py.*",
+   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; waived_commands on RunRecord (the successor of broken_commands, PFS-2022.01.05); the database-driven refusal guard and the waiver guards in tests/tier1_offline/test_script.py, tests/tier1_offline/test_script_helpers.py and tests/tier1_offline/test_run_campaign.py.*",
    "verification": "test"
   },
   {
@@ -708,12 +708,12 @@
    "text": "Read with PFS-2070, PFS-2070.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design of 2026-09-10. Carried by PFS-2035.11. Evidence: tests/tier1_offline/test_reduce_by_rotor.py (a row stating its speeds in motions reduces at all; each rotor's passage is its own and the two are asserted UNEQUAL before either is pinned; the per-blade windows are contiguous and end at the run's last step; a several-rotor row says where its reductions went instead of naming a count; a one-rotor row takes the count from that rotor's block; a sector row reduces over the whole wheel; a motion naming no rotor of the reference is a skip and not an absence; a row with no rotor carries no per-rotor block, which is the sentence that protects every workspace written before 0.15.0; a rotor at rest, a run holding no whole revolution of a rotor, and a window shorter than one passage of a rotor are each skipped naming that rotor; a rotor turning the other way reduces over the same passage; a period whose fraction decides is rounded and not truncated; the phase-locked passages of each rotor start at the row's window; and a record spelling its alias loosely still names the reference's rotor) and tests/tier1_offline/test_post_products.py (the files name the rotor, and a one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01, which reads the count from PERIODIC_COPIES at 0.14.0.*",
+   "evidence": "*Origin: the design of 2026-09-10. Carried by PFS-2035.11. Evidence: tests/tier1_offline/test_reduce_by_rotor.py (a row stating its speeds in motions reduces at all; each rotor's passage is its own and the two are asserted UNEQUAL before either is pinned; the per-blade windows are contiguous and end at the run's last step; a several-rotor row says where its reductions went instead of naming a count; a one-rotor row takes the count from that rotor's block; a sector row reduces over the whole wheel; a motion naming no rotor of the reference is a skip and not an absence; a row with no rotor carries no per-rotor block, which is the sentence that preserves compatibility with a workspace naming no rotor; a rotor at rest, a run holding no whole revolution of a rotor, and a window shorter than one passage of a rotor are each skipped naming that rotor; a rotor turning the other way reduces over the same passage; a period whose fraction decides is rounded and not truncated; the phase-locked passages of each rotor start at the row's window; and a record spelling its alias loosely still names the reference's rotor) and tests/tier1_offline/test_post_products.py (the files name the rotor, and a one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01, which reads the count from PERIODIC_COPIES at 0.14.0.*",
    "verification": "test"
   },
   {
    "id": "FR-69",
-   "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there. Since 0.21.0 every one of them is implemented; until 0.20.x a row sweeping any but the two angles and the advance ratio was refused NAMING those three and saying it might carry the word in a later release, because accepted-and-ignored is how the advance-ratio sweep failed before 0.15.0. A key that does not define the condition is still refused.",
+   "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there. Every one of them is implemented. A key that does not define the condition is still refused.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
@@ -900,7 +900,7 @@
    "text": "Read with PFS-2058, PFS-2058.02, PFS-2064, PFS-2064.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: a swept row could not be judged past its first point, held in the tree as a strict expected failure since 0.16.0's sweep work and reported to the owning seat on 2026-09-11, whose instruction that day moved the fix from the assessor's SELECTION into the folder ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken without asking: which of the two point-name conventions the folder takes. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
+   "evidence": "*Origin: a swept row could not be judged past its first point, held in the tree as a strict expected failure from the sweep work and reported to the owning seat on 2026-09-11, whose instruction that day moved the fix from the assessor's SELECTION into the folder ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken without asking: which of the two point-name conventions the folder takes. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
    "verification": "test"
   },
   {
@@ -1004,7 +1004,7 @@
    "text": "A row states ONE body rate -- roll_rate, pitch_rate or yaw_rate -- in deg/s and in flight-mechanics signs, and the script writes SET_FREESTREAM ROTATION about the moment reference point of the row's REF instead of CONSTANT. The rate sweeps like any other variable of the cell.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the same feedback, section 4. Evidence: tests/tier1_offline/test_goal024_freestream_rotation.py (one rate writing ROTATION about the moment point with the axis the reference declares and the rate in rev/min, each rate on its own axis, zero and absent writing CONSTANT, and the two refusals). THE SIGN the solver applies is measured on a seat, one axis at a time, on 26.124. Pitch in reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md, with its evidence at reports/probes/RPT-052_2026-09-15_evidence.yaml: three pitch rates on one wing-body, where a positive rate came back with the nose-down moment increment that opposes a nose-up rotation. Roll and yaw in the licensed probe T11, reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md, with its evidence at reports/probes/RPT-060_2026-09-23_evidence.yaml: seven converged solves showing that the rate emitted as written, the one sign of +1 of 0.21.0 to 0.26.0, solved the OPPOSITE roll and yaw rate. Since 0.27.0 (G13) each rate is emitted with the sign of its body axis in the geometry's frame, and the emitted line is scored against both probes by tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py.*",
+   "evidence": "*Origin: the same feedback, section 4. Evidence: tests/tier1_offline/test_goal024_freestream_rotation.py (one rate writing ROTATION about the moment point with the axis the reference declares and the rate in rev/min, each rate on its own axis, zero and absent writing CONSTANT, and the two refusals). THE SIGN the solver applies is measured on a seat, one axis at a time, on 26.124. Pitch in reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md, with its evidence at reports/probes/RPT-052_2026-09-15_evidence.yaml: three pitch rates on one wing-body, where a positive rate came back with the nose-down moment increment that opposes a nose-up rotation. Roll and yaw in the licensed probe T11, reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md, with its evidence at reports/probes/RPT-060_2026-09-23_evidence.yaml: seven converged solves showing that the rate emitted as written, the one sign of +1 of 0.21.0 to 0.26.0, solved the OPPOSITE roll and yaw rate. Each rate (G13) is emitted with the sign of its body axis in the geometry's frame, and the emitted line is scored against both probes by tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py.*",
    "verification": "test"
   },
   {
@@ -1457,7 +1457,7 @@
   },
   {
    "id": "FR-177",
-   "text": "The guides are decks in guide/ with their LaTeX sources (guide/latex-sources/), their build recipe and their compiled PDFs, each ending on numbered references, licensed CC BY 4.0 (guide/LICENSE-AND-AUTHORSHIP.md). Since 0.34.0 they are nine, numbered from 01 with the cheatsheet as guide 04 (FR-329). A PDF may be tracked under guide/ and nowhere else: the forbid-pdf hook, the CI guard job and the tier-1 walk of the tracked files carry the same exemption, and a test shows the hook and the job refuse exactly what the walk refuses.",
+   "text": "The guides are decks in guide/ with their LaTeX sources (guide/latex-sources/), their build recipe and their compiled PDFs, each ending on numbered references, licensed CC BY 4.0 (guide/LICENSE-AND-AUTHORSHIP.md). They are nine, numbered from 01 with the cheatsheet as guide 04 (FR-329). A PDF may be tracked under guide/ and nowhere else: the forbid-pdf hook, the CI guard job and the tier-1 walk of the tracked files carry the same exemption, and a test shows the hook and the job refuse exactly what the walk refuses.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.30.0 scope: the guides are numbered, in the order general workspaces, GUI to pyfs, references (new, explaining the references file), setup, pproc, FSI, and the Python environment installation for offline machines. Evidence: tests/tier1_offline/test_guide_decks.py and tests/tier1_offline/test_house_style.py.*",
@@ -1593,7 +1593,7 @@
   },
   {
    "id": "FR-194",
-   "text": "Every top-level bullet of the Added and Changed sections of every release from 0.25.0 on, and of every changelog.d fragment, cites a requirement id that a page under docs/srs/ defines, or says (no requirement: <reason>). The sections headed as the type-checker debt are a measurement and are excluded.",
+   "text": "Every top-level bullet of the Added and Changed sections of every release numbered 0.25.0 or later, and of every changelog.d fragment, cites a requirement id that a page under docs/srs/ defines, or says (no requirement: <reason>). The sections headed as the type-checker debt are a measurement and are excluded.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.32.0 preparation, because not every need the recent releases met had reached the specification. Evidence: tests/tier1_offline/test_srs_changelog.py (P0320-SRS-CHANGELOG).*",
@@ -2068,7 +2068,7 @@
    "text": "Need. A native nodal export printed at limited digits and a VTK written at single precision differ, for a part far from the origin, by more than four single-precision epsilons of the coordinates.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: 0.29.1-tol, moved from 0.33 (GEO-066, package J). Evidence: test_p0320_tol_0291_one_function_gives_the_printed_precision_slack, test_p0320_tol_0291_a_full_precision_native_adds_no_slack.*",
+   "evidence": "*Origin: 0.29.1-tol, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence: test_p0320_tol_0291_one_function_gives_the_printed_precision_slack, test_p0320_tol_0291_a_full_precision_native_adds_no_slack.*",
    "verification": "test"
   },
   {
@@ -2076,7 +2076,7 @@
    "text": "Need. The time average of a surface matched each step's native strength with a tolerance of its own.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: 0.29.1-avg, moved from 0.33 (GEO-066, package J). Evidence: test_p0320_avg_0291_the_time_average_matches_a_far_native_with_that_tolerance.*",
+   "evidence": "*Origin: 0.29.1-avg, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence: test_p0320_avg_0291_the_time_average_matches_a_far_native_with_that_tolerance.*",
    "verification": "test"
   },
   {
@@ -2084,7 +2084,7 @@
    "text": "Need. The default drift limit is read by the post stage and belongs to the case model.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: ARCH2-S2, moved from 0.33 (GEO-066, package J). Evidence: test_p0320_arch2_s2_the_default_drift_limit_is_public_in_cases.*",
+   "evidence": "*Origin: ARCH2-S2, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence: test_p0320_arch2_s2_the_default_drift_limit_is_public_in_cases.*",
    "verification": "test"
   },
   {
@@ -2092,7 +2092,7 @@
    "text": "Need. The thrust and torque shares above k = 0.1 read the point's own solve, clocking 0, of a table that holds every clocking; nothing pinned it.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: QA2-2, moved from 0.33 (GEO-066, package J). Evidence: test_p0320_qa2_2_the_na_shares_read_clocking_zero_rows_only.*",
+   "evidence": "*Origin: QA2-2, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence: test_p0320_qa2_2_the_na_shares_read_clocking_zero_rows_only.*",
    "verification": "test"
   },
   {
@@ -3355,41 +3355,41 @@
    "id": "NFR-33",
    "text": "Need: A topic must have one defining paragraph, so its explanations cannot drift between pages.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
+   "verification": "review"
   },
   {
    "id": "NFR-34",
    "text": "Need: Readers must be able to use a focused definitions page without losing existing links or code and test pins.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
+   "verification": "review"
   },
   {
    "id": "NFR-35",
    "text": "Need: Mesh instructions, reference details and examples must be independently readable while existing links keep working.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
+   "verification": "review"
   },
   {
    "id": "NFR-36",
    "text": "Need: Reference pages must state the current contract without a narrative of earlier releases.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
+   "verification": "review"
   },
   {
    "id": "NFR-37",
    "text": "Need: Readers must find every migration record from one index and know that release records are frozen.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
+   "verification": "review"
   },
   {
    "id": "NFR-38",

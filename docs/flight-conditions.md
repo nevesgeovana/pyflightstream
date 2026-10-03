@@ -64,7 +64,9 @@ key cannot be lost the way a unit in a comment can.
 Keys are matched **case-insensitively**, so `remi`, `REmi` and `REMI` are
 one key. A key written twice is refused rather than taking the last one.
 
-## The same cell carries the attitude, since 0.15.0
+<a id="the-same-cell-carries-the-attitude-since-0150"></a>
+
+## The same cell carries the attitude
 
 The ten keys above are about the AIR. Three more are about what the
 aircraft is doing in it, and the same cell carries them because a point
@@ -137,7 +139,7 @@ The reader folds case and strips spaces around it, so `SWEEP`, `Sweep` and
 `sweep ` all mean the same thing in a file a person typed; the constant is
 the canonical spelling the package stores.
 
-**Every key of the cell can be swept** since 0.21.0: the five that fix the
+**Every key of the cell can be swept**: the five that fix the
 state, the five pins, the two angles, the advance ratio and the rotor speed. A
 key that does not define the condition is still refused naming the ones that
 do, rather than accepted and quietly run as a single point.
@@ -160,7 +162,7 @@ and a `--resume` after an upgrade finds the records it already has.
 **Only the two ANGLES do that.** An `ADVANCE_RATIO` the row holds stays on
 the row and is read there, because the 0.20 point tag never carried one and
 putting it in would have renamed every run that has one, which is the same
-cost running the other way. Since 0.21.0 the NAME of a point carries every
+cost running the other way. The NAME of a point carries every
 variable the cell declares, held or swept, which is a different question
 from what the point MAPPING carries; see
 [How a point is named](workflow-run-matrix.md#how-a-point-is-named).
@@ -217,7 +219,7 @@ Every rate zero, or no rate at all, writes `CONSTANT`
 `test_goal024_freestream_rotation_a_row_with_no_rate_at_all_writes_constant`).
 
 **The sign of the emitted rotation is the sign of its body axis in the
-geometry's frame** (since 0.27.0). Positive p is right wing down, q nose up and
+geometry's frame**. Positive p is right wing down, q nose up and
 r nose right, about body axes that point forward, right and down. The geometry's
 frame, the one a loads export states its forces in, points x aft, y right and
 z up, and the solver turns the free stream as a right-hand rotation about the
@@ -469,7 +471,9 @@ package does not know is refused rather than ignored, which is the
 difference between a typo that costs a message and a typo that costs a
 campaign.
 
-## Upgrading a matrix written before v0.9.0
+<a id="upgrading-a-matrix-written-before-v090"></a>
+
+## Upgrading a legacy flight-condition matrix
 
 The `RE` and `MACH` columns are gone. A file written under either older
 layout is recognised and refused naming its converter:
@@ -486,8 +490,7 @@ executable.
 conversion is lossless as a FILE -- the values move across verbatim -- but
 it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
 recorded metadata that reached no emitted line, so a declared Reynolds
-number changed nothing about what the solver was asked to do. From
-v0.9.0 `REmi` is a constraint that solves for density. Every legacy row
+number changed nothing about what the solver was asked to do. `REmi` is a constraint that solves for density. Every legacy row
 carried both `RE` and `MACH`, so every upgraded row now takes the
 solved-density branch and emits an explicit fluid state it never emitted
 before.

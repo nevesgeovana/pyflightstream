@@ -1,6 +1,6 @@
 # Acoustic signals from an unsteady run
 
-Since 0.32.0 a matrix row of the `unsteady` or `unsteady_rotor` run type can
+A matrix row of the `unsteady` or `unsteady_rotor` run type can
 switch on the solver's acoustic toolbox, declare observers, and have the run
 compute and export the acoustic signal at each of them. Five keys of the
 `VAR_NAMES_VALUES` cell carry it; a steady row does not read them and is
@@ -67,7 +67,7 @@ by `/`: `PLANE` (`XY`, `XZ` or `YZ`), `OFFSET`, `RADIAL_OBSERVERS`,
 system. A frame the run does not create is refused naming the frames it does.
 
 **The time window.** `ACOUSTIC_OBSERVER_TIME: 0.05 0.2 16` samples each
-observer 16 times from 0.05 s, spaced by (0.2 - 0.05) / 16 = 0.009375 s; the
+observer 16 times starting at 0.05 s, spaced by (0.2 - 0.05) / 16 = 0.009375 s; the
 final time itself is not a sample (measured on 26.124).
 
 ## What the run writes

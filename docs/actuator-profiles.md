@@ -4,7 +4,7 @@ A row loads an actuator disc in one of two ways (see
 [one row, one actuator disc](workflow-row-flow-inputs.md)): by its net thrust,
 `ACTUATOR_THRUST`, or by a radial profile, `PROFILE: <stem>`, a file of the
 workspace's `inputs/profiles/` named by its stem. `pyfs-workspace profile`
-(since 0.34.0) writes that file, the way [the field operations](field-operations.md)
+writes that file, the way [the field operations](field-operations.md)
 write a custom free stream: it previews by default, writes with `--apply`, and
 puts a provenance record beside the file.
 

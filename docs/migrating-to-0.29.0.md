@@ -1,5 +1,7 @@
 # Migrating to 0.29.0
 
+> Frozen record: not edited after its release.
+
 Keep a copy of the workspace and install the release in a separate Python
 environment before running existing matrices. Planning and post-processing can
 check most changes without starting FlightStream. Solver operations still use
@@ -137,3 +139,13 @@ formulas, leading-zero IDs and recovery copies are preserved within the
 [supported workbook contract](excel-matrices.md). Workbook creation and sync
 do not launch Excel or change trust settings. Existing `.xlsm` files are not
 silently converted; create a new `.xlsx` and review any transfer explicitly.
+
+## Historical context: srs - functional-requirements
+
+AMENDED AT 0.29.0 BY FR-158. From 0.17.0 to 0.28.0 the default was warm and
+`COLD_START: True` was the opt-out, which followed the predecessor
+toolchain's steady recipe, that never cleared the solver between points.
+The 0.29.0 quality gate reversed it because a warm result depends on the
+order of the points; `build_steady_sweep` takes `cold=True` by default and
+the input glossary says the same. The one-job, one-record guarantee below
+is unchanged by the reversal.

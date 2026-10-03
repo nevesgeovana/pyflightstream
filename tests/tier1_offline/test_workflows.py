@@ -123,7 +123,7 @@ from pyflightstream.script import (
 )
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
-from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
+from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_rotor_matrix.fs"
@@ -2264,7 +2264,7 @@ def test_the_documented_route_the_refusal_names_really_exists():
     a worse answer than no route at all, and nothing else in the suite
     reads this pair.
     """
-    page = REPO / "docs" / "mesh-inputs.md"
+    page = MESH_DOCS
     assert page.is_file(), f"{page} is named in a refusal and does not exist"
     body = page.read_text(encoding="utf-8")
     assert ".fsm" in body, "the page the refusal routes to does not mention .fsm at all"

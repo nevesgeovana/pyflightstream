@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from pyflightstream.post.products import rotor_coefficients
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -59,5 +60,5 @@ def test_rpt029_old_table_is_marked_superseded() -> None:
 
 
 def test_definitions_page_says_a_blade_follows_its_own_rotor_clock() -> None:
-    page = (ROOT / "docs" / "post-processing-definitions.md").read_text(encoding="utf-8")
+    page = (DEFINITION_DOCS).read_text(encoding="utf-8")
     assert "each blade follows its own rotor's clock" in " ".join(page.split())

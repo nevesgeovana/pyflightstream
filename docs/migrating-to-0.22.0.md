@@ -1,5 +1,7 @@
 # Migrating to 0.22.0
 
+> Frozen record: not edited after its release.
+
 0.22.0 changes one thing about your matrix, and it is a breaking change:
 
 > **A row's rotor speed says how fast. The reference says which way.**
@@ -171,3 +173,19 @@ carrying no `RPM` field is written exactly as 0.21.0 wrote it.
 
 The point-name scheme is NOT in this list: `RPM` lost its sign, which is section
 3(a) above.
+
+## Historical context: workflow-reference-artifact
+
+THE SENSE OF ROTATION AND THE SIGNS OF THE ROTOR SPEED ARE NOT HERE (PFS-2029.08). Until 0.10.1 the block carried `rotation`,
+`blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`; no emitter
+read them, and the two signs named a configuration, installed against
+isolated, which is a property of the mesh a ROW opens and not of
+reference data several rows share. From 0.11.0 to 0.21.1 a row stated the
+sign, in `RPM_SIGN` beside `ADVANCE_RATIO` or inside the `RPM` value;
+the hand is `rpm_sign` on the rotor's OWN block, which is
+per-rotor rather than per-configuration and so answers the installed and
+isolated case the four fields were reaching for. An artifact still
+carrying any of the four is refused naming the row keys;
+`pyfs-matrix upgrade --inputs` strips them. The measured argument behind
+the signs, and the derivation from a published sense to a sign, are on
+[the mesh inputs page](mesh-inputs.md).

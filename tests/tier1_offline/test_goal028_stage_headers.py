@@ -24,9 +24,10 @@ import pytest
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import read_csv_table
 from pyflightstream.results import parse_loads
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 from tests.tier1_offline.test_post_superfile import _post, _workspace
 
-PAGE = Path(__file__).resolve().parents[2] / "docs" / "post-processing-definitions.md"
+PAGE = DEFINITION_DOCS
 MARKER = re.compile(r"<!--\s*condition-columns:(?P<names>.*?)-->", flags=re.S)
 
 #: Families that stay RAW on purpose and state no condition: the plots table is

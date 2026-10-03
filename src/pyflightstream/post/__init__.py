@@ -130,6 +130,7 @@ module, which is stated rather than left to be discovered:
   modules share, so that no two of them import each other;
 * the PRIVATE modules of the post stage since 0.33.0 (AD-13), below the
   families or between them and the campaign stage:
+  :mod:`pyflightstream.post._products_campaign` (campaign product orchestration),
   :mod:`pyflightstream.post._stage` (the products layout, the verdict of a
   frozen solve, the names a file may carry, the post log records and the
   partial post), :mod:`pyflightstream.post._condition` (what a recorded point

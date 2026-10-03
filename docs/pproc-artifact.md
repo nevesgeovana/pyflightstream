@@ -4,14 +4,10 @@ What the post-processing artifact of a row holds, the products it derives, and a
 
 ## What the post-processing artifact holds
 
-`PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact. Until
-v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
-table of group name to members that nothing on the run path read; the
-owning seat decided on 2026-09-02 that it is the home of post-processing and it
-was renamed (PFS-2029.07). It carries twelve tables, every one optional, and a
-file holding `[groups]` alone is what the old file was. `[volume_section]` is
-new in 0.27.0 and has [its own paragraph below](#a-volume-section).
-Four are new in 0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
+`PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
+(PFS-2029.07). It carries twelve optional tables; a file holding `[groups]`
+alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).
+`[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
 [the definition of record](post-processing-definitions.md); the other three,
 `[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive).
@@ -49,7 +45,7 @@ frame = "MRP"
 planes = ["XZ"]
 [[sections.distributions]]
 families = "LIFT"              # the rotor; LOCAL_AXIS makes it one per blade
-frame = "LOCAL_AXIS"           # since 0.15.0 the FRAME says how the entry expands
+frame = "LOCAL_AXIS"           # the FRAME says how the entry expands
 planes = ["XY"]
 
 [plots]                        # UNSTEADY_SOLVER_NEW_FORCE_PLOT per group and parameter
@@ -108,8 +104,7 @@ the geometry does not carry is left out, which is how one artifact serves
 a wing-body and an isolated rotor, and an entry that resolves to nothing
 is skipped; pass `--ignore-missing-families false` to `pyfs-matrix plan`
 or `run` to have a name no boundary answers refused instead. The skip is
-never silent for a section distribution or a force plot group (since
-0.33.0, FR-320; a plot group is emitted on unsteady rows only): the plan
+never silent for a section distribution or a force plot group (FR-320; a plot group is emitted on unsteady rows only): the plan
 prints one warning per pproc artifact and per family that an entry declares
 and the geometry of some row does not carry, naming the entry and every row
 that lacks it, and every such row still plans READY. A numbered name counts
@@ -184,8 +179,7 @@ saying how to write an equation. Both are generated from the code and are
 rewritten only when their content would change; no other file of the folder
 is touched.
 
-There were five selectors until 0.15.0 and three of them retired in one
-release, leaving `all` and `each`.
+The selectors are `all` and `each`.
 `each_blade` went because the FRAME says how an entry expands now, so
 `frame = "LOCAL_AXIS"` is what one distribution per blade is written as.
 `airframe` and `blades` went because they are the two that decide what a
@@ -208,7 +202,7 @@ what those three do to the entry); `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and
 entry says which rotor it is about on a row that turns nine; a frame the
 row's REFERENCE declares in its `[[frames]]` table, by the name written
 there (`LIFTERS_MRP`, `PUSHER_TIP`); and `BLADE_AXIS` on the flat rotor
-row. The names of before 0.15.0, `PROP_MRP`, `PROP_MRP<k>` and
+row. The retired names, `PROP_MRP`, `PROP_MRP<k>` and
 `RotorAxis<k>`, do NOT resolve: they went with the package-level rotor
 frame, and an entry citing one is refused naming the shape to write.
 
@@ -232,7 +226,7 @@ families the geometry lacks is: a steady row places no rotor frames and a
 lifters-only row places none of the pusher's, and one artifact serves all
 three rows.
 
-!!! warning "Since 0.15.0 a rotor's frames are named from its alias"
+!!! warning "A rotor's frames are named from its alias"
 
     A motion record that names a rotor block of the reference
     instantiates `<ALIAS>_SMRP` at the hub, `<ALIAS>_RMRP` turning with
@@ -288,8 +282,7 @@ A group value resolves first as a boundary name, then a reference alias from
 selects the reference alias's members, while `"Blade"` can select `Blade1`
 through `Blade6`. Members absent from the geometry are left out.
 
-Historical syntax, retired at 0.26.0: `TOTAL = []` selected every family from
-0.14.0, and nonempty member lists and integer positions were also accepted.
+Historical syntax, retired at 0.26.0: `TOTAL = []` selected every family in the retired list syntax, and nonempty member lists and integer positions were also accepted.
 Current editable inputs refuse all group lists; use one alias string and name
 boundary members in the reference instead. `families = []` in a
 `[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
@@ -303,16 +296,13 @@ one row per key with the verdict and its reason.
 
 `base_regions` is a TOP-LEVEL key, so it goes above the first table
 header, as the example above places it: TOML puts a key written under
-`[groups]` INTO that table, where it is a group named base_regions. Until
-0.13.0 the reader refused the top-level form as a groups file of before
-0.11.0, which is what a bare list at the top level otherwise is
-(PFS-2005.04); `base_regions = []` there is the documented off switch and
+`[groups]` INTO that table, where it is a group named base_regions. The top-level key is recognised separately from retired groups files (PFS-2005.04); `base_regions = []` there is the documented off switch and
 plans READY, and `base_regions = ["Base"]` reaches the script as one
 `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family. It names the
 boundaries that BECOME the base regions, as the row's `BASE_REGIONS` does:
 the body's own boundary marks nothing (RPT-066).
 
-**SINCE 0.23.0 A GROUP IS NAMED, and the product file carries the name.** An
+**A GROUP IS NAMED, and the product file carries the name.** An
 artifact
 
 ```toml
@@ -326,11 +316,11 @@ is accepted, and its polar tables are
 keyed by a NUMBER, as the example at the top of this section keys its four,
 still binds, and its files keep the numbered suffix: `"1"` writes `..._g01.csv`.
 That suffix survives only for a pproc that still numbers its groups, so the
-products of a workspace recorded before 0.23.0 and the ones written beside them
+products of a workspace with numbered groups and the ones written beside them
 stay one convention. [Migrating to 0.23.0](migrating-to-0.23.0.md) has the
 command that renames products already written.
 
-**SINCE 0.24.0 A GROUP IS ONE ALIAS, written as a string.** The key names the
+**A GROUP IS ONE ALIAS, written as a string.** The key names the
 product file and the value names what is summed:
 
 ```toml
@@ -346,10 +336,9 @@ artifact does not name still gets its group made for it. The alias resolves
 through the reference AS IT STANDS when `pyfs-matrix post` runs, so renaming or
 extending an alias needs no re-run. **A group whose alias selects no surface of
 any loads export of the simulation writes no table**: it is named under
-`skipped` in `products.json` with the surfaces the export does carry, where
-before 0.24.0 it wrote a table of `0.00000`.
+`skipped` in `products.json` with the surfaces the export does carry, instead of writing a table of zeros.
 
-Since 0.26.0 every list form is refused with the line to write instead:
+Every list form is refused with the line to write instead:
 `PUSHER = ["Blade1"]` becomes `PUSHER = "Blade1"`. Several members become
 one alias declared in the reference, which the group names. For an empty list,
 follow the collision check linked above before choosing `"all"`; if the name is
@@ -359,16 +348,14 @@ positions with boundary names in the reference's alias.
 **THE ONE NAME REFUSED** at `pyfs-matrix plan` is a name shaped like the
 numbered suffix itself, `g01` and its kin: a file named after it could not be
 told from the form it supersedes, and the rename of existing products needs
-that difference. The refusal names the row, the artifact and the key. From
-0.13.0 until 0.23.0 EVERY word was refused here (PFS-2032.03), because the polar
-table carried the group number in its name. An artifact whose groups are not
+that difference. The refusal names the row, the artifact and the key. See [the named-group migration](migrating-to-0.23.0.md) for older numbered products (PFS-2032.03). An artifact whose groups are not
 for polar tables says so with `products.polars = false` and is not checked.
 
 The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the
 point with the study's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`,
 `_sloads.txt`, `_probes.txt`, `_plots.txt`, `_log.txt`), and a workflow row
-that still carries `OUTPUTS` is refused naming this table. Since 0.27.0 a
+that still carries `OUTPUTS` is refused naming this table. A
 steady point also saves the solver's residual and load plots
 (`_plot_residuals.txt`, `_plot_loads.txt`) and, where the artifact declares
 sections, its section Cp plot (`_plot_cp_sections.txt`); each is switched off
@@ -378,15 +365,14 @@ the final section Cp plot when section distributions exist. A missing declared
 plot fails the point `FAILED_INCOMPLETE_OUTPUT` like any declared export. `force_distributions = true` opts a row of any run
 type into `_force_distributions.txt`, the per-panel force distribution of every
 surface, saved once at the end of the run. The loads table
-and the saved simulation cannot be switched off: `loads = false` and, since
-0.27.0, `simulation = false` are refused naming the file. A setup artifact
+and the saved simulation cannot be switched off: `loads = false` and `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries
 solver settings only (PFS-2029.16). The run record names the pproc id each
 point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
 not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
 naming `volume_section_vtk` or `volume_section_tecplot` is refused.
 
-The top-level key `singularity_strength` (since 0.30.0) decides whether the
+The top-level key `singularity_strength` decides whether the
 Tecplot surface carries the nodal `Singularity_strength`. The VTK the surface
 is written from does not hold it, so carrying it costs a second, native Tecplot
 export per point and per exported step (`<point>_native_tecplot.dat`). It is off
@@ -403,7 +389,7 @@ whether its strength is carried. See
 
 ### A volume section
 
-The pproc declares one flow-field plane. Since 0.29.0, the workspace samples
+The pproc declares one flow-field plane. The workspace samples
 it through probes or unsteady fluid plots, then post writes VTK or Tecplot
 velocity point fields. It does not create native volume sections. For example:
 
@@ -450,7 +436,7 @@ definition and the steady-plan warning.
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
-nothing else; since 0.27.0 every table the post writes opens with `POL`, the
+nothing else; every table the post writes opens with `POL`, the
 polar each row comes from. A POLAR table per group of `[groups]`, under `polars/` and
 named by the same convention as the point's script with the swept
 variable's field written `<code>+sweep`
@@ -458,8 +444,7 @@ variable's field written `<code>+sweep`
 `PUSHER`, and `..._g01.csv` for a group still keyed `"1"`; FR-85 and FR-88): one
 row per point of the polar with the
 reference block (`SREF`, `CREF`, `BREF`, the moment point), the advance
-ratio of the row in `J` (`NA` where the run recorded none, and blank until
-0.23.0) and twenty-four
+ratio of the row in `J` (`NA` where the run recorded none) and twenty-four
 coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
 axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
 (`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
@@ -495,16 +480,13 @@ while it emits each point, writes them to
 `sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. That
 file is the package's own record: it replaces only a file carrying its own
 header, so a points file of your own that happened to carry the same name is
-named in a refusal rather than replaced. A run recorded before
-0.16.0 named no such file, so its `FRAME` cells read `NA` and its steady
+named in a refusal rather than replaced. When a run record names no such file, its `FRAME` cells read `NA` and its steady
 coordinates still come from the export; the table is written either way.
 `STEP` carries `NA` on a steady row, which has one step.
 
-**SINCE 0.23.0 THERE IS ONE TOKEN AND NO BLANK.** Every spine cell the
+**THERE IS ONE TOKEN AND NO BLANK.** Every spine cell the
 package cannot fill reads `NA`: the step of a steady row, and the position
-or frame of a run that recorded none. Until 0.23.0 the step said `-` and the
-rest went empty, which was two spellings and a blank for one meaning, in one
-row. A probe export this release cannot
+or frame of a run that recorded none. See [the missing-value migration](migrating-to-0.23.0.md) for historical files using `-` or blank cells. A probe export this release cannot
 read is a recorded skip naming the file and costs the simulation none of
 its other products.
 
@@ -539,7 +521,7 @@ pyfs-matrix post --workspace . --strict             # exit 3 if any product was 
 pyfs-matrix post --workspace . --force-overwrite    # destroys instead, and asks first
 ```
 
-**SINCE v0.17.0 A REBUILD REFUSES NOTHING.** The first form MOVES whatever is
+**A REBUILD REFUSES NOTHING.** The first form MOVES whatever is
 there into `archive/<day and hour>/` beside it and writes the new product in
 its place, so nothing is lost and nothing is in your way. `--overwrite` is
 gone: the flag that keeps no copy is `--force-overwrite`, it asks for a
@@ -556,8 +538,7 @@ one, and it changes the exit code alone, after every product is written.
 super file as fixed-width text, every field right-aligned in sixteen characters
 and no commas, for a tool that splits on position. `csv` is the default and what
 every existing workspace keeps. THE COLUMNS AND THE VALUES ARE THE SAME in both:
-it is a second rendering of one table, never a second product. 0.23.0 refused the
-key by name; since 0.24.0 it is read. An unsteady simulation has no super file of
+it is a second rendering of one table, never a second product. An unsteady simulation has no super file of
 its own, its content rides in `P<sim>_<name>_uns_avg.csv`, so the key has nothing
 to format there.
 
@@ -596,9 +577,7 @@ group; then the reference names and values, the row and column counts,
 the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
-by line, and `read_custom_polar_format` reads the file back (before
-0.14.0 the five names carried a different prefix; those names and the old
-key were removed in 0.16.0); the tier-1 test
+by line, and `read_custom_polar_format` reads the file back (the retired prefix and key are refused); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
 requiring equal bytes (PFS-2014.01.02).
@@ -641,14 +620,16 @@ node the document declares; a PROV tool reads it as any PROV-JSON.
 
 ## Archiving a completed simulation
 
+See [Archive and restore](restore-and-rebuild.md#archive-and-restore) for the workspace record definitions and recovery routes.
+
 **To redo ONE point whose row was wrong, do not archive the simulation.**
-Since 0.22.0 `pyfs-matrix run --force-rerun <point>` archives that point's
+`pyfs-matrix run --force-rerun <point>` archives that point's
 record and its collected outputs and runs it again, keeping everything else
 where it is; the section below is for retiring a whole simulation. Archiving
 the simulation to redo one point takes the row's other points with it.
 
 Every point of a row keeps its outputs in its OWN folder beneath the
-simulation folder, and since 0.27.0 a point runs in that folder too (a
+simulation folder, and a point runs in that folder too (a
 steady row of several points is one job and runs in the simulation folder).
 A run refuses to collect onto a name already in that point's folder, or to
 start a point whose declared output is already sitting in the folder it

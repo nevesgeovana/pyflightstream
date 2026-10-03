@@ -63,7 +63,7 @@ mean of samples at unequal intervals is not the time mean over their span) and
 every step must hold the same points in the same order. `--last K` keeps the
 last K steps given.
 
-**time-mean --fluctuation** (since 0.32.0) also writes
+**time-mean --fluctuation** also writes
 `<stem>.fluctuation.csv` beside the mean: for each probe, the population
 standard deviation of each velocity component over the steps averaged, and its
 magnitude. It needs at least two steps; a steady field has no fluctuation and is
@@ -74,7 +74,7 @@ and the root-mean-square fluctuation as a percentage of that free-stream speed.
 The columns and the arithmetic are defined in
 [the inflow tools' products](post-processing-definitions.md#the-inflow-tools-products).
 
-**fill-interior** (since 0.32.0) gives every probe with a distance `r` from the
+**fill-interior** gives every probe with a distance `r` from the
 x axis below `--r-body` (0.38 m by default) the velocity of the probe at `r` at or
 above it, of smallest radius, on the same azimuth ray. It changes no position and
 says how many probes it replaced; a probe with no partner on its ray is refused,

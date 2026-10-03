@@ -1,0 +1,407 @@
+{
+  "base": "8983ee62",
+  "definitions": [
+    {
+      "level": 1,
+      "slug": "post-processing-definitions",
+      "title": "Post-processing definitions"
+    },
+    {
+      "level": 2,
+      "slug": "contents",
+      "title": "Contents"
+    },
+    {
+      "level": 2,
+      "slug": "warnings-and-recorded-diagnostics",
+      "title": "Warnings and recorded diagnostics"
+    },
+    {
+      "level": 2,
+      "slug": "the-vocabulary",
+      "title": "The vocabulary"
+    },
+    {
+      "level": 2,
+      "slug": "what-every-product-states",
+      "title": "What every product states"
+    },
+    {
+      "level": 2,
+      "slug": "the-axes-of-a-steady-polar",
+      "title": "The axes of a steady polar"
+    },
+    {
+      "level": 2,
+      "slug": "the-sections-table-and-which-row-is-which",
+      "title": "The sections table, and which row is which"
+    },
+    {
+      "level": 3,
+      "slug": "per-distribution-sectional-loads-and-cp-0250",
+      "title": "Per-distribution sectional loads and Cp (0.25.0)"
+    },
+    {
+      "level": 4,
+      "slug": "integrated-sectional-loads-since-0260",
+      "title": "Integrated sectional loads (since 0.26.0)"
+    },
+    {
+      "level": 2,
+      "slug": "the-probes-table",
+      "title": "The probes table"
+    },
+    {
+      "level": 2,
+      "slug": "the-reductions-of-an-unsteady-point",
+      "title": "The reductions of an unsteady point"
+    },
+    {
+      "level": 2,
+      "slug": "time_average",
+      "title": "time_average"
+    },
+    {
+      "level": 2,
+      "slug": "per_blade",
+      "title": "per_blade"
+    },
+    {
+      "level": 2,
+      "slug": "phase_locked",
+      "title": "phase_locked"
+    },
+    {
+      "level": 3,
+      "slug": "when-it-is-generated",
+      "title": "When it is generated"
+    },
+    {
+      "level": 3,
+      "slug": "a-short-run-is-skipped-never-refused",
+      "title": "A short run is SKIPPED, never REFUSED"
+    },
+    {
+      "level": 2,
+      "slug": "per_revolution",
+      "title": "per_revolution"
+    },
+    {
+      "level": 2,
+      "slug": "the-per-station-harmonics",
+      "title": "The per-station harmonics"
+    },
+    {
+      "level": 2,
+      "slug": "the-disc-maps",
+      "title": "The disc maps"
+    },
+    {
+      "level": 2,
+      "slug": "probe-parameters",
+      "title": "Probe parameters"
+    },
+    {
+      "level": 2,
+      "slug": "the-averaging-window",
+      "title": "The averaging window"
+    },
+    {
+      "level": 2,
+      "slug": "native-surface-flow-exports",
+      "title": "Native surface flow exports"
+    },
+    {
+      "level": 3,
+      "slug": "the-tecplot-surface-is-written-from-the-vtk-since-0280",
+      "title": "The Tecplot surface is written from the VTK (since 0.28.0)"
+    },
+    {
+      "level": 3,
+      "slug": "native-nodal-strength-in-0290",
+      "title": "Native nodal strength in 0.29.0"
+    },
+    {
+      "level": 3,
+      "slug": "the-strength-is-asked-for-since-0300",
+      "title": "The strength is asked for (since 0.30.0)"
+    },
+    {
+      "level": 3,
+      "slug": "the-time-averaged-surface-is-the-packages-since-0280",
+      "title": "The time-averaged surface is the package's (since 0.28.0)"
+    },
+    {
+      "level": 2,
+      "slug": "the-solvers-own-plots",
+      "title": "The solver's own plots"
+    },
+    {
+      "level": 2,
+      "slug": "the-boundary-layer-profile-is-not-produced",
+      "title": "The boundary-layer profile is not produced"
+    },
+    {
+      "level": 2,
+      "slug": "a-volume-section",
+      "title": "A volume section"
+    },
+    {
+      "level": 3,
+      "slug": "historical-native-volume-exports-027x-and-028x",
+      "title": "Historical native volume exports, 0.27.x and 0.28.x"
+    },
+    {
+      "level": 2,
+      "slug": "durable-execution-activity",
+      "title": "Durable execution activity"
+    },
+    {
+      "level": 2,
+      "slug": "the-additional-post",
+      "title": "The additional post"
+    },
+    {
+      "level": 2,
+      "slug": "the-unsteady-polar",
+      "title": "The unsteady POLAR"
+    },
+    {
+      "level": 2,
+      "slug": "the-mesh-face-count-since-0340",
+      "title": "The mesh face count (since 0.34.0)"
+    },
+    {
+      "level": 2,
+      "slug": "rotor-coefficients",
+      "title": "Rotor coefficients"
+    },
+    {
+      "level": 3,
+      "slug": "where-an-unsteady-points-numbers-come-from",
+      "title": "Where an unsteady point's numbers come from"
+    },
+    {
+      "level": 3,
+      "slug": "etaw",
+      "title": "ETAW"
+    },
+    {
+      "level": 3,
+      "slug": "the-in-plane-coefficients",
+      "title": "The in-plane coefficients"
+    },
+    {
+      "level": 3,
+      "slug": "a-static-point",
+      "title": "A static point"
+    },
+    {
+      "level": 2,
+      "slug": "tip-and-helical-mach-numbers",
+      "title": "Tip and helical Mach numbers"
+    },
+    {
+      "level": 2,
+      "slug": "what-the-package-does-not-judge",
+      "title": "What the package does NOT judge"
+    },
+    {
+      "level": 3,
+      "slug": "the-post-log-and-the-default-warning-rule-since-0260",
+      "title": "The post log and the default warning rule (since 0.26.0)"
+    },
+    {
+      "level": 3,
+      "slug": "the-reducer-states-the-plotted-steps-it-reads",
+      "title": "The reducer states the plotted steps it reads"
+    },
+    {
+      "level": 3,
+      "slug": "unread-residual-blocks-and-repeated-markers",
+      "title": "Unread residual blocks and repeated markers"
+    },
+    {
+      "level": 2,
+      "slug": "the-token-for-a-value-that-does-not-exist",
+      "title": "The token for a value that does not exist"
+    },
+    {
+      "level": 2,
+      "slug": "sampled-velocity-fields-and-reusable-inflow",
+      "title": "Sampled velocity fields and reusable inflow"
+    },
+    {
+      "level": 2,
+      "slug": "the-installed-frame-copy-of-a-product-table",
+      "title": "The installed-frame copy of a product table"
+    },
+    {
+      "level": 2,
+      "slug": "the-inflow-tools-products",
+      "title": "The inflow tools' products"
+    },
+    {
+      "level": 2,
+      "slug": "the-quasi-steady-rotor",
+      "title": "The quasi-steady rotor"
+    },
+    {
+      "level": 2,
+      "slug": "quasi-steady-wheel-corrections",
+      "title": "Quasi-steady wheel corrections"
+    },
+    {
+      "level": 2,
+      "slug": "the-acoustic-signals-product",
+      "title": "The acoustic signals product"
+    },
+    {
+      "level": 2,
+      "slug": "the-post-of-other-records-since-0320",
+      "title": "The post of other records (since 0.32.0)"
+    },
+    {
+      "level": 2,
+      "slug": "posting-and-collecting-some-simulations-since-0330",
+      "title": "Posting and collecting some simulations (since 0.33.0)"
+    }
+  ],
+  "mesh": [
+    {
+      "level": 1,
+      "slug": "mesh-inputs-and-gui-only-operations",
+      "title": "Mesh inputs and GUI-only operations"
+    },
+    {
+      "level": 2,
+      "slug": "starting-from-an-obj-or-stl",
+      "title": "Starting from an OBJ or STL"
+    },
+    {
+      "level": 3,
+      "slug": "the-surface-names",
+      "title": "The surface names"
+    },
+    {
+      "level": 3,
+      "slug": "the-unit",
+      "title": "The unit"
+    },
+    {
+      "level": 3,
+      "slug": "explicit-cad-conversion-is-a-separate-route",
+      "title": "Explicit CAD conversion is a separate route"
+    },
+    {
+      "level": 3,
+      "slug": "a-ccs-file-is-another-route",
+      "title": "A CCS file is another route"
+    },
+    {
+      "level": 3,
+      "slug": "the-mesh-operations-of-an-import",
+      "title": "The mesh operations of an import"
+    },
+    {
+      "level": 3,
+      "slug": "the-boundary-conditions-of-a-raw-mesh",
+      "title": "The boundary conditions of a raw mesh"
+    },
+    {
+      "level": 3,
+      "slug": "the-points-file",
+      "title": "The points file"
+    },
+    {
+      "level": 3,
+      "slug": "writing-a-points-file-from-a-blades-mesh",
+      "title": "Writing a points file from a blade's mesh"
+    },
+    {
+      "level": 3,
+      "slug": "which-build-runs-what-and-what-is-measured",
+      "title": "Which build runs what, and what is measured"
+    },
+    {
+      "level": 2,
+      "slug": "a-complete-example-a-wing-obj-with-its-trailing-edge-by-file",
+      "title": "A complete example: a wing OBJ with its trailing edge by file"
+    },
+    {
+      "level": 2,
+      "slug": "the-saved-simulation-gui-once-script-everything-after",
+      "title": "The saved simulation: GUI once, script everything after"
+    },
+    {
+      "level": 3,
+      "slug": "the-gap-this-route-closes",
+      "title": "The gap this route closes"
+    },
+    {
+      "level": 3,
+      "slug": "the-supported-pattern",
+      "title": "The supported pattern"
+    },
+    {
+      "level": 3,
+      "slug": "what-that-content-hash-is-and-what-it-leaves-out",
+      "title": "What that content hash is, and what it leaves out"
+    },
+    {
+      "level": 3,
+      "slug": "the-boundary-inventory-sidecar",
+      "title": "The boundary inventory sidecar"
+    },
+    {
+      "level": 3,
+      "slug": "actions-saved-in-the-geometry-since-0330",
+      "title": "Actions saved in the geometry (since 0.33.0)"
+    },
+    {
+      "level": 2,
+      "slug": "mesh-format-policy",
+      "title": "Mesh format policy"
+    },
+    {
+      "level": 2,
+      "slug": "the-four-rotor-facts-a-reference-artifact-once-carried",
+      "title": "The four rotor facts a reference artifact once carried"
+    },
+    {
+      "level": 2,
+      "slug": "what-this-policy-is-not",
+      "title": "What this policy is not"
+    }
+  ],
+  "definition_pins": [
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "the-sections-table-and-which-row-is-which"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "per-distribution-sectional-loads-and-cp-0250"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "what-every-product-states"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "the-axes-of-a-steady-polar"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "what-every-product-states"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "the-sections-table-and-which-row-is-which"
+    },
+    {
+      "source": "src/pyflightstream/post/section_distributions.py",
+      "anchor": "integrated-sectional-loads-since-0260"
+    }
+  ]
+}

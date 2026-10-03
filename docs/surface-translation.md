@@ -9,7 +9,7 @@ cell-to-node interpolation is used.
 ## Asking for the strength
 
 The pproc key `singularity_strength` decides whether the surface carries the
-strength (since 0.30.0). It is off by default:
+strength. It is off by default:
 
 ```toml
 singularity_strength = true   # a top-level key of the pproc artifact

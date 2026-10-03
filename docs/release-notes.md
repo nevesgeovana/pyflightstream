@@ -1,5 +1,7 @@
 # Release notes
 
+> Frozen record: not edited after its release.
+
 What each release from v0.8.1 to v0.17.0 changed for someone who already had a
 workspace: what moved, what broke, and the one command that carries a file
 across. These notes stood on the home page until 0.24.0 and are kept here

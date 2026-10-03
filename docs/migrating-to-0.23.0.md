@@ -1,5 +1,7 @@
 # Migrating to 0.23.0
 
+> Frozen record: not edited after its release.
+
 This release changes the BYTES of every file the post stage writes, and renames
 some of them. Read this before you upgrade a workspace you care about.
 
@@ -293,3 +295,7 @@ Listed because an absence you discover is worse than one you are told:
 unchanged. Those three table names are refused BY NAME rather than accepted and
 ignored: a refusal says the feature is not here, where silent acceptance would
 let you write the table and get nothing back.
+
+## Historical row-key changes
+
+- v0.23.0: `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](workflow-plan-and-cost.md#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window)

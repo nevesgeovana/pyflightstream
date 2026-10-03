@@ -106,10 +106,7 @@
 
     Read with PFS-2054, PFS-2054.03, PFS-2054.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
-    Following a published schedule rather than choosing is what lets a
-    user predict the window: until 0.13.0 the floor was `>=3.11` since
-    the first release and the numerical dependencies carried none, so
-    a reader could see the window and not how it would move.
+    Following a published schedule lets a user predict the support window and its next change.
     `tests/tier1_offline/test_support_window.py` re-derives the floors
     from the release dates and the stated date, so the schedule
     overtaking the declaration fails the suite rather than going
@@ -183,10 +180,7 @@
 
     A tier-1 guard now compares this table against
     `[project].dependencies` name for name
-    (`tests/tier1_offline/test_extras.py`), because until v0.8.0 nothing did, and
-    that is why the promotion reached `pyproject.toml`, the extras
-    module, three documentation pages and the changelog without ever
-    reaching the requirement that answers for it.
+    (`tests/tier1_offline/test_extras.py`), so a dependency change must also update its requirement.
 
     Two satellites restate the set for their own readers and are not
     generated from this table, so they move with the migration commit
@@ -556,8 +550,7 @@
     The only other copy is the deliberate literal in the test named
     above, which exists precisely so a schema change costs two files. The
     generated Python API reference of NFR-29 renders those docstrings, so
-    from 0.33.0 a reader finds the exact column set on the site; until it
-    lands, the reader opens that module. `overview()` and the Architecture
+    a reader finds the exact column set on the site. `overview()` and the Architecture
     page carry the narrative, both rendering the same module docstrings,
     the changelog carries the announcement, and the module carries the
     list. Not `help()`, which
@@ -1133,7 +1126,7 @@
       of a recorded workspace and the emitted scripts after removing CR
       before LF on the 0.33.0 side, and its `NAMED_DIFFERENCES` name that
       difference under this requirement.
-    - R5 This is a behaviour change, permanent from 0.34.0, with no
+    - R5 This is a behaviour change, permanent, with no
       switch that restores CRLF: the migration page of 0.34.0 states it
       first among the behaviour changes (a reader that split lines on
       CRLF reads LF now).
@@ -1147,9 +1140,9 @@
       at the start of the work package (the writer census) and listed in
       its record, with the platforms the measurement ran on.
 
-!!! requirement "NFR-33 One home per documentation topic <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-33 One home per documentation topic <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
     Need: A topic must have one defining paragraph, so its explanations cannot drift between pages.
 
@@ -1157,51 +1150,57 @@
 
     | Topic | Home page | Pointer pages |
     |---|---|---|
-    | sync | `storage-and-sync.md` | `sync-folders-and-matrix-homes.md` |
-    | archive and restore | `restore-and-rebuild.md` | `continuation-recovery.md`, `pproc-artifact.md` |
-    | saved simulation | `continuation-recovery.md` | |
-    | evidence discipline | `docs/srs/philosophy.md` | |
-    | rotor facts | the rotor family page of the definitions split (NFR-34) | |
-    | entry pages | `index.md` (the single entry page) | |
+    | sync | `storage-and-sync.md#sync` | `sync-folders-and-matrix-homes.md`, `storage-and-sync.md#sync_1` |
+    | archive and restore | `restore-and-rebuild.md#archive-and-restore` | `continuation-recovery.md`, `pproc-artifact.md` |
+    | saved simulation | `continuation-recovery.md#saved-simulation` | `mesh/how-to.md`, `gui-to-pyfs.md` |
+    | evidence discipline | `srs/philosophy.md#evidence-discipline` | `index.md` |
+    | rotor facts | `mesh/reference.md#the-four-rotor-facts-a-reference-artifact-once-carried` | `workflow-reference-artifact.md` |
+    | entry pages | `index.md#where-to-start` (the single entry page) | |
 
-    - R1 A topic's defining paragraph exists only on its home page.
-    - R2 Every pointer page links to the home for the definition; the rotor home is the family page produced by NFR-34.
+    - R1 A topic's defining paragraph is the first paragraph under its home heading, whose slug is the anchor in the table; that paragraph exists only on its home page.
+    - R2 Every pointer page links to the home heading for the definition. The `sync_1` section links to `sync` on the same home page.
 
     Verification: tier 1, a guard carrying P0360-DOC-ONE-HOME and NFR-33 checks the home table, definitions and pointer links, with a duplicated defining paragraph planted on a pointer page as its failing control. Release 0.36.0.
 
-!!! requirement "NFR-34 The definitions split preserves every anchor <span class='srs-pending'>pending</span>"
+    Evidence: `tests/tier1_offline/test_p0360_doc.py::test_one_home` checks the requirement and its failing controls.
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+!!! requirement "NFR-34 The definitions split preserves every anchor <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
     Need: Readers must be able to use a focused definitions page without losing existing links or code and test pins.
 
-    Requirement: `docs/post-processing-definitions.md` shall become an index page that stays the definition of record, with one page per top-level (`##`) family.
+    Requirement: `docs/post-processing-definitions.md` shall become an index page that stays the definition of record, with one page per top-level (`##`) family except "Contents", which stays on the index as its table of contents. Each family page is `docs/definitions/<the heading slug>.md`; all 53 old slugs remain as explicit `<a id="slug"></a>` anchors on the index.
 
     - R1 Every one of the original 53 heading slugs stays resolvable from `post-processing-definitions.md`, through an anchor per old slug on the index or a redirect section linking to the family page.
     - R2 Every code and test pin keeps its anchor value and names the new family page. Moving a pin changes its target page only, never the anchor value.
 
     Verification: tier 1, tests carrying P0360-DOC-DEFINITIONS-SPLIT and NFR-34 resolve a pre-split fixture of all 53 slugs, check one page per `##` family, and check every code and test pin's page and unchanged anchor. A removed anchor and a stale page pin are failing controls. Release 0.36.0.
 
-!!! requirement "NFR-35 The mesh inputs split preserves every anchor <span class='srs-pending'>pending</span>"
+    Evidence: `tests/tier1_offline/test_p0360_doc.py::test_definitions_split` checks the requirement and its failing controls.
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+!!! requirement "NFR-35 The mesh inputs split preserves every anchor <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
     Need: Mesh instructions, reference details and examples must be independently readable while existing links keep working.
 
     Requirement: `docs/mesh-inputs.md` shall be split into how-to, reference and example pages.
 
-    - R1 Every one of its original 31 heading slugs remains resolvable from `mesh-inputs.md`.
+    - R1 Every one of its 21 rendered heading slugs remains resolvable from `mesh-inputs.md`.
     - R2 The original page links each preserved heading to its destination in the split.
 
-    Verification: tier 1, tests carrying P0360-DOC-MESH-SPLIT and NFR-35 check the three page roles and resolve the pre-split fixture of all 31 slugs, with a removed anchor as a failing control. Release 0.36.0.
+    Verification: tier 1, tests carrying P0360-DOC-MESH-SPLIT and NFR-35 check the three page roles and resolve the pre-split fixture of all 21 rendered heading slugs, with a removed anchor as a failing control. Release 0.36.0.
 
-!!! requirement "NFR-36 No version narrative on reference pages <span class='srs-pending'>pending</span>"
+    Evidence: `tests/tier1_offline/test_p0360_doc.py::test_mesh_split` checks the requirement and its failing controls.
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+!!! requirement "NFR-36 No version narrative on reference pages <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
     Need: Reference pages must state the current contract without a narrative of earlier releases.
 
-    Requirement: The following case-insensitive regex shall match nothing on any `docs/*.md` page except `migrating-to-*.md`, `release-notes.md` and `upgrading.md`; this is the reference-page set for this requirement.
+    Requirement: The following case-insensitive regex shall match nothing on any `docs/*.md` or `docs/**/*.md` page except `migrating-to-*.md`, `release-notes.md` and `upgrading.md`; this is the reference-page set for this requirement.
 
     ```text
     \b(since|until|before|from|as of)\s+v?0\.\d+(\.\d+)?\b|\b(added|new|introduced|changed|removed|renamed)\s+in\s+v?0\.\d+
@@ -1212,9 +1211,11 @@
 
     Verification: tier 1, a guard carrying P0360-DOC-NARRATIVE and NFR-36 checks zero matches and fails on a planted matching phrase on a reference page; an excluded migration page is the unchanged control. Release 0.36.0.
 
-!!! requirement "NFR-37 The upgrading index and frozen release records <span class='srs-pending'>pending</span>"
+    Evidence: `tests/tier1_offline/test_p0360_doc.py::test_narrative` checks the requirement and its failing controls.
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+!!! requirement "NFR-37 The upgrading index and frozen release records <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
     Need: Readers must find every migration record from one index and know that release records are frozen.
 
@@ -1224,6 +1225,8 @@
     - R2 Each migrating page and `release-notes.md` carries the exact line `> Frozen record: not edited after its release.`
 
     Verification: tier 1, tests carrying P0360-DOC-UPGRADING and NFR-37 compare the index to the glob and check the exact line on each record; a missing index entry and a missing frozen line are failing controls. Release 0.36.0.
+
+    Evidence: `tests/tier1_offline/test_p0360_doc.py::test_upgrading` checks the requirement and its failing controls.
 
 !!! requirement "NFR-38 Requirement ids belong in the test functions that prove them <span class='srs-pending'>pending</span>"
 

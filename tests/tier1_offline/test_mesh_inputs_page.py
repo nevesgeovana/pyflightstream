@@ -55,9 +55,10 @@ from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace import sidecars as sidecar_reader
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, PointName, datapoint_dir_name
+from tests.tier1_offline._workflow_docs import MESH_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "mesh-inputs.md"
+PAGE = MESH_DOCS
 
 #: The heading of the page's one complete example. Matched as a prefix, so the
 #: heading may go on to say what the example is.

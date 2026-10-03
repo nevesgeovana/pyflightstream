@@ -49,8 +49,7 @@ left untouched as legacy content and linked from the canonical page. The setup
 standards are documented in [Setup standards](setup-standards.md); generated
 setup guidance lives at `inputs/setups/SETUP_GUIDELINES.md`.
 
-**`inputs/INPUTS.md` is the glossary of every input key** (since
-0.27.0). It holds one table per table of each artifact, the matrix row by
+**`inputs/INPUTS.md` is the glossary of every input key**. It holds one table per table of each artifact, the matrix row by
 run type, the setup, the pproc, the reference and the geometry sidecar,
 and one row per key: what the key sets, its unit or the values it takes,
 the run types or builds that accept it where the code says, and the solver
@@ -63,8 +62,7 @@ package does not read, and a key added without a meaning fails the suite
 (`test_goal031_g08_input_glossary.py`). The documentation site renders the
 same page as [the input glossary](inputs.md).
 
-**`inputs/input_template.md` is a template of every input file** (since
-0.28.0). Where the glossary says what each key means, the template shows
+**`inputs/input_template.md` is a template of every input file**. Where the glossary says what each key means, the template shows
 each FILE: one section per kind of input file you write, with what it is for,
 where it lives and a complete example to copy to the path its block's title
 names. The run matrix, the setup, the pproc, the reference, the named
@@ -112,8 +110,8 @@ it exists for was adopted only after a user asked for it by hand. A second
 what it wrote.
 
 The package looks in `geometries/<stem>/` first and at
-`geometries/<file>` second, so no matrix written since v0.11.0 changes
-and a library can hold both layouts while it moves. What the folder
+`geometries/<file>` second, so moving a geometry into its own folder does not
+change a matrix that names the file. A library can hold both layouts while it moves. What the folder
 buys is a home: the inventory sidecar and the provenance record stop
 being loose files among forty others, and a point staged from a folder
 shows that geometry's files only, never the whole library (the link
@@ -149,7 +147,7 @@ names as often as in this package's. Both are read: `NITER`,
 `proximity_avoidance`, `solver_minimum_cp`, `induced_wake_velocity`,
 `unsteady_pressure_kutta`, `additional_wake_relaxation_iteration`,
 `reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake` are
-aliases of the fields the emitter names, and so, since 0.27.0, are
+aliases of the fields the emitter names, and so are
 `set_solver_analysis_boundaries`, `set_loads_and_moments_units`,
 `set_inviscid_loads`, `set_vorticity_lift_model` and
 `set_unsteady_viscous_coupling_iteration`. A preset transcribed from a
@@ -213,7 +211,7 @@ mesh being rebuilt, while a family name is a fact about the aircraft.
 |---|---|---|
 | `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
 | `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
-| `analysis_families` (since 0.27.0, steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
+| `analysis_families` (steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
 
 ```toml
 vorticity_drag_families   = ["Wing", "HTP", "VTP"]
@@ -230,7 +228,7 @@ analysis_families         = ["Wing", "Fuselage"]
   solver as its DEFAULT, and the preset asked for something else.
 - A preset that says nothing emits neither the `SET` nor the `DELETE`.
 
-**Two keys decide what the loads table holds**, since 0.27.0, and a steady row
+**Two keys decide what the loads table holds**, and a steady row
 alone may state them, with `analysis_families` above:
 
 ```toml
@@ -265,8 +263,7 @@ exports and plots the unsteady products are read from, which is what was
 measured for the loads frame (RPT-064); drop the key from the preset, or give
 the row a preset of its own.
 
-**Two keys reach two documented commands that no build has been seen to run**,
-since 0.27.0, each before the solver is initialised:
+**Two keys reach two documented commands that no build has been seen to run**, each before the solver is initialised:
 
 ```toml
 vorticity_lift_model                = true  # SET_VORTICITY_LIFT_MODEL ENABLE; false writes DISABLE
@@ -328,7 +325,7 @@ key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
 refusal prints the verdict; the post-processing artifact's keys are
 listed under that artifact below.
 
-**The moments model is a setup key**, since 0.33.0 (FR-317):
+**The moments model is a setup key** (FR-317):
 
 ```toml
 moments_model = "VORTICITY"   # PRESSURE (unstated) or VORTICITY
@@ -365,8 +362,7 @@ load, which a prior measurement outside this package showed. So on an
     exports then carry it, is not documented and not measured; the licensed
     confirmation is registered in RPT-106, and the order is kept until it runs.
 
-**The per-step actions of an unsteady run** are a setup table since 0.33.0
-(FR-319), each registered with `SET_NEW_UNSTEADY_SOLVER_ACTION` at the end of
+**The per-step actions of an unsteady run** are a setup table (FR-319), each registered with `SET_NEW_UNSTEADY_SOLVER_ACTION` at the end of
 the solver settings, before the package's own counter and wall-clock actions:
 
 ```toml
@@ -405,7 +401,7 @@ origin that is not three numbers is refused at plan time naming the
 preset. What the frames are FOR is the row's rotation of a boundary
 family about one of their axes, which 0.14.0 adds beside them.
 
-!!! warning "Since 0.15.0 the table's home is the REFERENCE artifact"
+!!! warning "The table's home is the REFERENCE artifact"
 
     A coordinate system is a place on the aircraft, so it belongs beside
     the lengths and the rotors rather than in a preset, which is per
@@ -416,7 +412,7 @@ family about one of their axes, which 0.14.0 adds beside them.
     CONFIGURATION and a preset is per condition, so a file stating both is
     a file with two answers.
 
-A preset may declare **custom flags**, since 0.15.0 (FR-74), in a
+A preset may declare **custom flags** (FR-74) in a
 `[[flags]]` table. A flag names a FlightStream command and the word a matrix
 row writes for it, and after that the ROW states the value:
 
@@ -499,8 +495,7 @@ carries `SET_BASE_REGION_BENDING_ANGLE 12.5`, and it is compared against that
 golden on every commit, so the example cannot rot into a description of
 something the package no longer does.
 
-A preset may also state **raw solver commands**, since 0.14.0
-(PFS-2033.01, the design of 2026-09-09), in a `[[raw]]` table, one entry
+A preset may also state **raw solver commands** (PFS-2033.01, the design of 2026-09-09) in a `[[raw]]` table, one entry
 per line, each naming the phase it goes before:
 
     [[raw]]
@@ -522,7 +517,7 @@ the script took as `raw_commands` (`command`, `before`, `setup`,
 `source`), and the provenance document carries them on the solver run
 (PFS-2033.02). A preset stating none changes nothing.
 
-**SINCE 0.15.0 A ROW MAY STATE ITS OWN** (FR-67), which is what the
+**A ROW MAY STATE ITS OWN** (FR-67), which is what the
 `RAW` key of `VAR_NAMES_VALUES` is, and it extends this table rather than
 replacing it. A record writes the line itself or names a text file of
 `inputs/`:
@@ -615,7 +610,7 @@ the names after it.
 
 ### A row may state setup keys over its preset
 
-Since 0.33.0 (FR-316) a row writes a setup key in its `VAR_NAMES_VALUES` cell
+A row writes a setup key in its `VAR_NAMES_VALUES` cell (FR-316)
 under its native name, a field of the setup or one of the solver's own
 spellings above, so one basic preset serves a matrix whose rows each change one
 setup factor:
@@ -697,7 +692,7 @@ spellings of which this covers the ones you reach for in code. The rest are
 file values and refuse through the artifact reader, which is where a file's
 mistakes belong.
 
-!!! warning "Since 0.15.0 the table's home is the REFERENCE artifact"
+!!! warning "The table's home is the REFERENCE artifact"
 
     A boundary name is not a solver setting, and the words a study uses
     for its own geometry belong with the configuration (FR-59). **Write
@@ -772,7 +767,7 @@ script is emitted under:
 The bare path declares no version, so rows naming that build are emitted
 under the campaign's default. The table declares one, and rows naming
 that build are emitted under it. That is what lets ONE matrix send some
-rows to one build and some to another: since v0.8.0 a matrix whose active
+rows to one build and some to another: a matrix whose active
 rows name two builds runs, and each row's record names the executable its
 own row asked for. The declared version is checked against the version
 registry when the file is READ, so a typo is refused pointing at the file

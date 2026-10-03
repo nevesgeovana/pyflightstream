@@ -1,5 +1,7 @@
 # Migrating to 0.35.1
 
+> Frozen record: not edited after its release.
+
 This patch corrects grouped runs and extends the rows accepted by
 `plan --batch` and `plan --polar-sweep`. Generate a new plan before using
 either grouped run mode.

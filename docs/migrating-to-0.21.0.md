@@ -1,5 +1,7 @@
 # Migrating to 0.21.0
 
+> Frozen record: not edited after its release.
+
 0.21.0 renames every point. A workspace planned, submitted or run under
 0.20.x keeps working, but only after one command has renamed it, and this
 page is the step-by-step: what changed, what you run, and what each of the

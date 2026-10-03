@@ -324,11 +324,9 @@ Milestones and session records are listed in the
 
     **Two clauses of this requirement are superseded, and the format promise
     is not.** The point tag called run identity in the paragraph above is what
-    0.20.x wrote: a point is named by its flight condition since 0.21.0
-    (FR-102), and an existing workspace is moved to those names by
+    0.20.x wrote: a point is named by its flight condition (FR-102), and an existing workspace is moved to those names by
     `pyfs-matrix rename` (FR-103), which is the one command allowed to do what
-    the upgrade may not. And "alpha, beta, or advance-ratio sweeps" was the
-    whole of what a row could sweep until 0.21.0; any variable the
+    the upgrade may not. Any variable the
     `FLIGHT_CONDITION` cell declares can be swept now (FR-104). The
     pipe-delimited format itself, and the unknown-column clause, stand.
 
@@ -783,8 +781,7 @@ the base could not offer while it bundled several.
     authority, so that 26.100 sorts before 26.120.
 
 !!! requirement "FR-22a Not-computed induced-drag sentinel <span class='srs-implemented'>implemented</span>"
-    *Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until
-    0.27.0 (PFS-2006.03). Evidence:
+    *Origin: Phase 4 split of FR-22, accepted 2026-07-27; delivered in 0.27.0 (PFS-2006.03). Evidence:
     `tests/tier1_offline/test_pfs2006_declined_induced_drag.py` (a listed
     surface printed at zero is `NA` in the polar and named in a warning
     that reaches `post.log`, a surface off the list keeps its printed zero,
@@ -1078,17 +1075,7 @@ the base could not offer while it bundled several.
     and the manifest would carry one name twice, the second would destroy
     evidence a previous point or run already collected.
 
-    BOTH SHAPES ARE PRE-SCANS FROM 0.17.0, and this paragraph used to say
-    they were not. The second was asked of each destination immediately
-    before that file was moved, so a call whose third output landed on a
-    held name refused with the first two already collected: sources gone,
-    destinations written, no manifest record, and a recovery to do by
-    hand. The sentence stated it as a property rather than a defect,
-    because no record is destroyed either way, and said outright that
-    making it a pre-scan too was an acceptance decision. That decision was
-    taken on the GEO-039 triage. The whole destination set is now resolved
-    before the first move, and the refusal names every held file rather
-    than the first one it meets.
+    Both refusal checks are pre-scans. The whole destination set is resolved before the first move, and the refusal names every held file. See [the migration record](../migrating-to-0.17.0.md) for the historical behaviour.
 
     NOTHING THAT SUCCEEDED BEFORE REFUSES NOW. What changed is only that a
     refusal leaves every byte on both sides where it was.
@@ -1130,18 +1117,7 @@ the base could not offer while it bundled several.
     CONVERGED status, even when the output footer is structurally
     complete.
 
-    **THE RECORDED RESIDUAL WAS THE WRONG ROW UNTIL 0.16.0, so this
-    requirement does not hold over manifests written before it.** The log's
-    residual table is paged and the reader stopped at the first page, so a
-    run that outlasted its first page was judged on the residual it held at
-    that page's end. The consequence is not a wrong number but a wrong
-    STATUS, which is what this requirement guarantees, and there is a
-    measured instance: the point at `pfs0160/runs.json` recorded
-    `COMPLETED_MAX_ITER` with `iterations: 100` and residual `1.256467e-05`,
-    which is line 295 of its own log, while that log's last row is iteration
-    206 at `1.3470951E-6`. The run converged at 206 and the manifest says it
-    hit its cap. `COMPLETED_MAX_ITER` asserts the solver reached the
-    iteration limit, and this one did not.
+    The recorded residual and status must use the final residual page. Historical manifests affected by the first-page parser defect need their log checked before their status is trusted. See [the migration record](../migrating-to-0.16.0.md) for the historical behaviour.
 
     The reader is fixed and the manifests are not rewritten, so the claim is
     scoped rather than withdrawn: it holds for a run whose status was
@@ -1278,16 +1254,7 @@ the base could not offer while it bundled several.
     to v0.5 on 2026-08-04 with the measurement taken first
     rather than the promise trimmed to fit (`PLN-20260804-0130`).
 
-    The arithmetic, since this paragraph published a number that had
-    stopped being true. The ratchet held 29 entries going into v0.5.0,
-    not the 24 this requirement said: it grew by five over that
-    development cycle and the sentence above it did not move, which is
-    the drift NFR-11 exists to catch and which nothing mechanical
-    catches here, the count living in a test comment the requirement
-    merely describes. Eleven entries then closed, leaving 18. Of the
-    eleven, six were debt carried from v0.4.0 and five were sites this
-    cycle WROTE and exempted, which is a ratchet being used as a drawer
-    and is the reason the growth is stated here rather than netted away.
+    The ratchet counts the entries in the guard; a prose count does not replace that measurement. See [the migration record](../migrating-to-0.5.0.md) for the historical behaviour.
 
     Eight of the eleven were the whole
     `commands._check_layout_rules` group, re-based onto the already
@@ -1528,7 +1495,7 @@ The allocation is recorded in the
     2026-07-28 and again at HEAD on 2026-08-02. Evidence:
     `Script.allow_broken` and the emission refusal in
     `src/pyflightstream/script/__init__.py`; `waived_commands` on
-    `RunRecord` (`broken_commands` until 0.13.0, PFS-2022.01.05); the
+    `RunRecord` (the successor of `broken_commands`, PFS-2022.01.05); the
     database-driven refusal guard and the waiver
     guards in `tests/tier1_offline/test_script.py`,
     `tests/tier1_offline/test_script_helpers.py` and `tests/tier1_offline/test_run_campaign.py`.*
@@ -2095,7 +2062,7 @@ requirement below is one seam of that division.
 
     AMENDED BY FR-73, "A run chooses whether a family the mesh does not
     carry is a skip or a refusal": ignoring a member the opened mesh does
-    not carry is the DEFAULT from 0.15.0 rather than the only reading, and
+    not carry is the DEFAULT rather than the only reading, and
     `--ignore-missing-families false` turns it into a refusal on a
     post-processing `families` selection.
 
@@ -2180,11 +2147,7 @@ requirement below is one seam of that division.
     declaring the hand is FOR. `RPM_SIGN` is the reference's, and it reaches
     the row's view for EVERY speed form: a row's `RPM` is a MAGNITUDE and a
     negative one is refused by name, so the row says how fast and the block
-    says which way. Until 0.21.1 the hand was filled only when the row stated
-    no speed of its own, so a row stating rev/min turned whichever way its
-    number was written and the reference's hand was dropped in SILENCE -- no
-    refusal, no warning, and a rotor turning backwards converges and reports
-    numbers. The point's NAME writes `RPM` in magnitude for the same reason:
+    says which way. The hand applies to a row stating rev/min as well as to a row deriving its speed; see [the rotor-hand migration](../migrating-to-0.22.0.md) for affected historical runs. The point's NAME writes `RPM` in magnitude for the same reason:
     the hand belongs to the rotor and naming it in the point would give one
     operating point two identities. Evidence:
     `tests/tier1_offline/test_workflows.py` (the stated speed taking the
@@ -2232,10 +2195,7 @@ requirement below is one seam of that division.
 
     `ROTOR_MRP<k>`, `RotorAxis<k>` and `BladeAxis<k>` are the names these
     replace, and a post-processing entry citing them is REFUSED, naming the
-    replacement. This paragraph said "read with a deprecation warning until
-    0.17.0" until the instruction of 2026-09-10: an old spelling is to
-    RAISE, with a message saying which name it became and how to correct
-    it. This package has no stable release, so it
+    replacement. An old spelling raises, with a message saying which name it became and how to correct it. This package has no stable release, so it
     owes no compatibility window for a word it chose badly. The refusal
     arrives when the ROW is built, at `plan`, because which frames exist is
     a question about the row.
@@ -2437,7 +2397,7 @@ requirement below is one seam of that division.
     count from that rotor's block; a sector row reduces over the whole wheel; a
     motion naming no rotor of the reference is a skip and not an absence; a row
     with no rotor carries no per-rotor block, which is the sentence that
-    protects every workspace written before 0.15.0; a rotor at rest, a run
+    preserves compatibility with a workspace naming no rotor; a rotor at rest, a run
     holding no whole revolution of a rotor, and a window shorter than one
     passage of a rotor are each skipped naming that rotor; a rotor turning the
     other way reduces over the same passage; a period whose fraction decides is
@@ -2503,11 +2463,7 @@ requirement below is one seam of that division.
     `SWEEP_VALUES` holds its values. Any key of the flight condition may be
     the one: the five that fix the state (`MACH`, `TASmps`, `REmi`, `ALTFT`,
     `dISA`), the five pins (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), the two
-    angles, and the advance ratio when the row states it there. **Since 0.21.0
-    every one of them is implemented**; until 0.20.x a row sweeping any but
-    the two angles and the advance ratio was refused NAMING those three and
-    saying it might carry the word in a later release, because
-    accepted-and-ignored is how the advance-ratio sweep failed before 0.15.0.
+    angles, and the advance ratio when the row states it there. **Every one of them is implemented.**
     A key that does not define the condition is still refused.
 
     A SWEPT FLOW VARIABLE IS RESOLVED PER POINT: the row's cell with the swept
@@ -2674,7 +2630,7 @@ requirement below is one seam of that division.
     list spanning two rotors converts to and the one case the conversion
     cannot do by substitution.
 
-    The `FAMILIES` spelling is REFUSED since 0.15.0, naming `ALIAS` as the
+    The `FAMILIES` spelling is REFUSED naming `ALIAS` as the
     word to write, on the instruction of 2026-09-10. This paragraph
     promised a warning and that every matrix written before this release
     keeps working; neither is true, and a matrix stating `FAMILIES` is
@@ -3220,7 +3176,7 @@ requirement below is one seam of that division.
     EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS `-`, and `unknown` is
     reserved for the one column that is an extrapolation: a time with no
     comparable recorded run. **THIS TABLE IS PRINTED AND NEVER PARSED**, which
-    is why it keeps `-` while every CSV PRODUCT writes `NA` from 0.23.0 (see
+    is why it keeps `-` while every CSV PRODUCT writes `NA` (see
     `NOT_APPLICABLE`): the rule that one token means "does not apply"
     exists because a second spelling breaks a reader, and nothing reads this
     one but a person, for whom `-` scans better in a column of numbers. The
@@ -3265,10 +3221,7 @@ requirement below is one seam of that division.
     workspace list four sentences above, and 1575 is the last row of a
     one-page log, where there is no page boundary to mistake.
 
-    So the rule is not a universal but a condition: AN ITERATION COUNT
-    RECORDED BEFORE 0.16.0 IS UNTRUSTWORTHY WHERE THE RUN OUTLASTED ITS FIRST
-    PAGE, which is 89 of the 95 recorded points. This requirement asked the
-    model to re-derive them from the logs or exclude them and say so.
+    An iteration count affected by the historical first-page parser defect must be re-derived from its log or excluded with a reason. See [the migration record](../migrating-to-0.16.0.md) for the historical behaviour.
 
     IT DOES NEITHER, BECAUSE IT NEVER READS THEM, and that is a better answer
     than the one this paragraph asked for rather than a way around it. The
@@ -3317,15 +3270,7 @@ requirement below is one seam of that division.
     *Origin: usage feedback of 2026-09-10. Carried by PFS-2036.01. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
-    WHAT IT IS FOR. A run came back with fifty surface sections that say
-    nothing. Measured over the nineteen committed licensed runs of
-    `tests/tier3_licensed/`, which is the locator this sentence carried
-    nowhere while every other measured claim of this range names its
-    artifact (the verification lens at the release boundary, 2026-09-11): 19 of 19
-    declare twenty sections and write twenty blocks, 19 of the 20 identical,
-    and 11 of the 19 came back with all twenty EMPTY. So every sectional
-    result this package produced before 0.16.0 is one cut repeated, and more
-    than half are one EMPTY cut repeated.
+    Sectional exports must represent the requested cuts separately; repeated or empty cuts do not establish the requested distribution. See [the migration record](../migrating-to-0.16.0.md) for the historical behaviour.
 
     THE COMMAND IS NOT THE PROBLEM, and the first diagnosis of this defect
     said it was. `NEW_SURFACE_SECTION_DISTRIBUTION` works, takes the count the
@@ -3596,8 +3541,7 @@ requirement below is one seam of that division.
     open a second file to know something about that simulation, it failed.
 
     A ROW IS A RECORDED POINT, SO THE RECORD DECIDES WHERE THE TWO SPEAK.
-    Several blocks name the same column, and from 0.17.0 the recorded flight
-    condition is taken before the matrix row rather than after it. A matrix
+    Several blocks name the same column, and the recorded flight condition is taken before the matrix row rather than after it. A matrix
     cell says what the workspace intends NEXT and is read from the file as it
     is today; a recorded point's conditions are what it actually ran at.
     Editing the matrix after a run therefore no longer relabels a result that
@@ -3675,11 +3619,8 @@ requirement below is one seam of that division.
     invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
     identical on both paths and a test asserts it, and each table's fluid
     columns are its own export's, in its own names and units. `STEP` carries
-    `NA` on a steady row, which has one step; since 0.23.0 EVERY spine cell
-    the package cannot fill reads `NA` and none is blank, which is what a run
-    recorded before 0.16.0 leaves in the position and frame columns. Until
-    0.23.0 the step said `-` and those cells went empty: two spellings and a
-    blank for one meaning, in one row. A value that does not apply is always `NA`.
+    `NA` on a steady row, which has one step; EVERY spine cell
+    the package cannot fill reads `NA` and none is blank, including the position and frame columns of a record that carries neither. A value that does not apply is always `NA`.
 
     THE UNSTEADY GROUP IS THE ROW'S AND NOT THE FORMAT'S, and this paragraph
     once said otherwise under the word "measured". It named a six-column group
@@ -3721,9 +3662,7 @@ requirement below is one seam of that division.
     does not settle and must not assert: it is registered for the domain seat
     (the verification lens, 2026-09-11).
 
-    A RUN RECORDED BEFORE 0.16.0 STILL PRODUCES ITS TABLE. It names no
-    positions file, the frame cell reads `NA` (it was EMPTY until 0.23.0,
-    like every other spine cell the package cannot fill), and the steady
+    A RUN WITH NO RECORDED POSITIONS FILE STILL PRODUCES ITS TABLE. It names no positions file, the frame cell reads `NA` (like every other spine cell the package cannot fill), and the steady
     coordinates still come from the export as they always did. Refusing those runs would take a
     product away from a campaign that already happened.
 
@@ -3733,7 +3672,7 @@ requirement below is one seam of that division.
     Read with PFS-2058, PFS-2058.02, PFS-2064, PFS-2064.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: a swept row could not be judged past its first point, held in
-    the tree as a strict expected failure since 0.16.0's sweep work and
+    the tree as a strict expected failure from the sweep work and
     reported to the owning seat on 2026-09-11, whose instruction that day
     moved the fix from the assessor's SELECTION into the folder
     ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken
@@ -3785,7 +3724,7 @@ requirement below is one seam of that division.
     the folder now carries would let the refusal be lifted, and is deliberately
     NOT taken here: it moves file names a user's downstream scripts read.
 
-    A WORKSPACE RECORDED BEFORE 0.16.0 IS STILL READ WHOLE. `outputs/` and
+    A WORKSPACE WITH SHARED OUTPUT FOLDERS IS STILL READ WHOLE. `outputs/` and
     `raw/` are read where a workspace holds them and neither is created. In
     those workspaces the points of a case do share a folder, so the assessor
     keeps the export whose printed operating conditions match the point it is
@@ -3899,7 +3838,7 @@ requirement below is one seam of that division.
     tests/tier1_offline/test_matrix_run.py and test_run_campaign.py.*
 
     EVERY POINT OF A STEADY MATRIX ROW RUNS IN ONE SCRIPT AND ONE PROCESS,
-    and since 0.29.0 THE SOLUTION IS CLEARED BEFORE EACH POINT
+    and THE SOLUTION IS CLEARED BEFORE EACH POINT
     (`CLEAR_SOLUTION`, the first point of a reopened simulation included):
     COLD IS THE DEFAULT AND `COLD_START: false` IS THE OPT-IN to the warm
     start, as FR-158 states. A warm row does not clear between points, so each
@@ -3909,13 +3848,7 @@ requirement below is one seam of that division.
     the points, which the record states. A cold row is still ONE job; only the
     clear differs.
 
-    AMENDED AT 0.29.0 BY FR-158. From 0.17.0 to 0.28.0 the default was warm and
-    `COLD_START: True` was the opt-out, which followed the predecessor
-    toolchain's steady recipe, that never cleared the solver between points.
-    The 0.29.0 quality gate reversed it because a warm result depends on the
-    order of the points; `build_steady_sweep` takes `cold=True` by default and
-    the input glossary says the same. The one-job, one-record guarantee below
-    is unchanged by the reversal.
+    `build_steady_sweep` takes `cold=True` by default (FR-158), and the input glossary states the same. The one-job, one-record guarantee below still holds. See [the migration record](../migrating-to-0.29.0.md) for the historical behaviour.
 
     ONE JOB IS ONE RECORD. The record's `run_id` ends with the `sweep` token
     and never with a point tag, because the point tag is run IDENTITY and ends
@@ -3969,7 +3902,7 @@ requirement below is one seam of that division.
     toolchain it named a phase-resolved march through one blade passage, which
     is an unsteady capability and not this one.
 
-    SINCE 0.18.0 IT RUNS. A row stating `RESTART` resolves against the recorded
+    A row stating `RESTART` resolves against the recorded
     run it continues, and the continuation opens that run's saved simulation
     with `OPEN <saved.fsm> ENABLE` rather than importing the mesh and building
     the case again. **The step count is a REMAINDER and not a total**, because
@@ -3977,7 +3910,7 @@ requirement below is one seam of that division.
     for the whole history would re-run the part already on disk and call the
     result a continuation. The time step is the row's own.
 
-    SINCE 0.18.1 THE CONTINUATION OPENS THE ARCHIVED COPY BY ABSOLUTE PATH, and a
+    THE CONTINUATION OPENS THE ARCHIVED COPY BY ABSOLUTE PATH, and a
     `RESTART` row runs under the campaign that recorded the stopped run: a point
     of it is run when its MOST RECENT record stopped with more to do, is
     skipped when its most recent run finished or is still queued, so running
@@ -3995,14 +3928,7 @@ requirement below is one seam of that division.
     `<campaign>/sim_<id>/r<stamp>/<tag>`, so the point tag still ENDS the run
     id, which is the invariant every existing manifest rests on.
 
-    UNTIL 0.18.0 THE KEY WAS PARSED AND REFUSED, kept here in the past tense
-    because a reader on an older release meets that behaviour and should find
-    it described rather than absent: the three forms were read and the
-    arithmetic existed, no builder shortened a march and nothing archived what
-    a continuation would replace, so a row stating `RESTART` was refused BY
-    NAME at plan, naming this release. A refusal at plan spends nothing;
-    accepting the key and ignoring it spends a licensed seat re-running a
-    point that was nearly done, which is what it did until 2026-09-13.
+    A `RESTART` row resolves the recorded run and archives the outputs it will replace before continuing the march. See [the migration record](../migrating-to-0.18.0.md) for the historical behaviour.
 
     AMENDED IN 0.33.0: A CONVERGED MARCH IS CONTINUED, ONCE PER REQUEST.
     *Origin: a defect measured on 2026-09-30. `{ADDITIONAL_REVS=n}` continued
@@ -4037,8 +3963,7 @@ requirement below is one seam of that division.
       whose latest record is a completed continuation (CONVERGED or
       COMPLETED_MAX_ITER) of the same request, the same form and number, is not
       continued again, so running the matrix again never re-marches what a
-      continuation added; a different request continues it again. A
-      continuation recorded before 0.33.0 states no request and is treated as
+      continuation added; a different request continues it again. A continuation with no recorded request is treated as
       answering the request its row carries now when it marched the steps that
       request asks of the run it continues: the same request is then not
       continued again, and a changed one (another number, or another key that
@@ -4219,7 +4144,7 @@ requirement below is one seam of that division.
     solver is on the cluster and asking would submit a probe job; the
     descriptor names the build the profile declares, which is not a check.
 
-    SINCE 0.18.0 A COLLECT STAGE COMPLETES IT, and it watches the WORKSPACE
+    A COLLECT STAGE COMPLETES IT, and it watches the WORKSPACE
     rather than the scheduler. `pyfs-matrix collect` sweeps every `SUBMITTED`
     record, waits until each point's declared outputs are PRESENT AND
     SETTLED, then collects, assesses and rewrites that record with what the
@@ -4242,10 +4167,7 @@ requirement below is one seam of that division.
     refuses is `FAILED_INCOMPLETE_OUTPUT` with the reason, and the closed set
     stays eight.
 
-    UNTIL 0.18.0 there was no collect stage and a `SUBMITTED` record was
-    completed by hand. That sentence stood in this requirement rather than in
-    a release note so a reader of the requirement learned it too, and it is
-    kept here, in the past tense, for the same reason.
+    The collect stage completes a `SUBMITTED` record from the job outputs. See [the migration record](../migrating-to-0.18.0.md) for the historical behaviour.
 
 !!! requirement "FR-100 A row translates an alias the way it rotates one <span class='srs-implemented'>implemented</span>"
 
@@ -4337,7 +4259,7 @@ requirement below is one seam of that division.
       (`SET_NEW_UNSTEADY_SOLVER_ACTION`) RUNS AS A SINGLE MARCH: its plots
       declared before one solver start over every time step the row states,
       and every export after it. An unsteady row asking for no per-step
-      feature renders the same script on 26.123 as it did before 0.20.0.
+      feature renders the same script on 26.123 as the established renderer.
     - A ROW ASKING SUCH A BUILD FOR WHAT ONLY ACTIONS GIVE is refused with
       `BuildCapabilityError` at plan time: a snapshot threshold
       (`EXPORT_UNSTEADY_AFTER_ITER`, `EXPORT_UNSTEADY_AFTER_REV`), the in-run
@@ -4398,14 +4320,12 @@ requirement below is one seam of that division.
       then by the axes of its point, so there is ONE scheme and not two.
     - Two points of one case whose names are equal are refused AT PLAN TIME
       naming both points and what they write.
-    - The run record carries `point_name` and `sweep_name`. A record written
-      before 0.21.0 carries neither, and NEITHER STAGE RECOMPUTES ONE: the
+    - The run record carries `point_name` and `sweep_name`. A historical record may carry neither, and NEITHER STAGE RECOMPUTES ONE: the
       point's evidence would be filed where no record of it points. The
       products stage refuses such a record by name. AMENDED 0.21.1: `collect`
       resolves its folder from the record's own submission block, which is
       reading rather than recomputing, and refuses only a record that names no
-      datapoint folder either -- a point submitted before 0.18.1, whose job ran
-      in the simulation folder. Refusing it outright deadlocked a 0.20.x
+      datapoint folder either -- a historical point whose job ran in the simulation folder. Refusing it outright deadlocked a 0.20.x
       workspace with submitted points against FR-103, whose command refuses
       those same records and directs the user here. Evidence:
       `tests/tier1_offline/test_goal025_migration_deadlock.py`.
@@ -4482,7 +4402,7 @@ requirement below is one seam of that division.
     with its evidence at `reports/probes/RPT-060_2026-09-23_evidence.yaml`:
     seven converged solves showing that the rate emitted as written, the one
     sign of +1 of 0.21.0 to 0.26.0, solved the OPPOSITE roll and yaw rate.
-    Since 0.27.0 (G13) each rate is emitted with the sign of its body axis in
+    Each rate (G13) is emitted with the sign of its body axis in
     the geometry's frame, and the emitted line is scored against both probes
     by `tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py`.*
 
@@ -4644,7 +4564,7 @@ requirement below is one seam of that division.
     A pproc artifact declares at most ONE `[volume_section]`: a rectangle
     (`corners_m`) or a circle (`radii_m`, `points`) in a `plane` of a named
     `frame` at an `offset_m`, every length in metres, and a `format`, `vtk` or
-    `tecplot`. SINCE 0.29.0 THE SECTION IS SAMPLED, NOT NATIVELY EXPORTED
+    `tecplot`. THE SECTION IS SAMPLED, NOT NATIVELY EXPORTED
     (FR-159): the package samples the declared plane through probes on a
     steady row, or through fluid plots on an unsteady or rotor row, and writes
     a vertex cloud to `post/<matrix>/fields/<point>_vsec.vtk` or `.dat`, with
@@ -6057,7 +5977,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-281 One native match tolerance, with the printed-precision slack <span class='srs-implemented'>implemented</span>"
 
-    *Origin: 0.29.1-tol, moved from 0.33 (GEO-066, package J). Evidence:
+    *Origin: 0.29.1-tol, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence:
     `test_p0320_tol_0291_one_function_gives_the_printed_precision_slack`,
     `test_p0320_tol_0291_a_full_precision_native_adds_no_slack`.*
 
@@ -6078,7 +5998,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-282 The time-averaged native strength uses that tolerance <span class='srs-implemented'>implemented</span>"
 
-    *Origin: 0.29.1-avg, moved from 0.33 (GEO-066, package J). Evidence:
+    *Origin: 0.29.1-avg, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence:
     `test_p0320_avg_0291_the_time_average_matches_a_far_native_with_that_tolerance`.*
 
     **Need.** The time average of a surface matched each step's native
@@ -6092,7 +6012,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-283 DEFAULT_DRIFT_LIMIT_PCT is public in cases <span class='srs-implemented'>implemented</span>"
 
-    *Origin: ARCH2-S2, moved from 0.33 (GEO-066, package J). Evidence:
+    *Origin: ARCH2-S2, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence:
     `test_p0320_arch2_s2_the_default_drift_limit_is_public_in_cases`.*
 
     **Need.** The default drift limit is read by the post stage and belongs to
@@ -6105,7 +6025,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-284 The clocking 0 filter of the NA shares is tested <span class='srs-implemented'>implemented</span>"
 
-    *Origin: QA2-2, moved from 0.33 (GEO-066, package J). Evidence:
+    *Origin: QA2-2, rescheduled out of the 0.33 scope (GEO-066, package J). Evidence:
     `test_p0320_qa2_2_the_na_shares_read_clocking_zero_rows_only`.*
 
     **Need.** The thrust and torque shares above k = 0.1 read the point's own
@@ -6301,7 +6221,7 @@ Requirements written after the specification was last reconciled with the packag
       The row no longer imports the file nor exports probe points, and its
       default outputs lose `{name}_probes.txt`.
     - A pproc mixing drawn lines and a cited profile yields one history table.
-    - A run recorded before 0.25.0 whose cited-profile probes were exported as a
+    - A historical run whose cited-profile probes were exported as a
       last-step instant has no history: those probes are left out with that
       reason in `products.json`, and posting again cannot create one.
 
@@ -6424,7 +6344,7 @@ Requirements written after the specification was last reconciled with the packag
     - A run that opened no geometry declaring names (a `LEGACY` recipe, a file
       without a mesh block) writes no key.
     - `CampaignWorkspace.recorded_inventory(record)` returns the names, and for
-      a record written before 0.27.0 reads them from the mesh block of the
+      a record without an inventory reads them from the mesh block of the
       geometry file whose sha256 the record carries.
     - A manifest holding such a record needs 0.27.0 to be read: an older reader
       refuses the key.
@@ -6473,8 +6393,7 @@ Requirements written after the specification was last reconciled with the packag
     - The column is `POL`, named as the run matrix names its polar column, and
       holds the polar of the point each row comes from. The steady polar and its
       super file carry `POL` in place of the `POLAR` of 0.26.0.
-    - The rotor table's alias, alone on a line before the header since 0.23.0,
-      is the `ROTOR` column right after `POL`.
+    - The rotor table's alias, alone on a line before the header, is the `ROTOR` column right after `POL`.
     - Every text cell, header names included, writes a comma as `;`, a double
       quote as a single one and a line break as a space, through one rule, so no
       cell is quoted and a reader that splits on `,` reads every row as wide as
@@ -6655,7 +6574,7 @@ Requirements written after the specification was last reconciled with the packag
     - One line gives the count of points and jobs before anything runs.
     - It is refused beside `--resume` or `--force-rerun`, for an id the matrix
       does not carry, and when nothing is recorded, in each case before anything
-      runs. `--sims` standing alone is no longer refused: since 0.34.0 it selects
+      runs. `--sims` standing alone is no longer refused: it selects
       the simulations to run (FR-326), and `--points` is refused beside
       `--force-rerun-all`, which redoes whole simulations.
 
@@ -7311,7 +7230,7 @@ Requirements written after the specification was last reconciled with the packag
     The guides are decks in `guide/` with their LaTeX sources
     (`guide/latex-sources/`), their build recipe and their compiled PDFs, each
     ending on numbered references, licensed CC BY 4.0
-    (`guide/LICENSE-AND-AUTHORSHIP.md`). Since 0.34.0 they are nine, numbered
+    (`guide/LICENSE-AND-AUTHORSHIP.md`). They are nine, numbered
     from 01 with the cheatsheet as guide 04 (FR-329). A PDF may be tracked under `guide/` and nowhere else: the
     forbid-pdf hook, the CI guard job and the tier-1 walk of the tracked files
     carry the same exemption, and a test shows the hook and the job refuse
@@ -7663,8 +7582,7 @@ Requirements written after the specification was last reconciled with the packag
 
     *Origin: the 0.32.0 preparation, because not every need the recent releases met had reached the specification. Evidence: `tests/tier1_offline/test_srs_changelog.py` (P0320-SRS-CHANGELOG).*
 
-    Every top-level bullet of the Added and Changed sections of every release
-    from 0.25.0 on, and of every `changelog.d` fragment, cites a requirement
+    Every top-level bullet of the Added and Changed sections of every release numbered 0.25.0 or later, and of every `changelog.d` fragment, cites a requirement
     id that a page under `docs/srs/` defines, or says
     `(no requirement: <reason>)`. The sections headed as the type-checker debt
     are a measurement and are excluded.
@@ -7892,7 +7810,7 @@ Requirements written after the specification was last reconciled with the packag
     - R5 A record already `FAILED_MARKED` is left unchanged.
     - R6 `FAILED_MARKED` begins with `FAILED`, so a reader of this package that decides failure by that prefix (the post, the cost estimate and `delete-sims`) treats it as a failure; the prefix, `delete-sims` and the severity order are the ones the evidence above exercises, and readers outside this package are not checked.
     - R7 `FAILED_MARKED` is the last, most severe, entry of the severity order by which `pyflightstream.run.worse_of` reports a point's worse outcome.
-    - R8 The manifest schema stays `pyfs-manifest/3`. A release before 0.33.0 has no `FAILED_MARKED` in its status set and is not expected to read a `runs.json` that holds one (not measured against an installed older release); `pyfs-matrix restore runs` puts the archived copy of R3 back.
+    - R8 The manifest schema stays `pyfs-manifest/3`. A reader lacking `FAILED_MARKED` in its status set is not expected to read a `runs.json` that holds one (compatibility with such a reader is not measured); `pyfs-matrix restore runs` puts the archived copy of R3 back.
 
     Solution (release 0.33.0): `pyflightstream.workspace.RunStatus.FAILED_MARKED`, the `marked` field of `RunRecord`, `pyflightstream.run.records.mark_failed`, and the command `pyfs-matrix mark-failed`.
 
@@ -7902,11 +7820,11 @@ Requirements written after the specification was last reconciled with the packag
 
     *Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Built on 2026-09-30; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_fr310_matrix_homes_all.py::test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup`, `::test_fr310_each_command_resolves_its_matrix_over_both_homes` (every matrix argument of the parsers, in the four layouts, with the path as given as the control), `::test_fr310_a_path_that_names_its_folder_is_read_as_given`, `::test_fr310_upgrade_reads_a_bare_name_from_either_home`, `::test_fr310_the_physics_matrix_of_qa_is_found_in_either_home`, `::test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control`, `::test_fr310_the_excel_read_finds_the_matrix_in_either_home`, `::test_fr310_the_rebuild_sweep_reads_one_matrix_per_stem`, `::test_fr310_rename_reads_the_matrix_from_either_home`, `::test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control`, `::test_fr310_no_other_routine_lists_the_matrices_of_a_workspace`, `::test_fr310_main_refuses_a_differing_pair_for_every_command` (through `main`, `post --additional-pproc` included), `::test_fr310_main_hands_the_command_the_file_in_inputs_matrices`, `::test_fr310_a_bare_name_in_a_home_and_in_the_working_directory`.*
 
-    Need: A run matrix may sit in the workspace root or in `inputs/matrices/`. Since 0.32.0 the restore, the post (`--from-sims` and `collect --post` included), the plan's census and the sync find it in both homes, while the other commands read the path as given or read the root alone, so a matrix one command accepts is one another command cannot find.
+    Need: A run matrix may sit in the workspace root or in `inputs/matrices/`. The restore, the post (`--from-sims` and `collect --post` included), the plan's census and the sync find it in both homes, while the other commands read the path as given or read the root alone, so a matrix one command accepts is one another command cannot find.
 
     Requirement: every command that takes a run matrix, or looks one up by name or stem, resolves it through one function of the workspace layer over the two matrix homes, the workspace root and `inputs/matrices/`.
 
-    - R1 The commands are: `pyfs-matrix` `upgrade`, `convert`, `plan`, `inspect-setups`, `run`, `post` (its matrix argument and `--additional-pproc`), `rebuild --matrix` and `restore --matrix`; `rename` and `sync`, which look matrices up by themselves; the Excel synchronization with and without `--matrix`; the matrix check of `pyflightstream.qa.matrix`; and `space-in-use`, `free-space` and `delete-sims` wherever they read a matrix: checked on 2026-09-30, the first two read none, and `delete-sims` reads one only through the post of `--matrix-products regenerate`, which finds it in both homes since 0.32.0. `restore --matrix` names the folder under `post/` by the matrix's stem, which is the same in either home, and reads no matrix file. A command added later that takes a matrix joins this list (`pyflightstream.workspace._matrix_homes.MATRIX_ARGUMENTS`).
+    - R1 The commands are: `pyfs-matrix` `upgrade`, `convert`, `plan`, `inspect-setups`, `run`, `post` (its matrix argument and `--additional-pproc`), `rebuild --matrix` and `restore --matrix`; `rename` and `sync`, which look matrices up by themselves; the Excel synchronization with and without `--matrix`; the matrix check of `pyflightstream.qa.matrix`; and `space-in-use`, `free-space` and `delete-sims` wherever they read a matrix: checked on 2026-09-30, the first two read none, and `delete-sims` reads one only through the post of `--matrix-products regenerate`, which finds it in both homes. `restore --matrix` names the folder under `post/` by the matrix's stem, which is the same in either home, and reads no matrix file. A command added later that takes a matrix joins this list (`pyflightstream.workspace._matrix_homes.MATRIX_ARGUMENTS`).
     - R2 A bare file name or a stem is looked up in both homes of the command's `--workspace` (of the working directory for `upgrade` and `convert`, which take none); a bare name in neither home is read as given. A path that names its folder is read from that folder, as before. A bare name found in a home while the working directory holds a file of that name, the file 0.32.0 read, is read once with the same bytes and refused naming both with different bytes.
     - R3 When the name is in both homes with identical bytes, the matrix is read once and the command proceeds as with one file.
     - R4 When the name is in both homes with different bytes, the command refuses before any work, naming both paths; `post` keeps its 0.32.0 behaviour, a warning naming both and the run records. The Excel synchronization also refuses to WRITE a name held in both homes, equal bytes included, since writing one would leave the other stale.
@@ -7986,7 +7904,7 @@ Requirements written after the specification was last reconciled with the packag
     - R1 The emitted script of every row whose run type is `unsteady` or `unsteady_rotor`, a continuation of such a row included, registers the step counter action, on a build that documents the unsteady solver action (26.122 and later). On a build that does not, the row is a single march with no action, as before, and shows no bar. A row without per-step export keeps the `march_strategy` `single_march`.
     - R2 On a row that asks no per-step export the counter only counts: it writes no export file and triggers no exports script.
     - R3 A local run prints the progress bar of FR-129 for every such row.
-    - R4 Only the emitted scripts of the rows of R2 differ from those of 0.32.0, and only in the counter lines; a script emitted by a release before 0.33.0 for such a row differs from the one 0.33.0 emits.
+    - R4 Only the emitted scripts of the rows of R2 differ from those of 0.32.0, and only in the counter lines; the migration page describes the counter change for existing scripts.
     - R5 That the counter leaves the solver's results unchanged on a row without export is not measured; the report of the licensed round states the comparison, and until then the claim is unverified.
 
     Solution (release 0.33.0): `pyflightstream.cases._unsteady_actions.register_unsteady_actions`, which `pyflightstream.cases.workflows` calls for every unsteady row, and the count-only program of `pyflightstream.run._actions_counter` (`render_count_program`, `stage_counter`).
@@ -7997,7 +7915,7 @@ Requirements written after the specification was last reconciled with the packag
 
     *Origin: an author decision of 2026-09-30 about the signature of FR-178: it appears at the end of every command, always. Evidence: `tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315`, `::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315`, `::test_an_ascii_stderr_still_carries_the_signature_fr_315`, `::test_mutant_without_the_fallback_loses_the_signature_fr_315`.*
 
-    Need: The signature closes every command and is meant to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.
+    Need: The signature closes every command and is meant to appear every time. It must remain visible when standard error cannot encode the drawing, and a failure while drawing must be reported.
 
     Requirement: every command of the package ends with the signature of FR-178 on standard error, whatever the outcome, the stream or the flags.
 
@@ -8122,7 +8040,7 @@ Requirements written after the specification was last reconciled with the packag
     - R3 V_ax is the free-stream speed V_inf, except on the rows FR-323 governs. V_inf alone is expected to keep a wake at least L long, because axial induction in forward flight speeds the wake up. That expectation is not yet measured: RPT-130, owed by a commit after the 0.34.0 release, confirms or refutes it by reading the convection speed on the licensed long-wake run (for example from the tip-vortex position on the probes). Where RPT-130 measures a convection speed closer to V_inf plus the momentum-theory induced velocity than to V_inf, the default becomes V_inf plus that velocity by a dated amendment of this item citing RPT-130, made before this requirement leaves pending; otherwise V_inf stays.
     - R4 A rotor row of a run type that marches in time, whose setup, preset and row state no wake termination at all, gets L = 4.0; a stated length, step count or revolution count is used as stated (FR-322). A run type without a time step gets no default.
     - R5 The run record of every point whose termination was converted carries the L asked, the V_ax used with the rule that gave it (free stream, the induced velocity of FR-323, or the revolution cap of FR-323) and the steps emitted; the plan states the same three values for each such row.
-    - R6 Only the scripts of rotor rows that state no termination differ from 0.33.0, and only in the termination line. This is a behaviour change, permanent from 0.34.0 (a row that wants the 0.33.0 bytes states its termination): the migration page of 0.34.0 names it, and where the golden set or the tier-3 matrices carry such rows, the `NAMED_DIFFERENCES` of the parity script name the changed lines under this requirement.
+    - R6 Only the scripts of rotor rows that state no termination differ compared with 0.33.0, and only in the termination line. This is a behaviour change, permanent (a row that wants the 0.33.0 bytes states its termination): the migration page of 0.34.0 names it, and where the golden set or the tier-3 matrices carry such rows, the `NAMED_DIFFERENCES` of the parity script name the changed lines under this requirement.
 
     Solution (planned for 0.34.0): the conversion beside `_wake_termination` of `pyflightstream.cases.workflows`, the key in the setup key registry (`cases/_setup_keys.py`), the field on `SolverSettings` in the home the cut of AD-16 gives it, and the emission through the per-family emitter of AD-17.
 
@@ -8268,7 +8186,7 @@ Requirements written after the specification was last reconciled with the packag
     - R2 No tracked file names `pyfts-guide-00`.
     - R3 The build scripts, the admitted-PDF list, the guide tests, the documentation kit's rules and the pages that link the guides name the same set of numbers.
     - R4 This requirement amends FR-177: the commit that implements it replaces FR-177's naming sentence ("named `pyfts-guide-00` to `pyfts-guide-07`, guide 00 being the overview read first") with the numbering of R1 and a pointer to FR-329; FR-177 otherwise keeps its reading.
-    - R5 This is a behaviour change of the documentation, permanent from 0.34.0: the old file names do not resolve, the migration page of 0.34.0 gives the map of R1, and the `NAMED_DIFFERENCES` of the parity script name the renamed guides under this requirement.
+    - R5 This is a behaviour change of the documentation, permanent: the old file names do not resolve, the migration page of 0.34.0 gives the map of R1, and the `NAMED_DIFFERENCES` of the parity script name the renamed guides under this requirement.
 
     Solution (planned for 0.34.0): the renaming under `guide/`, its build scripts, the admitted-PDF list and the linking pages.
 
@@ -8307,10 +8225,10 @@ Requirements written after the specification was last reconciled with the packag
     - R1 The sense of `rpm_sign` is that of the reference block: `+1` is a positive rotation about the block's `axis` by the right-hand rule, `axis` being stated in the reference frame of the simulation, and `-1` the opposite rotation; a disc's swirl follows its block's sign as a rotor's rotation does.
     - R2 The disc speed handed to the disc emitter is minus `rpm_sign` times the row's disc speed magnitude, where 0.33.0 handed plus `rpm_sign` times it; the emitted disc line therefore carries, for the same block, the opposite sign of the line 0.33.0 wrote, which is the sign measured on 26.124 to swirl with the rotor. The docstring of the reference block and the actuator pages say the same.
     - R3 A tier-1 test pins the emitted sign for both hands.
-    - R4 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only. This is a behaviour change, permanent from 0.34.0: the `NAMED_DIFFERENCES` of the parity script name it under this requirement, and the migration page of 0.34.0 states it among the first changes.
+    - R4 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only. This is a behaviour change, permanent: the `NAMED_DIFFERENCES` of the parity script name it under this requirement, and the migration page of 0.34.0 states it among the first changes.
     - R5 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so. The sign rule is measured on 26.124 only and applied to every build.
 
-    Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module turning `rpm_sign` into the solver's disc speed). `pyflightstream.cases.workflows._motion` also reads the hand of a disc, for the signed `rpm` of its Mach record in the plan and the run record, and keeps it as the block's hand times the speed, the opposite sign of the script's `SET_PROP_ACTUATOR_RPM` since 0.34.0.
+    Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module turning `rpm_sign` into the solver's disc speed). `pyflightstream.cases.workflows._motion` also reads the hand of a disc, for the signed `rpm` of its Mach record in the plan and the run record, and keeps it as the block's hand times the speed, the opposite sign of the script's `SET_PROP_ACTUATOR_RPM`.
 
 !!! requirement "FR-332 The measured actuator-disc behaviours are documented, and a RELAXED disc naming a profile is warned about <span class='srs-pending'>pending</span>"
 
@@ -8423,7 +8341,7 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: a short licensed probe on 26.124 states why `CDo` reads zero in the coupled FSI exports, and the package fixes it where the cause is its own ordering.
 
     - R1 RPT-128 states the probe, the cause it separates and the evidence.
-    - R2 Where the cause is the package's order of operations, the package changes the order so that `CDo` is the solver's value, and the emitted FSI scripts differ from 0.33.0 only there, named in parity under this requirement.
+    - R2 Where the cause is the package's order of operations, the package changes the order so that `CDo` is the solver's value, and the emitted FSI scripts differ compared with 0.33.0 only there, named in parity under this requirement.
     - R3 Where the cause is the solver's, the FSI page states that the column reads zero in a coupled run and why, and nothing emitted changes.
     - R4 What each branch leaves in the tree: `package_order` leaves the corrected export order, its test with the 0.33.0 order as the control, and the parity entry; `solver` leaves the FSI page's statement and a test that the page and the product state the column's meaning.
 
@@ -8528,7 +8446,7 @@ Requirements written after the specification was last reconciled with the packag
     - R1 RPT-050 withholds those four digests, each row keeping its file, size and equal-or-different reading, and carries a dated amendment line saying so.
     - R2 A tier-1 guard refuses the withdrawn digests anywhere in the tracked tree, and a line holding a token of exactly 64 hexadecimal digits together with the name of one of the four files as RPT-050 records it (case folded), with a planted control. As NFR-31 R1 does for the executable baseline, the guard holds and compares the SHA-256 of each withdrawn digest, never the digest itself.
     - R3 Any tracked text that says a report records those digests is reworded.
-    - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history): the digests stay in the history of the repository, and only the tree from 0.34.0 on is clean.
+    - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history): the digests stay in the history of the repository, and the current tree is clean.
     - R5 This requirement amends NFR-31 R1: the commit that implements it replaces NFR-31's sentence "The digests of the package's documentation (manual, release notes, licence agreement) are not covered." with a pointer to FR-344, so the two read the same way; NFR-31 otherwise keeps its reading.
 
     Solution (release 0.34.0): the amendment of RPT-050 and `tests/tier1_offline/test_p0340_vendor_digests.py`, beside the NFR-31 guard.
@@ -8615,7 +8533,7 @@ Requirements written after the specification was last reconciled with the packag
     - R1 Each keyword emits its command with ENABLE for a true value and DISABLE for a false one, in either vocabulary (the boolean or the word, in any letter case).
     - R2 A value in neither vocabulary raises the script layer's argument error naming `solver_settings` and the keyword, on a script nothing was emitted to.
     - R3 The snapshot of the setup records a boolean for each, never the string the caller wrote.
-    - R4 The only emitted bytes that change from 0.33.0 are a toggle line of these five commands that asked DISABLE; the change is named in the parity script under this requirement and in the migration page.
+    - R4 The only emitted bytes that change compared with 0.33.0 are a toggle line of these five commands that asked DISABLE; the change is named in the parity script under this requirement and in the migration page.
 
     Solution (release 0.34.0): the five keywords join the toggles read ahead of the first emission in `script/_settings.py` (`READ_TOGGLES`), and the entry of `scripts/check_parity.py` that names the difference.
 
@@ -8800,7 +8718,7 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: `pyfs-matrix plan --batch <n>` shall decide the split of the selected polars: grouped by `NCPUS` first, one `NCPUS` per batch; contiguous, each batch taking consecutive sims, with the cuts placed so that the largest batch estimate is the smallest possible; whole polars only, a polar never spanning two batches; with n above the number of polars, a warning and only the batches needed; one solver build per batch, a row of another build refused for that batch by name. It shall print the split as a table with one row per batch (batch ID, sims, cpus, points, estimated time, walltime and its source, `matrix` or `BEST`) and a total line.
 
     - R1 The grouping shall be by `NCPUS` AND solver build AND kind (steady or unsteady, FR-403) AND the setup's own `unsteady_solver_actions` (FR-405, 0.35.1): the polars are grouped by these four keys, in matrix order, so that no job mixes two builds, steady and unsteady polars, or two sets of user actions. Every group gets at least one job; the jobs beyond the number of groups go one at a time to the group whose longest job estimate is longest, while a polar can still be split off a job; a polar is never cut; a warning is printed for n above the number of polars and for n below the number of groups. This R-item is a design proposal; it stays pending until accepted.
-    - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars, and since 0.35.1 steady and quasi-steady ones in jobs of their own (FR-403), and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a LEGACY row, a warm steady row or a steady point that initialises the solver twice (FR-403 R5), a `RESTART` row (it opens a datapoint's own `.fsm`), an unsteady row on a build that does not document the action command, and a polar whose points do not splice into one script. A row whose setup states `unsteady_solver_actions` joins a job of its own action set, including a relative `SCRIPT` file with the per-job warning of FR-405 R4. The refusal of FR-378 is not a reason to leave out: it blocks the plan. An acoustic row and a coupled structural row on `unsteady` are not left out since 0.35.1 (FR-406, FR-407). This R-item is a design proposal; it stays pending until accepted.
+    - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars, and steady and quasi-steady ones in jobs of their own (FR-403), and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a LEGACY row, a warm steady row or a steady point that initialises the solver twice (FR-403 R5), a `RESTART` row (it opens a datapoint's own `.fsm`), an unsteady row on a build that does not document the action command, and a polar whose points do not splice into one script. A row whose setup states `unsteady_solver_actions` joins a job of its own action set, including a relative `SCRIPT` file with the per-job warning of FR-405 R4. The refusal of FR-378 is not a reason to leave out: it blocks the plan. An acoustic row and a coupled structural row on `unsteady` are not left out (FR-406, FR-407). This R-item is a design proposal; it stays pending until accepted.
 
     - R3 Sections persist across REMOVE_INITIALIZATION (measured on 26.124, RPT-148), so a restated block does not create them again; a block opened by NEW_SIMULATION creates them.
 
@@ -9581,6 +9499,6 @@ Requirements written after the specification was last reconciled with the packag
     - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming RPT-150. The proof is `fsi_steady_infeasible.json`, decided at 2026-10-03T12:26:27-03:00; RPT-150 transcribes its log citations by file name and line. A tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
     - R4 This requirement amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference. The guard fixes 0.35.1, which planned these rows into jobs despite its stated exclusion.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](../../reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
+    Verification: tier 1, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](https://github.com/nevesgeovana/pyflightstream/blob/8983ee62/reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
 
     Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out the coupled steady row with a reason naming RPT-150 and that the report exists; both cases fail on 8852906f. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.

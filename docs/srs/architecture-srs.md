@@ -80,7 +80,7 @@ matrix workflows read without importing the structural side branch.
     Anything presented in two places is rendered from one source: the
     command reference and compatibility matrix from the database, the
     architecture overview from the module docstrings, the docs
-    example pages from the example scripts, and from 0.33.0 (NFR-29)
+    example pages from the example scripts, and (NFR-29)
     the Python API reference from the docstrings, the command-line
     reference from the argument parsers and the exceptions catalog
     from the exception classes. Nothing generated is committed.
@@ -225,7 +225,7 @@ one of them keeps.
       another. A new module that is not a package root is refused below
       two top-level definitions or 60 code lines (the hard floor); between
       60 and 150 code lines it is a review check, and the G7 record lists
-      every module created since v0.32.0 under 150 code lines so the
+      every module absent from the frozen v0.32.0 tree and under 150 code lines so the
       reviewer reads the list rather than finds it.
     - G2 Function limits. A new or changed function stays within the
       defaults of ruff and pylint (complexity 10, branches 12, statements
@@ -960,8 +960,8 @@ Five console entry points, one per operational concern: `pyfs-qa`
 archiving of a recorded simulation, and migration of a flat geometry
 library into one folder per geometry),
 `pyfs-matrix` (run-matrix upgrade, conversion, pre-flight, run, boundary
-inventory, collection of a submitted job's outputs, post-processing, and,
-since 0.30.0, the workspace's disk and its other copies: `space-in-use`,
+inventory, collection of a submitted job's outputs, post-processing, and
+the workspace's disk and its other copies: `space-in-use`,
 `free-space`, `delete-sims` and `sync`; submission is not a command of its
 own, it is what `run` does on Linux with a cluster profile),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
@@ -1230,9 +1230,7 @@ its own row (a sibling of its own subpackage included).
 - `post/corrections.py`, in the post row, imports `_errors`, `_tokens`,
   `cases.corrections`, `post._tables`, `post.harmonics` and `post.qsteady`,
   and, inside one function, `workspace` (a recorded point for a route 2
-  calibration), below its row. Until 0.33.0 it also reached `post.products`
-  inside a function for its table reader; the reader is in `post._tables`
-  since then (AD-10), so the two modules no longer import each other. It is the one applicator of the correction routes: every corrected
+  calibration), below its row. Its table reader is in `post._tables` (AD-10), so it does not import `post.products`. It is the one applicator of the correction routes: every corrected
   product is a new file beside its raw one, never written over it, and none is
   validated. The Theodorsen and Sears functions are a diagnostic only.
 - `workspace/fields.py`, in the workspace row, imports `_digest`, `cases`,
@@ -1301,26 +1299,20 @@ bodies and those under `TYPE_CHECKING` included.
 
 - `run/records.py`, in the run row, imports the floor `_errors`, the four
   private modules of the records family (`run._record_files`,
-  `run._rebuild_evidence`, `run._rebuild` and `run._assemble`, since
-  0.33.0, AD-11), `workspace.naming` and `workspace.storage`, the alias helper
+  `run._rebuild_evidence`, `run._rebuild` and `run._assemble`, AD-11), `workspace.naming` and `workspace.storage`, the alias helper
   `run._alias` (the point selector of mark-failed), and inside a
   function body `workspace`. It holds the operations on a workspace's
   records: the exact restore of a records file from the archive and the
   mark-failed, and through the four modules it re-exports the rebuild of
   run records from the simulation folders and the records a post assembles
   from them; it re-exports which manifest a command reads, defined in
-  `workspace.naming`. Until 0.33.0 the rebuild and the assembly were this
-  module's own, and it imported the floor `_digest`, `cases`,
-  `cases.matrix`, `cases.windows`, `results`, `workspace.flight_condition`,
-  `workspace.inputs` and `workspace.matrix` for them. It still imports the
+  `workspace.naming`. The rebuild and assembly implementations live in their private modules. It still imports the
   floor `_digest`, `cases`, `cases.matrix`, `cases.windows`, `results`,
   `workspace`, `workspace.flight_condition`, `workspace.inputs` and
   `workspace.matrix`, for one reason only: every name 0.32.0 offered from
   this module, which had no `__all__`, keeps importing from it, and the
   parity check (`scripts/check_parity.py`) holds each one.
-  Until 0.33.0, `workspace.storage` reached this module inside two function
-  bodies, for the manifest name and for the sync's rebuild. Since 0.33.0
-  (AD-09, P0330-WP1) the manifest name is resolved in `workspace.naming`, and
+  Under AD-09 (P0330-WP1), the manifest name is resolved in `workspace.naming`, and
   this module registers the rebuild with `workspace.storage` when it loads,
   which calls it through that registry: the workspace row imports nothing of
   the run row above it.
@@ -1495,7 +1487,7 @@ and a swept advance ratio is planned; the two quasi-steady tables state the
 clock columns and, where the row requested none, the advance ratio from the
 rotor's own speed and diameter. The requirements of the capabilities of
 0.25.0 to 0.31.0 are written, and every capability bullet of the change log
-from 0.25.0 on names the requirement that states it, which a tier-1 test
+in the requirement-traced release series (0.25.0 and later) names the requirement that states it, which a tier-1 test
 holds. The documentation site is organized by task, each run type and topic
 on a page of its own.
 
@@ -1757,7 +1749,7 @@ The second wave of 0.34.0, as integrated into `rel/0-34`:
 This section records what 0.35.0 changes in the structure above and the limit
 each change keeps, measured on the merged tree of the release against v0.34.0
 (`reports/RPT-144` and `reports/RPT-145`, from `scripts/arch_metrics.py`). The
-tracked package holds 260 modules, of which 24 were created since v0.34.0; the
+tracked package holds 260 modules, of which 24 are absent from the v0.34.0 baseline; the
 largest module holds 1.9 percent of the code lines and the number of modules
 over 2000 code lines is zero. `workspace_to_run_imports`
 is 0 in the record, so the rule that the workspace layer never imports the run

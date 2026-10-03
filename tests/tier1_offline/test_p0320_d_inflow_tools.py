@@ -26,6 +26,7 @@ from pyflightstream.post import inflow_tools
 from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace import fields as wfields
 from pyflightstream.workspace.cli import main
+from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -220,7 +221,7 @@ def test_p0320_installed_frame_keeps_the_alias_line_and_flips_named_columns(tmp_
 
 def test_p0320_installed_frame_classification_has_one_home_the_definitions_page():
     """P0320-INSTALLED-FRAME: the page's table and the code's one list are the same list."""
-    page = (ROOT / "docs" / "post-processing-definitions.md").read_text(encoding="utf-8")
+    page = (DEFINITION_DOCS).read_text(encoding="utf-8")
     section = page.split("## The installed-frame copy", 1)[1].split("\n## ", 1)[0]
     listed = re.findall(r"^\| `([^`]+)` \| (flip|azimuth|keep) \|", section, flags=re.M)
     assert listed, "the definitions page carries no classification table"

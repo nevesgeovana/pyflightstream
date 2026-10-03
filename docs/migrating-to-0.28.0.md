@@ -1,5 +1,7 @@
 # Migrating to 0.28.0
 
+> Frozen record: not edited after its release.
+
 This release adds capabilities a user reaches from the matrix, the command line
 and the input files, and refuses a few inputs that were accepted without doing
 what they said. Recorded run manifests are read without rewriting them. What

@@ -40,4 +40,4 @@ next command. These are refused, each naming the key and the inventory:
 26.100, whose command takes no blade count, none is written. A row that creates
 no rotor motion is refused when the key is stated.
 
-Leaving either key out changes nothing about a setup written before 0.32.0.
+Leaving either key out preserves the saved simulation's corresponding setting.
