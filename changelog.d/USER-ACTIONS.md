@@ -1,0 +1,5 @@
+## Fixed
+
+- **A polar whose setup states `unsteady_solver_actions` now joins a grouped job** (`plan --batch`, `plan --polar-sweep`) instead of being left out (FR-405). The split groups polars by their set of user actions beside processor count and build, so a job holds one set; the job registers that set once, before the package's own counter and clock, as a point run alone does, and keeps each user action's lines as the setup wrote them. A job mixing two sets is refused by the assembler (FR-405).
+- **A `SCRIPT` user action named by a relative file is the one exception**: it is left out of the grouping by name, because each point run alone reads its own copy and one registration in one instance can name only one file; the plan also warns, per job running user actions, that a `COMMAND_LINE` action runs from the job's folder (FR-405).
+- **The refusal of a geometry carrying saved solver actions stays**, with its reason re-examined and stated: a saved action runs beside the job's own and survives into every later polar, so the job's step counter would count wrong; `pyfs-matrix inventory <file> --clean` removes them (FR-378).

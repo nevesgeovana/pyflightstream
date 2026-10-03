@@ -160,7 +160,8 @@ its user and are never part of the package.
 
 `pyfs-matrix plan --batch N` plans the unsteady polars as N solver jobs, and
 `plan --polar-sweep` as one job for each polar (FR-362). The plan groups the
-polars by processor count and build, so that no job mixes two builds, and cuts
+polars by processor count, build and the setup's own `unsteady_solver_actions`,
+so that no job mixes two builds or two sets of user actions (FR-405), and cuts
 each group into contiguous batches of whole polars so that the largest batch
 estimate is the smallest possible. It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
@@ -178,6 +179,41 @@ A job's script is `FULL-POLAR.txt`, at the root of the polar's simulation
 folder, or `BATCH-<first sim>-<last sim>.txt`, inside the batch's working
 directory `sims/batch/<matrix>_b<ID>/`, where `<ID>` is assigned by the
 package and never typed (FR-357, FR-358).
+
+### The setup's own unsteady solver actions in a grouped job
+
+A polar whose setup states `[[unsteady_solver_actions]]` joins a grouped job
+(FR-405, 0.35.1). Inside one solver instance an action, once registered, runs
+after every time step of every later point: it survives the re-initialization
+between two points and the `NEW_SIMULATION` between two polars, a second
+registration makes it run twice a step, and no solver command withdraws it.
+So the plan puts in one job only polars that state the same actions (the same
+type, name and file, in the same order), and the job registers them once, at
+its start, before the package's own counter and clock, which is the order a
+point run alone registers them in. Each point therefore runs exactly the
+actions its own setup states, once a step.
+
+Two things differ from a point run alone, and the plan says so:
+
+- `--batch N` can plan more jobs than N, one per set of actions at least, and
+  warns when it does.
+- The working directory of the whole job is the job's folder, where a point run
+  alone runs from its own datapoint folder. A `COMMAND_LINE` action whose
+  command reads or writes a relative path finds it there; the plan warns, for
+  each job that runs user actions, naming its polars. A `SCRIPT` action named
+  by a relative file is left out of the grouping by name, because each point run
+  alone reads its own copy of that file and one registration can name only one;
+  state the file as an absolute path to group it.
+
+### A geometry that carries saved actions
+
+A grouped plan still refuses a polar whose geometry is a saved simulation that
+carries unsteady solver actions, naming the file and the command that removes
+them, `pyfs-matrix inventory <file> --clean` (FR-378). Opening such a file loads
+its actions, which then run beside the ones the job registers (twice the runtime
+commands in the licensed measurement) and survive into every later polar of the
+job; the job's step counter, which must fire once a step to tell the points
+apart, would count wrong. The cleaned file groups like any other.
 
 ### The walltime of a grouped job
 
