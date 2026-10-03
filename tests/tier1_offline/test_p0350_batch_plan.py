@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases.acoustics import ACOUSTIC_SOURCES_VARIABLE
 from pyflightstream.cases.workflows import WORKFLOW_KEY, workflow_registry
 from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run._batch_plan import eligibility, grouping_table_lines, plan_grouped_matrix
@@ -243,11 +242,12 @@ def test_p0350_plan_fr378_a_geometry_with_saved_actions_is_refused(tmp_path):
 
 
 def test_p0350_plan_fr379_left_out_polars_are_named(tmp_path):
-    """P0350-BATCH-TABLE (FR-379): steady, RESTART and acoustic rows are named with their reasons.
+    """P0350-BATCH-TABLE (FR-379): steady and RESTART rows are named with their reasons.
 
-    The steady row is a real row of the matrix and is left out of the receipt; the RESTART and
-    acoustic rows are judged by ``eligibility`` on their cases. The default plan of the same
-    matrix carries no ``grouping`` key.
+    The steady row is a real row of the matrix and is left out of the receipt; the RESTART row is
+    judged by ``eligibility`` on its case. An acoustic row joins since 0.35.1 (FR-406,
+    ``test_p0351_batch_acoustic.py``). The default plan of the same matrix carries no
+    ``grouping`` key.
     """
     workspace, matrix = _fixture(tmp_path, walltimes=("1h", "1h"), sweep="0.0")
     text = matrix.read_text(encoding="utf-8").replace("unsteady_rotor |", "steady         |", 1)
@@ -258,11 +258,9 @@ def test_p0350_plan_fr379_left_out_polars_are_named(tmp_path):
     assert [job.sims for job in plan.grouping.jobs] == [("7002",)]
     restart = _continuing_case("{FINISH_PENDING}")
     assert "RESTART" in str(eligibility(restart, workspace=workspace, version="26.124"))
-    acoustic = _continuing_case("{FINISH_PENDING}").model_copy(
-        update={"variables": {WORKFLOW_KEY: "unsteady", ACOUSTIC_SOURCES_VARIABLE: "DISABLE"}}
+    plain = _continuing_case("{FINISH_PENDING}").model_copy(
+        update={"variables": {WORKFLOW_KEY: "unsteady"}}
     )
-    assert "acoustic" in str(eligibility(acoustic, workspace=workspace, version="26.124"))
-    plain = acoustic.model_copy(update={"variables": {WORKFLOW_KEY: "unsteady"}})
     assert eligibility(plain, workspace=workspace, version="26.124") is None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)

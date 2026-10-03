@@ -87,6 +87,13 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     row whose setup states a SCRIPT ``unsteady_solver_actions`` entry by a relative file,
     and a build that does not document the unsteady action command.
 
+    An acoustic row and a coupled (FSI) row join since 0.35.1 (FR-406, FR-407): the job restates
+    each point's acoustic setup and enters each coupled point by ``NEW_SIMULATION``
+    (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
+    quasi-steady coupled row stays out under the first reason: its script ends at
+    ``EXECUTE_AEROELASTIC_ANALYSIS``, which returns at once and is ended by any line after it, so
+    no point can follow it in one instance. ``unsteady_rotor`` refuses FSI when it builds.
+
     A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
     0.35.1): the split puts it only with polars stating the same actions, and the job registers
     them once, before the package's actions, as the point run alone does. A user action cannot

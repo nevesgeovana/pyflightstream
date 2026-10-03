@@ -60,6 +60,8 @@ __all__ = [
 
 #: The suffix of a point's declared solver log, read off the export table.
 _LOG_SUFFIX = next(suffix for kind, suffix, *_ in EXPORT_KINDS if kind == "log")
+#: The provenance a coupled point stages, which its record digests (FR-407).
+_FSI_PROVENANCE = "fsi-provenance.json"
 
 Observer = Callable[[Iterable[Path]], Mapping[str, Any]]
 Settled = Callable[[Mapping[str, Any], Mapping[str, Any]], bool]
@@ -355,13 +357,26 @@ class _Job:
     failed: list[tuple[str, str]] = field(default_factory=list)
 
     def polar_start(self, record: RunRecord) -> int:
-        """Return the order of the first point of the record's polar (its simulation)."""
+        """Return the order of the segment the record's log takes its preamble from.
+
+        The first point of the record's polar (its simulation), or the record's
+        own order for a coupled point: it entered by ``NEW_SIMULATION`` and its
+        whole text (FR-407), so its own segment opens the model.
+        """
+        own = job_of(record)
+        if own is not None and _coupled(record):
+            return own["order"]
         orders = [
             entry["order"]
             for member in self.members
             if member.sim_id == record.sim_id and (entry := job_of(member)) is not None
         ]
         return min(orders) if orders else 1
+
+
+def _coupled(record: RunRecord) -> bool:
+    """Whether a point coupled its structure: it staged the FSI provenance (FR-407)."""
+    return any(PurePosixPath(name).name == _FSI_PROVENANCE for name in record.inputs_sha256)
 
 
 def _not_started(

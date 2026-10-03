@@ -1,4 +1,10 @@
 {
+  "P0351-BATCH-ACOUSTIC": [
+    "FR-406"
+  ],
+  "P0351-BATCH-FSI": [
+    "FR-407"
+  ],
   "P0351-BATCH-TAVG": [
     "FR-402"
   ],

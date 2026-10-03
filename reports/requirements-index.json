@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 353,
-  "total": 412,
+  "cited_by_a_test": 355,
+  "total": 414,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3014,6 +3014,22 @@
    "status": "implemented",
    "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): 0.35.0 left every polar whose setup states unsteady_solver_actions out of --batch and --polar-sweep. Evidence: tests/tier1_offline/test_p0351_batch_user_actions.py::test_p0351_user_actions_fr405_registered_once_in_the_alone_order_and_as_written, ::test_p0351_user_actions_fr405_a_job_of_one_set_only, ::test_p0351_user_actions_fr405_the_split_groups_by_action_set, ::test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script, ::test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder, ::test_p0351_user_actions_fr405_records_equal_the_points_run_alone.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-406",
+   "text": "Need: An acoustic polar must run in a --batch or --polar-sweep job and leave, at each point, what the same point run alone leaves.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): the grouped plan of 0.35.0 left an acoustic polar out because its section folder in one instance was not measured.*",
+   "verification": "review"
+  },
+  {
+   "id": "FR-407",
+   "text": "Need: A coupled polar on unsteady must run in a --batch or --polar-sweep job and leave, at each point, what the same point run alone leaves. Its coupling loop runs inside the solver instance (the solver runs the post-processing script and then the structural program once per time step, in the point's working directory), so no step of it needs Python between two solver passes outside the instance.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): the grouped plan of 0.35.0 left a coupled polar out because a coupled run was not grouped in that release.*",
+   "verification": "review"
   },
   {
    "id": "NFR-01",
