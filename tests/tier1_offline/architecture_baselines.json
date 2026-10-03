@@ -4,7 +4,6 @@
   "post/corrections.py": 1005,
   "post/input_template.py": 1455,
   "run/matrix.py": 1279,
-  "workspace/__init__.py": 1601,
   "workspace/storage.py": 1487
  },
  "function_lines": {
@@ -841,12 +840,6 @@
    "statements": 47,
    "positional": 1
   },
-  "workspace/__init__.py:CampaignWorkspace._manifest_lock": {
-   "complexity": 30,
-   "branches": 9,
-   "statements": 104,
-   "positional": 1
-  },
   "workspace/__init__.py:CampaignWorkspace.collect_outputs": {
    "complexity": 15,
    "branches": 14,
@@ -1278,6 +1271,12 @@
    "branches": 6,
    "statements": 15,
    "positional": 6
+  },
+  "workspace/manifest.py:manifest_lock": {
+   "complexity": 30,
+   "branches": 9,
+   "statements": 104,
+   "positional": 1
   }
  },
  "baseline_sccs": [
@@ -1439,7 +1438,7 @@
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
   "script/__init__.py": 1954,
-  "workspace/__init__.py": 3625
+  "workspace/__init__.py": 2045
  },
  "facade_definitions": {
   "fsi/__init__.py": [

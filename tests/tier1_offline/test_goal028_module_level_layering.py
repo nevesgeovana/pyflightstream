@@ -132,6 +132,7 @@ _LEGITIMATE = {
     # the same-row shape is a sibling module of the workspace row itself.
     "same row": "from pyflightstream.workspace import storage\n",
     "downward": "from pyflightstream.cases import matrix\nimport pyflightstream.versions\n",
+    "downward workflows (AD-19 ARCH-3)": "import pyflightstream.cases.workflows\n",
     "floor module": "from pyflightstream._errors import PyflightstreamError\n",
     "side branch": "import pyflightstream.fsi\n",
     "third party": "import numpy as np\n",

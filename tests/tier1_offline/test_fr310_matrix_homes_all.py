@@ -258,7 +258,7 @@ def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
         if pattern.search(path.read_text(encoding="utf-8"))
     ]
     # The control is the one home itself, which the same pattern must find.
-    assert hits == ["src/pyflightstream/workspace/__init__.py"], (requirement, hits)
+    assert hits == ["src/pyflightstream/workspace/_layout.py"], (requirement, hits)
 
 
 #: Each command as ``main`` receives it, ``post --additional-pproc`` among them.

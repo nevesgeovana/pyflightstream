@@ -256,6 +256,7 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.inputs",
     # 0.35.0 (FR-388): the ledger, the Python mirror of the query verbs.
     "pyflightstream.workspace.ledger",
+    "pyflightstream.workspace.manifest",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
     # v0.23.0 item 14: the migration that moves a workspace's polar products
