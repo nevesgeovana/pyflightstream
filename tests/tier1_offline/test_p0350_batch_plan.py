@@ -243,18 +243,20 @@ def test_p0350_plan_fr378_a_geometry_with_saved_actions_is_refused(tmp_path):
 
 
 def test_p0350_plan_fr379_left_out_polars_are_named(tmp_path):
-    """P0350-BATCH-TABLE (FR-379): steady, RESTART and acoustic rows are named with their reasons.
+    """P0350-BATCH-TABLE (FR-379): warm steady, RESTART and acoustic rows are named with reasons.
 
-    The steady row is a real row of the matrix and is left out of the receipt; the RESTART and
-    acoustic rows are judged by ``eligibility`` on their cases. The default plan of the same
-    matrix carries no ``grouping`` key.
+    The warm steady row (``COLD_START`` false; a cold steady row joins since 0.35.1, FR-403)
+    is a real row of the matrix and is left out of the receipt; the RESTART and acoustic rows
+    are judged by ``eligibility`` on their cases. The default plan of the same matrix carries
+    no ``grouping`` key.
     """
     workspace, matrix = _fixture(tmp_path, walltimes=("1h", "1h"), sweep="0.0")
     text = matrix.read_text(encoding="utf-8").replace("unsteady_rotor |", "steady         |", 1)
+    text = text.replace("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / COLD_START: false", 1)
     matrix.write_text(text, encoding="utf-8")
     plan = _plan(workspace, matrix, batch=2)
     assert [item["sim"] for item in plan.grouping.left_out] == ["7001"]
-    assert "unsteady rows only" in plan.grouping.left_out[0]["reason"]
+    assert "COLD_START false" in plan.grouping.left_out[0]["reason"]
     assert [job.sims for job in plan.grouping.jobs] == [("7002",)]
     restart = _continuing_case("{FINISH_PENDING}")
     assert "RESTART" in str(eligibility(restart, workspace=workspace, version="26.124"))
