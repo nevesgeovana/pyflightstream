@@ -6,7 +6,6 @@
   "post/input_template.py": 1455,
   "run/matrix.py": 1279,
   "workspace/__init__.py": 1601,
-  "workspace/matrix.py": 1376,
   "workspace/storage.py": 1487
  },
  "function_lines": {
@@ -937,30 +936,6 @@
    "complexity": 24,
    "branches": 23,
    "statements": 63,
-   "positional": 2
-  },
-  "workspace/matrix.py:_bind_setup_ports": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 34,
-   "positional": 2
-  },
-  "workspace/matrix.py:_registered_build": {
-   "complexity": 3,
-   "branches": 3,
-   "statements": 8,
-   "positional": 6
-  },
-  "workspace/matrix.py:_solver_from_setup": {
-   "complexity": 20,
-   "branches": 21,
-   "statements": 59,
-   "positional": 2
-  },
-  "workspace/matrix.py:resolve_matrix": {
-   "complexity": 24,
-   "branches": 24,
-   "statements": 92,
    "positional": 2
   },
   "workspace/naming.py:_values": {
