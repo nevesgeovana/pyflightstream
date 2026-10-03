@@ -20,8 +20,6 @@ added after it:
 Every expected number is worked by hand from the definitions and the
 fixture's own values, never read off the implementation.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-166, FR-167.
 
 from __future__ import annotations
 
@@ -95,6 +93,7 @@ def test_a_blade_named_by_an_alias_of_the_row_is_present(tmp_path):
     assert lines.count("START_SOLVER") == 1
 
 
+@pytest.mark.requirement("FR-166")
 def test_a_point_with_no_free_stream_and_no_rotation_says_so_and_does_not_raise():
     """V = 0 and RPM = 0: V_rel = 0 everywhere, k is 0 / 0; the plan asks it anyway."""
     # P0300-QS-VALIDITY-PLAN
@@ -632,6 +631,7 @@ def test_the_plan_command_line_takes_inflow_fft(monkeypatch):
     assert seen.get("inflow_fft") is True
 
 
+@pytest.mark.requirement("FR-167")
 def test_the_plan_through_the_campaign_carries_the_inflow_harmonics(tmp_path):
     """plan_campaign(inflow_fft=True) puts the record on the point and its summary line."""
     # P0300-QS-VALIDITY-PLAN

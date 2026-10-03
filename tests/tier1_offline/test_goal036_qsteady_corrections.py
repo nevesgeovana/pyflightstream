@@ -15,12 +15,9 @@ raw row and the written harmonic product; the route 2 offsets are the difference
 of the two rotor table rows turned into newtons with ``rho n^2 D^4``. Nothing
 expected is read off the module under test.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-185, FR-186.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import warnings
@@ -55,6 +52,7 @@ from pyflightstream.post.products import read_csv_table
 from pyflightstream.workspace import INPUT_KINDS, CampaignWorkspace, RunRecord
 
 # ---------------------------------------------------------------- helpers
+from tests.support_helpers import file_sha256 as _sha
 
 
 def _row(component: str, j: float, alpha: float, k: float, *coefficients: float) -> str:
@@ -81,10 +79,6 @@ def _grid_text() -> str:
     return text
 
 
-def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 # ------------------------------------------------ the calibration file (schema)
 
 
@@ -96,6 +90,7 @@ def test_init_creates_the_calibrations_folder_like_the_free_streams(tmp_path):
     assert (workspace.inputs_dir / "calibrations").is_dir()
 
 
+@pytest.mark.requirement("FR-185")
 def test_inside_a_2x2x2_grid_the_coefficients_are_interpolated_multilinearly():
     """At (J, ALPHA, K_1P) = (0.5, 1.0, 0.04) the trilinear offset is 3.4 exactly.
 
@@ -519,6 +514,7 @@ def test_every_corrected_file_states_its_route_and_calibration_and_that_it_is_no
         assert ("Fx", json.dumps({"J": [0.5], "ALPHA": [0.0], "K_1P": [0.1, 0.3]})) in cells
 
 
+@pytest.mark.requirement("FR-186")
 def test_the_theodorsen_diagnostic_sits_beside_the_harmonics_and_corrects_nothing(
     tmp_path, monkeypatch
 ):

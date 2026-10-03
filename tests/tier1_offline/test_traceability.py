@@ -84,7 +84,10 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: Raised from 23 to 24 on 2026-09-30, for FR-320: the plan's warning for a
 #: family a row's geometry does not carry, shown falsifying by a mutant that
 #: removes the noting and leaves the plan silent again.
-MARKED_FLOOR = 24
+#: Raised from 24 to 201 on 2026-10-03 for FRID: existing module citations
+#: now mark the individual tests whose assertions prove them. Context-only
+#: citations stay in the explicit leftover list rather than gaining a marker.
+MARKED_FLOOR = 201
 
 
 def _marked() -> dict[str, list[str]]:

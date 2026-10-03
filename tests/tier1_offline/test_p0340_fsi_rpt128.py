@@ -16,8 +16,6 @@ change in src/ (the export order, FR-338 R2; the warning on every coupled run, F
 the post-release allowlist; the first and fifth tests fail on them by design, naming the release
 that owes the change.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-338, FR-340.
 
 from __future__ import annotations
 

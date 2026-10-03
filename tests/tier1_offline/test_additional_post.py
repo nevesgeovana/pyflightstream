@@ -47,8 +47,6 @@ The module imports the functions of the additional post through their module
 at call time rather than by name at the top, so on a tree without them each
 test fails on its own line instead of the whole file failing to collect.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-157, FR-163.
 
 from __future__ import annotations
 
@@ -787,6 +785,7 @@ def test_g12_a_row_whose_frames_changed_since_the_run_is_skipped(tmp_path):
 NAC_FRAME = '\n[[frames]]\nname = "NAC"\norigin = [0.42, 0.0, 0.11]\nx_axis = {x}\ny_axis = {y}\n'
 
 
+@pytest.mark.requirement("FR-163")
 def test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped(tmp_path):
     """The reference's NAC keeps its name and origin and turns 90 degrees about z after the run.
 
@@ -1096,6 +1095,7 @@ def test_g12_an_unsteady_point_is_one_instant_and_says_so(tmp_path):
     assert any(name.endswith("_plots.txt") for name in record.outputs), record.outputs
 
 
+@pytest.mark.requirement("FR-157")
 def test_g23_a_workspace_that_submits_records_pending_extractions(tmp_path):
     """Scheduler acceptance records a pending extraction, not completed exports."""
 

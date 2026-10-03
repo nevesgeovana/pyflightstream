@@ -24,8 +24,6 @@ What is held here, and against what:
   generated blade deflects and twists as E I and G J say, which a
   modulus applied twice would miss by a factor of E.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-127.
 
 from __future__ import annotations
 
@@ -123,6 +121,7 @@ def _rectangle_torsion(width: float, height: float) -> float:
 # --- exact area properties ----------------------------------------------------
 
 
+@pytest.mark.requirement("FR-127")
 def test_a_rectangle_off_the_origin_has_its_closed_form_moments():
     width, height, x0, z0 = 0.13, 0.021, -0.04, 0.007
     moments = polygon_area_moments(_rectangle(width, height, x0, z0))

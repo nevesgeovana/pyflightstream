@@ -31,8 +31,6 @@ the rotations, ``PROFILE`` into the resolved file, ``RESTART`` into the owed
 step count) is varied where the builder reads it, and each such variation says
 which field stands for the key.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-164.
 
 from __future__ import annotations
 
@@ -992,6 +990,10 @@ def test_every_variation_builds_a_script_on_some_build(measured):
     assert not idle, "these variations build no script on any build:\n  " + "\n  ".join(idle)
 
 
+@pytest.mark.requirement("FR-317")
+@pytest.mark.requirement("FR-319")
+@pytest.mark.requirement("FR-321")
+@pytest.mark.requirement("FR-323")
 def test_a_row_saying_a_key_sets_something_names_a_key_whose_value_reaches_the_script(
     measured, meanings
 ):
@@ -1037,6 +1039,7 @@ REFUSED_IN_THIS_RELEASE = {
 }
 
 
+@pytest.mark.requirement("FR-164")
 def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meanings):
     """A key refused whatever its value: its row says so, and every build refuses it.
 

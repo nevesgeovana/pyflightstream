@@ -31,6 +31,7 @@ def _block_the_archive(root):
     (root / "archive").write_text("a file where the folder should be", encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-294")
 def test_p0320_restore_archive_the_storage_writer_writes_when_the_copy_fails_fr_294(tmp_path):
     """P0320-RESTORE-ARCHIVE: a blocked archive folder warns and the storage record is written."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -51,6 +52,7 @@ def test_p0320_restore_archive_the_additional_writer_writes_when_the_copy_fails_
     assert [r.extraction_id for r in workspace.read_additional()] == ["e1", "e2"]
 
 
+@pytest.mark.requirement("FR-293")
 def test_p0320_restore_archive_a_rename_archives_the_plan_it_rewrites_fr_293(tmp_path):
     """P0320-RESTORE-ARCHIVE: rename keeps the plan it rewrote, so `restore plan` brings it back."""
     workspace, _, _ = _ran(tmp_path)

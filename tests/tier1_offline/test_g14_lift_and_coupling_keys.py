@@ -11,8 +11,6 @@ that does not carry the command refuses the row at plan, naming the build. On
 database records that on their 26.124 rows, so a 26.124 row stating either key is
 refused naming the report instead of stopping mid-run.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-114.
 
 from __future__ import annotations
 
@@ -47,6 +45,7 @@ def _render(case, build: str) -> list[str]:
     return script.render().splitlines()
 
 
+@pytest.mark.requirement("FR-114")
 @pytest.mark.parametrize("workflow", sorted(MAKERS))
 @pytest.mark.parametrize(("value", "token"), [("true", "ENABLE"), ("false", "DISABLE")])
 def test_g14_vorticity_lift_model_emits_its_command_before_the_solver_is_initialised(

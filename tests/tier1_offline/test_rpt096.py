@@ -11,6 +11,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 STEM = "RPT-096_probe-round-1-on-26124_2026-09-30"
 MD = REPO / "reports" / f"{STEM}.md"
@@ -42,6 +44,7 @@ PROBES = (
 )
 
 
+@pytest.mark.requirement("NFR-31")
 def test_rpt096_names_the_build_the_hash_and_the_release():
     text = MD.read_text(encoding="utf-8")
     assert "26.124" in text and "8172026" in text and WITHHELD_WORDS in text

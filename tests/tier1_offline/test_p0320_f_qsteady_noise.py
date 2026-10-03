@@ -48,6 +48,7 @@ def _bessel(order: int, argument: float) -> float:
 # --------------------------------------------------------------------------- FR-301
 
 
+@pytest.mark.requirement("FR-301")
 def test_a_series_is_recovered_from_its_samples_fr_301():
     azimuths = np.arange(12) * 30.0 + 7.0
     psi = np.radians(azimuths)
@@ -65,6 +66,7 @@ def test_a_series_is_recovered_from_its_samples_fr_301():
     assert series.slope(probe) == pytest.approx(slope, abs=1e-12)
 
 
+@pytest.mark.requirement("FR-301")
 def test_a_series_refuses_more_harmonics_than_its_samples_carry_fr_301():
     azimuths = [0.0, 120.0, 240.0]
     assert len(qn.fit_azimuthal_series(azimuths, [1.0, 2.0, 3.0]).cosines) == 1
@@ -92,6 +94,7 @@ def _placed_loads(psi_deg, axial, tangential, radial, r_axial, r_inplane, axis, 
     return force, moment
 
 
+@pytest.mark.requirement("FR-301")
 def test_a_wheel_s_clockings_give_back_the_blade_load_against_azimuth_fr_301():
     axis, reference = (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)
     blades, positions = 3, 4
@@ -117,6 +120,7 @@ def test_a_wheel_s_clockings_give_back_the_blade_load_against_azimuth_fr_301():
     assert load.inplane_radius_m == pytest.approx(0.6, rel=1e-9)
 
 
+@pytest.mark.requirement("FR-301")
 def test_the_components_of_one_placed_blade_fr_301():
     force, moment = _placed_loads(30.0, 5.0, -2.0, 0.5, 1.2, 0.9, (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
     parts = qn.rotating_components(
@@ -132,6 +136,7 @@ def test_the_components_of_one_placed_blade_fr_301():
     )
 
 
+@pytest.mark.requirement("FR-301")
 def test_a_load_without_a_mean_force_has_no_centroid_fr_301():
     force, moment = _placed_loads(0.0, 0.0, 1.0, 0.0, 1.0, 1.0, (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
     with pytest.raises(ProductError, match="axial"):
@@ -152,6 +157,7 @@ def test_a_load_without_a_mean_force_has_no_centroid_fr_301():
 # --------------------------------------------------------------------------- FR-302
 
 
+@pytest.mark.requirement("FR-302")
 def test_the_emission_time_of_a_source_at_rest_fr_302():
     times = np.array([0.0, 0.01, 0.5])
     observer = np.tile([3.0, 4.0, 0.0], (3, 1))
@@ -161,6 +167,7 @@ def test_the_emission_time_of_a_source_at_rest_fr_302():
     assert tau == pytest.approx(times - 5.0 / C0, abs=1e-13)
 
 
+@pytest.mark.requirement("FR-302")
 def test_the_emission_time_of_a_source_in_uniform_motion_fr_302():
     start, velocity = np.array([0.0, -2.0, 1.0]), np.array([120.0, 30.0, 0.0])
     listener = np.array([10.0, 5.0, -3.0])
@@ -182,6 +189,7 @@ def test_the_emission_time_of_a_source_in_uniform_motion_fr_302():
     assert tau == pytest.approx(expected, abs=1e-12)
 
 
+@pytest.mark.requirement("FR-302")
 def test_the_emission_time_of_a_rotating_blade_and_a_moving_observer_fr_302():
     motion = qn.RotorMotion(
         blades=1,
@@ -202,6 +210,7 @@ def test_the_emission_time_of_a_rotating_blade_and_a_moving_observer_fr_302():
     assert distance == pytest.approx(C0 * (times - tau), abs=1e-9)
 
 
+@pytest.mark.requirement("FR-302")
 def test_a_supersonic_source_is_refused_fr_302():
     with pytest.raises(ProductError, match="subsonic"):
         qn.emission_times(
@@ -216,6 +225,7 @@ def test_a_supersonic_source_is_refused_fr_302():
 # --------------------------------------------------------------------------- FR-300
 
 
+@pytest.mark.requirement("FR-300")
 def test_a_point_force_at_rest_gives_the_exact_dipole_field_fr_300():
     omega, amplitude = 90.0, 7.0
     source = qn.PointForce(
@@ -238,6 +248,7 @@ def test_a_point_force_at_rest_gives_the_exact_dipole_field_fr_300():
     assert pressure == pytest.approx(exact, rel=1e-12, abs=1e-15)
 
 
+@pytest.mark.requirement("FR-300")
 @pytest.mark.parametrize("force", [(30.0, 0.0, 0.0), (0.0, 0.0, 30.0), (12.0, -5.0, 20.0)])
 def test_a_steady_force_in_uniform_motion_gives_the_convected_dipole_fr_300(force):
     # Source and observer carried at one velocity through the medium at rest: the
@@ -267,6 +278,7 @@ def test_a_steady_force_in_uniform_motion_gives_the_convected_dipole_fr_300(forc
     assert pressure == pytest.approx(np.full(times.size, exact), rel=1e-10)
 
 
+@pytest.mark.requirement("FR-300")
 def test_an_unloaded_moving_blade_is_silent_the_model_has_no_thickness_term_fr_300():
     motion = qn.RotorMotion(
         blades=2,
@@ -285,6 +297,7 @@ def test_an_unloaded_moving_blade_is_silent_the_model_has_no_thickness_term_fr_3
 # --------------------------------------------------------------------------- FR-303
 
 
+@pytest.mark.requirement("FR-303")
 @pytest.mark.parametrize(
     ("axial", "tangential", "theta_deg"),
     [
@@ -342,6 +355,7 @@ def test_steady_rotor_harmonics_match_the_gutin_closed_form_fr_303(axial, tangen
         assert _dft_rms(pressure, 2) < 1e-12
 
 
+@pytest.mark.requirement("FR-303")
 def test_a_thrust_alone_is_silent_in_the_plane_of_the_disc_in_the_far_field_fr_303():
     closed = qn.gutin_harmonic_rms(
         3,
@@ -358,6 +372,7 @@ def test_a_thrust_alone_is_silent_in_the_plane_of_the_disc_in_the_far_field_fr_3
     assert closed == pytest.approx(0.0, abs=1e-15)
 
 
+@pytest.mark.requirement("FR-303")
 def test_an_observer_moving_with_the_hub_on_the_axis_hears_a_constant_fr_303():
     velocity = (-50.0, 0.0, 0.0)
     motion = qn.RotorMotion(
@@ -380,6 +395,7 @@ def test_an_observer_moving_with_the_hub_on_the_axis_hears_a_constant_fr_303():
 # --------------------------------------------------------------------------- FR-304
 
 
+@pytest.mark.requirement("FR-304")
 def test_the_comparison_measures_fr_304():
     t = np.linspace(0.0, 1.0, 50)
     reference = 0.3 + np.sin(2 * np.pi * t)
@@ -397,6 +413,7 @@ def test_the_comparison_measures_fr_304():
         qn.compare_signals(reference, reference[:-1])
 
 
+@pytest.mark.requirement("FR-304")
 def test_the_workspace_writer_is_not_wired_and_still_refuses_fr_304():
     with pytest.raises(ContractNotImplementedError, match="not implemented yet"):
         qn.write_qsteady_noise_report(".")
@@ -414,6 +431,7 @@ _DIMENSIONAL = re.compile(
 )
 
 
+@pytest.mark.requirement("FR-304")
 def test_rpt099_and_its_sidecar_state_only_nondimensional_values_fr_304():
     paths = [REPORTS / f"{RPT099}.md", REPORTS / f"{RPT099}.json"]
     assert all(path.is_file() for path in paths), paths

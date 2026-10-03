@@ -136,6 +136,8 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
+from tests.support_helpers import file_sha256 as _sha256
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "goal033-release-receipt/1"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -211,10 +213,6 @@ def _receipt(variable: str) -> dict:
     if not location:
         pytest.skip(f"set {variable} to the recorded receipt (schema in this module's docstring)")
     return json.loads(Path(location).read_text(encoding="utf-8"))
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _hashed_file(path: object, digest: object, what: str) -> Path:

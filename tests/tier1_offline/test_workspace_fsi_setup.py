@@ -1,5 +1,4 @@
 # The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-155.
 import json
 from pathlib import Path
 
@@ -35,6 +34,7 @@ geometric_pitch_deg = [0.0, 0.0]
 """
 
 
+@pytest.mark.requirement("FR-155")
 def test_matrix_factor_replaces_file_factor_once(tmp_path: Path) -> None:
     # GOAL033:fsi:checks:matrix_calibration
     path = tmp_path / "f001.toml"

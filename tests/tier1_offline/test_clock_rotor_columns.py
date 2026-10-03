@@ -9,8 +9,6 @@ The pair is the CLOCK rotor's because a row may turn several rotors, each with i
 the one `CLOCK_MOTION` names, or the only one the row turns. The rotor table keeps `J_<alias>`
 per rotor.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-118.
 
 from __future__ import annotations
 
@@ -45,6 +43,7 @@ def test_the_columns_sit_beside_the_ratio_the_row_requested():
     assert FLIGHT_CONDITION_COLUMNS[-3:] == ("J", "J_CLOCK", "RPM_CLOCK")
 
 
+@pytest.mark.requirement("FR-118")
 def test_the_clock_rotor_is_the_one_the_row_names():
     """With several rotors, CLOCK_MOTION decides; one rotor needs no naming."""
     record = _Record({"rotors": {"PUSHER": {"rpm": -7585.0}, "LIFT": {"rpm": 1200.0}}})

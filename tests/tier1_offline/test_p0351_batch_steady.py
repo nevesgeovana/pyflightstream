@@ -549,6 +549,7 @@ NAMED = {
 }
 
 
+@pytest.mark.requirement("FR-366")
 def test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone(tmp_path):
     """P0351-BATCH-STEADY (FR-403): collect completes each steady point as the point alone.
 

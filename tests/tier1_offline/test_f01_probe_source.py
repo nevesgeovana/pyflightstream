@@ -1,6 +1,4 @@
 """F01: the run type selects the probe source for every declaration form."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-117, FR-153.
 
 from pathlib import Path
 
@@ -210,6 +208,7 @@ def test_steady_post_uses_probe_export_even_when_plots_exist(tmp_path, monkeypat
     assert {row["STEP"] for row in rows} == {"NA"}
 
 
+@pytest.mark.requirement("FR-117")
 def test_unsteady_post_never_reads_the_probe_instant(tmp_path, monkeypatch):
     # Patched where the probe-points writer looks it up (WP5 of 0.33.0 moved the
     # point tables out of post.products).
@@ -258,6 +257,7 @@ def _steady_field_case(tmp_path, profile):
     return _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc=spec)
 
 
+@pytest.mark.requirement("FR-153")
 def test_steady_field_expansion_refuses_a_surface_profile_row(tmp_path):
     # Q0 CX-2: a steady field request expands the cited profile into
     # NEW_PROBE_POINT VOLUME commands, so a TYPE 0 (surface) row would be

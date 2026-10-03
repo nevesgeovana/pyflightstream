@@ -139,6 +139,7 @@ def test_g56_workspace_fsi_inputs_give_calculated_or_supplied_beam_properties(tm
     )
 
 
+@pytest.mark.requirement("FR-153")
 def test_g61_a_probe_sampled_field_becomes_the_custom_inflow_of_another_run(tmp_path):
     """G61: a pproc probe grid with reusable_inflow samples velocity at the
     user's discretization; the sampled field is written as a reusable inflow

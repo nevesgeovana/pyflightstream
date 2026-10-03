@@ -38,6 +38,7 @@ def test_goal024_unregistered_build_flag_the_refusal_names_the_flag(tmp_path):
     assert ACCEPT_UNREGISTERED_BUILD_FLAG in message and "Nothing ran" in message
 
 
+@pytest.mark.requirement("FR-107")
 def test_goal024_unregistered_build_flag_accepting_warns_and_does_not_refuse(tmp_path):
     solver = IdentitySolver(build=OTHER_BUILD)
     with pytest.warns(VersionMismatchWarning) as warned:

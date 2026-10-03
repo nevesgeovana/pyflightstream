@@ -1,6 +1,4 @@
 """Workspace setup controls reach the curated emitter without losing evidence."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-150, FR-151.
 
 import tomllib
 
@@ -65,6 +63,7 @@ def test_additional_setup_fields_are_typed(field):
     assert field in SolverSettings.model_fields
 
 
+@pytest.mark.requirement("FR-150")
 def test_generated_library_resolves_and_preserves_user_files(tmp_path):
     # GOAL033:setup_bc:checks:typed_workspace
     """GOAL033:standards:checks:preserve_edits"""
@@ -324,6 +323,7 @@ def test_inspection_uses_resolved_setup_id_row_threads_and_shared_summary():
     assert "viscous_coupling=True" in summary and "aliases: wing" in summary
 
 
+@pytest.mark.requirement("FR-151")
 def test_full_inspection_and_saved_plan_share_the_same_resolved_records(tmp_path, capsys):
     # GOAL033:capability_ids:items:PFS-2029.24
     import json
@@ -398,7 +398,7 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
     from pyflightstream.cases.workflows._geometry import _open_geometry
     from pyflightstream.workspace.inputs import read_raw_mesh_conditions
     from pyflightstream.workspace.matrix import _bind_setup_ports
-    from tests.tier3_licensed.duct import write_duct_obj
+    from tests.support_tier3 import write_duct_obj
 
     fixture = write_duct_obj(tmp_path / "duct.obj")
     # The whole file, and separately its geometry lines. Only the leading comment

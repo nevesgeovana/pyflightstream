@@ -36,6 +36,7 @@ from pyflightstream.post.products import NOT_APPLICABLE
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from tests.support_helpers import file_sha256 as _sha256
 from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
@@ -266,10 +267,6 @@ def test_the_program_leaves_the_script_empty_until_the_count_reaches_the_thresho
 
 
 # --- the record after a stub run ----------------------------------------------------
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # The stub solver honors the loads export of the main script, then runs the
@@ -687,6 +684,7 @@ def test_goal019_watchdog_the_clock_pair_follows_the_counter_alone():
     ], requirement
 
 
+@pytest.mark.requirement("FR-98")
 def test_goal019_watchdog_the_clock_fires_once_and_says_where_it_stopped(tmp_path):
     """The program itself, run the way the solver runs it: once per step.
 

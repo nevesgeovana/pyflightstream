@@ -21,8 +21,6 @@ a table or a key the generator stopped writing.
 D08 is the citation: the user guide and the workflows page name the page, and
 the docs site renders it from the same function.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-123.
 
 from __future__ import annotations
 
@@ -241,6 +239,7 @@ def page() -> dict[tuple[str, str], list[tuple[str, list[str]]]]:
     return parsed_page(guides.input_glossary_markdown())
 
 
+@pytest.mark.requirement("FR-123")
 def test_every_registered_key_has_exactly_one_row(page):
     """THE EXIT OF G08: a key of any registry is a row of the page, once.
 

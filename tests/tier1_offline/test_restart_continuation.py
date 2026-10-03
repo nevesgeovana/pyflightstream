@@ -69,6 +69,7 @@ def test_goal020_restart_all_three_forms_still_parse(written):
     assert request is not None
 
 
+@pytest.mark.requirement("FR-96")
 def test_goal020_restart_finish_pending_subtracts_what_the_run_reached():
     """FINISH_PENDING is the remainder, which is the whole reason the key exists."""
     request = parse_restart(_continuing_case("{FINISH_PENDING}"))

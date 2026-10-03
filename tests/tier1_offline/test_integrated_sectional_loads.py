@@ -1,6 +1,4 @@
 """Integrated strips use exported positions and retain each instantaneous row."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-116.
 
 from __future__ import annotations
 
@@ -145,6 +143,7 @@ def test_uneven_midpoint_lengths(tmp_path, monkeypatch):
     assert sum(widths) == pytest.approx(1.0)
 
 
+@pytest.mark.requirement("FR-116")
 def test_linear_closed_form_integral(tmp_path, monkeypatch):
     """Linear densities integrate exactly; 2e-5 allows four CSV half-ulp errors."""
     _, columns, rows = _table(_case(tmp_path, monkeypatch))

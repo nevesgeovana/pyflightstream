@@ -29,6 +29,8 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, Wo
 #: The eight statuses after 0.17.0. Item 3 says a job the scheduler killed
 #: takes a FAILED value with the scheduler and the descriptor named, and that
 #: NO NINTH is minted, so this list is the contract rather than a snapshot.
+from tests.support_helpers import no_sleep as _no_sleep
+
 CLOSED_SET = {
     "CONVERGED",
     "COMPLETED_MAX_ITER",
@@ -41,10 +43,6 @@ CLOSED_SET = {
     # 0.33.0 (FR-309): the person's verdict, minted by mark-failed and never by collect.
     "FAILED_MARKED",
 }
-
-
-def _no_sleep(_seconds: float) -> None:
-    """The clock, injected. A suite that waited two seconds per point is a suite nobody runs."""
 
 
 def _submitted_workspace(tmp_path, *, declared=("loads.txt", "run_log.txt")):
@@ -179,6 +177,7 @@ def test_goal020_collect_waits_while_an_output_is_still_being_written(tmp_path):
     assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
 
 
+@pytest.mark.requirement("FR-99")
 def test_goal020_collect_completes_a_settled_point(tmp_path):
     """Present AND settled: the outputs are collected and the record stops saying SUBMITTED."""
     workspace, sim = _submitted_workspace(tmp_path)

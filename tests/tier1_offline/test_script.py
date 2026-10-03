@@ -122,6 +122,7 @@ def build_steady_polar(script: Script) -> None:
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
+@pytest.mark.requirement("FR-06")
 def test_steady_polar_matches_the_golden():
     script = Script(version="26.120")
     build_steady_polar(script)
@@ -136,6 +137,7 @@ def test_removed_command_raises_with_citation():
         script.emit("SONIC_VELOCITY", 340.0)
 
 
+@pytest.mark.requirement("FR-08a")
 def test_phase_order_is_enforced_with_a_didactic_message():
     script = Script(version="26.120")
     script.emit(
@@ -321,6 +323,7 @@ def test_export_surface_mesh_takes_the_path_on_its_own_line():
     assert script.render() == "EXPORT_SURFACE_MESH OBJ -1\nC:/geometry/all.obj\n\n"
 
 
+@pytest.mark.requirement("FR-07")
 def test_raw_bypasses_validation_and_sets_the_flag():
     script = Script(version="26.120")
     script.raw("SOME_UNKNOWN_COMMAND 1 2")

@@ -43,6 +43,7 @@ REQUIRED = ("ALPHA", "BETA", "MACH", "RE", "VINF", "ALT", "SREF", "CREF", "BREF"
 FAMILIES = ("POLAR_COLUMNS", "SECTION_COLUMNS", "PROBE_SPINE", "REDUCTION_COLUMNS")
 
 
+@pytest.mark.requirement("FR-89")
 @pytest.mark.parametrize("family", FAMILIES)
 def test_every_product_family_states_the_condition_and_the_reference_lengths(family):
     """One family at a time, so a failure names WHICH product cannot say what it is.

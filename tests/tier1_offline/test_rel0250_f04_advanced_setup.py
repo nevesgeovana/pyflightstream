@@ -1,6 +1,4 @@
 """F04: setup keys reach the existing advanced-setting emitters and flag IDs."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-114.
 
 import pytest
 
@@ -107,6 +105,7 @@ def setup_case(tmp_path, body):
     )
 
 
+@pytest.mark.requirement("FR-114")
 @pytest.mark.parametrize("key,command,value,token,build,flag_id", SETTINGS)
 def test_setup_emits_advanced_setting_and_preserves_post_flag(
     tmp_path, key, command, value, token, build, flag_id

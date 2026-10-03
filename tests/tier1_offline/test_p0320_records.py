@@ -16,12 +16,9 @@ Every workspace here is synthetic: a steady row run through the real matrix
 entry with a stand-in solver that writes the exports the script names, the
 loads export of the fixture and a solver log that the assessor reads.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-212, FR-213, FR-214, FR-215, FR-216, FR-217, FR-218, FR-219.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -42,6 +39,7 @@ from pyflightstream.run import _record_files as record_files
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.support_helpers import file_sha256 as _sha
 from tests.tier1_offline.test_goal031_local_run_log import FIXTURES, LOG, STUB, Solver, _matrix
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -90,10 +88,6 @@ workdir       = "{work_dir}"
 [submit]
 command = ["esub", "{descriptor_path}"]
 """
-
-
-def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _tree(root: Path) -> dict[str, tuple[int, int]]:
@@ -395,6 +389,7 @@ def test_rebuild_of_a_missing_output_is_failed_incomplete_never_converged(tmp_pa
     assert rebuilt["status"] == "FAILED_INCOMPLETE_OUTPUT", rebuilt["status"]
 
 
+@pytest.mark.requirement("FR-212")
 def test_rebuild_out_refuses_runs_json_and_an_existing_file_before_any_work(tmp_path):
     """P0320-REBUILD-OUT: refused before anything is read; the root has not even sims/."""
     for name in ("runs.json", "RUNS.json"):
@@ -408,6 +403,7 @@ def test_rebuild_out_refuses_runs_json_and_an_existing_file_before_any_work(tmp_
     assert sorted(path.name for path in tmp_path.iterdir()) == ["runs-mine.json"]
 
 
+@pytest.mark.requirement("FR-212")
 def test_rebuild_out_never_touches_runs_json(tmp_path, monkeypatch):
     """P0320-REBUILD-OUT: the rebuilt records go to the named file, runs.json keeps its bytes."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
@@ -421,6 +417,7 @@ def test_rebuild_out_never_touches_runs_json(tmp_path, monkeypatch):
     assert written["run_id"] == original["run_id"]
 
 
+@pytest.mark.requirement("FR-213")
 def test_rebuild_all_sims_requires_out_and_rebuilds_the_recorded_ones_too(tmp_path, monkeypatch):
     """P0320-REBUILD-ALL-SIMS: every sim on disk, recorded or not; refused without --out."""
     with pytest.raises(records.RecordsError, match="--out"):
@@ -435,6 +432,7 @@ def test_rebuild_all_sims_requires_out_and_rebuilds_the_recorded_ones_too(tmp_pa
     assert [row["run_id"] for row in written] == [original["run_id"]]
 
 
+@pytest.mark.requirement("FR-214")
 def test_rst2_a_row_switched_off_after_it_ran_still_describes_the_run(tmp_path, monkeypatch):
     """P0320-RST-2: RUN 1 in the shadow copy only, and a note in the record."""
     workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
@@ -452,6 +450,7 @@ def test_rst2_a_row_switched_off_after_it_ran_still_describes_the_run(tmp_path, 
     assert _sha(matrix) == sha, "the user's matrix was edited"
 
 
+@pytest.mark.requirement("FR-215")
 def test_rst3_a_build_the_profile_no_longer_maps_takes_the_alias_in_the_descriptor_only(
     tmp_path, monkeypatch
 ):
@@ -481,6 +480,7 @@ def test_rst3_a_build_the_profile_no_longer_maps_takes_the_alias_in_the_descript
     assert len(default["records"]) == 1
 
 
+@pytest.mark.requirement("FR-216")
 def test_rst4_a_pol_in_no_current_matrix_waits_for_the_revision_that_ran(tmp_path, monkeypatch):
     """P0320-RST-4: the waiting sims are named; --matrix <revision> rebuilds them."""
     workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
@@ -498,6 +498,7 @@ def test_rst4_a_pol_in_no_current_matrix_waits_for_the_revision_that_ran(tmp_pat
     assert rebuilt["run_id"] == original["run_id"]
 
 
+@pytest.mark.requirement("FR-217")
 def test_rst5_a_cluster_run_restored_on_windows_keeps_the_runs_own_root(tmp_path, monkeypatch):
     """P0320-RST-5: separators normalised, the run's root tokenised, paths in the run's style."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
@@ -533,6 +534,7 @@ def test_rst5_a_cluster_run_restored_on_windows_keeps_the_runs_own_root(tmp_path
     assert root not in json.dumps(rebuilt), "the record names the rebuilding root"
 
 
+@pytest.mark.requirement("FR-218")
 def test_rst7_submitted_records_point_to_collect_without_all_sims(tmp_path):
     """P0320-RST-7: without --all-sims the rebuild invents no end; it points to collect."""
     workspace, _matrix_path, job = _submitted_campaign(tmp_path)
@@ -545,6 +547,7 @@ def test_rst7_submitted_records_point_to_collect_without_all_sims(tmp_path):
     assert "pyfs-matrix collect" in named["refused"][job.sim_id]
 
 
+@pytest.mark.requirement("FR-218")
 def test_rst7_all_sims_ignores_submitted_and_judges_the_outputs(tmp_path):
     """P0320-RST-7: with --all-sims the status comes from the outputs; a fresh folder waits."""
     workspace, _matrix_path, job = _submitted_campaign(tmp_path)
@@ -569,6 +572,7 @@ def test_rst7_all_sims_ignores_submitted_and_judges_the_outputs(tmp_path):
     assert judged["run_id"] == job.run_id
 
 
+@pytest.mark.requirement("FR-219")
 def test_rst8_a_drifted_input_is_named_and_another_origin_is_accepted(tmp_path, monkeypatch):
     """P0320-RST-8: the refusal names WHICH input drifted; --inputs-from accepts the origin."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
@@ -610,6 +614,7 @@ def test_the_cli_restores_and_rebuilds(tmp_path, monkeypatch, capsys):
     assert "--out" in capsys.readouterr().err
 
 
+@pytest.mark.requirement("FR-219")
 def test_rst8_each_drift_class_is_named_with_the_input_it_comes_from(tmp_path):
     """P0320-RST-8: the four drift classes, each named, never overwritten in silence."""
     inputs = tmp_path / "inputs"
@@ -672,6 +677,7 @@ def test_the_archive_spellings_are_the_workspaces(tmp_path):
 # ------------------------------------------------------------------ review of B1
 
 
+@pytest.mark.requirement("FR-212")
 def test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim(tmp_path, monkeypatch):
     """P0320-REBUILD-OUT: --out with --sims writes the REBUILT record, never the original again."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)

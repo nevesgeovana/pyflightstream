@@ -14,6 +14,7 @@ import inspect
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests.tier1_offline import test_rpt096
@@ -37,6 +38,7 @@ def _newest_section(changelog: str) -> str:
     return changelog.split("\n## [", 2)[1]
 
 
+@pytest.mark.requirement("FR-345")
 def test_a_new_empty_release_section_does_not_change_the_verdict_fr_345():
     """P0340-RELEASE-TITLE, R2: the section found carries the report before and after."""
     before = release_section_carrying(CHANGELOG, NEEDLE)
@@ -48,6 +50,7 @@ def test_a_new_empty_release_section_does_not_change_the_verdict_fr_345():
     assert NEEDLE not in _newest_section(opened)
 
 
+@pytest.mark.requirement("FR-345")
 def test_the_section_is_found_by_its_report_and_not_by_a_title_fr_345():
     """P0340-RELEASE-TITLE, R1: a synthetic change log in which the report moves between titles."""
     for title in ("Unreleased", "7.8.9", "0.0.1"):
@@ -61,6 +64,7 @@ def test_the_section_is_found_by_its_report_and_not_by_a_title_fr_345():
         raise AssertionError("a change log that does not carry the report was accepted")
 
 
+@pytest.mark.requirement("FR-345")
 def test_the_report_index_test_writes_no_release_title_fr_345():
     """P0340-RELEASE-TITLE, R1: no version string in the index test or in its helper."""
     for function in (
@@ -71,12 +75,14 @@ def test_the_report_index_test_writes_no_release_title_fr_345():
         assert not re.search(r"\d+\.\d+\.\d+", source), function.__name__
 
 
+@pytest.mark.requirement("FR-345")
 def test_the_first_of_several_carrying_sections_is_the_one_chosen_fr_345():
     """P0340-RELEASE-TITLE, R2: with the report in two sections, the newest (first) is found."""
     log = f"# Log\n\n## [B]\n\n- {NEEDLE} newest\n\n## [A]\n\n- {NEEDLE} older\n"
     assert "newest" in release_section_carrying(log, NEEDLE)
 
 
+@pytest.mark.requirement("FR-345")
 def test_a_dry_run_branch_rehearses_the_release_and_only_a_tag_publishes_fr_345():
     """P0340-RELEASE-TITLE, R3: dry-run/** triggers; publish and the version check are tag-gated."""
     document = yaml.safe_load(RELEASE_YML.read_text(encoding="utf-8"))

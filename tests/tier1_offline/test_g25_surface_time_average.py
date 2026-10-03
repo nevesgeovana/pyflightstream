@@ -129,6 +129,7 @@ def test_g25_a_point_exporting_no_tecplot_is_refused():
         build_script(case, Script("26.124"))
 
 
+@pytest.mark.requirement("FR-112")
 def test_g25_the_average_is_the_hand_mean_of_the_steps(tmp_path):
     """The reducer against numpy's mean, panel by panel, in the reference frame."""
     from pyflightstream.post.surfaces import average_surface_exports

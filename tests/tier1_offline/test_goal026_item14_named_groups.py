@@ -56,6 +56,7 @@ def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
     )
 
 
+@pytest.mark.requirement("FR-85")
 def test_a_group_product_is_named_after_its_input_and_not_numbered():
     """The file carries the group's NAME, which is what she asked for."""
     written = products.swept_polar_file_name("0001", name=_SWEEP, group="PUSHER")

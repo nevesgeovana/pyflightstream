@@ -18,7 +18,6 @@ route is scored on a file the solver wrote.
 
 from __future__ import annotations
 
-import hashlib
 import math
 import shutil
 from pathlib import Path
@@ -38,6 +37,7 @@ from pyflightstream.workspace.sidecars import (
     read_inventory,
     read_mesh_import,
 )
+from tests.support_helpers import file_sha256 as _sha
 
 _LIBRARY = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
 
@@ -144,10 +144,6 @@ def _off_the_mean_surface(points: numpy.ndarray) -> numpy.ndarray:
     x = _stations()
     xi = points[:, 0] / CHORD + 0.25
     return numpy.abs(points[:, 1] - CHORD * numpy.interp(xi, x, _camber(x)))
-
-
-def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_the_thin_blade_is_the_mean_surface_between_the_two_sides(tmp_path):

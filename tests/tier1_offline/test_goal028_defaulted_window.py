@@ -12,13 +12,13 @@ So the point gets its `_uns_avg` table over the window its own record carries
 without), the stage SAYS which window that was, and no last-step polar is written
 under a steady name.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-161.
 
 from __future__ import annotations
 
 import warnings
 from pathlib import Path
+
+import pytest
 
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
@@ -45,6 +45,7 @@ def _posted(tmp_path):
     return workspace, written, [str(w.message) for w in caught]
 
 
+@pytest.mark.requirement("FR-161")
 def test_the_point_gets_its_average_over_the_window_its_record_defaulted_to(tmp_path):
     _workspace_, written, _said = _posted(tmp_path)
     (table,) = [path for path in written if path.name.endswith("_uns_avg.csv")]

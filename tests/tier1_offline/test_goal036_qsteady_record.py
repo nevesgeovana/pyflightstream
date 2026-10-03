@@ -10,8 +10,6 @@ by the builder as its own text and read back by
 callers decide: the run judges the log as one solve and says so on the point's
 record, the post names each product it leaves out and never raises.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-189.
 
 from __future__ import annotations
 
@@ -58,6 +56,7 @@ _ROWS = {
 # ----------------------------------------------------- the type and its reader --
 
 
+@pytest.mark.requirement("FR-189")
 @pytest.mark.parametrize("row", sorted(_ROWS))
 def test_the_reader_round_trips_the_writers_record(tmp_path, row):
     """Read back and written again, the builder's record is the same bytes."""

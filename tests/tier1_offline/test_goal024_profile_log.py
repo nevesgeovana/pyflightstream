@@ -120,6 +120,7 @@ def _rendered(case: SimCase) -> str:
     return script.render()
 
 
+@pytest.mark.requirement("FR-106")
 def test_goal024_profile_log_export_log_false_removes_the_command(tmp_path, meter_geometry):
     """The script writes every other export and not the log."""
     with_log = _rendered(_case(meter_geometry=meter_geometry))

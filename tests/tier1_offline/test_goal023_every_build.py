@@ -87,6 +87,7 @@ def test_goal023_single_march_the_capabilities_are_derived_from_the_database():
 # ------------------------------------------------------------- single march --
 
 
+@pytest.mark.requirement("FR-101")
 @pytest.mark.parametrize("build", [b for b in WITHOUT_ACTIONS if b != "25.000"])
 def test_goal023_single_march_an_unsteady_row_marches_once_on_a_build_without_actions(build):
     """No action is registered and the solver starts once over every step the row states."""

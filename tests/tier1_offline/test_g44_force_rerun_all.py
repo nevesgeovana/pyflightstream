@@ -6,8 +6,6 @@ recorded as one job runs again as one job); the count is said before anything ru
 --sims narrows the run to those simulations; the mode is refused beside --resume and
 --force-rerun, for an id the matrix does not carry, and when nothing is recorded.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-131.
 
 from __future__ import annotations
 
@@ -58,6 +56,7 @@ def _two_simulations(tmp_path):
     return workspace, matrix
 
 
+@pytest.mark.requirement("FR-131")
 def test_g44_every_recorded_point_runs_again_and_the_count_is_said_first(tmp_path, capsys):
     workspace, matrix = _recorded_sweep(tmp_path)
     capsys.readouterr()

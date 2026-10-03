@@ -33,16 +33,34 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 import time
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+from tests.support_tier3 import (
+    _NUMBERED as _NUMBERED,
+)
+from tests.support_tier3 import (
+    EXPORT_STEM as EXPORT_STEM,
+)
+from tests.support_tier3 import HERE as HERE
+from tests.support_tier3 import (
+    LOG as LOG,
+)
+from tests.support_tier3 import (
+    PROBE_POL as PROBE_POL,
+)
+from tests.support_tier3 import (
+    SIM as SIM,
+)
+from tests.support_tier3 import (
+    invocations as invocations,
+)
+from tests.support_tier3 import (
+    verdict as verdict,
+)
+
 #: The POL of the probe row in matriz_actions.fs, which fixes the simulation folder.
-PROBE_POL = "6001"
-SIM = HERE / "sims" / f"sim_{PROBE_POL}"
-LOG = SIM / "actions_probe.log"
 #: The file the SCRIPT action points at, rewritten on every invocation, named
 #: relative to the folder the point runs in: since 0.27.0 the run writes every
 #: file it parks for a point there, sims/sim_6001/datapoints/DP-<point>/.
@@ -57,9 +75,6 @@ def action_script() -> Path:
     return found[0] if found else ACTION_SCRIPT
 
 
-EXPORT_STEM = "probe_export"
-
-
 def export_script(tag: str) -> str:
     """The child script exporting the loads spreadsheet named for ``tag``."""
     target = SIM / f"{EXPORT_STEM}_{tag}.txt"
@@ -71,16 +86,8 @@ def initial_script() -> str:
     return export_script("initial")
 
 
-def invocations(sim: Path = SIM) -> int:
-    log = sim / LOG.name
-    if not log.is_file():
-        return 0
-    return sum(1 for line in log.read_text(encoding="utf-8").splitlines() if line.strip())
-
-
 #: An export the rewritten script asked for, named for its invocation count;
 #: the solver appends ``_iteration=<n>`` to the name it was given.
-_NUMBERED = re.compile(rf"^{EXPORT_STEM}_(\d{{3}})(_iteration=\d+)?\.txt$")
 
 
 def invoke() -> int:
@@ -102,56 +109,6 @@ def invoke() -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(export_script(f"{count:03d}"), encoding="utf-8")
     return 0
-
-
-def verdict(sim: Path = SIM) -> dict[str, object]:
-    """Read the run folder and say what it shows.
-
-    The two worlds are told apart by the NAME PATTERN and not by a literal:
-    the solver stamps ``_iteration=<n>`` on every export an action makes,
-    so a NO world holds ``probe_export_initial_iteration=1.txt`` and so on,
-    and a verdict that looked for ``probe_export_initial.txt`` scored that
-    world as YES (review of 2026-09-08). A numbered export is one the
-    rewritten script asked for; an initial export is one the
-    registration-time text asked for.
-    """
-    exports = sorted(path.name for path in sim.glob(f"{EXPORT_STEM}_*.txt"))
-    numbered = [name for name in exports if _NUMBERED.match(name)]
-    count = invocations(sim)
-    if count == 0:
-        word = "NOT_RUN"
-        meaning = (
-            "the COMMAND_LINE action never ran this module: no invocation was logged, so "
-            "nothing here says anything about the SCRIPT action"
-        )
-    elif len(numbered) >= 2:
-        word = "YES"
-        meaning = (
-            "the SCRIPT action's file is re-read on every invocation: the folder holds "
-            f"{len(numbered)} exports named for distinct invocations"
-        )
-    elif not exports:
-        word = "NONE"
-        meaning = (
-            "the COMMAND_LINE action ran and the SCRIPT action exported nothing, neither "
-            "the registration-time file nor a rewritten one"
-        )
-    elif numbered:
-        word = "PARTIAL"
-        meaning = "exactly one rewritten export exists, which neither reading predicts"
-    else:
-        word = "NO"
-        meaning = (
-            "the SCRIPT action's file is read once, at registration: only the export the "
-            "registration-time text names exists, after every rewrite"
-        )
-    return {
-        "verdict": word,
-        "meaning": meaning,
-        "invocations": count,
-        "exports": exports,
-        "simulation_folder": str(sim),
-    }
 
 
 def main(argv: list[str] | None = None) -> int:

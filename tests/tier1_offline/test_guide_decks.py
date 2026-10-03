@@ -27,14 +27,14 @@ What this does NOT check: that the PDFs are current with their sources. The
 build is a LaTeX run CI does not make; the build recipe prints the overfull
 box count, and the release step rebuilds.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-177.
 
 from __future__ import annotations
 
 import re
 import tomllib
 from pathlib import Path
+
+import pytest
 
 from tests.tier1_offline.test_house_style import FORBIDDEN, FORBIDDEN_WORDS
 
@@ -117,6 +117,7 @@ def test_the_deck_walk_has_something_to_check():
     assert len(_text_files()) >= 60
 
 
+@pytest.mark.requirement("FR-177")
 def test_every_guide_file_carries_the_authorship_and_licence_notice():
     missing = _without_notice(_text_files())
     assert not missing, (

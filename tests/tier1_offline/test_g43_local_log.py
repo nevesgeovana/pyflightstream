@@ -7,8 +7,6 @@ for a point with per-step actions rewrites `actions/pfs_unsteady_actions.count` 
 completed time step), never from what the solver prints. A stand-in solver advances that
 file here as the real one would.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-129, FR-130.
 
 from __future__ import annotations
 
@@ -87,6 +85,7 @@ def test_g43_a_negative_cadence_is_refused():
         _Advancing(progress_every=-1)
 
 
+@pytest.mark.requirement("FR-129")
 def test_g43_a_local_run_has_a_banner_numbered_points_and_a_summary_table(tmp_path, capsys):
     workspace, matrix = _steady_sweep_matrix(tmp_path)
     capsys.readouterr()
@@ -198,6 +197,7 @@ def test_g43_the_cadence_reaches_the_executor_of_every_build(monkeypatch, tmp_pa
         assert extras == [expected, expected], (cadence, extras)
 
 
+@pytest.mark.requirement("FR-130")
 def test_g43_a_submitting_run_with_a_failed_point_writes_no_table(tmp_path, monkeypatch):
     """The command writes no table for a run that submitted a point, and that holds when
     another point of the same call failed: the failure's error carries every record of

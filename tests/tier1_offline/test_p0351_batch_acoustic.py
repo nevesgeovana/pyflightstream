@@ -23,6 +23,8 @@ from __future__ import annotations
 import warnings
 from pathlib import PurePosixPath
 
+import pytest
+
 from pyflightstream.cases import acoustics
 from pyflightstream.cases.workflows import WORKFLOW_KEY, build_script
 from pyflightstream.cases.workflows._batch_script import (
@@ -194,6 +196,7 @@ def test_p0351_acoustic_fr406_each_point_restates_its_own_setup():
     assert not relative_paths(job.text), relative_paths(job.text)
 
 
+@pytest.mark.requirement("FR-359")
 def test_p0351_acoustic_fr406_a_grouped_run_places_each_section_in_its_point(tmp_path):
     """P0351-BATCH-ACOUSTIC (FR-406): run --batch writes each point's section note in its folder.
 

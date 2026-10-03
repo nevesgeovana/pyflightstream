@@ -879,6 +879,7 @@ def test_the_ratchet_holds_only_sites_that_still_exist() -> None:
     )
 
 
+@pytest.mark.requirement("NFR-27")
 def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
     offenders = [entry for entry in _exported_bare_raises() if entry not in _RATCHET]
     assert not offenders, (

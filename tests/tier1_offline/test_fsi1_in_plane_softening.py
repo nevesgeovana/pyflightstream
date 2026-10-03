@@ -9,8 +9,6 @@ integral with the centrifugal tension as a P-Delta term and the softening as
 a load, solved by fixed-point iteration), written from its equations on a
 synthetic blade; it shares no code with the package.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-172.
 
 import math
 
@@ -103,6 +101,7 @@ def test_softening_coefficient_is_mu_omega_squared_sin_squared_pitch():
         assert k == pytest.approx(mu * OMEGA**2 * math.sin(math.radians(beta)) ** 2, rel=1e-12)
 
 
+@pytest.mark.requirement("FR-172")
 def test_softening_raises_the_tip_flap_as_the_hand_integration_does(hand, monkeypatch):
     # P0300-FSI1-SOFTENING
     softened = _package_tip_flap()

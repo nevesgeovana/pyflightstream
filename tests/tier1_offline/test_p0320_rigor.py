@@ -16,6 +16,7 @@ from tests.tier1_offline.test_goal024_point_name import RECIPES
 from tests.tier1_offline.test_goal024_rpm import ROTOR_CELL, _rotor_matrix
 
 
+@pytest.mark.requirement("FR-280")
 def test_p0320_d_rig_a_static_rig_with_motions_is_not_refused_for_a_double_speed(tmp_path):
     """P0320-D-RIG: fixed rpm and a swept J, with MOTIONS, states the speed once.
 

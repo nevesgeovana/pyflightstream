@@ -8,8 +8,6 @@ unattended; it does not, so the command is recorded broken on 26.124 from the
 probe's compat transcription, and a row that writes it raw is refused at plan,
 naming the report, before a seat is spent.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-115.
 
 from __future__ import annotations
 
@@ -39,6 +37,7 @@ def test_g24_the_command_is_recorded_broken_on_26124_from_the_probe():
     assert row.report == REPORT, row.report
 
 
+@pytest.mark.requirement("FR-115")
 def test_g24_a_row_writing_it_raw_is_refused_on_26124_naming_the_report():
     with pytest.raises(BrokenCommandError) as raised:
         build_script(_case(), Script("26.124"))

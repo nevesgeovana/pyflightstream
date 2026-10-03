@@ -82,6 +82,7 @@ def _recorded_sweep(tmp_path, sweep=SWEPT):
     return workspace, matrix
 
 
+@pytest.mark.requirement("FR-95")
 def test_the_plan_reports_a_recorded_jobs_points_as_recorded(tmp_path):
     """Nothing added to the row, and the plan said READY for every point."""
     workspace, matrix = _recorded_sweep(tmp_path)

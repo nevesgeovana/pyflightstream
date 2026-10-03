@@ -106,6 +106,7 @@ def _campaign(tmp_path: Path, records: list[RunRecord]) -> Path:
     return workspace.root
 
 
+@pytest.mark.requirement("FR-19")
 def test_wall_time_is_reported_per_sim_and_point():
     """One row per (sim, point); the cell carries the recorded seconds."""
     view = cost_view(

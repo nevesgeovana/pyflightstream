@@ -1,6 +1,4 @@
 """Tier 1: a quasi-steady rotor row resolves J against the rotor block's own diameter."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-192.
 
 from __future__ import annotations
 
@@ -35,6 +33,7 @@ def _case() -> SimCase:
     )
 
 
+@pytest.mark.requirement("FR-192")
 def test_qsteady_advance_ratio_follows_the_block_diameter():
     # P0310-J-OWN-DIAMETER
     case = _case()

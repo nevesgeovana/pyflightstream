@@ -43,6 +43,7 @@ LEGACY_FIXTURE = Path(__file__).parent / "fixtures" / "pfs202512_matrix15.fs"
 RECIPES = {"003": "recipes.steady_polar:build", "004": "recipes.beta_sweep:build"}
 
 
+@pytest.mark.requirement("FR-10")
 def test_read_matrix_parses_the_verified_layout():
     rows = read_matrix(FIXTURE)
     assert [row.pol for row in rows] == ["9001", "9002", "9004", "9005", "9006", "9008"]

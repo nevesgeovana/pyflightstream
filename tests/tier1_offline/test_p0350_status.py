@@ -6,8 +6,6 @@ record of each datapoint read from one home, the read-only guarantee, the
 recorded words printed as recorded, and the machine forms. Every workspace is a
 synthetic ``tmp_path`` tree; nothing runs a solver.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-379, FR-380, FR-381, FR-382, FR-383, FR-384, FR-385, FR-388.
 
 from __future__ import annotations
 

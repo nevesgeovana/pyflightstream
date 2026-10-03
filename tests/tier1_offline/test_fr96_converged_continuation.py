@@ -23,9 +23,6 @@ WHAT HOLDS NOW, each tested below on the path a user takes (plan, run, post):
   exact; the wall-clock continuation of 0.32.0 is unchanged.
 """
 
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-96.
-
 from __future__ import annotations
 
 import json

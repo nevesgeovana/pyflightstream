@@ -27,8 +27,6 @@ row creates it after its solve and exports it under the point's own name:
 Nothing here runs a solver. What the delete-then-create sequence does on a
 seat is not measured: DELETE_VOLUME_SECTION is verified alone.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-159.
 
 from __future__ import annotations
 
@@ -60,6 +58,7 @@ from pyflightstream.post.products import _prov_document, write_campaign_products
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from tests.support_helpers import script_lines as _lines
 from tests.tier1_offline.test_g06_actuator_disc import (
     MILLIMETRES,
     WING_PHY,
@@ -114,12 +113,7 @@ def _steady(pproc: PprocSpec, *, stem: str = "P", alpha: float = 0.0) -> SimCase
     )
 
 
-def _lines(case: SimCase, build: str = "26.124") -> list[str]:
-    script = Script(build)
-    build_script(case, script)
-    return script.render().splitlines()
-
-
+@pytest.mark.requirement("FR-110")
 def test_g05_a_pproc_declares_one_volume_section():
     """Sample sources are native exports; the requested field is written at post."""
     for format_name in ("vtk", "tecplot"):
@@ -167,6 +161,7 @@ def test_g05_the_exports_table_cannot_name_the_volume_kinds():
         PprocSpec.model_validate({"exports": {"volume_section_vtk": True}})
 
 
+@pytest.mark.requirement("FR-159")
 def test_g05_the_section_is_created_after_the_solve_and_exported_to_its_point():
     """Steady planes sample the solved field and export its probe values."""
     for table in (RECTANGLE, CIRCLE):

@@ -1,6 +1,4 @@
 """Physical input invariants; these tests do not substitute for a coupled solve."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-155.
 
 import hashlib
 import json
@@ -292,6 +290,7 @@ def test_calibration_preserves_the_base_inputs_it_scales(tmp_path):
         assert path.read_bytes() == source_bytes, name
 
 
+@pytest.mark.requirement("FR-155")
 def test_explicit_matrix_unity_overrides_file_calibration(tmp_path):
     """GOAL033:fsi:checks:matrix_override."""
     path = tmp_path / "f001.toml"

@@ -13,8 +13,6 @@ excluded.
 The release tests are parametrised so a release whose bullets all cite ids
 passes on its own, whatever the state of its neighbours.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-194.
 
 from __future__ import annotations
 
@@ -142,6 +140,7 @@ def _release_key(version: str) -> tuple[int, ...]:
 _RELEASE_NAMES: list[str] = sorted(_RELEASES.keys(), key=_release_key)
 
 
+@pytest.mark.requirement("FR-194")
 @pytest.mark.parametrize("release", _RELEASE_NAMES)
 def test_every_added_and_changed_bullet_of_a_release_cites_a_defined_requirement(release):
     """P0320-SRS-CHANGELOG: a release's bullets cite an SRS id or give a reason."""

@@ -82,6 +82,7 @@ def test_the_positions_go_under_profiles_per_sim(tmp_path):
     assert relative == "profiles/6002_probe_points.csv"
 
 
+@pytest.mark.requirement("FR-91")
 def test_the_positions_read_back_keyed_by_the_vertex_number(tmp_path):
     """The key is the suffix the unsteady fluid plot carries in its own name."""
     path = positions_file(

@@ -1,6 +1,4 @@
 """Read malformed recorded windows and continue a stopped surface average."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-161.
 
 import pytest
 from pydantic import ValidationError
@@ -53,6 +51,7 @@ def test_malformed_recorded_window_is_refused_at_read(window, field):
         pytest.fail(f"malformed surface window accepted: {field}")
 
 
+@pytest.mark.requirement("FR-161")
 def test_continuation_preserves_recorded_surface_window(tmp_path, monkeypatch):
     workspace = _workspace(tmp_path)
     _stopped(workspace)

@@ -20,14 +20,14 @@ polar and the rotor table.
 THE NUMBERS. The export states a free stream of 68.058 m/s, so
 `J = V / (n D) = 68.058 / (2200 / 60 * 2.0) = 0.92806` at the products' five decimals.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-118.
 
 from __future__ import annotations
 
 import csv
 import json
 from pathlib import Path
+
+import pytest
 
 from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
@@ -107,6 +107,7 @@ def _assert_one_clock(products: Path) -> None:
     assert not disagreeing, f"the polar states {stated}; these state otherwise: {disagreeing}"
 
 
+@pytest.mark.requirement("FR-118")
 def test_the_polar_the_rotor_table_and_the_series_state_one_clock(tmp_path):
     """RPT-056: the polar, the rotor table and the per-step series agree, and none reads NA."""
     _assert_one_clock(_posted_rotor_campaign(tmp_path))

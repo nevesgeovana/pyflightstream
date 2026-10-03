@@ -466,6 +466,7 @@ def test_the_altitude_path_is_pinned_where_the_command_works():
     assert script.waived_commands == ()
 
 
+@pytest.mark.requirement("FR-48")
 def test_the_altitude_path_refuses_on_the_version_that_reads_metres_as_feet():
     """The helper is a caller, so the refusal has to reach through it.
 
@@ -1474,6 +1475,7 @@ def test_the_zero_field_is_the_axial_direction_and_stays_written():
     assert edge.render() == STATED_AXIAL
 
 
+@pytest.mark.requirement("FR-244")
 def test_a_three_value_specification_parses_and_behaves_as_it_did():
     """Clause two, the one that gets forgotten.
 

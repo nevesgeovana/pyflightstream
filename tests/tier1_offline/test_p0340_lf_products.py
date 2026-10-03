@@ -33,7 +33,6 @@ of RPT-070 found that line ends change nothing in the disc profile file, and the
 licensed runs of 0.34.0 are the confirmation (NFR-32 R6).
 """
 # The evidence line of this requirement cites this module (docs/srs/nonfunctional-requirements.md):
-# NFR-32.
 
 from __future__ import annotations
 

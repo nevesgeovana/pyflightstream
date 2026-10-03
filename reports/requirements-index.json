@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 365,
+  "cited_by_a_test": 368,
   "total": 427,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -3395,17 +3395,17 @@
    "id": "NFR-38",
    "text": "Need: A module-level claim must not stand for evidence that no test function identifies.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Evidence: tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions and its planted controls.*",
+   "verification": "test"
   },
   {
    "id": "NFR-39",
    "text": "Need: The shared helpers named by review rows A1 and A2 must not drift between test modules.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Evidence: tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition and ::test_shared_helpers_are_imported_by_their_consumers.*",
+   "verification": "test"
   },
   {
    "id": "NFR-40",
@@ -3419,9 +3419,9 @@
    "id": "NFR-41",
    "text": "Need: Offline verification must not depend on a licensed test tier.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Evidence: tests/tier1_offline/test_p0360_rv35.py::test_tier1_never_imports_the_licensed_tier.*",
+   "verification": "test"
   }
  ]
 }

@@ -32,8 +32,6 @@ not the same fact as being accepted by a solver, and the
 acceptance clause of PFS-2025.06 that asks for one real unsteady case
 producing all four outputs needs a licensed seat that was not open.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-134.
 
 from __future__ import annotations
 
@@ -41,7 +39,6 @@ import ast
 import math
 import sys
 import warnings
-from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -123,6 +120,7 @@ from pyflightstream.script import (
 )
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
+from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
@@ -1835,6 +1833,7 @@ def unsteady_case(**overrides) -> SimCase:
     )
 
 
+@pytest.mark.requirement("FR-134")
 @pytest.mark.parametrize("value", ["true", "false"])
 @pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
 def test_g36_an_unsteady_row_refuses_cold_start(run_type, value):
@@ -3615,31 +3614,6 @@ def test_a_rotor_origin_that_is_not_three_numbers_is_refused(origin, expected):
 # label half of "either an index or a label" was unreachable from a matrix
 # row. A requirement whose evidence answers a narrower question than the
 # claim is the defect class this repository has now paid for three times.
-
-
-def _saved_simulation(path: Path, names: Sequence[str]) -> Path:
-    """Write the smallest saved simulation carrying a mesh block.
-
-    Built from the format's own shape rather than copied from a campaign
-    geometry, for two reasons: those files are 1 to 9 MB, and some of
-    them are derivatives that may not be distributed. What is reproduced
-    here is exactly what the reader reads, including the two junk lines
-    between the marker and the count and the head numbers STARTING AT 2,
-    which is what seven of the eight real geometries do and what makes a
-    reader that mistook the head number for the index wrong here.
-    """
-    body = [MESH_MARKER, "9999", "99", str(len(names))]
-    for offset, name in enumerate(names):
-        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
-    body += ["$MESH_END$"]
-    # `newline=""` because the CRLF here is DATA, not formatting. Without
-    # it the platform translates each "\n" again and the file gains a
-    # blank line between every record, which the reader then reports as a
-    # count line that is not a number. The real geometries are CRLF, so
-    # this writes the bytes they carry rather than the bytes this
-    # platform would have chosen.
-    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
-    return path
 
 
 def _rotor_row(geometry: Path, cell: str, sim_id: str = "8001") -> SimCase:

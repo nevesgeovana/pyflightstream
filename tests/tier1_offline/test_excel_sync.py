@@ -1,5 +1,4 @@
 # The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-156.
 from pathlib import Path
 
 import pytest
@@ -62,6 +61,7 @@ def imported(tmp_path: Path) -> WorkbookSnapshot:
     return consume(snap, apply_preview(preview_sync(tmp_path, snap, direction="read"), snap))
 
 
+@pytest.mark.requirement("FR-156")
 def test_read_and_write_preserve_text_identity_sweeps_comments_and_custom_cells(
     tmp_path: Path,
 ) -> None:

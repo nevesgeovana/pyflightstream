@@ -14,8 +14,6 @@ numbers of the fixture, never read off the implementation. The speed of sound
 of the International Standard Atmosphere is ``sqrt(1.4 * 287.05287 * T)``:
 340.294 m/s at sea level (288.15 K), 328.387 m/s at 10 000 ft (268.338 K).
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-176.
 
 from __future__ import annotations
 
@@ -69,6 +67,7 @@ def _plan(workspace, matrix):
 # --- the one home function, against a hand calculation ----------------------
 
 
+@pytest.mark.requirement("FR-176")
 def test_the_two_numbers_are_the_hand_calculation():
     """6000 rev/min on a 1.2 m rotor at 50 m/s in air whose sound speed is 340 m/s."""
     # By hand: Omega R = 6000 * 2 pi / 60 * 0.6 = 120 pi = 376.991 m/s.

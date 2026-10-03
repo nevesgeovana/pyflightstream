@@ -1,6 +1,4 @@
 """Boundary-layer section data retain original cell association."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-154.
 
 import numpy as np
 import pytest
@@ -50,6 +48,7 @@ def test_profile_request_never_silently_becomes_integrals():
         ProductsSpec(boundary_layer_integrals=True, boundary_layer_velocity_profile=True)
 
 
+@pytest.mark.requirement("FR-154")
 def test_cut_samples_keep_cell_values_and_shared_edge_incidence():
     result = sample_boundary_layer(
         _surface(),

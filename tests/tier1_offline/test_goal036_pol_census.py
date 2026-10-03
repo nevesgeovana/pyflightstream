@@ -5,8 +5,6 @@
 POL repeated between the two folders shared one simulation folder in silence.
 Both now call `pyflightstream.workspace.matrix_files`.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-193.
 
 from __future__ import annotations
 
@@ -31,6 +29,7 @@ def _plan_recording(workspace, matrix):
     return [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
 
 
+@pytest.mark.requirement("FR-193")
 def test_goal036_pol_census_a_repeat_between_root_and_inputs_matrices_is_refused(tmp_path):
     # P0310-POL-CENSUS
     workspace = _workspace(tmp_path)

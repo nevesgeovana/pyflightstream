@@ -136,6 +136,7 @@ def _row_file(tmp_path: Path, workflow: str, cell: str) -> Path:
     return path
 
 
+@pytest.mark.requirement("FR-100")
 def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_file(tmp_path):
     """MatrixRow.translations to SimCase.translations, and the super file's TRANSLATE column."""
     from pyflightstream.post.superfile import superfile_row

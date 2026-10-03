@@ -4,7 +4,6 @@ The data is the entry ``storage.free_space`` returns (one home); the CLI only
 prints it. A synthetic workspace carries a recipe of all four tables.
 """
 # The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
-# FR-305.
 
 from __future__ import annotations
 

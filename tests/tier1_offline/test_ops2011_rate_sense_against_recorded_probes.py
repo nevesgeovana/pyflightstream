@@ -87,6 +87,8 @@ def test_the_probe_map_holds_both_senses_of_roll_and_yaw_and_one_of_pitch():
         assert key in RESPONSES, f"no recorded probe for the free-stream rotation {key}"
 
 
+@pytest.mark.requirement("FR-105")
+@pytest.mark.requirement("FR-42")
 @pytest.mark.parametrize(
     "rate_key,axis,expected_sign",
     [

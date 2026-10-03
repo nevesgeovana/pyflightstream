@@ -22,8 +22,6 @@ run wrote on 26.124: the header, the column line, the first three rows and the
 units footer, with the simulation file name made generic. Every other byte is
 the solver's.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-133.
 
 from __future__ import annotations
 
@@ -207,6 +205,7 @@ def test_g04_no_export_suffix_ends_with_another_but_a_bare_extension():
 # -------------------------------------------------------------- the unsteady --
 
 
+@pytest.mark.requirement("FR-133")
 def test_g26_an_unsteady_row_saves_its_residual_and_load_plots_once_after_the_march():
     """G26 of 0.28.0 (RPT-076): the residual and the load plots are declared by default on
     an unsteady row and saved ONCE, after the march and before the log; never inside a

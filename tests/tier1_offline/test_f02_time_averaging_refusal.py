@@ -9,8 +9,6 @@ not under a waiver and not on a build that verified it. Four revolutions at 10
 degrees give 144 steps, so the last 54 steps (or 1.5 revolutions) are
 independently 91 through 144.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-112.
 
 import sys
 
@@ -32,6 +30,7 @@ def test_database_records_the_measured_hang():
     assert "hang" in record.note.lower()
 
 
+@pytest.mark.requirement("FR-112")
 def test_plan_accepts_the_window_on_26124_and_the_script_never_carries_the_hang(tmp_path):
     case = _case(rotor=True, time_averaging={"last_revs": 1.5})
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])

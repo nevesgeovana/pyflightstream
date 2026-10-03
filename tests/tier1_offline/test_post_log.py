@@ -1,6 +1,4 @@
 """Post a campaign normally to warn, or pass check_frozen=True to refuse doubts."""
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-120.
 
 import json
 import re
@@ -18,6 +16,7 @@ from tests.tier1_offline.test_b01_frozen_solve import (
 )
 
 
+@pytest.mark.requirement("FR-120")
 def test_every_post_writes_and_archives_its_log(tmp_path):
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
     write_campaign_products(workspace)

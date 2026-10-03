@@ -5,8 +5,6 @@ the grouped ones. ``--polar-sweep`` and ``--batch N`` parse on ``run`` and on
 ``plan``, exclude each other, and leave the default per-point mode on the very
 function it always called.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
-# FR-350, FR-351.
 
 from __future__ import annotations
 
@@ -29,6 +27,8 @@ def _default(*_args: object, **_kwargs: object) -> str:
     return "per-point"
 
 
+@pytest.mark.requirement("FR-350")
+@pytest.mark.requirement("FR-351")
 def test_p0350_cli_fr350_fr351_the_options_parse_and_default_mode_is_unchanged(
     tmp_path, capsys
 ) -> None:

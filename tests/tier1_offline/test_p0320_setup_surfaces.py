@@ -42,6 +42,7 @@ def _with(case, **settings):
     return case.model_copy(update={"solver": SolverSettings(**settings)})
 
 
+@pytest.mark.requirement("FR-275")
 def test_delete_surfaces_by_name_emits_the_index_and_renumbers_the_inventory(tmp_path):
     """P0320-G9-DELETE-SURFACES: the round-1 shape, Blade1 removed, Blade2 moves from 4 to 3."""
     case = _with(steady_case(geometry=_twin(tmp_path)), delete_surfaces=["Blade1"])

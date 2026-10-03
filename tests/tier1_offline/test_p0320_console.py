@@ -137,6 +137,7 @@ def _before_the_signature(text: str) -> str:
 # --------------------------------------------------------------------------- FR-200
 
 
+@pytest.mark.requirement("FR-200")
 def test_every_command_opens_with_a_titled_block_saying_what_it_is(tmp_path, monkeypatch):
     # P0320-CONSOLE-CONTRACT: the test walks every pyfs-matrix and pyfs-workspace command.
     monkeypatch.chdir(tmp_path)
@@ -162,6 +163,7 @@ def test_every_command_opens_with_a_titled_block_saying_what_it_is(tmp_path, mon
         assert expected in walked, walked
 
 
+@pytest.mark.requirement("FR-200")
 def test_the_opening_block_says_what_the_command_does_and_where_on_stderr_only(tmp_path, capsys):
     # P0320-CONSOLE-CONTRACT: the block goes to stderr, so stdout is what it was.
     workspace = _workspace(tmp_path)
@@ -177,6 +179,7 @@ def test_the_opening_block_says_what_the_command_does_and_where_on_stderr_only(t
     assert opening[2] == f"  workspace: {workspace.root}", opening
 
 
+@pytest.mark.requirement("FR-200")
 def test_the_titled_block_rule_itself():
     # P0320-CONSOLE-CONTRACT: the one definition the walk asks.
     assert _console.opens_with_titled_block("pyfs-matrix sync\n  purpose: x\n\nbody")
@@ -210,6 +213,7 @@ def _warns_then_prints(monkeypatch, module, attribute):
     monkeypatch.setattr(module, attribute, command)
 
 
+@pytest.mark.requirement("FR-201")
 @pytest.mark.parametrize(
     ("module", "attribute", "argv"),
     [
@@ -239,6 +243,7 @@ def test_warnings_are_held_and_printed_together_at_the_end(
     ] == []
 
 
+@pytest.mark.requirement("FR-201")
 def test_a_refused_command_still_prints_its_held_warnings_at_the_end(tmp_path, monkeypatch):
     # P0320-CONSOLE-WARNINGS-LAST: a refusal (exit 2 by SystemExit) loses no warning.
     monkeypatch.chdir(tmp_path)
@@ -254,6 +259,7 @@ def test_a_refused_command_still_prints_its_held_warnings_at_the_end(tmp_path, m
     assert text.index("Warnings (1)") < text.index("said before the refusal"), text
 
 
+@pytest.mark.requirement("FR-201")
 def test_an_interrupted_command_still_prints_its_held_warnings_at_the_end(tmp_path, monkeypatch):
     # P0320-CONSOLE-WARNINGS-LAST: an interruption (Ctrl+C) loses no warning either.
     monkeypatch.chdir(tmp_path)
@@ -277,6 +283,7 @@ def test_an_interrupted_command_still_prints_its_held_warnings_at_the_end(tmp_pa
     assert text.index("Warnings (1)") < text.index("said before the interruption"), text
 
 
+@pytest.mark.requirement("FR-201")
 def test_a_python_caller_recording_warnings_still_receives_them(tmp_path, monkeypatch):
     # P0320-CONSOLE-WARNINGS-LAST: held, then warned again, never swallowed.
     monkeypatch.chdir(tmp_path)
@@ -295,6 +302,7 @@ def _console_lines(stream: io.StringIO) -> list[str]:
     return [line for line in stream.getvalue().replace("\r", "\n").splitlines() if line.strip()]
 
 
+@pytest.mark.requirement("FR-202")
 def test_a_stage_shows_files_and_bytes_over_the_total_the_file_elapsed_and_an_estimate(
     monkeypatch, capsys
 ):
@@ -315,6 +323,7 @@ def test_a_stage_shows_files_and_bytes_over_the_total_the_file_elapsed_and_an_es
     assert last.startswith("[sync: copy] done: 1/4, 1.0 MB/4.0 MB"), err
 
 
+@pytest.mark.requirement("FR-202")
 def test_a_stage_with_nothing_to_do_prints_nothing_and_a_python_caller_sees_nothing(capsys):
     # P0320-PROGRESS-STAGES: the no-op of the contract holds outside a command.
     with command_terminal(verbose=False), stage_progress("collect: points", total_files=0):
@@ -324,6 +333,7 @@ def test_a_stage_with_nothing_to_do_prints_nothing_and_a_python_caller_sees_noth
     assert capsys.readouterr() == ("", "")
 
 
+@pytest.mark.requirement("FR-202")
 def test_a_stage_that_raises_says_where_it_stopped_and_lets_the_error_through(capsys):
     # P0320-PROGRESS-STAGES
     with pytest.raises(KeyError), command_terminal(verbose=False):
@@ -333,6 +343,7 @@ def test_a_stage_that_raises_says_where_it_stopped_and_lets_the_error_through(ca
     assert "[post: simulations] stopped at 1/3" in capsys.readouterr().err
 
 
+@pytest.mark.requirement("FR-202")
 def test_tracked_counts_each_item_after_its_body_even_on_continue(capsys):
     # P0320-PROGRESS-STAGES: the one-line hook the long commands use.
     seen = []
@@ -345,6 +356,7 @@ def test_tracked_counts_each_item_after_its_body_even_on_continue(capsys):
     assert "[collect: points] done: 3/3" in capsys.readouterr().err
 
 
+@pytest.mark.requirement("FR-202")
 def test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done(capsys):
     # P0320-PROGRESS-STAGES: the hook every long command uses; the loop body is the stage.
     with pytest.raises(KeyError), command_terminal(verbose=False):
@@ -356,6 +368,7 @@ def test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done(capsys)
     assert "done:" not in err, err
 
 
+@pytest.mark.requirement("FR-202")
 def test_a_terminal_redraws_one_line_with_a_bar_and_ends_it(monkeypatch):
     # P0320-PROGRESS-STAGES: on a terminal the line is redrawn in place.
     clock = FakeClock()
@@ -373,6 +386,7 @@ def test_a_terminal_redraws_one_line_with_a_bar_and_ends_it(monkeypatch):
     assert text.endswith("\n") and "done: 2/2" in text.splitlines()[-1], repr(text)
 
 
+@pytest.mark.requirement("FR-202")
 def test_free_space_and_delete_sims_show_their_stages(tmp_path, monkeypatch):
     # P0320-PROGRESS-STAGES: called from the storage commands.
     monkeypatch.chdir(tmp_path)
@@ -393,6 +407,7 @@ def test_free_space_and_delete_sims_show_their_stages(tmp_path, monkeypatch):
     assert "[delete-sims: remove] done: 1/1" in removed, removed
 
 
+@pytest.mark.requirement("FR-202")
 def test_delete_sims_removal_shows_bytes_over_the_total_it_measured(tmp_path, monkeypatch):
     # P0320-PROGRESS-STAGES: "files and bytes done over the total" where the stage knows them.
     monkeypatch.chdir(tmp_path)
@@ -405,6 +420,7 @@ def test_delete_sims_removal_shows_bytes_over_the_total_it_measured(tmp_path, mo
     assert "[delete-sims: remove] done: 2/2, 4.0 kB/4.0 kB" in removed, removed
 
 
+@pytest.mark.requirement("FR-202")
 def test_collect_and_post_show_their_stages(tmp_path, capsys):
     # P0320-PROGRESS-STAGES: called from collect (per point) and post (per simulation).
     from pyflightstream.post.products import write_campaign_products
@@ -423,6 +439,7 @@ def test_collect_and_post_show_their_stages(tmp_path, capsys):
 # --------------------------------------------------------------------------- FR-203
 
 
+@pytest.mark.requirement("FR-203")
 def test_a_long_command_writes_its_live_log_while_it_runs(tmp_path, monkeypatch):
     # P0320-PROGRESS-LIVE-LOG
     monkeypatch.chdir(tmp_path)
@@ -454,6 +471,7 @@ def test_a_long_command_writes_its_live_log_while_it_runs(tmp_path, monkeypatch)
     assert final.rstrip().splitlines()[-1].startswith("# finished "), final
 
 
+@pytest.mark.requirement("FR-203")
 def test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace(tmp_path, monkeypatch):
     # P0320-PROGRESS-LIVE-LOG
     monkeypatch.chdir(tmp_path)
@@ -474,6 +492,7 @@ def test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace(tmp_path
     }
 
 
+@pytest.mark.requirement("FR-203")
 def test_a_second_live_log_of_the_same_second_gets_its_own_name(tmp_path, monkeypatch):
     # P0320-PROGRESS-LIVE-LOG: a name already taken gains -2; no log is overwritten.
     workspace = _workspace(tmp_path)
@@ -501,6 +520,7 @@ def test_a_second_live_log_of_the_same_second_gets_its_own_name(tmp_path, monkey
     assert "LINE-TWO" not in first.read_text(encoding="utf-8")
 
 
+@pytest.mark.requirement("FR-203")
 def test_a_live_log_that_cannot_be_written_is_named_and_the_command_runs_on(tmp_path, capsys):
     # P0320-PROGRESS-LIVE-LOG: `logs` is a file here, so no log can be opened.
     workspace = _workspace(tmp_path)
@@ -526,6 +546,7 @@ def test_a_live_log_that_cannot_be_written_is_named_and_the_command_runs_on(tmp_
 # --------------------------------------------------------------------------- FR-204
 
 
+@pytest.mark.requirement("FR-204")
 def test_without_a_terminal_the_progress_is_plain_periodic_lines(monkeypatch, capsys):
     # P0320-PROGRESS-NO-TTY
     clock = FakeClock()
@@ -546,6 +567,7 @@ def test_without_a_terminal_the_progress_is_plain_periodic_lines(monkeypatch, ca
     assert lines[-1].startswith("[sync: hash] done: 300/300"), lines
 
 
+@pytest.mark.requirement("FR-204")
 def test_the_live_log_of_a_terminal_session_gets_plain_lines_not_redraws(tmp_path, monkeypatch):
     # P0320-PROGRESS-NO-TTY: the file is never a terminal, whatever the console is.
     clock = FakeClock()
@@ -586,6 +608,7 @@ def _hidden_stage(workspace, *, result):
     return result
 
 
+@pytest.mark.requirement("FR-205")
 def test_a_returned_failure_of_a_verbose_only_stage_shows_on_a_terse_console(tmp_path, capsys):
     # P0320-ARCH2-B1
     with command_terminal(verbose=False):
@@ -600,6 +623,7 @@ def _hidden_quiet_stage(workspace, *, result, quiet=False):
     return result
 
 
+@pytest.mark.requirement("FR-205")
 def test_a_caller_that_asked_quiet_keeps_it_for_a_returned_failure(tmp_path, capsys):
     # P0320-ARCH2-B1: the lifted failure line never overrides the caller's own quiet.
     with command_terminal(verbose=False):
@@ -610,6 +634,7 @@ def test_a_caller_that_asked_quiet_keeps_it_for_a_returned_failure(tmp_path, cap
     assert "[hidden] failed" in capsys.readouterr().err
 
 
+@pytest.mark.requirement("FR-205")
 def test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console(tmp_path, capsys):
     # P0320-ARCH2-B1: only the failure is lifted; a finished stage stays quiet.
     with command_terminal(verbose=False):
@@ -624,6 +649,7 @@ def test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console(tmp_path, 
 # --------------------------------------------------------------------------- FR-206
 
 
+@pytest.mark.requirement("FR-206")
 def test_a_warning_free_plan_has_one_blank_line_before_its_first_block(tmp_path):
     # P0320-QA2-1
     workspace, matrix = _two_case_matrix(tmp_path, values="1000,2000", inside=True)
