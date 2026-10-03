@@ -487,3 +487,57 @@ def test_p0350_batch_records_fr366_a_point_whose_outputs_cannot_be_digested_is_r
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
     assert "is gone" in (record.error or ""), record.error
     assert not record.outputs_sha256
+
+
+def test_p0350_batch_records_fr366_a_steady_sweep_job_records_the_digests_of_its_home_files(
+    tmp_path,
+):
+    """P0350-BATCH-RECORDS (FR-366): the job record of a collected sweep carries its digests.
+
+    The sweep path (`_complete_sweep`) finalises each point of one job and then the job's own
+    record; that record's `outputs_sha256` must be the sha256 of every file collected home.
+    """
+    from tests.tier1_offline.test_collect_stage import _submitted_sweep
+
+    workspace, sim = _submitted_sweep(tmp_path)
+    (sim / "AL+000.txt").write_text("first point", encoding="utf-8")
+    (sim / "AL+020.txt").write_text("second point", encoding="utf-8")
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    (record,) = workspace.read_manifest()
+    assert len(record.outputs) == 2, record.outputs
+    assert record.outputs_sha256 == _home_digests(workspace, record), "FR-366"
+    assert len(record.outputs_sha256) == 2, "FR-366"
+
+
+def test_p0350_batch_records_fr366_the_logged_solver_time_is_the_wall_time_without_a_clock(
+    tmp_path, monkeypatch
+):
+    """P0350-BATCH-RECORDS (FR-366): no clock file, so the sliced log's solver run time is used.
+
+    The loads fixture of this module is not a loads table, so the package's assessment is
+    replaced by one that reads the point's sliced log the way the real one does: through
+    `parse_log_times`, whose run time line is the one the fixture log prints.
+    """
+    from types import SimpleNamespace
+
+    from pyflightstream.results.log import parse_log_times
+
+    def assessed(record, sim_dir):
+        log = next(sim_dir.rglob(f"P2006-{record.point_name}_log.txt"))
+        times = parse_log_times(log.read_text(encoding="utf-8"))
+        return SimpleNamespace(
+            status=RunStatus.CONVERGED, error=None, solver_run_time_s=times.solver_run_time_s
+        )
+
+    monkeypatch.setattr("pyflightstream.run.collect.assessment_of_collected", assessed)
+    workspace, job_dir, _ = _workspace(tmp_path, "polar_sweep")
+    clock = job_dir / "datapoints" / "DP-AL+000" / "actions" / "pfs_walltime_clock.json"
+    assert not clock.exists()
+    collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    record = _status(workspace, "AL+000")
+    logged = parse_log_times(_expected_log(1)).solver_run_time_s
+    assert logged is not None and logged > 0, logged
+    assert record.wall_time_s == logged, "FR-366"
+    basis = record.submission["job"]["wall_time_basis"]
+    assert "solver_run_time_s" in basis, basis
+    assert "clock file" not in basis, basis

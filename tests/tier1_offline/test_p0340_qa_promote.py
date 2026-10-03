@@ -109,9 +109,15 @@ def test_a_broken_precondition_is_waived_and_stays_visible_in_the_script_fr_333(
     precondition = f"NEW_CCS_{family}_RELAXED_TE"
     entry = specs.PROBE_SPECS[command]
     assert entry.preconditions == (precondition,)
+    script = generate_probe_script(entry, "26.124", tmp_path, fsm=tmp_path / "x.fsm")
     text = build_script(command)
     assert f"precondition {precondition}" in text
-    assert text.index(f"{precondition} ") < text.index(f"PYFS_PROBE_BEGIN_{command}")
+    lines = text.splitlines()
+    emitted = [i for i, line in enumerate(lines) if line.startswith(f"{precondition} ")]
+    begin = [i for i, line in enumerate(lines) if f"PYFS_PROBE_BEGIN_{command}" in line]
+    assert emitted and begin, (emitted, begin)
+    assert emitted[0] < begin[0], "the precondition command precedes the probe's begin marker"
+    assert precondition in [use.command for use in script.waived_commands]
     bare = dataclasses.replace(entry, preconditions=())
     with pytest.raises(BrokenCommandError):
         generate_probe_script(bare, "26.124", tmp_path, fsm=tmp_path / "x.fsm")
