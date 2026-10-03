@@ -20,8 +20,10 @@ joining :mod:`pyflightstream.post.point_tables`.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import DEFAULT_DRIFT_LIMIT_PCT
@@ -136,252 +138,10 @@ def _point_reductions(
             "windows its row states."
         )
         return
-    series: TimestepSeries | None = None
-    columns: tuple[str, ...] = ()
-    # ONE READING LIST, TWO SHAPES (FR-68). A row turning several rotors
-    # has no single blade passage, so its two passage reductions live one
-    # per ROTOR under `rotors` and land in files that NAME the rotor; the
-    # flat keys carry the skip that says where they went, and the products
-    # record it as it records any skip. A row turning one rotor, and every
-    # row written before 0.15.0, reads the flat keys alone and its files
-    # keep the names they have always had.
-    reading: list[tuple[str, object, str, str | None]] = [
-        (name, plan.get(name), f"{PROBES_DIR}/{stem}_{name}.csv", None) for name in REDUCTION_NAMES
-    ]
-    rotors = plan.get(ROTORS_KEY)
-    if isinstance(rotors, Mapping):
-        for alias, block in rotors.items():
-            if not isinstance(block, Mapping):
-                continue
-            safe = _a_name_a_file_may_carry(str(alias))
-            for name in PER_ROTOR_REDUCTIONS:
-                reading.append(
-                    (
-                        name,
-                        block.get(name),
-                        f"{PROBES_DIR}/{stem}_{name}_{safe}.csv",
-                        str(alias),
-                    )
-                )
-    # THE FLAT SKIP NAMES THE FILES, because this layer knows the stem and
-    # the cases layer does not. Its own sentence can only describe the
-    # SHAPE of the names; read by someone who has just opened the plots
-    # folder and not found their per-blade table, that is one inference
-    # away from the two files sitting in the folder they are looking at
-    # (the interface lens, 2026-09-10).
-    per_rotor: dict[str, list[str]] = {}
-    for name, _entry, relative, rotor in reading:
-        if rotor is not None:
-            per_rotor.setdefault(name, []).append(relative)
-    for name, entry, relative, rotor in reading:
-        if not isinstance(entry, Mapping):
-            continue  # not applicable to this run type
-        if "skipped" in entry:
-            reason = str(entry["skipped"])
-            if rotor is None and per_rotor.get(name):
-                # THE POINTER REPLACES THE GENERIC TAIL AND ADDS NOTHING ELSE.
-                # The head up to the last colon already says the row names its
-                # rotors; appending that again made one fact print twice and
-                # buried the file names at the end of the repetition, on six
-                # lines of every rotor sweep (PFS-2015.05).
-                reason = (
-                    f"{reason.rsplit(':', 1)[0]}: the per-rotor files are "
-                    f"{' and '.join(per_rotor[name])}."
-                )
-            skipped[relative] = reason
-            continue
-        stated = entry.get("windows", ())
-        windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
-        try:
-            if series is None:
-                columns, series = plots_table_series(plots_table)
-                names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
-            _, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts or {})
-            combined_reads = (
-                _window_the_reduction_reads(
-                    name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
-                )
-                if name == _PER_BLADE and windows
-                else None
-            )
-            reached = [
-                (window, why)
-                for window in windows
-                if (
-                    why := _judge_average(
-                        frozen,
-                        {step for step in combined_reads if window[0] <= step <= window[-1]}
-                        if combined_reads is not None
-                        else _window_the_reduction_reads(
-                            name, entry, window, series, columns, count, facts
-                        ),
-                        point=stem,
-                        product=relative,
-                    )
-                )
-                is not None
-            ]
-        except (PyflightstreamError, OSError, ValueError) as error:
-            skipped[relative] = str(error)
-            continue
-        frozen_windows = [window for window, _ in reached]
-        kept = [window for window in windows if window not in frozen_windows]
-        # THE PER-BLADE TABLE HAS ONE WINDOW, collapsed from its passages, so
-        # dropping a refused passage IN THE MIDDLE and collapsing the rest
-        # BRIDGES it: passages [55,56] and [59,60] became [55,60], averaging the
-        # very step the refusal had just removed and recording that span in the
-        # manifest (the V&V lens at the push review, 2026-09-22). Losing
-        # passages from an END is not bridging and keeps its product, which is
-        # what the definitions page asks and what the independent review of
-        # 0.25.0 restored. So the test is CONTIGUITY, not "any refusal".
-        bridged = (
-            name == _PER_BLADE
-            and kept != windows[windows.index(kept[0]) : windows.index(kept[-1]) + 1]
-            if kept
-            else False
-        )
-        if reached and (not kept or bridged):
-            target(out / relative)  # archive any stale product from an earlier post
-            skipped[relative] = (
-                reached[0][1]
-                if not kept
-                else f"{reached[0][1]}; this table states ONE window over its passages and the "
-                "refused one lies between passages that were kept, so the window it would state "
-                "would span the refused steps"
-            )
-            continue
-        if reached:
-            windows = kept
-        if name == _PER_BLADE and windows:
-            # End trimming changes the span. Ask the reducer again for exactly
-            # what the final table reads, including samples between passages.
-            # UNDER THE SAME HANDLING AS THE FIRST ASK: a trimmed span that
-            # holds no plotted frame is a named skip of this table, as the
-            # definitions page asks of every no-data impossibility, and not an
-            # exception out of the post (the QA read of the closing-round
-            # fixes, 2026-09-23: passages [58,58], [59,59], [60,61], plotted
-            # 60 and 61, unread 61 opt-in, aborted every later product).
-            try:
-                final_reads = _window_the_reduction_reads(
-                    name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
-                )
-                final_reason = _judge_average(frozen, final_reads, point=stem, product=relative)
-            except (PyflightstreamError, OSError, ValueError) as error:
-                target(out / relative)
-                skipped[relative] = str(error)
-                continue
-            if final_reason is not None:
-                target(out / relative)
-                skipped[relative] = final_reason
-                continue
-        if series is None:
-            columns, series = plots_table_series(plots_table)
-            names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
-        destination = target(out / relative)
-        try:
-            if name == _PER_BLADE:
-                done = _write_the_per_blade_table(
-                    destination,
-                    series,
-                    columns,
-                    windows,
-                    rotor=rotor,
-                    plan=plan,
-                    rotor_facts=rotor_facts or {},
-                    condition=condition,
-                    reference=reference,
-                    pol=pol,
-                )
-                # ONE WINDOW, and the manifest says the one the file holds.
-                windows = [(windows[0][0], windows[-1][1])]
-            elif name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
-                # THE PPROC DECLARES [phase_locked]: the mean at each azimuth.
-                rotor_of, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts or {})
-                done = write_phase_locked_table(
-                    destination,
-                    series,
-                    columns,
-                    window=windows[0],
-                    revolutions=float(entry.get("revolutions") or 0.0),  # type: ignore[arg-type]
-                    steps_per_revolution=float(entry.get("steps_per_revolution") or 0.0),  # type: ignore[arg-type]
-                    rotor=rotor_of,
-                    blades=count,
-                    facts=facts,
-                    condition=condition,
-                    reference=reference,
-                    pol=pol,
-                )
-            else:
-                done = write_reduction_table(
-                    destination,
-                    series,
-                    columns,
-                    reduction=name,
-                    windows=windows,
-                    names=names,
-                    # ITEM 5. A reduction is an AVERAGE over a window, and an
-                    # average of coefficients states nothing without the condition
-                    # they were taken at and the lengths they were normalised by.
-                    # Both are threaded in from the caller: this function reaches no
-                    # record, and inventing them here is how two products of one
-                    # point come to disagree about what point it was.
-                    condition=condition,
-                    reference=reference,
-                    rotor=rotor,
-                    pol=pol,
-                )
-        except ProductError as error:
-            skipped[relative] = str(error)
-            continue
-        written.append(done)
-        # A FILE WRITTEN WITHOUT SOME OF ITS WINDOWS SAYS SO, under its own name
-        # with a marker, the idiom this module uses for a block that was asked for
-        # and not applied. Without it the kept passages would look like the whole
-        # reduction and the frozen one would have vanished unnamed.
-        if reached:
-            note = "; ".join(why for _, why in reached)
-            skipped[f"{relative}#windows"] = note
-            warn(f"{relative}: {note}", PyflightstreamWarning, stacklevel=2)
-        record: dict[str, object] = {
-            "runs": runs,
-            "reduction": name,
-            "windows": [list(window) for window in windows],
-            "window_from": entry.get("window_from"),
-        }
-        if "period_steps" in entry:
-            record["period_steps"] = entry["period_steps"]
-        for key in ("shape", "revolutions", "steps_per_revolution"):
-            if key in entry:
-                record[key] = entry[key]
-        if rotor is not None:
-            # THE ROTOR AS A FIELD, not only as a piece of a file name. The
-            # name is `{stem}_{reduction}_{alias}` and both the reduction
-            # and the alias carry underscores, so it does not decompose: a
-            # reader holding `a-02.0_per_blade_LIFT_L1.csv` could not say
-            # which rotor it is without already knowing the alias set (the
-            # interface lens, 2026-09-10).
-            record["rotor"] = rotor
-        written_names[relative] = record
-    # THE PER-REVOLUTION PRODUCT (0.31.0, P0310-G2-PER-REV) is read off the same
-    # WRITTEN table and is not one of `REDUCTION_NAMES`: it has no window of the
-    # row's, it cuts the whole history into revolutions.
-    if not (
-        isinstance(plan.get(ROTORS_KEY), Mapping) or isinstance(plan.get("phase_locked"), Mapping)
-    ):
-        return  # no rotor turns in this point: the product is not applicable
-    if series is None:
-        try:
-            columns, series = plots_table_series(plots_table)
-        except (PyflightstreamError, OSError, ValueError) as error:
-            skipped[f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}.csv"] = str(error)
-            return
-        names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
-    _write_the_per_revolution_products(
-        series,
-        columns,
-        plan,
-        out,
-        stem=stem,
+    ctx = _ReductionProducts(
+        plots_table=plots_table,
+        plan=plan,
+        out=out,
         runs=runs,
         target=target,
         written=written,
@@ -389,11 +149,16 @@ def _point_reductions(
         skipped=skipped,
         condition=condition,
         reference=reference,
+        rotor_facts=rotor_facts,
         names=names,
         frozen=frozen,
         pol=pol,
-        drift_limit_pct=DEFAULT_DRIFT_LIMIT_PCT if drift_limit_pct is None else drift_limit_pct,
+        stem=stem,
     )
+    reading, per_rotor = _reduction_reading(ctx)
+    for name, entry, relative, rotor in reading:
+        _write_point_reduction(ctx, name, entry, relative, rotor, per_rotor=per_rotor)
+    _write_point_revolutions(ctx, drift_limit_pct)
 
 
 def _the_rotor_of_a_reduction(
@@ -635,3 +400,390 @@ def _write_the_per_revolution_products(
         if rotor is not None:
             record["rotor"] = rotor
         written_names[relative] = record
+
+
+@dataclass
+class _ReductionProducts:
+    """One point's output sinks and lazily loaded plots history."""
+
+    plots_table: Path
+    plan: Mapping[str, object]
+    out: Path
+    runs: list[str]
+    target: Callable[[Path], Path]
+    written: list[Path]
+    written_names: dict[str, dict[str, object]]
+    skipped: dict[str, str]
+    condition: Mapping[str, object] | None
+    reference: ReferenceValues | None
+    rotor_facts: Mapping[str, Mapping[str, object]] | None
+    names: Mapping[str, str] | None
+    frozen: FrozenSolve | None
+    pol: str | int | None
+    stem: str
+    series: TimestepSeries | None = None
+    columns: tuple[str, ...] = ()
+
+
+def _reduction_reading(
+    ctx: _ReductionProducts,
+) -> tuple[list[tuple[str, object, str, str | None]], dict[str, list[str]]]:
+    # ONE READING LIST, TWO SHAPES (FR-68). A row turning several rotors
+    # has no single blade passage, so its two passage reductions live one
+    # per ROTOR under `rotors` and land in files that NAME the rotor; the
+    # flat keys carry the skip that says where they went, and the products
+    # record it as it records any skip. A row turning one rotor, and every
+    # row written before 0.15.0, reads the flat keys alone and its files
+    # keep the names they have always had.
+    """List flat reductions before per-rotor reductions and their skip pointers."""
+    reading: list[tuple[str, object, str, str | None]] = [
+        (name, ctx.plan.get(name), f"{PROBES_DIR}/{ctx.stem}_{name}.csv", None)
+        for name in REDUCTION_NAMES
+    ]
+    rotors = ctx.plan.get(ROTORS_KEY)
+    if isinstance(rotors, Mapping):
+        for alias, block in rotors.items():
+            if not isinstance(block, Mapping):
+                continue
+            safe = _a_name_a_file_may_carry(str(alias))
+            for name in PER_ROTOR_REDUCTIONS:
+                reading.append(
+                    (
+                        name,
+                        block.get(name),
+                        f"{PROBES_DIR}/{ctx.stem}_{name}_{safe}.csv",
+                        str(alias),
+                    )
+                )
+    # THE FLAT SKIP NAMES THE FILES, because this layer knows the stem and
+    # the cases layer does not. Its own sentence can only describe the
+    # SHAPE of the names; read by someone who has just opened the plots
+    # folder and not found their per-blade table, that is one inference
+    # away from the two files sitting in the folder they are looking at
+    # (the interface lens, 2026-09-10).
+    per_rotor: dict[str, list[str]] = {}
+    for name, _entry, relative, rotor in reading:
+        if rotor is not None:
+            per_rotor.setdefault(name, []).append(relative)
+    return reading, per_rotor
+
+
+def _judged_reduction_windows(
+    ctx: _ReductionProducts,
+    name: str,
+    entry: Mapping[str, object],
+    relative: str,
+    rotor: str | None,
+) -> (
+    tuple[list[tuple[int, ...]], list[tuple[tuple[int, ...], str]], Mapping[str, object], int]
+    | None
+):
+    """Read the history once and judge the samples of each planned window."""
+    stated = cast(Iterable[Iterable[int | str]], entry.get("windows", ()))
+    windows = [tuple(int(v) for v in window) for window in stated]
+    try:
+        if ctx.series is None:
+            ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
+            ctx.names = _dictionary_the_table_can_honour(
+                ctx.columns, ctx.names, ctx.stem, ctx.skipped
+            )
+        _, facts, count = _the_rotor_of_a_reduction(rotor, ctx.plan, ctx.rotor_facts or {})
+        combined_reads = (
+            _window_the_reduction_reads(
+                name, entry, (windows[0][0], windows[-1][1]), ctx.series, ctx.columns, count, facts
+            )
+            if name == _PER_BLADE and windows
+            else None
+        )
+        reached = [
+            (window, why)
+            for window in windows
+            if (
+                why := _judge_average(
+                    ctx.frozen,
+                    {step for step in combined_reads if window[0] <= step <= window[-1]}
+                    if combined_reads is not None
+                    else _window_the_reduction_reads(
+                        name, entry, window, ctx.series, ctx.columns, count, facts
+                    ),
+                    point=ctx.stem,
+                    product=relative,
+                )
+            )
+            is not None
+        ]
+    except (PyflightstreamError, OSError, ValueError) as error:
+        ctx.skipped[relative] = str(error)
+        return None
+    return windows, reached, facts, count
+
+
+def _trim_reduction_windows(
+    ctx: _ReductionProducts,
+    name: str,
+    entry: Mapping[str, object],
+    relative: str,
+    *,
+    windows: list[tuple[int, ...]],
+    reached: list[tuple[tuple[int, ...], str]],
+    facts: Mapping[str, object],
+    count: int,
+) -> list[tuple[int, ...]] | None:
+    """Trim refused windows and judge the final per-blade span without bridging."""
+    assert ctx.series is not None  # The first sample judgment loaded the history.
+    frozen_windows = [window for window, _ in reached]
+    kept = [window for window in windows if window not in frozen_windows]
+    # THE PER-BLADE TABLE HAS ONE WINDOW, collapsed from its passages, so
+    # dropping a refused passage IN THE MIDDLE and collapsing the rest
+    # BRIDGES it: passages [55,56] and [59,60] became [55,60], averaging the
+    # very step the refusal had just removed and recording that span in the
+    # manifest (the V&V lens at the push review, 2026-09-22). Losing
+    # passages from an END is not bridging and keeps its product, which is
+    # what the definitions page asks and what the independent review of
+    # 0.25.0 restored. So the test is CONTIGUITY, not "any refusal".
+    bridged = (
+        name == _PER_BLADE and kept != windows[windows.index(kept[0]) : windows.index(kept[-1]) + 1]
+        if kept
+        else False
+    )
+    if reached and (not kept or bridged):
+        ctx.target(ctx.out / relative)  # archive any stale product from an earlier post
+        ctx.skipped[relative] = (
+            reached[0][1]
+            if not kept
+            else f"{reached[0][1]}; this table states ONE window over its passages and the "
+            "refused one lies between passages that were kept, so the window it would state "
+            "would span the refused steps"
+        )
+        return None
+    if reached:
+        windows = kept
+    if name == _PER_BLADE and windows:
+        # End trimming changes the span. Ask the reducer again for exactly
+        # what the final table reads, including samples between passages.
+        # UNDER THE SAME HANDLING AS THE FIRST ASK: a trimmed span that
+        # holds no plotted frame is a named skip of this table, as the
+        # definitions page asks of every no-data impossibility, and not an
+        # exception out of the post (the QA read of the closing-round
+        # fixes, 2026-09-23: passages [58,58], [59,59], [60,61], plotted
+        # 60 and 61, unread 61 opt-in, aborted every later product).
+        try:
+            final_reads = _window_the_reduction_reads(
+                name, entry, (windows[0][0], windows[-1][1]), ctx.series, ctx.columns, count, facts
+            )
+            final_reason = _judge_average(ctx.frozen, final_reads, point=ctx.stem, product=relative)
+        except (PyflightstreamError, OSError, ValueError) as error:
+            ctx.target(ctx.out / relative)
+            ctx.skipped[relative] = str(error)
+            return None
+        if final_reason is not None:
+            ctx.target(ctx.out / relative)
+            ctx.skipped[relative] = final_reason
+            return None
+    return windows
+
+
+def _write_reduction_table(
+    ctx: _ReductionProducts,
+    name: str,
+    entry: Mapping[str, object],
+    relative: str,
+    rotor: str | None,
+    *,
+    windows: list[tuple[int, ...]],
+) -> tuple[Path, list[tuple[int, ...]]] | None:
+    """Dispatch the table writer and return the windows its file actually holds."""
+    assert ctx.series is not None  # The caller loaded and judged this history.
+    destination = ctx.target(ctx.out / relative)
+    try:
+        if name == _PER_BLADE:
+            done = _write_the_per_blade_table(
+                destination,
+                ctx.series,
+                ctx.columns,
+                windows,
+                rotor=rotor,
+                plan=ctx.plan,
+                rotor_facts=ctx.rotor_facts or {},
+                condition=ctx.condition,
+                reference=ctx.reference,
+                pol=ctx.pol,
+            )
+            # ONE WINDOW, and the manifest says the one the file holds.
+            windows = [(windows[0][0], windows[-1][1])]
+        elif name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
+            # THE PPROC DECLARES [phase_locked]: the mean at each azimuth.
+            rotor_of, facts, count = _the_rotor_of_a_reduction(
+                rotor, ctx.plan, ctx.rotor_facts or {}
+            )
+            done = write_phase_locked_table(
+                destination,
+                ctx.series,
+                ctx.columns,
+                window=windows[0],
+                revolutions=float(entry.get("revolutions") or 0.0),  # type: ignore[arg-type]
+                steps_per_revolution=float(entry.get("steps_per_revolution") or 0.0),  # type: ignore[arg-type]
+                rotor=rotor_of,
+                blades=count,
+                facts=facts,
+                condition=ctx.condition,
+                reference=ctx.reference,
+                pol=ctx.pol,
+            )
+        else:
+            done = write_reduction_table(
+                destination,
+                ctx.series,
+                ctx.columns,
+                reduction=name,
+                windows=windows,
+                names=ctx.names,
+                # ITEM 5. A reduction is an AVERAGE over a window, and an
+                # average of coefficients states nothing without the condition
+                # they were taken at and the lengths they were normalised by.
+                # Both are threaded in from the caller: this function reaches no
+                # record, and inventing them here is how two products of one
+                # point come to disagree about what point it was.
+                condition=ctx.condition,
+                reference=ctx.reference,
+                rotor=rotor,
+                pol=ctx.pol,
+            )
+    except ProductError as error:
+        ctx.skipped[relative] = str(error)
+        return None
+    return done, windows
+
+
+def _write_point_reduction(
+    ctx: _ReductionProducts,
+    name: str,
+    entry: object,
+    relative: str,
+    rotor: str | None,
+    *,
+    per_rotor: Mapping[str, list[str]],
+) -> None:
+    """Judge, write and index one reduction while preserving named omissions."""
+    if not isinstance(entry, Mapping):
+        return  # not applicable to this run type
+    if "skipped" in entry:
+        reason = str(entry["skipped"])
+        if rotor is None and per_rotor.get(name):
+            # THE POINTER REPLACES THE GENERIC TAIL AND ADDS NOTHING ELSE.
+            # The head up to the last colon already says the row names its
+            # rotors; appending that again made one fact print twice and
+            # buried the file names at the end of the repetition, on six
+            # lines of every rotor sweep (PFS-2015.05).
+            reason = (
+                f"{reason.rsplit(':', 1)[0]}: the per-rotor files are "
+                f"{' and '.join(per_rotor[name])}."
+            )
+        ctx.skipped[relative] = reason
+        return
+    judged = _judged_reduction_windows(ctx, name, entry, relative, rotor)
+    if judged is None:
+        return
+    windows, reached, facts, count = judged
+    trimmed = _trim_reduction_windows(
+        ctx,
+        name,
+        entry,
+        relative,
+        windows=windows,
+        reached=reached,
+        facts=facts,
+        count=count,
+    )
+    if trimmed is None:
+        return
+    windows = trimmed
+    if ctx.series is None:
+        ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
+        ctx.names = _dictionary_the_table_can_honour(ctx.columns, ctx.names, ctx.stem, ctx.skipped)
+    result = _write_reduction_table(ctx, name, entry, relative, rotor, windows=windows)
+    if result is None:
+        return
+    done, windows = result
+    ctx.written.append(done)
+    # A FILE WRITTEN WITHOUT SOME OF ITS WINDOWS SAYS SO, under its own name
+    # with a marker, the idiom this module uses for a block that was asked for
+    # and not applied. Without it the kept passages would look like the whole
+    # reduction and the frozen one would have vanished unnamed.
+    if reached:
+        note = "; ".join(why for _, why in reached)
+        ctx.skipped[f"{relative}#windows"] = note
+        warn(f"{relative}: {note}", PyflightstreamWarning, stacklevel=3)
+    _record_reduction_product(ctx, name, entry, relative, rotor, windows=windows)
+
+
+def _write_point_revolutions(
+    ctx: _ReductionProducts,
+    drift_limit_pct: float | None,
+) -> None:
+    # THE PER-REVOLUTION PRODUCT (0.31.0, P0310-G2-PER-REV) is read off the same
+    # WRITTEN table and is not one of `REDUCTION_NAMES`: it has no window of the
+    # row's, it cuts the whole history into revolutions.
+    """Write per-revolution products using the point's shared history reading."""
+    if not (
+        isinstance(ctx.plan.get(ROTORS_KEY), Mapping)
+        or isinstance(ctx.plan.get("phase_locked"), Mapping)
+    ):
+        return  # no rotor turns in this point: the product is not applicable
+    if ctx.series is None:
+        try:
+            ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
+        except (PyflightstreamError, OSError, ValueError) as error:
+            ctx.skipped[f"{PROBES_DIR}/{ctx.stem}_{_PER_REVOLUTION}.csv"] = str(error)
+            return
+        ctx.names = _dictionary_the_table_can_honour(ctx.columns, ctx.names, ctx.stem, ctx.skipped)
+    _write_the_per_revolution_products(
+        ctx.series,
+        ctx.columns,
+        ctx.plan,
+        ctx.out,
+        stem=ctx.stem,
+        runs=ctx.runs,
+        target=ctx.target,
+        written=ctx.written,
+        written_names=ctx.written_names,
+        skipped=ctx.skipped,
+        condition=ctx.condition,
+        reference=ctx.reference,
+        names=ctx.names,
+        frozen=ctx.frozen,
+        pol=ctx.pol,
+        drift_limit_pct=DEFAULT_DRIFT_LIMIT_PCT if drift_limit_pct is None else drift_limit_pct,
+    )
+
+
+def _record_reduction_product(
+    ctx: _ReductionProducts,
+    name: str,
+    entry: Mapping[str, object],
+    relative: str,
+    rotor: str | None,
+    *,
+    windows: list[tuple[int, ...]],
+) -> None:
+    """Index the written reduction's exact windows and rotor provenance."""
+    record: dict[str, object] = {
+        "runs": ctx.runs,
+        "reduction": name,
+        "windows": [list(window) for window in windows],
+        "window_from": entry.get("window_from"),
+    }
+    if "period_steps" in entry:
+        record["period_steps"] = entry["period_steps"]
+    for key in ("shape", "revolutions", "steps_per_revolution"):
+        if key in entry:
+            record[key] = entry[key]
+    if rotor is not None:
+        # THE ROTOR AS A FIELD, not only as a piece of a file name. The
+        # name is `{stem}_{reduction}_{alias}` and both the reduction
+        # and the alias carry underscores, so it does not decompose: a
+        # reader holding `a-02.0_per_blade_LIFT_L1.csv` could not say
+        # which rotor it is without already knowing the alias set (the
+        # interface lens, 2026-09-10).
+        record["rotor"] = rotor
+    ctx.written_names[relative] = record

@@ -8,11 +8,9 @@
   "workspace/storage.py": 1487
  },
  "function_lines": {
-  "post/products.py:_write_the_products": 259,
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
   "workspace/setup_standards.py:render_guidelines": 263,
-  "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
   "run/_campaign.py:run_campaign": 412,
   "run/_points.py:_execute_point": 449,
@@ -253,16 +251,10 @@
    "statements": 100,
    "positional": 4
   },
-  "post/products.py:_campaign_products": {
-   "complexity": 30,
-   "branches": 30,
-   "statements": 89,
-   "positional": 1
-  },
   "post/products.py:_write_the_products": {
-   "complexity": 31,
-   "branches": 30,
-   "statements": 97,
+   "complexity": 1,
+   "branches": 0,
+   "statements": 6,
    "positional": 9
   },
   "post/products.py:write_campaign_products": {
@@ -1189,12 +1181,6 @@
    "statements": 30,
    "positional": 1
   },
-  "post/_reduction_stage.py:_point_reductions": {
-   "complexity": 31,
-   "branches": 31,
-   "statements": 94,
-   "positional": 3
-  },
   "post/_reduction_stage.py:_write_the_per_revolution_products": {
    "complexity": 12,
    "branches": 11,
@@ -1202,9 +1188,9 @@
    "positional": 4
   },
   "post/_rotor_plan.py:_rotor_tables": {
-   "complexity": 39,
-   "branches": 25,
-   "statements": 134,
+   "complexity": 10,
+   "branches": 9,
+   "statements": 26,
    "positional": 15
   },
   "post/_rotor_plan.py:rotor_plot_source": {
