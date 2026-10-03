@@ -112,12 +112,21 @@ def test_a_translation_problem_refuses_the_extraction_and_keeps_the_copy(tmp_pat
 
 def test_submitted_is_documented_as_pending_and_not_a_workspace_attribute():
     """Q0-src-workspace-2 (a)(b): a stray class attribute and a wrong doc comment."""
-    import inspect
+    import ast
+    import pathlib
 
-    from pyflightstream.workspace import CampaignWorkspace, ExtractionStatus
+    from pyflightstream.workspace import CampaignWorkspace, ExtractionStatus, manifest
 
     assert "SUBMITTED" not in vars(CampaignWorkspace)
-    source = inspect.getsource(ExtractionStatus)
+    # The class keeps its public module (pyflightstream.workspace, AD-15) while it is defined in
+    # workspace/manifest.py, so inspect.getsource cannot find it on Python 3.12: read it here.
+    text = pathlib.Path(manifest.__file__).read_text(encoding="utf-8")
+    node = next(
+        n
+        for n in ast.parse(text).body
+        if isinstance(n, ast.ClassDef) and n.name == "ExtractionStatus"
+    )
+    source = ast.get_source_segment(text, node) or ""
     before_submitted = source.split('SUBMITTED = "SUBMITTED"', 1)[0].rstrip().splitlines()[-1]
     assert "written and hashed" not in before_submitted
     assert "written and hashed" in source.split('EXTRACTED = "EXTRACTED"', 1)[0].splitlines()[-2]
