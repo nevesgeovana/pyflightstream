@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 357,
+  "cited_by_a_test": 358,
   "total": 427,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -3057,11 +3057,11 @@
   },
   {
    "id": "FR-410",
-   "text": "Need: A coupled row on steady or qsteady_rotor must join the grouped modes when the solver permits it, or carry a measured reason why it cannot.",
+   "text": "Need: A coupled row on steady or qsteady_rotor must carry a measured reason why it cannot join the grouped modes.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150.*",
+   "verification": "review"
   },
   {
    "id": "NFR-01",

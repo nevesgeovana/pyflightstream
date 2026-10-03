@@ -130,9 +130,9 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     An acoustic row and a coupled (FSI) row join since 0.35.1 (FR-406, FR-407): the job restates
     each point's acoustic setup and enters each coupled point by ``NEW_SIMULATION``
     (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
-    quasi-steady coupled row stays out under the first reason: its script ends at
-    ``EXECUTE_AEROELASTIC_ANALYSIS``, which returns at once and is ended by any line after it, so
-    no point can follow it in one instance. ``unsteady_rotor`` refuses FSI when it builds.
+    quasi-steady coupled row stays out: ``EXECUTE_AEROELASTIC_ANALYSIS`` starts its coupling
+    loop only after the script ends, so no point can follow it in one instance (FR-410,
+    RPT-150). ``unsteady_rotor`` refuses FSI when it builds.
 
     A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
     0.35.1): the split puts it only with polars stating the same actions, and the job registers
@@ -163,6 +163,11 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
         return (
             f"a {workflow or 'LEGACY'} row: grouped modes run the package's steady and unsteady "
             "run types only"
+        )
+    if case.fsi is not None and steady:
+        return (
+            "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
+            "script ends, so no point can follow it in one instance (measured, RPT-150)"
         )
     warm = _warm_steady(case, steady)
     if warm is not None:

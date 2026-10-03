@@ -9568,17 +9568,19 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying P0360-MATURITY and FR-409 checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
 
-!!! requirement "FR-410 Coupled steady and quasi-steady rows in grouped modes, conditional on the licensed probe <span class='srs-pending'>pending</span>"
+!!! requirement "FR-410 Coupled steady and quasi-steady rows stay out of grouped modes <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150.*
 
-    Need: A coupled row on `steady` or `qsteady_rotor` must join the grouped modes when the solver permits it, or carry a measured reason why it cannot.
+    Need: A coupled row on `steady` or `qsteady_rotor` must carry a measured reason why it cannot join the grouped modes.
 
-    Requirement: The licensed GF probe shall decide between branches (a) and (b) below: decided by the probe; the branch not taken is withdrawn.
+    Requirement: Branch (b) is taken: a coupled row on `steady` or `qsteady_rotor` shall stay out of `--batch` and `--polar-sweep`, with an eligibility reason naming RPT-150. Its coupling loop starts only after the script ends, so no point can follow it in one instance.
 
-    - R1 Branch (a): a coupled row on `steady` or `qsteady_rotor` joins `--batch` and `--polar-sweep`. Each coupled point enters with `NEW_SIMULATION` + `OPEN` of the pristine geometry, including a point following one of its own polar, so no deformation is inherited.
-    - R2 Branch (a): a job without such a coupled steady or quasi-steady row is byte-for-byte the job of 0.35.1. An RPT compares at least 4 points in 2 polars grouped versus alone on FlightStream 26.124, far field 5, with receipt `lv/fsi_steady.json`.
-    - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming the RPT that measured why. The proof is `fsi_steady_infeasible.json`, with log `path:line` citations, and a tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
-    - R4 This requirement conditionally amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference.
+    - R1 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed inclusion of coupled steady and quasi-steady rows, with every point reopening the pristine geometry, is withdrawn.
+    - R2 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed grouped-versus-alone equality comparison and `lv/fsi_steady.json` receipt are withdrawn; no equality is claimed.
+    - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming RPT-150. The proof is `fsi_steady_infeasible.json`, decided at 2026-10-03T12:26:27-03:00; RPT-150 transcribes its log citations by file name and line. A tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
+    - R4 This requirement amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference. The guard fixes 0.35.1, which planned these rows into jobs despite its stated exclusion.
 
-    Verification: tier 1, tests carrying P0360-BATCH-FSI-STEADY and FR-410 exercise the selected branch and its unchanged control; the licensed GF probe and its RPT supply either the grouped-versus-alone comparison and `lv/fsi_steady.json` of R2, or the infeasibility proof and cited logs of R3. Neither branch is claimed as measured by this pending requirement. Release 0.36.0.
+    Verification: tier 1, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](../../reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
+
+    Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out the coupled steady row with a reason naming RPT-150 and that the report exists; both cases fail on 8852906f. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.

@@ -19,7 +19,7 @@ out of a job. What a job must do instead:
 * switch the coupling off for a point without it that follows a coupled one;
 * cut a coupled point's log from its own segment, which opens the model.
 
-The steady merge admits the steady fixture at eligibility. Synthetic cases.
+Coupled steady rows stay out at eligibility (FR-410, RPT-150). Synthetic cases.
 """
 
 from __future__ import annotations
@@ -276,14 +276,17 @@ def _after(lines: list[str], head: str) -> str:
 def test_p0351_fsi_fr407_a_coupled_unsteady_row_joins(tmp_path):
     """P0351-BATCH-FSI (FR-407): ``eligibility`` lets an unsteady coupled row join.
 
-    The steady merge also admits the same fixture's steady coupled row at eligibility.
+    The same fixture's steady coupled row stays out (FR-410, RPT-150).
     """
     workspace = CampaignWorkspace(tmp_path / "camp")
     coupled = unsteady_wing_case(tmp_path)
     assert coupled.fsi is not None
     assert eligibility(coupled, workspace=workspace, version=BUILD) is None
     steady = steady_wing_case(tmp_path)
-    assert eligibility(steady, workspace=workspace, version=BUILD) is None
+    assert eligibility(steady, workspace=workspace, version=BUILD) == (
+        "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
+        "script ends, so no point can follow it in one instance (measured, RPT-150)"
+    )
 
 
 def test_p0351_fsi_fr407_every_coupled_point_reopens_its_model(tmp_path):
