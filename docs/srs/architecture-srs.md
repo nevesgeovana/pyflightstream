@@ -869,9 +869,12 @@ exit codes. A named difference needs its FR id and migration entry.
     *Work package WP7 of 0.36.0. Verification is owed: the public-path
     comparison, the G1 and G8 recount, the layer guards and NFR-40 parity.*
 
-    The record model moves to `workspace/manifest.py`, the matrix layout
-    to `workspace/_layout.py`, and the three registries (post stages,
-    post diagnostics and input guides) to `workspace/registries.py`.
+    The record models and `WorkspaceError` live in `workspace/manifest.py`,
+    and the matrix layout helpers and `ReferencePoints` live in
+    `workspace/_layout.py`. The three registries (post stages, post
+    diagnostics and input guides) stay in `workspace/__init__.py`: a
+    separate module measured 32 code lines, below the depth minimum
+    (goal record 2.3.0).
     `workspace/__init__.py` keeps every public import path under AD-15's
     evolution policy. It leaves the G1 table, and its G8 facade lines
     fall by at least the code moved out; neither baseline grows.
@@ -895,9 +898,10 @@ exit codes. A named difference needs its FR id and migration entry.
     the binding and record fixtures, the layer guards and NFR-40 parity.*
 
     `workspace/matrix.py::resolve_matrix` is decomposed into phases over
-    one `_Binding` context in private `workspace` modules, and
-    `workspace/matrix.py` leaves G1. The phase module names are listed
-    here when the work package lands; this pending decision assigns none.
+    one `_Binding` context in `workspace/_matrix_binding.py`, which also
+    owns `ResolvedMatrix` and preset binding. `workspace/_matrix_phases.py`
+    owns the ordered build, artifact, row and flight-state resolution
+    phases. `workspace/matrix.py` orchestrates them and leaves G1.
     Every public path is kept under AD-15's evolution policy, and NFR-40
     preserves scripts, products, records, console text and exit codes.
 
@@ -975,9 +979,15 @@ exit codes. A named difference needs its FR id and migration entry.
     `_rotor_tables`, `_write_the_products`, `_campaign_products` and
     `_point_reductions` are decomposed into private helpers in `post/`,
     each within AD-08 G2 (complexity 10, branches 12, statements 50 and
-    positional arguments 5), with no raised baseline. The helper module
-    names are recorded here when the work package lands. The modules
-    stay in the post layer and obey AD-01.
+    positional arguments 5), with no raised baseline.
+    `post/_products_campaign.py` owns the `_CampaignProducts` context,
+    `_admit_campaign_records` for ordered record admission,
+    `_record_has_frozen_failure` for failed-status warnings and freeze
+    evidence, `_index_record_surfaces` for native surface indexing and
+    missing or refused inputs, and `_warn_unreadable_matrix` for the
+    fallback to recorded matrix values. The remaining helpers stay in
+    their existing post modules. The modules stay in the post layer and
+    obey AD-01.
     AD-15's evolution policy keeps every public path. NFR-40 is the
     no-behaviour-change clause: the products snapshot and parity
     comparisons must preserve product bytes as well as scripts,

@@ -167,7 +167,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     if case.fsi is not None and steady:
         return (
             "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
-            "script ends, so no point can follow it in one instance (measured, RPT-150)"
+            "script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)"
         )
     warm = _warm_steady(case, steady)
     if warm is not None:

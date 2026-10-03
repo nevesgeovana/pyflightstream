@@ -1635,3 +1635,12 @@ def complete_submitted_record(workspace: _ManifestWorkspace, record: RunRecord) 
         f"refusing to complete run {record.run_id!r}: the manifest at "
         f"{workspace.manifest_path} holds no row with that run_id."
     )
+
+
+# Preserve public identities after Pydantic has resolved the record annotations.
+RunStatus.__module__ = "pyflightstream.workspace"
+ExecutorRecord.__module__ = "pyflightstream.workspace"
+BrokenCommandRecord.__module__ = "pyflightstream.workspace"
+RunRecord.__module__ = "pyflightstream.workspace"
+ExtractionStatus.__module__ = "pyflightstream.workspace"
+AdditionalRecord.__module__ = "pyflightstream.workspace"

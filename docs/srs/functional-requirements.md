@@ -9474,7 +9474,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-409 API and capability maturity <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference. Verification: test, `tests/tier1_offline/test_p0360_mm.py`.*
 
     Need: A reader of the API reference must be able to find the maturity of every public module in one place.
 
@@ -9484,23 +9484,23 @@ Requirements written after the specification was last reconciled with the packag
     - R2 Both set differences are empty: public modules minus table rows, and table rows minus public modules. A repeated module row is refused even if its levels agree.
     - R3 The API reference renders the committed table rather than maintaining another list.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0360_mm.py`, carrying P0360-MATURITY (FR-409), checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
+    Verification: test, `tests/tier1_offline/test_p0360_mm.py`, carrying P0360-MATURITY (FR-409), checks the enum, uniqueness, both set differences and the rendered reference; planted missing, extra, duplicate and invalid-level rows must fail. Release 0.36.0.
 
     Evidence: `test_public_modules_have_exactly_one_maturity`, `test_maturity_controls_reject_missing_extra_duplicate_and_unknown_rows`, `test_generated_reference_shows_each_modules_maturity` and `test_reference_validation_refuses_planted_table_defects` in `tests/tier1_offline/test_p0360_mm.py`.
 
 !!! requirement "FR-410 Coupled steady and quasi-steady rows stay out of grouped modes <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150.*
+    *Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150. Verification: test, `tests/tier1_offline/test_p0360_gf.py`.*
 
-    Need: A coupled row on `steady` or `qsteady_rotor` must carry a measured reason why it cannot join the grouped modes.
+    Need: A coupled row on `steady` or `qsteady_rotor` must carry an evidence-backed reason why it cannot join the grouped modes: steady was measured; the qsteady_rotor half is inferred from the shared coupling mechanism.
 
-    Requirement: Branch (b) is taken: a coupled row on `steady` or `qsteady_rotor` shall stay out of `--batch` and `--polar-sweep`, with an eligibility reason naming RPT-150. Its coupling loop starts only after the script ends, so no point can follow it in one instance.
+    Requirement: Branch (b) is taken: a coupled row on `steady` or `qsteady_rotor` shall stay out of `--batch` and `--polar-sweep`, with the exact eligibility reason "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)". The steady half was measured; the qsteady_rotor half is inferred from the shared coupling mechanism, not separately measured.
 
     - R1 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed inclusion of coupled steady and quasi-steady rows, with every point reopening the pristine geometry, is withdrawn.
     - R2 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed grouped-versus-alone equality comparison and `lv/fsi_steady.json` receipt are withdrawn; no equality is claimed.
     - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming RPT-150. The proof is `fsi_steady_infeasible.json`, decided at 2026-10-03T12:26:27-03:00; RPT-150 transcribes its log citations by file name and line. A tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
     - R4 This requirement amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference. The guard fixes 0.35.1, which planned these rows into jobs despite its stated exclusion.
 
-    Verification: tier 1, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](https://github.com/nevesgeovana/pyflightstream/blob/8983ee62/reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
+    Verification: test, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](https://github.com/nevesgeovana/pyflightstream/blob/8983ee62/reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
 
-    Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out the coupled steady row with a reason naming RPT-150 and that the report exists; both cases fail on 8852906f. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.
+    Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out coupled steady and qsteady_rotor rows with the exact reason naming RPT-150 and that the report exists. The original two steady cases fail on 8852906f; removing qsteady_rotor from the steady set fails both quasi-steady cases. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.

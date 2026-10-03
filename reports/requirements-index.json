@@ -3052,16 +3052,16 @@
    "text": "Need: A reader of the API reference must be able to find the maturity of every public module in one place.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference.*",
-   "verification": "review"
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference. Verification: test, tests/tier1_offline/test_p0360_mm.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-410",
-   "text": "Need: A coupled row on steady or qsteady_rotor must carry a measured reason why it cannot join the grouped modes.",
+   "text": "Need: A coupled row on steady or qsteady_rotor must carry an evidence-backed reason why it cannot join the grouped modes: steady was measured; the qsteady_rotor half is inferred from the shared coupling mechanism.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150.*",
-   "verification": "review"
+   "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150. Verification: test, tests/tier1_offline/test_p0360_gf.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",

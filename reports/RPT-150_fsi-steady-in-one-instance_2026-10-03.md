@@ -60,6 +60,20 @@ FR-410 takes branch (b): no point can follow a coupled steady or
 modes keep such rows out and name RPT-150 in the eligibility reason.
 Branch (a) is withdrawn 2026-10-03: measured infeasible, RPT-150.
 
+## Retained evidence
+
+Kept in the private release record of 0.36.0, outside the repository; the hashes identify them.
+SHA-256 values are over exact file bytes.
+
+| File name | SHA-256 |
+|---|---|
+| `fsi_steady_infeasible.json` | `395bc7cb20270d188c1275cb67d006021c1b460d58b8fe7f03808d9281b85bf1` |
+| `README.md` | `322c0b34f726d675aa3230b6381013564424166288400d2a0a4d10f73e4a8982` |
+| `launch_record_alone.txt` | `1a314f8e307605b72bf78047a11af39cc59b17f583d5cf9415d29620815ee0ce` |
+| `launch_record_grouped_fail1.txt` | `2d41b9cf2bb2ac08092f30cc7c1e41c071daa9324ce42156689a69814940244d` |
+| `grouped_fail1.out` | `c4d58f9cbfc77253defafbb1e5faa35042b4b12fc3eaabce3a082255339eca6e` |
+| `P9981-M147RE342AL+000_log.txt` | `11c35cd9e8adf02774beb1ba471350ce7aea3187b9d4347dd53d06c17861736b` |
+
 ## Limits
 
 This is one case on one solver build. The probe ran coupled steady points;

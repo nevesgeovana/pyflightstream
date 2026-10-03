@@ -14,16 +14,10 @@ from typing import Any
 from pydantic import ValidationError
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.cases import Campaign, InputKey, SimCase, SolverSettings
 from pyflightstream.cases.matrix import MatrixRow
-from pyflightstream.workspace import (
-    CampaignWorkspace,
-    InputArtifactError,
-    PprocArtifact,
-    ReferenceArtifact,
-    SetupArtifact,
-)
+from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._row_setup import resolve_stabilization, row_setup
 from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
@@ -31,7 +25,14 @@ from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
 )
 from pyflightstream.workspace.fsi_setup import ResolvedFsiSetup
-from pyflightstream.workspace.inputs import FLAGS_TABLE, RAW_TABLE, RegisteredBuild
+from pyflightstream.workspace.inputs import (
+    FLAGS_TABLE,
+    RAW_TABLE,
+    PprocArtifact,
+    ReferenceArtifact,
+    RegisteredBuild,
+    SetupArtifact,
+)
 
 
 @dataclass(frozen=True)
@@ -137,6 +138,9 @@ class ResolvedMatrix:
     row_builds: tuple[str | None, ...] = ()
     additional_pprocs: dict[str, PprocArtifact] = field(default_factory=dict)
     fsis: dict[str, ResolvedFsiSetup] = field(default_factory=dict)
+
+
+ResolvedMatrix.__module__ = "pyflightstream.workspace.matrix"
 
 
 #: Preset spellings that name a :class:`SolverSettings` field under a
