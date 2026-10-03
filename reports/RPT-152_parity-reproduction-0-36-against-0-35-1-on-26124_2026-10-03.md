@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: RPT-152
-last_modified_at: 2026-10-03T17:25:47-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [RPT-113, compare_lp.txt, lp.json, launch_record_ref.txt, launch_record_cand.txt, compare_lp.py]
-authority: pyflightstream
-status: bounded-evidence
-confidentiality: public
-change_summary: Record the licensed LP parity reproduction against 0.35.1 on build 8172026.
-revision_source: git
--->
-
 # RPT-152 - pyflightstream 0.36 licensed parity reproduction against 0.35.1 on FlightStream 26.124 (2026-10-03)
 
 The report of arm LP of pyflightstream 0.36.0 (NFR-40): the three-point

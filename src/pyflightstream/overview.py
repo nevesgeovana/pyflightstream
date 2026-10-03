@@ -19,6 +19,17 @@ Since 0.35.0 the grouped run modes (``run --polar-sweep`` and ``run --batch``) a
 the read-only query ledger (``status``, ``show``, ``log``, ``trace``, ``history``,
 ``diff``) live inside the ``run`` and ``workspace`` rows below; they add no row
 and keep the rule that the workspace never imports the run.
+
+The workspace record models live in ``workspace/manifest.py``; matrix layout
+and reference-point helpers live in ``workspace/_layout.py``. The root retains
+``CampaignWorkspace``, its registries and public re-exports. Matrix binding is
+orchestrated by ``workspace/matrix.py`` over ``_matrix_binding.py`` and
+``_matrix_phases.py``; the cases reader uses ``cases/_matrix_layouts.py`` and
+``cases/_matrix_upgrade.py``. Run phases stay in ``run/_campaign.py``,
+``_points.py``, ``_sweep.py`` and ``_assessment.py``. Post phases live in
+``post/_rotor_plan.py``, ``products.py``, ``_reduction_stage.py`` and
+``_products_campaign.py``. These homes keep the existing layer direction and
+public import paths (AD-19 to AD-23).
 """
 
 from __future__ import annotations

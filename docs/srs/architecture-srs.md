@@ -857,17 +857,22 @@ diff, the products snapshot, the record fixtures and
 
 ### The 0.36.0 architecture decisions
 
-The five cuts below remain pending until their work packages and evidence
-land. Each carries AD-15's evolution policy into 0.36.0: every public path
-and every `__all__` in content and order is kept, private facade re-exports
+The five cuts below are implemented. Each carries AD-15's evolution policy
+into 0.36.0: every public path and every `__all__` in content and order is kept, private facade re-exports
 remain under G5 and are retargeted before the tag, and each package and the
 integration have a recount. NFR-40 is the no-behaviour-change clause, with
 v0.35.1 as the baseline for scripts, products, records, console text and
 exit codes. A named difference needs its FR id and migration entry.
 
-!!! decision "AD-19 WP7 The workspace root becomes a facade over its record, layout and registries <span class='srs-pending'>pending</span>"
-    *Work package WP7 of 0.36.0. Verification is owed: the public-path
-    comparison, the G1 and G8 recount, the layer guards and NFR-40 parity.*
+!!! decision "AD-19 WP7 The workspace root becomes a facade over its record, layout and registries <span class='srs-implemented'>implemented</span>"
+    *Work package WP7 of 0.36.0. Verification:
+    `tests/tier1_offline/test_p0360_w7.py` compares the complete public
+    export order and object identity; `test_p0360_identity.py` checks
+    public class module names and pickle identity;
+    `test_architecture_metrics.py` checks G1, G3, G5 and G8;
+    `test_goal028_module_level_layering.py` checks the downward edges;
+    `test_workspace.py` and `test_products_snapshot.py` retain the record
+    and product oracles.*
 
     The record models and `WorkspaceError` live in `workspace/manifest.py`,
     and the matrix layout helpers and `ReferencePoints` live in
@@ -879,6 +884,13 @@ exit codes. A named difference needs its FR id and migration entry.
     evolution policy. It leaves the G1 table, and its G8 facade lines
     fall by at least the code moved out; neither baseline grows.
     NFR-40 governs every observable output of the cut.
+
+    Moved public classes retain their public `__module__`, including
+    `ReferencePoints` and the manifest classes. Pickle resolves the same
+    public object. `inspect.getsource` on a moved class may raise
+    `OSError`, because its public module now re-exports the definition;
+    source inspections must read the defining module. This also applies
+    to `ResolvedMatrix` in AD-20 and `MatrixError` in AD-21.
 
     ARCH-3: AD-01's order is `run` above `workspace` above `cases` above
     `script` and `results`. A module-level import by `workspace` of
@@ -893,9 +905,13 @@ exit codes. A named difference needs its FR id and migration entry.
     public re-exports, including `cases.workflows` and `workspace.ledger`,
     never another package's private modules.
 
-!!! decision "AD-20 WP9c Matrix binding is phased over one private context <span class='srs-pending'>pending</span>"
-    *Work package WP9c of 0.36.0. Verification is owed: the G1 recount,
-    the binding and record fixtures, the layer guards and NFR-40 parity.*
+!!! decision "AD-20 WP9c Matrix binding is phased over one private context <span class='srs-implemented'>implemented</span>"
+    *Work package WP9c of 0.36.0. Verification:
+    `tests/tier1_offline/test_p0360_w9c.py` compares complete resolved
+    matrices with the pre-cut `fixtures/p0360_w9c.json` golden;
+    `test_p0360_identity.py` pins `ResolvedMatrix` identity;
+    `test_architecture_metrics.py` checks the G1 and layer ratchets;
+    `test_goal028_module_level_layering.py` checks downward imports.*
 
     `workspace/matrix.py::resolve_matrix` is decomposed into phases over
     one `_Binding` context in `workspace/_matrix_binding.py`, which also
@@ -912,12 +928,16 @@ exit codes. A named difference needs its FR id and migration entry.
     into private modules does not permit an import of `run` or a
     cross-package reach into a private module.
 
-!!! decision "AD-21 WP9d Matrix layouts and upgrading have private homes <span class='srs-pending'>pending</span>"
-    *Work package WP9d of 0.36.0. Verification is owed: the layout and
-    upgrade fixtures, the type-check exemption ratchet and NFR-40 parity.*
+!!! decision "AD-21 WP9d Matrix layouts and upgrading have private homes <span class='srs-implemented'>implemented</span>"
+    *Work package WP9d of 0.36.0. Verification:
+    `tests/tier1_offline/test_p0360_w9d.py` compares rows, converted text
+    and warnings with `fixtures/p0360_w9d_goldens.json`;
+    `test_p0360_identity.py` pins `MatrixError` identity;
+    `test_p0360_rv.py::test_mypy_exempt_module_count_cannot_grow` checks
+    the exemption ratchet; `test_architecture_metrics.py` checks G1 and G3.*
 
-    The column layouts of `cases/matrix.py` move to
-    `cases/_matrix_layouts.py`, and the upgrader moves to
+    The column layouts and `MatrixError` of `cases/matrix.py` live in
+    `cases/_matrix_layouts.py`, and the upgrader lives in
     `cases/_matrix_upgrade.py`. Both are private modules below the
     `cases.matrix` entry point; neither imports that entry point back.
     They remain in the cases layer of AD-01. Every moved line is
@@ -927,15 +947,19 @@ exit codes. A named difference needs its FR id and migration entry.
     the emitted scripts, product bytes, records, console text and exit
     codes unchanged except for a named requirement's difference.
 
-!!! decision "AD-22 WP10a The long run functions are decomposed within G2 <span class='srs-pending'>pending</span>"
-    *Work package WP10a of 0.36.0. Verification is owed: the G2 recount,
-    the run and assessment fixtures, and NFR-40 parity.*
+!!! decision "AD-22 WP10a The long run functions are decomposed within G2 <span class='srs-implemented'>implemented</span>"
+    *Work package WP10a of 0.36.0. Verification:
+    `tests/tier1_offline/test_architecture_metrics.py` checks the WP10a
+    removals from `architecture_baselines.json`'s `function_lines` and
+    `function_limits` tables; `test_run_campaign.py`, `test_run.py` and
+    `test_matrix_run.py` retain
+    the run and assessment fixtures; `test_products_snapshot.py` retains
+    the product oracle; `test_p0360_rv.py` checks the plan lookup.*
 
     `run_campaign`, `_execute_point`, `_execute_sweep` and
     `LoadsAssessor.__call__` are decomposed into private helpers in
-    `run/`. The work package chooses the module names and lists them in
-    this decision when it lands. Every resulting function is within
-    AD-08 G2: complexity 10, branches 12, statements 50 and positional
+    `run/`, in the existing modules listed below. Every resulting function
+    is within AD-08 G2: complexity 10, branches 12, statements 50 and positional
     arguments 5, with no raised baseline. The modules obey the run
     package's guarded order and AD-01's layer direction.
     AD-15's evolution policy keeps every public path, and NFR-40 is the
@@ -972,14 +996,22 @@ exit codes. A named difference needs its FR id and migration entry.
     campaign. Evidence for QA2 (FR-364):
     `tests/tier1_offline/test_p0360_rv.py::test_plan_resolves_the_patched_cold_start_check`.
 
-!!! decision "AD-23 WP10b The long post functions are decomposed within G2 <span class='srs-pending'>pending</span>"
-    *Work package WP10b of 0.36.0. Verification is owed: the G2 recount,
-    the products snapshot and NFR-40 parity.*
+!!! decision "AD-23 WP10b The long post functions are decomposed within G2 <span class='srs-implemented'>implemented</span>"
+    *Work package WP10b of 0.36.0. Verification:
+    `tests/tier1_offline/test_architecture_metrics.py` checks the WP10b
+    `architecture_baselines.json` entries: all four functions are absent
+    from `function_lines`, with reduced `function_limits` entries only for
+    the retained rotor and writer signatures. `test_products_snapshot.py`
+    compares the unchanged product fixtures; `test_public_api.py`
+    classifies the private campaign module.*
 
     `_rotor_tables`, `_write_the_products`, `_campaign_products` and
     `_point_reductions` are decomposed into private helpers in `post/`,
-    each within AD-08 G2 (complexity 10, branches 12, statements 50 and
-    positional arguments 5), with no raised baseline.
+    with new helpers within AD-08 G2 (complexity 10, branches 12,
+    statements 50 and positional arguments 5), with no raised baseline.
+    The existing rotor and writer signatures retain their positional
+    argument allowances under AD-15; their complexity, branch and
+    statement baselines fall.
     `post/_products_campaign.py` owns the `_CampaignProducts` context,
     `_admit_campaign_records` for ordered record admission,
     `_record_has_frozen_failure` for failed-status warnings and freeze
