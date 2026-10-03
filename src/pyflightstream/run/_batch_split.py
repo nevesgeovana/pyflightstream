@@ -378,6 +378,13 @@ def _from_cells(
             "grants, or BEST.",
         )
     seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
+    for unit in split.units:
+        if unit.best and unit.walltime_cell_s is None:
+            if any(value is None for value in unit.point_seconds):
+                return _from_estimate(split, None, max_walltime_s)
+            seconds += best_walltime_s(
+                sum(value for value in unit.point_seconds if value is not None), unit.margin_s
+            )
     if max_walltime_s is not None and seconds > max_walltime_s:
         warnings.append(
             f"the job's points ask {_minutes(seconds)} together, above the cluster's max_walltime "
@@ -386,7 +393,9 @@ def _from_cells(
         )
         seconds = int(max_walltime_s)
         return seconds, "max_walltime", False, None, warnings, None
-    if estimate_s is None:
+    if estimate_s is None or not any(
+        value is not None for unit in split.units for value in unit.point_seconds
+    ):
         return seconds, "matrix", None, None, warnings, None
     need = best_walltime_s(estimate_s, max(unit.margin_s for unit in split.units))
     if need <= seconds:
@@ -450,8 +459,8 @@ def job_walltime(
 
     Every polar BEST: the job is BEST, ``ceil(1.25 x estimate + margin)`` to the minute, capped
     at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job takes
-    the smallest stated cell (warned when the cells differ), a cell above ``max_walltime_s`` is
-    refused, and a cell the estimate does not fit is kept and named with its shortfall. A job
+    sum of the cells per point and each BEST row's priced estimate. A cell above
+    ``max_walltime_s`` is refused; a shortfall is named only with a recorded point estimate. A job
     whose rows state nothing asks for none.
 
     Parameters

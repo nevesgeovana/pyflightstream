@@ -76,7 +76,6 @@ from pathlib import Path
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
-    POINT_AXIS_KEYS,
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
@@ -87,6 +86,9 @@ from pyflightstream.cases import (
     default_outputs,
     multiplied_sweep,
 )
+from pyflightstream.cases._sweep_names import _HELD_POINT_KEYS as _HELD_POINT_KEYS
+from pyflightstream.cases._sweep_names import _condition_sweep_axes, _sweep_of_condition
+from pyflightstream.cases.naming import POINT_AXIS_KEYS as POINT_AXIS_KEYS
 
 # SAME LAYER, so this is a sideways import and not an upward one: both
 # modules are `pyflightstream.cases`, and the layer rule
@@ -935,83 +937,14 @@ def _refuse_a_speed_and_a_ratio_over_a_velocity(
 #: and silently ignored, which is the failure the ratio sweep had before 0.15.0
 #: (PFS-2035.06, measured 2026-09-10: the axis existed, the point carried it
 #: and nothing read it).
-_CONDITION_SWEEP_AXES = {
-    cell_key: axis
-    for axis, cell_key in POINT_AXIS_KEYS.items()
-    if cell_key in FLIGHT_CONDITION_KEYS or cell_key in ATTITUDE_KEYS
-}
+_CONDITION_SWEEP_AXES = _condition_sweep_axes()
 
 #: The FLIGHT_CONDITION keys whose HELD value joins every point of the
 #: sweep rather than staying on the row. The two angles and no more: they
 #: are the only ones a run tag has ever carried as a held value, through
 #: the paired ``AL/BE`` code, and widening the set would rename runs in
 #: the other direction. See :attr:`pyflightstream.cases.SweepAxis.held`.
-_HELD_POINT_KEYS = ("ALPHA", "BETA")
-
-
-def _sweep_of_condition(
-    condition: dict[str, float | str], sweep_values: str, pol: str
-) -> SweepAxis:
-    """Build the row's sweep from the key of its condition that carries the word (FR-69).
-
-    PRIVATE for the same reason as ``_split_attitude`` above, and it is
-    the one that mattered: it took three POSITIONAL parameters of which
-    two were adjacent strings with no unit between them, so swapping them
-    was legal and produced a ValueError from ``float`` rather than a
-    matrix refusal. It is a seam, called once, from the loop that builds
-    a row (the interface and architecture lenses, 2026-09-10).
-
-    The rule of 2026-09-10: a sweep is applied to a variable that DEFINES
-    the flight condition, and to exactly ONE variable. The cell says which
-    by carrying ``sweep`` where that key's value would be, and
-    ``SWEEP_VALUES`` holds the values.
-
-    A row with no swept key, or with two, is refused naming the keys: the
-    first would run one point under a column of values nobody reads, and
-    the second is the paired sweep this release retires.
-    """
-    swept = [key for key, value in condition.items() if value == SWEEP_WORD]
-    if not swept:
-        raise MatrixError(
-            f"POL {pol}: no key of FLIGHT_CONDITION carries the word {SWEEP_WORD!r}, so "
-            "nothing says which variable this row varies, and SWEEP_VALUES would be a "
-            f"column nobody reads. Write {SWEEP_WORD} as the value of the one key that "
-            "varies, for example 'MACH:0.2, REmi:5.5, ALPHA:sweep, BETA:0'."
-        )
-    if len(swept) > 1:
-        raise MatrixError(
-            f"POL {pol}: {len(swept)} keys of FLIGHT_CONDITION carry the word "
-            f"{SWEEP_WORD!r} ({', '.join(swept)}), and a row sweeps ONE variable. Two "
-            "swept variables were the paired AL/BE sweep, which this release retires: "
-            "write one row per value of the second."
-        )
-    key = swept[0]
-    axis = _CONDITION_SWEEP_AXES.get(key)
-    if axis is None:
-        raise MatrixError(
-            f"POL {pol}: FLIGHT_CONDITION sweeps {key}, which this release cannot vary "
-            f"yet. The keys it varies are {', '.join(sorted(_CONDITION_SWEEP_AXES))}. "
-            "Every other key of the cell may carry the word in a later release; today "
-            "it is refused rather than accepted and ignored."
-        )
-    values = [float(token) for token in sweep_values.split(",") if token.strip()]
-    if not values:
-        raise MatrixError(
-            f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES holds "
-            f"{sweep_values!r}, which is no values at all. Write them there, "
-            "comma-separated, for example '0.0,2.0,4.0'. A cell of only separators or "
-            "only spaces holds none, which is why this can look wrong to the eye."
-        )
-    # A HELD ANGLE IS PART OF THE POINT, which is what keeps the upgrade
-    # from renaming a run: `AL/BE` over `-4,0,4/0` tagged its points
-    # `a-04.0_b+00.0`, and the same row spelled `ALPHA:sweep, BETA:0.0`
-    # tags them the same way. The reasoning is on `SweepAxis.held`.
-    held = {
-        _CONDITION_SWEEP_AXES[name]: float(value)
-        for name, value in condition.items()
-        if name in _HELD_POINT_KEYS and value != SWEEP_WORD
-    }
-    return SweepAxis(type=axis, values=values, held=held)
+# Imported from _sweep_names, kept here for existing readers.
 
 
 #: ``MOTIONS_VARIABLE``, the one ``VAR_NAMES_VALUES`` key whose value is a
