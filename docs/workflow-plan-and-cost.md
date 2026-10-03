@@ -168,7 +168,7 @@ each group into contiguous batches of whole polars so that the largest batch
 estimate is the smallest possible. Each acoustic polar is planned as a job of
 its own with all its points (FR-406): opening a second polar after an acoustic
 one ended the solver process on 26.124
-([RPT-148](../reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)).
+([RPT-148](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)).
 It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
 names every polar a grouped job cannot take, with the reason: a LEGACY row, a
@@ -244,7 +244,7 @@ apart, would count wrong. The cleaned file groups like any other.
 Each acoustic polar is planned as a job of its own with all its points
 (FR-406), because opening a second polar after an acoustic one in the same
 instance ended the solver process on 26.124
-([RPT-148](../reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)). Each
+([RPT-148](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)). Each
 point after the first one of the job deletes the observers that earlier points
 left in the solver and then states its own acoustic setup again (the sources
 switch, its observers and their time window), just before its unsteady solver
