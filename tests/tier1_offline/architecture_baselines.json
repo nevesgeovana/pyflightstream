@@ -1,7 +1,6 @@
 {
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged, and on 2026-10-01 on the tree of rel/0-34 with the wave 1 packages of 0.34.0 merged (RPT-123), and on 2026-10-02 on the tree of rel/0-34 with the wave 2 packages merged (RPT-124). Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
  "module_code_lines": {
-  "cases/matrix.py": 1743,
   "post/corrections.py": 1005,
   "post/input_template.py": 1455,
   "run/matrix.py": 1279,
@@ -105,19 +104,19 @@
    "statements": 35,
    "positional": 2
   },
-  "cases/matrix.py:_expand_to_nineteen": {
+  "cases/_matrix_upgrade.py:_expand_to_nineteen": {
    "complexity": 16,
    "branches": 16,
    "statements": 50,
    "positional": 2
   },
-  "cases/matrix.py:_fold_sweep_type": {
+  "cases/_matrix_upgrade.py:_fold_sweep_type": {
    "complexity": 13,
    "branches": 14,
    "statements": 54,
    "positional": 2
   },
-  "cases/matrix.py:_parse_records": {
+  "cases/_matrix_layouts.py:_parse_records": {
    "complexity": 12,
    "branches": 11,
    "statements": 29,
@@ -135,7 +134,7 @@
    "statements": 47,
    "positional": 1
   },
-  "cases/matrix.py:rewrite_codes": {
+  "cases/_matrix_upgrade.py:rewrite_codes": {
    "complexity": 11,
    "branches": 10,
    "statements": 35,
