@@ -13,7 +13,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-_HEAD = "PROPELLER POLAR\n320720\n{stamp}\n007 01\nMNOM SREF CREF BREF XMOM YMOM ZMOM\n"
+_HEAD = (
+    "FlightStream - PROPELLER POLAR\n320720\n{stamp}\n007 01\nMNOM SREF CREF BREF XMOM YMOM ZMOM\n"
+)
 
 
 def _load():
@@ -50,10 +52,19 @@ def test_pfs2014_any_other_line_of_a_group_file_still_differs():
 
 
 def test_pfs2014_the_stamp_in_another_file_is_not_rewritten():
-    """PFS-2014.01.02: the rule matches the group file name only; another .dat keeps its stamp."""
+    """PFS-2014.01.02: a .dat whose line 1 is not a custom polar title keeps its stamp."""
     norm = _load().normalize
-    data = _group("Sat Oct 03 05:10:55  2026")
-    assert norm("matrix/polars/P4800-M144.dat", data) == data
+    data = _group("Sat Oct 03 05:10:55  2026").replace(b"FlightStream - ", b"Other tool - ")
+    assert norm("matrix/polars/P4800-M144_g01.dat", data) == data
+
+
+def test_pfs2014_a_named_group_file_is_rewritten_too():
+    """PFS-2014.01.02: a named group file (``_ROTOR.dat``) has the same line 3 and normalizes."""
+    norm = _load().normalize
+    name = "matrix/polars/P4903-M144RPM00447_ROTOR.dat"
+    one = _group("Sat Oct 03 05:51:56  2026")
+    two = _group("Sat Oct 03 05:56:08  2026")
+    assert norm(name, one) == norm(name, two)
 
 
 def test_pfs2014_a_line_3_that_is_not_a_stamp_still_differs():
