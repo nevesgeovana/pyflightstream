@@ -1,0 +1,1067 @@
+{
+  "base_commit": "42cf219a85d5c74b7ccc5c4769c77a079ab4ea8e",
+  "convert_arguments": {
+    "name": "baseline-matrix",
+    "fs_version": "26.124",
+    "fs_exe": "FlightStream.exe",
+    "recipes": {
+      "003": "recipes.steady_polar:build",
+      "004": "recipes.beta_sweep:build"
+    }
+  },
+  "fixtures": {
+    "matrix.fs": {
+      "sha256": "34d40424b00822daceda11e7855a4e275a03209aa06daeee156aaf2a85175900",
+      "active_rows": [
+        {
+          "row_number": 1,
+          "pol": "9001",
+          "aircraft": "TestWing",
+          "description": "STEADY_POLAR_B45",
+          "flight_condition": {
+            "MACH": 0.1441,
+            "REmi": 4.38
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -4.0,
+              0.0,
+              4.0
+            ],
+            "held": {
+              "beta": 0.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "CONFIG": "NSX",
+            "FSM_FILE": "wing_clean",
+            "ADVANCE_RATIO": "1.7",
+            "SYMMETRY_TYPE": "PERIODIC 6",
+            "RESTART": "DISABLE",
+            "unsteady_delta_theta_deg": "10.0",
+            "scale_inv": "1.0",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "BETA": 0.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA",
+            "BETA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "9002",
+          "aircraft": "TestWing",
+          "description": "BETA_SWEEP",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -6.0,
+              0.0,
+              6.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "004",
+          "fs_build": "MANUAL",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "004"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA"
+          ]
+        },
+        {
+          "row_number": 4,
+          "pol": "9004",
+          "aircraft": "TestWing",
+          "description": "BETA_SWEEP_SINGLE_ALPHA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -6.0,
+              -3.0,
+              0.0,
+              3.0,
+              6.0
+            ],
+            "held": {
+              "alpha": 2.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "ALPHA": 2.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 5,
+          "pol": "9005",
+          "aircraft": "TestWing",
+          "description": "ALPHA_ONLY_SWEEP",
+          "flight_condition": {
+            "MACH": 0.1,
+            "REmi": 2.5
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -2.0,
+              0.0,
+              2.0,
+              4.0,
+              6.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "004",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "004"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 6,
+          "pol": "9006",
+          "aircraft": "TestWing",
+          "description": "FULL_VARIABLES_CELL",
+          "flight_condition": {
+            "MACH": 0.1441,
+            "REmi": 4.38
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r004",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "CONFIG": "NSX",
+            "FSM_FILE": "wing_flapped",
+            "NOTE": "first line\\nsecond line",
+            "SYMMETRY_TYPE": "PERIODIC 6",
+            "RESTART": "DISABLE",
+            "TRIM_TARGET": "CL 0.45",
+            "scale_inv": "1.0",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 8,
+          "pol": "9008",
+          "aircraft": "TestWing",
+          "description": "ALPHA_AT_ONE_BETA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -4.0,
+              0.0,
+              4.0
+            ],
+            "held": {
+              "beta": -2.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "BETA": -2.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA",
+            "BETA"
+          ]
+        }
+      ],
+      "all_rows": [
+        {
+          "row_number": 1,
+          "pol": "9001",
+          "aircraft": "TestWing",
+          "description": "STEADY_POLAR_B45",
+          "flight_condition": {
+            "MACH": 0.1441,
+            "REmi": 4.38
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -4.0,
+              0.0,
+              4.0
+            ],
+            "held": {
+              "beta": 0.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "CONFIG": "NSX",
+            "FSM_FILE": "wing_clean",
+            "ADVANCE_RATIO": "1.7",
+            "SYMMETRY_TYPE": "PERIODIC 6",
+            "RESTART": "DISABLE",
+            "unsteady_delta_theta_deg": "10.0",
+            "scale_inv": "1.0",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "BETA": 0.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA",
+            "BETA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "9002",
+          "aircraft": "TestWing",
+          "description": "BETA_SWEEP",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -6.0,
+              0.0,
+              6.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "004",
+          "fs_build": "MANUAL",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "004"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA"
+          ]
+        },
+        {
+          "row_number": 3,
+          "pol": "9003",
+          "aircraft": "TestWing",
+          "description": "PARKED_ROW",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 0,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 4,
+          "pol": "9004",
+          "aircraft": "TestWing",
+          "description": "BETA_SWEEP_SINGLE_ALPHA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -6.0,
+              -3.0,
+              0.0,
+              3.0,
+              6.0
+            ],
+            "held": {
+              "alpha": 2.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "ALPHA": 2.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 5,
+          "pol": "9005",
+          "aircraft": "TestWing",
+          "description": "ALPHA_ONLY_SWEEP",
+          "flight_condition": {
+            "MACH": 0.1,
+            "REmi": 2.5
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -2.0,
+              0.0,
+              2.0,
+              4.0,
+              6.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "004",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "004"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 6,
+          "pol": "9006",
+          "aircraft": "TestWing",
+          "description": "FULL_VARIABLES_CELL",
+          "flight_condition": {
+            "MACH": 0.1441,
+            "REmi": 4.38
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r004",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "CONFIG": "NSX",
+            "FSM_FILE": "wing_flapped",
+            "NOTE": "first line\\nsecond line",
+            "SYMMETRY_TYPE": "PERIODIC 6",
+            "RESTART": "DISABLE",
+            "TRIM_TARGET": "CL 0.45",
+            "scale_inv": "1.0",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 7,
+          "pol": "9007",
+          "aircraft": "TestWing",
+          "description": "PARKED_ROW_TWO",
+          "flight_condition": {
+            "MACH": 0.1,
+            "REmi": 2.5
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "004",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 0,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "004"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA"
+          ]
+        },
+        {
+          "row_number": 8,
+          "pol": "9008",
+          "aircraft": "TestWing",
+          "description": "ALPHA_AT_ONE_BETA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              -4.0,
+              0.0,
+              4.0
+            ],
+            "held": {
+              "beta": -2.0
+            }
+          },
+          "ref_code": "r003",
+          "set_code": "s003",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "MANUAL",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003",
+            "BETA": -2.0
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA",
+            "BETA"
+          ]
+        }
+      ],
+      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.124\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"matrix\"\n\n[[sim]]\nsim_id = \"9001\"\naircraft = \"TestWing\"\ndescription = \"STEADY_POLAR_B45\"\nreynolds = 4380000.0\nmach = 0.1441\nflight_condition = {MACH = 0.1441, REmi = 4.38}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\", \"BETA\"]\nsweep = {type = \"alpha\", values = [-4.0, 0.0, 4.0], held = {beta = 0.0}}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"CONFIG\" = \"NSX\"\n\"FSM_FILE\" = \"wing_clean\"\n\"ADVANCE_RATIO\" = \"1.7\"\n\"SYMMETRY_TYPE\" = \"PERIODIC 6\"\n\"RESTART\" = \"DISABLE\"\n\"unsteady_delta_theta_deg\" = \"10.0\"\n\"scale_inv\" = \"1.0\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"BETA\" = 0.0\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s003\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"9002\"\naircraft = \"TestWing\"\ndescription = \"BETA_SWEEP\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"BETA\"]\nsweep = {type = \"beta\", values = [-6.0, 0.0, 6.0]}\nrecipe = \"recipes.beta_sweep:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"004\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"004\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"9004\"\naircraft = \"TestWing\"\ndescription = \"BETA_SWEEP_SINGLE_ALPHA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"BETA\", \"ALPHA\"]\nsweep = {type = \"beta\", values = [-6.0, -3.0, 0.0, 3.0, 6.0], held = {alpha = 2.0}}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"ALPHA\" = 2.0\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"9005\"\naircraft = \"TestWing\"\ndescription = \"ALPHA_ONLY_SWEEP\"\nreynolds = 2500000.0\nmach = 0.1\nflight_condition = {MACH = 0.1, REmi = 2.5}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [-2.0, 0.0, 2.0, 4.0, 6.0]}\nrecipe = \"recipes.beta_sweep:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"004\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s003\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"004\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"9006\"\naircraft = \"TestWing\"\ndescription = \"FULL_VARIABLES_CELL\"\nreynolds = 4380000.0\nmach = 0.1441\nflight_condition = {MACH = 0.1441, REmi = 4.38}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"CONFIG\" = \"NSX\"\n\"FSM_FILE\" = \"wing_flapped\"\n\"NOTE\" = \"first line\\\\nsecond line\"\n\"SYMMETRY_TYPE\" = \"PERIODIC 6\"\n\"RESTART\" = \"DISABLE\"\n\"TRIM_TARGET\" = \"CL 0.45\"\n\"scale_inv\" = \"1.0\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r004\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"9008\"\naircraft = \"TestWing\"\ndescription = \"ALPHA_AT_ONE_BETA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\", \"BETA\"]\nsweep = {type = \"alpha\", values = [-4.0, 0.0, 4.0], held = {beta = -2.0}}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"BETA\" = -2.0\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s003\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"MANUAL\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n",
+      "warnings": []
+    },
+    "matrix_registry.fs": {
+      "sha256": "750db98bc4fcdc72461bbdf4568d36b6fe1f1d31f4f15a13e4254518aae80222",
+      "active_rows": [
+        {
+          "row_number": 1,
+          "pol": "8001",
+          "aircraft": "TestWing",
+          "description": "REGISTRY_ALPHA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "26.120",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "8002",
+          "aircraft": "TestWing",
+          "description": "REGISTRY_BETA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -3.0,
+              3.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA"
+          ]
+        }
+      ],
+      "all_rows": [
+        {
+          "row_number": 1,
+          "pol": "8001",
+          "aircraft": "TestWing",
+          "description": "REGISTRY_ALPHA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "26.120",
+          "hidden": false,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "8002",
+          "aircraft": "TestWing",
+          "description": "REGISTRY_BETA",
+          "flight_condition": {
+            "MACH": 0.089,
+            "REmi": 3.1
+          },
+          "sweep": {
+            "type": "beta",
+            "values": [
+              -3.0,
+              3.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "003",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "LEGACY",
+          "variables": {
+            "FSM_FILE": "wing_clean",
+            "OUTPUTS": "loads_{point}.txt",
+            "RECIPE": "003"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "MACH",
+            "REmi",
+            "BETA"
+          ]
+        }
+      ],
+      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.124\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"matrix_registry\"\n\n[[sim]]\nsim_id = \"8001\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_ALPHA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"8002\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_BETA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"BETA\"]\nsweep = {type = \"beta\", values = [-3.0, 3.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"LEGACY\"\n",
+      "warnings": []
+    },
+    "workflow_rotor_matrix.fs": {
+      "sha256": "5944a9af077c490bd309efb3b877c357d3192228f4faa0f980eff8c1ed42c5a3",
+      "active_rows": [
+        {
+          "row_number": 1,
+          "pol": "7001",
+          "aircraft": "RotorRig",
+          "description": "ROTOR_UNSTEADY",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "unsteady_rotor",
+          "variables": {
+            "VELOCITY": "30.0",
+            "RPM": "1200",
+            "ROTOR_AXIS": "X",
+            "BLADES": "4",
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "720",
+            "LAST_REVS_AVG": "0.25"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "7002",
+          "aircraft": "RotorRig",
+          "description": "STEADY_REFERENCE",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "steady",
+          "variables": {
+            "VELOCITY": "30.0"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 3,
+          "pol": "7003",
+          "aircraft": "RotorRig",
+          "description": "UNSTEADY_NO_ROTOR",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "unsteady",
+          "variables": {
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.00025",
+            "TIME_ITERATIONS": "480",
+            "LAST_ITERS_AVG": "480"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        }
+      ],
+      "all_rows": [
+        {
+          "row_number": 1,
+          "pol": "7001",
+          "aircraft": "RotorRig",
+          "description": "ROTOR_UNSTEADY",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "unsteady_rotor",
+          "variables": {
+            "VELOCITY": "30.0",
+            "RPM": "1200",
+            "ROTOR_AXIS": "X",
+            "BLADES": "4",
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "720",
+            "LAST_REVS_AVG": "0.25"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 2,
+          "pol": "7002",
+          "aircraft": "RotorRig",
+          "description": "STEADY_REFERENCE",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0,
+              2.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "steady",
+          "variables": {
+            "VELOCITY": "30.0"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        },
+        {
+          "row_number": 3,
+          "pol": "7003",
+          "aircraft": "RotorRig",
+          "description": "UNSTEADY_NO_ROTOR",
+          "flight_condition": {
+            "TASmps": 30.0,
+            "REmi": 1.2
+          },
+          "sweep": {
+            "type": "alpha",
+            "values": [
+              0.0
+            ],
+            "held": {}
+          },
+          "ref_code": "r003",
+          "set_code": "s002",
+          "pproc_code": "p001",
+          "script_code": "",
+          "fs_build": "26.120",
+          "hidden": true,
+          "run": 1,
+          "workflow": "unsteady",
+          "variables": {
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.00025",
+            "TIME_ITERATIONS": "480",
+            "LAST_ITERS_AVG": "480"
+          },
+          "motions": [],
+          "rotations": [],
+          "translations": [],
+          "raw": [],
+          "condition_order": [
+            "TASmps",
+            "REmi",
+            "ALPHA"
+          ]
+        }
+      ],
+      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.124\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"workflow_rotor_matrix\"\n\n[[sim]]\nsim_id = \"7001\"\naircraft = \"RotorRig\"\ndescription = \"ROTOR_UNSTEADY\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady_rotor\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"RPM\" = \"1200\"\n\"ROTOR_AXIS\" = \"X\"\n\"BLADES\" = \"4\"\n\"DELTA_TIME\" = \"0.0001\"\n\"TIME_ITERATIONS\" = \"720\"\n\"LAST_REVS_AVG\" = \"0.25\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady_rotor\"\n\n[[sim]]\nsim_id = \"7002\"\naircraft = \"RotorRig\"\ndescription = \"STEADY_REFERENCE\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"steady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_probes.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"steady\"\n\n[[sim]]\nsim_id = \"7003\"\naircraft = \"RotorRig\"\ndescription = \"UNSTEADY_NO_ROTOR\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"DELTA_TIME\" = \"0.00025\"\n\"TIME_ITERATIONS\" = \"480\"\n\"LAST_ITERS_AVG\" = \"480\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady\"\n",
+      "warnings": []
+    }
+  }
+}
