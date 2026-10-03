@@ -136,8 +136,9 @@ processor count outside the stated range is never extrapolated silently.
 
 `pyfs-matrix status` prints one row per polar with its recorded statuses and
 the planned points no record carries, shown as `planned` (FR-379 to FR-385).
-`show` prints the record of one datapoint, outcome first (FR-386); `log` prints
-the activity log and, with `--post`, the grouped post log (FR-387); `trace`
+`pyfs-matrix show` prints the record of one datapoint, outcome first (FR-386);
+`pyfs-matrix log` prints
+the activity log and, with `--post`, the grouped post log (FR-387); `pyfs-matrix trace`
 follows a product to the runs that made it (FR-389); `history` and `diff` read
 every record a point had and compare two runs (FR-390, FR-391). `log --storage`
 and `status --additional` read the storage and additional registers
