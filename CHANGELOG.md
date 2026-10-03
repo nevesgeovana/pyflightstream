@@ -83,6 +83,8 @@ FlightStream versions.
 - Every public module has an API maturity level in one table, rendered beside
   its Python API reference heading and in the reference overview; missing,
   extra, duplicate and invalid rows are checked offline (FR-409).
+- `pyflightstream.versions.SETUP_RESET_LOG_PREFIXES` is a public, read-only
+  mapping of solver-version identifiers to setup-reset log prefixes (FR-407).
 
 ### Changed
 
@@ -93,6 +95,13 @@ FlightStream versions.
   (FR-362 R2, R-API-2).
 - **The campaign, point, sweep and loads-assessment run paths use private phases**
   within the existing modules (AD-22, NFR-40).
+- Documentation topics have one defining home; the definitions and mesh pages
+  are split into topic pages with every old anchor kept, and migration records
+  hold release history (NFR-33, NFR-34, NFR-35, NFR-36, NFR-37).
+- Moved public classes retain their public `__module__` and pickle identity;
+  `inspect.getsource` on those classes can no longer find their definitions
+  in the public module, so source inspection must read the defining module
+  (AD-15).
 
 ### Fixed
 

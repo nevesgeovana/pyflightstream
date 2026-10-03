@@ -522,7 +522,6 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     from pyflightstream.script import Script
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
-    from tests.support_tier3 import ensure_mesh_inputs
 
     # The raw meshes of the mesh matrix are generated and never committed:
     # where no OBJ is on disk, its stand-in is written from the saved

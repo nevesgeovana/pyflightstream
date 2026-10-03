@@ -38,7 +38,12 @@ and limits.
 
 ## Public Python names and the reset vocabulary
 
-Keep importing public classes from their public modules. Because a moved class reports its public module, `inspect.getsource` on it looks in that module and, on Python 3.12, cannot find the definition; read the defining module instead (`pyflightstream.workspace.manifest`, `pyflightstream.workspace._layout`, `pyflightstream.cases._matrix_layouts`, `pyflightstream.workspace._matrix_binding`). The structural
+Keep importing public classes from their public modules. Because a moved
+class reports its public module, `inspect.getsource` on it looks in that
+module and, on Python 3.12, cannot find the definition; read the defining
+module instead (`pyflightstream.workspace.manifest`,
+`pyflightstream.workspace._layout`, `pyflightstream.cases._matrix_layouts`,
+`pyflightstream.workspace._matrix_binding`). The structural
 cuts preserve their `__module__` and pickle identity as well as their import
 paths: workspace record classes and `WorkspaceError` remain in
 `pyflightstream.workspace`, `ResolvedMatrix` in
@@ -48,7 +53,8 @@ post cuts require no caller changes (AD-19, AD-20, AD-21, AD-22, AD-23).
 
 `pyflightstream.versions.SETUP_RESET_LOG_PREFIXES` is a new public, read-only
 mapping of solver-version identifiers to the two log prefixes surrounding a
-setup reset (FR-407). Its `26.124` entry is
+setup reset, for the setup-reset split of a grouped job's log
+(FR-407; 0.35.1 review row P1-ARCH-Q4). Its `26.124` entry is
 `("Solver mode:", "Symmetry is ")`. The log reader consults this shared
 vocabulary to keep a reset between two initializations inside the same
 point's log segment. A build without an entry, or a log without build

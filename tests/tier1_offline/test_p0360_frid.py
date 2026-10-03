@@ -262,7 +262,11 @@ def _module_only_ids(source: str) -> set[str]:
 
 
 def test_requirement_ids_belong_to_the_test_functions():
-    """P0360-FR-IN-FUNCTIONS (NFR-38): module-only citations fail, with explicit leftovers."""
+    """P0360-FR-IN-FUNCTIONS (NFR-38): presence check, not proof of behaviour.
+
+    An id anywhere in a test's decorated source counts; module-only citations
+    fail, with explicit leftovers.
+    """
     paths = sorted(TIER1.rglob("*.py"))
     assert len(paths) > 100
     found = {

@@ -29,6 +29,9 @@ Three passage positions belong to the one point of 9311. There are three
 points per arm, six newly run points in total. Both arms use the same copied
 campaign inputs and solver controls.
 
+`farfield_layers = 5` is recorded in each arm's launch record and in
+`lp.json` (`window.far_field`).
+
 The preparation `README.md` describes an earlier snapshot and unresolved
 environment setup. Both launch records also retain an older
 `candidate_commit` field. The candidate identity stated here comes from the
@@ -137,6 +140,11 @@ do not establish a performance regression or its cause.
 `08b9004c` reproduces the PyPI 0.35.1 reference on 26.124 (build 8172026):
 statuses, iterations, time steps and clocking verdicts agree; all 34 tables
 are identical under rule 9; the skipped products agree.
+
+Between candidate `08b9004c` and release commit `3fafe7fd`, the only `src/`
+change is 11 docstring lines in `src/pyflightstream/overview.py`
+(`git diff --stat 08b9004c..3fafe7fd -- src/`), so this result holds for the
+release tree.
 
 The limits are one campaign, one rotor, three points, one solver build and
 a Windows local run. This does not establish parity for every run type,

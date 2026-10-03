@@ -28,6 +28,22 @@ def _licensed_imports(source: str) -> list[str]:
         elif isinstance(node, ast.ImportFrom):
             prefix = node.module or ""
             names = [prefix, *(f"{prefix}.{alias.name}" for alias in node.names)]
+        elif isinstance(node, ast.Call) and (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "__import__"
+            or isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "importlib"
+            and node.func.attr == "import_module"
+        ):
+            found.extend(
+                arg.value
+                for arg in [*node.args, *(keyword.value for keyword in node.keywords)]
+                if isinstance(arg, ast.Constant)
+                and isinstance(arg.value, str)
+                and "tier3_licensed" in arg.value
+            )
+            continue
         else:
             continue
         found.extend(name for name in names if "tier3_licensed" in name.split("."))
@@ -51,12 +67,16 @@ def test_tier1_never_imports_the_licensed_tier():
         "def helper():\n    from tests.tier3_licensed import offline",
         "if TYPE_CHECKING:\n    from tests.tier3_licensed import offline",
         "from ..tier3_licensed import offline",
+        'importlib.import_module("tests.tier3_licensed.offline")',
+        '__import__("tests.tier3_licensed.offline")',
+        'importlib.import_module(name="tests.tier3_licensed.offline")',
+        'def helper():\n    __import__("tests.tier3_licensed.offline")',
     ]
     for source in controls:
         assert _licensed_imports(source), source
-        with pytest.raises(AssertionError):
-            assert not _licensed_imports(source)
     assert not _licensed_imports("from tests.support_tier3 import one_pass")
+    assert not _licensed_imports('importlib.import_module("tests.support_tier3")')
+    assert not _licensed_imports('name = "tests.tier3_licensed.offline"')
 
 
 @pytest.mark.parametrize(("mode", "batch"), [("batch", 1), ("batch", 2), ("polar_sweep", None)])

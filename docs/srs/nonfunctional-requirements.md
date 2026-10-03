@@ -1258,7 +1258,7 @@
 
 !!! requirement "NFR-40 No behaviour change for structure <span class='srs-pending'>pending</span>"
 
-    *Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. Verification is owed; the status stays pending until its tests land.*
+    *Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. The licensed reproduction RPT-152 passed on three points: partial evidence from one campaign and one build; acceptance is owed and the status stays pending.*
 
     Need: Structural work must preserve the results and observable behaviour of v0.35.1.
 

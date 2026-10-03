@@ -460,7 +460,9 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
         "FlightStream - ... as the title on line 1; measured 2026-10-03: "
         "research-corpus parity at 20d23064 found 305 custom polar files differing "
         "on that line only; at d51347d9, 90 named-group *_ROTOR.dat files differed "
-        "on that line only (release-0351/parity_research_d51347d9_rotor-evidence.json)",
+        "on that line only (parity_research_d51347d9_rotor-evidence.json, "
+        "retained outside the tree; SHA-256 "
+        "6b84ee2e873ec608296e3ad1a66dcc9503a9245c41a69b483b875b50564e5b70)",
     ),
 ]
 
