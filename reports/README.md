@@ -64,6 +64,10 @@ acceptance or publication of their findings.
 | [RPT-132](RPT-132_qsnoise-route-a-sign_2026-10-01.md) | The sign of QS-NOISE route A (exploratory) against the round-3 unsteady_rotor record, offline: the solver's PL is the negative of the model in every term measured (both compact sources, the near and far brackets together at three radii, the acoustic section read for the first time), the rotation sense and the frame agreeing, a remaining lag of one time step; the load on the body and a pressure counted as p0 - p are not separated | Exploratory, no gate; final release review pending |
 | [RPT-148](RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md) | The 0.35.1 licensed grouped-versus-alone comparisons on 26.124: section persistence, acoustic polar isolation, solver identity, time averages, user actions and coupled log splitting across three windows | Bounded evidence; window-2 time-average difference and window-3 coupled result not equal |
 
+## Architecture metrics
+
+- [RPT-149: architecture metrics of the 0.35.1 release candidate](RPT-149_architecture-metrics_2026-10-03.md): measured on 2026-10-03 with the architecture guards' reader, compared with v0.35.0.
+
 ## Dependency evidence
 
 - [RPT-084: optional Excel extra license evidence](RPT-084_excel-extra-license_2026-09-27.md): XlsxWriter 3.2.9 installed metadata and exact license hashes.

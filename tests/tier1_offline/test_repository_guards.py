@@ -256,7 +256,9 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # 199 on the 0.35.0 branch: docs/ gained workspace-queries.md (QV2, the query
     # verbs page); no exemption line was added or widened.
     # 200 on 0.35.1: docs/srs/ gained markers-0351.json; no exemption was widened.
-    assert numbers["exempt"] <= 200, (
+    # 201 on 0.35.1: docs/ gained migrating-to-0.35.1.md (every release has one); no
+    # exemption line was added or widened.
+    assert numbers["exempt"] <= 201, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

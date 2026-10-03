@@ -482,6 +482,13 @@ _MIGRATION_NAMES_0_35_0 = {
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
+    "0.35.1": {
+        "Repeated sweep values are refused before planning.": (
+            "SWEEP_VALUES",
+            "point name",
+            "FR-408",
+        ),
+    },
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
     "0.31.0": _MIGRATION_NAMES_0_31_0,
@@ -495,6 +502,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
 #: The inputs each release's summary refuses, each of which its section and
 #: its migration page must name, and further words its page must carry.
 _REFUSED_BY_RELEASE = {
+    "0.35.1": ("COLD_START",),
     "0.29.0": (
         "ROTOR_SHEDDING",
         "legacy_solver_model",
@@ -510,6 +518,7 @@ _REFUSED_BY_RELEASE = {
     "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
+    "0.35.1": ("--batch", "--polar-sweep", "FR-402", "FR-405", "FR-406", "FR-407"),
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
     "0.29.0": ("[[inlets]]", "refused"),
     "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),

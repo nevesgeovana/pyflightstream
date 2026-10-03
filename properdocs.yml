@@ -186,6 +186,7 @@ nav:
       - Upgrading:
           # One section, newest first, so a release adds a line here.
           - Release notes: release-notes.md
+          - Migrating to 0.35.1: migrating-to-0.35.1.md
           - Migrating to 0.35.0: migrating-to-0.35.0.md
           - Migrating to 0.34.0: migrating-to-0.34.0.md
           - Migrating to 0.33.1: migrating-to-0.33.1.md

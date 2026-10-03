@@ -21,7 +21,7 @@ FlightStream versions.
   - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
     `START_SOLVER`, and every step export then carries it; in the order 0.34.0
     emits, only the final export does. Moving the list is done in 0.35.0
-    (FR-318 R6).
+    (R6 of the same requirement).
   - RPT-134 (FR-96): when the reopened state is kept, a continuation's plots
     export holds the whole march numbered from 1, which the post joins with
     every step once. The continuation 0.34.0 emits does not keep that state
@@ -35,7 +35,7 @@ FlightStream versions.
     magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
     page states both, and the definitions page that `CD0` reads that zero in
     a coupled run; nothing the package emits changes.
-  - RPT-126 (FR-333 to FR-336): of 43 acoustic, CCS and surface-removal
+  - RPT-126 (FR-334, FR-335): of 43 acoustic, CCS and surface-removal
     commands probed on 26.124, 26 are verified and 7 broken, and the command
     database follows the run's report. Ten CCS commands stay unprobed, the
     arity of the two CCS exports stays undetermined because neither wrote a
@@ -72,6 +72,48 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+## [0.35.1] - 2026-10-03
+
+### Added
+
+- An acoustic row joins a `--batch` or `--polar-sweep` job instead of being left out (FR-406). Each point after the first one of the job deletes the observers that earlier points left in the solver and states its own acoustic setup again just before its unsteady solver block, so its observers are created once and its sources switch is its own. A point without acoustics that follows an acoustic one switches the sources off. The signals export and the section folder stay in each point's own datapoint folder (compared on 26.124, RPT-148).
+- A row coupled with the structure (FSI) on `unsteady` joins a `--batch` or `--polar-sweep` job instead of being left out (FR-407). Each coupled point starts its part of the job with `NEW_SIMULATION` and its whole script, which reopens the geometry from its file, so no point starts from the mesh an earlier point deformed. The job runs a copy of the point's post-processing script, `actions/pfs_fsi_post_<NNN>.txt`, with every target in the point's own folder. A point without coupling that follows a coupled one switches the coupling off, and collect cuts a coupled point's log from its own segment. A coupled row on `steady` or `qsteady_rotor` is still left out with the steady rows, because its script must end at `EXECUTE_AEROELASTIC_ANALYSIS`.
+
+### Changed
+
+- **Repeated sweep values are refused before planning.** A matrix error names the
+  POL, both values and positions, and their shared point name (FR-408). Remove the
+  repeated value or choose values with distinct point names before planning again.
+
+### Fixed
+
+- **Steady and quasi-steady polars join the grouped jobs** (FR-403). `plan --batch N`
+  and `plan --polar-sweep` no longer leave every `steady` and `qsteady_rotor` row out:
+  they are grouped in jobs of their own, never with an unsteady polar, each later
+  point of a polar restated from `SOLVER_SET_AOA` after `REMOVE_INITIALIZATION` (or,
+  where it differs before that line, reopened after `NEW_SIMULATION`), and each point
+  recorded and collected as the point run alone (compared on 26.124, RPT-148). A steady row stating
+  `COLD_START` false, and a steady point that initialises the solver more than once,
+  are left out and named.
+- **`run --batch` and `run --polar-sweep` refuse a receipt that holds no job**
+  (FR-365, FR-403). When the plan had left every polar out, the run read the empty
+  receipt as no selection and ran every one of those polars in the default mode.
+- Jobs without recorded point estimates no longer warn that their own WALLTIME cells are short (FR-364).
+- Mixed jobs add each BEST row's priced estimate to the cell budgets; an unknown BEST point asks max_walltime or refuses without one (FR-364).
+- Collected points retain the solver version and build read by the same assessor as a point run alone (FR-366; compared on 26.124, RPT-148).
+- Restated steady and unsteady points reuse existing sections across `REMOVE_INITIALIZATION`; a point opened by `NEW_SIMULATION` creates its sections (FR-362, FR-403; compared on 26.124, RPT-148).
+- Each acoustic polar runs in its own job, keeping all its points together (FR-406).
+- Keep resets between solver initializations within a grouped point's log, so coupled points use the same convergence assessment, iteration count, time steps, and residual as an alone run (FR-407; compared on 26.124, RPT-148 window 3).
+- A polar whose post-processing asks `[time_averaging]` now joins `plan --batch` and `plan --polar-sweep` instead of being left out: each point's per-step surface exports land in its own datapoint folder under the names the point run alone writes, and the post averages each point as it does alone (FR-402) (compared on 26.124, RPT-148: equal in window 1; a repeat differed by at most 1.1e-19 on one point's last step).
+- **A polar whose setup states `unsteady_solver_actions` now joins a grouped job** (`plan --batch`, `plan --polar-sweep`) instead of being left out (FR-405). The split groups polars by their set of user actions beside processor count and build, so a job holds one set; the job registers that set once, before the package's own counter and clock, as a point run alone does, and keeps each user action's lines as the setup wrote them. A job mixing two sets is refused by the assembler (compared on 26.124, RPT-148).
+- **A `SCRIPT` user action named by a relative file also joins the grouped job**: the plan warns once per job registering it, naming the file and the job folder, that the file resolves there and must be placed there. An absolute `SCRIPT` file draws no relative-file warning. The same per-job warning states that a relative path inside a `COMMAND_LINE` action resolves in the job's folder (FR-405).
+- **The refusal of a geometry carrying saved solver actions stays**, with its reason re-examined and stated: a saved action runs beside the job's own and survives into every later polar, so the job's step counter would count wrong; `pyfs-matrix inventory <file> --clean` removes them (FR-378).
+
+### Migration
+
+- Read [Migrating to 0.35.1](docs/migrating-to-0.35.1.md) before planning grouped
+  runs or matrices whose sweep values produce repeated point names.
 
 ## [0.35.0] - 2026-10-03
 
@@ -14103,7 +14145,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...HEAD
+[0.35.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.35.0
 [0.34.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.34.0
 [0.33.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.33.1
