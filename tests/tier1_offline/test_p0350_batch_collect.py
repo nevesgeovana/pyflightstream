@@ -509,6 +509,27 @@ def test_p0350_batch_records_fr366_a_steady_sweep_job_records_the_digests_of_its
     assert len(record.outputs_sha256) == 2, "FR-366"
 
 
+def test_p0350_batch_records_fr366_a_steady_sweep_job_whose_outputs_cannot_be_digested_is_refused(
+    tmp_path,
+):
+    """P0350-BATCH-RECORDS (FR-366): a sweep job without digests is refused, never recorded empty.
+
+    The job record's own digest step (`_complete_sweep`) must refuse when the collected files
+    cannot be hashed, as the per-point step does; it must not carry on with an empty digest.
+    """
+    from tests.tier1_offline.test_collect_stage import _submitted_sweep
+
+    workspace, sim = _submitted_sweep(tmp_path)
+    (sim / "AL+000.txt").write_text("first point", encoding="utf-8")
+    (sim / "AL+020.txt").write_text("second point", encoding="utf-8")
+    broken = _Undigestible(workspace.root)
+    collect_once(broken, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    (record,) = broken.read_manifest()
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
+    assert "is gone" in (record.error or ""), record.error
+    assert not record.outputs_sha256, "FR-366"
+
+
 def test_p0350_batch_records_fr366_the_logged_solver_time_is_the_wall_time_without_a_clock(
     tmp_path, monkeypatch
 ):
