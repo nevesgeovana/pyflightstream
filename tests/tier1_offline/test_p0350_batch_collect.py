@@ -22,7 +22,7 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.results.log import point_log_text, split_job_log
 from pyflightstream.run._batch_collect import job_ended
 from pyflightstream.run.collect import Stamp, collect_once, observe, settled
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 from pyflightstream.workspace.inputs import read_hpc_profile
 from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _write_profile
 
@@ -464,3 +464,26 @@ def test_p0350_batch_records_fr366_a_point_submitted_alone_carries_its_digests(t
     assert alone.outputs_sha256 == _home_digests(workspace, alone)
     assert alone.outputs_sha256 and alone.wall_time_s is None
     assert "job" not in (alone.submission or {})
+
+
+class _Undigestible(CampaignWorkspace):
+    """A workspace whose outputs cannot be hashed, as when one is removed after collection."""
+
+    def output_digests(self, sim_id, collected):
+        raise WorkspaceError(f"output of {sim_id} is gone: {collected[0]}")
+
+
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep"])
+def test_p0350_batch_records_fr366_a_point_whose_outputs_cannot_be_digested_is_refused(
+    tmp_path, kind
+):
+    """P0350-BATCH-RECORDS (FR-366): no digests means a refused point, never an empty digest."""
+    workspace, job_dir, _ = _workspace(tmp_path, kind)
+    if kind == "batch":
+        (job_dir / "BATCH-2006-2006.end.json").write_bytes(b'{"returncode": 0}\n')
+    broken = _Undigestible(workspace.root)
+    collect_once(broken, interval=0.0, sleep=_no_sleep, assessor=_converged)
+    record = _status(broken, "AL+000")
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
+    assert "is gone" in (record.error or ""), record.error
+    assert not record.outputs_sha256

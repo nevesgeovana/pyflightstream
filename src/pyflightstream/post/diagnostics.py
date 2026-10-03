@@ -15,7 +15,7 @@ from pathlib import Path
 
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import ProductArgumentError, ProductError
-from pyflightstream.workspace._query_files import _category
+from pyflightstream.workspace.ledger import post_warning_category
 
 __all__ = [
     "render_post_diagnostics",
@@ -40,7 +40,7 @@ def warning_category(product: str, message: str) -> str:
         One of ``configuration``, ``convergence``, ``missing-data``, ``postprocessing``,
         ``reference-frame`` and ``section-layout``.
     """
-    return _category(product, message)
+    return post_warning_category(product, message)
 
 
 def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: Path) -> None:

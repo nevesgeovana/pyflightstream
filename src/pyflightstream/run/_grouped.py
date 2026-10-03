@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream.cases import SimCase
-from pyflightstream.cases.workflows._vocabulary import WALLTIME_VARIABLE
+from pyflightstream.cases.workflows import WALLTIME_VARIABLE
 from pyflightstream.run._plan import plan_receipt_error
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt

@@ -1,11 +1,11 @@
 """Tier 1: the T1 probe specifications re-measured by tier 2 on 26.124 (FR-342, RPT-127).
 
-The run's compatibility report is committed as ``reports/probes/RPT-127_<date>_evidence.yaml``,
-byte for byte the report the run wrote (FlightStream 26.124, build 8172026, far field 5). It is
-not under ``reports/compat/``: a report there obliges the command database to follow it, and that
-promotion (FR-342 R3) is owed to 0.35.0, so these tests do not require it. They read RPT-127's
-front matter against the outcomes the committed report records for the three commands that
-26.124 holds, with a planted mismatch as the control of the comparison.
+The run's compatibility report is committed twice, byte for byte as the run wrote it: as
+``reports/probes/RPT-127_<date>_evidence.yaml``, which RPT-127 names by digest, and as
+``reports/compat/CMP-26124_2026-10-02_rpt127.yaml``, the file ``pyfs-qa apply-compat`` promoted
+the command database from (FR-342 R3). The tests read RPT-127's front matter against the outcomes
+the report records for the three commands that 26.124 holds, check that each database status
+equals that recorded verdict and cites the compat report, and plant a mismatch as the control.
 """
 
 from __future__ import annotations
@@ -102,3 +102,27 @@ def test_a_planted_verdict_mismatch_is_found_fr_342():
     assert len(mismatches(stated, recorded)) == 2
     del document["commands"]["ROTATE_SURFACE"]
     assert recorded_outcomes(document)["ROTATE_SURFACE"] is None
+
+
+def _lf(path: Path) -> bytes:
+    """The file read with LF line ends, so a checkout that rewrites them reads the same."""
+    return path.read_bytes().replace(bytes([13, 10]), bytes([10]))
+
+
+def test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342():
+    """P0340-T1-PROBE-SPECS, FR-342 R3: each 26.124 status is the verdict and cites the report."""
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.versions import resolve
+
+    _, document = _evidence()
+    compat = REPORTS / "compat" / "CMP-26124_2026-10-02_rpt127.yaml"
+    probes_copy, _ = _evidence()
+    assert _lf(compat) == _lf(probes_copy), "the compat copy is not the committed run report"
+    registry = CommandRegistry.load()
+    for name, outcome in recorded_outcomes(document).items():
+        status = registry.commands[name].status_in(resolve("26.124"))
+        assert status is not None, name
+        assert (str(status.status), status.report) == (
+            outcome,
+            "reports/compat/CMP-26124_2026-10-02_rpt127.yaml",
+        ), name

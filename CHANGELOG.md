@@ -31,7 +31,7 @@ FlightStream versions.
     table in the package is 0.35.0 scope.
   - RPT-127 (FR-342): tier 2 verifies `ROTATE_SURFACE`,
     `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS`
-    on 26.124. The command database follows these verdicts in 0.35.0.
+    on 26.124. The command database follows these verdicts in 0.35.0 (FR-342).
   - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
     the solver prints it so, not because of the package's order, and the
     magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
@@ -109,6 +109,7 @@ FlightStream versions.
 
 ### Changed
 
+- The command database follows the tier-2 verdicts of RPT-127 (FR-342): `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` are `verified` on 26.124, promoted from `reports/compat/CMP-26124_2026-10-02_rpt127.yaml`, the run's compatibility report.
 - **`pyfs-matrix post` writes no `archive/` folder unless `--archive` is given.**
   (FR-397, P0350-ARCHIVE-OPT-IN) A rebuild overwrites the products, `products.json` and the post
   logs in place. `--archive`, and `archive=True` on `write_campaign_products`, archive
@@ -130,7 +131,7 @@ FlightStream versions.
 
 ### Fixed
 
-- A point `collect` completes from a grouped job (`run --batch`, `run --polar-sweep`), and a submitted point collected alone, now records `outputs_sha256` (the digests of its output files at their home location) and `wall_time_s` as a point run alone does; a grouped point's time is read from its own clock file, else from the solver run time its sliced log prints, with the basis (or why none could be measured) in `submission.job.wall_time_basis`. Found by the licensed architecture test on 0.35.0.dev3, where 12 of 12 grouped points recorded an empty digest and a null time (FR-366).
+- A point `collect` completes from a grouped job (`run --batch`, `run --polar-sweep`), and a submitted point collected alone, now records `outputs_sha256` (the digests of its output files at their home location) and `wall_time_s` as a point run alone does; a grouped point's time is read from its own clock file, else from the solver run time its sliced log prints, with the basis (or why none could be measured) in `submission.job.wall_time_basis`. A point whose outputs cannot be digested is refused (a `WorkspaceError` from `output_digests`, recorded as `FAILED_INCOMPLETE_OUTPUT`), never recorded with an empty digest (FR-366).
 - FULL-POLAR and BATCH scripts resolve action files in the job's absolute `actions/` folder and point-local input paths in the corresponding datapoint folder when splicing, preserving single-point script output (FR-359, design FR-B7b).
 - **A `RESTART` continuation no longer re-initializes a reopened state (FR-396,
   the known defect of FR-96).** The continuation script reopens the saved
