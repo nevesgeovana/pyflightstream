@@ -239,7 +239,15 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
         isolated = unit.sim_id if unit.acoustic else None
         key = (unit.ncpus, unit.fs_build, unit.steady, unit.actions, isolated)
         groups.setdefault(key, []).append(unit)
-    warnings: list[str] = []
+    acoustic_sims = ", ".join(unit.sim_id for unit in units if unit.acoustic)
+    warnings: list[str] = (
+        [
+            f"POL {acoustic_sims}: an acoustic polar runs in a job of its own, "
+            "all its points together (FR-406)"
+        ]
+        if acoustic_sims
+        else []
+    )
     if n > len(units):
         warnings.append(
             f"--batch {n} asks for more jobs than the {len(units)} polar(s) there are, and a polar "
@@ -252,8 +260,6 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
             "and a job holds one of each, so one "
             "job per group is planned."
         )
-        if any(unit.acoustic for unit in units):
-            warnings.append("An acoustic polar runs alone in its job (FR-406).")
     counts = dict.fromkeys(groups, 1)
     for _ in range(max(0, min(n, len(units)) - len(groups))):
         open_groups = [key for key, members in groups.items() if counts[key] < len(members)]
@@ -484,8 +490,8 @@ def job_walltime(
     """Decide the wall clock one job asks for (FR-364, FR-377).
 
     Every polar BEST: the job is BEST, ``ceil(1.25 x estimate + margin)`` to the minute, capped
-    at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job takes
-    sum of the cells per point and each BEST row's priced estimate. A cell above
+    at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job
+    takes the sum of the cells per point and each BEST row's priced estimate. A cell above
     ``max_walltime_s`` is refused; a shortfall is named only with a recorded point estimate. A job
     whose rows state nothing asks for none.
 

@@ -31,6 +31,7 @@ from pyflightstream._errors import PyflightstreamError
 __all__ = [
     "AmbiguousVersionAliasError",
     "FsVersion",
+    "SETUP_RESET_LOG_PREFIXES",
     "UnknownVersionError",
     "known_versions",
     "manual_editions",
@@ -38,6 +39,15 @@ __all__ = [
 ]
 
 _CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
+
+#: Setup-reset neighbours measured on 26.124 (build 8172026), recorded in
+#: RPT-148, window 2 (the reset retained between two initializations).
+#: A build without an entry uses the newest listed build's vocabulary,
+#: ordered by this module's version registry. A log without build identity
+#: uses that same fallback.
+SETUP_RESET_LOG_PREFIXES: dict[str, tuple[str, ...]] = {
+    "26.124": ("Solver mode:", "Symmetry is "),
+}
 
 
 class UnknownVersionError(PyflightstreamError, ValueError):
