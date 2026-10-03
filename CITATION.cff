@@ -66,7 +66,7 @@ license: MIT
 # v0.33.1 release the FIFTIETH; 0.34.0.dev0 OPENED 0.34.0 DEVELOPMENT, the
 # FIFTY-FIRST move, the v0.34.0 release the FIFTY-SECOND; 0.35.0.dev0 OPENED
 # 0.35.0 DEVELOPMENT, the FIFTY-THIRD move, the v0.35.0 release the
-# FIFTY-FOURTH; THIS COMMIT OPENS 0.35.1 DEVELOPMENT (0.35.1.dev1), the
+# FIFTY-FOURTH; 0.35.1.dev1 OPENED 0.35.1 DEVELOPMENT (dev2 follows it), the
 # FIFTY-FIFTH move, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
@@ -107,7 +107,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.35.1.dev1
+version: 0.35.1.dev2
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
