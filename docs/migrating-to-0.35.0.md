@@ -117,7 +117,7 @@ form `HH:MM:SS`, is the longest walltime the queue accepts (FR-377).
 Every datapoint has the alias `<sim>_<index>`, where the index is the 1-based
 position of the point in its polar's sweep order as the plan lists it (FR-395).
 It is derived, never stored, and does not change when the point is re-run or
-continued. Every place that takes a run id accepts it: the query verbs,
+continued. Every place on the command line that takes a run id accepts it: the query verbs,
 `--points`, `mark-failed` and `delete-sims`. A query prints it beside the run
 id, and an alias that names no point is named on standard error.
 

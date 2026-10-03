@@ -18,7 +18,7 @@ FlightStream versions.
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
   as a commit of its own after the tag, so the 0.34.0 package does not change
-  with it. RPT-130 is still owed. Six are
+  with it. RPT-130 is still owed. Five are
   paid, measured on 26.124 (build 8172026) with the released package; the
   requirements' evidence lines now cite them, FR-318 R5 records the answer to
   the question it left open, and only FR-338 and FR-340 change status, to
@@ -35,9 +35,6 @@ FlightStream versions.
     the 26.124 fresh import; the uncleaned control differs in its saved
     actions only, and the blocks are compared offline. Registering the 26.124
     table in the package is not in 0.35.0 and stays owed.
-  - RPT-127 (FR-342): tier 2 verifies `ROTATE_SURFACE`,
-    `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS`
-    on 26.124. The command database follows these verdicts in 0.35.0 (FR-342).
   - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
     the solver prints it so, not because of the package's order, and the
     magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
@@ -65,6 +62,8 @@ FlightStream versions.
   scripts (FR-359) and the CCS mesh probe judges (FR-401) are likewise
   verified offline and wait for a licensed run.
 
+- `pyfs-qa apply-compat` writes a 26.124 row into a command's multi-line version block itself; in 0.35.0 the `SET_NEW_UNSTEADY_SOLVER_ACTION` row was folded by hand as the tool directs, and a tier-1 test checks it (FR-342).
+
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -91,9 +90,9 @@ FlightStream versions.
 - Inside a grouped job the instance removes only the solver initialization between two points of a polar and is refreshed, never closed, between two polars; the unsteady-solver actions are registered once per job, the clock program checks the inherited state at each point, the step counter reports each point's own time step, a point that fails without stopping the instance does not stop the job, and the job's one wall clock names the point it stopped and the points never started (FR-352, FR-353, FR-354, FR-355, FR-360, FR-361, FR-369, FR-370, FR-371).
 - While a batch runs its simulations live in `sims/batch/<matrix>_b<ID>/`, and every point is recorded at submission as a point run alone is, naming its batch (FR-366, FR-374).
 - `pyfs-matrix collect` completes the points of a grouped job as their files settle, copies finished simulations while the batch runs and moves them once it has ended, and cuts the job's cumulative log into one log per point (FR-367, FR-368).
-- `post`, `mark-failed`, `RESTART`, `rename`, `rebuild`, `delete-sims`, `sync`, `post --from-sims`, `free-space` and `run --force-rerun` read a batched point as a point run alone once collected, and the query verbs find a simulation in a running batch's folder (FR-372).
+- `post`, `mark-failed`, `RESTART`, `rename`, `rebuild`, `delete-sims`, `sync`, `post --from-sims`, `free-space` and `run --force-rerun` read a batched point as a point run alone once collected, and the query verbs, `history` and `diff` included, find a simulation in a running batch's folder and inspect a compacted archive without expanding it (FR-372, FR-383).
 - `--hpc NAME` on `plan`, `run` and `collect` selects the profile `inputs/hpc/<NAME>.toml` when a workspace holds several (FR-377).
-- Every datapoint has the run id alias `<sim>_<index>`, derived from its place in the polar's sweep order and accepted wherever a run id is typed, and printed beside the run id by the queries (FR-395).
+- Every datapoint has the run id alias `<sim>_<index>`, derived from its place in the polar's sweep order and accepted wherever a run id is typed on the command line, and printed beside the run id by the queries (FR-395).
 - A workspace may carry a cost file `inputs/costs/c<NNN>.toml`, read by `plan --cost` and the `plan --batch` estimate, with `--cost-file NAME` to choose among several; the package ships only a synthetic example, `examples/costs/c000.toml` (FR-398).
 - `pyfs-matrix status` (FR-379 to FR-385): one row per polar with the simulation, the polar, the swept variable, the datapoints (recorded/planned), the matrix and the status, one word when every datapoint shares it and otherwise the count of each word; `--sims` (with or without brackets), `--matrix`, `--status WORD` (repeatable, a trailing `*`), `--failed`, `--points` (one row per datapoint), `--json` (schema `pyfs-status/1`) and `--csv` (LF line ends), `--workspace`, `--runs`. A point a plan names and no record carries is shown as `planned`, in lower case; a footer states whether each matrix's plan was made from the matrix on disk and whether its post indexes every recorded run and is complete. The command writes no file, takes no lock and expands no compacted simulation.
 - `pyflightstream.workspace.ledger` (FR-388): `read_ledger(root, runs=None)` returns one read-only snapshot whose `status()`, `points()`, `card(run_id)`, `freshness()` and `sim_folders(sim_id)` return the rows the command prints, as plain dictionaries.
@@ -103,15 +102,10 @@ FlightStream versions.
 - `log --storage` reads storage calls as recorded, with meaningful activity filters (FR-392).
 - `status --additional` lists the additional register without deriving fields (FR-393).
 - `pyfs-matrix trace` follows indexed products to effective run identities, sidecars and provenance documents; `--run` prints a provenance tree (FR-389).
-- Query tests cover status, show, log and trace while a simulation lives in a running batch and after it moves home, and prove ZIP evidence is read without extraction or workspace writes (FR-372, FR-383).
 - `pyfs-matrix history` reads present records, archived manifests and datapoint
   archives with source paths, archive stamps and continuation links (FR-390).
 - `pyfs-matrix diff` compares recorded run fields and digest-verified scripts,
   with archive selectors and rebuild's line and input attribution (FR-391).
-- Plain JSON-serializable query functions in `pyflightstream.workspace.ledger`
-  expose the same rows as the command renderers (FR-388).
-- History and diff find simulations in running batch folders and after collection,
-  and inspect compacted archives without expanding them (FR-372, FR-383).
 - The Python additional-register reader preserves recorded fields exactly while
   historical queries leave that register unchanged (FR-393).
 
@@ -119,7 +113,7 @@ FlightStream versions.
 
 - The command database follows the tier-2 verdicts of RPT-127 (FR-342): `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` are `verified` on 26.124, promoted from `reports/compat/CMP-26124_2026-10-02_t1-probe.yaml`, the run's compatibility report.
 - **`pyfs-matrix post` writes no `archive/` folder unless `--archive` is given.**
-  (FR-397, P0350-ARCHIVE-OPT-IN) A rebuild overwrites the products, `products.json` and the post
+  (FR-397) A rebuild overwrites the products, `products.json` and the post
   logs in place. `--archive`, and `archive=True` on `write_campaign_products`, archive
   exactly as 0.34.0 did; the default of `archive` is now False. `--archive` with
   `--force-overwrite` is refused.
@@ -134,13 +128,14 @@ FlightStream versions.
   step equals the final export. A steady row, the quasi-steady rotor and an
   unsteady row turning no rotor keep the list after `START_SOLVER`. The
   parity checker names this difference FR-318.
+- The query tests now cover status, show, log and trace while a simulation lives in a running batch and after it moves home, and prove ZIP evidence is read without extraction or workspace writes (FR-372, FR-383).
 - The nested pytest runs of the examples test use their own root and base temporary folder, so they no longer list or collect from the system temporary folder (FR-399).
 - The rules that choose the effective record of a datapoint (a refused continuation that never started is a note; the latest record of a point is found by its name) moved from the run layer to the workspace layer (FR-381), where the run and the ledger both read them; no behaviour changes.
 
 ### Fixed
 
 - A point `collect` completes from a grouped job (`run --batch`, `run --polar-sweep`), and a submitted point collected alone, now records `outputs_sha256` (the digests of its output files at their home location) and `wall_time_s` as a point run alone does; a grouped point's time is read from its own clock file, else from the solver run time its sliced log prints, with the basis (or why none could be measured) in `submission.job.wall_time_basis`. A point whose outputs cannot be digested is refused (a `WorkspaceError` from `output_digests`, recorded as `FAILED_INCOMPLETE_OUTPUT`), never recorded with an empty digest (FR-366).
-- FULL-POLAR and BATCH scripts resolve action files in the job's absolute `actions/` folder and point-local input paths in the corresponding datapoint folder when splicing, preserving single-point script output (FR-359, design FR-B7b).
+- FULL-POLAR and BATCH scripts resolve action files in the job's absolute `actions/` folder and point-local input paths in the corresponding datapoint folder when splicing, preserving single-point script output (FR-359).
 - **A `RESTART` continuation no longer re-initializes a reopened state (FR-396,
   the known defect of FR-96).** The continuation script reopens the saved
   simulation and no longer emits `INITIALIZE_SOLVER` after it, which on 26.124
@@ -170,7 +165,7 @@ FlightStream versions.
 
 ### Migration
 
-- The migration page is [Migrating to 0.35.0](docs/migrating-to-0.35.0.md). It puts first the change that alters what a post leaves on disk (no archive folder unless `--archive`, FR-397), then the continuation that no longer re-initializes a reopened state (FR-396), the order of the vorticity drag list of a rotor march (FR-318 R6), the polar and batch runs, collecting batched points, the HPC profile, the run id alias, the cost file and the query verbs (FR-393).
+- The migration page is [Migrating to 0.35.0](docs/migrating-to-0.35.0.md). It puts first the change that alters what a post leaves on disk (no archive folder unless `--archive`, FR-397), then the continuation that no longer re-initializes a reopened state (FR-396), the order of the vorticity drag list of a rotor march (FR-318 R6), the polar and batch runs, collecting batched points, the HPC profile, the run id alias, the cost file and the query verbs (FR-379 to FR-393).
 - FSI on `unsteady_rotor` is still refused by the plan, unchanged in 0.35.0: the plan refuses a fluid-structure row on `unsteady_rotor`, which is still in debug on this release.
 
 ## [0.34.0] - 2026-10-02
