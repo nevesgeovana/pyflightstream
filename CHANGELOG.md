@@ -9,11 +9,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo archive row of v0.35.0 is owed.** A version DOI is minted from
-  the GitHub release object and recorded one commit after the tag, so between
-  the tag and that commit this release has no archive row; cite the concept DOI
-  until it lands.
-
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
   decision of 2026-10-02 they are made on the released package and
   recorded as post-release commits, outside the `[0.34.0]` section. Each lands
