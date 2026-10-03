@@ -17,8 +17,8 @@ every tracked text file and refuses four shapes:
    name of a file of the solver installation (a ``.dll``, ``.exe`` or ``.so``
    file, or ``Script.txt``, the sample script of the package). The digest of a
    script or product the package wrote stands on a line that names no such file
-   and is allowed. A wrapped line is not followed; the other shapes cover the
-   executable there.
+   and is allowed. A block key is followed into its indented values, as for
+   the executable shape.
 4. An absolute user path: a user-profile folder, a home folder, a OneDrive
    folder, or the work and estate roots of a measuring machine.
 
@@ -69,8 +69,8 @@ LABEL = re.compile(r"(?i)(?:\bexe\b|_exe\b|\bexe_|\.exe\b|executable|fs_exe)")
 #: The name of a file of the solver installation: a library or executable by its
 #: extension, or the package's sample script.
 PACKAGE_FILE = re.compile(r"(?i)(?:\.(?:dll|exe|so)\b|\bScript\.txt\b)")
-#: A YAML or JSON key that opens a block (``key:`` or ``"key": {``).
-BLOCK_KEY = re.compile(r"""^(\s*)["']?([A-Za-z0-9_.-]+)["']?\s*:\s*[{\[]?\s*$""")
+#: A YAML, JSON or TOML key that opens a block or array.
+BLOCK_KEY = re.compile(r"""^(\s*)["']?([A-Za-z0-9_.-]+)["']?\s*[:=]\s*[{\[]?\s*$""")
 #: Absolute user paths: a profile folder, a home folder, a OneDrive folder, and
 #: the work and estate roots of a measuring machine, in either separator.
 USER_PATH = re.compile(
@@ -156,8 +156,15 @@ def _labelled(text: str) -> list[str]:
 
 def _package_file_digests(text: str) -> list[str]:
     found = []
+    block: int | None = None
     for number, line in enumerate(text.splitlines(), start=1):
-        if not PACKAGE_FILE.search(line):
+        indent = len(line) - len(line.lstrip())
+        if block is not None and line.strip() and indent <= block:
+            block = None
+        key = BLOCK_KEY.match(line)
+        if key and PACKAGE_FILE.search(key.group(2)):
+            block = len(key.group(1))
+        if not PACKAGE_FILE.search(line) and block is None:
             continue
         for match in HEX_TOKEN.finditer(line):
             if not _synthetic(match.group()):
@@ -272,6 +279,51 @@ def test_a_digest_beside_a_solver_package_file_is_found(tmp_path):
         encoding="utf-8",
     )
     assert scan([allowed]) == ([], 1)
+
+
+def test_a_package_identity_after_a_yaml_block_key_is_found(tmp_path):
+    """P0360-RV-A3 (NFR-31): follow a package key to the next line's identity."""
+    token = hashlib.sha256(b"synthetic package block A3").hexdigest()
+    path = tmp_path / "package.yaml"
+    for name in ("libexample.dll", "libexample.so", "Script.txt"):
+        clean = f"{name}:\n  sha256: withheld\nproduct.csv:\n  sha256: {token}\n"
+        path.write_text(clean, encoding="utf-8")
+        assert scan([path]) == ([], 1)
+        path.write_text(clean.replace("withheld", token), encoding="utf-8")
+        assert scan([path]) == (
+            [f"{path.as_posix()}: a digest of a solver-package file on line 2"],
+            1,
+        )
+
+
+def test_a_package_identity_after_a_toml_block_key_is_found(tmp_path):
+    """P0360-RV-V4 (NFR-31): follow a TOML package key into its value."""
+    token = hashlib.sha256(b"synthetic package block V4").hexdigest()
+    path = tmp_path / "package.toml"
+    for name in ("libexample.dll", "libexample.so", "Script.txt"):
+        clean = f'"{name}" = [\n  "withheld"\n]\n"product.csv" = [\n  "{token}"\n]\n'
+        path.write_text(clean, encoding="utf-8")
+        assert scan([path]) == ([], 1)
+        path.write_text(clean.replace("withheld", token), encoding="utf-8")
+        assert scan([path]) == (
+            [f"{path.as_posix()}: a digest of a solver-package file on line 2"],
+            1,
+        )
+
+
+def test_standard_install_paths_are_absent_from_tool_and_fixtures():
+    """P0360-RV-VV-2 (NFR-31): no standard install path in the tool or fixtures."""
+    fixtures = ROOT / "tests" / "tier1_offline" / "fixtures"
+    paths = [
+        ROOT / "scripts" / "chm_to_pdf.py",
+        ROOT / "src" / "pyflightstream" / "commands" / "_meta.yaml",
+        ROOT / "tests" / "tier1_offline" / "test_fsm_saved_actions.py",
+        ROOT / "tests" / "tier1_offline" / "test_fr312_inventory_clean.py",
+        *(path for path in fixtures.rglob("*") if path.is_file()),
+    ]
+    assert fixtures.is_dir()
+    hits = [str(path.relative_to(ROOT)) for path in paths if b"Program Files" in path.read_bytes()]
+    assert hits == [], hits
 
 
 def test_a_withheld_digest_is_found_anywhere_by_its_own_digest(tmp_path, monkeypatch):

@@ -92,12 +92,6 @@ def _pypdf():
     return pypdf
 
 
-#: Where a Chrome or Chromium binary lives when the caller names none.
-#: Resolved in main() rather than here: read at import time it consumed
-#: whatever argv the importer happened to have, so importing this module
-#: for any other reason picked up a third argument that was not its own.
-DEFAULT_CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
-
 TOC = re.compile(r'param\s+name="Local"\s+value="([^"]+)"', re.I)
 BODY = re.compile(r"(?is)<body[^>]*>(.*)</body>")
 DROP = re.compile(r"(?is)<(script|noscript)\b.*?</\1>")
@@ -230,7 +224,7 @@ def main() -> int:
     Returns
     -------
     int
-        0 on success, 2 when the arguments are missing, 1 when the
+        0 on success, 2 when the arguments or Chrome path are missing, 1 when the
         ``[manual]`` extra is not installed. The two failures are given
         different codes deliberately: a caller that cannot tell a usage
         mistake from a missing dependency cannot act on either.
@@ -250,12 +244,17 @@ def main() -> int:
             "    <extracted-archive-dir>  a .chm already unpacked, for example with "
             "`7z x -o<dir> <manual>.chm`\n"
             "    [chrome.exe]             a Chrome or Chromium binary, which this tool "
-            f"REQUIRES; defaults to {DEFAULT_CHROME}\n"
+            "REQUIRES; defaults to the PYFS_CHROME environment variable\n"
             f"    the [manual] extra is needed too: {remedy}\n"
             "Why the conversion is done this way: read the docstring at the top of "
             "this file.",
             file=sys.stderr,
         )
+        return 2
+
+    chrome_path = sys.argv[3] if len(sys.argv) > 3 else os.environ.get("PYFS_CHROME")
+    if not chrome_path:
+        print("chm_to_pdf.py: set PYFS_CHROME or supply [chrome.exe]", file=sys.stderr)
         return 2
 
     # Asked here, before any work, rather than inside render() where the
@@ -276,7 +275,7 @@ def main() -> int:
 
     root = Path(sys.argv[1])
     out = Path(sys.argv[2])
-    chrome = Path(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_CHROME
+    chrome = Path(chrome_path)
     combined, topics, kept = combine(root)
     print(f"{topics} topics in the archive's own order, {kept} signature blocks held whole")
     render(combined, out, chrome)
