@@ -8837,6 +8837,11 @@ Requirements written after the specification was last reconciled with the packag
     - R3 A `WALLTIME` cell reading `BEST` in the default mode (neither `--polar-sweep` nor `--batch`) shall be refused, by name of the row, with the message that `BEST` is a grouped-mode value. (This R-item is implemented in 0.35.0; see the Evidence line.)
     - R4 (2026-10-02) A row's WALLTIME cell is the budget of one of its datapoints; a grouped job asks the sum over its points of their rows' cells, capped at max_walltime with a warning suggesting a larger n; one row's cell above max_walltime is refused.
 
+    - R5 When no point of a job has a recorded estimate the job's cells are not compared with an estimate built from those cells.
+    - R6 A job mixing rows with a cell and BEST rows asks the sum of the cells per point and of each BEST row's 1.25 x estimate + margin; an unestimated BEST point makes the job ask max_walltime, or refuses without one.
+
+    Evidence: `tests/tier1_offline/test_p0351_bwsw.py::test_p0351_walltime_no_false_short_when_the_estimate_is_the_cells`, `::test_p0351_walltime_best_rows_add_their_estimate`, `::test_p0351_walltime_unestimated_best_row_asks_the_maximum`, `::test_p0351_walltime_unestimated_best_row_refuses_without_maximum`. Verified offline by tier-1 tests.
+
     Verification: The marker P0350-BATCH-WALLTIME: tier-1 tests compute the expected walltime by hand and assert the round-up to the minute, the `BEST` warning above the limit, the refusal of a cell value above it, the naming of a batch that does not fit with its shortfall, and the absence of any limit without the key.
 
     Evidence: `tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr364_best_is_priced_in_the_grouped_mode`, `::test_p0350_plan_fr364_best_refused_in_the_default_mode`; `tests/tier1_offline/test_p0350_batch_split.py::test_p0350_split_fr364_a_matrix_value_is_refused_above_the_maximum_and_fitted`, `::test_p0350_split_fr364_best_above_the_maximum_warns_and_suggests_a_larger_n`, `::test_p0350_split_fr364_best_walltime`, `::test_p0350_split_fr364_matrix_walltime_keeps_the_cell`, `::test_p0350_split_fr364_matrix_walltime_sums_points_and_caps_at_maximum`, `::test_p0350_split_fr364_mixed_cells_and_unestimated_best`. Verified offline by tier-1 tests.
@@ -9498,3 +9503,16 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, `tests/tier1_offline/test_p0351_batch_fsi.py`, carrying the marker P0351-BATCH-FSI (FR-407); the licensed comparison of the same coupled points grouped and alone (coefficients, sectional loads, deflection log) is owed on FlightStream 26.124.
 
     Evidence: `tests/tier1_offline/test_p0351_batch_fsi.py::test_p0351_fsi_fr407_a_coupled_unsteady_row_joins`, `::test_p0351_fsi_fr407_every_coupled_point_reopens_its_model`, `::test_p0351_fsi_fr407_a_coupled_point_s_log_is_its_own_segment`, `::test_p0351_fsi_fr407_a_grouped_run_writes_each_post_copy`. Verified offline by tier-1 tests.
+
+!!! requirement "FR-408 A repeated sweep value is refused naming its POL, the value and its positions <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request for 0.35.1. Evidence: `tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol`.*
+
+    Requirement: A repeated sweep value is refused naming its POL, the value and its positions.
+
+    - R1 Before constructing the row's sweep, the matrix reader shall check whether two SWEEP_VALUES write the same point name using the package's naming function.
+    - R2 The matrix error shall identify the POL, both values as written, their 1-based positions and the shared name, explain the shared run_id and datapoint folder, and ask to remove the repeat or separate values by 0.1 degree for an angle or 0.01 for an advance ratio.
+
+    Rationale: A matrix row must be refused with an actionable row error before two points can share one run identity.
+
+    Verification: tier 1, `tests/tier1_offline/test_p0351_bwsw.py`, carrying the marker P0351-SWEEP-DUPLICATE (FR-408); release 0.35.1.

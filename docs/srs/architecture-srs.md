@@ -1740,3 +1740,13 @@ The archive default of `post` is the argument `archive` of
 re-initializes a reopened state (FR-396) and a rotor march lists its vorticity
 drag boundaries before `START_SOLVER` (FR-318 R6); the parity script names both
 differences. The CCS mesh probe judges classify by geometry (FR-401).
+
+
+## The 0.35.1 sweep validation
+
+- `cases/_sweep_names.py` is private to the cases row. It builds a matrix row's
+  sweep and refuses repeated point names (FR-408), importing `cases.SweepAxis`,
+  `cases.naming` and the public `cases.workflows.SWEEP_WORD`. Its deferred
+  imports from `cases.matrix` read the row error class and condition vocabulary
+  after that vocabulary is defined. `cases.matrix` keeps the existing helper
+  names; name precision remains defined only by `cases.naming.name_field`.

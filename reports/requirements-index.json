@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 355,
-  "total": 414,
+  "cited_by_a_test": 356,
+  "total": 415,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3030,6 +3030,14 @@
    "status": "implemented",
    "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1 (\"nao deixa nada de fora que não for comprovadamente inviável\"): the grouped plan of 0.35.0 left a coupled polar out because a coupled run was not grouped in that release.*",
    "verification": "review"
+  },
+  {
+   "id": "FR-408",
+   "text": "Requirement: A repeated sweep value is refused naming its POL, the value and its positions.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner request for 0.35.1. Evidence: tests/tier1_offline/test_p0351_bwsw.py::test_p0351_sweep_duplicate_names_the_pol.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
