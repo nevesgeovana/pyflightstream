@@ -544,7 +544,8 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
     # module is admitted, and the reason is that its subscript is a CSV
     # COLUMN KEY and not this block at all.
     admitted = {
-        package / "workspace" / "matrix.py": {"rotor"},
+        # AD-20: the same binding reader moved into the matrix phases.
+        package / "workspace" / "_matrix_phases.py": {"rotor"},
         # The manifest entries of a rotor table and of a per-rotor reduction,
         # written by post._sim and post._reduction_stage since WP5 of 0.33.0.
         package / "post" / "_sim.py": {"rotor"},

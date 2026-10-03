@@ -316,6 +316,8 @@ def _discovered_modules() -> list[str]:
 
 
 def _is_private(name: str) -> bool:
+    # AD-20: workspace._matrix_binding and workspace._matrix_phases implement
+    # the public workspace.matrix facade without adding a public module.
     # FR-408: cases._sweep_names is private matrix sweep construction and name validation.
     # QV1: run._cli_query_point, workspace._query_files/_query_logs/_query_point
     # are deliberately private, including their shared warning grouping.
