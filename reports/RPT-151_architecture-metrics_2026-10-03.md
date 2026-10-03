@@ -1,6 +1,6 @@
 # RPT-151: architecture metrics (2026-10-03)
 
-Architecture metrics 2026-10-03: 268 modules, 180012 lines, 96070 code lines; the largest 1, 5 and 13 modules hold 1.5, 6.5 and 14.6 percent of the code lines.
+Architecture metrics 2026-10-03: 269 modules, 180408 lines, 96250 code lines; the largest 1, 5 and 13 modules hold 1.5, 6.5 and 14.6 percent of the code lines.
 
 Written by `python scripts/arch_metrics.py report --number 151 --date 2026-10-03 --since v0.35.1`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
@@ -8,9 +8,9 @@ Written by `python scripts/arch_metrics.py report --number 151 --date 2026-10-03
 
 | metric | value |
 |---|---:|
-| module_count | 268 |
-| total_lines | 180012 |
-| code_lines | 96070 |
+| module_count | 269 |
+| total_lines | 180408 |
+| code_lines | 96250 |
 | top1_share | 1.5 |
 | top5_share | 6.5 |
 | top13_share | 14.6 |
@@ -38,12 +38,12 @@ One row per top-level package (a single-file module counts as its own), the unit
 
 | package | modules | code lines | share | over 1000 | functions over a G2 limit | private names reached by tests |
 |---|---:|---:|---:|---:|---:|---:|
-| `cases` | 53 | 20521 | 21.4 | 0 | 43 | 67 |
+| `cases` | 53 | 20521 | 21.3 | 0 | 43 | 67 |
 | `post` | 42 | 18184 | 18.9 | 2 | 49 | 33 |
-| `run` | 38 | 16224 | 16.9 | 1 | 39 | 57 |
-| `workspace` | 44 | 15911 | 16.6 | 1 | 24 | 29 |
+| `run` | 38 | 16230 | 16.9 | 1 | 39 | 57 |
+| `workspace` | 44 | 15911 | 16.5 | 1 | 24 | 29 |
 | `qa` | 17 | 6444 | 6.7 | 0 | 9 | 10 |
-| `results` | 10 | 3871 | 4.0 | 0 | 11 | 3 |
+| `results` | 10 | 3874 | 4.0 | 0 | 11 | 3 |
 | `script` | 10 | 3678 | 3.8 | 0 | 14 | 10 |
 | `fsi` | 15 | 3246 | 3.4 | 0 | 5 | 6 |
 | `utils` | 5 | 1831 | 1.9 | 0 | 6 | 0 |
@@ -57,7 +57,8 @@ One row per top-level package (a single-file module counts as its own), the unit
 | `_fsm_fresh` | 1 | 257 | 0.3 | 0 | 0 | 0 |
 | `farfield` | 1 | 255 | 0.3 | 0 | 0 | 0 |
 | `overview` | 1 | 199 | 0.2 | 0 | 0 | 5 |
-| `versions` | 1 | 189 | 0.2 | 0 | 0 | 3 |
+| `versions` | 1 | 193 | 0.2 | 0 | 0 | 3 |
+| `_maturity` | 1 | 167 | 0.2 | 0 | 0 | 0 |
 | `_console` | 1 | 161 | 0.2 | 0 | 0 | 0 |
 | `support` | 1 | 153 | 0.2 | 0 | 0 | 0 |
 | `exceptions` | 1 | 149 | 0.2 | 0 | 0 | 0 |
@@ -229,14 +230,14 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 
 ## Modules created since v0.35.1 under 150 code lines
 
-7 modules created since v0.35.1; 0 under 150 code lines.
+8 modules created since v0.35.1; 0 under 150 code lines.
 
 ## The numbers, as the tool wrote them
 
 <!-- arch-metrics:begin -->
 ```json
 {
-  "code_lines": 96070,
+  "code_lines": 96250,
   "cross_package_sccs": 1,
   "functions_over_100": 64,
   "functions_over_200": 7,
@@ -246,7 +247,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "largest_fan_out_deferred": 10,
   "largest_fan_out_deferred_module": "run/_rebuild.py",
   "largest_fan_out_module": "exceptions.py",
-  "module_count": 268,
+  "module_count": 269,
   "modules_over_1000": 4,
   "modules_over_2000": 0,
   "monkeypatch_targets": 83,
@@ -270,7 +271,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "top13_share": 14.6,
   "top1_share": 1.5,
   "top5_share": 6.5,
-  "total_lines": 180012,
+  "total_lines": 180408,
   "workspace_to_run_imports": 0
 }
 ```
