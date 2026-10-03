@@ -65,6 +65,7 @@ acceptance or publication of their findings.
 | [RPT-148](RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md) | The 0.35.1 licensed grouped-versus-alone comparisons on 26.124: section persistence, acoustic polar isolation, solver identity, time averages, user actions and coupled log splitting across three windows | Bounded evidence; window-2 time-average difference and window-3 coupled result not equal |
 
 | [RPT-150](RPT-150_fsi-steady-in-one-instance_2026-10-03.md) | Coupled steady points in one instance on 26.124: the coupling loop starts after the script ends; two spliced jobs exit 0xC0000005 without either point's outputs (FR-410 branch (b)) | Bounded evidence; one case, one build; callback-driven continuation untested |
+| [RPT-152](RPT-152_parity-reproduction-0-36-against-0-35-1-on-26124_2026-10-03.md) | The 0.36.0 licensed parity reproduction against PyPI 0.35.1 on 26.124 build 8172026 (arm LP, NFR-40): three converged points, equal counts, 34 tables identical after rule 9 and identical skipped products | PASS for this campaign; one build, Windows local run; launcher exit codes unrecorded |
 
 ## Architecture metrics
 
