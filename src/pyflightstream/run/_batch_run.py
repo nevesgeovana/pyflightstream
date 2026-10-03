@@ -392,7 +392,13 @@ def _polars(points: Sequence[JobPoint]) -> list[JobPolar]:
 def _write_job_files(
     job: GroupedJob, job_dir: Path, script: JobScript, points: Sequence[JobPoint]
 ) -> None:
-    """Write the job script, its schedule, its programs, its empty action scripts and copies."""
+    """Write the job script, its schedule, its programs, its empty action scripts and copies.
+
+    A steady job (FR-403) registers no action, so it writes its script alone.
+    """
+    if all(point.steady for point in points):
+        _textio.write_text(job_dir / PurePath(job.script).name, script.text)
+        return
     deadline = None if job.walltime_s is None else max(job.walltime_s - job.margin_s, 0.0)
     schedule = job_schedule(points, deadline_s=deadline)
     _textio.write_json(job_dir / JOB_SCHEDULE, schedule)

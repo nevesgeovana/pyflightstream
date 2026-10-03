@@ -80,14 +80,14 @@ def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
         "--polar-sweep",
         action="store_true",
         help="run each simulation's points as ONE solver job (one polar per job). Combines "
-        "with --local; unsteady rows only",
+        "with --local; a job holds steady or unsteady polars, never both",
     )
     group.add_argument(
         "--batch",
         type=_batch_count,
         metavar="N",
         help="run the simulations' points as N solver jobs, polars split across them. "
-        "Combines with --local; unsteady rows only",
+        "Combines with --local; a job holds steady or unsteady polars, never both",
     )
 
 

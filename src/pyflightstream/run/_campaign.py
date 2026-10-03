@@ -56,6 +56,7 @@ from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._assessment import (
     OutcomeAssessor,
 )
+from pyflightstream.run._batch_exec import GroupingExecutor
 from pyflightstream.run._continuation import (
     _unused_continuation_run_id,
     queued_points,
@@ -154,6 +155,17 @@ FS_VERSION_FROM_DEFAULT = "campaign_default"
 #: who cannot tell which file the tool maintains and which one a
 #: colleague put there.
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
+
+
+def _runs_as_one_job(campaign: Campaign, case: SimCase, executor: Executor) -> bool:
+    """Whether a row's pending points run as FR-95's one job on this executor.
+
+    A steady row of a matrix is one job (:func:`_is_one_job`), EXCEPT inside a
+    grouped job (FR-403): there every point is one block of the job's script,
+    so the row runs point by point and each point is remembered by the
+    grouping executor in its own datapoint folder, as an unsteady point is.
+    """
+    return _is_one_job(campaign, case) and not isinstance(executor, GroupingExecutor)
 
 
 def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
@@ -802,13 +814,17 @@ def run_campaign(
         # as a duplicate id. A redo supersedes the job first, which takes its id
         # out of `recorded`, and runs the whole row as one job again.
         job_recorded = _job_run_id(campaign, case) in recorded
-        if _is_one_job(campaign, case) and len(pending) > 1 and job_recorded:
+        if _runs_as_one_job(campaign, case, case_executor) and len(pending) > 1 and job_recorded:
             _say(
                 f"  -> {_job_run_id(campaign, case)} is recorded; its "
                 f"{len(pending)} new point(s) run one each",
                 quiet=quiet,
             )
-        if _is_one_job(campaign, case) and len(pending) > 1 and not job_recorded:
+        if (
+            _runs_as_one_job(campaign, case, case_executor)
+            and len(pending) > 1
+            and not job_recorded
+        ):
             job_run = _job_run_id(campaign, case)
             _say(
                 f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "

@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 356,
-  "total": 415,
+  "cited_by_a_test": 357,
+  "total": 416,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3005,6 +3005,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner report of 2026-10-03 (her batched cluster campaigns are unsteady rotor polars with time averaging, and 0.35.0 left every one of them out of --batch and --polar-sweep), and her design of 2026-10-02 for FR-355: the job's action re-points each point's files at the point's first step precisely so that its exports land in its own folder. Evidence: tests/tier1_offline/test_p0351_batch_tavg.py::test_p0351_tavg_fr402_time_averaging_polars_are_grouped, ::test_p0351_tavg_fr402_each_point_exports_into_its_own_folder_from_its_window, ::test_p0351_tavg_fr402_grouped_points_leave_what_alone_points_leave.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-403",
+   "text": "Requirement: plan --batch <n> and plan --polar-sweep shall group the polars of the steady run types steady and qsteady_rotor as they group the unsteady ones, in jobs that hold one kind only, and run and collect shall record each steady point of a job as the same point run alone is recorded.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner rule of 2026-10-03 for 0.35.1, \"nao deixa nada de fora que não for comprovadamente inviável\". Evidence: tests/tier1_offline/test_p0351_batch_steady.py::test_p0351_steady_fr403_two_steady_polars_assemble_one_job, ::test_p0351_steady_fr403_each_point_restates_the_alone_solver_section, ::test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind, ::test_p0351_steady_fr403_what_stays_out_is_named, ::test_p0351_steady_fr403_collect_completes_a_batched_point_as_alone, ::test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing; tests/tier1_offline/test_p0350_batch_plan.py::test_p0350_plan_fr379_left_out_polars_are_named.*",
    "verification": "test"
   },
   {

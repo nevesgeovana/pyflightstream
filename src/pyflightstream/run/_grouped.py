@@ -189,7 +189,10 @@ def batch_receipt_error(
 
     The plain plan gate answers first (the matrix digest has one
     implementation); then the grouping block must exist, name this mode, this
-    N and this selection, and none of its job folders may already hold files.
+    N and this selection, hold at least one job (FR-365: a receipt with no job
+    is refused, never read as no selection, which ran every polar the plan had
+    left out in the default mode), and none of its job folders may already
+    hold files.
 
     Parameters
     ----------
@@ -226,6 +229,11 @@ def batch_receipt_error(
     selection = {"sims": list(sims) if sims else None, "points": list(points) if points else None}
     if receipt.selection != selection:
         return "the plan was made for another --sims/--points selection: plan it again."
+    if not receipt.jobs:
+        return (
+            "the plan holds no job: every polar was left out of the grouping, each named with "
+            "its reason by the plan, so nothing would run grouped; run them in the default mode."
+        )
     for job in receipt.jobs:
         if _job_ran(workspace.root, job, mode=mode):
             return (

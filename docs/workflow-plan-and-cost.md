@@ -158,15 +158,28 @@ its user and are never part of the package.
 
 ## One job for a polar or for a batch of polars
 
-`pyfs-matrix plan --batch N` plans the unsteady polars as N solver jobs, and
-`plan --polar-sweep` as one job for each polar (FR-362). The plan groups the
-polars by processor count, build and the setup's own `unsteady_solver_actions`,
-so that no job mixes two builds or two sets of user actions (FR-405), and cuts
+`pyfs-matrix plan --batch N` plans the polars as N solver jobs, and
+`plan --polar-sweep` as one job for each polar (FR-362). The steady run types
+`steady` and `qsteady_rotor` join since 0.35.1 (FR-403). The plan groups the
+polars by processor count, build, kind and the setup's own `unsteady_solver_actions`,
+so that no job mixes two builds, a steady polar with an unsteady one, or two
+sets of user actions (FR-405), and cuts
 each group into contiguous batches of whole polars so that the largest batch
 estimate is the smallest possible. It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
-names every polar a grouped job cannot take, a steady or quasi-steady row for
-instance, with the reason. The split is recorded per batch in the plan receipt
+names every polar a grouped job cannot take, with the reason: a LEGACY row, a
+steady row stating `COLD_START` false, a steady point that initialises the solver
+more than once (a quasi-steady wheel of several clockings, a wake termination
+read from a file), a `RESTART` row, a row whose setup states a `SCRIPT` entry of
+`unsteady_solver_actions` by a relative file, an unsteady row on a build without
+the action command, and a polar whose points do
+not splice into one script. A steady job registers no solver action: a later
+point of a polar is restated from `SOLVER_SET_AOA` after
+`REMOVE_INITIALIZATION`; a later point that differs before it (a swept flow
+state, a quasi-steady rotor's turning free stream) reopens its geometry after
+`NEW_SIMULATION`, and the plan names its polar in a warning. Each point is
+recorded as the point run alone.
+A receipt in which every polar was left out holds no job, and `run` refuses it. The split is recorded per batch in the plan receipt
 `post/<matrix>/plan.json`, and `run --batch N` refuses a receipt that has no
 batches or was made for another N or another matrix (FR-365).
 

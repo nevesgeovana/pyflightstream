@@ -1,11 +1,13 @@
-"""The job script of a grouped run: several unsteady points in one instance (FR-B3 to FR-B7b).
+"""The job script of a grouped run: several points in one instance (FR-B3 to FR-B7b, FR-403).
 
 A grouped job (``--batch`` or ``--polar-sweep``, 0.35.0) runs every point of
-several polars in ONE FlightStream instance. The script layer's phase guard
-cannot hold two points in one ``Script``, so the job script is a TEXT splice
-of the per-point scripts the builders already wrote, exactly as the licensed
-probes of 2026-10-02 built theirs (DESIGN-0350 test report, arms A, AF, C, D
-and E). Every rule below was measured there:
+several polars in ONE FlightStream instance. Since 0.35.1 (FR-403) a job holds
+steady polars (``steady``, ``qsteady_rotor``) or unsteady ones, never both.
+The script layer's phase guard cannot hold two points in one ``Script``, so
+the job script is a TEXT splice of the per-point scripts the builders already
+wrote, exactly as the licensed probes of 2026-10-02 built theirs
+(DESIGN-0350 test report, arms A, AF, C, D and E). Every rule below was
+measured there:
 
 1. the job's first point is its whole text without its final
    ``CLOSE_FLIGHTSTREAM``, its action registrations replaced, at the place of
@@ -50,6 +52,18 @@ and E). Every rule below was measured there:
    a point run alone registers them; their lines are kept as the setup wrote
    them. Every polar of the job must state the same set, because an action
    survives ``NEW_SIMULATION`` and no command withdraws one.
+
+A STEADY JOB (FR-403) follows the same rules with three differences: it
+registers no action (a steady point registers none, so rule 1 keeps the first
+point's text whole and rule 3 has nothing to drop); a later point of a polar
+is restated from :data:`STEADY_RESTATE_ANCHORS`, the first line of its solver
+block, after the same ``REMOVE_INITIALIZATION``; and a later point whose text
+differs from its polar's first point before that anchor (a swept flow state, a
+quasi-steady rotor's turning free stream) is not refused: it follows
+``NEW_SIMULATION`` with its whole text, as the first point of a polar does
+(rule 3, measured identical to a fresh instance). A steady point after an
+unsteady one in one instance is not measured, so the two kinds never share a
+job; the split keeps them apart and :func:`assemble_job` refuses a mix.
 """
 
 from __future__ import annotations
@@ -73,13 +87,14 @@ from pyflightstream.script import Script, helpers
 
 from ._batch_actions import absolute_output_lines, is_absolute_target
 from ._clock import unsteady_counter_steps, unsteady_export_threshold, walltime_stop_text
-from ._conventions import WorkflowConventions
-from ._vocabulary import WALLTIME_STOP_VERB
+from ._conventions import WorkflowConventions, select_workflow
+from ._vocabulary import STEADY_RUN_TYPES, WALLTIME_STOP_VERB
 
 __all__ = [
     "JOB_POST_SCRIPT",
     "RESTATE_ANCHORS",
     "SOLVER_BLOCK",
+    "STEADY_RESTATE_ANCHORS",
     "JobBlock",
     "JobPoint",
     "JobPolar",
@@ -90,6 +105,8 @@ __all__ = [
     "couples",
     "drop_registrations",
     "job_point",
+    "refreshes",
+    "refuse_a_second_initialization",
     "refuse_unspliceable",
     "registration_block",
     "restate_anchor",
@@ -102,10 +119,19 @@ __all__ = [
 #: speed and a new time step), else the unsteady solver block.
 RESTATE_ANCHORS = ("SET_MOTION_ROTOR_RPM", "SET_SOLVER_UNSTEADY")
 
+#: The command a later point of a STEADY polar is restated from (FR-403): the
+#: first line of the steady solver block, which carries the point's attitude.
+#: What follows it (the solver settings, the initialisation, the solve and the
+#: exports) is what an unsteady point restates after ``SET_SOLVER_UNSTEADY``;
+#: the geometry, the frames and the fluid before it stay loaded.
+STEADY_RESTATE_ANCHORS = ("SOLVER_SET_AOA",)
+
 #: What a later point of the same polar starts with (FR-B3).
 REINIT_VERB = "REMOVE_INITIALIZATION"
 #: What the first point of a later polar starts with (FR-B4).
 REFRESH_VERB = "NEW_SIMULATION"
+#: The command a steady point may emit once only inside a job (FR-403).
+INITIALIZE_VERB = "INITIALIZE_SOLVER"
 #: The token a point's own datapoint folder becomes when two texts are compared.
 DATAPOINT_TOKEN = "<datapoint>"
 #: The command a point's acoustic setup and the coupling reset are placed before (rules 8, 9).
@@ -198,11 +224,14 @@ class JobPoint:
     stop_text : str
         What the clock writes when it stops this point, relative names.
     time_steps : int
-        The time steps the point marches.
+        The time steps the point marches; 0 for a steady point.
     user_actions : tuple of (str, str, str)
         The setup's own unsteady solver actions, ``(type, name, filename)`` (FR-405).
     post_script : str
         A coupled point's post-processing script as its run staged it ('' for any other point).
+    steady : bool
+        Whether the point is of a steady run type (FR-403): it registers no
+        action and is restated from :data:`STEADY_RESTATE_ANCHORS`.
     """
 
     run_id: str
@@ -217,6 +246,7 @@ class JobPoint:
     time_steps: int
     user_actions: tuple[UserAction, ...] = ()
     post_script: str = ""
+    steady: bool = False
 
 
 @dataclass(frozen=True)
@@ -345,13 +375,28 @@ def job_point(
     Returns
     -------
     JobPoint
-        The point, its outputs read off its script's save and export targets.
+        The point, its outputs read off its script's save and export targets. A
+        steady point (FR-403) has no per-step export, no clock and no time step.
     """
-    conventions = WorkflowConventions.for_case(point_case)
-    threshold = unsteady_export_threshold(point_case, conventions, version=version)
     outputs = dict.fromkeys(
         target for target in write_targets(text, version) if not is_absolute_target(target)
     )
+    if select_workflow(point_case) in STEADY_RUN_TYPES:
+        return JobPoint(
+            run_id=run_id,
+            sim_id=point_case.sim_id,
+            point_name=run_id.rpartition("/")[2],
+            text=text,
+            datapoint_dir=datapoint_dir,
+            outputs=tuple(outputs),
+            action_exports="",
+            first_export_step=None,
+            stop_text="",
+            time_steps=0,
+            steady=True,
+        )
+    conventions = WorkflowConventions.for_case(point_case)
+    threshold = unsteady_export_threshold(point_case, conventions, version=version)
     return JobPoint(
         run_id=run_id,
         sim_id=point_case.sim_id,
@@ -402,29 +447,37 @@ def _compared(point: JobPoint) -> list[str]:
     ]
 
 
+def _anchors(point: JobPoint) -> tuple[str, ...]:
+    """Return the commands a later point of ``point``'s polar may be restated from."""
+    return STEADY_RESTATE_ANCHORS if point.steady else RESTATE_ANCHORS
+
+
 def _anchor_index(first: JobPoint, point: JobPoint) -> int:
     """Return the 0-based line of ``point``'s restate anchor, refusing an unspliceable point.
 
-    The anchor is the nearest line naming one of :data:`RESTATE_ANCHORS` at or
-    before the first line where the two texts differ (each point's own
-    datapoint folder compared as one token); everything before it must be
-    equal, because the model objects stay loaded across a re-initialization.
+    The anchor is the nearest line naming one of the point's anchors
+    (:data:`RESTATE_ANCHORS`, or :data:`STEADY_RESTATE_ANCHORS` for a steady
+    point) at or before the first line where the two texts differ (each
+    point's own datapoint folder compared as one token); everything before it
+    must be equal, because the model objects stay loaded across a
+    re-initialization.
     """
     ours, theirs = _compared(first), _compared(point)
+    anchors = _anchors(point)
     differs = next(
         (i for i, (a, b) in enumerate(zip(ours, theirs, strict=False)) if a != b),
         min(len(ours), len(theirs)),
     )
     for index in range(min(differs, len(theirs) - 1), -1, -1):
         words = theirs[index].split()
-        if words and words[0] in RESTATE_ANCHORS:
+        if words and words[0] in anchors:
             return index
     first_line = ours[differs] if differs < len(ours) else "<end of text>"
     point_line = theirs[differs] if differs < len(theirs) else "<end of text>"
     raise CampaignConfigError(
         f"point {point.run_id!r} cannot follow {first.run_id!r} in one solver instance: "
         f"their scripts differ at line {differs + 1} ({first_line!r} against {point_line!r}), "
-        f"before any of {', '.join(RESTATE_ANCHORS)}. A geometry, frame, plot, fluid or motion "
+        f"before any of {', '.join(anchors)}. A geometry, frame, plot, fluid or motion "
         "difference cannot be restated after REMOVE_INITIALIZATION, because the model objects "
         "stay loaded; run this polar on its own."
     )
@@ -452,6 +505,73 @@ def refuse_unspliceable(first: JobPoint, point: JobPoint) -> None:
         _anchor_index(first, point)
 
 
+def refreshes(first: JobPoint, point: JobPoint) -> bool:
+    """Return whether a later point of a polar reopens its geometry rather than re-initialising.
+
+    A steady point whose text differs from its polar's first point before
+    :data:`STEADY_RESTATE_ANCHORS` follows ``NEW_SIMULATION`` with its whole
+    text (FR-403); an unsteady point never does, it is refused instead
+    (:func:`refuse_unspliceable`).
+
+    Parameters
+    ----------
+    first : JobPoint
+        The polar's first point.
+    point : JobPoint
+        A later point of the same polar.
+
+    Returns
+    -------
+    bool
+        True for a steady point that cannot be restated from its anchor.
+    """
+    if not point.steady:
+        return False
+    try:
+        _anchor_index(first, point)
+    except CampaignConfigError:
+        return True
+    return False
+
+
+def refuse_a_second_initialization(point: JobPoint) -> None:
+    """Refuse a steady point whose script initialises the solver more than once (FR-403).
+
+    A job's cumulative log is cut into its points' logs at every
+    ``Solution cleared. Initialization removed.`` line, which the job's own
+    ``REMOVE_INITIALIZATION`` and ``NEW_SIMULATION`` print once per point. An
+    ``INITIALIZE_SOLVER`` on a solver already initialised prints that line too
+    (MEASURED on 26.124 build 8172026: the recorded steady log
+    ``tests/tier1_offline/fixtures/log_steady_job_two_solves_26.124.txt``
+    carries it at line 67, between the two initialisations of a wing whose
+    trailing edges were imported), so a point initialising twice would shift
+    every later point of its job onto another point's log. A quasi-steady wheel
+    of several clockings and a wake termination read from a file initialise
+    more than once; such a polar stays out of a grouped job, named.
+
+    Parameters
+    ----------
+    point : JobPoint
+        A point of a job.
+
+    Raises
+    ------
+    CampaignConfigError
+        Naming the point and its count of initialisations, for a steady point
+        initialising more than once.
+    """
+    if not point.steady:
+        return
+    count = sum(1 for line in _lines(point.text) if line.split()[:1] == [INITIALIZE_VERB])
+    if count > 1:
+        raise CampaignConfigError(
+            f"point {point.run_id!r} initialises the solver {count} times, and each "
+            "initialisation after the first prints the line a grouped job's log is cut at "
+            "('Solution cleared. Initialization removed.'), so its log and every later "
+            "point's could not be told apart; run this polar on its own."
+        )
+
+
 def restate_anchor(first: JobPoint, point: JobPoint) -> str:
     """Return the command a later point of a polar is restated from.
 
@@ -466,7 +586,7 @@ def restate_anchor(first: JobPoint, point: JobPoint) -> str:
     -------
     str
         ``SET_MOTION_ROTOR_RPM`` when the rotor speed is the first difference,
-        else ``SET_SOLVER_UNSTEADY``.
+        else ``SET_SOLVER_UNSTEADY``; ``SOLVER_SET_AOA`` for a steady point.
 
     Raises
     ------
@@ -606,7 +726,13 @@ def _body(point: JobPoint) -> list[str]:
 
 
 def _start_lines(point: JobPoint, block: str) -> list[str]:
-    """Rule 1: the job's first point, the job's registrations in place of its own."""
+    """Rule 1: the job's first point, the job's registrations in place of its own.
+
+    A steady point registers nothing and its job registers nothing (FR-403), so
+    its text is kept whole.
+    """
+    if point.steady:
+        return _body(point)
     kept, first = _without_registrations("\n".join(_body(point)))
     if first is None:
         raise CampaignConfigError(
@@ -625,9 +751,14 @@ def _point_lines(first: JobPoint, point: JobPoint, transition: Transition) -> li
 
 
 def _shifted(point: JobPoint, cut: int) -> int:
-    """Return where line ``cut`` of the point's text lands once its registrations are dropped."""
-    before = "\n".join(_lines(point.text)[:cut])
-    return len(_without_registrations(before)[0]) if before else 0
+    """Return where line ``cut`` of the point's text lands once its registrations are dropped.
+
+    The lines before the cut are joined with a final line end, so a blank line
+    right before the anchor (a steady point's ``SOLVER_SET_AOA`` follows one,
+    FR-403) is counted and not lost to the split.
+    """
+    before = _lines(point.text)[:cut]
+    return len(_without_registrations("\n".join(before) + "\n")[0]) if before else 0
 
 
 def _ending(polars: Sequence[JobPolar], job_log: PurePath | None) -> list[str]:
@@ -722,7 +853,8 @@ def _parts(
             if number == 0 and order == 0:
                 parts.append((point, "start", _start_lines(point, block)))
             else:
-                transition: Transition = "refresh" if order == 0 or couples(point) else "reinit"
+                refresh = order == 0 or couples(point) or refreshes(lead, point)
+                transition: Transition = "refresh" if refresh else "reinit"
                 lines = _point_lines(lead, point, transition)
                 parts.append((point, transition, _restated(lines, point, loaded, version)))
             loaded = loaded.after(point)
@@ -861,6 +993,29 @@ def _job_user_actions(polars: Sequence[JobPolar]) -> tuple[UserAction, ...]:
     return next(iter(sets))
 
 
+def _job_block(
+    polars: Sequence[JobPolar],
+    version: str,
+    *,
+    walltime: bool,
+    user_actions: tuple[UserAction, ...],
+) -> str:
+    """Return the job's registration block: none for a steady job, refusing a mix (FR-403)."""
+    kinds = {point.steady for polar in polars for point in polar.points}
+    if len(kinds) > 1:
+        raise CampaignConfigError(
+            "a job holds steady polars or unsteady ones, never both: a steady point after an "
+            "unsteady one in one solver instance is not measured, and the plan splits the two "
+            "kinds into jobs of their own (FR-403); the job is not assembled."
+        )
+    if kinds == {True}:
+        return ""
+    exports = any(p.first_export_step is not None for polar in polars for p in polar.points)
+    return registration_block(
+        version, exports=exports, walltime=walltime, user_actions=user_actions
+    )
+
+
 def assemble_job(
     polars: Sequence[JobPolar],
     *,
@@ -887,7 +1042,8 @@ def assemble_job(
         The job's absolute runtime folder, where its shared ``actions/`` lives.
     walltime : bool, optional
         Whether the job registers the clock pair; True by default, and a
-        schedule without a deadline never fires it.
+        schedule without a deadline never fires it. A steady job registers
+        nothing (FR-403).
 
     Returns
     -------
@@ -897,19 +1053,18 @@ def assemble_job(
     Raises
     ------
     CampaignConfigError
-        When there is no point, a point cannot be spliced, an output cannot be
-        placed, or a save or export target stays relative.
+        When there is no point, the polars mix steady and unsteady points, a
+        point cannot be spliced, an output cannot be placed, or a save or
+        export target stays relative.
     """
     if not polars or not all(polar.points for polar in polars):
         raise CampaignConfigError("a job needs at least one polar with at least one point.")
-    exports = any(p.first_export_step is not None for polar in polars for p in polar.points)
-    block = registration_block(
-        version, exports=exports, walltime=walltime, user_actions=_job_user_actions(polars)
-    )
+    block = _job_block(polars, version, walltime=walltime, user_actions=_job_user_actions(polars))
     lines: list[str] = []
     blocks: list[JobBlock] = []
     files: list[tuple[str, str]] = []
     for order, (point, transition, part) in enumerate(_parts(polars, block, version), 1):
+        refuse_a_second_initialization(point)
         part, copy = _post_copy(part, point, order, job_dir, version)
         files += [copy] if copy is not None else []
         part = _absolute_splice(part, point.datapoint_dir, job_dir, version)

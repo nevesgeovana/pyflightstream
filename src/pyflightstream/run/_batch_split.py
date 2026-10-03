@@ -7,11 +7,12 @@ clock to ask the scheduler for. This module answers them from numbers alone
 (the recorded costs, the row cells, the measured overheads), so the answers are
 testable without a workspace or a solver.
 
-THE SPLIT. Polars are grouped by ``(ncpus, fs_build, actions)``, because a job
-has one processor count, one build and one set of the setup's own unsteady
-solver actions (FR-405: an action survives ``NEW_SIMULATION`` and no command
-withdraws one, so it would run on every later polar of the job).
-Inside a group the polars stay in matrix order
+THE SPLIT. Polars are grouped by ``(ncpus, fs_build, steady, actions)``, because a job
+has one processor count, one build, one kind and one set of the setup's own unsteady
+solver actions. A steady point after an unsteady one in one instance is not measured,
+so steady and unsteady polars never share a job (FR-403); an action survives
+``NEW_SIMULATION`` and no command withdraws one, so it would run on every later polar
+of the job (FR-405). Inside a group the polars stay in matrix order
 and a job is a CONTIGUOUS run of them: the optimal linear partition, the one
 whose longest job is shortest. A polar is never cut, and ``n`` above the polars
 warns and uses only what it needs.
@@ -74,6 +75,8 @@ class PolarUnit:
     actions : tuple of (str, str, str)
         The setup's own unsteady solver actions, ``(type, name, filename)``; empty for none
         (FR-405).
+    steady : bool
+        Whether the polar is of a steady run type (FR-403); a job holds one kind.
     """
 
     sim_id: str
@@ -87,6 +90,7 @@ class PolarUnit:
     best: bool
     margin_s: float
     actions: tuple[tuple[str, str, str], ...] = ()
+    steady: bool = False
 
 
 @dataclass(frozen=True)
@@ -203,8 +207,9 @@ def _longest(units: Sequence[PolarUnit], jobs: int) -> float:
 def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], list[str]]:
     """Cut the polars into about ``n`` batch jobs (FR-362).
 
-    Groups by ``(ncpus, fs_build, actions)`` in matrix order, gives each group at least one
-    job, cuts
+    Groups by ``(ncpus, fs_build, steady, actions)`` in matrix order (FR-403: a job holds
+    steady polars or unsteady ones; FR-405: one set of user actions), gives each group at
+    least one job, cuts
     each group into the optimal contiguous partition that minimises its longest job, and hands
     the remaining jobs one at a time to the group whose longest job is longest while a polar can
     still be split off. A polar is never cut.
@@ -222,9 +227,9 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
         The jobs in matrix order of their first polar, and the warnings: ``n`` above the polars
         (only what is needed is used) and ``n`` below the number of groups (one job per group).
     """
-    groups: dict[tuple[int, str, tuple[tuple[str, str, str], ...]], list[PolarUnit]] = {}
+    groups: dict[tuple[int, str, bool, tuple[tuple[str, str, str], ...]], list[PolarUnit]] = {}
     for unit in units:
-        groups.setdefault((unit.ncpus, unit.fs_build, unit.actions), []).append(unit)
+        groups.setdefault((unit.ncpus, unit.fs_build, unit.steady, unit.actions), []).append(unit)
     warnings: list[str] = []
     if n > len(units):
         warnings.append(
@@ -234,7 +239,8 @@ def split_polars(units: Sequence[PolarUnit], n: int) -> tuple[list[JobSplit], li
     if n < len(groups):
         warnings.append(
             f"--batch {n} asks for fewer jobs than the {len(groups)} group(s) of processor count, "
-            "build and unsteady_solver_actions there are, and a job holds one of each, so one "
+            "build, kind (steady or unsteady) and unsteady_solver_actions there are, "
+            "and a job holds one of each, so one "
             "job per group is planned."
         )
     counts = dict.fromkeys(groups, 1)

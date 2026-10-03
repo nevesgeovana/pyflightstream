@@ -1,9 +1,10 @@
 """Plan a grouped matrix: which polars share one FlightStream instance, and for how long.
 
-Covers FR-362 to FR-365, FR-378, FR-379 and FR-405.
+Covers FR-362 to FR-365, FR-378, FR-379, FR-403 and FR-405.
 
 Private to :mod:`pyflightstream.run`. ``plan --batch N`` and ``plan --polar-sweep`` first plan
-the matrix as any plan does (with the cost table), then group the unsteady polars: leave out and
+the matrix as any plan does (with the cost table), then group the steady and unsteady polars
+(FR-403), never the two kinds in one job: leave out and
 NAME what a grouped job cannot hold, refuse a geometry that carries saved solver actions,
 split the polars into jobs, estimate each job and price its wall clock, and write the whole
 decision into ``plan.json`` as the ``grouping`` block that ``run`` requires.
@@ -19,9 +20,16 @@ from typing import Any, Literal, cast
 
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
-from pyflightstream.cases import ScriptRecipe, SimCase, case_at_point, resolve_recipe
+from pyflightstream.cases import (
+    CampaignConfigError,
+    ScriptRecipe,
+    SimCase,
+    case_at_point,
+    resolve_recipe,
+)
 from pyflightstream.cases._unsteady_actions import documents_actions
 from pyflightstream.cases.workflows import (
+    STEADY_RUN_TYPES,
     WORKFLOW_KEY,
     parse_restart,
     row_ncpus,
@@ -31,6 +39,8 @@ from pyflightstream.cases.workflows._batch_actions import is_absolute_target
 from pyflightstream.cases.workflows._batch_script import (
     JobPoint,
     job_point,
+    refreshes,
+    refuse_a_second_initialization,
     refuse_unspliceable,
     user_actions_of,
 )
@@ -50,7 +60,7 @@ from pyflightstream.run._batch_split import (
     walltime_text,
 )
 from pyflightstream.run._grouped import grouped_case
-from pyflightstream.run._ids import _point_names, narrow_to_selection
+from pyflightstream.run._ids import _is_cold_start, _point_names, narrow_to_selection
 from pyflightstream.run._plan import (
     CampaignPlan,
     PlannedPointCost,
@@ -75,17 +85,47 @@ from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 __all__ = ["eligibility", "grouping_table_lines", "plan_grouped_matrix"]
 
+#: The note a steady polar whose later points reopen their geometry earns (FR-403).
+_REOPENED = (
+    "POL {sim}: {count} later point(s) differ from the polar's first before SOLVER_SET_AOA "
+    "(a swept flow state or a turning free stream), so each reopens its geometry after "
+    "NEW_SIMULATION, as a new polar does (FR-403)"
+)
+
 #: The polar-sweep job's script stem: one job per polar, ``sims/sim_<id>/FULL-POLAR.txt``.
 _FULL_POLAR = "FULL-POLAR"
+
+
+def _warm_steady(case: SimCase, steady: bool) -> str | None:
+    """Return why a steady row asking a warm sweep stays out of a grouped job, or None."""
+    if not steady:
+        return None
+    try:
+        cold = _is_cold_start(case)
+    except CampaignConfigError as error:
+        return str(error)
+    if cold:
+        return None
+    return (
+        "it states COLD_START false, a warm sweep whose points start from the previous point's "
+        "solution, and a grouped job re-initialises the solver before every point; run it in "
+        "the default mode, where it is one job"
+    )
 
 
 def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) -> str | None:
     """Return the reason a polar cannot join a grouped job, or None when it can (reading 7).
 
-    A polar is left out and NAMED, never refused: a steady or quasi-steady row (a steady point
-    after an unsteady one is not measured), a RESTART row (it opens a datapoint's ``.fsm``), a
-    row whose setup states a SCRIPT ``unsteady_solver_actions`` entry by a relative file,
-    and a build that does not document the unsteady action command.
+    The run types ``unsteady`` and ``unsteady_rotor`` join, and since 0.35.1 the steady ones,
+    ``steady`` and ``qsteady_rotor`` (FR-403), each kind in jobs of its own. A polar is left
+    out and NAMED, never refused: a LEGACY row (its own recipe builds it), a steady row that
+    states ``COLD_START`` false (a warm sweep, which a re-initialisation before every point would
+    not be), a RESTART row (it opens a datapoint's ``.fsm``), a row whose setup states a SCRIPT
+    ``unsteady_solver_actions`` entry by a relative file, and, for an unsteady row, a build that
+    does not document the unsteady action command. A steady point that initialises the solver
+    twice is left out (FR-403). A steady polar whose later points differ before
+    ``SOLVER_SET_AOA`` is not left out: those points reopen their geometry, and the plan says
+    so (:func:`_splice_refusal`).
 
     An acoustic row and a coupled (FSI) row join since 0.35.1 (FR-406, FR-407): the job restates
     each point's acoustic setup and enters each coupled point by ``NEW_SIMULATION``
@@ -119,8 +159,15 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     del workspace
     workflow = str(case.variables.get(WORKFLOW_KEY, "")).strip()
     actions = user_actions_of(case)
-    if workflow not in UNSTEADY_WORKFLOWS:
-        return f"a {workflow or 'LEGACY'} row: grouped modes run unsteady rows only"
+    steady = workflow in STEADY_RUN_TYPES
+    if workflow not in UNSTEADY_WORKFLOWS and not steady:
+        return (
+            f"a {workflow or 'LEGACY'} row: grouped modes run the package's steady and unsteady "
+            "run types only"
+        )
+    warm = _warm_steady(case, steady)
+    if warm is not None:
+        return warm
     reasons = (
         (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
         (
@@ -132,7 +179,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     for found, reason in reasons:
         if found:
             return reason
-    if not documents_actions(Script(version=version)):
+    if not steady and not documents_actions(Script(version=version)):
         return f"build {version} does not document the unsteady solver action command"
     return None
 
@@ -243,6 +290,7 @@ def _unit_of(
         best=best,
         margin_s=walltime_margin_s(case),
         actions=user_actions_of(case),
+        steady=str(case.variables.get(WORKFLOW_KEY, "")).strip() in STEADY_RUN_TYPES,
     )
 
 
@@ -365,21 +413,25 @@ def _splice_refusal(
     workspace: CampaignWorkspace,
     version: str,
     registry: Mapping[str, ScriptRecipe] | None,
-) -> str | None:
+) -> tuple[str | None, int]:
     """Dry-splice a polar: render each pending point and refuse the first that cannot splice.
 
     Each point is rendered as the plan renders it, without its WALLTIME, turned into a
     :class:`~pyflightstream.cases.workflows._batch_script.JobPoint` under the datapoint folder
-    it would run in, and compared with the polar's first pending point.
+    it would run in, refused when it is a steady point initialising the solver more than once
+    (FR-403), and compared with the polar's first pending point: an unsteady point that cannot
+    be restated is refused, a steady one reopens its geometry and is counted (FR-403).
 
     Returns
     -------
-    str or None
-        The refusal naming the line, or None when every point splices.
+    tuple of str or None and int
+        The refusal naming the line, or None when every point splices; and how many points
+        reopen their geometry.
     """
     own = grouped_case(case)
     recipe = (registry or {}).get(case.recipe) or cast(ScriptRecipe, resolve_recipe(case.recipe))
     first: JobPoint | None = None
+    reopened = 0
     try:
         for entry in pending:
             stem, outputs = _point_names(resolved.campaign, own, entry.point, workspace)
@@ -395,13 +447,16 @@ def _splice_refusal(
                 / f"DP-{entry.run_id.rpartition('/')[2]}",
                 version=version,
             )
+            refuse_a_second_initialization(point)
             if first is None:
                 first = point
+            elif refreshes(first, point):
+                reopened += 1
             else:
                 refuse_unspliceable(first, point)
     except Exception as error:  # recipes are user code; a polar that cannot splice is left out
-        return f"its points do not splice into one instance: {error}"
-    return None
+        return f"its points do not splice into one instance: {error}", 0
+    return None, reopened
 
 
 def _block(plan: CampaignPlan, run_ids: Sequence[str], error: str) -> None:
@@ -420,11 +475,12 @@ def _eligible_units(
     resolved: ResolvedMatrix,
     workspace: CampaignWorkspace,
     registry: Mapping[str, ScriptRecipe] | None,
-) -> tuple[list[PolarUnit], list[dict[str, Any]]]:
-    """Walk the polars in matrix order: the units that can group, the polars left out."""
+) -> tuple[list[PolarUnit], list[dict[str, Any]], list[str]]:
+    """Walk the polars in matrix order: the units that can group, the polars left out, notes."""
     costs = {cost.run_id: cost for cost in plan.costs}
     units: list[PolarUnit] = []
     left_out: list[dict[str, Any]] = []
+    notes: list[str] = []
     for order, case in enumerate(resolved.campaign.sims, start=1):
         pending = [
             entry
@@ -449,15 +505,17 @@ def _eligible_units(
         if refusal is not None:
             _block(plan, [entry.run_id for entry in pending], refusal)
             continue
-        unspliceable = _splice_refusal(
+        unspliceable, reopened = _splice_refusal(
             resolved, case, pending, workspace=workspace, version=version, registry=registry
         )
         if unspliceable is not None:
             left_out.append({"sim": case.sim_id, "reason": unspliceable})
             continue
+        if reopened:
+            notes.append(_REOPENED.format(sim=case.sim_id, count=reopened))
         build = case.fs_build or plan.fs_version
         units.append(_unit_of(case, pending, costs, build, order))
-    return units, left_out
+    return units, left_out, notes
 
 
 def _profile_warnings(profile: HpcProfile | None) -> list[str]:
@@ -511,7 +569,7 @@ def plan_grouped_matrix(
     batch: int | None,
     **keywords: Any,
 ) -> CampaignPlan:
-    """Plan a matrix and group its unsteady polars into jobs (FR-362 to FR-365, FR-378).
+    """Plan a matrix and group its polars into jobs (FR-362 to FR-365, FR-378, FR-403).
 
     Plans the matrix with its costs as :func:`pyflightstream.run.matrix.plan_matrix` does, then
     leaves out and names the polars a job cannot hold (FR-379), blocks a polar whose geometry
@@ -555,7 +613,9 @@ def plan_grouped_matrix(
         keywords.get("points"),
         workspace,
     )
-    units, left_out = _eligible_units(plan, resolved, workspace, keywords.get("recipe_registry"))
+    units, left_out, reopened = _eligible_units(
+        plan, resolved, workspace, keywords.get("recipe_registry")
+    )
     profile = resolve_hpc_profile(workspace.inputs_dir)
     splits, warnings = (
         split_polars(units, int(batch or 1))
@@ -576,6 +636,7 @@ def plan_grouped_matrix(
         if refusal is not None:
             warnings.append(f"{job.label}: {refusal}")
             _block(plan, job.points, refusal)
+    warnings.extend(reopened)
     warnings.extend(_profile_warnings(profile))
     known = [job.estimate_s for job in jobs if job.estimate_s is not None]
     receipt = GroupingReceipt(

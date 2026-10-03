@@ -5,6 +5,9 @@
   "P0351-BATCH-FSI": [
     "FR-407"
   ],
+  "P0351-BATCH-STEADY": [
+    "FR-403"
+  ],
   "P0351-BATCH-TAVG": [
     "FR-402"
   ],
