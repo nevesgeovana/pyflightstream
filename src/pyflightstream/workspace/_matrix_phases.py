@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamError, PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
@@ -61,12 +61,7 @@ from pyflightstream.cases.workflows import (
     refuse_what_a_saved_point_cannot_give,
     row_outputs,
 )
-from pyflightstream.workspace import (
-    CampaignWorkspace,
-    InputArtifactError,
-    PprocArtifact,
-    wake_edges,
-)
+from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._matrix_binding import (
     _bind_setup_ports,
     _Binding,
@@ -78,6 +73,7 @@ from pyflightstream.workspace._matrix_binding import (
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import (
+    PprocArtifact,
     RegisteredBuild,
     ensure_inventory,
     inventory_sidecar,
@@ -89,6 +85,11 @@ from pyflightstream.workspace.inputs import (
     rotor_integration_groups,
 )
 from pyflightstream.workspace.naming import group_token
+from pyflightstream.workspace.wake_edges import (
+    length_scale,
+    matched_trailing_edge_points,
+    read_trailing_edge_points,
+)
 
 
 def _name_rows(rows: list[MatrixRow], wanted: tuple[str | None, ...], build: str | None) -> str:
@@ -713,14 +714,14 @@ def _raw_mesh_conditions_of(
     ):
         return declared
     try:
-        wake_edges.length_scale(mesh_import.units, SIMULATION_LENGTH_UNIT)
+        length_scale(mesh_import.units, SIMULATION_LENGTH_UNIT)
     except InputArtifactError:
         return declared
     assert marking.points_file is not None  # the file route's reader always sets it
     points_file = Path(marking.points_file)
     try:
-        read = wake_edges.read_trailing_edge_points(points_file)
-        points = wake_edges.matched_trailing_edge_points(
+        read = read_trailing_edge_points(points_file)
+        points = matched_trailing_edge_points(
             read.points,
             points_unit=read.unit,
             mesh=geometry,

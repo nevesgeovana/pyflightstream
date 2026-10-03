@@ -139,11 +139,13 @@ The result, in the sentence every record of it carries:
 
 **mypy recount 2026-10-03: 159 errors in 16 of 269 modules.**
 
-The module total is the 236 the tracked package holds on `rel/0-34` with the
-wave-2 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
+The quoted top block and the sentence above are the 2026-10-03 run recorded
+in the dated section at the end. The module total is the 269 of `rel/0-36`
+after the wave-1 cuts and MM, with 159 errors in sixteen dirty modules.
+The earlier 236 were the tracked package on `rel/0-34` with the wave-2
+packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
 each reported clean: `pyflightstream._textio` (NFR-32) and
-`pyflightstream.workspace.actuator_profiles` (FR-347); the error total and
-the sixteen dirty modules are those of the wave-1 tip (the section at the end).
+`pyflightstream.workspace.actuator_profiles` (FR-347).
 The 234 were the total on `rel/0-34` with the
 wave-1 work packages of 0.34.0 merged, fifteen more than the 219 of
 `rel/0-33` with work packages WP4, WP5 and WP6 merged, each of the fifteen

@@ -375,6 +375,9 @@ class MatrixError(PyflightstreamError, ValueError):
     """
 
 
+MatrixError.__module__ = "pyflightstream.cases.matrix"
+
+
 #: The columns whose cells carry an input-library id, in file order.
 #: These are the three the kind-letter rule renames (PFS-2009.03); every
 #: other column names something that is not a library artifact.

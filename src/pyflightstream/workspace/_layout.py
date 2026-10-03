@@ -374,6 +374,9 @@ class ReferencePoints(BaseModel):
     points: dict[str, PointXyz]
 
 
+ReferencePoints.__module__ = "pyflightstream.workspace"
+
+
 def point_kind(name: str, point: PointXyz) -> str:
     """Say what a reference point is: its stated kind, else what its name says."""
     if point.kind is not None:
