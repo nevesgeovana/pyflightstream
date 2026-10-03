@@ -32,7 +32,7 @@ from pyflightstream.workspace.inputs import InputArtifactError, clean_saved_acti
 
 TIER3 = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
 MEASURED = ("7012026", "METER")
-CLOCK = '"C:/Program Files/Python313/python.exe" "actions/pfs_walltime_clock.py"'
+CLOCK = '"<install>" "actions/pfs_walltime_clock.py"'
 
 
 def _text(path: Path) -> str:

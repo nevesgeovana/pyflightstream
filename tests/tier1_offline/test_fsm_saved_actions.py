@@ -24,7 +24,7 @@ from pyflightstream._fsm import (
 )
 from pyflightstream.run.cli import main
 
-CLOCK = '"C:/Program Files/Python313/python.exe" "actions/pfs_walltime_clock.py"'
+CLOCK = '"<install>" "actions/pfs_walltime_clock.py"'
 STOP = "actions/pfs_walltime_stop.txt"
 ACTIONS = [("pfs_walltime_clock", CLOCK, 1), ("pfs_walltime_stop", STOP, 0)]
 TIER3 = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
