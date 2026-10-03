@@ -121,8 +121,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     ``steady`` and ``qsteady_rotor`` (FR-403), each kind in jobs of its own. A polar is left
     out and NAMED, never refused: a LEGACY row (its own recipe builds it), a steady row that
     states ``COLD_START`` false (a warm sweep, which a re-initialisation before every point would
-    not be), a RESTART row (it opens a datapoint's ``.fsm``), a row whose setup states a SCRIPT
-    ``unsteady_solver_actions`` entry by a relative file, and, for an unsteady row, a build that
+    not be), a RESTART row (it opens a datapoint's ``.fsm``), and, for an unsteady row, a build that
     does not document the unsteady action command. A steady point that initialises the solver
     twice is left out (FR-403). A steady polar whose later points differ before
     ``SOLVER_SET_AOA`` is not left out: those points reopen their geometry, and the plan says
@@ -138,10 +137,10 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
     0.35.1): the split puts it only with polars stating the same actions, and the job registers
     them once, before the package's actions, as the point run alone does. A user action cannot
-    be withdrawn between polars. A relative SCRIPT
-    file is the exception, because a point run alone reads it in its own datapoint folder (the
-    solver's working directory) and one registration in one instance, whose working directory
-    is the job's folder for the whole job (RPT-141), can name only one file.
+    be withdrawn between polars. A relative SCRIPT file also joins: the plan warns once per
+    job, naming the file and the job's folder, that the solver resolves it there and the file
+    must be placed there. The working directory is the job's folder for the whole job (RPT-141),
+    as it is for a relative path inside a COMMAND_LINE action.
 
     Parameters
     ----------
@@ -159,7 +158,6 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     """
     del workspace
     workflow = str(case.variables.get(WORKFLOW_KEY, "")).strip()
-    actions = user_actions_of(case)
     steady = workflow in STEADY_RUN_TYPES
     if workflow not in UNSTEADY_WORKFLOWS and not steady:
         return (
@@ -171,11 +169,6 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
         return warm
     reasons = (
         (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
-        (
-            any(kind == "SCRIPT" and not is_absolute_target(name) for kind, _, name in actions),
-            "its setup states a SCRIPT unsteady_solver_actions entry by a relative file, which "
-            "a point run alone reads in its own datapoint folder; state the file absolute",
-        ),
     )
     for found, reason in reasons:
         if found:
@@ -296,24 +289,35 @@ def _unit_of(
     )
 
 
-def _user_action_warnings(split: JobSplit) -> list[str]:
+def _user_action_warnings(split: JobSplit, folder: str) -> list[str]:
     """Return the warning a job running the setup's own actions earns (FR-405).
 
     The job registers them once, before the package's actions, as a point run alone does;
     what differs is the working directory: a point run alone runs them from its datapoint
     folder, a job from its own folder for every point (RPT-141), so a relative path inside a
-    COMMAND_LINE action resolves there.
+    COMMAND_LINE action and a relative SCRIPT file resolve there. The latter must be placed
+    in that job's folder; name every such file in the same per-job warning.
     """
     actions = split.units[0].actions
     if not actions:
         return []
     sims = ", ".join(unit.sim_id for unit in split.units)
     names = ", ".join(name for _, name, _ in actions)
-    return [
+    message = (
         f"POL {sims}: the setup's unsteady_solver_actions ({names}) are registered once for "
         "the job and run on every point of it, from the job's folder and not from each point's "
-        "datapoint folder, so a relative path inside a COMMAND_LINE action resolves there."
+        f"datapoint folder, so a relative path inside a COMMAND_LINE action resolves in {folder!r}."
+    )
+    relative_scripts = [
+        name for kind, _, name in actions if kind == "SCRIPT" and not is_absolute_target(name)
     ]
+    if relative_scripts:
+        files = ", ".join(repr(name) for name in relative_scripts)
+        message += (
+            f" Relative SCRIPT files ({files}) resolve in the job's folder {folder!r} "
+            "and must be placed there."
+        )
+    return [message]
 
 
 def _job_of(
@@ -334,7 +338,6 @@ def _job_of(
     walltime, source, fits, short, warnings, refusal = job_walltime(
         split, estimate, max_walltime_s=maximum
     )
-    warnings = [*warnings, *_user_action_warnings(split)]
     if mode == "batch" and batch_id is not None:
         label = batch_label(matrix_stem, batch_id)
         script_name = batch_script_name(sims[0], sims[-1])
@@ -343,6 +346,7 @@ def _job_of(
     else:
         label, name = sims[0], _FULL_POLAR
         folder, script = f"sims/sim_{sims[0]}/", f"sims/sim_{sims[0]}/{_FULL_POLAR}.txt"
+    warnings = [*warnings, *_user_action_warnings(split, folder)]
     run_ids = tuple(run_id for unit in units for run_id in unit.run_ids)
     bases = sorted({costs[r].basis for r in run_ids if r in costs and costs[r].seconds is not None})
     basis = "; ".join(bases) or "no recorded run to fit from"

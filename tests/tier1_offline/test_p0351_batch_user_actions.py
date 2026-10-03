@@ -209,15 +209,81 @@ def test_p0351_user_actions_fr405_the_split_groups_by_action_set():
 def test_p0351_user_actions_fr405_eligibility_takes_them_and_names_a_relative_script():
     """P0351-BATCH-USER-ACTIONS (FR-405): a polar stating actions is eligible.
 
-    The exception is a SCRIPT action named by a relative file, which a point run alone reads
-    in its own datapoint folder (its working directory) and one registration in one instance
-    can name only once; it is left out by name. Control: the same row with no action.
+    A SCRIPT action named by a relative file joins too: the plan names its working directory
+    in a warning. Controls: the same row with absolute actions and with no action.
     """
     assert eligibility(_case("7101"), workspace=None, version=BUILD) is None
     relative = ({"type": "SCRIPT", "name": "user_probe", "filename": "probe.txt"},)
-    reason = str(eligibility(_case("7101", relative), workspace=None, version=BUILD))
-    assert "SCRIPT" in reason and "relative file" in reason
+    assert eligibility(_case("7101", relative), workspace=None, version=BUILD) is None
     assert eligibility(_case("7101", ()), workspace=None, version=BUILD) is None
+
+
+def _script_plan(tmp_path, mode, batch, filename):
+    """Plan two two-point polars whose setup names the same SCRIPT file."""
+    workspace, matrix = _fixture(tmp_path, walltimes=("1h", "1h"), sweep="0.0,2.0")
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    actions = (
+        '\n[[unsteady_solver_actions]]\ntype = "SCRIPT"\nname = "user_probe"\n'
+        f"filename = {json.dumps(filename)}\n"
+    )
+    setup.write_text(setup.read_text(encoding="utf-8") + actions, encoding="utf-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        return plan_grouped_matrix(
+            matrix,
+            workspace,
+            mode=mode,
+            batch=batch,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+        )
+
+
+@pytest.mark.parametrize(("mode", "batch"), [("batch", 1), ("batch", 2), ("polar_sweep", None)])
+def test_p0351_user_actions_fr405_relative_script_joins_the_plan(tmp_path, mode, batch):
+    """P0351-BATCH-USER-ACTIONS (FR-405): relative SCRIPT polars land in grouped jobs.
+
+    Both grouped modes keep both polars and all four points, with nothing left out.
+    """
+    plan = _script_plan(tmp_path, mode, batch, "probe actions/probe.txt")
+    assert not plan.blocked
+    assert plan.grouping.left_out == ()
+    assert [sim for job in plan.grouping.jobs for sim in job.sims] == ["7001", "7002"]
+    assert sum(len(job.points) for job in plan.grouping.jobs) == 4
+    assert len(plan.grouping.jobs) == (1 if batch == 1 else 2)
+
+
+@pytest.mark.parametrize(("mode", "batch"), [("batch", 1), ("batch", 2), ("polar_sweep", None)])
+def test_p0351_user_actions_fr405_relative_script_warns_once_per_job(tmp_path, mode, batch):
+    """P0351-BATCH-USER-ACTIONS (FR-405): each job names the relative file and its folder.
+
+    The warning tells the user to place the file there, once per job, not per point or polar.
+    The persisted plan carries the same warning as the returned plan.
+    """
+    filename = "probe actions/probe.txt"
+    plan = _script_plan(tmp_path, mode, batch, filename)
+    notes = [note for note in plan.grouping.warnings if "Relative SCRIPT" in note]
+    assert len(notes) == len(plan.grouping.jobs) > 0
+    for job in plan.grouping.jobs:
+        named = [note for note in notes if job.dir in note]
+        assert len(named) == 1
+        assert filename in named[0] and "must be placed there" in named[0]
+        assert f"POL {', '.join(job.sims)}:" in named[0]
+    receipt = json.loads(plan.plan_file.read_text(encoding="utf-8"))
+    assert receipt["grouping"]["warnings"] == list(plan.grouping.warnings)
+
+
+@pytest.mark.parametrize("mode", ["batch", "polar_sweep"])
+@pytest.mark.parametrize("filename", ["/abs/probe actions/probe.txt", "Z:/actions/probe.txt"])
+def test_p0351_user_actions_fr405_absolute_script_has_no_relative_file_warning(
+    tmp_path, mode, filename
+):
+    """P0351-BATCH-USER-ACTIONS (FR-405): an absolute SCRIPT file earns no placement warning."""
+    plan = _script_plan(tmp_path, mode, 1 if mode == "batch" else None, filename)
+    assert not plan.blocked and plan.grouping.left_out == ()
+    assert len(plan.grouping.jobs) == (1 if mode == "batch" else 2)
+    assert not any("Relative SCRIPT" in note or filename in note for note in plan.grouping.warnings)
 
 
 def test_p0351_user_actions_fr405_the_plan_groups_them_and_warns_of_the_folder(tmp_path):

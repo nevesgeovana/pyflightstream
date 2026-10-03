@@ -174,8 +174,7 @@ batch's name, working directory, polars, points, estimate and walltime, and it
 names every polar a grouped job cannot take, with the reason: a LEGACY row, a
 steady row stating `COLD_START` false, a steady point that initialises the solver
 more than once (a quasi-steady wheel of several clockings, a wake termination
-read from a file), a `RESTART` row, a row whose setup states a `SCRIPT` entry of
-`unsteady_solver_actions` by a relative file, an unsteady row on a build without
+read from a file), a `RESTART` row, an unsteady row on a build without
 the action command, and a polar whose points do
 not splice into one script. A steady job registers no solver action: a later
 point of a polar is restated from `SOLVER_SET_AOA` after
@@ -224,10 +223,11 @@ Two things differ from a point run alone, and the plan says so:
 - The working directory of the whole job is the job's folder, where a point run
   alone runs from its own datapoint folder. A `COMMAND_LINE` action whose
   command reads or writes a relative path finds it there; the plan warns, for
-  each job that runs user actions, naming its polars. A `SCRIPT` action named
-  by a relative file is left out of the grouping by name, because each point run
-  alone reads its own copy of that file and one registration can name only one;
-  state the file as an absolute path to group it.
+  each job that runs user actions, naming its polars and folder. A `SCRIPT` action
+  named by a relative file also joins the grouping. The same warning names the
+  file and the job folder once per job that registers it: the file resolves in
+  that folder and must be placed there (FR-405). An absolute `SCRIPT` file draws
+  no relative-file warning.
 
 ### A geometry that carries saved actions
 
