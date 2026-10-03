@@ -902,4 +902,4 @@ ROTATE_SURFACE:
       status: documented
       note: "SRC-750 p.313, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
-    "26.124": {status: documented, note: "SRC-752 p.313, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_rpt127.yaml", note: "SRC-752 p.313, the SRC-751 file, carried from 26.123"}

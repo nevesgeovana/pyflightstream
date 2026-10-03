@@ -62,11 +62,13 @@ from pyflightstream.workspace._effective import effective_points, latest_record_
 from pyflightstream.workspace._ledger_api import (
     activity_rows,
     additional_rows,
+    bind_reader,
     diff,
     history,
     point_card,
     point_rows,
     post_log_groups,
+    post_warning_category,
     read_json_file,
     select_logs,
     status_rows,
@@ -91,6 +93,7 @@ __all__ = [
     "point_card",
     "point_rows",
     "post_log_groups",
+    "post_warning_category",
     "read_json_file",
     "running_batches",
     "select_logs",
@@ -795,3 +798,6 @@ def read_ledger(root: str | Path, *, runs: str | None = None) -> Ledger:
         _records=tuple(found.records),
         _products=products,
     )
+
+
+bind_reader(read_ledger)

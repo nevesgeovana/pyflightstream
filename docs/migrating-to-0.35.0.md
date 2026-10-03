@@ -23,7 +23,8 @@ additional post, `--force-rerun` and `rename` are unchanged.
 ## A continuation keeps the reopened state
 
 A `RESTART` continuation reopens the saved simulation of the run it continues
-and marches on from the step that run reached (FR-396). Until 0.34.0 the
+and marches on from the step that run reached (FR-396; verified offline,
+licensed confirmation owed). Until 0.34.0 the
 script emitted `INITIALIZE_SOLVER` after reopening it, which cleared the
 reopened solution, and registered the unsteady actions the saved file already
 carries a second time. From 0.35.0 the script no longer re-initializes a
@@ -31,11 +32,10 @@ reopened state and does not register those actions again. The run still
 stages the files the actions run (the step counter, the per-step exports
 script and the wall clock), and the run record names the same actions.
 
-The change is verified offline: the emitted script is compared with the hand
-edited script that marched on in RPT-134, the resume arm of that
-measurement. Licensed confirmation of the continuation the package itself
-emits is owed. The continuation of a run the wall clock stopped shares the
-emission path and has not been measured.
+The offline check compares the emitted script with the hand edited script
+that marched on in RPT-134, the resume arm of that measurement. The
+continuation of a run the wall clock stopped shares the emission path and has
+not been measured.
 
 The post now warns, once per continuation, when its plots export ends where
 the march it continues had already ended, so a continuation that added no time

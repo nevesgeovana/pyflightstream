@@ -6,12 +6,12 @@ the command renderers use. No optional dependency is imported here.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pyflightstream.workspace._ledger_history import diff_rows, history_rows
-from pyflightstream.workspace._query_files import _json
+from pyflightstream.workspace._query_files import _category, _json
 from pyflightstream.workspace._query_logs import (
     _activity,
     _additional,
@@ -26,17 +26,42 @@ if TYPE_CHECKING:
 
 #: The query helpers the command layer reads, under public names (the private
 #: implementations stay in ``_query_files``, ``_query_logs`` and ``_query_point``).
+post_warning_category = _category
 read_json_file = _json
 select_logs = _select_logs
 storage_rows = _storage
 trace_run = _trace_run
 
 
-def _snapshot(root: str | Path | Ledger, runs: str | None) -> Ledger:
-    # Local on purpose: ``ledger`` imports this module, so this is the one cycle.
-    from pyflightstream.workspace.ledger import Ledger, read_ledger
+#: The reader of a workspace root. ``ledger`` owns it and hands it over once, at
+#: import (:func:`bind_reader`), so this module imports nothing from ``ledger``.
+_reader: Callable[..., Ledger] | None = None
 
-    return root if isinstance(root, Ledger) else read_ledger(root, runs=runs)
+
+def bind_reader(reader: Callable[..., Ledger]) -> None:
+    """Hand this module the function that reads a root into a snapshot.
+
+    Parameters
+    ----------
+    reader : callable
+        ``read_ledger``; called as ``reader(root, runs=runs)``.
+
+    Examples
+    --------
+    >>> bind_reader  # doctest: +SKIP
+    """
+    global _reader
+    _reader = reader
+
+
+def _snapshot(root: str | Path | Ledger, runs: str | None) -> Ledger:
+    if isinstance(root, (str, Path)):
+        if _reader is None:
+            raise RuntimeError(
+                "the ledger reader is bound when pyflightstream.workspace.ledger loads"
+            )
+        return _reader(root, runs=runs)
+    return root
 
 
 def status_rows(
