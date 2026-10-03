@@ -43,7 +43,9 @@ The sections table of an additional post holds the run's rows first and the
 additional pproc's after them; [The additional post](the-additional-post.md#the-additional-post) says
 how each is named.
 
-### Per-distribution sectional loads and Cp (0.25.0)
+<a id="per-distribution-sectional-loads-and-cp-0250"></a>
+
+### Per-distribution sectional loads and Cp
 
 For every point, post also writes one file per `[[sections.distributions]]`
 entry for each export:

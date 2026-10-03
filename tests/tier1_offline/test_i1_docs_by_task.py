@@ -13,6 +13,7 @@ under How-to guides. Nothing else these tests hold changed.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from pathlib import Path
@@ -68,7 +69,15 @@ def test_the_definition_of_record_is_an_index_under_reference():
     assert "post-processing-definitions.md" in _group("Reference")
     text = (DOCS / "post-processing-definitions.md").read_text(encoding="utf-8")
     families = sorted(DOCS.glob("definitions/*.md"))
-    assert families, "the definition index has no families"
+    fixture = json.loads(
+        (Path(__file__).parent / "data/p0360_doc_slugs.json").read_text(encoding="utf-8")
+    )
+    expected = {
+        heading["slug"] + ".md"
+        for heading in fixture["definitions"]
+        if heading["level"] == 2 and heading["slug"] != "contents"
+    }
+    assert {family.name for family in families} == expected
     for family in families:
         relative = family.relative_to(DOCS).as_posix()
         assert relative in _group("Reference")

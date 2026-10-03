@@ -1219,12 +1219,14 @@
 
     Need: Readers must find every migration record from one index and know that release records are frozen.
 
-    Requirement: `docs/upgrading.md` shall list every `docs/migrating-to-*.md` page, and every migration page and `docs/release-notes.md` shall carry the frozen-record line below.
+    Requirement: `docs/upgrading.md` shall list every `docs/migrating-to-*.md` page, and every migration page and `docs/release-notes.md` shall carry exactly one of the three frozen-record lines below, selected by its history in the DOC-C diff `b656abbf..8a670a31`.
 
     - R1 The index's migration-page count equals the glob count, with each glob member listed exactly once and no nonexistent migration page listed.
-    - R2 Each migrating page and `release-notes.md` carries the exact line `> Frozen record: not edited after its release.`
+    - R2 A page that existed at its release and received only the banner in DOC-C carries exactly `> Frozen record: not edited after its release.`
+    - R3 A page that existed at its release and received an appended historical-context or historical row-key section carries exactly `> Frozen record of its release; the historical-context section at the end was appended at 0.36.0, when the reference pages stopped narrating versions, and is frozen too.`
+    - R4 A page created by DOC-C carries exactly `> Historical record assembled at 0.36.0 from the reference pages; frozen from now on.`
 
-    Verification: tier 1, tests carrying P0360-DOC-UPGRADING and NFR-37 compare the index to the glob and check the exact line on each record; a missing index entry and a missing frozen line are failing controls. Release 0.36.0.
+    Verification: tier 1, tests carrying P0360-DOC-UPGRADING and NFR-37 compare the index to the glob and list each page's required banner, checking the exact line on each record. A missing index entry, a missing banner and a created page carrying R2's banner are failing controls. Release 0.36.0.
 
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_upgrading` checks the requirement and its failing controls.
 

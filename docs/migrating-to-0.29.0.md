@@ -1,6 +1,6 @@
 # Migrating to 0.29.0
 
-> Frozen record: not edited after its release.
+> Frozen record of its release; the historical-context section at the end was appended at 0.36.0, when the reference pages stopped narrating versions, and is frozen too.
 
 Keep a copy of the workspace and install the release in a separate Python
 environment before running existing matrices. Planning and post-processing can

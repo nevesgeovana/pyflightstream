@@ -1,6 +1,6 @@
 # Migrating to 0.5.0
 
-> Frozen record: not edited after its release.
+> Historical record assembled at 0.36.0 from the reference pages; frozen from now on.
 
 ## Historical context: srs - data-model
 

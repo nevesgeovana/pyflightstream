@@ -1,6 +1,6 @@
 # Migrating to 0.23.0
 
-> Frozen record: not edited after its release.
+> Frozen record of its release; the historical-context section at the end was appended at 0.36.0, when the reference pages stopped narrating versions, and is frozen too.
 
 This release changes the BYTES of every file the post stage writes, and renames
 some of them. Read this before you upgrade a workspace you care about.

@@ -21,6 +21,44 @@ NARRATIVE = re.compile(
     re.IGNORECASE,
 )
 FROZEN = "> Frozen record: not edited after its release."
+APPENDED = (
+    "> Frozen record of its release; the historical-context section at the end was appended "
+    "at 0.36.0, when the reference pages stopped narrating versions, and is frozen too."
+)
+ASSEMBLED = "> Historical record assembled at 0.36.0 from the reference pages; frozen from now on."
+# Classified from the DOC-C diff b656abbf..8a670a31, not from the banner under test.
+RECORD_BANNERS = {
+    "migrating-to-0.5.0.md": ASSEMBLED,
+    "migrating-to-0.8.1.md": ASSEMBLED,
+    "migrating-to-0.10.0.md": ASSEMBLED,
+    "migrating-to-0.10.1.md": ASSEMBLED,
+    "migrating-to-0.11.0.md": ASSEMBLED,
+    "migrating-to-0.13.0.md": ASSEMBLED,
+    "migrating-to-0.14.0.md": ASSEMBLED,
+    "migrating-to-0.15.0.md": ASSEMBLED,
+    "migrating-to-0.16.0.md": ASSEMBLED,
+    "migrating-to-0.17.0.md": ASSEMBLED,
+    "migrating-to-0.18.0.md": ASSEMBLED,
+    "migrating-to-0.19.0.md": ASSEMBLED,
+    "migrating-to-0.21.0.md": FROZEN,
+    "migrating-to-0.22.0.md": APPENDED,
+    "migrating-to-0.23.0.md": APPENDED,
+    "migrating-to-0.24.0.md": FROZEN,
+    "migrating-to-0.25.0.md": FROZEN,
+    "migrating-to-0.26.0.md": FROZEN,
+    "migrating-to-0.27.0.md": APPENDED,
+    "migrating-to-0.28.0.md": FROZEN,
+    "migrating-to-0.29.0.md": APPENDED,
+    "migrating-to-0.30.0.md": FROZEN,
+    "migrating-to-0.31.0.md": FROZEN,
+    "migrating-to-0.32.0.md": FROZEN,
+    "migrating-to-0.33.0.md": FROZEN,
+    "migrating-to-0.33.1.md": FROZEN,
+    "migrating-to-0.34.0.md": FROZEN,
+    "migrating-to-0.35.0.md": FROZEN,
+    "migrating-to-0.35.1.md": FROZEN,
+    "release-notes.md": FROZEN,
+}
 
 # NFR-33 homes and heading anchors fixed by the session decisions.
 TOPIC_HOMES = {
@@ -191,8 +229,13 @@ def upgrading_problems(docs: Path) -> list[str]:
         [] if sorted(links) == sorted(p.name for p in records) else ["migration index differs"]
     )
     for record in [*records, docs / "release-notes.md"]:
-        if record.read_text("utf-8").splitlines().count(FROZEN) != 1:
-            problems.append(f"missing frozen line: {record.name}")
+        banners = [
+            line
+            for line in record.read_text("utf-8").splitlines()
+            if line.startswith(("> Frozen record", "> Historical record"))
+        ]
+        if banners != [RECORD_BANNERS.get(record.name)]:
+            problems.append(f"incorrect frozen line: {record.name}")
     return problems
 
 
@@ -294,6 +337,11 @@ def test_upgrading(tmp_path):
     index.write_text(re.sub(r"\]\(migrating-to-[^)]+\.md\)", "]", text, count=1), "utf-8")
     assert "migration index differs" in upgrading_problems(copied)
     index.write_text(text, "utf-8")
-    record = next(copied.glob("migrating-to-*.md"))
-    record.write_text(record.read_text("utf-8").replace(FROZEN, ""), "utf-8")
-    assert upgrading_problems(copied) == [f"missing frozen line: {record.name}"]
+    record = copied / "migrating-to-0.21.0.md"
+    original = record.read_text("utf-8")
+    record.write_text(original.replace(FROZEN, ""), "utf-8")
+    assert upgrading_problems(copied) == [f"incorrect frozen line: {record.name}"]
+    record.write_text(original, "utf-8")
+    created = copied / "migrating-to-0.10.0.md"
+    created.write_text(created.read_text("utf-8").replace(ASSEMBLED, FROZEN), "utf-8")
+    assert upgrading_problems(copied) == [f"incorrect frozen line: {created.name}"]

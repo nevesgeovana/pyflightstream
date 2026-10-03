@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import operator
 from dataclasses import replace
 from pathlib import Path
 
@@ -59,19 +60,27 @@ def test_custom_polar_time_rule_keeps_a_flightstream_titled_text_file():
 
 @pytest.mark.parametrize("requested", [1, 3, 4])
 def test_acoustic_isolation_is_named_for_every_requested_job_count(requested):
-    """P0360-RV35-R-API-1 (FR-406): isolation is stated below, at and above the group count."""
+    """P0360-RV35-R-API-1 (FR-406): ordinary polars share; acoustic polars run alone."""
     units = [
         replace(_unit("7001", 1, 1, points=2), acoustic=True),
         _unit("7002", 2, 1, points=2),
-        replace(_unit("7003", 3, 1, points=2), acoustic=True),
+        _unit("7003", 3, 1, points=2),
+        replace(_unit("7004", 4, 1, points=2), acoustic=True),
     ]
+    if requested == 4:
+        units.append(replace(_unit("7005", 5, 1, points=2), acoustic=True))
     jobs, notes = split_polars(units, requested)
     assert [note for note in notes if "FR-406" in note] == [
-        "POL 7001, 7003: an acoustic polar runs in a job of its own, "
+        f"POL {'7001, 7004, 7005' if requested == 4 else '7001, 7004'}: "
+        "an acoustic polar runs in a job of its own, "
         "all its points together (FR-406)"
     ]
-    assert [job.units for job in jobs] == [(unit,) for unit in units]
-    assert [job.units[0].run_ids for job in jobs] == [unit.run_ids for unit in units]
+    assert [job.units for job in jobs] == [
+        (units[0],),
+        tuple(units[1:3]),
+        *((unit,) for unit in units[3:]),
+    ]
+    assert [unit.run_ids for job in jobs for unit in job.units] == [unit.run_ids for unit in units]
     _, ordinary_notes = split_polars([replace(unit, acoustic=False) for unit in units], requested)
     assert not any("FR-406" in note for note in ordinary_notes)
 
@@ -79,6 +88,8 @@ def test_acoustic_isolation_is_named_for_every_requested_job_count(requested):
 def test_setup_reset_uses_the_build_vocabulary_and_stays_inside_the_point():
     """P0360-RV35-P1-ARCH-Q4 (FR-407): both neighbours come from the measured build table."""
     assert SETUP_RESET_LOG_PREFIXES["26.124"] == ("Solver mode:", "Symmetry is ")
+    with pytest.raises(TypeError):
+        operator.setitem(SETUP_RESET_LOG_PREFIXES, "26.124", ("changed", "changed"))
     tree = ast.parse((REPO / "src/pyflightstream/results/log.py").read_text(encoding="utf-8"))
     reset = next(
         node
