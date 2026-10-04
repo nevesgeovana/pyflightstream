@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.1.0
-# last_modified_at: 2026-10-04T01:59:00-03:00
+# file_version: 1.2.0
+# last_modified_at: 2026-10-04T05:25:17-03:00
 # last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
 # dependencies: [pyflightstream.cases; pyflightstream.run; pyflightstream.workspace]
 # authority: pyflightstream
 # status: active
 # confidentiality: internal
-# change_summary: Record expected workspace refusals and compare their per-row reasons.
+# change_summary: Require workspace script coverage and compare structured plan refusals.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Prove that a release does everything the previous release did (GOAL-038 arm R1).
@@ -38,11 +38,19 @@ from that tree:
    their scripts on disposable copies; no solver or scheduler is started.
    Grouped exclusions retain the planner's reasons in ``grouped_skipped``.
    Matrix/config refusals are listed by matrix, mode and version in
-   ``workspace_refused``. Equal per-row reasons at both versions are unchanged;
+   ``workspace_refused``. Reasons use structured ``(run_id, error)`` pairs from
+   ``plan.json`` where available; parsing the message is a fallback. Equal
+   per-row reasons at both versions are unchanged;
    one-sided refusals or changed reasons are differences, without counting as
    compared scripts.
    Each attempted grouped mode must contribute compared scripts, unless
    ``--allow-no-grouped`` explicitly permits missing coverage in the receipt.
+   ``workspace_compared`` counts workspace scripts separately from golden and
+   tier-3 renders. ``workspace_coverage`` lists rendered and refused matrix/mode
+   pairs by version. With ``--workspace``, zero workspace scripts compared
+   always fails, naming the refusals, even with ``--allow-no-grouped``.
+   The non-submitting write path requires both private CLI dispatch helpers,
+   ``runner_for`` and ``planner_for``, and mirrors the CLI's plan arguments.
 4. **post**: ``pyfs-matrix post`` over one recorded workspace, run by each
    tree's console-script target on a fresh copy at the same path, writes the
    same ``post/`` bytes, ``products.json`` included.
@@ -766,12 +774,16 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
     try:
         from pyflightstream.run._grouped import planner_for, runner_for
     except ImportError as exc:
-        raise RuntimeError("parity requires pyflightstream.run._grouped.runner_for") from exc
+        raise RuntimeError(
+            "parity requires pyflightstream.run._grouped.runner_for and "
+            "pyflightstream.run._grouped.planner_for"
+        ) from exc
 
     from pyflightstream.run.matrix import plan_matrix, run_matrix
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
+    # This namespace mirrors the CLI's plan arguments for grouped dispatch.
     args = argparse.Namespace(
         batch=2 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
     )
@@ -833,19 +845,23 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
     return {"scripts": scripts, "skipped": reasons}
 
 
-def _workspace_refusal_message(error: Exception, matrix: Path, ws: Path) -> str:
-    """Keep the exception heading and all blocked point reasons, without diagnostics."""
+def _workspace_refusal(error: Exception, matrix: Path, ws: Path) -> dict[str, Any]:
+    """Keep the refusal message and structured blocked point reasons when available."""
     message = str(error)
+    # A config refusal before planning must not read a copied, older plan.
     if not message.startswith("pre-flight blocked"):
-        return message
+        return {"message": message}
     plan_file = ws / "post" / matrix.stem / "plan.json"
     if not plan_file.is_file():
-        return message
+        return {"message": message}
     plan = json.loads(plan_file.read_text(encoding="utf-8"))
     reasons = sorted(
-        f"  {point['run_id']}: {point['error']}" for point in plan["points"] if point.get("error")
+        (point["run_id"], point["error"]) for point in plan["points"] if point.get("error")
     )
-    return "\n".join([message.splitlines()[0], *reasons]) if reasons else message
+    if not reasons:
+        return {"message": message}
+    message = "\n".join([message.splitlines()[0], *(f"  {r}: {e}" for r, e in reasons)])
+    return {"message": message, "reasons": [{"run_id": r, "error": e} for r, e in reasons]}
 
 
 def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
@@ -857,6 +873,7 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
     scripts: dict[str, str] = {}
     skipped = []
     refused = []
+    rendered = []
     attempted: set[str] = set()
     for matrix in matrices:
         relative = matrix.relative_to(source)
@@ -873,11 +890,15 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
                     {
                         "matrix": relative.as_posix(),
                         "mode": flags[0] if flags else "--per-point",
-                        "message": _workspace_refusal_message(error, ws / relative, ws),
+                        **_workspace_refusal(error, ws / relative, ws),
                     }
                 )
                 continue
             scripts.update(result["scripts"])
+            if result["scripts"]:
+                rendered.append(
+                    {"matrix": relative.as_posix(), "mode": flags[0] if flags else "--per-point"}
+                )
             if result["skipped"]:
                 skipped.append(
                     {"matrix": relative.as_posix(), "mode": flags[0], "reasons": result["skipped"]}
@@ -887,6 +908,7 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
         "grouped_skipped": skipped,
         "grouped_attempted": sorted(attempted),
         "workspace_refused": refused,
+        "workspace_rendered": rendered,
     }
 
 
@@ -1199,7 +1221,7 @@ def _compare_workspace_refusals(
     for side, collected in observations.items():
         rows = collected.get("workspace_refused", [])
         scripts["workspace_refused"].extend({**row, "version": versions[side]} for row in rows)
-        indexed[side] = {(row["matrix"], row["mode"]): row["message"] for row in rows}
+        indexed[side] = {(row["matrix"], row["mode"]): row for row in rows}
     for matrix, mode in sorted(indexed["base"].keys() | indexed["release"].keys()):
         before = indexed["base"].get((matrix, mode))
         after = indexed["release"].get((matrix, mode))
@@ -1215,16 +1237,20 @@ def _compare_workspace_refusals(
                 "matrix": matrix,
                 "mode": mode,
                 "state": "workspace_refused",
-                "base": before,
-                "release": after,
+                "base": before["message"] if before is not None else None,
+                "release": after["message"] if after is not None else None,
             }
         )
 
 
-def _refusal_reasons(message: str | None) -> list[str]:
+def _refusal_reasons(refusal: dict[str, Any] | None) -> list[Any]:
     """Compare per-point errors when present, otherwise the complete config refusal."""
-    if message is None:
+    if refusal is None:
         return []
+    if "reasons" in refusal:
+        return sorted((row["run_id"], row["error"]) for row in refusal["reasons"])
+    message = refusal["message"]
+    # Message-regex fallback for refusals without structured plan.json reasons.
     lines = message.splitlines()
     if len(lines) > 1 and re.match(r"\s*\S+/sim_[^:]+:", lines[1]):
         rows = re.split(r"(?m)(?=^[ \t]*\S+/sim_[^:]+:)", "\n".join(lines[1:]))
@@ -1347,9 +1373,26 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     }
 
     scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined)
+    workspace_names = set(workspace_base["scripts"]) | set(workspace_release["scripts"])
+    scripts["workspace_compared"] = len(workspace_names.intersection(scripts["compared"]))
     _compare_workspace_refusals(
         scripts, workspace_base, workspace_release, {"base": args.base, "release": args.release}
     )
+    scripts["workspace_coverage"] = {
+        "rendered": [
+            {**row, "version": version}
+            for collected, version in (
+                (workspace_base, args.base),
+                (workspace_release, args.release),
+            )
+            for row in collected.get("workspace_rendered", [])
+        ],
+        "refused": scripts["workspace_refused"],
+    }
+    if args.workspace is not None and scripts["workspace_compared"] == 0:
+        failures.append(
+            f"no workspace scripts were compared; workspace_refused: {scripts['workspace_refused']}"
+        )
     scripts["grouped_skipped"] = {
         "base": workspace_base["grouped_skipped"],
         "release": workspace_release["grouped_skipped"],
