@@ -26,6 +26,8 @@ from that tree:
    in per-point, batch and polar-sweep modes. A non-submitting executor writes
    their scripts on disposable copies; no solver or scheduler is started.
    Grouped exclusions retain the planner's reasons in ``grouped_skipped``.
+   Each attempted grouped mode must contribute compared scripts, unless
+   ``--allow-no-grouped`` explicitly permits missing coverage in the receipt.
 4. **post**: ``pyfs-matrix post`` over one recorded workspace, run by each
    tree's console-script target on a fresh copy at the same path, writes the
    same ``post/`` bytes, ``products.json`` included.
@@ -744,25 +746,34 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
     """Plan through the CLI, then write scripts with a non-submitting executor."""
     from pyflightstream.cases.workflows import workflow_registry
     from pyflightstream.run import LoadsAssessor, SubmittingExecutor
-    from pyflightstream.run._grouped import runner_for
+
+    # Deliberately use the CLI's private write path without submission.
+    try:
+        from pyflightstream.run._grouped import runner_for
+    except ImportError as exc:
+        raise RuntimeError("parity requires pyflightstream.run._grouped.runner_for") from exc
+
     from pyflightstream.run.cli import main as matrix_main
     from pyflightstream.run.matrix import run_matrix
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
     code = matrix_main(["plan", str(matrix), "--workspace", str(ws), *flags])
-    if code:
+    # Exit 1 reports blocked points in a written plan; other points and jobs still render.
+    if code not in (0, 1):
         raise RuntimeError(f"matrix {matrix.name} planning {flags} exited {code}")
     payload = json.loads((ws / "post" / matrix.stem / "plan.json").read_text(encoding="utf-8"))
     grouping = payload.get("grouping")
-    if grouping is not None and not grouping["batches"]:
-        reasons = [*grouping["left_out"]]
+    reasons = []
+    if grouping is not None:
+        reasons.extend(grouping["left_out"])
         reasons.extend(
             {"run_id": point["run_id"], "reason": point["error"]}
             for point in payload["points"]
             if point.get("error")
         )
-        return {"scripts": {}, "skipped": reasons}
+        if not grouping["batches"]:
+            return {"scripts": {}, "skipped": reasons}
     profile = resolve_hpc_profile(ws / "inputs") or HpcProfile(
         application_id="flightstream",
         descriptor_format="json",
@@ -799,7 +810,7 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
             name = f"{label}/{matrix.name}/{name}"
         # Match the render collectors' logical text on either host newline convention.
         scripts[name] = path.read_text(encoding="utf-8")
-    return {"scripts": scripts, "skipped": []}
+    return {"scripts": scripts, "skipped": reasons}
 
 
 def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
@@ -807,9 +818,12 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
     matrices = sorted({*source.glob("*.fs"), *(source / "inputs" / "matrices").rglob("*.fs")})
     scripts: dict[str, str] = {}
     skipped = []
+    attempted: set[str] = set()
     for matrix in matrices:
         relative = matrix.relative_to(source)
         for flags in ([], ["--batch", "2"], ["--polar-sweep"]):
+            if flags:
+                attempted.add(flags[0])
             if ws.exists():
                 shutil.rmtree(ws)
             shutil.copytree(source, ws)
@@ -819,7 +833,11 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
                 skipped.append(
                     {"matrix": relative.as_posix(), "mode": flags[0], "reasons": result["skipped"]}
                 )
-    return {"scripts": scripts, "grouped_skipped": skipped}
+    return {
+        "scripts": scripts,
+        "grouped_skipped": skipped,
+        "grouped_attempted": sorted(attempted),
+    }
 
 
 def child(mode: str, tree: Path, out: Path, argument: Path | None) -> int:
@@ -1143,6 +1161,8 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         workspace_base = run_child(
             python, "workspace-scripts", tree, temp / "base", workspace_request
         )
+        overlap = set(scripts_base) & set(workspace_base["scripts"])
+        assert not overlap, f"base workspace script names overlap render keys: {sorted(overlap)}"
         scripts_base.update(workspace_base["scripts"])
         post_run_base = run_post(python, tree, args.workspace, ws, temp / "post-base")
 
@@ -1166,6 +1186,8 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         workspace_release = run_child(
             python, "workspace-scripts", tree, temp / "release", workspace_request
         )
+        overlap = set(scripts_release) & set(workspace_release["scripts"])
+        assert not overlap, f"release workspace script names overlap render keys: {sorted(overlap)}"
         scripts_release.update(workspace_release["scripts"])
         post_run_release = run_post(python, tree, args.workspace, ws, temp / "post-release")
         defined = srs_ids(tree)
@@ -1225,6 +1247,22 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "base": workspace_base["grouped_skipped"],
         "release": workspace_release["grouped_skipped"],
     }
+    scripts["grouped_attempted"] = {
+        "base": workspace_base["grouped_attempted"],
+        "release": workspace_release["grouped_attempted"],
+    }
+    scripts["allow_no_grouped"] = args.allow_no_grouped
+    for mode, prefix in (("--batch", "BATCH-"), ("--polar-sweep", "FULL-POLAR-")):
+        attempted = any(mode in modes for modes in scripts["grouped_attempted"].values())
+        if attempted and not any(name.startswith(prefix) for name in scripts["compared"]):
+            reasons = {
+                side: [row for row in rows if row["mode"] == mode]
+                for side, rows in scripts["grouped_skipped"].items()
+            }
+            if not args.allow_no_grouped:
+                failures.append(
+                    f"no {mode} grouped scripts were compared; grouped_skipped: {reasons}"
+                )
     post = compare_texts("post", "file", post_base, post_release, defined)
     post["workspace"] = str(args.workspace)
     post["cr_normalised"] = True
@@ -1309,6 +1347,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--python", default=sys.executable, help="interpreter for both trees")
     parser.add_argument("--temp", default=None, help="parent of the one temporary folder")
     parser.add_argument("--keep", action="store_true", help="keep the temporary folder")
+    parser.add_argument(
+        "--allow-no-grouped",
+        action="store_true",
+        help="allow attempted grouped modes with no compared scripts; recorded in the receipt",
+    )
     parser.add_argument("--collect", help=argparse.SUPPRESS)
     parser.add_argument("--tree", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--collect-out", type=Path, help=argparse.SUPPRESS)

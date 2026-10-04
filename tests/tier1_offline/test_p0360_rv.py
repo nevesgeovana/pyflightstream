@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import tomllib
+from argparse import Namespace
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 #: Measured on 2026-10-03, opening 0.36.0 development from v0.35.1.
@@ -110,3 +114,165 @@ def test_parity_compares_grouped_scripts_from_a_synthetic_workspace(tmp_path) ->
         assert any(name.startswith(prefix) for name in block["compared"]), block["compared"]
     assert not block["differing"]
     assert not collected["grouped_skipped"]
+
+
+def _parity_receipt(tmp_path, monkeypatch, base, release, *, allow_no_grouped=False):
+    """Run the real verdict over controlled collector observations at both trees."""
+    spec = importlib.util.spec_from_file_location(
+        "parity_verdict", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+
+    def git(*args, binary=False):
+        return Path(parity.__file__).read_bytes() if binary else "a" * 40
+
+    def collect(python, mode, tree, work, argument=None):
+        if mode == "api":
+            return {
+                "exports": {"pyflightstream": ["public"]},
+                "offered": {"pyflightstream.other": ["public"]},
+                "unimportable": {},
+                "classifier_control": True,
+            }
+        if mode == "resolve":
+            return [
+                f"{module}.{name}"
+                for module, name in json.loads(argument.read_text())
+                if name == parity.PLANTED_NAME
+            ]
+        if mode == "cli":
+            return {"spellings": ["pyfs-matrix"], "unavailable": {}}
+        if mode == "scripts":
+            return {"render/control.txt": "render\n"}
+        assert mode == "workspace-scripts"
+        reasons = [
+            {"matrix": "synthetic.fs", "mode": mode, "reasons": [{"reason": "excluded"}]}
+            for mode in ("--batch", "--polar-sweep")
+        ]
+        return {
+            "scripts": base if work.name == "base" else release,
+            "grouped_skipped": reasons,
+            "grouped_attempted": ["--batch", "--polar-sweep"],
+        }
+
+    def post(python, tree, source, ws, keep):
+        keep.mkdir()
+        (keep / "control.txt").write_bytes(b"post\n")
+        return {"exit": 0, "stderr_tail": ""}
+
+    monkeypatch.setattr(parity, "git", git)
+    monkeypatch.setattr(parity, "export", lambda sha, tree: tree.mkdir(exist_ok=True))
+    monkeypatch.setattr(parity, "run_child", collect)
+    monkeypatch.setattr(parity, "run_post", post)
+    monkeypatch.setattr(parity, "srs_ids", lambda tree: set())
+    return parity.parity(
+        Namespace(
+            base="base",
+            release="release",
+            workspace=tmp_path,
+            temp=tmp_path,
+            python="unused",
+            keep=False,
+            allow_no_grouped=allow_no_grouped,
+        )
+    )
+
+
+def test_parity_fails_when_both_trees_have_zero_grouped_scripts(tmp_path, monkeypatch):
+    """FIX4 F1: attempted modes with zero grouped scripts cannot claim parity."""
+    receipt = _parity_receipt(tmp_path, monkeypatch, {}, {})
+    assert receipt["controls"]["caught"] == "caught 7 of 7"
+    assert receipt["verdict"] == "PARITY: FAIL"
+    for mode in ("--batch", "--polar-sweep"):
+        assert any(mode in failure and "excluded" in failure for failure in receipt["failures"])
+
+
+def test_parity_allow_no_grouped_is_explicit_in_the_receipt(tmp_path, monkeypatch):
+    """FIX4 F1: the opt-in permits missing coverage and records the exception."""
+    receipt = _parity_receipt(tmp_path, monkeypatch, {}, {}, allow_no_grouped=True)
+    assert receipt["verdict"] == "PARITY: PASS"
+    assert receipt["scripts"]["allow_no_grouped"] is True
+    assert receipt["scripts"]["grouped_skipped"]["base"]
+
+
+def test_parity_requires_each_attempted_grouped_mode(tmp_path, monkeypatch):
+    """FIX4 F1: a batch comparison does not cover an empty polar-sweep mode."""
+    scripts = {"BATCH-synthetic.txt": "batch\n"}
+    receipt = _parity_receipt(tmp_path, monkeypatch, scripts, scripts)
+    assert receipt["verdict"] == "PARITY: FAIL"
+    assert len(receipt["failures"]) == 1
+    assert "--polar-sweep" in receipt["failures"][0]
+
+
+def test_parity_lists_a_grouped_script_difference(tmp_path, monkeypatch):
+    """FIX4 F3: a changed grouped job is in differing and fails the verdict."""
+    base = {"BATCH-synthetic.txt": "batch\n", "FULL-POLAR-synthetic.txt": "old\n"}
+    control = _parity_receipt(tmp_path, monkeypatch, base, base)
+    assert control["verdict"] == "PARITY: PASS"
+    receipt = _parity_receipt(
+        tmp_path, monkeypatch, base, {**base, "FULL-POLAR-synthetic.txt": "new\n"}
+    )
+    assert receipt["verdict"] == "PARITY: FAIL"
+    assert [entry["name"] for entry in receipt["scripts"]["differing"]] == [
+        "FULL-POLAR-synthetic.txt"
+    ]
+
+
+def test_parity_keeps_exclusions_and_point_errors_when_a_batch_exists(tmp_path):
+    """FIX4 F2: a written batch cannot hide other rows or blocked points."""
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import plan_matrix
+    from pyflightstream.workspace import RunRecord, RunStatus
+    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+
+    workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h", "1h", "1h"))
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    lines[-1] = lines[-1].replace(
+        "LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / COLD_START: invalid"
+    )
+    matrix = workspace.root / matrix.name
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    plan = plan_matrix(
+        matrix, workspace, name=workspace.root.name, recipe_registry=workflow_registry(), recipes={}
+    )
+    for point in plan.points:
+        if point.sim_id == "7002":
+            workspace.append_record(
+                RunRecord(
+                    run_id=point.run_id,
+                    sim_id=point.sim_id,
+                    fs_version_requested="26.123",
+                    package_version="synthetic",
+                    script_sha256="c" * 64,
+                    raw_flag=False,
+                    status=RunStatus.CONVERGED,
+                    recipe="unsteady_rotor",
+                )
+            )
+    spec = importlib.util.spec_from_file_location(
+        "partial_grouped_parity", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+    result = parity._workspace_render(matrix, workspace.root, ["--batch", "2"])
+    assert any(name.startswith("BATCH-") for name in result["scripts"])
+    assert {"sim": "7002", "reason": "every point is already recorded"} in result["skipped"]
+    blocked = [entry for entry in result["skipped"] if "run_id" in entry]
+    assert len(blocked) == 3
+    assert all("COLD_START" in entry["reason"] for entry in blocked)
+
+
+@pytest.mark.parametrize("side", ["base", "release"])
+def test_parity_refuses_workspace_names_overlapping_render_keys(tmp_path, monkeypatch, side):
+    """FIX4 A3: collecting a workspace must not replace a golden or tier-3 render."""
+    overlap = {"render/control.txt": "workspace\n"}
+    with pytest.raises(AssertionError, match="render/control.txt"):
+        _parity_receipt(
+            tmp_path,
+            monkeypatch,
+            overlap if side == "base" else {},
+            overlap if side == "release" else {},
+        )
