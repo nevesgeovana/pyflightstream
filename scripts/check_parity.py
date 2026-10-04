@@ -22,7 +22,10 @@ from that tree:
 3. **scripts**: the emitted scripts of the golden campaign set
    (``GOLDEN_RENDERS`` of ``tests/tier1_offline/test_workflows.py``) and of the
    tier-3 matrices (``tests.tier3_licensed.offline.render``), each rendered by
-   its own tree, are byte-identical.
+   its own tree, are byte-identical. The workspace matrices are also planned
+   in per-point, batch and polar-sweep modes. A non-submitting executor writes
+   their scripts on disposable copies; no solver or scheduler is started.
+   Grouped exclusions retain the planner's reasons in ``grouped_skipped``.
 4. **post**: ``pyfs-matrix post`` over one recorded workspace, run by each
    tree's console-script target on a fresh copy at the same path, writes the
    same ``post/`` bytes, ``products.json`` included.
@@ -737,6 +740,88 @@ def collect_scripts(tree: Path) -> dict[str, str]:
     return renders
 
 
+def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any]:
+    """Plan through the CLI, then write scripts with a non-submitting executor."""
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import LoadsAssessor, SubmittingExecutor
+    from pyflightstream.run._grouped import runner_for
+    from pyflightstream.run.cli import main as matrix_main
+    from pyflightstream.run.matrix import run_matrix
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
+
+    code = matrix_main(["plan", str(matrix), "--workspace", str(ws), *flags])
+    if code:
+        raise RuntimeError(f"matrix {matrix.name} planning {flags} exited {code}")
+    payload = json.loads((ws / "post" / matrix.stem / "plan.json").read_text(encoding="utf-8"))
+    grouping = payload.get("grouping")
+    if grouping is not None and not grouping["batches"]:
+        reasons = [*grouping["left_out"]]
+        reasons.extend(
+            {"run_id": point["run_id"], "reason": point["error"]}
+            for point in payload["points"]
+            if point.get("error")
+        )
+        return {"scripts": {}, "skipped": reasons}
+    profile = resolve_hpc_profile(ws / "inputs") or HpcProfile(
+        application_id="flightstream",
+        descriptor_format="json",
+        descriptor_name="submit.json",
+        fields={},
+        submit=(),
+        defaults={},
+        path=ws / "inputs" / "hpc" / "parity.toml",
+    )
+    executor = SubmittingExecutor(profile, values={}, submit=False)
+    args = argparse.Namespace(
+        batch=2 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
+    )
+    runner_for(args, run_matrix)(
+        matrix,
+        CampaignWorkspace(ws),
+        name=payload["campaign"],
+        recipes={},
+        recipe_registry=workflow_registry(),
+        executor=executor,
+        assess=LoadsAssessor(),
+    )
+    if grouping is None:
+        names = {point["script_name"] for point in payload["points"]}
+        paths = sorted(path for path in (ws / "sims").rglob("*.txt") if path.name in names)
+    else:
+        paths = [ws / job["script"] for job in grouping["batches"]]
+    scripts = {}
+    for path in paths:
+        name = path.relative_to(ws).as_posix()
+        if grouping is not None:
+            prefix = "BATCH-" if grouping["mode"] == "batch" else "FULL-POLAR-"
+            label = path.name if path.name.startswith(prefix) else prefix + path.name
+            name = f"{label}/{matrix.name}/{name}"
+        # Match the render collectors' logical text on either host newline convention.
+        scripts[name] = path.read_text(encoding="utf-8")
+    return {"scripts": scripts, "skipped": []}
+
+
+def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
+    """Collect per-point and grouped scripts from fresh copies at one fixed path."""
+    matrices = sorted({*source.glob("*.fs"), *(source / "inputs" / "matrices").rglob("*.fs")})
+    scripts: dict[str, str] = {}
+    skipped = []
+    for matrix in matrices:
+        relative = matrix.relative_to(source)
+        for flags in ([], ["--batch", "2"], ["--polar-sweep"]):
+            if ws.exists():
+                shutil.rmtree(ws)
+            shutil.copytree(source, ws)
+            result = _workspace_render(ws / relative, ws, flags)
+            scripts.update(result["scripts"])
+            if result["skipped"]:
+                skipped.append(
+                    {"matrix": relative.as_posix(), "mode": flags[0], "reasons": result["skipped"]}
+                )
+    return {"scripts": scripts, "grouped_skipped": skipped}
+
+
 def child(mode: str, tree: Path, out: Path, argument: Path | None) -> int:
     """Run one collector in this process and write its JSON result."""
     _assert_tree(tree)
@@ -748,6 +833,10 @@ def child(mode: str, tree: Path, out: Path, argument: Path | None) -> int:
         result = resolve_api(json.loads(argument.read_text(encoding="utf-8")))
     elif mode == "cli":
         result = collect_cli(tree)
+    elif mode == "workspace-scripts":
+        assert argument is not None
+        request = json.loads(argument.read_text(encoding="utf-8"))
+        result = collect_workspace_scripts(Path(request["source"]), Path(request["ws"]))
     elif mode == "scripts":
         result = collect_scripts(tree)
     else:
@@ -1039,6 +1128,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     temp = Path(tempfile.mkdtemp(prefix="pfs-parity-", dir=args.temp))
     tree, ws = temp / "tree", temp / "ws"
     python = args.python
+    workspace_request = temp / "workspace-request.json"
+    workspace_request.write_text(
+        json.dumps({"source": str(args.workspace), "ws": str(ws)}), encoding="utf-8"
+    )
     try:
         # The base tree first, then the release tree AT THE SAME PATH, so no
         # absolute path in a render or a product can differ between them.
@@ -1047,6 +1140,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         api_base = run_child(python, "api", tree, temp / "base")
         cli_base = run_child(python, "cli", tree, temp / "base")
         scripts_base = run_child(python, "scripts", tree, temp / "base")
+        workspace_base = run_child(
+            python, "workspace-scripts", tree, temp / "base", workspace_request
+        )
+        scripts_base.update(workspace_base["scripts"])
         post_run_base = run_post(python, tree, args.workspace, ws, temp / "post-base")
 
         export(release_sha, tree)
@@ -1066,6 +1163,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         missing_api = run_child(python, "resolve", tree, temp / "release", request)
         cli_release = run_child(python, "cli", tree, temp / "release")
         scripts_release = run_child(python, "scripts", tree, temp / "release")
+        workspace_release = run_child(
+            python, "workspace-scripts", tree, temp / "release", workspace_request
+        )
+        scripts_release.update(workspace_release["scripts"])
         post_run_release = run_post(python, tree, args.workspace, ws, temp / "post-release")
         defined = srs_ids(tree)
 
@@ -1120,6 +1221,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     }
 
     scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined)
+    scripts["grouped_skipped"] = {
+        "base": workspace_base["grouped_skipped"],
+        "release": workspace_release["grouped_skipped"],
+    }
     post = compare_texts("post", "file", post_base, post_release, defined)
     post["workspace"] = str(args.workspace)
     post["cr_normalised"] = True

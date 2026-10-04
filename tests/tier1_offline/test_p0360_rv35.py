@@ -173,3 +173,12 @@ def test_setup_reset_uses_the_build_vocabulary_and_stays_inside_the_point():
     assert (
         RESTART_MARKER in text.splitlines()[segments[0].first_line : segments[0].last_line + 1][3]
     )
+
+
+def test_solver_mode_without_following_symmetry_is_a_point_boundary():
+    """GATEFIX mutant 7 (FR-407): solver mode alone cannot identify a setup reset."""
+    text = f"opening\nSolver mode: Unsteady\n{RESTART_MARKER}\nnext model\nsolve ended\n"
+    assert [(s.first_line, s.last_line, s.complete) for s in split_job_log(text)] == [
+        (0, 1, True),
+        (3, 4, False),
+    ]

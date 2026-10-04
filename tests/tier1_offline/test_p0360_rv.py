@@ -88,3 +88,25 @@ def test_plan_resolves_the_patched_cold_start_check(tmp_path, monkeypatch):
         point.error == "COLD_START: patched shared check refused this row"
         for point in blocked.points
     )
+
+
+def test_parity_compares_grouped_scripts_from_a_synthetic_workspace(tmp_path) -> None:
+    """GATEFIX (NFR-40): both grouped modes contribute written job scripts."""
+    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+
+    workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h", "1h"))
+    (workspace.root / matrix.name).write_bytes(matrix.read_bytes())
+    spec = importlib.util.spec_from_file_location(
+        "grouped_parity", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+    collected = parity.collect_workspace_scripts(workspace.root, tmp_path / "render")
+    block = parity.compare_texts(
+        "scripts", "name", collected["scripts"], collected["scripts"], set()
+    )
+    for prefix in ("BATCH-", "FULL-POLAR-"):
+        assert any(name.startswith(prefix) for name in block["compared"]), block["compared"]
+    assert not block["differing"]
+    assert not collected["grouped_skipped"]
