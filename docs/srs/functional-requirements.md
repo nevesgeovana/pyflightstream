@@ -9479,6 +9479,7 @@ Requirements written after the specification was last reconciled with the packag
     Verification: tier 1, `tests/tier1_offline/test_p0351_bwsw.py`, carrying the marker P0351-SWEEP-DUPLICATE (FR-408); release 0.35.1.
 
 !!! requirement "FR-409 API and capability maturity <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.05 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference. Verification: test, `tests/tier1_offline/test_p0360_mm.py`.*
 

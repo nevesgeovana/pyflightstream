@@ -1020,6 +1020,8 @@
       definition.
 
 !!! requirement "NFR-31 The public tree carries no identity of a user's machine <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.07 (0.36.0).
+
     *Origin: an author decision of 2026-09-30 for 0.33.0. It is
     built and was accepted on 2026-10-01 after the 0.33.0 release. Evidence: the
     tier-1 guard `tests/tier1_offline/test_p0330_no_executable_hash.py`
@@ -1141,6 +1143,7 @@
       its record, with the platforms the measurement ran on.
 
 !!! requirement "NFR-33 One home per documentation topic <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.04 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
@@ -1165,6 +1168,7 @@
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_one_home` checks the requirement and its failing controls.
 
 !!! requirement "NFR-34 The definitions split preserves every anchor <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.04 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
@@ -1180,6 +1184,7 @@
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_definitions_split` checks the requirement and its failing controls.
 
 !!! requirement "NFR-35 The mesh inputs split preserves every anchor <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.04 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
@@ -1195,6 +1200,7 @@
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_mesh_split` checks the requirement and its failing controls.
 
 !!! requirement "NFR-36 No version narrative on reference pages <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.04 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
@@ -1214,6 +1220,7 @@
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_narrative` checks the requirement and its failing controls.
 
 !!! requirement "NFR-37 The upgrading index and frozen release records <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.04 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*
 
@@ -1231,6 +1238,7 @@
     Evidence: `tests/tier1_offline/test_p0360_doc.py::test_upgrading` checks the requirement and its failing controls.
 
 !!! requirement "NFR-38 Requirement ids belong in the test functions that prove them <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.06 (0.36.0).
 
     *Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Evidence: `tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions` and its planted controls.*
 
@@ -1244,6 +1252,7 @@
     Verification: `tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions`, `::test_module_only_control_is_refused` and `::test_function_local_control_satisfies_placement`; explicit contextual leftovers in `LEFTOVERS`, each with its reason. Tier 1, a guard carrying P0360-FR-IN-FUNCTIONS and NFR-38, with planted module-comment-only and module-docstring-only controls that fail, and a function-local control that passes. Release 0.36.0.
 
 !!! requirement "NFR-39 Shared test helpers have one support module <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2076.06 and PFS-2076.07 (0.36.0).
 
     *Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Evidence: `tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition` and `::test_shared_helpers_are_imported_by_their_consumers`.*
 
@@ -1257,6 +1266,7 @@
     Verification: `tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition` and `::test_shared_helpers_are_imported_by_their_consumers`. Tier 1, tests carrying P0360-RV-A1 and P0360-RV-A2 with NFR-39 check the single home and its consumers; a planted duplicate helper is a failing control. Release 0.36.0.
 
 !!! requirement "NFR-40 No behaviour change for structure <span class='srs-pending'>pending</span>"
+    Plan: PFS-2076, PFS-2076.01, PFS-2076.02, PFS-2076.03 and PFS-2076.08 (0.36.0).
 
     *Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. The licensed reproduction RPT-152 passed on three points: partial evidence from one campaign and one build; acceptance is owed and the status stays pending.*
 
