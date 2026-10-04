@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.1.0
+# last_modified_at: 2026-10-04T01:59:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [scripts/check_parity.py]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Prove workspace refusals survive collection and affect parity by reason.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the 0.36.0 review ratchets and parity comparison inventory."""
 
 from __future__ import annotations
@@ -116,7 +127,9 @@ def test_parity_compares_grouped_scripts_from_a_synthetic_workspace(tmp_path) ->
     assert not collected["grouped_skipped"]
 
 
-def _parity_receipt(tmp_path, monkeypatch, base, release, *, allow_no_grouped=False):
+def _parity_receipt(
+    tmp_path, monkeypatch, base, release, *, allow_no_grouped=False, refused=None, golden=True
+):
     """Run the real verdict over controlled collector observations at both trees."""
     spec = importlib.util.spec_from_file_location(
         "parity_verdict", REPO / "scripts/check_parity.py"
@@ -145,7 +158,7 @@ def _parity_receipt(tmp_path, monkeypatch, base, release, *, allow_no_grouped=Fa
         if mode == "cli":
             return {"spellings": ["pyfs-matrix"], "unavailable": {}}
         if mode == "scripts":
-            return {"render/control.txt": "render\n"}
+            return {"render/control.txt": "render\n"} if golden else {}
         assert mode == "workspace-scripts"
         reasons = [
             {"matrix": "synthetic.fs", "mode": mode, "reasons": [{"reason": "excluded"}]}
@@ -155,6 +168,7 @@ def _parity_receipt(tmp_path, monkeypatch, base, release, *, allow_no_grouped=Fa
             "scripts": base if work.name == "base" else release,
             "grouped_skipped": reasons,
             "grouped_attempted": ["--batch", "--polar-sweep"],
+            "workspace_refused": (refused or {}).get(work.name, []),
         }
 
     def post(python, tree, source, ws, keep):
@@ -178,6 +192,191 @@ def _parity_receipt(tmp_path, monkeypatch, base, release, *, allow_no_grouped=Fa
             allow_no_grouped=allow_no_grouped,
         )
     )
+
+
+def _synthetic_refusal(reason="COLD_START: invalid"):
+    return {
+        "matrix": "synthetic.fs",
+        "mode": "--per-point",
+        "message": "pre-flight blocked 1 matrix point(s); nothing was executed:\n"
+        f"  synthetic/sim_7001/point: CampaignConfigError: {reason}",
+    }
+
+
+def test_parity_lists_equal_workspace_refusals_without_failing(tmp_path, monkeypatch):
+    """FIX5 (NFR-40): an unchanged synthetic refusal is listed and permits parity."""
+    row = _synthetic_refusal()
+    receipt = _parity_receipt(
+        tmp_path,
+        monkeypatch,
+        {},
+        {},
+        allow_no_grouped=True,
+        refused={"base": [row], "release": [row]},
+    )
+    assert receipt["scripts"].get("workspace_refused") == [
+        {**row, "version": "base"},
+        {**row, "version": "release"},
+    ]
+    assert receipt["scripts"]["differing"] == []
+    assert receipt["verdict"] == "PARITY: PASS"
+
+
+@pytest.mark.parametrize("side", ["base", "release"])
+def test_parity_fails_a_workspace_refused_at_only_one_version(tmp_path, monkeypatch, side):
+    """FIX5 (NFR-40): accepting a formerly refused matrix is also a difference."""
+    row = _synthetic_refusal()
+    receipt = _parity_receipt(
+        tmp_path, monkeypatch, {}, {}, allow_no_grouped=True, refused={side: [row]}
+    )
+    assert receipt["verdict"] == "PARITY: FAIL"
+    (difference,) = receipt["scripts"]["differing"]
+    assert difference["matrix"] == row["matrix"]
+    assert difference["mode"] == row["mode"]
+    assert difference[side] == row["message"]
+
+
+def test_parity_fails_when_workspace_refusal_reasons_change(tmp_path, monkeypatch):
+    """FIX5 (NFR-40): the same refused matrix must keep its per-row reasons."""
+    receipt = _parity_receipt(
+        tmp_path,
+        monkeypatch,
+        {},
+        {},
+        allow_no_grouped=True,
+        refused={"base": [_synthetic_refusal()], "release": [_synthetic_refusal("new reason")]},
+    )
+    assert receipt["verdict"] == "PARITY: FAIL"
+    assert len(receipt["scripts"]["differing"]) == 1
+
+
+@pytest.mark.parametrize("swap_details", [False, True])
+def test_parity_keeps_multiline_refusal_reasons_attached_to_their_rows(
+    tmp_path, monkeypatch, swap_details
+):
+    """FIX5 (NFR-40): row order is immaterial; exchanging row details is a difference."""
+    first = "  synthetic/sim_7001/point: CampaignConfigError: invalid setting\n    detail: first"
+    second = "  synthetic/sim_7002/point: CampaignConfigError: invalid setting\n    detail: second"
+    row = {**_synthetic_refusal(), "message": "blocked:\n" + first + "\n" + second}
+    changed = second + "\n" + first
+    if swap_details:
+        changed = changed.replace("detail: first", "detail: temporary")
+        changed = changed.replace("detail: second", "detail: first")
+        changed = changed.replace("detail: temporary", "detail: second")
+    receipt = _parity_receipt(
+        tmp_path,
+        monkeypatch,
+        {},
+        {},
+        allow_no_grouped=True,
+        refused={"base": [row], "release": [{**row, "message": "blocked:\n" + changed}]},
+    )
+    assert receipt["verdict"] == ("PARITY: FAIL" if swap_details else "PARITY: PASS")
+
+
+def test_parity_never_passes_with_only_workspace_refusals(tmp_path, monkeypatch):
+    """FIX5 (NFR-40): listed refusals never count as compared scripts."""
+    row = _synthetic_refusal()
+    receipt = _parity_receipt(
+        tmp_path,
+        monkeypatch,
+        {},
+        {},
+        allow_no_grouped=True,
+        golden=False,
+        refused={"base": [row], "release": [row]},
+    )
+    assert receipt["scripts"]["compared"] == []
+    assert receipt["verdict"] == "PARITY: FAIL"
+    assert "no scripts were compared" in receipt["failures"]
+
+
+def test_parity_collects_a_refused_matrix_and_continues(tmp_path):
+    """FIX5 (NFR-40): collect_workspace_scripts(source, copy) survives a blocked row."""
+    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+
+    workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h",))
+    text = matrix.read_text(encoding="utf-8")
+    matrix.unlink()
+    (workspace.root / "refused.fs").write_text(
+        text.replace("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25 / COLD_START: invalid"),
+        encoding="utf-8",
+    )
+    (workspace.root / "z-valid.fs").write_text(text.replace("7001", "7002"), encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(
+        "refusal_collector", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+    collected = parity.collect_workspace_scripts(workspace.root, tmp_path / "render")
+    (row,) = collected["workspace_refused"]
+    assert row["matrix"] == "refused.fs" and row["mode"] == "--per-point"
+    assert row["message"].startswith("pre-flight blocked 3 matrix point(s)")
+    assert len(row["message"].splitlines()) == 4
+    assert all("COLD_START" in line for line in row["message"].splitlines()[1:])
+    assert any("sim_7002" in name for name in collected["scripts"])
+    assert any(name.startswith("BATCH-") for name in collected["scripts"])
+    assert any(name.startswith("FULL-POLAR-") for name in collected["scripts"])
+
+
+@pytest.mark.parametrize("error_name", ["MatrixError", "CampaignConfigError", "RuntimeError"])
+def test_parity_preserves_planning_refusals_and_propagates_other_errors(
+    tmp_path, monkeypatch, error_name
+):
+    """FIX5 (NFR-40): expected planning exceptions are data; other failures propagate."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.matrix import MatrixError
+
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "synthetic.fs").write_text("synthetic", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(
+        "planning_refusal", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+    error_type = {
+        "MatrixError": MatrixError,
+        "CampaignConfigError": CampaignConfigError,
+        "RuntimeError": RuntimeError,
+    }[error_name]
+
+    def refuse(*args):
+        raise error_type("synthetic config refusal\nrow 7001: invalid setting")
+
+    monkeypatch.setattr(parity, "_workspace_render", refuse)
+    if error_type is RuntimeError:
+        with pytest.raises(RuntimeError, match="synthetic config refusal"):
+            parity.collect_workspace_scripts(source, tmp_path / "copy")
+    else:
+        collected = parity.collect_workspace_scripts(source, tmp_path / "copy")
+        assert len(collected["workspace_refused"]) == 3
+        assert all(
+            "row 7001: invalid setting" in row["message"] for row in collected["workspace_refused"]
+        )
+
+
+def test_parity_collector_failure_keeps_the_full_exception(tmp_path, monkeypatch):
+    """FIX5: a cause before the final 2000 stderr characters remains visible."""
+    from types import SimpleNamespace
+
+    spec = importlib.util.spec_from_file_location(
+        "collector_failure", REPO / "scripts/check_parity.py"
+    )
+    assert spec and spec.loader
+    parity = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parity)
+    stderr = "RuntimeError: synthetic cause\n" + "per-row details\n" * 300
+    monkeypatch.setattr(
+        parity.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=1, stderr=stderr.encode("utf-8")),
+    )
+    with pytest.raises(SystemExit) as caught:
+        parity.run_child("unused", "workspace-scripts", tmp_path, tmp_path)
+    assert stderr in str(caught.value)
 
 
 def test_parity_fails_when_both_trees_have_zero_grouped_scripts(tmp_path, monkeypatch):

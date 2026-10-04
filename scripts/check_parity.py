@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.1.0
+# last_modified_at: 2026-10-04T01:59:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.cases; pyflightstream.run; pyflightstream.workspace]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Record expected workspace refusals and compare their per-row reasons.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Prove that a release does everything the previous release did (GOAL-038 arm R1).
 
     python scripts/check_parity.py --workspace <recorded campaign> --out <parity.json>
@@ -26,6 +37,10 @@ from that tree:
    in per-point, batch and polar-sweep modes. A non-submitting executor writes
    their scripts on disposable copies; no solver or scheduler is started.
    Grouped exclusions retain the planner's reasons in ``grouped_skipped``.
+   Matrix/config refusals are listed by matrix, mode and version in
+   ``workspace_refused``. Equal per-row reasons at both versions are unchanged;
+   one-sided refusals or changed reasons are differences, without counting as
+   compared scripts.
    Each attempted grouped mode must contribute compared scripts, unless
    ``--allow-no-grouped`` explicitly permits missing coverage in the receipt.
 4. **post**: ``pyfs-matrix post`` over one recorded workspace, run by each
@@ -743,25 +758,33 @@ def collect_scripts(tree: Path) -> dict[str, str]:
 
 
 def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any]:
-    """Plan through the CLI, then write scripts with a non-submitting executor."""
+    """Use the CLI's dispatchers to plan and write without submitting."""
     from pyflightstream.cases.workflows import workflow_registry
     from pyflightstream.run import LoadsAssessor, SubmittingExecutor
 
     # Deliberately use the CLI's private write path without submission.
     try:
-        from pyflightstream.run._grouped import runner_for
+        from pyflightstream.run._grouped import planner_for, runner_for
     except ImportError as exc:
         raise RuntimeError("parity requires pyflightstream.run._grouped.runner_for") from exc
 
-    from pyflightstream.run.cli import main as matrix_main
-    from pyflightstream.run.matrix import run_matrix
+    from pyflightstream.run.matrix import plan_matrix, run_matrix
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
-    code = matrix_main(["plan", str(matrix), "--workspace", str(ws), *flags])
-    # Exit 1 reports blocked points in a written plan; other points and jobs still render.
-    if code not in (0, 1):
-        raise RuntimeError(f"matrix {matrix.name} planning {flags} exited {code}")
+    args = argparse.Namespace(
+        batch=2 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
+    )
+    # The CLI catches config refusals and returns 2. Use its library dispatcher
+    # so expected exception types and their complete messages survive collection.
+    planner_for(args, plan_matrix)(
+        matrix,
+        CampaignWorkspace(ws),
+        name=ws.resolve().name,
+        name_from="directory",
+        recipes={},
+        recipe_registry=workflow_registry(),
+    )
     payload = json.loads((ws / "post" / matrix.stem / "plan.json").read_text(encoding="utf-8"))
     grouping = payload.get("grouping")
     reasons = []
@@ -784,9 +807,6 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
         path=ws / "inputs" / "hpc" / "parity.toml",
     )
     executor = SubmittingExecutor(profile, values={}, submit=False)
-    args = argparse.Namespace(
-        batch=2 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
-    )
     runner_for(args, run_matrix)(
         matrix,
         CampaignWorkspace(ws),
@@ -813,11 +833,30 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
     return {"scripts": scripts, "skipped": reasons}
 
 
+def _workspace_refusal_message(error: Exception, matrix: Path, ws: Path) -> str:
+    """Keep the exception heading and all blocked point reasons, without diagnostics."""
+    message = str(error)
+    if not message.startswith("pre-flight blocked"):
+        return message
+    plan_file = ws / "post" / matrix.stem / "plan.json"
+    if not plan_file.is_file():
+        return message
+    plan = json.loads(plan_file.read_text(encoding="utf-8"))
+    reasons = sorted(
+        f"  {point['run_id']}: {point['error']}" for point in plan["points"] if point.get("error")
+    )
+    return "\n".join([message.splitlines()[0], *reasons]) if reasons else message
+
+
 def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
     """Collect per-point and grouped scripts from fresh copies at one fixed path."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.matrix import MatrixError
+
     matrices = sorted({*source.glob("*.fs"), *(source / "inputs" / "matrices").rglob("*.fs")})
     scripts: dict[str, str] = {}
     skipped = []
+    refused = []
     attempted: set[str] = set()
     for matrix in matrices:
         relative = matrix.relative_to(source)
@@ -827,7 +866,17 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
             if ws.exists():
                 shutil.rmtree(ws)
             shutil.copytree(source, ws)
-            result = _workspace_render(ws / relative, ws, flags)
+            try:
+                result = _workspace_render(ws / relative, ws, flags)
+            except (MatrixError, CampaignConfigError) as error:
+                refused.append(
+                    {
+                        "matrix": relative.as_posix(),
+                        "mode": flags[0] if flags else "--per-point",
+                        "message": _workspace_refusal_message(error, ws / relative, ws),
+                    }
+                )
+                continue
             scripts.update(result["scripts"])
             if result["skipped"]:
                 skipped.append(
@@ -837,6 +886,7 @@ def collect_workspace_scripts(source: Path, ws: Path) -> dict[str, Any]:
         "scripts": scripts,
         "grouped_skipped": skipped,
         "grouped_attempted": sorted(attempted),
+        "workspace_refused": refused,
     }
 
 
@@ -905,10 +955,15 @@ def run_child(python: str, mode: str, tree: Path, work: Path, argument: Path | N
     command += ["--collect-out", str(out)]
     if argument is not None:
         command += ["--collect-arg", str(argument)]
-    done = subprocess.run(command, cwd=tree, env=child_env(tree), capture_output=True, timeout=3600)
+    # 4 h: the research workspace planned in the single, batch and polar-sweep modes
+    # measured past 3600 s per tree
+    # on 2026-10-04 (the gate leg timed out at 3600 s).
+    done = subprocess.run(
+        command, cwd=tree, env=child_env(tree), capture_output=True, timeout=14400
+    )
     if done.returncode != 0:
-        tail = done.stderr.decode("utf-8", "replace")[-2000:]
-        raise SystemExit(f"collector {mode} failed in {tree} (exit {done.returncode}):\n{tail}")
+        stderr = done.stderr.decode("utf-8", "replace")
+        raise SystemExit(f"collector {mode} failed in {tree} (exit {done.returncode}):\n{stderr}")
     return json.loads(out.read_text(encoding="utf-8"))
 
 
@@ -921,7 +976,10 @@ def run_post(python: str, tree: Path, source: Path, ws: Path, keep: Path) -> dic
     module_name, _, attr = project["project"]["scripts"][MATRIX_CONSOLE].partition(":")
     code = f"import sys; from {module_name} import {attr} as m; sys.exit(m(sys.argv[1:]))"
     command = [python, "-c", code, "post", "--workspace", str(ws)]
-    done = subprocess.run(command, cwd=ws, env=child_env(tree), capture_output=True, timeout=3600)
+    # 4 h: the research workspace planned in the single, batch and polar-sweep modes
+    # measured past 3600 s per tree
+    # on 2026-10-04 (the gate leg timed out at 3600 s).
+    done = subprocess.run(command, cwd=ws, env=child_env(tree), capture_output=True, timeout=14400)
     if keep.exists():
         shutil.rmtree(keep)
     if (ws / "post").exists():
@@ -1128,6 +1186,52 @@ def as_text(files: dict[str, bytes]) -> dict[str, str]:
     return out
 
 
+def _compare_workspace_refusals(
+    scripts: dict[str, Any],
+    base: dict[str, Any],
+    release: dict[str, Any],
+    versions: dict[str, str],
+) -> None:
+    """List refused matrix/mode pairs and add asymmetric or changed reasons to differing."""
+    observations = {"base": base, "release": release}
+    indexed = {}
+    scripts["workspace_refused"] = []
+    for side, collected in observations.items():
+        rows = collected.get("workspace_refused", [])
+        scripts["workspace_refused"].extend({**row, "version": versions[side]} for row in rows)
+        indexed[side] = {(row["matrix"], row["mode"]): row["message"] for row in rows}
+    for matrix, mode in sorted(indexed["base"].keys() | indexed["release"].keys()):
+        before = indexed["base"].get((matrix, mode))
+        after = indexed["release"].get((matrix, mode))
+        # With per-row reasons, the heading does not define equality. Without
+        # them (a refusal before planning), compare the entire config message.
+        old = _refusal_reasons(before)
+        new = _refusal_reasons(after)
+        if before is not None and after is not None and old == new:
+            continue
+        scripts["differing"].append(
+            {
+                "name": f"workspace/{matrix} ({mode})",
+                "matrix": matrix,
+                "mode": mode,
+                "state": "workspace_refused",
+                "base": before,
+                "release": after,
+            }
+        )
+
+
+def _refusal_reasons(message: str | None) -> list[str]:
+    """Compare per-point errors when present, otherwise the complete config refusal."""
+    if message is None:
+        return []
+    lines = message.splitlines()
+    if len(lines) > 1 and re.match(r"\s*\S+/sim_[^:]+:", lines[1]):
+        rows = re.split(r"(?m)(?=^[ \t]*\S+/sim_[^:]+:)", "\n".join(lines[1:]))
+        return sorted(row.rstrip("\n") for row in rows if row)
+    return [message]
+
+
 def parity(args: argparse.Namespace) -> dict[str, Any]:
     """Measure both trees and return the receipt."""
     base_sha = git("rev-parse", f"{args.base}^{{commit}}")
@@ -1243,6 +1347,9 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     }
 
     scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined)
+    _compare_workspace_refusals(
+        scripts, workspace_base, workspace_release, {"base": args.base, "release": args.release}
+    )
     scripts["grouped_skipped"] = {
         "base": workspace_base["grouped_skipped"],
         "release": workspace_release["grouped_skipped"],
