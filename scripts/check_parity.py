@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.2.0
-# last_modified_at: 2026-10-04T05:25:17-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.cases; pyflightstream.run; pyflightstream.workspace]
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Require workspace script coverage and compare structured plan refusals.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Prove that a release does everything the previous release did (GOAL-038 arm R1).
 
     python scripts/check_parity.py --workspace <recorded campaign> --out <parity.json>

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.2.0
-# last_modified_at: 2026-10-04T05:25:17-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [scripts/check_parity.py]
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Pin workspace coverage, structured refusal reasons and CLI argument names.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the 0.36.0 review ratchets and parity comparison inventory."""
 
 from __future__ import annotations
