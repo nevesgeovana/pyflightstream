@@ -40,5 +40,8 @@
   ],
   "P0370-S9-PARITY-TESTS": [
     "NFR-42"
+  ],
+  "P0370-S11-SUPER-DIAMETER": [
+    "FR-89"
   ]
 }
