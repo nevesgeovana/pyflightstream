@@ -144,6 +144,19 @@ _NO_STEP_MESSAGE = (
     r"\(RPT-134\); the table is posted as the march stands\."
 )
 
+#: FR-419: the message of a point without a row in the settings table, and the
+#: lines of the manifest that name the settings products.
+_NO_SNAPSHOT_MESSAGE = (
+    r"point \S+ has no row in the settings table: its record holds no solver-setup "
+    r"snapshot[^\"\n]*"
+)
+_SETTINGS_MANIFEST_LINE = (
+    r'(?:    "[^"]+",?|   \]|  \},?|  "settings/[^"]+": (?:\{|"[^"]*",?)'
+    r'|   "kind": "settings_codebook",|   "runs": \[)'
+)
+_SETTINGS_MANIFEST_LINE_CHOICES = rf'^(?:{_SETTINGS_MANIFEST_LINE}|  "[^"]+": "[^"]*",?)$'
+_COMMA_PAIR = r'(?P<kept>  "[^"]+": "[^"]*")\n(?P=kept),'
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -431,6 +444,61 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             "P0350-CONTINUATION-WARN: the post warns on a continuation whose plots export adds "
             "no time step to the march it continues, naming both runs (FR-396 R3)"
         ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/settings/*",
+        # A FILE ADDED AT THE RELEASE, never a changed one: the settings table and
+        # its codebook, which a pproc that does not state `settings_codebook =
+        # false` now gets (the owner's decision of 2026-10-05).
+        "added": "true",
+        "requirement": "FR-419",
+        "why": (
+            "the settings table and its codebook are written by default, one pair per "
+            "matrix under settings/, unless the pproc states settings_codebook = false"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/products.json",
+        # Only the manifest's lines for those files: their two entries (kind and runs),
+        # the skipped line of a point whose record holds no snapshot, and the comma the
+        # skipped entry before it gains (a removed line and the same line with a comma).
+        "lines": _SETTINGS_MANIFEST_LINE_CHOICES,
+        "block": rf"(?:(?:{_SETTINGS_MANIFEST_LINE}|{_COMMA_PAIR})(?:\n|$))+",
+        "requirement": "FR-419",
+        "why": (
+            "the manifest lists the settings table and its codebook with kind "
+            "settings_codebook, and names each point that has no snapshot under skipped"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log",
+        # Only the warning of a point without a snapshot, whole.
+        "lines": (
+            r"^WARNING point=settings/\S+#\S+ product=settings/\S+#\S+: "
+            rf"{_NO_SNAPSHOT_MESSAGE}$"
+        ),
+        "requirement": "FR-419",
+        "why": (
+            "a point whose record holds no solver-setup snapshot is named in post.log as "
+            "having no row in the settings table (FR-419 R1)"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log.json",
+        # The same warning's record as the log writes it (indent 1 and 3).
+        "lines": (
+            r"^(  \{|  \},?"
+            r'|   "point": "settings/[^"]+#[^"]+",'
+            r'|   "product": "settings/[^"]+#[^"]+",'
+            rf'|   "message": "{_NO_SNAPSHOT_MESSAGE}",'
+            r'|   "remedy": "[^"]+",|   "category": "[a-z_]+",|   "severity": "warning")$'
+        ),
+        "requirement": "FR-419",
+        "why": "the machine-readable form of the same no-snapshot warning records (FR-419 R1)",
     },
     {
         "kind": "post",
@@ -1097,7 +1165,7 @@ def name_difference(
     for named in NAMED_DIFFERENCES:
         if named["kind"] != kind or not fnmatch.fnmatch(name, named["pattern"]):
             continue
-        if new is None:
+        if new is None or (old is None) != bool(named.get("added")):
             continue
         pattern = named.get("lines")
         if pattern and not all(re.search(pattern, line) for line in lines):
@@ -1144,11 +1212,16 @@ def compare_texts(
         if new == old:
             continue
         differing.append({key: name, **name_difference(kind, name, old, new, defined)})
+    added = [
+        {key: name, **name_difference(kind, name, None, release[name], defined)}
+        for name in sorted(set(release) - set(base))
+    ]
     return {
         "checked": len(base),
         "compared": sorted(base),
         "differing": differing,
         "added_at_release": sorted(set(release) - set(base)),
+        "added_named": [entry for entry in added if "requirement" in entry],
         "cr_removed": cr_removed,
     }
 

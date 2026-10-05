@@ -9655,20 +9655,22 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`, carrying P0370-S5-NORMAL-INFLOW (FR-418): a recorded unsteady point with a normal entry yields `<stem>.inflow.dat` equal, value for value, to the one the steady route writes from the same probe values (the steady route's own output is the oracle); a mutant that averages over time fails it.
 
-!!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-pending'>pending</span>"
+!!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.07 (0.37.0).
 
     *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 ("vamos puxar apenas 1 e 2"); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
 
     Need: A user comparing the solver settings of a campaign's runs must get them as one numeric table with its legend from `pyfs-matrix post`, without calling the library.
 
-    Requirement: With `[products] settings_codebook = true` in the pproc (default false), the post writes, per matrix, `settings/<matrix>_settings.csv` (one numeric row per point) and its codebook `settings/<matrix>_settings.codebook.json` (the legend from each numeric code to the setting's name and value, as the settings-codebook page documents) from the solver-setup snapshot of every recorded point that has one, through the library writer `write_settings_table`.
+    Requirement: Unless the pproc states `[products] settings_codebook = false` (the default is true, the owner's decision of 2026-10-05: "deixa o codebook ligado por padrao"), the post writes, per matrix, `settings/<matrix>_settings.csv` (one numeric row per point) and its codebook `settings/<matrix>_settings.codebook.json` (the legend from each numeric code to the setting's name and value, as the settings-codebook page documents) from the solver-setup snapshot of every recorded point that has one, through the library writer `write_settings_table`.
 
-    - R1 One row per point, keyed by POL and run id; a point without a snapshot is named in `skipped` and in `post.log`, never a blank row.
+    - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (the owner's decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot is named in `skipped` and in `post.log`, never a blank row.
     - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
-    - R3 With the key false or absent, the post writes nothing new and its products are byte-identical to 0.36.0 (the products snapshot).
+    - R3 With the key false, the post writes nothing new and its products are byte-identical to 0.36.0. By default the two files and their `products.json` entries are the only difference from 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by her decision.
 
-    Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with and without the key; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot.
+    Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot.
+
+    Evidence: `test_the_table_has_one_row_per_point_read_from_its_record`, `test_the_legend_carries_the_version_and_the_key_of_every_row`, `test_both_files_are_in_the_manifest_with_the_runs_they_derive_from`, `test_the_key_absent_is_on_and_false_changes_no_byte_of_0_36_0`, `test_a_point_without_a_snapshot_is_named_and_gets_no_row` and `test_a_rebuild_replaces_the_pair_and_a_key_withdrawn_retires_it` in `tests/tier1_offline/test_p0370_s7_codebook.py`; the products snapshot regenerated for the default, and `scripts/check_parity.py` naming the difference.
 
 !!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.08 (0.37.0).

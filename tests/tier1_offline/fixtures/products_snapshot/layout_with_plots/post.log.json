@@ -44,6 +44,30 @@
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"
+  },
+  {
+   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+100",
+   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+100",
+   "message": "point camp/sim_0001/M150AL+020BE+000J+100 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "configuration",
+   "severity": "warning"
+  },
+  {
+   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+150",
+   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+150",
+   "message": "point camp/sim_0001/M150AL+020BE+000J+150 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "configuration",
+   "severity": "warning"
+  },
+  {
+   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+200",
+   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+200",
+   "message": "point camp/sim_0001/M150AL+020BE+000J+200 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "configuration",
+   "severity": "warning"
   }
  ]
 }

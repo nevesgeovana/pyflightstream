@@ -1213,6 +1213,9 @@ class ProductsSpec(BaseModel):
         custom polar format.
     superfile_format : str
         The format the super file is written in.
+    settings_codebook : bool
+        Writes, per matrix, the all-numeric settings table of every recorded
+        point and its codebook under ``settings/`` (FR-419). On by default.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1227,6 +1230,10 @@ class ProductsSpec(BaseModel):
     #: A separate wall-normal velocity profile request. Unavailable until a build
     #: proves unattended EXPORT_BL_VELOCITY_PROFILE execution (RPT-027/RPT-075).
     boundary_layer_velocity_profile: bool = False
+    #: FR-419: the numeric settings table of the campaign and its legend. ON by
+    #: default (the owner's decision of 2026-10-05); ``false`` turns it off and
+    #: writes what 0.36.0 wrote.
+    settings_codebook: bool = True
 
     @field_validator("boundary_layer_velocity_profile")
     @classmethod

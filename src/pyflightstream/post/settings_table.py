@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -208,7 +209,7 @@ _CODE_COLUMNS: tuple[str, ...] = ("value_kind", "value_code")
 #: solver's rather than ours.
 _VALUE_COLUMNS: tuple[str, ...] = ("value_num", "value_count")
 
-Row = dict[str, int | float | None]
+Row = dict[str, str | int | float | None]
 
 
 def _numeric_flags() -> list[str]:
@@ -409,6 +410,30 @@ def codebook() -> dict[str, object]:
     }
 
 
+#: A column of the wide form that carries a number, ``f<id>_value`` or ``f<id>_prov``.
+_WIDE_COLUMN = re.compile(r"^f\d+_(?:value|prov)$")
+
+
+def _key_columns(
+    keys: Sequence[Mapping[str, str]] | None, rows: Sequence[Row], *, wide: bool
+) -> list[str]:
+    """Return the key columns that lead the table, refusing keys that do not fit its rows."""
+    if keys is None:
+        return []
+    if not wide:
+        raise MalformedOutputError(
+            "keys name one run each and belong to the wide form, one row per run; the long "
+            "form has one row per setting of a run, so pass wide=True"
+        )
+    names = list(keys[0]) if keys else []
+    if len(keys) != len(rows) or any(list(own) != names for own in keys):
+        raise MalformedOutputError(
+            f"keys must be one mapping per run, all with the same keys; got {len(keys)} for "
+            f"{len(rows)} run(s)"
+        )
+    return names
+
+
 def write_settings_table(
     path: str | Path,
     setups: Sequence[SolverSetup],
@@ -417,6 +442,8 @@ def write_settings_table(
     fill: int | None = None,
     fill_values: bool = False,
     overwrite: bool = False,
+    legend: str | Path | None = None,
+    keys: Sequence[Mapping[str, str]] | None = None,
 ) -> tuple[Path, Path]:
     """Write the numeric table and its legend, and return the pair.
 
@@ -424,7 +451,8 @@ def write_settings_table(
     ----------
     path : str or pathlib.Path
         Destination CSV file. The legend is written beside it as
-        ``<name>.codebook.json``.
+        ``<name>.codebook.json``, ``<name>`` being the file name with its
+        extension, unless ``legend`` names it.
     setups : sequence of SolverSetup
         One snapshot per run.
     wide, fill, fill_values : see :func:`settings_table`
@@ -432,6 +460,16 @@ def write_settings_table(
     overwrite : bool, keyword-only
         Replace existing files. Default False, the same refusal the
         flow-visualization writers take.
+    legend : str or pathlib.Path, optional
+        Where the legend is written, when it is not ``<name>.codebook.json``
+        beside the table (the campaign post names it
+        ``<matrix>_settings.codebook.json``).
+    keys : sequence of mapping, optional
+        One mapping of text cells per run, in the order of ``setups``, all with the
+        same keys (for the campaign post, ``POL`` and ``RUN_ID``). Their columns
+        OPEN the table, before ``codebook_version``, because the numeric columns say
+        nothing of which run a row is; ``None`` writes the table as it was. It needs
+        ``wide=True``, since a long-form row is a setting of a run rather than a run.
 
     Returns
     -------
@@ -443,12 +481,18 @@ def write_settings_table(
     OutputExistsError
         If either file exists and ``overwrite`` is False.
     MalformedOutputError
-        As :func:`settings_table`.
+        As :func:`settings_table`; also if ``keys`` is given without ``wide``, does not
+        hold one mapping per run, or holds mappings of different keys.
     """
     destination = Path(path)
-    legend = destination.with_name(destination.name + ".codebook.json")
+    legend_path = (
+        Path(legend)
+        if legend is not None
+        else destination.with_name(destination.name + ".codebook.json")
+    )
     rows = settings_table(setups, wide=wide, fill=fill, fill_values=fill_values)
-    for target in (destination, legend):
+    lead = _key_columns(keys, rows, wide=wide)
+    for target in (destination, legend_path):
         if target.exists() and not overwrite:
             raise OutputExistsError(
                 f"{target} already exists. Pass overwrite=True to replace it "
@@ -464,9 +508,17 @@ def write_settings_table(
     # the same ambiguity -- zero, not measured, or not applicable -- that the
     # rule exists to end (the architect lens, v0.22.0 push round, which found
     # the commit claiming `_cell` was the one funnel while this bypassed it).
-    write_csv_table(destination, columns, [[row.get(key) for key in columns] for row in rows])
-    _textio.write_text(legend, json.dumps(codebook(), indent=2) + "\n")
-    return destination, legend
+    held = keys or [{} for _ in rows]
+    write_csv_table(
+        destination,
+        [*lead, *columns],
+        [
+            [*(own[name] for name in lead), *(row.get(key) for key in columns)]
+            for own, row in zip(held, rows, strict=True)
+        ],
+    )
+    _textio.write_text(legend_path, json.dumps(codebook(), indent=2) + "\n")
+    return destination, legend_path
 
 
 def read_settings_table(path: str | Path) -> list[Row]:
@@ -481,10 +533,11 @@ def read_settings_table(path: str | Path) -> list[Row]:
     -------
     list of dict
         The rows, with every cell that does not apply as None and every
-        other cell as a number. A cell does not apply when it reads `NA`,
-        which is what this writer emits from 0.23.0; an EMPTY cell and the
-        literal ``"NA"`` are both accepted and both come back as None, so a
-        table written by any earlier release still reads.
+        other cell of the codebook's columns as a number (a key column that
+        ``write_settings_table`` was given, ``POL`` for one, stays text). A cell does not
+        apply when it reads `NA`, which is what this writer emits from 0.23.0; an
+        EMPTY cell and the literal ``"NA"`` are both accepted and both come back
+        as None, so a table written by any earlier release still reads.
 
     Raises
     ------
@@ -533,7 +586,9 @@ def read_settings_table(path: str | Path) -> list[Row]:
             # on `float("NA")` -- a crash rather than a refusal, on the package's
             # own round trip. The empty spellings stay readable so a table
             # written before 0.23.0 still opens.
-            if cell in ("", None, NOT_APPLICABLE):
+            if key not in TIDY_COLUMNS and not _WIDE_COLUMN.match(key):
+                converted[key] = cell  # a key column of the campaign product: text
+            elif cell in ("", None, NOT_APPLICABLE):
                 converted[key] = None
             else:
                 number = float(cell)

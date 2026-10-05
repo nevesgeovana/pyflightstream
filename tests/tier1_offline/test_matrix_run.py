@@ -4390,7 +4390,13 @@ def test_two_matrices_of_one_workspace_keep_their_own_plan_sweep_and_products(tm
         folder = workspace.root / "post" / stem
         assert (folder / "campaign_sweep.csv").is_file(), f"no sweep table under {folder}"
         manifest = json.loads((folder / "products.json").read_text(encoding="utf-8"))
-        assert {entry["sim_id"] for entry in manifest["products"].values()} == sims
+        # The settings table spans the matrix and belongs to no one simulation (FR-419).
+        per_simulation = [
+            entry
+            for entry in manifest["products"].values()
+            if entry.get("kind") != "settings_codebook"
+        ]
+        assert {entry["sim_id"] for entry in per_simulation} == sims
     assert not (workspace.root / "post" / "products").exists(), (
         "a matrix run left products in the shared folder"
     )

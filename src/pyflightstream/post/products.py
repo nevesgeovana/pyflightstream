@@ -132,10 +132,12 @@ from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_fact
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
 from pyflightstream.post._products_campaign import (
+    SETTINGS_KIND,
     _admit_campaign_records,
     _CampaignProducts,
     _index_record_surfaces,
     _warn_unreadable_matrix,
+    write_settings_product,
 )
 from pyflightstream.post._products_campaign import (
     surface_export_metadata as surface_export_metadata,
@@ -1051,6 +1053,7 @@ def _write_simulation_products(ctx: _CampaignProducts) -> None:
         effective_pproc = _effective_pproc(
             ctx.workspace, sim_id, simulation_metadata, ctx.rows_of_the_matrix.get(sim_id)
         )
+        ctx.pprocs[sim_id] = effective_pproc[1]
         try:
             _validate_simulation_references(ctx, sim_id, sim_records, simulation_metadata)
         except ProductError as error:
@@ -1095,7 +1098,8 @@ def _write_simulation_products(ctx: _CampaignProducts) -> None:
 
 
 def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
-    """Write campaign superfiles."""
+    """Write the campaign's cross-simulation products: the settings table, the super files."""
+    write_settings_product(ctx)
     if ctx.partial is not None:
         # FR-307: A PARTIAL VERSION OF A CROSS-SIMULATION PRODUCT IS NEVER
         # WRITTEN. The drafts of the named simulations alone would give a
@@ -1341,6 +1345,7 @@ def _retire_campaign_products(
                 name,
                 "retired previous additional product: no current extraction supplies this file",
             )
+    _retire_optional_products(skipped, previous_products, products_index)
     refused = products_to_retire(skipped, previous_products)
     for name in refused - products_index.keys():
         if name in previous_products:
@@ -1352,6 +1357,29 @@ def _retire_campaign_products(
             _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
             if not archive:
                 path.unlink()
+
+
+def _retire_optional_products(
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: Mapping[str, dict[str, object]],
+) -> None:
+    """Retire a previous optional product that the pproc no longer asks for (FR-419).
+
+    A table the pproc stopped requesting is not rewritten, and a file left beside
+    the new products is read as current; each is named in ``skipped`` so the
+    retirement below archives or removes it, as it does for a refused table.
+    """
+    for name, entry in previous_products.items():
+        if entry.get("kind") in _OPTIONAL_KINDS and name not in products_index:
+            skipped.setdefault(
+                name,
+                "retired previous product; the pproc no longer asks for it ([products] key)",
+            )
+
+
+#: The ``kind`` of the products a pproc key switches on and off (FR-419).
+_OPTIONAL_KINDS = (SETTINGS_KIND,)
 
 
 def _prepare_campaign_rebuild(

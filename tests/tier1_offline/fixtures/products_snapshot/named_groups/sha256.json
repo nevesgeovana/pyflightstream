@@ -11,8 +11,10 @@
  "matriz/post.log.json": "201a797fcbc00e67d93d5ffd1da01ab971601f9c609edc8dc518f6b9e43bca0c",
  "matriz/probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": "d05860435e2e2622c070b71c216604bcdcea5625c23fc2d174c6d97015a7277e",
  "matriz/probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": "7d3c3351945ec28e6a54b7521854d23319529ed7233d51f199a1ec9aee0de9ee",
- "matriz/products.json": "96777908f1a532eb8d470687689993e63644bedff7444365e945a7bbc5bb4d14",
+ "matriz/products.json": "f43ee10da383e153c3d0992cc886a85ceb5f7f11f3b2b2977e1061b177d4c562",
  "matriz/provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json": "a8c43cced8be4b52b1ba290b732a0bdbd65f97c7c0e2b70c2ca1f846b659fb57",
  "matriz/provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json": "b6da674a925b673e45f7757618f320e68caac340fd3c39d5d4ba9c803cf4d0a7",
- "matriz/provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json": "29a4c3cd0e19d44b7845d378169f02d26483761da60eab856387d5d3c7debf09"
+ "matriz/provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json": "29a4c3cd0e19d44b7845d378169f02d26483761da60eab856387d5d3c7debf09",
+ "matriz/settings/matriz_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
+ "matriz/settings/matriz_settings.csv": "eaf54974fdea6e1d914a0a0832f3d194dbf8376320f766c5d4028d68b37d318a"
 }

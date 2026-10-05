@@ -77,4 +77,15 @@ twenty-four, so it states the rest of the block beside them. The plots table
 export's own header, and the reductions read every column after `POL` back as a
 plotted quantity.
 
+**The settings table opens with `POL` and the run id, and its other columns are codes.**
+`settings/<matrix>_settings.csv` (FR-419) is the solver settings of every recorded point as one
+numeric table, written by default and switched off by `[products] settings_codebook = false`. It
+opens with `POL` and `RUN_ID`, the key of its row, and then holds the WIDE form of the
+[settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value` and
+`f<id>_prov` for every flag, each a number or `NA`; the legend of the codes is the codebook beside
+it, `settings/<matrix>_settings.codebook.json`. A point whose record holds no solver-setup snapshot
+has no row: `products.json` names it under `skipped` as `settings/<matrix>_settings.csv#<run id>`
+and `post.log` repeats it. The table spans the whole matrix, so a post limited to some simulations
+does not rebuild it. Both files are listed with kind `settings_codebook`.
+
 ---

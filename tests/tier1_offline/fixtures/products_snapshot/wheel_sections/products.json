@@ -121,7 +121,8 @@
  "skipped": {
   "sections/DP_harmonics.csv#rotor=PROP#station=1": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
   "sections/DP_harmonics.csv": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
-  "polars/P7001-PROP_qs_positions.csv": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density"
+  "polars/P7001-PROP_qs_positions.csv": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density",
+  "settings/products_settings.csv#camp/sim_7001/DP": "point camp/sim_7001/DP has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot."
  },
  "provenance": {
   "camp/sim_7001/DP": "provenance/camp_sim_7001_DP.prov.json"

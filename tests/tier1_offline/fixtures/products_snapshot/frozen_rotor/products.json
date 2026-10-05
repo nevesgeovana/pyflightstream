@@ -26,7 +26,8 @@
   "probes/AL-020_per_blade.csv": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
   "probes/AL-020_per_revolution.csv": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 1 to 60",
   "polars/P7001-PUSHER_rotor.csv": "these points of the sweep are not rows of the PUSHER rotor table: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
-  "polars/P7001_AL-020_uns_avg.csv": "these points of the sweep are not rows of the unsteady polar: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61"
+  "polars/P7001_AL-020_uns_avg.csv": "these points of the sweep are not rows of the unsteady polar: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+  "settings/products_settings.csv#camp/sim_7001/AL-020": "point camp/sim_7001/AL-020 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot."
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"

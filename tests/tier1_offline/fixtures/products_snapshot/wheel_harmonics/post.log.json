@@ -108,6 +108,14 @@
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
    "severity": "warning"
+  },
+  {
+   "point": "settings/products_settings.csv#camp/sim_7001/DP",
+   "product": "settings/products_settings.csv#camp/sim_7001/DP",
+   "message": "point camp/sim_7001/DP has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "configuration",
+   "severity": "warning"
   }
  ]
 }

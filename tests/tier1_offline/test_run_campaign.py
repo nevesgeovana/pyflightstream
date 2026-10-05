@@ -3416,6 +3416,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         "post.log.json",  # since 0.27.0 its machine-readable twin (R02)
         "products.json",
         "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
+        "settings",  # FR-419: the numeric settings table and its codebook, on by default
     ]
     # FR-85 at 0.21.0: the point name, with its swept field written `sweep`;
     # this campaign runs one alpha, so nothing is swept and every field

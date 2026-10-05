@@ -5,3 +5,4 @@ time=<TIME>
 check_frozen=False (refuse instead of warn)
 WARNING point=campaign product=stage: series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table
 WARNING point=series/AL-020_probes_series.csv product=series/AL-020_probes_series.csv: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=settings/products_settings.csv#camp/sim_7001/AL-020 product=settings/products_settings.csv#camp/sim_7001/AL-020: point camp/sim_7001/AL-020 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot. Remedy: restore the required data or correct the stated inputs and post again.

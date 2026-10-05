@@ -312,8 +312,13 @@ def _problems_of(workspace: CampaignWorkspace, out: Path) -> tuple[list[str], li
         for number, row in enumerate(body, start=2):
             if len(row) != len(header):
                 problems.append(f"{relative} line {number}: {len(row)} cells, {len(header)} names")
-        if relative == "campaign_sweep.csv":
-            at = header.index("run_id")
+        # A table spanning the matrix names its run per row: the sweep table by `run_id`, the
+        # settings table (FR-419) by `RUN_ID`; neither belongs to one simulation.
+        run_column = "run_id" if relative == "campaign_sweep.csv" else "RUN_ID"
+        if relative == "campaign_sweep.csv" or (
+            relative.startswith("settings/") and run_column in header
+        ):
+            at = header.index(run_column)
             for number, row in enumerate(body, start=2):
                 wanted = sim_of_run.get(row[at])
                 if row[0] != wanted:

@@ -185,3 +185,25 @@ unused id in the same commit that moves this page.
 | 63 | ADDITIONAL_WAKE_RELAXATION_ITERATION |
 | 64 | AEROELASTIC_RBF_TYPE |
 | 65 | SET_VORTICITY_DRAG_BOUNDARIES |
+
+## The campaign product
+
+`pyfs-matrix post` writes this table itself. Unless the pproc states
+`[products] settings_codebook = false`, every matrix gets, under its products
+folder, `settings/<matrix>_settings.csv` and `settings/<matrix>_settings.codebook.json`:
+the WIDE form (one row per point), written from the solver-setup snapshot each
+record carries. Both files are listed in `products.json` with kind
+`settings_codebook` and the run ids they derive from, and a rebuild replaces
+them as it replaces the other products. The campaign product is always the wide
+form; the library writer `write_settings_table` still offers both forms (`wide=True`
+and the long form, one row per setting per point).
+
+The campaign table opens with two text columns, `POL` and `RUN_ID`, the polar and the run id
+that key its row, as every table of the post opens with its polar; every other cell is a code, a number
+or `NA`. The codebook is the library's own, unchanged. The library writer takes the same two columns
+as its `keys=` argument (wide form only), and `read_settings_table` returns them as text.
+A point whose record holds no
+snapshot has no row, never a blank one: it is named in `products.json` under
+`skipped` and in `post.log`, as `settings/<matrix>_settings.csv#<run id>`.
+A post limited to some simulations (`--sims`) does not rebuild the pair, whose rows
+span the whole matrix, and names it under `partial.not_rebuilt`.

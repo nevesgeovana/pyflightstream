@@ -442,11 +442,11 @@ polars = true
 sections = true
 plots = true
 custom_polar_format = false
-# Raw native integral quantities at declared cuts, with source-cell provenance.
+# Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
 boundary_layer_integrals = false
-# Distinct velocity profile; unavailable builds are refused explicitly.
 boundary_layer_velocity_profile = false
 superfile_format = "csv"
+settings_codebook = true
 """
 
 _SURFACE_PROBE_EXAMPLE = """\

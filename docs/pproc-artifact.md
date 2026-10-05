@@ -77,6 +77,7 @@ polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
 custom_polar_format = false    # beside each polar table, the text file the reference tooling opens
+settings_codebook = true          # per matrix, the numeric settings table of every point and its codebook
 
 [phase_locked]                 # OPTIONAL: the phase-locked table becomes one row per azimuth
 min_revolutions = 4.0          # generated when the row turns AT LEAST this many revolutions
@@ -541,6 +542,17 @@ every existing workspace keeps. THE COLUMNS AND THE VALUES ARE THE SAME in both:
 it is a second rendering of one table, never a second product. An unsteady simulation has no super file of
 its own, its content rides in `P<sim>_<name>_uns_avg.csv`, so the key has nothing
 to format there.
+
+### The settings table and its codebook
+
+`[products] settings_codebook` is **true by default**: the post writes, per matrix,
+`settings/<matrix>_settings.csv` (one row per point, opening with `POL` and `RUN_ID`, the rest
+numeric) and `settings/<matrix>_settings.codebook.json` beside it,
+from the solver-setup snapshot of every recorded point (FR-419). State
+`settings_codebook = false` to write neither; the products are then those of 0.36.0
+byte for byte. A point whose record holds no snapshot is named in `post.log` and in
+`products.json` under `skipped`, with no row. The encoding is the
+[settings codebook](settings-codebook.md#the-campaign-product) page.
 
 ### Custom polar format
 
