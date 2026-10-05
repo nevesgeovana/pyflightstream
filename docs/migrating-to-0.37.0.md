@@ -153,9 +153,10 @@ differs from the one written now. See
 
 ## FlightStream 26.125 (FR-423)
 
-26.125 is a registered build: it resolves as `26.125` (vendor name 26.12), is
-ordered after 26.124, and its manual edition backs a row for every command it
-documents. The probe campaign of the release verified 141 of its commands on
+26.125 is a registered build, named `26.125`: the vendor name it prints is
+shared by its whole family, so resolution refuses that name and lists the
+family. It is ordered after 26.124, and its manual edition backs a row for
+every command it documents. The probe campaign of the release verified 141 of its commands on
 the build, so `pyflightstream.support_table()` lists it at level
 `operational`. To run on it, add its executable to the machine's executables
 configuration under `26.125`. Nothing changes for 26.124
