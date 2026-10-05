@@ -123,3 +123,33 @@ Final: 141 verified, 2 broken, 236 unprobed, and the database promoted from the
 report. With the minimal workflow's commands verified, 26.125 is
 `operational`. The four commands SRC-753 stops printing have no 26.125 row and
 were not asked.
+
+## Addendum, 2026-10-05: two exports of the campaign, read line by line
+
+Section 3 measured the loads export; two readers of 0.37.0 also rest on two
+other exports of the campaign of section 4, and this addendum quotes them. Both
+files were written by 26.125 (build 10052026) in the first shard of that
+campaign, each by one probe of `reports/compat/CMP-26125_2026-10-05_probe-campaign.md`,
+on the package's own synthetic test blade (`30_BLADE.fsm` of the tier-3
+inputs), steady, 30 m/s, five iterations, far field 5. The files stayed on the
+measuring machine; each is named here by its sha256 and its lines are quoted
+as the solver wrote them, without their CRLF line ends.
+
+### The sweep spreadsheet (W3-1)
+
+Written by the probe of `SWEEPER_EXPORT_SPREADSHEET` (one custom angle of
+attack, 2.0 degrees, swept and exported), file `sweep.txt`, 36 lines, sha256
+`53b0da3610e4c939976257428354ab558ff91b98db2c65007a53ec5642d3fff1`. Its title
+line 5 reads `Aerodynamic loads (Sweep)`, its header line 28 and its one data
+row, line 30, read:
+
+```text
+     AOA (deg), Beta (deg), Velocity (m/sec), Cx, Cy, Cz, CL, CDp, CDv, CMx, CMy, CMz
+     +2.0000,+.0000,+30.0000,+.1487,-.1829,-.0034,-.0086,+.1473,+.0012,+.1919,+.1738,+.0038,
+```
+
+The two drag columns are printed `CDp` and `CDv`, where the recorded 26.123
+sweep spreadsheet (RPT-037) prints `CDi` and `CDo`; the other ten names and their order
+are the same. This is one export of one sweep with one point; no other 26.125
+sweep spreadsheet was read, and no 26.124 sweep spreadsheet was read in this
+campaign.
