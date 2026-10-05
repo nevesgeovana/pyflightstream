@@ -49,6 +49,7 @@ from pyflightstream.post._condition import (
     clock_rotor_facts,
     point_condition,
     point_state,
+    row_rotor_speeds,
 )
 from pyflightstream.post._stage import (
     POLARS_DIR,
@@ -904,7 +905,12 @@ def _point_series(
             point,
             mach=record.mach,
             cell=cell,
-            clock=clock_rotor_facts(record, matrix_row, live),
+            clock=clock_rotor_facts(
+                record,
+                matrix_row,
+                live,
+                own_speeds=row_rotor_speeds(record, point.loads_path),
+            ),
         )
     live_aliases = getattr(live, "aliases", None) if live is not None else None
     aliases = live_aliases if live_aliases is not None else record.aliases

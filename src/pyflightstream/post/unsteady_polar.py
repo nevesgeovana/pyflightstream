@@ -176,7 +176,7 @@ def write_unsteady_polar(
     and a moment states nothing without the point it is about.
 
     ``setup`` is the SUPER CONTENT of each point by name: what the polar does NOT
-    have, the matrix cells, the record's scalars, each rotor's speed, the solver
+    have, the matrix cells, the record's scalars, each rotor's speed and diameter, the solver
     flags. It is ADDED to this table rather than written as a second file; a key
     already stated by an earlier block is not repeated, and a point that lacks a
     key reads `NA` under it.

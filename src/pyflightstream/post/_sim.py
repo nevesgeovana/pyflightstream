@@ -60,6 +60,7 @@ from pyflightstream.post._condition import (
     _stated_window,
     clock_rotor_facts,
     point_condition,
+    row_rotor_speeds,
 )
 from pyflightstream.post._installed_copies import (
     INFLOW_SUFFIX,
@@ -233,7 +234,12 @@ class SimContext:
             point,
             mach=self.mach if mach is None else mach,
             cell=self.cell,
-            clock=clock_rotor_facts(self.record_of.get(point.name), self.matrix_row, self.live),
+            clock=clock_rotor_facts(
+                self.record_of.get(point.name),
+                self.matrix_row,
+                self.live,
+                own_speeds=row_rotor_speeds(self.record_of.get(point.name), point.loads_path),
+            ),
         )
 
     def contributor_name(self, contributors: Sequence[PolarPoint]) -> str:
@@ -408,7 +414,14 @@ def _resolve(
                 point,
                 mach=mach,
                 cell=cell,
-                clock=clock_rotor_facts(admitted.record_of.get(point.name), matrix_row, live),
+                clock=clock_rotor_facts(
+                    admitted.record_of.get(point.name),
+                    matrix_row,
+                    live,
+                    own_speeds=row_rotor_speeds(
+                        admitted.record_of.get(point.name), point.loads_path
+                    ),
+                ),
             )
             for point in points
         ],
@@ -1170,6 +1183,7 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
             ctx.matrix_row,
             ctx.sweep_rows,
             workspace=ctx.workspace,
+            live=ctx.live,
         ),
         conditions=ctx.conditions,
         reference=ctx.reference,
@@ -1290,6 +1304,10 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 record=by_run.get((ctx.sources.get(point.name) or [""])[0]),
                 sweep_row=(ctx.sweep_rows or {}).get((ctx.sources.get(point.name) or [""])[0]),
                 plots_row=last_step.get(point.name),
+                # 0.37.0: each rotor's diameter beside its speed, and the row's
+                # own speed where the plan states none (FR-89).
+                rotors=getattr(ctx.live, "rotors", None),
+                own_speeds=row_rotor_speeds(ctx.record_of.get(point.name), point.loads_path),
             )
             for point, polar_values in zip(group_points, full, strict=True)
         ]
@@ -1377,15 +1395,18 @@ def _setup_content(
     sweep_rows: Mapping[str, Mapping[str, object]] | None,
     *,
     workspace: CampaignWorkspace,
+    live: object | None = None,
 ) -> dict[str, dict[str, str]]:
     """Return the SUPER content of each point by name, through the super file's own assembly.
 
     `superfile_row` seeded with the point's axes and no plots block carries every flag
     of the setup and whatever the simulation knows that the polar does not: the
-    record's condition and scalars, the matrix row's cells, each rotor's speed,
+    record's condition and scalars, the matrix row's cells, each rotor's speed and diameter,
     the campaign sweep row and the solver flags. One assembly, so the steady super
     file and the unsteady polar cannot drift in what they call the setup. The
     face count of the point's geometry is added as the super file adds it (FR-348).
+    Each rotor's diameter, from the rotor blocks of ``live``, the reference the
+    row cites today, sits beside its speed as in the super file (FR-89, 0.37.0).
     """
     by_run = {record.run_id: record for record in records}
     content: dict[str, dict[str, str]] = {}
@@ -1398,6 +1419,8 @@ def _setup_content(
             record=by_run.get(run_id),
             sweep_row=(sweep_rows or {}).get(run_id),
             plots_row=None,
+            rotors=getattr(live, "rotors", None),
+            own_speeds=row_rotor_speeds(by_run.get(run_id), point.loads_path),
         )
         content[point.name][MESH_FACES_COLUMN] = _mesh_faces_of(
             workspace, by_run.get(run_id), point.name
