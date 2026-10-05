@@ -484,7 +484,7 @@ To export the end of a run without counting its length yourself, state how
 much of the end instead of where it begins (FR-415). `EXPORT_UNSTEADY_LAST_REV:
 <turns>` on a rotor row, or `EXPORT_UNSTEADY_LAST_ITER: <steps>` on a rotor or
 an `unsteady` row, makes the per-step exports cover the last `n` time steps of
-the run, with `n = ceil(turns x steps per revolution)` for the first form
+the run, with `n = ceil(turns x steps per revolution - 1e-9)` (the tolerance of the after form) for the first form
 (`steps per revolution` is the rotor clock's, `360 / DELTA_THETA`) and `n = <steps>`
 for the second. The first exported step is `TIME_ITERATIONS - n + 1` and the last
 is `TIME_ITERATIONS`. On row 7001 above, three revolutions of 36 steps, the last
@@ -501,7 +501,7 @@ so `n` counts back from the `TIME_ITERATIONS` the run really marches.
 
 What is refused, at plan: two of the four keys on one row, naming both; the
 revolutions form on `unsteady`, naming `EXPORT_UNSTEADY_LAST_ITER` as the form
-that works; a value that is not positive; an `n` larger than `TIME_ITERATIONS`,
+that works; a value that is not positive or rounds to no step; a huge value; an `n` larger than `TIME_ITERATIONS`,
 naming the run length (an `n` equal to it exports every step); and, with a pproc
 `[time_averaging]`, a first step after the averaging window's first step, as for
 the after-threshold forms. The run record's `export_window` states the form

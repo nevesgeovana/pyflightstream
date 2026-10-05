@@ -40,6 +40,18 @@ LAST_REV = "EXPORT_UNSTEADY_LAST_REV"
 LAST_ITER = "EXPORT_UNSTEADY_LAST_ITER"
 FOUR_KEYS = (AFTER_REV, AFTER_ITER, LAST_REV, LAST_ITER)
 
+_QSTEADY_ROTOR = RotorBlock(
+    alias="PROP",
+    x_m=0.1,
+    y_m=0.2,
+    z_m=0.3,
+    axis="X",
+    rpm_sign=1,
+    diameter_m=2.4,
+    families_general=[],
+    families_blades=["Blade1", "Blade2", "Blade3"],
+    blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+)
 _ROTOR = RotorBlock(
     alias="ROTOR",
     x_m=0.1,
@@ -129,6 +141,33 @@ def _stage(folder: Path, case: SimCase, script: Script) -> dict[str, object]:
     fields = stage_counter(folder, script, case, "26.124", {})
     assert fields is not None
     return fields
+
+
+def _steady_row(**overrides: str) -> SimCase:
+    """A steady row: no time loop."""
+    return SimCase(
+        sim_id="7002",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads_AL+000.txt"],
+        variables={WORKFLOW_KEY: "steady", "VELOCITY": "30.0", **overrides},
+        point={"alpha": 0.0},
+    )
+
+
+def _qsteady_row(**overrides: str) -> SimCase:
+    """A quasi-steady rotor row: a speed and nothing marching in time."""
+    return SimCase(
+        sim_id="7004",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="qsteady_rotor",
+        outputs=["loads_a+00.0.txt"],
+        variables={WORKFLOW_KEY: "qsteady_rotor", "VELOCITY": "30.0", "RPM": "1500", **overrides},
+        point={"alpha": 0.0},
+        rotors={_QSTEADY_ROTOR.alias: _QSTEADY_ROTOR},
+    )
 
 
 def _first_step(case: SimCase) -> int:
@@ -387,3 +426,102 @@ def test_a_row_stating_none_of_the_four_keys_has_no_threshold_and_a_count_only_p
         build_script(case, script)
         assert script.pending_action_scripts == {}
         assert "export_window" not in _stage(tmp_path, case, script)
+
+
+# --- W1A-1: the count is rounded with the after-form's tolerance, then bounded -----
+
+
+@pytest.mark.requirement("FR-415")
+def test_the_rounded_count_is_bounded_after_the_tolerance_is_applied():
+    """P0370-S3-LAST-REV (FR-415) R1/R3: n = ceil(N x spr - 1e-9) and 1 <= n <= TIME_ITERATIONS."""
+    # A value that rounds to no step is refused like a non-positive one.
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(_rotor_row(**{LAST_REV: "1e-12"}), Script("26.124"))
+    assert LAST_REV in str(refused.value) and "no time step" in str(refused.value)
+    # The tolerance of the after-form: 36.0000000004 is 36 steps, 37 would need more than 1e-9.
+    assert _first_step(_rotor_row(**{LAST_REV: "1.00000000001"})) == 73
+    assert _first_step(_rotor_row(**{LAST_REV: "1.0000001"})) == 72
+    assert _first_step(_rotor_row(**{LAST_REV: "3.00000000001"})) == 1
+    assert _first_step(_rotor_row(**{LAST_REV: "0.0277"})) == 108  # 0.9972 steps: one
+    assert _first_step(_rotor_row(**{LAST_REV: "0.0278"})) == 107  # 1.0008 steps: two
+    assert _first_step(_unsteady_row(**{LAST_ITER: "480"})) == 1
+
+
+# --- W1A-2: LAST_REV on a run type with no unsteady clock ---------------------------
+
+
+@pytest.mark.requirement("FR-415")
+@pytest.mark.parametrize("row", [_steady_row, _qsteady_row, _unsteady_row])
+def test_last_rev_without_an_unsteady_rotor_clock_names_last_iter_in_every_run_type(row):
+    """P0370-S3-LAST-REV (FR-415) R3: steady, qsteady_rotor and unsteady all name LAST_ITER."""
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(row(**{LAST_REV: "1"}), Script("26.124"))
+    message = str(refused.value)
+    assert LAST_REV in message and f"'{LAST_ITER}: <steps>'" in message, message
+
+
+# --- W1A-8: a huge finite value is a catalogued refusal -----------------------------
+
+
+@pytest.mark.requirement("FR-415")
+@pytest.mark.parametrize("key", [LAST_REV, AFTER_REV])
+def test_a_huge_finite_revolution_count_is_refused_naming_the_key_and_the_length(key):
+    """P0370-S3-LAST-REV (FR-415) R3: 1e308 raises CampaignConfigError, never OverflowError."""
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(_rotor_row(**{key: "1e308"}), Script("26.124"))
+    message = str(refused.value)
+    assert key in message and "108" in message, message
+
+
+# --- W1A-5: with only the legacy keys, every refusal text is that of 0.36.0 ----------
+
+_LEGACY_TWO_KEYS = (
+    "case '7001' states EXPORT_UNSTEADY_AFTER_REV and EXPORT_UNSTEADY_AFTER_ITER both. "
+    "The per-step exports begin at ONE step, stated in revolutions of the rotor or in "
+    "time iterations; two statements would be two steps nobody keeps in agreement. Keep one."
+)
+_LEGACY_STEADY = (
+    "case '7002' states EXPORT_UNSTEADY_AFTER_ITER and names the steady run type, which has "
+    "no time loop: an unsteady solver action runs after each time step, and a steady solve "
+    "has none. State the key on an unsteady run type, or drop it."
+)
+_LEGACY_NOT_POSITIVE = (
+    "case '7001' states EXPORT_UNSTEADY_AFTER_ITER as 0, and the threshold is the step the "
+    "exports begin on, so it is a positive number. 'EXPORT_UNSTEADY_AFTER_ITER: 1' exports "
+    "from the first step."
+)
+_LEGACY_BEYOND = (
+    "case '7003' states EXPORT_UNSTEADY_AFTER_ITER as 481, which is step 481, and the run is "
+    "480 steps long, so no step would reach the threshold and nothing would be exported. "
+    "Lower it, or lengthen the run."
+)
+_LEGACY_ROTORLESS = (
+    "case '7003' states EXPORT_UNSTEADY_AFTER_REV and names a run type with no rotor clock: "
+    "a revolution is counted on a rotor the run turns, and this one turns nothing. State "
+    "'EXPORT_UNSTEADY_AFTER_ITER: <steps>' instead."
+)
+_LEGACY_AVERAGING = (
+    "case '7001' states EXPORT_UNSTEADY_AFTER_ITER as 100, which is step 100, and the pproc's "
+    "[time_averaging] averages the surface from step 91: the per-step exports begin at the "
+    "threshold, so the steps of the window before it would never be exported and the average "
+    "would be skipped. State 'EXPORT_UNSTEADY_AFTER_ITER: 91' or earlier, or shorten the window."
+)
+
+
+def _refusal(case: SimCase) -> str:
+    with pytest.raises(CampaignConfigError) as refused:
+        unsteady_export_threshold(case, version="26.124")
+    return str(refused.value)
+
+
+@pytest.mark.requirement("FR-415")
+def test_the_refusals_of_the_legacy_keys_are_those_of_v0_36_0_byte_for_byte():
+    """P0370-S3-LAST-REV (FR-415) R7: an exact oracle of the 0.36.0 refusal texts."""
+    assert _refusal(_rotor_row(**{AFTER_REV: "1", AFTER_ITER: "1"})) == _LEGACY_TWO_KEYS
+    assert _refusal(_steady_row(**{AFTER_ITER: "1"})) == _LEGACY_STEADY
+    assert _refusal(_rotor_row(**{AFTER_ITER: "0"})) == _LEGACY_NOT_POSITIVE
+    assert _refusal(_unsteady_row(**{AFTER_ITER: "481"})) == _LEGACY_BEYOND
+    recipe_row = _unsteady_row(**{AFTER_REV: "1"})
+    del recipe_row.variables[WORKFLOW_KEY]
+    assert _refusal(recipe_row) == _LEGACY_ROTORLESS
+    assert _refusal(_averaged_rotor_row(**{AFTER_ITER: "100"})) == _LEGACY_AVERAGING
