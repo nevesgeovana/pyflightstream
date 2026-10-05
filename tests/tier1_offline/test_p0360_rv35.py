@@ -14,7 +14,8 @@ import pytest
 from pyflightstream.results.log import RESTART_MARKER, split_job_log
 from pyflightstream.run._batch_split import split_polars
 from pyflightstream.versions import SETUP_RESET_LOG_PREFIXES
-from tests.tier1_offline.test_p0350_batch_plan import _fixture, _plan
+from tests.support_helpers import grouped_plan_fixture as _fixture
+from tests.tier1_offline.test_p0350_batch_plan import _plan
 from tests.tier1_offline.test_p0350_batch_split import _unit
 
 REPO = Path(__file__).resolve().parents[2]

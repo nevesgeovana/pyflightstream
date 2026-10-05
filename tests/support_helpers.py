@@ -49,3 +49,31 @@ def saved_mesh_fixture(path: Path, names: Sequence[str]) -> Path:
     # platform would have chosen.
     path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
     return path
+
+
+#: The cell a grouped-plan fixture row carries for CORES and WALLTIME before a test rewrites it.
+_ROW_FORM = "| 8     | 1h       |"
+
+
+def grouped_plan_fixture(
+    tmp_path: Path, walltimes: Sequence[str] = ("BEST", "BEST", "BEST"), sweep: str = "0.0,2.0,4.0"
+):
+    """Return a workspace and a matrix of one unsteady rotor polar per walltime cell (NFR-42).
+
+    The one definition of the grouped-plan workspace the plan, split, collect and parity tests
+    share. The workspace library and the rotor row are built by the shared builders of the
+    input-path tests, imported here at call time because they sit in test modules whose
+    module-level code the support module must not run on import.
+    """
+    from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
+
+    workspace = _workspace(tmp_path)
+    matrix = _rotor_row(tmp_path, sweep=sweep)
+    header, rule, row = matrix.read_text(encoding="utf-8").splitlines()
+    assert _ROW_FORM in row
+    rows = [
+        row.replace("7001", str(7001 + index)).replace(_ROW_FORM, f"| 8     | {cell:<8} |")
+        for index, cell in enumerate(walltimes)
+    ]
+    matrix.write_text("\n".join([header, rule, *rows]) + "\n", encoding="utf-8")
+    return workspace, matrix

@@ -13,6 +13,7 @@ from pyflightstream.run.cli import main
 from pyflightstream.run.collect import collect_and_post
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.support_helpers import grouped_plan_fixture as plan_fixture
 from tests.tier1_offline.test_matrix_run import HPC_PROFILE
 from tests.tier1_offline.test_matrix_run import converged as run_converged
 from tests.tier1_offline.test_p0350_batch_collect import (
@@ -24,7 +25,6 @@ from tests.tier1_offline.test_p0350_batch_collect import (
 from tests.tier1_offline.test_p0350_batch_collect import (
     _workspace as grouped_workspace,
 )
-from tests.tier1_offline.test_p0350_batch_plan import _fixture as plan_fixture
 from tests.tier1_offline.test_p0350_batch_plan import _plan as grouped_plan
 
 

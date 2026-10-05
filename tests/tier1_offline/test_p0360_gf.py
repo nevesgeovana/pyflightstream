@@ -78,9 +78,12 @@ def test_p0360_gf_coupled_steady_stays_out(tmp_path, capsys, options, run_type):
     assert len(grouping["left_out"]) == 1
     left_out = grouping["left_out"][0]
     assert left_out["sim"] == "7001"
+    # FR-421 (0.37.0) changed what FR-410's reason prints: the report id left the refusal and
+    # the remedy joined it. The evidence report stays cited from the SRS and the code comment.
     assert left_out["reason"] == (
         "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
-        "script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)"
+        "script ends, and on 26.124 the next point of the job crashed the instance; run these "
+        "rows point by point, without --batch or --polar-sweep"
     )
-    assert "RPT-150" in output
+    assert "RPT-150" not in output
     assert list((Path(__file__).resolve().parents[2] / "reports").glob("RPT-150_*.md"))

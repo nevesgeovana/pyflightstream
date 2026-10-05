@@ -16,6 +16,7 @@ import dataclasses
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePath
+from types import MappingProxyType
 from typing import Any, Literal, cast
 
 import pyflightstream._textio as _textio
@@ -84,13 +85,41 @@ from pyflightstream.workspace._geometry_clean import UNSTEADY_WORKFLOWS, saved_a
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
-__all__ = ["eligibility", "grouping_table_lines", "plan_grouped_matrix"]
+__all__ = ["LEFT_OUT_REASONS", "eligibility", "grouping_table_lines", "plan_grouped_matrix"]
 
 #: The note a steady polar whose later points reopen their geometry earns (FR-403).
 _REOPENED = (
     "POL {sim}: {count} later point(s) differ from the polar's first before SOLVER_SET_AOA "
     "(a swept flow state or a turning free stream), so each reopens its geometry after "
     "NEW_SIMULATION, as a new polar does (FR-403)"
+)
+
+#: Every reason the grouped plan prints for a polar it leaves out (FR-421), the one home of
+#: their words. A reason says what the row is and, where the user can act, what to do instead;
+#: it names no report id (the evidence stays in the SRS and in the comments here). Placeholders
+#: are filled by the caller with ``str.format``.
+LEFT_OUT_REASONS: Mapping[str, str] = MappingProxyType(
+    {
+        "run_type": (
+            "a {workflow} row: grouped modes run the package's steady and unsteady run types only"
+        ),
+        # FR-410: the coupling loop of EXECUTE_AEROELASTIC_ANALYSIS starts after the script
+        # ends; the measured crash on 26.124 is RPT-150 (evidence kept here, not printed).
+        "coupled": (
+            "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
+            "script ends, and on 26.124 the next point of the job crashed the instance; run "
+            "these rows point by point, without --batch or --polar-sweep"
+        ),
+        "warm": (
+            "it states COLD_START false, a warm sweep whose points start from the previous "
+            "point's solution, and a grouped job re-initialises the solver before every point; "
+            "run it in the default mode, where it is one job"
+        ),
+        "restart": "a RESTART row opens a datapoint's saved simulation",
+        "unsteady_action": "build {version} does not document the unsteady solver action command",
+        "recorded": "every point is already recorded",
+        "splice": "its points do not splice into one instance: {error}",
+    }
 )
 
 #: The polar-sweep job's script stem: one job per polar, ``sims/sim_<id>/FULL-POLAR.txt``.
@@ -107,11 +136,7 @@ def _warm_steady(case: SimCase, steady: bool) -> str | None:
         return str(error)
     if cold:
         return None
-    return (
-        "it states COLD_START false, a warm sweep whose points start from the previous point's "
-        "solution, and a grouped job re-initialises the solver before every point; run it in "
-        "the default mode, where it is one job"
-    )
+    return LEFT_OUT_REASONS["warm"]
 
 
 def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) -> str | None:
@@ -132,7 +157,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
     quasi-steady coupled row stays out: ``EXECUTE_AEROELASTIC_ANALYSIS`` starts its coupling
     loop only after the script ends, so no point can follow it in one instance (FR-410,
-    RPT-150). ``unsteady_rotor`` refuses FSI when it builds.
+    FR-421). ``unsteady_rotor`` refuses FSI when it builds.
 
     A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
     0.35.1): the split puts it only with polars stating the same actions, and the job registers
@@ -160,26 +185,18 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     workflow = str(case.variables.get(WORKFLOW_KEY, "")).strip()
     steady = workflow in STEADY_RUN_TYPES
     if workflow not in UNSTEADY_WORKFLOWS and not steady:
-        return (
-            f"a {workflow or 'LEGACY'} row: grouped modes run the package's steady and unsteady "
-            "run types only"
-        )
+        return LEFT_OUT_REASONS["run_type"].format(workflow=workflow or "LEGACY")
     if case.fsi is not None and steady:
-        return (
-            "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
-            "script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)"
-        )
+        return LEFT_OUT_REASONS["coupled"]
     warm = _warm_steady(case, steady)
     if warm is not None:
         return warm
-    reasons = (
-        (parse_restart(case) is not None, "a RESTART row opens a datapoint's saved simulation"),
-    )
+    reasons = ((parse_restart(case) is not None, LEFT_OUT_REASONS["restart"]),)
     for found, reason in reasons:
         if found:
             return reason
     if not steady and not documents_actions(Script(version=version)):
-        return f"build {version} does not document the unsteady solver action command"
+        return LEFT_OUT_REASONS["unsteady_action"].format(version=version)
     return None
 
 
@@ -466,7 +483,7 @@ def _splice_refusal(
             else:
                 refuse_unspliceable(first, point)
     except Exception as error:  # recipes are user code; a polar that cannot splice is left out
-        return f"its points do not splice into one instance: {error}", 0
+        return LEFT_OUT_REASONS["splice"].format(error=error), 0
     return None, reopened
 
 
@@ -500,7 +517,7 @@ def _eligible_units(
         ]
         version = _version_of(plan, resolved, case)
         if not pending:
-            left_out.append({"sim": case.sim_id, "reason": "every point is already recorded"})
+            left_out.append({"sim": case.sim_id, "reason": LEFT_OUT_REASONS["recorded"]})
             continue
         reason = eligibility(case, workspace=workspace, version=version)
         if reason is not None:

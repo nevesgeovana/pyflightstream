@@ -20,8 +20,8 @@ from pyflightstream.run._batch_plan import eligibility, grouping_table_lines, pl
 from pyflightstream.run._plan import PlanStatus
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import RunRecord, RunStatus
+from tests.support_helpers import grouped_plan_fixture as _fixture
 from tests.tier1_offline.test_fsm_saved_actions import ACTIONS, _saved_simulation
-from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
 from tests.tier1_offline.test_restart_continuation import _continuing_case
 
 KEYS_OF_034 = {
@@ -71,21 +71,6 @@ RECEIPT_KEYS = {
     "max_walltime_s",
     "warnings",
 }
-ROW_FORM = "| 8     | 1h       |"
-
-
-def _fixture(tmp_path: Path, walltimes=("BEST", "BEST", "BEST"), sweep="0.0,2.0,4.0"):
-    """A workspace and a matrix of one unsteady rotor polar per walltime cell."""
-    workspace = _workspace(tmp_path)
-    matrix = _rotor_row(tmp_path, sweep=sweep)
-    header, rule, row = matrix.read_text(encoding="utf-8").splitlines()
-    assert ROW_FORM in row
-    rows = [
-        row.replace("7001", str(7001 + index)).replace(ROW_FORM, f"| 8     | {cell:<8} |")
-        for index, cell in enumerate(walltimes)
-    ]
-    matrix.write_text("\n".join([header, rule, *rows]) + "\n", encoding="utf-8")
-    return workspace, matrix
 
 
 def _sample(workspace, seconds: float = 720.0, campaign: str = "rotor") -> None:

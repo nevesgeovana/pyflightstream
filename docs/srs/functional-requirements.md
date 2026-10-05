@@ -9501,16 +9501,16 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: A coupled row on `steady` or `qsteady_rotor` must carry an evidence-backed reason why it cannot join the grouped modes: steady was measured; the qsteady_rotor half is inferred from the shared coupling mechanism.
 
-    Requirement: Branch (b) is taken: a coupled row on `steady` or `qsteady_rotor` shall stay out of `--batch` and `--polar-sweep`, with the exact eligibility reason "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)". The steady half was measured; the qsteady_rotor half is inferred from the shared coupling mechanism, not separately measured.
+    Requirement: Branch (b) is taken: a coupled row on `steady` or `qsteady_rotor` shall stay out of `--batch` and `--polar-sweep`, with the exact eligibility reason "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the script ends, and on 26.124 the next point of the job crashed the instance; run these rows point by point, without --batch or --polar-sweep" (amended by FR-421, 0.37.0: the 0.36.0 text ended "(RPT-150)" and named no remedy). The steady half was measured; the qsteady_rotor half is inferred from the shared coupling mechanism, not separately measured.
 
     - R1 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed inclusion of coupled steady and quasi-steady rows, with every point reopening the pristine geometry, is withdrawn.
     - R2 Branch (a), withdrawn 2026-10-03: measured infeasible, RPT-150. The proposed grouped-versus-alone equality comparison and `lv/fsi_steady.json` receipt are withdrawn; no equality is claimed.
-    - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason naming RPT-150. The proof is `fsi_steady_infeasible.json`, decided at 2026-10-03T12:26:27-03:00; RPT-150 transcribes its log citations by file name and line. A tier-1 test checks that the named RPT exists and is the one the eligibility reason cites.
+    - R3 Branch (b): the row stays out of both grouped modes with an eligibility reason; FR-421 amends the printed reason to name the remedy and no report id, the evidence staying in this section and in the code comment. The proof is `fsi_steady_infeasible.json`, decided at 2026-10-03T12:26:27-03:00; RPT-150 transcribes its log citations by file name and line. A tier-1 test checks that the named RPT exists; the code comment at the reason cites it.
     - R4 This requirement amends FR-407 R2 for `steady` and `qsteady_rotor` only. Its sentence refusing FSI on `unsteady_rotor` alone and grouped alike remains in force. NFR-40 governs every other observable difference. The guard fixes 0.35.1, which planned these rows into jobs despite its stated exclusion.
 
     Verification: test, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](https://github.com/nevesgeovana/pyflightstream/blob/8983ee62/reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
 
-    Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out coupled steady and qsteady_rotor rows with the exact reason naming RPT-150 and that the report exists. The original two steady cases fail on 8852906f; removing qsteady_rotor from the steady set fails both quasi-steady cases. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.
+    Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out coupled steady and qsteady_rotor rows with the exact reason (0.36.0: naming RPT-150; amended by FR-421: naming the remedy, no report id) and that the report exists. The original two steady cases fail on 8852906f; removing qsteady_rotor from the steady set fails both quasi-steady cases. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.
 
 ## 0.37.0 recovery, run length, probes and usability
 
@@ -9691,7 +9691,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`, carrying P0370-S8-INSTALLED-INFLOW (FR-420): a planted point at +y appears at -y with its VY negated and its vorticity's x and z negated (the assertion that the identity cannot pass); mirroring twice returns the source; a planted unknown column is copied and named once; a mutant dropping one column from the list fails the page comparison; the manifest entries.
 
-!!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-pending'>pending</span>"
+!!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.09 (0.37.0).
 
     *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner's answer of 2026-10-05 ("As recusas para o usuário não precisam citar o id do RPT."); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
@@ -9704,6 +9704,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R2 FR-410's exclusion is unchanged; only its printed words change, and `scripts/check_parity.py` names that difference.
 
     Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`, carrying P0370-S9-GROUPED-HELP (FR-421): both help texts, the plan's left-out line, the absence of an `RPT-` token in every entry of the reasons table (iterated, not sampled), and the parity entry.
+
+    Evidence: `test_p0370_s9_both_help_texts_name_every_class_left_out`, `test_p0370_s9_the_coupled_reason_names_the_remedy_and_no_report_id`, `test_p0370_s9_no_reason_of_the_table_carries_a_report_id`, `test_p0370_s9_the_plan_prints_the_table_reason_of_a_left_out_row`, `test_p0370_s9_the_printed_line_of_a_coupled_row_names_the_remedy` and `test_p0370_s9_the_parity_script_names_the_changed_reason` in `tests/tier1_offline/test_p0370_s9_grouped_help.py`. The reasons live in `LEFT_OUT_REASONS` of `pyflightstream.run._batch_plan`; `scripts/check_parity.py` compares the left-out reasons per matrix, mode and simulation (kind `left_out`) and names the one changed text under FR-421. Mutants killed: the report id back in the coupled reason, the remedy removed, the coupled class dropped from `--polar-sweep` help, the parity entry renamed, the left-out comparison disabled.
 
 !!! requirement "FR-422 An unsteady rotor row can set its run length from a target wake length <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.02 (0.37.0).

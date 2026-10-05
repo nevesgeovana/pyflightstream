@@ -1296,7 +1296,7 @@
 
 ## 0.37.0
 
-!!! requirement "NFR-42 The parity instrument's tests share one fixture home and cover its refusal fallback <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-42 The parity instrument's tests share one fixture home and cover its refusal fallback <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.09 (0.37.0).
 
     *Origin: the 0.36.0 push review of `scripts/check_parity.py` (registered as 0.37 R4), scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`.*
@@ -1309,3 +1309,5 @@
     - R2 A one-line change of the refusal message is reported as a difference when `plan.json` is absent, and only its per-point reasons count when `plan.json` is present.
 
     Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`, carrying P0370-S9-PARITY-TESTS (NFR-42).
+
+    Evidence: `test_p0370_s9_the_fixture_has_one_definition_in_the_support_module`, `test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace`, `test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_difference`, `test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared`, `test_p0370_s9_with_a_plan_only_the_per_point_reasons_count` and `test_p0370_s9_a_refusal_on_one_side_only_is_a_difference` in `tests/tier1_offline/test_p0370_s9_parity_tests.py`. The fixture is `grouped_plan_fixture` of `tests/support_helpers.py`. Mutants killed: the whole-message fallback returning nothing, the `plan.json` branch comparing the whole message, the parsed-message branch comparing the heading, the fixture imported from a test module again.

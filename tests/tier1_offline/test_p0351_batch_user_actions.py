@@ -32,8 +32,8 @@ from pyflightstream.run._batch_plan import eligibility, plan_grouped_matrix
 from pyflightstream.run._batch_split import PolarUnit, split_polars
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
+from tests.support_helpers import grouped_plan_fixture as _fixture
 from tests.tier1_offline.test_matrix_run import converged
-from tests.tier1_offline.test_p0350_batch_plan import _fixture
 from tests.tier1_offline.test_p0350_batch_run import (
     MATRIX,
     NAMED_FIELDS,
