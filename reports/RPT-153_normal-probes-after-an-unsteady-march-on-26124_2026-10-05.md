@@ -27,3 +27,9 @@ The evidence supports interpreting a normal probe as the solution state at the e
 ## Limits
 
 One solver build, two cases, and 6 steps per case were measured. No rotor-frame probes were followed in time. The result establishes the observed end-of-march behavior under these settings; it does not establish equivalence of the normal sample and the final fluid-plot sample.
+
+## Addendum: normal probes exported at every step of a window (FR-417 R7)
+
+Row 3705 repeats row 3704 (unsteady wing, 6 steps, 7 normal probes on one line) with `EXPORT_UNSTEADY_LAST_ITER: 3`, on the package at rel/0-37 42334f38, build 8172026, far field 5. The point CONVERGED. The per-step export action created the probe points on its first exporting step and, at steps 4, 5 and 6, updated and exported them as `<point>_probes_iteration=<step>.txt`; the post wrote the probes series with 21 rows (7 probes by 3 steps).
+
+At each of steps 4 to 6 the probe values the action exported equal the fluid-plot values of row 3703 at the same step and point to 0.00048 m/s, the printed precision: probe points exported from inside the march sample the same instant as the fluid plots. The export after the march (the same probes, deleted, created again and updated) differs from the step-6 export by at most 0.051 m/s (0.15 percent of the local speed), which is the end-of-march difference recorded above. Creating probe points from an action script is therefore measured to work on this build. Limits: one case, three steps, one build.
