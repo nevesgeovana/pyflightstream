@@ -160,7 +160,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -240,6 +242,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -416,7 +420,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -489,6 +495,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -670,7 +678,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -744,6 +754,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -922,7 +934,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -995,6 +1009,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -1170,7 +1186,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -1249,6 +1267,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -1428,7 +1448,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -1502,6 +1524,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -1777,6 +1801,8 @@
           "custom_polar_format": false,
           "boundary_layer_integrals": false,
           "boundary_layer_velocity_profile": false,
+          "settings_codebook": true,
+          "installed_frame": [],
           "superfile_format": "csv"
         },
         "blade_pattern": "^Blade\\d+$",
@@ -1953,7 +1979,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -2026,6 +2054,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -2201,7 +2231,9 @@
             "vorticity_lift_model": null,
             "unsteady_viscous_coupling_iteration": null,
             "moments_model": null,
-            "unsteady_solver_actions": null
+            "unsteady_solver_actions": null,
+            "aeroelastic_convergence_threshold": null,
+            "solver_time_averaging": null
           },
           "fsi": null,
           "fsi_provenance": {},
@@ -2274,6 +2306,8 @@
               "custom_polar_format": false,
               "boundary_layer_integrals": false,
               "boundary_layer_velocity_profile": false,
+              "settings_codebook": true,
+              "installed_frame": [],
               "superfile_format": "csv"
             },
             "blade_pattern": "^Blade\\d+$",
@@ -2432,6 +2466,8 @@
           "custom_polar_format": false,
           "boundary_layer_integrals": false,
           "boundary_layer_velocity_profile": false,
+          "settings_codebook": true,
+          "installed_frame": [],
           "superfile_format": "csv"
         },
         "blade_pattern": "^Blade\\d+$",
