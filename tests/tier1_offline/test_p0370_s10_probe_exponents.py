@@ -1,4 +1,9 @@
-"""Read the omitted exponent marker observed in the 26.125 probe campaign."""
+"""Read the omitted exponent marker observed in the 26.125 probe campaign.
+
+The fixture is a byte cut of one solver export of that campaign;
+``fixtures/s10_26125/PROVENANCE.md`` names the file, its sha256 and the one
+line changed.
+"""
 
 from pathlib import Path
 

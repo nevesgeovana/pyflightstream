@@ -5,7 +5,7 @@
                               Simcenter Flightstream Probe Points
 
 
-     Simulation file:                            case.fsm
+     Simulation file:                            30_BLADE.fsm
      Angle of attack (Deg)                       .000
      Side-slip angle (Deg)                       .000
      Freestream velocity (m/s)                   30.000

@@ -1,4 +1,9 @@
-"""The sweeper keeps the drag labels observed in each build's export."""
+"""The sweeper keeps the drag labels observed in each build's export.
+
+The 26.125 fixture is a byte cut of one solver export of the 26.125 probe
+campaign; ``fixtures/s10_26125/PROVENANCE.md`` names the file, its sha256 and
+the one line changed.
+"""
 
 from pathlib import Path
 
@@ -29,11 +34,27 @@ def test_the_simcenter_sweeper_keeps_every_printed_column():
         "CMz",
     )
     np.testing.assert_array_equal(
-        report.values, [[2.0, 0.0, 30.0, 0.1, 0.2, 0.3, 0.4, 0.05, 0.006, 0.7, 0.8, 0.9]]
+        report.values,
+        [
+            [
+                2.0,
+                0.0,
+                30.0,
+                0.1487,
+                -0.1829,
+                -0.0034,
+                -0.0086,
+                0.1473,
+                0.0012,
+                0.1919,
+                0.1738,
+                0.0038,
+            ]
+        ],
     )
     frame = to_table(report)
-    assert frame["CDp"].tolist() == [0.05]
-    assert frame["CDv"].tolist() == [0.006]
+    assert frame["CDp"].tolist() == [0.1473]
+    assert frame["CDv"].tolist() == [0.0012]
     assert "CDi" not in frame and "CDo" not in frame
 
 
