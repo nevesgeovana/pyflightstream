@@ -70,7 +70,9 @@ under the pair its export did not print. On either build the group's total
 drag is the sum of the two columns, which both manuals state of their own pair
 (SRC-752 p.227, SRC-753 p.229). The fixed-width custom polar names its last
 columns the same way, and its count line counts them. The parsed loads report
-and the loads series keep the column names the export printed.
+and the loads series keep the column names the export printed. The solver's
+sweeper spreadsheet also keeps its printed `CDp, CDv` pair on 26.125 and
+`CDi, CDo` on earlier builds; tabulation preserves all twelve columns.
 
 **In a coupled FSI run `CDo` is zero as the solver prints it.** On 26.124
 the loads export of a coupled solve prints `CDo` as zero from the first

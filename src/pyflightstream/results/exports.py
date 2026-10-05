@@ -33,6 +33,7 @@ from pyflightstream.results.core import (
     reject_duplicate_columns,
     reject_trailing_export,
 )
+from pyflightstream.results.loads import DRAG_PAIRS
 from pyflightstream.versions import FsVersion
 
 __all__ = [
@@ -180,6 +181,11 @@ SWEEP_COLUMNS: tuple[str, ...] = (
     "CMy",
     "CMz",
 )
+
+#: The observed 26.125 sweep keeps the twelve-column layout and prints its
+#: pressure/viscous split in the drag slots (FR-423). Keep the public legacy
+#: tuple unchanged and validate either complete layout, never relabel values.
+_SIMCENTER_SWEEP_COLUMNS = (*SWEEP_COLUMNS[:7], *DRAG_PAIRS[1], *SWEEP_COLUMNS[9:])
 
 #: Columns of EXPORT_SOLVER_ANALYSIS_CSV, pinned, and the ONLY names in this
 #: module that are not printed anywhere in their own file: that export writes
@@ -1042,7 +1048,8 @@ class SweepSpreadsheetReport:
     Attributes
     ----------
     columns : tuple of str
-        Always :data:`SWEEP_COLUMNS`.
+        :data:`SWEEP_COLUMNS`, with ``CDp, CDv`` replacing ``CDi, CDo``
+        where the export prints the 26.125 split.
     values : numpy.ndarray
         The full table, shape ``(points, 12)``, in printed order. Units
         and frame are the constant's.
@@ -1071,9 +1078,16 @@ class SweepSpreadsheetReport:
         Parameters
         ----------
         name : str
-            One of :data:`SWEEP_COLUMNS`, for example ``"CL"``.
+            One of this report's printed columns, for example ``"CL"``.
         """
         return _named_column(self.values, self.columns, name, what="sweeper spreadsheet")
+
+
+def _sweep_columns(header: str, *, what: str) -> tuple[str, ...]:
+    """Validate one of the two observed sweep layouts without changing any label."""
+    printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
+    expected = _SIMCENTER_SWEEP_COLUMNS if printed == _SIMCENTER_SWEEP_COLUMNS else SWEEP_COLUMNS
+    return _pinned_columns(header, expected, what=what)
 
 
 def parse_sweep_spreadsheet(
@@ -1083,7 +1097,8 @@ def parse_sweep_spreadsheet(
 
     Anchor-based like every parser here: the table is located by its
     ``AOA (deg),`` header, the columns are pinned against
-    :data:`SWEEP_COLUMNS`, and the footer is structural (FR-17).
+    :data:`SWEEP_COLUMNS` or the observed 26.125 layout with ``CDp, CDv``,
+    and the footer is structural (FR-17).
 
     GROUNDING. Written against ``sweeper_spreadsheet_26.123.txt``, an
     observed export of build 8112026 holding a three-point angle sweep.
@@ -1117,7 +1132,7 @@ def parse_sweep_spreadsheet(
     text = text.replace("\x00", "")
     software = _export_footer(text, what=what)
     header, body = _table_region(text, "AOA (deg),", what=what)
-    columns = _pinned_columns(header, SWEEP_COLUMNS, what=what)
+    columns = _sweep_columns(header, what=what)
     rows = [
         _row_values(line, columns=columns, what=what, ordinal=ordinal)
         for ordinal, line in enumerate(body, start=1)

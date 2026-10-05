@@ -1,5 +1,9 @@
 ## The probes table
 
+Solver numbers whose three-digit exponent omits `E`, such as `0.2964-322`,
+are read as `0.2964E-322`. These printed values remain in their own columns;
+their small magnitude alone neither drops the export nor substitutes a missing value.
+
 The run type selects the source of `probes/<point>_probes.csv` for every
 `[[probes]]` declaration, including drawn shapes and cited `points_file`
 profiles.
