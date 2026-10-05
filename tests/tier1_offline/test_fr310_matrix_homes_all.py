@@ -333,8 +333,14 @@ def test_fr310_main_hands_the_command_the_file_in_inputs_matrices(
 
 @pytest.mark.parametrize("same", [True, False], ids=["equal-bytes", "different-bytes"])
 def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path, monkeypatch):
-    """0.32.0 read the working directory's file: a different one is refused, never swapped."""
-    requirement = "FR-310"
+    """0.32.0 read the working directory's file; since 0.37.0 the workspace's is read, warned.
+
+    EXPECTATION CHANGED BY THE OWNER'S REQUIREMENT, FR-411 R1 (her report of
+    2026-10-03 on 0.35.1): until 0.36.0 a different file in the working
+    directory refused the command; it is now a WARNING naming both files, and
+    the workspace's file is the matrix.
+    """
+    requirement = "FR-411"
     ws = tmp_path / "ws"
     placed = _place(ws, "inputs", b"POL | RUN\n1 | 1\n")
     elsewhere = tmp_path / "elsewhere"
@@ -347,13 +353,16 @@ def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path
         assert resolve_matrix_arguments(args) is None, requirement
         assert Path(args.matrix).read_bytes() == local.read_bytes()
         return
-    with pytest.raises(WorkspaceError) as caught:
-        from pyflightstream.workspace._matrix_homes import matrix_path
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace._matrix_homes import matrix_path
 
-        matrix_path(ws, NAME)
-    said = str(caught.value)
+    with pytest.warns(PyflightstreamWarning) as caught:
+        assert matrix_path(ws, NAME) == placed["inputs"], requirement
+    said = " ".join(str(item.message) for item in caught)
     assert str(local.resolve()) in said and str(placed["inputs"]) in said, (requirement, said)
-    assert resolve_matrix_arguments(args) == 2, requirement
+    with pytest.warns(PyflightstreamWarning):
+        assert resolve_matrix_arguments(args) is None, requirement
+    assert Path(args.matrix) == placed["inputs"], requirement
 
 
 def test_fr310_a_relative_path_that_names_its_folder_is_read_as_given(tmp_path, monkeypatch):

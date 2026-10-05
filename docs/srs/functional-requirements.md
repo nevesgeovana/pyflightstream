@@ -9516,7 +9516,7 @@ Requirements written after the specification was last reconciled with the packag
 
 The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2026-10-05. Items S1 to S9 of the goal map to FR-411 to FR-422 and NFR-42; S6 is carried by the existing FR-341 (the modal FSI backend, route C by direct morphing), gated on a licensed test first. Two terms hold for the whole section. The SETTLED OUTPUTS of a point are its declared outputs other than its solver log, each present and unchanged between two observations (collect's settled rule). A key or pproc entry this section adds, when absent, leaves every script, record and product byte-identical to 0.36.0; `scripts/check_parity.py` from v0.36.0 is the instrument, and its only named difference is FR-421 R2; the markers `P0370-<item>-<name>` are listed in `docs/srs/markers-0370.json`.
 
-!!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-pending'>pending</span>"
+!!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
     *Origin: the owner's report of 2026-10-03 on 0.35.1 ("primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
@@ -9532,6 +9532,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R4 The offline reproduction of the owner's 0.35.1 case (grouped batch workspace, matrix in `inputs/matrices/` only, `runs.json` and logs deleted) is a tier-1 test.
 
     Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`, carrying P0370-S1-MATRIX-HOME (FR-411).
+
+    Evidence: `tests/tier1_offline/test_p0370_s1_matrix_home.py::test_p0370_s1_the_owner_s_case_is_not_two_places` (R4: the grouped workspace, matrix in `inputs/matrices/` only with a RUN 0 row, `runs.json` and logs deleted, `rebuild` from the root and from another folder, with and without `--matrix`), `::test_p0370_s1_a_working_directory_copy_warns_and_is_not_read` (R1, R3, every command with a workspace), `::test_p0370_s1_two_homes_with_different_bytes_are_still_refused` (R2), `::test_p0370_s1_the_rebuild_reads_the_matrix_its_workspace_holds` (R5); `tests/tier1_offline/test_fr310_matrix_homes_all.py::test_fr310_a_bare_name_in_a_home_and_in_the_working_directory` (its different-bytes expectation changed by R1). The rebuild's shadow copy of the matrix restored to its root fails R4 with the 0.35.1 refusal "in both homes of the workspace with different content"; the working-directory refusal restored fails R1.
 
 !!! requirement "FR-412 rebuild makes the records of a workspace whose runs.json is lost <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.01 (0.37.0).

@@ -19,11 +19,12 @@ matrices of a home (:func:`pyflightstream.workspace.matrix_files`), so a
 name with another suffix is never found there and is read as given.
 
 A BARE NAME IN A HOME AND IN THE WORKING DIRECTORY. Until 0.32.0 a bare name
-was read from the working directory. When the command runs outside the
-workspace and the working directory holds a file of that name too, the two
-are compared as the two homes are: the same bytes are one matrix; different
-bytes are refused naming both paths, so no command reads a different file
-than 0.32.0 read without saying so.
+was read from the working directory. Since 0.37.0 (FR-411) the workspace's
+file is the matrix of every command, ``rebuild`` included: a same-named file
+in the working directory is never read, and when its bytes differ a WARNING
+names both and says which one was read. 0.32.0 to 0.36.0 refused the command
+there, which told a user whose matrix was in ``inputs/matrices/`` alone that it
+was in two places.
 
 This module imports the package root and the root does not import it, so the
 two form no cycle; its callers import it by its own path.
@@ -117,8 +118,13 @@ def matrix_path(root: str | Path, given: str | Path) -> Path:
     Raises
     ------
     WorkspaceError
-        When a bare name is in both homes with different bytes, or in a home
-        and in the working directory with different bytes, naming both.
+        When a bare name is in both homes with different bytes, naming both.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        When the working directory holds a same-named file whose bytes differ
+        from the workspace's: the workspace's is read, never the other (FR-411).
     """
     if names_its_folder(given):
         return Path(given)
@@ -127,10 +133,12 @@ def matrix_path(root: str | Path, given: str | Path) -> Path:
         return Path(given)
     local = Path(given)
     if local.is_file() and not local.samefile(found) and local.read_bytes() != found.read_bytes():
-        raise WorkspaceError(
-            f"the matrix {local.name} is in the working directory ({local.resolve()}) and in "
-            f"the workspace ({found}) with different contents; 0.32.0 read the first. Name the "
-            "one to read by its folder, or keep one."
+        warnings.warn(
+            f"the matrix read is the workspace's {found}; the file {local.resolve()} of the "
+            "same name in the working directory holds other bytes and was not read. To read "
+            "that one instead, name it by its folder.",
+            PyflightstreamWarning,
+            stacklevel=2,
         )
     return found
 
@@ -182,7 +190,8 @@ def resolve_matrix_arguments(args: object) -> int | None:
     -------
     int or None
         2, after printing the refusal to standard error, when a matrix is in
-        both homes with different bytes; None otherwise.
+        both homes of the workspace with different bytes; None otherwise. A
+        same-named file in the working directory only warns (FR-411).
     """
     subcommand = getattr(args, "subcommand", None)
     root = getattr(args, "workspace", None) or "."

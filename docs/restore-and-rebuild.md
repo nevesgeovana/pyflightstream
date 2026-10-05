@@ -99,6 +99,14 @@ What a rebuild decides, and how:
   `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`.
 - **A row switched off after it ran** (`RUN 0`) still describes that run: the
   row is set to `RUN 1` in the throwaway copy only, and the record says so.
+  The throwaway copy holds the matrix once, in the home the workspace keeps
+  it in; until 0.37.0 a matrix kept in `inputs/matrices/` with a `RUN 0` row
+  was copied a second time to the copy's root, and every simulation was
+  refused as having its matrix "in both homes" (FR-411).
+- **The matrix is the workspace's.** `--matrix NAME` with a bare name or stem
+  reads the matrix in the workspace's root or `inputs/matrices/`, from any
+  working directory; a file of that name in the working directory is not read,
+  and a WARNING says so when its bytes differ (FR-411).
 - **A build the submission profile no longer maps** (a run on 26.123 after the
   profile's `[builds]` table moved to 26.124): `--build-alias 26.123=26.12`
   names the scheduler's word at the time; the default is the build itself. The

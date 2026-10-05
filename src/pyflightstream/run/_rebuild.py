@@ -54,6 +54,8 @@ from pyflightstream.run._record_files import (
     _replace_bytes,
     manifest_lock,
 )
+from pyflightstream.workspace import matrix_files
+from pyflightstream.workspace._matrix_homes import matrix_path
 from pyflightstream.workspace.naming import (
     DEFAULT_MANIFEST,
     free_root_archive,
@@ -371,6 +373,22 @@ def _mint(
         for script in sorted(scripts)
     )
     return rows, rendered
+
+
+def _shadow_home(shadow: Path, matrix: Path) -> Path:
+    """Return where the shadow holds ``matrix``: over its ``inputs/matrices/`` copy, else the root.
+
+    The shadow's ``inputs/`` is a copy of the workspace's, matrices included, so a
+    second copy at the shadow's root, re-activated to RUN 1, was the same stem in
+    both homes with different bytes, and every row of a matrix kept in
+    ``inputs/matrices/`` with a RUN 0 row was refused as being in two places
+    (FR-411, the owner's report on 0.35.1). The matrix read replaces the one copy
+    of its stem, so the shadow holds it once.
+    """
+    same_stem = [path for path in matrix_files(shadow) if path.stem == matrix.stem]
+    for extra in same_stem[1:]:
+        extra.unlink()
+    return same_stem[0] if same_stem else shadow / matrix.name
 
 
 def _clear_shadow_run(shadow: Path, sim: str) -> None:
@@ -733,8 +751,12 @@ def _refuse_before_any_work(
                 f"rebuild out (CLI: --out) {out}: the file exists; choose a new name, nothing "
                 "is overwritten"
             )
-    if matrix is not None and not Path(matrix).is_file():
-        raise RecordsError(f"rebuild matrix (CLI: --matrix) {matrix}: no such file")
+    if matrix is not None and not matrix_path(base, matrix).is_file():
+        raise RecordsError(
+            f"rebuild matrix (CLI: --matrix) {matrix}: no such file in the workspace's matrix "
+            "homes (its root and inputs/matrices/) or at that path; name the matrix the "
+            "simulations ran from"
+        )
     if inputs_from is not None and not Path(inputs_from).is_dir():
         raise RecordsError(
             f"rebuild inputs_from (CLI: --inputs-from) {inputs_from}: no such folder; name the "
@@ -1117,7 +1139,7 @@ def _rebuild_all(
                 chosen = [sim for sim in remaining if by_pol.get(sim) == path]
                 if not chosen:
                     continue
-                shadow_matrix = shadow / path.name
+                shadow_matrix = _shadow_home(shadow, path)
                 shutil.copy2(path, shadow_matrix)
                 sim_notes: dict[str, list[str]] = {sim: [] for sim in chosen}
                 for pol in _reactivate(shadow_matrix, set(chosen)):
