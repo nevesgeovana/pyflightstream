@@ -76,6 +76,12 @@ from ._vocabulary import (
     WALLTIME_VARIABLE,
     WHOLE_RUN_EXPORT_KINDS,
 )
+from ._vocabulary import (
+    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE as EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+)
+from ._vocabulary import (
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE as EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
 
 
 def _refuse_rotor_keys_on_a_rotorless_run(case: SimCase) -> None:
