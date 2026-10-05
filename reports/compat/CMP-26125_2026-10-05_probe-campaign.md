@@ -403,3 +403,28 @@ report is the committed evidence.
 | DELETE_ALL_VOLUME_SECTIONS | unprobed | not probed in this run |
 | VOLUME_SECTION_WIREFRAME | unprobed | not probed in this run |
 | EXPORT_VOLUME_SECTION_2D_VTK | unprobed | not probed in this run |
+
+## Erratum (2026-10-05): three CCS mesh rows re-read
+
+The rows CCS_FUSELAGE_MESH_GROWTH_RATE, CCS_REVOLVE_MESH_GROWTH_SCHEME and
+CCS_REVOLVE_MESH_GROWTH_RATE above print equal vertex and face counts for
+the reference and the variant loft, which reads as "identical". The judge
+never compared counts alone: it compares the whole normalized geometry of
+each loft (every vertex coordinate and every face resolved to its
+coordinates, sorted, names and normals ignored). The instrument read of
+that run printed only the counts. The read now prints the geometry digest
+the judge compares and states whether the variant equals the reference.
+
+Re-read from the campaign folders of this run with the new read; the
+verdicts are unchanged (verified):
+
+| Command | Instrument read (new) | Vertices in one loft only |
+|---|---|---|
+| CCS_FUSELAGE_MESH_GROWTH_RATE | reference 1975 vertices 1896 faces geometry digest 1b8d868e6abd65c5; variant 1975 vertices 1896 faces geometry digest a59538f10ad69ed3; variant geometry differs from reference | 1817 of 1975 |
+| CCS_REVOLVE_MESH_GROWTH_SCHEME | reference 4584 vertices 4661 faces geometry digest 5ec7cc9e3af6cf68; variant 4584 vertices 4661 faces geometry digest 8493918eca6b3b98; variant geometry differs from reference | 4582 of 4584 |
+| CCS_REVOLVE_MESH_GROWTH_RATE | reference 4584 vertices 4661 faces geometry digest 5ec7cc9e3af6cf68; variant 4584 vertices 4661 faces geometry digest 2db8826a8997fa0a; variant geometry differs from reference | 4582 of 4584 |
+
+The first differing line of the fuselage exports is line 82 (reference
+`v .17916665 .21997041 .00000000`, variant `v 2.00000000 .19303000 .00000000`);
+of both revolve exports, line 4. The original rows above are left as
+written.

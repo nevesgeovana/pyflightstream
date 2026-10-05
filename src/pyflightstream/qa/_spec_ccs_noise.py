@@ -249,11 +249,23 @@ def _mesh_differs(artifacts: ProbeArtifacts) -> bool | None:
 
 
 def _mesh_read(artifacts: ProbeArtifacts) -> str:
+    """Read each loft as the judge compares it: counts and the geometry digest.
+
+    Equal counts do not mean equal lofts; the judge compares the whole
+    signature, so the read prints its digest and states whether the variant
+    geometry equals the reference geometry.
+    """
     parts = []
-    for name in ("reference.obj", "variant.obj", "control.obj", "restored.obj"):
-        sig = _mesh_signature(artifacts.workdir, name)
+    signatures = {}
+    for name in ("reference", "variant", "control", "restored"):
+        sig = _mesh_signature(artifacts.workdir, name + ".obj")
         if sig is not None:
-            parts.append(f"{name[:-4]} {sig[0]} vertices {sig[1]} faces")
+            signatures[name] = sig
+            digest = format(sig[2] & 0xFFFFFFFFFFFFFFFF, "016x")
+            parts.append(f"{name} {sig[0]} vertices {sig[1]} faces geometry digest {digest}")
+    if "reference" in signatures and "variant" in signatures:
+        same = signatures["reference"] == signatures["variant"]
+        parts.append("variant geometry " + ("equals" if same else "differs from") + " reference")
     return "; ".join(parts) or "no loft was exported"
 
 
