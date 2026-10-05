@@ -59,11 +59,16 @@ _VERDICT = RunStatus.CONVERGED
 def _listed(values: Sequence[str] | None) -> list[str]:
     """Read ids given as words, commas or both, through the one reader of the form.
 
-    The words are joined with commas and read by
+    Each value is split on whitespace (so one quoted ``"2006 2007"`` reads as two
+    ids), the words are joined with commas and read by
     :func:`pyflightstream.workspace.ledger.listed_sims`, so ``2006 2007``,
     ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
     """
-    return list(dict.fromkeys(listed_sims(",".join(str(value) for value in values or []))))
+    return list(
+        dict.fromkeys(
+            listed_sims(",".join(part for value in values or [] for part in str(value).split()))
+        )
+    )
 
 
 def _whole_simulations(base: Path, ids: list[str]) -> list[str]:

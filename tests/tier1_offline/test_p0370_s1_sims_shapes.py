@@ -9,6 +9,7 @@ of their --sims (one comma separated value, pinned by the CLI contract of
 
 import pytest
 
+from pyflightstream.run._mark_converged import _listed
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
 COMMA_FORM = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
@@ -73,6 +74,12 @@ def test_mark_failed_and_rebuild_read_their_comma_form(command, tmp_path, capsys
     for sim in ("7001", "7002"):
         assert any(f"sim_{sim}" in line or f"sim {sim}" in line for line in lines), lines
     assert not any("7003" in line for line in lines), lines
+
+
+def test_one_quoted_value_of_words_reads_as_separate_ids():
+    """P0370-S1-MARK-CONVERGED (FR-414): ``--sims "2006 2007"`` is two ids, not 20062007."""
+    assert _listed(["2006 2007"]) == ["2006", "2007"]
+    assert _listed(["2006", "2007,2008"]) == ["2006", "2007", "2008"]
 
 
 def _verdicts(result):
