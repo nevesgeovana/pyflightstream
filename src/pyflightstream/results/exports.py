@@ -1083,8 +1083,30 @@ class SweepSpreadsheetReport:
         return _named_column(self.values, self.columns, name, what="sweeper spreadsheet")
 
 
-def _sweep_columns(header: str, *, what: str) -> tuple[str, ...]:
-    """Validate one of the two observed sweep layouts without changing any label."""
+def sweep_columns(header: str, *, what: str) -> tuple[str, ...]:
+    """Validate one of the two observed sweep layouts without changing any label.
+
+    The one home of the sweep layout rule, read by the parser here and by the
+    table adapter of :mod:`pyflightstream.results.tables`. Not in ``__all__``:
+    a helper of this subpackage, not a name of its public surface.
+
+    Parameters
+    ----------
+    header : str
+        The printed header line, or the report's columns joined by commas.
+    what : str
+        The export's name, as the refusal names it.
+
+    Returns
+    -------
+    tuple of str
+        The printed columns, unchanged.
+
+    Raises
+    ------
+    MalformedOutputError
+        When the header is neither accepted sweep layout.
+    """
     printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
     expected = _SIMCENTER_SWEEP_COLUMNS if printed == _SIMCENTER_SWEEP_COLUMNS else SWEEP_COLUMNS
     return _pinned_columns(header, expected, what=what)
@@ -1132,7 +1154,7 @@ def parse_sweep_spreadsheet(
     text = text.replace("\x00", "")
     software = _export_footer(text, what=what)
     header, body = _table_region(text, "AOA (deg),", what=what)
-    columns = _sweep_columns(header, what=what)
+    columns = sweep_columns(header, what=what)
     rows = [
         _row_values(line, columns=columns, what=what, ordinal=ordinal)
         for ordinal, line in enumerate(body, start=1)
