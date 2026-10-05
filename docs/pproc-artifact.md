@@ -453,8 +453,13 @@ Every entry of one unsteady row is of one kind; a pproc mixing the two (an entry
 with no `kind` counts as unsteady, and a `[volume_section]` is sampled through
 fluid plots) is refused when the row is built, naming the entries of each kind.
 Any other value is refused when the pproc is read. On a steady row `kind` is
-accepted and changes nothing. A normal probe is not created again by a
-continuation of a stopped march.
+accepted and changes nothing. A stopped march saved its state before its normal
+probes were created, so a continuation of it (`RESTART`) creates them after the
+continued march with the commands and the order of the row's full script, and
+emits no frame to do so. When that full script cannot be built (its mesh is no
+longer where the row names it, for example), the continuation is refused, naming
+the entries; run the row again from the mesh with
+`pyfs-matrix run --force-rerun <point>`.
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with

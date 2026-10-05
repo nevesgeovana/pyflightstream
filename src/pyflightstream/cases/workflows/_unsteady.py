@@ -8,6 +8,7 @@ state.
 from __future__ import annotations
 
 from collections.abc import (
+    Callable,
     Mapping,
 )
 
@@ -64,6 +65,7 @@ from ._pproc import (
     _pproc_plots,
 )
 from ._probes import (
+    _normal_probes_of_a_continuation,
     _pproc_probes,
 )
 from ._rows import (
@@ -100,6 +102,7 @@ def _build_continuation(
     iterations: int,
     *,
     threshold: UnsteadyExportThreshold | None = None,
+    build: Callable[[SimCase, Script], None] | None = None,
 ) -> None:
     """Continue a march the wall clock stopped, from the simulation it saved.
 
@@ -147,6 +150,9 @@ def _build_continuation(
     """
     _the_custom_freestream(case)
     _acoustics.refuse_acoustics_on_a_continuation(case)
+    # FR-417 R6: NORMAL PROBES ARE CREATED AFTER THE CONTINUED MARCH, as the full
+    # script creates them; `build` is the row's full builder, run on a scratch.
+    probes = [] if build is None else _normal_probes_of_a_continuation(case, script, build)
     _configuration_comment(case, script)
     # ENABLE, ALWAYS, and this is the one place in this package where the
     # initialisation flag is not the row's to choose: a continuation that
@@ -166,7 +172,15 @@ def _build_continuation(
         stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(script, time_iterations=iterations, delta_time=stepping.delta_time_s)
     _the_actions_the_saved_state_runs(script, threshold, walltime=row_walltime_s(case) is not None)
-    _script_tail(conventions, case, script, None, unsteady=True, reopens_a_saved_state=True)
+    _script_tail(
+        conventions,
+        case,
+        script,
+        None,
+        unsteady=True,
+        reopens_a_saved_state=True,
+        replayed_probes=probes,
+    )
 
 
 def _the_actions_the_saved_state_runs(
@@ -241,6 +255,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
             conventions,
             *continuation,
             threshold=unsteady_export_threshold(case, conventions, version=script.version),
+            build=lambda full, scratch: _build_unsteady(full, scratch, conventions),
         )
         return
     _refuse_rotor_keys_on_a_rotorless_run(case)
