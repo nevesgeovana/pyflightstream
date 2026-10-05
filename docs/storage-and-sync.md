@@ -43,7 +43,7 @@ folders, deleting files of named extensions, and compacting or deleting the
 post's archived folders. See "The recipe file" below for the
 format of each.
 
-The owner's flag form works here too:
+The top-level flag form works here too:
 
 ```bash
 pyfs-matrix --workspace . --free-space m001
@@ -73,8 +73,8 @@ pyfs-matrix delete-sims 4001,2009 --workspace . --apply
 
 Deletes the named simulations outright: the `sims/sim_<id>` folder (or its
 compacted zip), the post products that belong only to that simulation, and
-its rows in `runs.json`. The ids are comma separated; the owner's bracketed
-form, `[4001,2009]`, is also accepted.
+its rows in `runs.json`. The ids are comma separated; the bracketed form,
+`[4001,2009]`, is also accepted.
 
 If a post product mixes the deleted simulation's points with points from
 other simulations, applying the command needs `--matrix-products`:
