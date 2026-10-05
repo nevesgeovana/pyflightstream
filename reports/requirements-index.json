@@ -3115,17 +3115,17 @@
    "id": "FR-417",
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: owner decision of 2026-10-05 (\"no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes.\"), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "FR-418",
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: owner correction of 2026-10-05 (\"para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady.\"), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "FR-419",

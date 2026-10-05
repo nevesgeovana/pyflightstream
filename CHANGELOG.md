@@ -244,6 +244,11 @@ FlightStream versions.
 - `collect` no longer waits forever for the log of a grouped point whose
   cumulative log was deleted, and no longer fails as FAILED_EXECUTION a point
   whose end-of-job files and outputs are present and whose log is not (FR-413).
+- The 26.125 sweeper spreadsheet is read with its printed `CDp` and `CDv`
+  columns; the earlier sweep layout is read as before (FR-423).
+- A probe export whose printed numbers omit the exponent marker before a
+  signed three-digit exponent, as 26.125 prints very small values, is read
+  instead of refused (FR-423).
 
 ### Migration
 
