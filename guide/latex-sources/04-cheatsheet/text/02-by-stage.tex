@@ -698,6 +698,11 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \opt{--reason TEXT}{why, recorded as given.}
 \opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
 \end{cmdblock}
+\begin{cmdblock}{pyfs-matrix mark-converged}{}{The named points become CONVERGED by your reading, their old status kept under \texttt{marked}.}
+\opt{--sims IDS}{required: \texttt{2006 2007}; \fl{--points NAMES} only these points.}
+\opt{--reason TEXT}{required, recorded as given.}
+\opt{--apply}{write (default: preview); \fl{--workspace DIR}.}
+\end{cmdblock}
 \begin{cmdblock}{pyfs-matrix restore}{{runs|storage|products|plan|additional}}{Bring a records file back from the archive, byte for byte.}
 \opt{--apply}{write (default: preview); the current file is archived first.}
 \opt{--stamp STAMP}{the copy to restore (default: the newest).}

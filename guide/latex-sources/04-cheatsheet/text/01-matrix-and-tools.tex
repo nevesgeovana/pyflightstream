@@ -195,6 +195,10 @@ These queries write nothing, take no lock and never ask the scheduler.
 \item \fl{--sims 2006,2007} the simulations \quad \fl{--reason TEXT} why, recorded as given
 \item \fl{--apply} (default: preview) \quad \fl{--workspace}
 \end{flags}
+\sub{mark-converged}{the named points become CONVERGED by your reading, their old status kept under \texttt{marked}; \texttt{runs.json} archived first}
+\begin{flags}
+\item \fl{--sims 2006 2007} \quad \fl{--points AL+020} only these points \quad \fl{--reason TEXT} \quad \fl{--apply} \quad \fl{--workspace}
+\end{flags}
 
 \stage{8. DISK SPACE (EVERY CALL LOGGED IN storage\_management.json)}
 \sub{space-in-use}{sizes by top folder, by \texttt{sims/sim\_*}, by extension; changes nothing}

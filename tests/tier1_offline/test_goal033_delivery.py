@@ -482,6 +482,57 @@ _MIGRATION_NAMES_0_35_0 = {
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
+    "0.37.0": {
+        "The settings table and its codebook are default products.": (
+            "settings_codebook = false",
+            "FR-419",
+        ),
+        "The super content states each rotor's diameter.": (
+            "DIAMETER_<alias>",
+            "read by name",
+            "FR-89",
+        ),
+        "A quasi-steady point's speed and clock come from its quasi-steady record.": (
+            "RPM_CLOCK",
+            "J_CLOCK",
+            "quasi-steady record",
+        ),
+        "The plan's left-out line of a coupled steady or quasi-steady row names the remedy.": (
+            "run these rows point by point",
+            "left_out",
+            "FR-421",
+        ),
+        "A bare matrix name is read from the workspace, whatever the working directory holds.": (
+            "working directory",
+            "absolute path",
+            "FR-411",
+        ),
+        "Unknown keys of a `[[prune_step_exports]]` table are refused": (
+            "keep_last",
+            "delete_steps",
+            "older_than_days",
+            "FR-416",
+        ),
+        (
+            "The installed-frame classification negates `Y`, `VY`, `VORTICITY_X` and "
+            "`VORTICITY_Z`, and no longer `CREF`."
+        ): (
+            "`VORTICITY_X`",
+            "`CREF`",
+            "FR-420",
+        ),
+        "On 26.125 the emitter writes the forms its manual documents.": (
+            "DETECT_TRAILING_EDGES_BY_SURFACE",
+            "`EDGE_TYPE`",
+            "byte-identical",
+        ),
+        "The output readers accept the 26.125 exports.": (
+            "Simcenter Flightstream",
+            "CDp, CDv",
+            "`CDV`",
+            "`CDP`",
+        ),
+    },
     "0.36.0": {
         "Grouped plans always name the acoustic polars that run in their own jobs": (
             "acoustic-isolation note",
@@ -524,6 +575,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
 #: The inputs each release's summary refuses, each of which its section and
 #: its migration page must name, and further words its page must carry.
 _REFUSED_BY_RELEASE = {
+    "0.37.0": ("older_than_days", "SOLVER_TIME_AVERAGING", "26.124"),
     "0.36.0": ("steady", "qsteady_rotor", "FR-410", "RPT-150"),
     "0.35.1": ("COLD_START",),
     "0.29.0": (
@@ -541,6 +593,23 @@ _REFUSED_BY_RELEASE = {
     "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
+    "0.37.0": (
+        "no changes to its inputs",
+        "RAN_MISSING_LOG",
+        "mark-converged",
+        "--apply",
+        "--batch",
+        "--polar-sweep",
+        "FR-412",
+        "FR-413",
+        "FR-414",
+        "FR-415",
+        "FR-417",
+        "FR-422",
+        "FR-423",
+        "FR-341",
+        "26.125",
+    ),
     "0.36.0": (
         "no changes to its inputs",
         "--batch",
