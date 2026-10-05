@@ -44,6 +44,15 @@ PACKAGE = "pyflightstream"
 TIER_USED = "Used in the guides"
 TIER_ADVANCED = "Advanced"
 
+#: Names a module without ``__all__`` imports from a private module and the
+#: reference documents explicitly, by module. Such a module's surface is the
+#: names it defines; a name here joins its page. ``run.records`` declares no
+#: ``__all__`` so that the names it offers, which the API parity reads, stay
+#: as they are.
+EXPLICIT_ENTRIES: dict[str, tuple[str, ...]] = {
+    "pyflightstream.run.records": ("mark_converged",),
+}
+
 _DIRECTIVE = re.compile(r"^::: ([\w.]+)\s*$", re.MULTILINE)
 _WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FENCE = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
@@ -107,13 +116,15 @@ def public_surface(module_name: str) -> list[str]:
     list of str
         The module's ``__all__``, sorted; for a module that declares none,
         the public functions, classes and module-level assignments its own
-        source defines (imported names are not its surface).
+        source defines (imported names are not its surface), with the names
+        :data:`EXPLICIT_ENTRIES` adds for it.
     """
     module = importlib.import_module(module_name)
     declared = getattr(module, "__all__", None)
     if declared is not None:
         return sorted(str(name) for name in declared)
-    return _defined_public_names(module_name)
+    explicit = EXPLICIT_ENTRIES.get(module_name, ())
+    return sorted({*_defined_public_names(module_name), *explicit})
 
 
 def guide_words(repo: Path = REPO) -> set[str]:

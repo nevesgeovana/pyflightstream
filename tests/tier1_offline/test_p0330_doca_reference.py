@@ -196,13 +196,19 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
         page = pages.get(f"{slug}.md")
         assert page is not None, f"{module_name} has no reference page"
         assert f"({slug}.md)" in summary, f"{module_name}'s page is not in the reference menu"
-        expected = _expected_surface(module_name)
+        # A name the generator adds explicitly to a module without __all__.
+        expected = _expected_surface(module_name) | set(
+            generator.EXPLICIT_ENTRIES.get(module_name, ())
+        )
         total += len(expected)
         missing, extra = _api_differences(page, module_name, expected)
         if missing or extra:
             failures.append(f"{module_name}: missing {sorted(missing)}, extra {sorted(extra)}")
         failures += _entry_defects(page, module_name)
     assert not failures, "\n".join(failures)
+    # mark_converged is imported by run.records, which declares no __all__; its
+    # page carries it by the explicit entry (P0370-S1-MARK-CONVERGED, FR-414).
+    assert "::: pyflightstream.run.records.mark_converged\n" in pages["run/records.md"]
     # Non-vacuity: 123 modules and 1894 names measured at 0.33.0 development;
     # the floor leaves room for the one name decision 9 deletes and little more.
     assert len(subpackages) >= 120, subpackages
@@ -247,7 +253,10 @@ def test_the_built_reference_holds_every_public_name():
     generator = _script("gen_api_reference")
     expected = set()
     for module_name in _expected_subpackages():
-        expected.update(f"{module_name}.{name}" for name in _expected_surface(module_name))
+        names = _expected_surface(module_name) | set(
+            generator.EXPLICIT_ENTRIES.get(module_name, ())
+        )
+        expected.update(f"{module_name}.{name}" for name in names)
     assert len(expected) >= 1850
 
     def inventory(names: set[str]) -> bytes:
