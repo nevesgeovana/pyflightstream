@@ -66,6 +66,14 @@ Existing-output protection still requires an explicit rebuild request.
 **`--check-frozen` means REFUSE INSTEAD OF WARN.** It opts into the earlier
 refusals for affected averages and reference mismatches; the warning is still
 written to `post.log`.
+One status is never refused, with or without the check: `RAN_MISSING_LOG`
+(FR-413, the owner's rule of 2026-10-05), a point whose outputs are all present
+and whose solver log is absent. Its freeze cannot be read, so the check has
+nothing to refuse it on: every product of the point is written, and `post.log`
+carries exactly one WARNING for it, naming the status and what is unavailable
+(the residual history, the convergence verdict, the frozen-point reading, the
+solver clock and its iteration count), and, with the check, that its freeze
+cannot be read.
 An excluded failed status is named under `runs/<run_id>` with the status and
 flag; rebuilding retires its previous products according to the archive choice.
 Averages wholly before a proven freeze keep their products. A freeze affects

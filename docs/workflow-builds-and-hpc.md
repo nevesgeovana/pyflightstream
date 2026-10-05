@@ -182,7 +182,9 @@ job_end_files = ["FTS{sim}.o*", "FTS{sim}.e*"]
 ```
 
 When every listed pattern matches a file in the point's folder and the solver
-log does not exist, `collect` records the point `FAILED_EXECUTION`; the
+log does not exist, `collect` records the point `FAILED_EXECUTION`, unless
+its outputs are all there and its script declared the log (`RAN_MISSING_LOG`,
+below); the
 record's `error` names the files it read and the log that is missing, and
 carries the last 20 lines of each end-of-job file, read as bytes and decoded
 with replacement. When only some of them exist, or the log exists, or the
@@ -191,6 +193,31 @@ scheduler is written in the package: the names above are the ones reported
 for one cluster, not yet confirmed from a real cluster folder, so write your
 scheduler's own. The rule is a heuristic: a log delayed on a shared file
 system, or a job the scheduler requeued, can be misjudged.
+
+### A point whose log is gone and whose outputs are all there
+
+Since 0.37.0 (FR-413), a point whose declared outputs are all present and
+settled while the solver log its script exports (`EXPORT_LOG`) is absent is
+recorded `RAN_MISSING_LOG`: the log was deleted after the run, or never came
+back. `collect` decides it before it waits for the log and before it reads the
+end-of-job files above, for a point submitted alone, a steady job and a point
+of a grouped job (`--batch`, `--polar-sweep`) alike, so such a point is neither
+waited for forever nor failed. The record's `residual_note` names what only the
+log carries and is therefore unavailable: the residual history, the
+convergence verdict, the frozen-point reading, the solver clock (`wall_time_s`,
+recorded null, never estimated) and the solver's own iteration count. On
+26.124 an unsteady log has no completion line either, so the status says the
+run ended with its outputs, not that it completed or converged; a failure the
+outputs themselves prove (another operating point than the row asked) is
+recorded as that failure. A point missing any other declared output is
+`FAILED_INCOMPLETE_OUTPUT` as before. A machine whose profile states
+`export_log = false` exports no log from the script, so nothing is declared and
+its collect waits for the scheduler's log as before.
+
+The decision is a reading of files: a job still running, caught in the moment
+between its last export and `EXPORT_LOG`, would read the same way; `collect
+--watch` sees the outputs settle over two observations first, and the log
+export follows them at once.
 
 ## What the record's digests guard, and where that stops
 

@@ -52,6 +52,12 @@ arrive, takes a FAILED value with the scheduler and the descriptor named.
 0.17.0 already spent a status value on ``SUBMITTED`` and the board carries a
 node asking whether a seventh terminal status was worth amending a published
 vocabulary for; the answer to that question must not be that so was a ninth.
+0.37.0 adds one that is not a failure, RAN_MISSING_LOG (FR-413): every output of
+the point is present and its declared solver log is not, a run that ENDED with
+its outputs and whose log was deleted or never copied back. It is decided by
+:func:`pyflightstream.workspace._missing_log.point_absent_logs` before any rule
+that waits for the log or reads the job's end files, so such a point is neither
+waited for forever nor failed as a job that ended without its log.
 """
 
 from __future__ import annotations
@@ -79,8 +85,21 @@ from typing import TYPE_CHECKING
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
+from pyflightstream.run._collect_logs import JOB_END_TAIL_LINES as JOB_END_TAIL_LINES
+from pyflightstream.run._collect_logs import LOG_SUFFIX as LOG_SUFFIX
+from pyflightstream.run._collect_logs import (
+    NativeLog,
+    job_ended_without_log,
+    native_log,
+    observed_paths,
+)
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._batches import job_of
+from pyflightstream.workspace._missing_log import (
+    missing_log_fields,
+    missing_log_note,
+    point_absent_logs,
+)
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
@@ -464,151 +483,38 @@ def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
     return candidate
 
 
-#: The suffix every solver log this package names carries, from EXPORT_KINDS.
-LOG_SUFFIX = "_log.txt"
-
-
-@dataclass(frozen=True)
-class _NativeLog:
-    """What the HPC profile's ``native_log`` resolved to for one record."""
-
-    #: The sentence of a refusal, or None.
-    refusal: str | None = None
-    #: The file the scheduler is writing, or None when there is none to read.
-    source: Path | None = None
-    #: The declared name the row's log is read under.
-    target: Path | None = None
-
-
-def _native_log(
-    workspace: CampaignWorkspace,
-    record: RunRecord,
-    names: list[str],
-    work_dir: Path,
-) -> _NativeLog:
-    """Find the log the SCHEDULER wrote, and the declared name it is read under (0.21.0).
-
-    Some machines abort at
-    ``EXPORT_LOG``: the job runs, every other export lands, and the log the
-    package judges the run by never arrives, so `collect` waits for a file
-    nothing will ever write. Such a machine writes its own log beside the run,
-    and its HPC profile names it (``native_log = "FTS{sim}.l*"``); this copies
-    that file to the declared name, so everything downstream reads one log
-    whatever the scheduler called it.
-
-    NOTHING IS COPIED HERE, since 0.24.0. This used to copy the scheduler's
-    file to the declared name BEFORE the two settling observations, which then
-    watched the COPY: a file nothing writes is settled by construction, so a
-    job still running was collected and judged by the log as it stood at the
-    first sweep, and the copy was never refreshed once it existed. The source
-    is what is OBSERVED (:func:`collect_once`), and it is copied once it has
-    settled (:func:`_copy_native_log`), over whatever an earlier sweep left.
-
-    The answer carries a refusal; or the scheduler's file and the declared
-    name; or neither, when there is nothing to say: no profile, no
-    ``native_log``, or the scheduler's file not written yet, which is a WAIT
-    and not a failure.
-    """
-    profile = resolve_hpc_profile(workspace.inputs_dir)
-    pattern = getattr(profile, "native_log", None)
-    if not pattern:
-        return _NativeLog()
-    declared = [name for name in names if str(name).endswith(LOG_SUFFIX)]
-    if not declared:
-        return _NativeLog(
-            f"the HPC profile names a native log ({pattern!r}) and this point declares no "
-            f"output ending in {LOG_SUFFIX!r}, so there is no name to copy it to. The row "
-            "declares its log among its outputs, which is how it is collected and how the "
-            f"run is judged; its outputs are {', '.join(Path(n).name for n in names)}."
-        )
-    target = work_dir / declared[0]
-    # `{point}` IS THE FOLDER THIS RECORD'S OUTPUTS ARE IN, by the one rule,
-    # not `point_name` alone: that is empty for exactly the records 0.21.1
-    # supports, so a profile naming the point in its pattern would glob nothing,
-    # copy no log, and wait for a file nothing writes (the qa lens, FIX-0211).
-    glob = pattern.format(sim=record.sim_id, point=_datapoint_of(record) or "", **{})
-    found = sorted(path for path in work_dir.glob(glob) if path.is_file())
-    if len(found) > 1:
-        return _NativeLog(
-            f"the HPC profile's native_log ({pattern!r}) matches {len(found)} files in "
-            f"{work_dir}: {', '.join(path.name for path in found)}. Which of them is this "
-            "run's log is not a guess this package makes, because the log is what the run "
-            "is judged by. Narrow the pattern, or clear the ones that are not this run's."
-        )
-    return _NativeLog(source=found[0] if found else None, target=target)
-
-
 def _native_log_or_job_end(
     workspace: CampaignWorkspace, record: RunRecord, names: list[str], work_dir: Path
-) -> tuple[_NativeLog, CollectOutcome | None]:
+) -> tuple[NativeLog, CollectOutcome | None, tuple[str, ...]]:
     """Resolve the scheduler's log, and the outcome of a point that stops the sweep here.
 
-    The outcome is the refusal :func:`_native_log` states, or the FAILED_EXECUTION
-    record of a job that ended without its log (:func:`_job_ended_without_log`);
-    None when the point is observed as before.
+    The outcome is the refusal ``native_log`` states, or the FAILED_EXECUTION
+    record of a job that ended without its log (``job_ended_without_log``);
+    None when the point is observed as before. The third answer names the
+    declared solver logs that are absent while every other output is present
+    (FR-413): asked BEFORE the end-of-job files are read, so such a point is
+    RAN_MISSING_LOG and not FAILED_EXECUTION, and never when the scheduler has
+    written a log of its own that collect copies to the declared name.
     """
-    native = _native_log(workspace, record, names, work_dir)
-    if native.refusal is not None:
-        return native, CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal)
-    return native, _job_ended_without_log(workspace, record, names, work_dir, native)
-
-
-#: The lines of each end-of-job file a FAILED_EXECUTION record carries (FR-311 R2).
-JOB_END_TAIL_LINES = 20
-
-
-def _job_ended_without_log(
-    workspace: CampaignWorkspace,
-    record: RunRecord,
-    names: Sequence[str],
-    work_dir: Path,
-    native: _NativeLog,
-) -> CollectOutcome | None:
-    """Record FAILED_EXECUTION for a job whose end-of-job files exist and whose log does not.
-
-    FR-311. The HPC profile's ``job_end_files`` lists the files the scheduler
-    writes when a job ends; nothing of one scheduler is written here. When
-    every pattern matches a file and the solver log does not exist (the
-    ``native_log`` match, or else the declared log), the job ended without
-    it: the record is written FAILED_EXECUTION, carrying the last
-    :data:`JOB_END_TAIL_LINES` lines of each matched file, read as bytes and
-    decoded with replacement. None, and the sweep goes on as before, when the
-    profile lists none, when a pattern matches nothing, when the point
-    declares no log, or when the log exists. A heuristic (R5): a log delayed
-    on a shared file system, or a requeued job, can be misjudged.
-    """
-    profile = resolve_hpc_profile(workspace.inputs_dir)
-    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
-    logs = [work_dir / name for name in names if str(name).endswith(LOG_SUFFIX)]
-    if not patterns or not logs or native.source is not None or any(p.exists() for p in logs):
-        return None
     point = _datapoint_of(record) or ""
-    matched: list[Path] = []
-    for pattern in patterns:
-        found = sorted(p for p in work_dir.glob(pattern.format(sim=record.sim_id, point=point)))
-        if not any(path.is_file() for path in found):
-            return None
-        matched += [path for path in found if path.is_file()]
-    tails = [
-        f"--- last {JOB_END_TAIL_LINES} lines of {path.name} ---\n"
-        + "\n".join(
-            path.read_bytes().decode("utf-8", errors="replace").splitlines()[-JOB_END_TAIL_LINES:]
+    native = native_log(workspace, record, names, work_dir, point=point)
+    if native.refusal is not None:
+        return (
+            native,
+            CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal),
+            (),
         )
-        for path in matched
-    ]
-    error = (
-        f"the job ended without its solver log: {', '.join(p.name for p in matched)} exist "
-        f"(job_end_files of the HPC profile) and {', '.join(p.name for p in logs)} does not "
-        "(FR-311).\n" + "\n".join(tails)
-    )
-    failed = record.model_copy(update={"status": RunStatus.FAILED_EXECUTION, "error": error})
-    _write(workspace, failed)
-    return CollectOutcome(
-        run_id=record.run_id, state="FAILED", detail=error.split("\n", 1)[0], record=failed
-    )
+    absent = point_absent_logs(record, work_dir) if native.source is None else ()
+    if absent:
+        return native, None, absent
+    failed = job_ended_without_log(workspace, record, names, work_dir, native=native, point=point)
+    if failed is None:
+        return native, None, ()
+    detail = str(failed.error).split("\n", 1)[0]
+    return native, CollectOutcome(record.run_id, "FAILED", detail, record=failed), ()
 
 
-def _copy_native_log(native: _NativeLog) -> None:
+def _copy_native_log(native: NativeLog) -> None:
     """Copy the SETTLED scheduler log to the declared name, over any earlier copy."""
     if native.source is not None and native.target is not None:
         shutil.copy2(native.source, native.target)
@@ -891,29 +797,14 @@ def collect_once(
         # waits on it: on a machine that aborts at EXPORT_LOG the declared log
         # is the one file that never arrives, and the sweep would wait forever.
         # FR-311: and A JOB THAT ENDED WITHOUT ITS LOG is failed, not waited for forever.
-        native, stopped = _native_log_or_job_end(workspace, record, names, work_dir)
+        # FR-413: AN ABSENT LOG BESIDE PRESENT OUTPUTS is not waited for: the
+        # settled outputs decide, and the point is completed RAN_MISSING_LOG.
+        native, stopped, absent = _native_log_or_job_end(workspace, record, names, work_dir)
         if stopped is not None:
             report.failed.append(stopped)
             continue
-        # G45: A TECPLOT THE PACKAGE WRITES IS NOT WAITED FOR. The solver writes
-        # its VTK and never the .dat, which is written from it once the job is
-        # settled, below; waiting for it was waiting forever.
-        written_here = {
-            str(translation.get("dat"))
-            for translation in record.surface_translations or []
-            if isinstance(translation, Mapping)
-        }
-        waited = [name for name in names if name not in written_here]
-        # THE SCHEDULER'S FILE STANDS IN FOR THE DECLARED LOG while the two
-        # observations are taken, because it is the one the job is writing.
-        # Where the scheduler has written nothing yet the declared name is
-        # observed as it always was, and reads as missing.
-        paths = [
-            native.source
-            if native.source is not None and work_dir / name == native.target
-            else work_dir / name
-            for name in waited
-        ]
+        names = [name for name in names if name not in absent]
+        waited, paths = observed_paths(record, names, work_dir, native)
         first = observer(paths)
         sleep(interval)
         second = observer(paths)
@@ -956,6 +847,7 @@ def collect_once(
             sim_dir,
             assessor,
             job_log=None if job_log is None else work_dir / job_log,
+            missing_logs=absent,
         )
         if outcome.state == "COLLECTED":
             report.collected.append(outcome)
@@ -1013,6 +905,65 @@ def _job_log_name(
     return f"{Path(record.script_path).stem}{LOG_SUFFIX}"
 
 
+#: What the package's own assessor read, stamped on the collected record (0.21.0).
+_STAMPED_FIELDS: tuple[str, ...] = (
+    "fs_version_reported",
+    "fs_build",
+    "iterations",
+    "residual",
+    "residual_note",
+    "log_file_used",
+    "solver_run_time_s",
+    "solver_initialization_s",
+    "time_steps",
+    # 0.30.0: a quasi-steady wheel's verdict per clocking.
+    "clocking_verdicts",
+    # 0.24.0: WHAT WAS COMPARED, as the local path records it. The verdict
+    # rests on these checks, and a record that kept the verdict and dropped the
+    # comparison could not say what the point was held to. Solver identity
+    # comes from the same point's loads export through the same assessor as the
+    # local path (FR-366).
+    "conditions",
+)
+
+
+def _judged(
+    record: RunRecord,
+    sim_dir: Path,
+    assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+    missing_logs: Sequence[str],
+) -> tuple[RunStatus, str | None, dict[str, object]]:
+    """Return one collected point's status, its error and the fields its assessment read.
+
+    THE DEFAULT JUDGES. It used to be the literal CONVERGED with the assessor
+    an option no caller passed, which meant the shipped command recorded every
+    settled point as converged whatever the solver did; the fallback is the
+    same assessor the local path uses. WHAT THE LOG SAID RIDES WITH THE VERDICT
+    (0.21.0): a replaced assessor answers with the pair its interface defines,
+    the package's own reads the log and everything it read is stamped.
+
+    A POINT WHOSE LOG IS ABSENT (FR-413) is judged by its outputs alone: a
+    failure they prove (another operating point, a refused reference) stands,
+    and anything else is RAN_MISSING_LOG, never a verdict the absent log would
+    have had to give, with every field only a log fills set to null.
+    """
+    stamped: dict[str, object] = {}
+    if assessor is None:
+        assessment = assessment_of_collected(record, sim_dir)
+        status, verdict = assessment.status, assessment.error
+        for field_name in _STAMPED_FIELDS:
+            value = getattr(assessment, field_name, None)
+            if value is not None:
+                stamped[field_name] = value
+    else:
+        status, verdict = assessor(record, sim_dir)
+    if missing_logs and not str(status).startswith("FAILED"):
+        fields = missing_log_fields(missing_logs)
+        status, verdict = RunStatus.RAN_MISSING_LOG, None
+        stamped.update({key: value for key, value in fields.items() if key != "status"})
+    return status, verdict, stamped
+
+
 def _complete(
     workspace: CampaignWorkspace,
     record: RunRecord,
@@ -1021,8 +972,13 @@ def _complete(
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
     *,
     job_log: Path | None = None,
+    missing_logs: Sequence[str] = (),
 ) -> CollectOutcome:
     """Collect one settled job's outputs and write its completed record.
+
+    ``missing_logs`` names the declared solver logs the sweep found absent
+    beside every other output (FR-413): the point is collected without them
+    and recorded RAN_MISSING_LOG unless its outputs prove a failure.
 
     A JOB OVER SEVERAL POINTS IS FINALISED POINT BY POINT, in
     :func:`_complete_sweep`, and everything below is the record that is one
@@ -1036,7 +992,9 @@ def _complete(
     it and carries a comment about the defect that taught it.
     """
     if _is_a_sweep_job(record):
-        return _complete_sweep(workspace, record, sim_dir, assessor, job_log=job_log)
+        return _complete_sweep(
+            workspace, record, sim_dir, assessor, job_log=job_log, missing_logs=missing_logs
+        )
     # 0.30.0: a surface the package failed to translate from the sources the
     # job wrote is the package's failure, not the solver's (`untranslated_surfaces`).
     untranslated: list[str] | None = None
@@ -1057,44 +1015,7 @@ def _complete(
     # NAMED APART FROM THE EXCEPTION ABOVE. `error` is bound by the `except`
     # clause a few lines up, and rebinding it here is a name that means two
     # things in one function; the type checker refused it and was right.
-    # THE DEFAULT JUDGES. It used to be the literal CONVERGED with the
-    # assessor an option no caller passed, which meant the shipped command
-    # recorded every settled point as converged whatever the solver did. A
-    # status field asserting a property nothing evaluated is the defect this
-    # package exists to make structurally impossible, so the fallback is now
-    # the same assessor the local path uses and `None` is not a way to reach
-    # the old behaviour.
-    # WHAT THE LOG SAID RIDES WITH THE VERDICT (0.21.0). A replaced assessor
-    # answers with the pair its interface defines and nothing more; the
-    # package's own reads the log, and everything it read is stamped.
-    stamped: dict[str, object] = {}
-    if assessor is None:
-        assessment = assessment_of_collected(record, sim_dir)
-        status, verdict = assessment.status, assessment.error
-        for field_name in (
-            "fs_version_reported",
-            "fs_build",
-            "iterations",
-            "residual",
-            "residual_note",
-            "log_file_used",
-            "solver_run_time_s",
-            "solver_initialization_s",
-            "time_steps",
-            # 0.30.0: a quasi-steady wheel's verdict per clocking.
-            "clocking_verdicts",
-            # 0.24.0: WHAT WAS COMPARED, as the local path records it. The
-            # verdict above rests on these checks, and a record that kept the
-            # verdict and dropped the comparison could not say what the point
-            # was held to. Solver identity comes from the same point's loads
-            # export through the same assessor as the local path (FR-366).
-            "conditions",
-        ):
-            value = getattr(assessment, field_name, None)
-            if value is not None:
-                stamped[field_name] = value
-    else:
-        status, verdict = assessor(record, sim_dir)
+    status, verdict, stamped = _judged(record, sim_dir, assessor, missing_logs)
     # G02: a job that imported trailing edges is held to the solver's count;
     # G06: one whose solver could not use its disc's profile file, to that line.
     log_file_used = stamped.get("log_file_used")
@@ -1119,6 +1040,8 @@ def _complete(
         **clock_stop_update(record, _working_dir(workspace, record), status),
         **_wall_time_update(record, _working_dir(workspace, record), stamped),
     }
+    if missing_logs:
+        update["wall_time_s"] = None  # FR-413 R2: the solver clock is the log's; never estimated.
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
     raw_steps = stamped.get("time_steps", record.time_steps)
@@ -1236,6 +1159,60 @@ def _is_a_sweep_job(record: RunRecord) -> bool:
     return isinstance(by_point, Mapping) and bool(by_point)
 
 
+def _sweep_point_entry(
+    record: RunRecord,
+    as_point: RunRecord,
+    sim_dir: Path,
+    assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+    *,
+    job_log_text: str | None,
+    missing: Sequence[str],
+) -> tuple[dict[str, object], RunStatus, str | None]:
+    """Assess one point of a submitted sweep: its ``points_ran`` entry, status and error.
+
+    ``as_point`` is the point as a record of its own (its tag as its name, its
+    own point and outputs), which is what both assessors are written against.
+    A point whose own declared log is in ``missing`` (FR-413) is RAN_MISSING_LOG
+    unless its outputs prove a failure, with no iteration count or residual.
+    """
+    tag = str(as_point.point_name)
+    point = dict(as_point.point)
+    collected = list(as_point.outputs)
+    entry: dict[str, object] = {"tag": tag, "point": point}
+    if assessor is None:
+        from pyflightstream.run import LoadsAssessor
+
+        shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
+        assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
+        status, verdict = _log_verdicts(
+            record,
+            sim_dir,
+            collected,
+            assessment.log_file_used,
+            assessment.status,
+            assessment.error,
+            job_log=job_log_text,
+        )
+        read: dict[str, object] = {
+            "iterations": assessment.iterations,
+            "residual": assessment.residual,
+        }
+    else:
+        status, verdict = assessor(as_point, sim_dir)
+        status, verdict = _log_verdicts(
+            record, sim_dir, collected, None, status, verdict, job_log=job_log_text
+        )
+        read = {}
+    note = None
+    if missing and not str(status).startswith("FAILED"):
+        status, verdict, note = RunStatus.RAN_MISSING_LOG, None, missing_log_note(missing)
+        read = dict.fromkeys(read)
+    entry.update(status=str(status), outputs=collected, **read)
+    if note is not None:
+        entry["residual_note"] = note
+    return entry, status, verdict
+
+
 def _complete_sweep(
     workspace: CampaignWorkspace,
     record: RunRecord,
@@ -1243,6 +1220,7 @@ def _complete_sweep(
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
     *,
     job_log: Path | None = None,
+    missing_logs: Sequence[str] = (),
 ) -> CollectOutcome:
     """Collect, assess and finalise EACH point of a submitted sweep (0.24.0).
 
@@ -1293,6 +1271,7 @@ def _complete_sweep(
     for tag, owned in by_point.items():
         if job_log is not None:
             owned = [name for name in owned if not str(name).endswith(LOG_SUFFIX)]
+        owned = [name for name in owned if str(name) not in missing_logs]  # FR-413
         try:
             if tag not in points:
                 raise WorkspaceError(
@@ -1355,33 +1334,14 @@ def _complete_sweep(
                 "points_ran": [],
             }
         )
-        entry: dict[str, object] = {"tag": tag, "point": point}
-        if assessor is None:
-            from pyflightstream.run import LoadsAssessor
-
-            shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
-            assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
-            status, verdict = _log_verdicts(
-                record,
-                sim_dir,
-                collected_by_tag[tag],
-                assessment.log_file_used,
-                assessment.status,
-                assessment.error,
-                job_log=job_log_text,
-            )
-            entry.update(
-                status=str(status),
-                outputs=list(collected_by_tag[tag]),
-                iterations=assessment.iterations,
-                residual=assessment.residual,
-            )
-        else:
-            status, verdict = assessor(as_point, sim_dir)
-            status, verdict = _log_verdicts(
-                record, sim_dir, collected_by_tag[tag], None, status, verdict, job_log=job_log_text
-            )
-            entry.update(status=str(status), outputs=list(collected_by_tag[tag]))
+        entry, status, verdict = _sweep_point_entry(
+            record,
+            as_point,
+            sim_dir,
+            assessor,
+            job_log_text=job_log_text,
+            missing=[name for name in missing_logs if name in by_point[tag]],
+        )
         if job_note is not None:
             entry["residual_note"] = job_note
         ran.append(entry)

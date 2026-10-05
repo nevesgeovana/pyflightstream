@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import time
 import warnings
 from pathlib import Path
@@ -34,7 +33,7 @@ from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.results.log import split_job_log
 from pyflightstream.run.cli import _build_parser, main
 from pyflightstream.run.collect import collect_once
-from pyflightstream.run.matrix import run_matrix
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
 from pyflightstream.workspace._matrix_homes import (
     MATRIX_ARGUMENTS,
@@ -82,12 +81,23 @@ def _cumulative(order: int) -> str:
     return "".join(f"{line}\n" for line in lines[: end + 1])
 
 
-def solve(workspace: CampaignWorkspace, *, logs: bool = True, steady: bool = False) -> None:
+def _point_of(record, name: str) -> dict:
+    """The point an output belongs to: the record's own, or its tag's in a steady job."""
+    submission = record.submission or {}
+    for tag, owned in (submission.get("declared_by_point") or {}).items():
+        if name in owned:
+            return dict((submission.get("points_by_tag") or {}).get(tag) or {})
+    return dict(record.point)
+
+
+def solve(workspace: CampaignWorkspace, *, logs: bool = True, ended: bool = True) -> None:
     """Write every declared output of every SUBMITTED point where its job writes it.
 
     A grouped point writes into its batch folder, with its log as the
     cumulative copy the job exports for it; a point run alone writes into its
-    own datapoint folder, with its log under the declared name.
+    own datapoint folder (a steady job into its simulation folder), with its
+    log under the declared name. With ``ended`` a grouped job leaves its end
+    record; without it, the job is still running.
     """
     for record in workspace.read_manifest():
         submission = record.submission or {}
@@ -95,10 +105,11 @@ def solve(workspace: CampaignWorkspace, *, logs: bool = True, steady: bool = Fal
         sim = workspace.sim_dir(record.sim_id)
         if job is not None and job["kind"] == "batch":
             sim = workspace.root / job["dir"] / sim.name
-        folder = sim / str(submission["working_dir"])
+        folder = sim / str(submission.get("working_dir") or "")
         folder.mkdir(parents=True, exist_ok=True)
+        steady = record.recipe == "steady"
         for name in submission["declared_outputs"]:
-            if name in submission.get("declared_logs", []):
+            if name in submission.get("declared_logs", []) or name.endswith("_log.txt"):
                 if logs and job is not None:
                     stem = name[: -len("_log.txt")]
                     cumulative = folder / f"{stem}.cumulative-log.txt"
@@ -107,36 +118,67 @@ def solve(workspace: CampaignWorkspace, *, logs: bool = True, steady: bool = Fal
                     (folder / name).write_text(_cumulative(1), encoding="utf-8")
                 continue
             plain = "_" not in name and name.endswith(".txt")
-            body = loads_for(record.point, steady=steady) if plain else f"{name}\n"
+            point = _point_of(record, name)
+            body = loads_for(point, steady=steady) if plain else f"{name}\n"
             (folder / name).write_text(body, encoding="utf-8")
-        if job is not None:
+        if job is not None and ended:
             end = workspace.root / job["dir"] / f"{Path(job['script']).stem}.end.json"
             end.write_text('{"return_code": 0}', encoding="utf-8")
 
 
+def owner_matrix(folder: Path, sims: tuple[str, ...] = SIMS) -> Path:
+    """The fixture matrix's rows ``sims``, on the grouped run's build and processor count."""
+    header, rule, *rows = (
+        (grouped_run.FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8")
+    ).splitlines()
+    kept = []
+    for row in rows:
+        if row.split("|")[0].strip() not in sims:
+            continue
+        if row.startswith("7001"):
+            row = row.replace("| 0.0            |", "| 0.0,2.0        |")
+        row = row.replace("| -        | r003", "| wing_clean.fsm | r003")
+        build = f"| 8     | -        | {grouped_run.BUILD}"
+        row = row.replace("| -     | -        | 26.120", build)
+        kept.append(row)
+    path = folder / "inputs" / "matrices" / f"{MATRIX}.fs"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join((header, rule, *kept)) + "\n", encoding="utf-8")
+    return path
+
+
 def grouped_workspace(
-    tmp_path: Path, *, mode: str = "batch", collect: bool = True, logs: bool = True
+    tmp_path: Path,
+    *,
+    mode: str = "batch",
+    collect: bool = True,
+    logs: bool = True,
+    sims: tuple[str, ...] = SIMS,
+    profile_tail: str = "",
+    ended: bool = True,
 ) -> CampaignWorkspace:
     """The owner's workspace: the matrix in ``inputs/matrices/`` alone, run, solved, collected.
 
-    ``mode`` is ``batch`` (one ``--batch 1`` job over both polars) or
-    ``alone`` (each point submitted on its own). With ``collect`` the
-    package's collect has moved the batch home and written the records.
+    ``mode`` is ``batch`` (one ``--batch 1`` job over the polars) or ``alone``
+    (each point, or each steady row, submitted on its own). With ``collect``
+    the package's collect has moved the batch home and written the records.
+    ``profile_tail`` is appended to the HPC profile (a ``[log]`` table);
+    without ``ended`` a grouped job is still running when it is collected.
     """
     workspace, profile, _ = grouped_run._workspace(tmp_path)
-    matrix = grouped_run._matrix(tmp_path)
-    home = workspace.root / "inputs" / "matrices" / matrix.name
-    home.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(matrix, home)
+    if profile_tail:
+        profile.write_text(profile.read_text(encoding="utf-8") + profile_tail, encoding="utf-8")
+    home = owner_matrix(workspace.root, sims)
     executor = grouped_run._submitting(profile, submit=False)
-    if mode == "batch":
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            grouped_run._plan(workspace, home, mode="batch", batch=1)
-        grouped_run._run(workspace, home, executor=executor)
-    else:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if mode == "batch":
+            grouped_run._plan(workspace, home, mode="batch", batch=1, sims=sims)
+            grouped_run._run(workspace, home, executor=executor)
+        else:
+            plan_matrix(
+                home, workspace, name=MATRIX, recipes={}, recipe_registry=workflow_registry()
+            )
             run_matrix(
                 home,
                 workspace,
@@ -146,7 +188,7 @@ def grouped_workspace(
                 assess=grouped_run.converged,
                 executor=executor,
             )
-    solve(workspace, logs=logs)
+    solve(workspace, logs=logs, ended=ended)
     if collect:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -168,7 +210,7 @@ def the_owner_s_deletions(workspace: CampaignWorkspace, *, run_zero: bool = True
     if run_zero:
         home = workspace.root / "inputs" / "matrices" / f"{MATRIX}.fs"
         text = home.read_text(encoding="utf-8")
-        row = next(line for line in text.splitlines() if line.startswith(SIMS[-1]))
+        row = next(line for line in text.splitlines() if line.startswith("7003"))
         cells = row.split("|")
         cells[2] = cells[2].replace("1", "0")
         home.write_text(text.replace(row, "|".join(cells)), encoding="utf-8")
@@ -178,7 +220,12 @@ def the_owner_s_deletions(workspace: CampaignWorkspace, *, run_zero: bool = True
 
 
 def pyfs(argv: list[str], cwd: Path, capsys) -> tuple[int, str]:
-    """Run ``pyfs-matrix`` as she does, from ``cwd``; return the exit code and what it printed."""
+    """Run ``pyfs-matrix`` as she does, from ``cwd``; return the exit code and what it printed.
+
+    Its standard output first, then its standard error; what the builders
+    printed before is read away first.
+    """
+    capsys.readouterr()
     here = Path.cwd()
     os.chdir(cwd)
     try:

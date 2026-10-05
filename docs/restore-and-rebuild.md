@@ -96,7 +96,22 @@ What a rebuild decides, and how:
   there whose bytes differ from the workspace's. The workspace's own inputs are
   never changed.
 - **Outputs decide the status.** A truncated or missing output is
-  `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`.
+  `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`. A point whose outputs are all
+  there and whose solver log was deleted is `RAN_MISSING_LOG` (FR-413), never
+  refused for the log alone; its record leaves the solver clock and the
+  iteration count unstated.
+- **Grouped runs (`--batch`, `--polar-sweep`)** are rebuilt like points run
+  alone (FR-412). A batch point's script names its batch folder
+  (`sims/batch/<matrix>_b<ID>/sim_<id>/`), and the rendering is compared there.
+  A point whose outputs are in its datapoint folder is completed and names its
+  batch and its job, as `collect` records it; the job entry comes from the plan
+  receipt `post/<matrix>/plan.json`, and what only the submission carried (the
+  scheduler's fields) is left empty, never invented. A simulation still in its
+  batch folder, its batch not yet moved home, is rebuilt from there and left
+  `SUBMITTED` with its job entry: `pyfs-matrix collect` moves it home and
+  completes it, since a rebuild writes nothing in the workspace. Without a plan
+  receipt naming its job such a simulation is refused, with the remedy (restore
+  the plan receipt, `pyfs-matrix restore plan`).
 - **A row switched off after it ran** (`RUN 0`) still describes that run: the
   row is set to `RUN 1` in the throwaway copy only, and the record says so.
   The throwaway copy holds the matrix once, in the home the workspace keeps
@@ -144,9 +159,13 @@ and say nothing about the run: `package_version`, `package_commit`,
 and sometimes `started_at` and `finished_at`, which are read from the dates of
 the files. A local run's `argv`, `executor` and `cwd` are reconstructed.
 
-Not rebuilt, each named with the reason: a simulation stored compressed
-(`sims/sim_<id>.zip`), one retired by `delete-sims`, one whose folder holds no
-declared output, and the cases above that are refused.
+Not rebuilt, each named with the reason and what to do: a simulation stored
+compressed (`sims/sim_<id>.zip`), one retired by `delete-sims`, one whose
+folder holds no declared output, and the cases above that are refused. The
+summary ends with the count rebuilt and the count refused
+(`rebuild: 2 rebuilt, 1 refused`), and `--apply` with nothing to write prints
+every refusal before it stops (FR-412), where 0.36.0 printed only that no
+record was rebuilt.
 
 !!! warning
     Never run `pyfs-matrix run --resume` on a simulation a rebuild refused:

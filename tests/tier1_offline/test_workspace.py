@@ -151,7 +151,7 @@ def test_the_manifest_record_refuses_an_unknown_field():
         make_record(provenance_note="not a field of this model")
 
 
-def test_the_terminal_status_set_is_exactly_the_nine_it_declares():
+def test_the_terminal_status_set_is_exactly_the_ten_it_declares():
     """FR-46: a tenth status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
@@ -172,6 +172,11 @@ def test_the_terminal_status_set_is_exactly_the_nine_it_declares():
     FAILED_MARKED is the person's verdict on a run that may have converged,
     given with `pyfs-matrix mark-failed`, so every reader asking
     `startswith("FAILED")` treats it as a failure without a new branch.
+
+    The tenth, 0.37.0 (FR-413), is the owner's requirement and NOT a failure:
+    RAN_MISSING_LOG is a run whose outputs are all present and whose declared
+    solver log is absent, collected and posted with what the log would have
+    said named as unavailable.
     """
     assert {status.value for status in RunStatus} == {
         "CONVERGED",
@@ -183,6 +188,7 @@ def test_the_terminal_status_set_is_exactly_the_nine_it_declares():
         "WALLTIME_REACHED",
         "SUBMITTED",
         "FAILED_MARKED",
+        "RAN_MISSING_LOG",
     }
 
 

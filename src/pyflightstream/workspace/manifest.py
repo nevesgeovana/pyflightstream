@@ -179,6 +179,14 @@ class RunStatus(enum.StrEnum):
     #: delete-sims) treats it as a failure without learning a new name. The
     #: record keeps what it was in ``marked``.
     FAILED_MARKED = "FAILED_MARKED"
+    #: FR-413, 0.37.0: the point's outputs are all present and its declared
+    #: solver log is absent (deleted after the run, or never copied back). NOT A
+    #: FAILURE: the run ENDED with its outputs, which are collected and posted;
+    #: what only the log carries (the residual history, the convergence verdict,
+    #: the frozen-point reading, the solver clock and its iteration count) is
+    #: named in ``residual_note`` as unavailable, and the point is never
+    #: CONVERGED by assumption.
+    RAN_MISSING_LOG = "RAN_MISSING_LOG"
 
 
 class ExecutorRecord(TypedDict):

@@ -583,9 +583,9 @@
    "positional": 4
   },
   "run/_rebuild.py:_rebuild_one": {
-   "complexity": 13,
-   "branches": 13,
-   "statements": 55,
+   "complexity": 4,
+   "branches": 3,
+   "statements": 19,
    "positional": 8
   },
   "run/_rebuild.py:_refuse_before_any_work": {
@@ -595,15 +595,9 @@
    "positional": 6
   },
   "run/_rebuild.py:rebuild": {
-   "complexity": 23,
-   "branches": 24,
-   "statements": 83,
-   "positional": 1
-  },
-  "run/_rebuild.py:summary_lines": {
-   "complexity": 13,
-   "branches": 14,
-   "statements": 29,
+   "complexity": 18,
+   "branches": 18,
+   "statements": 76,
    "positional": 1
   },
   "run/_rebuild_evidence.py:_collect_read_only": {
@@ -667,15 +661,15 @@
    "positional": 1
   },
   "run/collect.py:_complete": {
-   "complexity": 13,
-   "branches": 13,
+   "complexity": 11,
+   "branches": 10,
    "statements": 45,
    "positional": 5
   },
   "run/collect.py:_complete_sweep": {
-   "complexity": 17,
-   "branches": 18,
-   "statements": 71,
+   "complexity": 16,
+   "branches": 16,
+   "statements": 62,
    "positional": 4
   },
   "run/collect.py:_log_verdicts": {
@@ -1648,9 +1642,11 @@
     "records",
     "_rebuild",
     "_rebuild_evidence",
+    "_rebuild_grouped",
     "_assemble",
     "collect",
     "_batch_collect",
+    "_collect_logs",
     "_record_files",
     "matrix",
     "__init__",
