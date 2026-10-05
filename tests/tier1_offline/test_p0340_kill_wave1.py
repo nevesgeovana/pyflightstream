@@ -200,7 +200,11 @@ def _spec_version(command: str) -> str:
     registry = CommandRegistry.load()
     if command in registry.for_version("26.120"):
         return "26.120"
-    return "26.124" if command in registry.for_version("26.124") else "26.101"
+    if command in registry.for_version("26.124"):
+        return "26.124"
+    # A command the 26.125 manual documents first (FR-423) is built on 26.125;
+    # a command the manual dropped at 26.12 on the last build that holds it.
+    return "26.125" if command in registry.for_version("26.125") else "26.101"
 
 
 _INSTRUMENT_FILES = (
