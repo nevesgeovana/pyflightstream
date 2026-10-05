@@ -1992,7 +1992,10 @@ missing log or for a mark, and the `workspace` row still imports nothing from
 - The version registry orders 26.125 after 26.124 with its manual edition, its
   printed release `2612` and its build `10052026`, inheriting no rows; every
   command its manual documents carries a 26.125 row, and the four it stops
-  printing answer absent (FR-423). The registry is data in
+  printing answer absent (FR-423). The release's probe campaign
+  (`reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`) verified 141 of
+  them on the build and recorded two broken, which the emitter refuses, so the
+  build is `operational`. The registry is data in
   `commands/_meta.yaml`, read by `versions`.
 - `script/_build_forms.py` writes the one form the target build documents
   where two builds document two forms of one request: the every-boundary

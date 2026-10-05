@@ -506,18 +506,33 @@ _spec(
         "arguments of the signature heading"
     ),
 )
+
+
+def _export_revolve(script: Script, workdir: Path) -> None:
+    """Emit the revolve export in the form its build's grammar states.
+
+    26.125 states the revolve loft's form, the one the page's sample prints
+    (SRC-753 p.315), after the heading's six-placeholder form aborted on 26.124
+    and 26.125; earlier builds keep the heading's form.
+    """
+    names = [
+        arg.name
+        for arg in script.registry.for_version(script.version)["EXPORT_REVOLVE_CCS_FILE"].args
+    ]
+    path = workdir / "revolve_export.csv"
+    if "frame" in names:
+        script.emit(
+            "EXPORT_REVOLVE_CCS_FILE", "PYFS_REV", 1, "X", 0.0, 360.0, "OPEN", "C2", "C2", path
+        )
+    else:
+        script.emit(
+            "EXPORT_REVOLVE_CCS_FILE", "PYFS_REV", "TRUE", "SHARP", "TRUE", "C2", "C2", path
+        )
+
+
 _spec(
     command="EXPORT_REVOLVE_CCS_FILE",
-    build_target=lambda script, workdir: script.emit(
-        "EXPORT_REVOLVE_CCS_FILE",
-        "PYFS_REV",
-        "TRUE",
-        "SHARP",
-        "TRUE",
-        "C2",
-        "C2",
-        workdir / "revolve_export.csv",
-    ),
+    build_target=_export_revolve,
     prelude=_seq(_ccs_curve(3), _revolve_loft("PYFS_REV")),
     assert_effect=_export_file_effect("revolve_export.csv"),
     observe=_export_file_read("revolve_export.csv"),

@@ -154,11 +154,11 @@ differs from the one written now. See
 ## FlightStream 26.125 (FR-423)
 
 26.125 is a registered build: it resolves as `26.125` (vendor name 26.12), is
-ordered after 26.124, and its manual edition backs a `documented` row for
-every command it documents. `pyflightstream.support_table()` lists it at level
-`documented` until its probe campaign runs. To run on it, add its executable to
-the machine's executables configuration under `26.125`, and run the probe
-campaign before relying on a `documented` command. Nothing changes for 26.124
+ordered after 26.124, and its manual edition backs a row for every command it
+documents. The probe campaign of the release verified 141 of its commands on
+the build, so `pyflightstream.support_table()` lists it at level
+`operational`. To run on it, add its executable to the machine's executables
+configuration under `26.125`. Nothing changes for 26.124
 and earlier: every script, record and product of another build is
 byte-identical.
 
@@ -192,6 +192,15 @@ What differs on 26.125:
   `SOLVER_TIME_AVERAGING` have no 26.125 row, so a script for 26.125 that
   emits them, through `Script.emit` or a row's `RAW` column, is refused; the
   workflows write the forms above instead.
+- **Recorded broken on 26.125.** `CREATE_FREE_SURFACE_TFI_MESH` and
+  `NEW_OFF_BODY_STREAMLINE` failed on the documented form in the probe
+  campaign; no run type writes either, and the emitter refuses both.
+- **Arguments 26.125 requires.** `DIRECTION` of the relaxed CCS trailing edges
+  (`NEW_CCS_FUSELAGE_RELAXED_TE`, `NEW_CCS_REVOLVE_RELAXED_TE`), and `SPACE`
+  and `AXIS` of the flap cove and the morphing surface
+  (`NEW_CCS_WING_FLAP_COVE`, `NEW_CCS_WING_MORPHING_SURFACE`) are required on
+  26.125, and the revolve CCS export (`EXPORT_REVOLVE_CCS_FILE`) takes the
+  revolve loft's arguments.
 - **Refused on 26.125, admitted on 26.124 only.** Normal probes on an unsteady
   row (`kind = "normal"`, FR-417) and the additional post. Direct mesh
   morphing (FR-341) is the reverse: refused on 26.124, whose build does not run

@@ -24,7 +24,7 @@ CREATE_FREE_SURFACE_TFI_MESH:
       type: int
   manual_ref: "SRC-753 p.338"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "script processing aborted at the command: on a session holding the probe blade, the documented call raised a modal error dialog naming a perimeter curve with zero virtual curves assigned, and the solver was terminated; the manual states no precondition, so what the free surface needs before it is not measured"}
   notes: >
     Creates a free-surface mesh parallel to the XY plane of the reference
     system: its height, its extent in X from the minimum to the maximum,

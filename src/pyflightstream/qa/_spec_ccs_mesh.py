@@ -33,7 +33,7 @@ from pyflightstream.qa._spec_ccs_noise import (
     _wing_loft,
     ccs_probe_text,
 )
-from pyflightstream.qa._spec_kit import _emit, _seq, _spec
+from pyflightstream.qa._spec_kit import _emit, _emit_full, _seq, _spec
 from pyflightstream.qa.probes import ProbeArtifacts
 from pyflightstream.script import Script
 
@@ -315,7 +315,8 @@ def _family_settings(family: _Family) -> None:
 
 def _relaxed_trailing_edges(family: _Family) -> None:
     name = family.name
-    relaxed = _emit(f"NEW_CCS_{name}_RELAXED_TE", 0.5, 0.2, 0.8)
+    # 26.125 prints a fourth token, DIRECTION (SRC-753 pp.312, 315); 0 is axial.
+    relaxed = _emit_full(f"NEW_CCS_{name}_RELAXED_TE", 0.5, 0.2, 0.8, tail=(("direction", "0"),))
     _set_chapter(
         family,
         f"NEW_CCS_{name}_RELAXED_TE",
@@ -353,13 +354,32 @@ def _wing_variants() -> None:
     _set_chapter(
         _WING,
         "NEW_CCS_WING_MORPHING_SURFACE",
-        _emit("NEW_CCS_WING_MORPHING_SURFACE", "PYFS_MORPH", 0.5, 0.9, 0.25, 0.25, 0.5, 20.0),
+        _emit_full(
+            "NEW_CCS_WING_MORPHING_SURFACE",
+            "PYFS_MORPH",
+            0.5,
+            0.9,
+            0.25,
+            0.25,
+            0.5,
+            20.0,
+            tail=(("space", "PARAMETRIC"), ("axis", "Y")),
+        ),
         "a wing lofted after a morphing surface has a different mesh",
     )
     _set_chapter(
         _WING,
         "NEW_CCS_WING_FLAP_COVE",
-        _emit("NEW_CCS_WING_FLAP_COVE", "PYFS_COVE", 0.5, 0.9, 0.7, 0.8, "1"),
+        _emit_full(
+            "NEW_CCS_WING_FLAP_COVE",
+            "PYFS_COVE",
+            0.5,
+            0.9,
+            0.7,
+            0.8,
+            "1",
+            tail=(("space", "PARAMETRIC"), ("axis", "Y")),
+        ),
         "a wing lofted after a flap cove has a different mesh",
     )
     _undo_chapter(

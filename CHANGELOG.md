@@ -153,8 +153,13 @@ FlightStream versions.
   that no longer asks a family retires its earlier copies (FR-420).
 - FlightStream 26.125 is a registered build, resolving as `26.125` (vendor name
   26.12) at build `10052026`, its manual edition backing a `documented` row for
-  every command it documents; `pyflightstream.support_table()` lists it at
-  level `documented` until its probe campaign runs. Twelve commands its manual
+  every command it documents. The probe campaign of the release verified 141 of
+  its commands on the build, so `pyflightstream.support_table()` lists it at
+  level `operational`; `CREATE_FREE_SURFACE_TFI_MESH` and
+  `NEW_OFF_BODY_STREAMLINE` are recorded broken there and the emitter refuses
+  them. On 26.125 `DIRECTION` of the relaxed CCS trailing edges and `SPACE` and
+  `AXIS` of the flap cove and the morphing surface are required, and the
+  revolve CCS export takes the revolve loft's arguments. Twelve commands its manual
   documents first enter the command database, each with a probe specification;
   the setup keys `solver_time_averaging` and
   `aeroelastic_convergence_threshold`, the `[import.ccs]` key
@@ -247,7 +252,7 @@ FlightStream versions.
   left-out wording change the outputs by default, `runs.json` readers must
   accept `RAN_MISSING_LOG`, and a `[[prune_step_exports]]` key the mode never
   read (for example `older_than_days`) must be removed. FlightStream 26.125 is
-  registered at level `documented`; normal probes remain admitted on 26.124
+  registered at level `operational`; normal probes remain admitted on 26.124
   only.
 
 ## [0.36.0] - 2026-10-03

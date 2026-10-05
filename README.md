@@ -96,7 +96,7 @@ and the evidence behind it is narrower than for the supported rows.
 | 26.122 | 26.12 | `operational` |
 | 26.123 | 26.12 | `operational` |
 | 26.124 | 26.12 | `operational` |
-| 26.125 | 26.12 | `documented` |
+| 26.125 | 26.12 | `operational` |
 
 `operational` means the minimal geometry-to-loads workflow builds for that
 version, checked by a test; `documented` means the manual has been read but
