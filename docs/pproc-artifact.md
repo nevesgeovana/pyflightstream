@@ -551,8 +551,8 @@ to format there.
 numeric) and `settings/<matrix>_settings.codebook.json` beside it,
 from the solver-setup snapshot of every recorded point (FR-419). State
 `settings_codebook = false` to write neither; the products are then those of 0.36.0
-byte for byte. A point whose record holds no snapshot is named in `post.log` and in
-`products.json` under `skipped`, with no row. The encoding is the
+byte for byte. A point whose record holds no snapshot has no row and one INFO line in `post.log`
+(not a skip); with no snapshot at all neither file is written. The encoding is the
 [settings codebook](settings-codebook.md#the-campaign-product) page.
 
 ### Installed-frame copies of the inflow tables

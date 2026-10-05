@@ -144,18 +144,17 @@ _NO_STEP_MESSAGE = (
     r"\(RPT-134\); the table is posted as the march stands\."
 )
 
-#: FR-419: the message of a point without a row in the settings table, and the
-#: lines of the manifest that name the settings products.
+#: FR-419: the two INFO messages of the settings table (a point without a row, and a matrix
+#: without any), and the lines of the manifest that name the settings products.
 _NO_SNAPSHOT_MESSAGE = (
-    r"point \S+ has no row in the settings table: its record holds no solver-setup "
-    r"snapshot[^\"\n]*"
+    r"(?:no row in the settings table: its record holds no solver-setup snapshot[^\"\n]*"
+    r"|no point of the matrix has a solver-setup snapshot, so the settings table "
+    r"and its codebook are not written)"
 )
 _SETTINGS_MANIFEST_LINE = (
-    r'(?:    "[^"]+",?|   \]|  \},?|  "settings/[^"]+": (?:\{|"[^"]*",?)'
-    r'|   "kind": "settings_codebook",|   "runs": \[)'
+    r'(?:  "settings/[^"]+": \{|   "kind": "settings_codebook",|   "runs": \[|    "[^"]+",?'
+    r"|   \]|  \},?)"
 )
-_SETTINGS_MANIFEST_LINE_CHOICES = rf'^(?:{_SETTINGS_MANIFEST_LINE}|  "[^"]+": "[^"]*",?)$'
-_COMMA_PAIR = r'(?P<kept>  "[^"]+": "[^"]*")\n(?P=kept),'
 
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
@@ -461,44 +460,38 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "post",
         "pattern": "*/products.json",
-        # Only the manifest's lines for those files: their two entries (kind and runs),
-        # the skipped line of a point whose record holds no snapshot, and the comma the
-        # skipped entry before it gains (a removed line and the same line with a comma).
-        "lines": _SETTINGS_MANIFEST_LINE_CHOICES,
-        "block": rf"(?:(?:{_SETTINGS_MANIFEST_LINE}|{_COMMA_PAIR})(?:\n|$))+",
+        # Only the manifest's lines for those files: their two entries (kind and runs).
+        "lines": rf"^{_SETTINGS_MANIFEST_LINE}$",
+        "block": rf"(?:{_SETTINGS_MANIFEST_LINE}(?:\n|$))+",
         "requirement": "FR-419",
         "why": (
-            "the manifest lists the settings table and its codebook with kind "
-            "settings_codebook, and names each point that has no snapshot under skipped"
+            "the manifest lists the settings table and its codebook with kind settings_codebook"
         ),
     },
     {
         "kind": "post",
         "pattern": "*/post.log",
-        # Only the warning of a point without a snapshot, whole.
-        "lines": (
-            r"^WARNING point=settings/\S+#\S+ product=settings/\S+#\S+: "
-            rf"{_NO_SNAPSHOT_MESSAGE}$"
-        ),
+        # Only the INFO line of a point without a snapshot, or of a matrix without any, whole.
+        "lines": rf"^INFO point=.+? product=settings/\S+\.csv: {_NO_SNAPSHOT_MESSAGE}$",
         "requirement": "FR-419",
         "why": (
-            "a point whose record holds no solver-setup snapshot is named in post.log as "
-            "having no row in the settings table (FR-419 R1)"
+            "a point whose record holds no solver-setup snapshot is named in post.log by an "
+            "INFO line as having no row in the settings table (FR-419 R1)"
         ),
     },
     {
         "kind": "post",
         "pattern": "*/post.log.json",
-        # The same warning's record as the log writes it (indent 1 and 3).
+        # The same INFO record as the log writes it (indent 1 and 3).
         "lines": (
             r"^(  \{|  \},?"
-            r'|   "point": "settings/[^"]+#[^"]+",'
-            r'|   "product": "settings/[^"]+#[^"]+",'
+            r'|   "point": "[^"]+",'
+            r'|   "product": "settings/[^"]+\.csv",'
             rf'|   "message": "{_NO_SNAPSHOT_MESSAGE}",'
-            r'|   "remedy": "[^"]+",|   "category": "[a-z_]+",|   "severity": "warning")$'
+            r'|   "remedy": null,|   "category": "[a-z_]+",|   "severity": "info")$'
         ),
         "requirement": "FR-419",
-        "why": "the machine-readable form of the same no-snapshot warning records (FR-419 R1)",
+        "why": "the machine-readable form of the same no-snapshot INFO records (FR-419 R1)",
     },
     {
         "kind": "post",

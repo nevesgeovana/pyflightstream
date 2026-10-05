@@ -9,8 +9,10 @@ point, written from the solver-setup snapshot each record carries.
 
 A row opens with ``POL`` and ``RUN_ID``, its key, as every table of the post opens
 with its polar; the rest is the numeric wide form. A point whose record holds no
-usable snapshot gets no row; it is named in ``products.json`` under ``skipped``,
-which ``post.log`` repeats, and never as a blank row.
+usable snapshot gets no row, never a blank one, and is named by one INFO line of
+``post.log``: it is not a skip, since the table is on by default and a record that
+predates the snapshot is not a refused product. With no snapshot anywhere the two
+files are not written and ``post.log`` says so once.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream.post._stage import post_note
 from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.settings_table import write_settings_table
 from pyflightstream.script.solver_setup import SolverSetup
@@ -88,14 +91,25 @@ def write_settings_product(ctx: _CampaignProducts) -> None:
             for point in record.as_points():
                 snapshot = _snapshot_of(point)
                 if isinstance(snapshot, str):
-                    ctx.skipped[f"{table}#{point.run_id}"] = (
-                        f"point {point.run_id} has no row in the settings table: {snapshot}. "
-                        "Run the point again to record its snapshot."
+                    # AN INFO LINE AND NOT A SKIP: the table is on by default, and a record
+                    # that predates the snapshot is not a refused product, so it must not
+                    # turn `--strict` red or count as a recorded skip.
+                    post_note(
+                        point.run_id,
+                        table,
+                        f"no row in the settings table: {snapshot}; run the point again "
+                        "to record it",
                     )
                     continue
                 setups.append(snapshot)
                 keys.append({POLAR_ID_COLUMN: sim_id, "RUN_ID": point.run_id})
     if not setups:
+        post_note(
+            "campaign",
+            table,
+            "no point of the matrix has a solver-setup snapshot, so the settings table "
+            "and its codebook are not written",
+        )
         return
     paths = [
         refuse_an_existing_product(ctx.out / name, archive=ctx.archive, stamp=ctx.archive_stamp)

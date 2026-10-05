@@ -166,6 +166,7 @@ from pyflightstream.post._stage import (
     _PartialPost,
     _surface_export_skip,
     _warning_record,
+    post_notes,
 )
 from pyflightstream.post._stage import freeze_of_log as freeze_of_log
 from pyflightstream.post._tables import _DECIMALS as _DECIMALS
@@ -677,6 +678,7 @@ def write_campaign_products(
         with (
             _textio.open_text(out / _POST_LOG, "w") as stream,
             collecting_warnings() as caught,
+            post_notes() as notes,
         ):
             stream.write(
                 f"pyflightstream {header['version']} post\n"
@@ -708,7 +710,7 @@ def write_campaign_products(
                 )
                 raise
             finally:
-                records.extend(_warning_record(str(warning.message)) for warning in caught)
+                records.extend([*(_warning_record(str(w.message)) for w in caught), *notes])
                 try:
                     status_records = workspace.read_manifest()
                 except (OSError, ValueError):
@@ -1374,7 +1376,8 @@ def _retire_optional_products(
         if entry.get("kind") in _OPTIONAL_KINDS and name not in products_index:
             skipped.setdefault(
                 name,
-                "retired previous product; the pproc no longer asks for it ([products] key)",
+                "retired previous product; this post no longer writes it "
+                "([products] key, or no snapshot)",
             )
 
 

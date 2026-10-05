@@ -84,8 +84,8 @@ opens with `POL` and `RUN_ID`, the key of its row, and then holds the WIDE form 
 [settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value` and
 `f<id>_prov` for every flag, each a number or `NA`; the legend of the codes is the codebook beside
 it, `settings/<matrix>_settings.codebook.json`. A point whose record holds no solver-setup snapshot
-has no row: `products.json` names it under `skipped` as `settings/<matrix>_settings.csv#<run id>`
-and `post.log` repeats it. The table spans the whole matrix, so a post limited to some simulations
+has no row, and `post.log` names it in one INFO line; it is not a recorded skip. With no snapshot
+anywhere neither file is written. The table spans the whole matrix, so a post limited to some simulations
 does not rebuild it. Both files are listed with kind `settings_codebook`.
 
 ---

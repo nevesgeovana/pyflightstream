@@ -14,6 +14,38 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_0001/M150AL+020BE+000J+100",
+   "product": "settings/matriz_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "camp/sim_0001/M150AL+020BE+000J+150",
+   "product": "settings/matriz_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "camp/sim_0001/M150AL+020BE+000J+200",
+   "product": "settings/matriz_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/matriz_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv",
    "product": "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv",
    "message": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
@@ -43,30 +75,6 @@
    "message": "no matrix row for this simulation; rotor tables cannot be planned",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+100",
-   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+100",
-   "message": "point camp/sim_0001/M150AL+020BE+000J+100 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "configuration",
-   "severity": "warning"
-  },
-  {
-   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+150",
-   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+150",
-   "message": "point camp/sim_0001/M150AL+020BE+000J+150 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "configuration",
-   "severity": "warning"
-  },
-  {
-   "point": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+200",
-   "product": "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+200",
-   "message": "point camp/sim_0001/M150AL+020BE+000J+200 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "configuration",
    "severity": "warning"
   }
  ]

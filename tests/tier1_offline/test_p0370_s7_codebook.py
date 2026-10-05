@@ -12,8 +12,6 @@ import csv
 import json
 from pathlib import Path
 
-import pytest
-
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.post.settings_table import CODEBOOK_VERSION, FLAG_IDS, codebook
 from pyflightstream.script import Script, helpers
@@ -150,57 +148,49 @@ def test_the_key_absent_is_on_and_false_changes_no_byte_of_0_36_0(tmp_path):
     assert set(_manifest(absent)["products"]) - set(_manifest(false)["products"]) == {TABLE, LEGEND}
 
 
-def test_a_point_without_a_snapshot_is_named_and_gets_no_row(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419 R1): skipped in the manifest and post.log, never a blank row."""
-    out = _post(_workspace(tmp_path, key="settings_codebook = true\n", without_snapshot=(1,)))
+def _info_lines(out: Path) -> list[str]:
+    log = (out / "post.log").read_text(encoding="utf-8")
+    return [line for line in log.splitlines() if line.startswith("INFO ") and "settings/" in line]
+
+
+def test_a_point_without_a_snapshot_has_no_row_and_one_info_line_and_no_skip(tmp_path):
+    """P0370-S7-CODEBOOK (FR-419 R1): INFO in post.log, never a blank row, never a skip."""
+    out = _post(_workspace(tmp_path, without_snapshot=(1,)))
     missing = f"camp/sim_{SIM}/{_name(1)}"
     rows = _rows(out / TABLE)
     assert [float(row[f"f{VELOCITY}_value"]) for row in rows] == [SPEEDS[0], SPEEDS[2]]
-    skipped = _manifest(out)["skipped"]
-    assert [name for name in skipped if name.startswith(TABLE)] == [f"{TABLE}#{missing}"]
-    assert "no solver-setup snapshot" in skipped[f"{TABLE}#{missing}"]
-    log = (out / "post.log").read_text(encoding="utf-8")
-    assert missing in log and "settings table" in log
     assert [row["RUN_ID"] for row in rows] == [
         f"camp/sim_{SIM}/{_name(0)}",
         f"camp/sim_{SIM}/{_name(2)}",
     ]
     assert all(cell != "" for row in rows for cell in row.values())
+    assert not [name for name in _manifest(out)["skipped"] if name.startswith("settings/")]
+    (line,) = _info_lines(out)
+    assert missing in line and "no solver-setup snapshot" in line
+    document = json.loads((out / "post.log.json").read_text(encoding="utf-8"))
+    assert [r["severity"] for r in document["records"] if "settings/" in r["product"]] == ["info"]
 
 
-def test_a_rebuild_replaces_the_pair_and_a_key_withdrawn_retires_it(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419 R2): a second post replaces the files; key off retires them."""
-    workspace = _workspace(tmp_path)
-    out = _post(workspace)
-    first = (out / TABLE).read_bytes()
-    _post(workspace, overwrite=True)
-    assert (out / TABLE).read_bytes() == first
-    assert set(_manifest(out)["products"]) >= {TABLE, LEGEND}
-    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = "Wing"\n\n[products]\nsettings_codebook = false\n', encoding="utf-8"
-    )
-    _post(workspace, overwrite=True)
-    assert not (out / TABLE).exists() and not (out / LEGEND).exists()
-    manifest = _manifest(out)
-    assert TABLE not in manifest["products"] and LEGEND not in manifest["products"]
-    assert "retired previous product" in manifest["skipped"][TABLE]
+def test_no_snapshot_anywhere_writes_neither_file_and_says_so_once(tmp_path):
+    """P0370-S7-CODEBOOK (FR-419 R1): no table, one INFO line, no skip."""
+    out = _post(_workspace(tmp_path, without_snapshot=(0, 1, 2)))
+    assert not (out / "settings").exists()
+    assert not any(name.startswith("settings/") for name in _manifest(out)["products"])
+    assert not any(name.startswith("settings/") for name in _manifest(out)["skipped"])
+    lines = [line for line in _info_lines(out) if "no point of the matrix" in line]
+    assert len(lines) == 1, lines
 
 
-def test_the_library_writer_keeps_both_forms_and_keys_only_the_wide_one(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419): keys lead a wide table and read back as text; long refuses."""
-    from pyflightstream.post.settings_table import read_settings_table, write_settings_table
-    from pyflightstream.results import MalformedOutputError
+def test_strict_counts_no_settings_skip_for_records_that_predate_the_snapshot(tmp_path, capsys):
+    """P0370-S7-CODEBOOK (FR-419 R1): --strict sees the same skips with the product on and off."""
+    from pyflightstream.run.cli import main
 
-    setups = [helpers.solver_settings(Script(version="26.120"), velocity=v) for v in SPEEDS]
-    keys = [{"POL": "7", "RUN_ID": f"r{index}"} for index in range(len(SPEEDS))]
-    table, legend = write_settings_table(tmp_path / "w.csv", setups, wide=True, keys=keys)
-    assert legend.name == "w.csv.codebook.json"
-    rows = read_settings_table(table)
-    assert [(row["POL"], row["RUN_ID"]) for row in rows] == [("7", f"r{i}") for i in range(3)]
-    assert [row[f"f{VELOCITY}_value"] for row in rows] == list(SPEEDS)
-    long_table, _ = write_settings_table(tmp_path / "t.csv", setups)
-    assert "POL" not in long_table.read_text(encoding="utf-8").splitlines()[0]
-    with pytest.raises(MalformedOutputError, match="wide"):
-        write_settings_table(tmp_path / "x.csv", setups, keys=keys)
-    with pytest.raises(MalformedOutputError, match="one mapping per run"):
-        write_settings_table(tmp_path / "y.csv", setups, wide=True, keys=keys[:2])
+    verdicts = {}
+    for name, key in (("on", ""), ("off", "settings_codebook = false\n")):
+        workspace = _workspace(tmp_path / name, key=key, without_snapshot=(0, 1, 2))
+        code = main(["post", "--workspace", str(workspace.root), "--strict"])
+        err = capsys.readouterr().err
+        skipped = set(_manifest(workspace.products_dir(MATRIX))["skipped"])
+        verdicts[name] = (code, skipped)
+        assert "settings/" not in err
+    assert verdicts["on"] == verdicts["off"]

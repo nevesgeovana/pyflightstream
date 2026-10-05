@@ -30,6 +30,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "sections/AL-020_sloads#distributions",
    "product": "sections/AL-020_sloads#distributions",
    "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
@@ -59,14 +75,6 @@
    "message": "the plots table holds 61 time steps, 15 complete revolution(s) of 4 and 1 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "postprocessing",
-   "severity": "warning"
-  },
-  {
-   "point": "settings/products_settings.csv#camp/sim_7001/AL-020",
-   "product": "settings/products_settings.csv#camp/sim_7001/AL-020",
-   "message": "point camp/sim_7001/AL-020 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-   "remedy": "restore the required data or correct the stated inputs and post again.",
-   "category": "configuration",
    "severity": "warning"
   }
  ]

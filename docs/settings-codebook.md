@@ -202,8 +202,9 @@ The campaign table opens with two text columns, `POL` and `RUN_ID`, the polar an
 that key its row, as every table of the post opens with its polar; every other cell is a code, a number
 or `NA`. The codebook is the library's own, unchanged. The library writer takes the same two columns
 as its `keys=` argument (wide form only), and `read_settings_table` returns them as text.
-A point whose record holds no
-snapshot has no row, never a blank one: it is named in `products.json` under
-`skipped` and in `post.log`, as `settings/<matrix>_settings.csv#<run id>`.
+A point whose record holds no snapshot has no row, never a blank one: `post.log` carries
+one INFO line naming it. It is not a recorded skip, so a workspace whose records predate the
+snapshot is not made to fail `--strict`. With no snapshot in the matrix neither file is
+written, and `post.log` says so once.
 A post limited to some simulations (`--sims`) does not rebuild the pair, whose rows
 span the whole matrix, and names it under `partial.not_rebuilt`.

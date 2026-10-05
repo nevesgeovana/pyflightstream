@@ -126,8 +126,7 @@
   "sections/AL-020_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "sections/AL-020_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "sections/AL-020_harmonics.csv": "the point's record states no rotor whose blades and clock the fit can read",
-  "sections/AL-020_disc_": "no disc map: the point's record states no rotor whose blades and clock the fit can read",
-  "settings/products_settings.csv#camp/sim_7001/AL-020": "point camp/sim_7001/AL-020 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot."
+  "sections/AL-020_disc_": "no disc map: the point's record states no rotor whose blades and clock the fit can read"
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"

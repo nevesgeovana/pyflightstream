@@ -58,10 +58,7 @@
   "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
   "probes/POLAR-0001_M15AL+020BE+000J+150_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
   "probes/POLAR-0001_M15AL+020BE+000J+200_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
-  "polars/0001#rotor_tables": "no matrix row for this simulation; rotor tables cannot be planned",
-  "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+100": "point camp/sim_0001/M150AL+020BE+000J+100 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-  "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+150": "point camp/sim_0001/M150AL+020BE+000J+150 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot.",
-  "settings/matriz_settings.csv#camp/sim_0001/M150AL+020BE+000J+200": "point camp/sim_0001/M150AL+020BE+000J+200 has no row in the settings table: its record holds no solver-setup snapshot. Run the point again to record its snapshot."
+  "polars/0001#rotor_tables": "no matrix row for this simulation; rotor tables cannot be planned"
  },
  "provenance": {
   "camp/sim_0001/M150AL+020BE+000J+100": "provenance/POLAR-0001_M15AL+020BE+000J+100.prov.json",
