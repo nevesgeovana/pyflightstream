@@ -278,3 +278,30 @@ SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
   notes: >
     Toggles the FSI execution inside the unsteady solver; with ENABLE
     the coupling runs on the regular solver start.
+
+SET_DIRECT_AEROELASTIC_MESH_MORPHING:
+  layout: inline
+  phase: init
+  args:
+    - name: structural_coordinate_system
+      type: int
+      cites: frames
+    - name: aerodynamic_nodes
+      type: enum
+      values: [RIGID, DEFLECTED]
+  manual_ref: "SRC-753 p.388"
+  versions:
+    "26.124":
+      status: removed
+      probe_ref: "reports/RPT-154_direct-aeroelastic-morphing-not-recognised-by-build-8172026_2026-10-05.md"
+      note: >-
+        Probed 2026-10-05 on build 8172026: the solver answered every
+        SET_DIRECT_AEROELASTIC_MESH_MORPHING line of four probe arms as an
+        unrecognised command, and no direct-mode call followed.
+  notes: >
+    Direct mesh morphing of the aeroelastic coupling, in place of the
+    structural-node import: the solver lists the surface vertices of the
+    coupled boundaries in the given coordinate system and morphs each by
+    one displacement the structural program writes back per listed vertex.
+    The node type says whether the listed vertices are the undeformed
+    (RIGID) or the currently deflected (DEFLECTED) ones (SRC-753 p.388).

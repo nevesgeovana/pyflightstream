@@ -70,8 +70,8 @@ from typing import Any
 import numpy as np
 
 import pyflightstream._textio as _textio
-from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
-from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
+from pyflightstream.fsi import _direct_morphing, beam, centrifugal, kinematics, nodes, wing
+from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
@@ -627,23 +627,18 @@ def _steady_coupling_step(
     )
     solved = solve(family_map, report)
     solutions = solved.solutions
-    computed = nodes.flatten_blade_translations(
-        layout,
-        [
-            kinematics.encode_station_translations(
-                np.asarray(sol.flap_deflection_m),
-                np.asarray(sol.elastic_twist_rad),
-                np.asarray(layout.le_offset_m),
-                np.asarray(layout.te_offset_m),
-            )
-            for sol in solutions
-        ],
-    )
+    computed = _computed_displacements(run_dir, cfg, layout, solutions)
     previous = (
         np.asarray(state.previous_displacements, dtype=float)
         if state.previous_displacements is not None
-        else np.zeros((layout.total_nodes, 3))
+        else np.zeros_like(computed)
     )
+    if previous.shape != computed.shape:
+        raise FsiInputError(
+            f"call {state.call_count} computed {len(computed)} displacement rows and the "
+            f"previous call wrote {len(previous)}: the solver's node list changed between two "
+            "calls of one run, so the relaxation would blend displacements of other nodes"
+        )
     relaxation = cfg.phases.coupling_relaxation
     written = relax_displacements(previous, computed, relaxation)
     nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
@@ -678,6 +673,33 @@ def _steady_coupling_step(
         relaxation=relaxation,
         displacements=written,
         solutions=solutions,
+    )
+
+
+def _computed_displacements(
+    run_dir: Path, cfg: FsiConfig, layout: nodes.NodeOrderingMap, solutions: Sequence[Any]
+) -> np.ndarray:
+    """Return the displacement rows a steady call computes, before relaxation.
+
+    The mapped route writes one row per structural node of ``layout``. With
+    direct morphing (FR-341) the solver lists the surface vertices it morphs
+    and reads one row per vertex, so the beam solution is evaluated at each of
+    them (:func:`pyflightstream.fsi._direct_morphing.translations_at_points`).
+    """
+    if cfg.morphing == DIRECT_MORPHING:
+        points = _direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE)
+        return _direct_morphing.translations_at_points(layout, solutions, points)
+    return nodes.flatten_blade_translations(
+        layout,
+        [
+            kinematics.encode_station_translations(
+                np.asarray(sol.flap_deflection_m),
+                np.asarray(sol.elastic_twist_rad),
+                np.asarray(layout.le_offset_m),
+                np.asarray(layout.te_offset_m),
+            )
+            for sol in solutions
+        ],
     )
 
 

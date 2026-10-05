@@ -26,7 +26,7 @@ shell, spar, hollow-section, shear-center or second structural model.
 | --- | --- |
 | `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release (the morph is applied to the un-rotated blade, reported to the vendor). |
 | `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
-| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi). Refused on a whole wheel. |
+| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing-0370). Refused on a whole wheel. |
 
 On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
 each structural call the surface is the un-rotated blade carrying the
@@ -68,6 +68,45 @@ distribution over blade one cut on XY in a frame the run created that
 coincides with the reference (the rotor's hub frame, `SMRP`, at the origin).
 Anything else is refused, named, rather than converted. A sector turning at
 0 rev/min is refused: the route exists to apply the centrifugal loads.
+
+### Direct mesh morphing (0.37.0)
+
+On a build that runs it (26.125), the sector can be coupled by the solver's
+direct mesh morphing instead of the structural-node import. The FSI input
+states it in its `[config]` table:
+
+```toml
+[config]
+blade_count = 1
+omega_rad_per_s = 0.0
+morphing = "direct"
+```
+
+The script then emits `SET_DIRECT_AEROELASTIC_MESH_MORPHING <frame> RIGID`, in
+the frame the blade's sections are cut in, in place of
+`IMPORT_AEROELASTIC_STRUCTURAL_NODES` and its node file; every other line, and
+every staged file, is the mapped route's, and the staged `config.json` carries
+`"morphing": "direct"`. Before each structural call the solver writes
+`FSInodes.txt`, the blade's surface vertices at their undeformed positions
+(RIGID), one row each with its normal and force. The structural program writes
+one displacement per row back to `FSIDisp.txt`, in that order: the beam
+solution at the vertex by the rigid-section kinematics the mapped route encodes
+at its three nodes per station (the flap along the section normal, plus the
+twist times the vertex's chordwise distance from the elastic axis), blended
+linearly between two stations and held at the end station beyond the first and
+the last, relaxed as on the mapped route. The displacements are totals from the
+undeformed surface: on 26.125 two coupling cycles moved the surface by exactly
+what was written (RPT-155). A call with no `FSInodes.txt`, or whose node list
+changed length since the previous call, is refused.
+
+Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`
+(DEFLECTED nodes: from the second coupling cycle the solver applied the written
+displacements to the surface already deflected, RPT-155); `"direct"` on
+`unsteady_rotor` (the morph of the rotating blade lands at the azimuth it was
+imported at), on `steady` and `unsteady` (a fixed wing couples through its
+structural nodes), on a wheel, and on a build that does not run the command
+(26.124 does not recognise it, RPT-154). Leaving `morphing` out, or stating
+`"mapped"`, is the route of 0.36.0, byte for byte.
 
 ## Fixed-wing FSI
 

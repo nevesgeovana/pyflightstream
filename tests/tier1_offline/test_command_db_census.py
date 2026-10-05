@@ -188,7 +188,11 @@ VERIFIED = {
 #: here, so a rename RAISES this figure even though the vendor's own
 #: surface did not grow; the older name keeps its rows and gains a
 #: `removed` one naming the successor.
-ENTRIES = 415
+#:
+#: +1 on 2026-10-05: SET_DIRECT_AEROELASTIC_MESH_MORPHING (route C), whose
+#: 26.124 row is `removed` on the probe that found the build refusing it; it
+#: raises no emittable count of a build registered before 26.125.
+ENTRIES = 416
 
 
 def _emittable(canonical: str) -> int:

@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 368,
-  "total": 427,
+  "cited_by_a_test": 376,
+  "total": 440,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2513,11 +2513,11 @@
   },
   {
    "id": "FR-341",
-   "text": "Read with PFS-2073, PFS-2073.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
+   "text": "Plan: PFS-2073.04 (0.37.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.04 of the 0.34.0 scope (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Marker P0340-FSI-MODAL; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.04. Pending: design only. Verification method: tier-1 tests carrying the marker, offline (they check the option, its refusals and the unchanged routes), and the licensed truncation test reported in RPT-129 (tier 3, a run of the FSI workflow). Evidence owed: RPT-129 stating the truncation test (arbitrary displacements, two loop cycles) on 26.124 and its verdict by R2; tier-1 tests that the option is accepted, written to the FSI state, refused where its preconditions fail, and that the existing routes are byte-identical when it is not chosen. RPT-129 records in its front matter a machine-readable truncation_test of pass or fail; the marker test reads it and asserts the branch it names: on pass the option exists with the tests above; on fail no such option is accepted and FR-341 is amended to say so; a missing or unknown value fails it. Marker tests: tests/tier1_offline/test_p0340_fsi.py::test_rpt129_states_the_truncation_test_and_the_tree_holds_its_branch_fr_341, failing until RPT-129 is committed (the licensed run LQ4), and ::test_arbitrary_displacements_survive_two_loop_cycles_in_the_file_the_solver_reads_fr_341, the package's half of the truncation test, offline.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: planning item PFS-2073.04 (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Scope GOAL-044 item S6, narrowed by the owner on 2026-10-05 after the 26.125 licensed arms: \"S6 (a), implementa só no qsteady\" (the quasi-steady rotor sector with direct morphing; unsteady_rotor refused with the measured reason). Marker P0370-S6-DIRECT-MORPHING; it replaces P0340-FSI-MODAL, whose report RPT-129 was never run because 26.124 does not recognise the command (RPT-154). Verification: test, tests/tier1_offline/test_p0370_s6_direct_morphing.py (offline: the option, its refusals, the structural program's rows and the unchanged mapped route), and the licensed arms of RPT-155 (tier 3).*",
+   "verification": "test"
   },
   {
    "id": "FR-342",
@@ -3049,7 +3049,7 @@
   },
   {
    "id": "FR-409",
-   "text": "Need: A reader of the API reference must be able to find the maturity of every public module in one place.",
+   "text": "Plan: PFS-2076.05 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Implemented in 0.36.0 by the module maturity table and the generated API reference. Verification: test, tests/tier1_offline/test_p0360_mm.py.*",
@@ -3062,6 +3062,102 @@
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03; the licensed probe decided branch (b) on 2026-10-03, RPT-150. Verification: test, tests/tier1_offline/test_p0360_gf.py.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-411",
+   "text": "Plan: PFS-2078.01 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's report of 2026-10-03 on 0.35.1 (\"primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_matrix_home.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-412",
+   "text": "Plan: PFS-2078.01 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's report of 2026-10-03 on 0.35.1 (\"eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_rebuild_lost.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-413",
+   "text": "Plan: PFS-2078.01 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's proposal of 2026-10-03 (\"podia ter um status RAN_MISSING_LOG\") and her rule of 2026-10-05 (\"lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-414",
+   "text": "Plan: PFS-2078.01 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's request of 2026-10-03 (\"me manda um script python simples que marca converged nas polares que eu quiser\"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_mark_converged.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-415",
+   "text": "Plan: PFS-2078.03 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owner's note for 0.37 of 2026-10-05 (\"Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV\"), scope GOAL-044 item S3. Verification: test, tests/tier1_offline/test_p0370_s3_last_rev.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-416",
+   "text": "Plan: PFS-2078.04 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owner's note for 0.37 of 2026-10-05 (\"Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady\"), scope GOAL-044 item S4. Verification: test, tests/tier1_offline/test_p0370_s4_prune_range.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-417",
+   "text": "Plan: PFS-2078.05 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's decision of 2026-10-05 (\"no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes.\"), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-418",
+   "text": "Plan: PFS-2078.05 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's correction of 2026-10-05 (\"para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady.\"), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-419",
+   "text": "Plan: PFS-2078.07 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (\"vamos puxar apenas 1 e 2\"); scope GOAL-044 item S7. Verification: test, tests/tier1_offline/test_p0370_s7_codebook.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-420",
+   "text": "Plan: PFS-2078.08 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: GEO-070 candidate \"Declarar cópia de tabelas no frame instalado pelo pproc\", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, tests/tier1_offline/test_p0370_s8_installed.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-421",
+   "text": "Plan: PFS-2078.09 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner's answer of 2026-10-05 (\"As recusas para o usuário não precisam citar o id do RPT.\"); scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_grouped_help.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-422",
+   "text": "Plan: PFS-2078.02 (0.37.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owner's request of 2026-10-03 (\"poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio\") and her answer of 2026-10-05 (\"a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas\"); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
+   "verification": "none"
   },
   {
    "id": "NFR-01",
@@ -3337,7 +3433,7 @@
   },
   {
    "id": "NFR-31",
-   "text": "Read with PFS-2074, PFS-2074.25 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
+   "text": "Plan: PFS-2076.07 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: an author decision of 2026-09-30 for 0.33.0. It is built and was accepted on 2026-10-01 after the 0.33.0 release. Evidence: the tier-1 guard tests/tier1_offline/test_p0330_no_executable_hash.py (P0330-NO-EXE-HASH) for R1 and R2, with a mutant control per shape; the tests of the three report writers and of the C01 instrument for R4.*",
@@ -3353,7 +3449,7 @@
   },
   {
    "id": "NFR-33",
-   "text": "Need: A topic must have one defining paragraph, so its explanations cannot drift between pages.",
+   "text": "Plan: PFS-2076.04 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
@@ -3361,7 +3457,7 @@
   },
   {
    "id": "NFR-34",
-   "text": "Need: Readers must be able to use a focused definitions page without losing existing links or code and test pins.",
+   "text": "Plan: PFS-2076.04 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
@@ -3369,7 +3465,7 @@
   },
   {
    "id": "NFR-35",
-   "text": "Need: Mesh instructions, reference details and examples must be independently readable while existing links keep working.",
+   "text": "Plan: PFS-2076.04 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
@@ -3377,7 +3473,7 @@
   },
   {
    "id": "NFR-36",
-   "text": "Need: Reference pages must state the current contract without a narrative of earlier releases.",
+   "text": "Plan: PFS-2076.04 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
@@ -3385,7 +3481,7 @@
   },
   {
    "id": "NFR-37",
-   "text": "Need: Readers must find every migration record from one index and know that release records are frozen.",
+   "text": "Plan: PFS-2076.04 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03.*",
@@ -3393,7 +3489,7 @@
   },
   {
    "id": "NFR-38",
-   "text": "Need: A module-level claim must not stand for evidence that no test function identifies.",
+   "text": "Plan: PFS-2076.06 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 scope and its S1 review, 2026-10-03. Evidence: tests/tier1_offline/test_p0360_frid.py::test_requirement_ids_belong_to_the_test_functions and its planted controls.*",
@@ -3401,7 +3497,7 @@
   },
   {
    "id": "NFR-39",
-   "text": "Need: The shared helpers named by review rows A1 and A2 must not drift between test modules.",
+   "text": "Plan: PFS-2076.06 and PFS-2076.07 (0.36.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.33 review rows A1 and A2, carried into the 0.36.0 scope. Evidence: tests/tier1_offline/test_p0360_frid.py::test_shared_helpers_have_one_definition and ::test_shared_helpers_are_imported_by_their_consumers.*",
@@ -3409,7 +3505,7 @@
   },
   {
    "id": "NFR-40",
-   "text": "Need: Structural work must preserve the results and observable behaviour of v0.35.1.",
+   "text": "Plan: PFS-2076, PFS-2076.01, PFS-2076.02, PFS-2076.03 and PFS-2076.08 (0.36.0).",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the 0.36.0 scope's no-behaviour decision and its S1 review, 2026-10-03. The licensed reproduction RPT-152 passed on three points: partial evidence from one campaign and one build; acceptance is owed and the status stays pending.*",
@@ -3421,6 +3517,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: review row C2-ARCH-1 of 0.35.1, carried into the 0.36.0 scope. Evidence: tests/tier1_offline/test_p0360_rv35.py::test_tier1_never_imports_the_licensed_tier.*",
+   "verification": "test"
+  },
+  {
+   "id": "NFR-42",
+   "text": "Plan: PFS-2078.09 (0.37.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 0.36.0 push review of scripts/check_parity.py (registered as 0.37 R4), scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_parity_tests.py.*",
    "verification": "test"
   }
  ]

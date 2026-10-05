@@ -18,7 +18,7 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import (
     BaseModel,
@@ -34,6 +34,9 @@ import pyflightstream._textio as _textio
 from pyflightstream._atmosphere import ISA
 
 __all__ = [
+    "DIRECT_MORPHING",
+    "DIRECT_MORPHING_DEFLECTED",
+    "MAPPED_MORPHING",
     "BladeProperties",
     "BladePropertiesProvenance",
     "FixedWing",
@@ -47,6 +50,18 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+#: THE MORPHING ROUTES OF A COUPLED RUN (FR-341, route C), the values of
+#: :attr:`FsiConfig.morphing`. ``mapped`` is every route before 0.37.0: the
+#: script imports the structural nodes and the solver interpolates the
+#: displacements written at them onto the surface. ``direct`` is the solver's
+#: direct mesh morphing with RIGID aerodynamic nodes: the solver writes the
+#: surface vertices it morphs and reads one displacement per vertex back.
+#: ``direct_deflected`` (DEFLECTED nodes) is named so a configuration asking
+#: for it hears why it is refused.
+MAPPED_MORPHING: Final = "mapped"
+DIRECT_MORPHING: Final = "direct"
+DIRECT_MORPHING_DEFLECTED: Final = "direct_deflected"
 
 _STATION_ARRAY_FIELDS = (
     "chord_m",
@@ -589,6 +604,16 @@ class FsiConfig(BaseModel):
         and then it is not serialised, for the reason given for
         ``BladeProperties.provenance``. A wing states ``omega_rad_per_s =
         0`` and ``blade_count = 1``.
+    morphing : str
+        How the solver moves the surface (FR-341): ``"mapped"`` (the
+        default, every release before 0.37.0) through the imported
+        structural nodes, or ``"direct"``, the solver's direct mesh morphing
+        with RIGID aerodynamic nodes, where the structural program writes one
+        displacement per surface vertex the solver lists. ``"direct"`` is
+        offered on a quasi-steady rotor sector alone, and the plan refuses it
+        elsewhere; ``"direct_deflected"`` is refused here. ``"mapped"`` is not
+        serialised, so a configuration that does not choose a route dumps
+        and hashes exactly as before.
 
     Examples
     --------
@@ -623,14 +648,40 @@ class FsiConfig(BaseModel):
     phases: PhaseSchedule = Field(default_factory=PhaseSchedule)
     node_map_file: str = "fsi_node_map.json"
     wing: FixedWing | None = None
+    morphing: Literal["mapped", "direct", "direct_deflected"] = MAPPED_MORPHING
 
     @model_serializer(mode="wrap")
     def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
-        """Serialise the wing only for a wing, so a blade's digest is unchanged."""
+        """Serialise the wing only for a wing and the route only when chosen.
+
+        So a blade's digest, and a configuration's that chooses no morphing
+        route, are unchanged.
+        """
         data: dict[str, object] = handler(self)
         if data.get("wing") is None:
             data.pop("wing", None)
+        if data.get("morphing") == MAPPED_MORPHING:
+            data.pop("morphing", None)
         return data
+
+    @model_validator(mode="after")
+    def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
+        """Refuse the direct routes the measurement did not close (FR-341 R4)."""
+        if self.morphing == DIRECT_MORPHING_DEFLECTED:
+            raise ValueError(
+                "morphing = 'direct_deflected' is not offered: with DEFLECTED aerodynamic "
+                "nodes the solver of build 26.125 placed the surface as written after the "
+                "first coupling cycle, and from the second on applied the written "
+                "displacements to the surface already deflected, not to the undeformed one. "
+                "Use morphing = 'direct' (RIGID nodes, where two coupling cycles moved the "
+                "surface exactly as written) or leave morphing out (the mapped route)."
+            )
+        if self.morphing == DIRECT_MORPHING and self.wing is not None:
+            raise ValueError(
+                "morphing = 'direct' couples a quasi-steady rotor sector; a fixed wing "
+                "([config.wing]) couples through its structural nodes. Leave morphing out."
+            )
+        return self
 
     @model_validator(mode="after")
     def _a_wing_does_not_turn(self) -> "FsiConfig":

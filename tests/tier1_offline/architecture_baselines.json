@@ -85,7 +85,7 @@
    "positional": 1
   },
   "cases/fsi_workspace.py:validate_workspace_fsi": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 23,
    "positional": 2
