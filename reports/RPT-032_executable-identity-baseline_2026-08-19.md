@@ -43,6 +43,7 @@ and names both files.
 | 26.122 | 8092026 | Flightstream_2612.exe, FlightStream_26122.exe | withheld; build 8092026 | 19169160 |
 | 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | withheld; build 8112026 | 19194760 |
 | 26.124 | 8172026 | Flightstream_26124.exe | withheld; build 8172026 | 19197320 |
+| 26.125 | 10052026 | Flightstream_26125.exe | withheld; build 10052026 | 19278728 |
 
 The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
@@ -50,6 +51,10 @@ its size is not in that file and is read in
 `reports/RPT-050_the-26124-package-against-26123_2026-09-15.md`, which measures
 the whole package. Every other row is this report's own measurement of
 2026-08-19.
+
+The 26.125 row was added on 2026-10-05, when that build was registered: its build
+is the one its identity run printed (`reports/compat/CMP-26125_2026-10-05_identity.yaml`),
+and its size is the file's as delivered.
 
 EVERY DIGEST IS WITHHELD from the public tree since 2026-09-30 (NFR-31):
 the public tree carries no identity of a user's machine, and each row states

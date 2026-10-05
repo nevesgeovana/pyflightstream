@@ -155,6 +155,25 @@ def _emit(command: str, *args: object, **kwargs: Any) -> Callable[[Script, Path]
     return build
 
 
+def _emit_full(
+    command: str, *args: object, tail: tuple[tuple[str, object], ...]
+) -> Callable[[Script, Path], None]:
+    """Emit a command with the trailing arguments its build's grammar names (FR-423).
+
+    ``tail`` pairs an argument name with the value passed for it. Each is
+    appended only on a build whose grammar of ``command`` names it, so one
+    specification writes the form each edition prints: the 26.125 manual adds
+    DIRECTION, SPACE and AXIS to commands that earlier builds print without.
+    """
+
+    def build(script: Script, workdir: Path) -> None:
+        names = {arg.name for arg in script.registry.for_version(script.version)[command].args}
+        extra = [value for name, value in tail if name in names]
+        script.emit(command, *args, *extra)
+
+    return build
+
+
 def _named_frame(name: str) -> Callable[[Script, Path], None]:
     """Create local frame 2 and give it a greppable name."""
 

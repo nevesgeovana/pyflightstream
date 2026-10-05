@@ -297,7 +297,7 @@ SET_AEROELASTIC_CONVERGENCE_THRESHOLD:
       type: float
   manual_ref: "SRC-753 p.390"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.390, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.390, the first edition to document it"}
   notes: >
     Sets the convergence threshold of an aeroelastic coupling run. The
     page gives 1E-3 as the default and prints 1E-05 in its sample. First

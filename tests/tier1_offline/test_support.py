@@ -146,8 +146,12 @@ def test_every_operational_version_builds_the_minimal_workflow(canonical):
     """
     script = minimal_workflow(canonical)
     lines = script.render()
+    # 26.125 prints no automatic trailing-edge detection and writes the
+    # every-boundary form of the by-surface one in its place (P0370-S10-DETECTION).
+    alternative = {"AUTO_DETECT_TRAILING_EDGES": "DETECT_TRAILING_EDGES_BY_SURFACE"}
     for command in MINIMAL_WORKFLOW_COMMANDS:
-        assert re.search(rf"^{command}\b", lines, re.MULTILINE), (
+        written = alternative.get(command, command)
+        assert re.search(rf"^({command}|{written})\b", lines, re.MULTILINE), (
             f"{canonical} is reported operational but the minimal workflow never emitted {command}"
         )
     # No waiver was needed, so the reference workflow leans on no

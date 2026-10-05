@@ -177,6 +177,7 @@ _spec(
     build_target=_free_surface_export,
     requires=Requires.SIM,
     prelude=_FREE_SURFACE,
+    preconditions=("CREATE_FREE_SURFACE_TFI_MESH",),
     assert_effect=_free_surface_written,
     effect_note="the export writes the VTK file it names; no file records unprobed",
 )
@@ -185,6 +186,7 @@ _spec(
     build_target=_emit("DELETE_FREE_SURFACE"),
     requires=Requires.SIM,
     prelude=_FREE_SURFACE,
+    preconditions=("CREATE_FREE_SURFACE_TFI_MESH",),
     save_state=True,
     assert_effect=_state_moved,
     effect_note=(

@@ -183,9 +183,9 @@ VERIFIED = {
     # (CMP-26124_2026-10-02_t1-probe) verified ROTATE_SURFACE,
     # SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS: 118.
     "26.124": 118,
-    # 2026-10-05 (item S10): registered from its manual, nothing run through the
-    # probe harness yet. The campaign of the 0.37.0 kit is what raises it.
-    "26.125": 0,
+    # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
+    # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
+    "26.125": 141,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
