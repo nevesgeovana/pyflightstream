@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.70.0 |
+| Version | 1.71.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,9 +41,9 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-410, each with origin, status, and evidence.
+   FR-422, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-41.
+   NFR-01 to NFR-42.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.71.0 | 2026-10-05 | The 0.37.0 requirements (GOAL-044): FR-411 to FR-422 and NFR-42, written and reviewed before the first package commit; FR-410 amended by FR-421. |
 | 1.70.0 | 2026-10-03 | The 0.36.0 S1 requirements: FR-409 and conditional FR-410, NFR-33 to NFR-41, all pending with their verification obligations; FR-407 R2 points to its conditional amendment. AD-16 to AD-18 are reconciled to implemented from their tracked modules and shipped evidence; AD-19 to AD-23 specify the five pending structural work packages under AD-15 and NFR-40, with the ARCH-3 downward-edge answer and roadmap mappings. The 0.36.0 marker map is completed and the requirement ranges and generated index are refreshed. |
 | 1.69.1 | 2026-10-02 | **THE QUERY VERBS AND THE OTHER 0.35.0 REQUIREMENTS ARE WRITTEN BEFORE THEY ARE BUILT, FR-379 TO FR-399; THIS ROW MOVES NO STATUS.** FR-379 to FR-394 specify `pyfs-matrix status` by polar with its selection, its planned points and its freshness footer, one effective record per datapoint, read-only queries, recorded words, machine output, `show`, `log`, the Python mirror `pyflightstream.workspace.ledger`, `trace`, `history`, `diff`, `log --storage`, `status --additional` and the coupled-run block of `show`; FR-395 the run id alias `<sim>_<index>`; FR-396 the continuation fix (RPT-134); FR-397 the post writing no `archive/` folder by default; FR-398 the cost file; FR-399 the nested pytest runs. FR-318 gains clause R6 (the vorticity drag list before `START_SOLVER`, RPT-133) and FR-96 a forward reference to FR-396; its known-defect line stays until the fix ships. Every requirement is pending, with its P0350 marker in `docs/srs/markers-0350.json`. |
 | 1.69.0 | 2026-10-02 | **THE 0.35.0 BATCHED CLUSTER RUNS ARE WRITTEN BEFORE THEY ARE BUILT, AND THE FUNCTIONAL RANGE READS FR-01 TO FR-378.** For the release goal GOAL-040 (arms BP, BR and BC), FR-350 to FR-378 are added, all pending: `run --polar-sweep` and `run --batch <n>` (FR-350, FR-351); the transitions inside one instance, the solver initialization removed between two points of a polar and the instance refreshed between two polars, the actions registered once and the clock state reset at each point (FR-352 to FR-355); the per-point scripts kept as the record, the job script names, the package-assigned batch ID and working directory, absolute paths, the datapoint folders created first (FR-356 to FR-361); `plan --batch <n>`, its split, estimate, walltime with `max_walltime`, table and receipt (FR-362 to FR-365, FR-377); the records of a batched point, `collect` copying while a batch runs and moving once it ended, the log sliced per point, one wall clock and the points never started (FR-366 to FR-371); the transparency of every other command (FR-372); node-local running with a site sync flag as one entry of the profile's submit list (FR-373); the sims inside the batch folder while it runs (FR-374); `--local` with both modes and `run` without a post (FR-375, FR-376); and the refusal of a batch whose geometry to open carries saved unsteady actions (FR-378). Each marker of the three arms is mapped to its requirement ids in `docs/srs/markers-0350.json`. FR-350 to FR-378 follow FR-349 (revision 1.68.5); no existing requirement text changes and no status moves. The R-items that resolve a design reading (FR-350 R1, FR-362 R1 and R2, FR-363 R1, FR-364 R1 to R3, FR-367 R1 and R2, FR-368 R1, FR-373 R1) are proposals and stay pending until accepted. |
