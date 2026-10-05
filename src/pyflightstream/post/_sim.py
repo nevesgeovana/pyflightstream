@@ -1298,11 +1298,10 @@ def _superfile_drafts(ctx: SimContext) -> None:
         if step is not None:
             last_step[name] = step
     for group, (path, full, group_points) in ctx.super_rows.items():
+        columns = polar_table_columns([drag_columns_of(point.loads) for point in group_points])
         wide = [
             superfile_row(
-                polar_columns=polar_table_columns(
-                    [drag_columns_of(point.loads) for point in group_points]
-                ),
+                polar_columns=columns,
                 polar_values=polar_values,
                 matrix_row=ctx.matrix_row,
                 # NO FALLBACK TO ANOTHER POINT'S RECORD. This read

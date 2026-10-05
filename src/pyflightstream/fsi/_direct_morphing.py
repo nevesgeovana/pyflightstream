@@ -23,6 +23,7 @@ the row the mapped route writes for it, exactly.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -63,7 +64,8 @@ def read_aero_nodes(path: str | Path) -> np.ndarray:
     Raises
     ------
     FsiInputError
-        If the file is missing or holds no row of :data:`AERO_NODE_COLUMNS` numbers.
+        If the file is missing, truncated, or does not hold its declared number
+        of rows of :data:`AERO_NODE_COLUMNS` finite numbers.
     """
     source = Path(path)
     if not source.is_file():
@@ -72,16 +74,39 @@ def read_aero_nodes(path: str | Path) -> np.ndarray:
             "solver writes it before every structural call when the script set direct mesh "
             "morphing, so this folder's script did not, or the call ran elsewhere"
         )
-    rows = []
-    for line in source.read_text(encoding="utf-8", errors="replace").splitlines():
-        values = _numbers(line)
-        if values is not None and len(values) == AERO_NODE_COLUMNS:
-            rows.append(values[:3])
-    if not rows:
+    return _aero_rows(source.read_text(encoding="utf-8", errors="replace"), source.name)
+
+
+def _aero_rows(text: str, name: str) -> np.ndarray:
+    """Validate the complete declared table before exposing any vertex positions."""
+    count = re.search(r"Total elastic aerodynamic nodes:\s*(\d+)", text)
+    lines = text.splitlines()
+    header = next(
+        (
+            i
+            for i, line in enumerate(lines)
+            if line.replace(" ", "").strip() == "X,Y,Z,nx,ny,nz,Fx,Fy,Fz"
+        ),
+        None,
+    )
+    remedy = "Let the solver finish writing its aerodynamic nodes file and retry the call."
+    if count is None or header is None or int(count[1]) <= 0:
         raise FsiInputError(
-            f"{source.name} holds no row of {AERO_NODE_COLUMNS} comma separated numbers "
-            "(X, Y, Z, nx, ny, nz, Fx, Fy, Fz); it is not the aerodynamic nodes file of a "
-            "direct morphing call"
+            f"{name} has no valid aerodynamic node count and column header. {remedy}"
+        )
+    rows = []
+    for number, line in enumerate(lines[header + 1 :], start=header + 2):
+        if not line.strip():
+            continue
+        values = _numbers(line)
+        if values is None or len(values) != AERO_NODE_COLUMNS or not np.isfinite(values).all():
+            raise FsiInputError(
+                f"{name} line {number} is not {AERO_NODE_COLUMNS} finite numbers. {remedy}"
+            )
+        rows.append(values[:3])
+    if len(rows) != int(count[1]):
+        raise FsiInputError(
+            f"{name} declares {count[1]} aerodynamic nodes but holds {len(rows)} rows. {remedy}"
         )
     return np.asarray(rows, dtype=float)
 

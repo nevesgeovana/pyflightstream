@@ -306,7 +306,7 @@ def write_plots_table(
 ) -> Path | None:
     """Write one plots table from an unsteady plots export.
 
-    The coefficient columns (``CL_``, ``CDI_``, ``CDO_``, ``CD_``) are
+    The coefficient columns (``CL_``, ``CDI_``, ``CDO_``, ``CDP_``, ``CDV_``, ``CD_``) are
     multiplied by the square of the reference velocity over the free
     stream, so a run whose reference velocity differs from the free stream
     reads as free-stream coefficients. An export the reader cannot parse is

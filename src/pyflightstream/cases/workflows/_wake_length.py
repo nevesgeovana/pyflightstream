@@ -243,5 +243,7 @@ def run_wake_length(case: SimCase, length: float, *, omega: float, dtheta: float
         v_inf_m_s=v_inf,
         v_ax_m_s=v_ax,
         rule=rule,
-        time_iterations=_wake_steps(length, radius, omega, v_ax, dtheta),
+        # A positive target must march once even when the shared wake
+        # conversion's roundoff tolerance erases a sub-step duration.
+        time_iterations=max(1, _wake_steps(length, radius, omega, v_ax, dtheta)),
     )

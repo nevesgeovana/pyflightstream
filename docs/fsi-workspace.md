@@ -97,7 +97,10 @@ linearly between two stations and held at the end station beyond the first and
 the last, relaxed as on the mapped route. The displacements are totals from the
 undeformed surface: on 26.125 two coupling cycles moved the surface by exactly
 what was written (RPT-155). A call with no `FSInodes.txt`, or whose node list
-changed length since the previous call, is refused.
+changed length since the previous call, is refused. Its declared node count
+must match the complete table, and every node row must contain nine finite
+numbers. A truncated or malformed row refuses the call rather than shifting
+the displacement rows onto different vertices.
 
 Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`
 (DEFLECTED nodes: from the second coupling cycle the solver applied the written
