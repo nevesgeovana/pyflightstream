@@ -204,10 +204,10 @@ What differs on 26.125:
   (`NEW_CCS_WING_FLAP_COVE`, `NEW_CCS_WING_MORPHING_SURFACE`) are required on
   26.125, and the revolve CCS export (`EXPORT_REVOLVE_CCS_FILE`) takes the
   revolve loft's arguments.
-- **Refused on 26.125, admitted on 26.124 only.** Normal probes on an unsteady
-  row (`kind = "normal"`, FR-417) and the additional post. Direct mesh
-  morphing (FR-341) is the reverse: refused on 26.124, whose build does not run
-  the command.
+- **Refused on 26.125, admitted on 26.124 only.** The additional post. Normal
+  probes on an unsteady row (`kind = "normal"`, FR-417) are admitted on 26.124
+  and 26.125, the two builds measured. Direct mesh morphing (FR-341) is
+  refused on 26.124, whose build does not run the command.
 - **New commands.** Twelve commands the 26.125 manual documents first enter the
   command database, each with a probe specification, and reach a workspace as
   the keys below or through a row's `RAW` column.
@@ -222,7 +222,7 @@ unchanged.
 | `RUN_WAKE_LENGTH_R: <L>` | `unsteady_rotor` row, with `DELTA_THETA` or `DELTA_TIME` | the run length from a target wake length in rotor radii; `plan` prints and `plan.json` records the resolved steps | FR-422 |
 | `EXPORT_UNSTEADY_LAST_REV: <turns>` | `unsteady_rotor` row | the per-step exports cover the last revolutions | FR-415 |
 | `EXPORT_UNSTEADY_LAST_ITER: <steps>` | `unsteady` or `unsteady_rotor` row | the per-step exports cover the last steps | FR-415 |
-| `kind = "unsteady"` or `"normal"` | pproc `[[probes]]` entry | normal probes are created after the march and exported once; admitted on 26.124 only | FR-417 |
+| `kind = "unsteady"` or `"normal"` | pproc `[[probes]]` entry | normal probes are created after the march and exported once; admitted on 26.124 and 26.125 | FR-417 |
 | `reusable_inflow`, `field_formats` on a normal entry | pproc `[[probes]]` entry of an unsteady row | the field products at the run's last time step | FR-418 |
 | `keep_last`, `delete_steps` | `[[prune_step_exports]]` of a `free-space` recipe | which steps are kept | FR-416 |
 | `settings_codebook` | pproc `[products]`, true by default | the settings table and its codebook | FR-419 |

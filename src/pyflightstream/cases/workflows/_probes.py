@@ -51,6 +51,7 @@ from ._rows import (
 )
 from ._vocabulary import (
     CLOCK_MOTION_VARIABLE,
+    NORMAL_PROBE_BUILDS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
@@ -247,11 +248,11 @@ def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
     if case.recipe not in ("unsteady", "unsteady_rotor") or case.pproc is None:
         return
     if any(entry.kind == "normal" for entry in case.pproc.probes):
-        if script.version.canonical != "26.124":
+        if script.version.canonical not in NORMAL_PROBE_BUILDS:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: normal probes of an unsteady run are verified only "
-                "on FlightStream 26.124. Select that build or use kind = 'unsteady' "
-                "for the probe entries."
+                f"on FlightStream {' and '.join(NORMAL_PROBE_BUILDS)}. Select one of those "
+                "builds or use kind = 'unsteady' for the probe entries."
             )
 
 

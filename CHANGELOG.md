@@ -126,8 +126,8 @@ FlightStream versions.
   created after the time march, updated and exported once to
   `<point>_probes.txt`, whose probes table holds the run's last time step. With
   a per-step export window the normal probes are exported at every step of the
-  window. The normal kind is admitted on FlightStream 26.124 only, the build
-  its licensed contract names (FR-417).
+  window. The normal kind is admitted on FlightStream 26.124 and 26.125, the
+  builds its licensed measurements cover (FR-417).
 - A normal `[[probes]]` entry with `reusable_inflow = true` or `field_formats`
   on an unsteady row writes the field products a steady row writes from the
   same probe values, for the run's last time step; nothing is averaged over
@@ -252,8 +252,8 @@ FlightStream versions.
   left-out wording change the outputs by default, `runs.json` readers must
   accept `RAN_MISSING_LOG`, and a `[[prune_step_exports]]` key the mode never
   read (for example `older_than_days`) must be removed. FlightStream 26.125 is
-  registered at level `operational`; normal probes remain admitted on 26.124
-  only.
+  registered at level `operational`; normal probes are admitted on 26.124 and
+  26.125.
 
 ## [0.36.0] - 2026-10-03
 

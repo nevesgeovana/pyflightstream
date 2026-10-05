@@ -445,7 +445,7 @@ sampled with `kind` (0.37.0, FR-417):
 - `kind = "unsteady"`, the default: one fluid plot per point and parameter,
   which the solver evaluates at every time step.
   The probes table holds one row per point and step.
-- `kind = "normal"` (FlightStream 26.124 only): probe points created after the time march with the
+- `kind = "normal"` (FlightStream 26.124 and 26.125): probe points created after the time march with the
   commands a steady row uses (`NEW_PROBE_LINE`, `NEW_PROBE_POINT`,
   `PROBE_POINTS_IMPORT`), then `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS`
   once, to `<point>_probes.txt`, which becomes a declared output of the row. No

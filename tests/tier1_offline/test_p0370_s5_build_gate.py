@@ -1,4 +1,4 @@
-"""Normal probes are admitted only on the version with licensed evidence."""
+"""Normal probes are admitted only on the builds with licensed evidence: 26.124 and 26.125."""
 
 import pytest
 
@@ -8,9 +8,13 @@ from pyflightstream.script import Script
 
 
 @pytest.mark.parametrize("recipe", ["unsteady", "unsteady_rotor"])
-@pytest.mark.parametrize("version", ["26.120", "26.123", "26.124"])
+@pytest.mark.parametrize("version", ["26.120", "26.123", "26.124", "26.125"])
 def test_normal_probes_refuse_an_unmeasured_version(recipe, version):
-    """P0370-S5-PROBE-KIND (FR-417): no other version is admitted before measurement."""
+    """P0370-S5-PROBE-KIND (FR-417): 26.124 and 26.125 are admitted; no other before measurement.
+
+    An admitted build emits the update action the measurement found needed; a
+    refused one names both measured builds and emits nothing.
+    """
     case = SimCase(
         sim_id="1",
         aircraft="test",
@@ -52,10 +56,10 @@ def test_normal_probes_refuse_an_unmeasured_version(recipe, version):
         ),
     )
     script = Script(version)
-    if version == "26.124":
+    if version in ("26.124", "26.125"):
         build_script(case, script)
         assert "UPDATE_PROBE_POINTS" in script.render()
         return
-    with pytest.raises(CampaignConfigError, match="normal probes.*26.124"):
+    with pytest.raises(CampaignConfigError, match="normal probes.*26.124 and 26.125"):
         build_script(case, script)
     assert not script.render().strip()
