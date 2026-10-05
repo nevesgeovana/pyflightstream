@@ -261,7 +261,12 @@ def clock_stop_update(record: RunRecord, work_dir: Path, status: RunStatus) -> d
     stopped = _walltime_stop(work_dir / WALLTIME_CLOCK_STATE)
     if stopped is None:
         return {}
-    return {"stopped_at": stopped, "status": RunStatus.WALLTIME_REACHED}
+    verdict = (
+        RunStatus.RAN_MISSING_LOG
+        if status is RunStatus.RAN_MISSING_LOG
+        else RunStatus.WALLTIME_REACHED
+    )
+    return {"stopped_at": stopped, "status": verdict}
 
 
 @dataclass(frozen=True)
