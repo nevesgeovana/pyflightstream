@@ -144,6 +144,27 @@ def _plan(
     return todo, already, refused
 
 
+def _checked_plan(workspace, rows, ids, wanted, *, reason, apply):
+    """Plan against the rows actually read, refusing apply before any file is written."""
+    todo, already, refused = _plan(workspace, rows, ids, wanted)
+    result: dict[str, Any] = {
+        "applied": False,
+        "marked": [
+            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": was}
+            for row, _unit, run_id, was in todo
+        ],
+        "already": already,
+        "refused": refused,
+        "reason": reason,
+    }
+    if refused and apply:
+        raise RunsManifestError(
+            "mark-converged refused, nothing was written:\n"
+            + "\n".join(f"  {who}: {why}" for who, why in refused.items())
+        )
+    return todo, result
+
+
 def mark_converged(
     root: str | Path,
     sims: Sequence[str],
@@ -195,28 +216,17 @@ def mark_converged(
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
     workspace = CampaignWorkspace(base)
-    todo, already, refused = _plan(workspace, _read(manifest), ids, wanted)
-    result: dict[str, Any] = {
-        "applied": False,
-        "marked": [
-            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": was}
-            for row, _unit, run_id, was in todo
-        ],
-        "already": already,
-        "refused": refused,
-        "reason": reason,
-    }
-    if refused and apply:
-        raise RunsManifestError(
-            "mark-converged refused, nothing was written:\n"
-            + "\n".join(f"  {who}: {why}" for who, why in refused.items())
-        )
+    todo, result = _checked_plan(
+        workspace, _read(manifest), ids, wanted, reason=reason, apply=apply
+    )
     if not apply or not todo:
         return result
     at = dt.datetime.now(dt.UTC).isoformat()
     with manifest_lock(base):
         rows = _read(manifest)
-        todo, already, refused = _plan(workspace, rows, ids, wanted)
+        todo, result = _checked_plan(workspace, rows, ids, wanted, reason=reason, apply=True)
+        if not todo:
+            return result
         archived = base / ARCHIVE_DIR / f"{manifest.stem}-{_now_stamp()}.json"
         archived.parent.mkdir(exist_ok=True)
         shutil.copy2(manifest, archived)
@@ -226,7 +236,7 @@ def mark_converged(
             if unit is not row:
                 row["status"] = _worst(row)
         workspace._replace_manifest(rows)
-    result.update(applied=True, runs_archived_as=_relative(base, archived), already=already)
+    result.update(applied=True, runs_archived_as=_relative(base, archived))
     return result
 
 
