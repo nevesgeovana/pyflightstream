@@ -34,6 +34,9 @@ from pyflightstream.script import (
     Script,
 )
 
+from ._export_first_step import (
+    stated_threshold_keys,
+)
 from ._frames import (
     _pproc_frame,
 )
@@ -150,11 +153,7 @@ def _pproc_probes(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
     previous_layout = list(script.probe_field_layout)
-    if sampled:
-        if not unsteady:
-            script.emit("DELETE_PROBE_POINTS")
-        script.probe_points.clear()
-        script.probe_field_layout.clear()
+    _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
             # B10: on a steady run the list enables the entry and filters nothing.
@@ -224,6 +223,25 @@ def _pproc_probes(
         )
 
 
+def _open_the_probe_points(
+    case: SimCase, script: Script, *, sampled: bool, steady: bool, normal: bool
+) -> None:
+    """Delete and forget earlier probe points where this emission replaces them.
+
+    A sampled field starts from no probe point. FR-417 R7: so do the normal
+    probes of a row with a per-step window, which the exports script of the
+    window's first step already created; the creation after the march deletes
+    them first, so the final export holds each point once.
+    """
+    if sampled:
+        if steady:
+            script.emit("DELETE_PROBE_POINTS")
+        script.probe_points.clear()
+        script.probe_field_layout.clear()
+    elif normal and stated_threshold_keys(case):
+        script.emit("DELETE_PROBE_POINTS")
+
+
 def _normal_probes_of(case: SimCase) -> bool:
     """Whether an unsteady row samples its pproc's probes as normal probe points (FR-417 R2).
 
@@ -272,23 +290,28 @@ RecordedCommand = tuple[str, tuple[object, ...], dict[str, object]]
 class _ProbePointRecorder(Script):
     """A scratch script keeping the probe-point commands its build emits after the march.
 
-    A raw line of the setup is emitted by the continuation itself, so a probe
-    command reaching :meth:`emit` through :meth:`emit_line` is not kept.
+    Each is kept as a call (:attr:`recorded`) and as the text it rendered
+    (:attr:`recorded_text`). A raw line of the setup is emitted by the
+    continuation itself, so a probe command reaching :meth:`emit` through
+    :meth:`emit_line` is not kept.
     """
 
     def __init__(self, script: Script) -> None:
         super().__init__(script.version, registry=script.registry)
         self.recorded: list[RecordedCommand] = []
+        self.recorded_text = ""
         self._marched = False
         self._in_a_raw_line = False
 
     def emit(self, name: str, /, *args: object, label: str | None = None, **kwargs: object) -> None:
         """Emit as :class:`Script` does, keeping each probe-point command after the march."""
+        kept = self._marched and not self._in_a_raw_line and name in _PROBE_POINT_COMMANDS
+        before = len(self.render()) if kept else 0
         super().emit(name, *args, label=label, **kwargs)
-        if name == "START_SOLVER":
-            self._marched = True
-        elif self._marched and not self._in_a_raw_line and name in _PROBE_POINT_COMMANDS:
+        self._marched = self._marched or name == "START_SOLVER"
+        if kept:
             self.recorded.append((name, args, {**kwargs, **({"label": label} if label else {})}))
+            self.recorded_text += self.render()[before:]
 
     def emit_line(self, line: str, /) -> None:
         """Emit a raw line as :class:`Script` does, without keeping it."""
@@ -297,6 +320,37 @@ class _ProbePointRecorder(Script):
             super().emit_line(line)
         finally:
             self._in_a_raw_line = False
+
+
+def _built_from_the_mesh(
+    case: SimCase, script: Script, build: Callable[[SimCase, Script], None]
+) -> _ProbePointRecorder:
+    """Build the row from the mesh on a scratch script that is never written (FR-417 R6, R7).
+
+    Raises
+    ------
+    CampaignConfigError
+        The row cannot be built from the mesh, so where its normal probes are
+        placed is unknown; the message names the entries and the remedy.
+    """
+    scratch = _ProbePointRecorder(script)
+    restart = {RESTART_VARIABLE, RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE}
+    variables = {key: value for key, value in case.variables.items() if key not in restart}
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            build(case.model_copy(update={"variables": variables}), scratch)
+    except PyflightstreamError as error:
+        count = len(case.pproc.probes) if case.pproc is not None else 0
+        entries = ", ".join(str(number) for number in range(1, count + 1))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: its pproc artifact {case.pproc_id!r} samples normal "
+            f"probes (entries {entries}), which are created where the row's full script "
+            f"places them, and that script cannot be built here ({error}). A continued "
+            "march never created them. Run the row again from the mesh with "
+            "pyfs-matrix run --force-rerun <point>."
+        ) from error
+    return scratch
 
 
 def _normal_probes_of_a_continuation(
@@ -313,34 +367,29 @@ def _normal_probes_of_a_continuation(
     the row is built from the mesh on a scratch script, which is never written,
     and its probe-point commands, positions and layout are taken from there.
     Empty for a row whose probes are not normal, which then emits as before.
-
-    Raises
-    ------
-    CampaignConfigError
-        The row cannot be built from the mesh, so the placement of its normal
-        probes is unknown; the message names the entries and the remedy.
     """
     if case.pproc is None or not _normal_probes_of(case):
         return []
-    scratch = _ProbePointRecorder(script)
-    restart = {RESTART_VARIABLE, RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE}
-    variables = {key: value for key, value in case.variables.items() if key not in restart}
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            build(case.model_copy(update={"variables": variables}), scratch)
-    except PyflightstreamError as error:
-        entries = ", ".join(str(number) for number in range(1, len(case.pproc.probes) + 1))
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} continues a stopped march and its pproc artifact "
-            f"{case.pproc_id!r} samples normal probes (entries {entries}), which the stopped "
-            "run never created: they are created after the march, where the full script "
-            f"places them, and that script cannot be built here ({error}). Run the row "
-            "again from the mesh with pyfs-matrix run --force-rerun <point>."
-        ) from error
+    scratch = _built_from_the_mesh(case, script, build)
     script.probe_points[:] = scratch.probe_points
     script.probe_field_layout[:] = scratch.probe_field_layout
     return scratch.recorded
+
+
+def _creation_of_normal_probes(
+    case: SimCase, script: Script, build: Callable[[SimCase, Script], None]
+) -> str:
+    """Return the lines the first exporting step runs to create the normal probes (FR-417 R7).
+
+    ``DELETE_PROBE_POINTS`` and the creation commands of the post-march route,
+    taken from the row built from the mesh on a scratch script; empty for a
+    row whose probes are not normal or that states no per-step window.
+    """
+    if case.recipe not in ("unsteady", "unsteady_rotor") or not stated_threshold_keys(case):
+        return ""
+    if case.pproc is None or not _normal_probes_of(case):
+        return ""
+    return _built_from_the_mesh(case, script, build).recorded_text
 
 
 #: FR-91. The simulation subfolder the package writes a simulation's probe

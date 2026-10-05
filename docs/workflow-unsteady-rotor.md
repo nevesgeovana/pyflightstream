@@ -406,6 +406,8 @@ written at every time step, unless it states `kind = "normal"`: then it is a
 probe point created after the march and exported once, at the last time step,
 as on the `unsteady` run type
 ([Probes: unsteady or normal](workflow-unsteady.md#probes-unsteady-or-normal)).
+With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_LAST_REV` they are also
+exported at every step of that window, `<point>_probes_iteration=<step>.txt`.
 
 ## Exports that begin after a threshold
 

@@ -43,6 +43,9 @@ from ._conventions import (
 from ._exports import (
     surface_time_averaging,
 )
+from ._probes import (
+    _creation_of_normal_probes,
+)
 from ._qsteady_rotor import (
     _build_qsteady_rotor,
 )
@@ -376,3 +379,45 @@ def workflow_registry(*, conventions: WorkflowConventions | None = None) -> dict
         return build
 
     return {name: _bind(name) for name in WORKFLOWS}
+
+
+def normal_probe_creation(
+    case: SimCase,
+    version: str,
+    *,
+    conventions: WorkflowConventions | None = None,
+) -> str:
+    """Return the lines that create a row's normal probes on its first exporting step.
+
+    FR-417 R7: a row whose probes are normal and which states a per-step
+    export window exports them at every step of the window, so the exports
+    script of the window's first step creates them: ``DELETE_PROBE_POINTS``,
+    then the creation commands the row's full script emits after the march,
+    taken from that script built on a scratch script that is never written.
+
+    Parameters
+    ----------
+    case : SimCase
+        The bound row, continued or not.
+    version : str
+        The FlightStream build the script is written for.
+    conventions : WorkflowConventions, optional
+        The rendered output names; defaults to the case's own.
+
+    Returns
+    -------
+    str
+        The lines, each ending in a newline; empty for a row whose probes are
+        not normal or that states no per-step window.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row cannot be built from its mesh, naming the entries and the
+        remedy.
+    """
+    return _creation_of_normal_probes(
+        case,
+        Script(version),
+        lambda full, scratch: build_script(full, scratch, conventions=conventions),
+    )

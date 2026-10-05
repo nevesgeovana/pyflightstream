@@ -237,7 +237,11 @@ def action_export_lines(
         for kind, name in classify_outputs(names).items()
         if whole_run or kind not in (*WHOLE_RUN_EXPORT_KINDS, *END_OF_RUN_EXPORT_KINDS)
     }
-    if case.recipe in _UNSTEADY_RECIPES:
+    # FR-417 R7: the per-step exports of a row whose probes are NORMAL update and
+    # export them at every step of the window; the wall clock's rescue does not,
+    # since the points may not exist when it fires.
+    normal = not whole_run and case.pproc is not None and case.pproc.samples_normal_probes()
+    if case.recipe in _UNSTEADY_RECIPES and not normal:
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
     # G05: an action fires during the march and a volume section is cut after

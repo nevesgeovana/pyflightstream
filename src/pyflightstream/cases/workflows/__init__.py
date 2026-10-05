@@ -181,6 +181,7 @@ from ._reductions import (
 from ._registry import (
     UNSTEADY_COUNTER_ACTION,
     build_script,
+    normal_probe_creation,
     workflow_registry,
 )
 from ._rotor import (
@@ -573,6 +574,7 @@ __all__ = [
     "unsteady_action_command_line",
     "unsteady_counter_steps",
     "unsteady_export_threshold",
+    "normal_probe_creation",
     "unsteady_time_stepping",
     "select_workflow",
     "workflow_names",

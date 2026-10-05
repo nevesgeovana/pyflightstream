@@ -11,20 +11,28 @@ normal export into the probes table with the run's last time step.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from pyflightstream.cases import CampaignConfigError, PprocSpec
+from pyflightstream.cases import CampaignConfigError, PprocSpec, SimCase
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
+    UNSTEADY_ACTION_PROGRAM,
+    UNSTEADY_ACTION_SCRIPT,
+    WorkflowConventions,
+    action_export_lines,
     build_script,
+    normal_probe_creation,
 )
 from pyflightstream.post.products import read_csv_table, write_campaign_products
+from pyflightstream.run._actions_counter import stage_counter
 from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
@@ -354,3 +362,132 @@ def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(
     message = str(refused.value)
     assert "normal probes (entries 1, 2)" in message, message
     assert "moved_away.fsm" in message and "pyfs-matrix run --force-rerun <point>" in message
+
+
+def _windowed(tmp_path: Path, run_type: str, kind: str = "normal") -> tuple[SimCase, Script]:
+    """A row with one probe entry of ``kind`` and a per-step window from step 2."""
+    spec = _spec(_entry(kind, frame="MRP"))
+    key = "EXPORT_UNSTEADY_AFTER_ITER" if run_type == "unsteady" else "EXPORT_UNSTEADY_LAST_ITER"
+    base = _case_for(run_type)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    case = _with_pproc(
+        base.model_copy(update={"variables": {**base.variables, key: "2"}}),
+        _wb_geometry(tmp_path),
+        pproc=spec,
+    )
+    case = case.model_copy(
+        update={"outputs": [name.replace("{name}", "P") for name in spec.outputs(True)]}
+    )
+    script = Script("26.124")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        build_script(case, script)
+    return case, script
+
+
+@pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
+def test_p0370_s5_a_window_updates_and_exports_normal_probes_every_step(tmp_path, run_type):
+    """P0370-S5-PROBE-KIND (FR-417 R7): the per-step action updates, then exports the probes."""
+    case, script = _windowed(tmp_path, run_type)
+    action = action_export_lines(WorkflowConventions(), case, version="26.124")
+    assert "UPDATE_PROBE_POINTS" in action, "the per-step action does not update the probes"
+    export = action.index("EXPORT_PROBE_POINTS")
+    assert action[export + 1] == "P_probes.txt" and action.index("UPDATE_PROBE_POINTS") < export
+    rescue = action_export_lines(WorkflowConventions(), case, whole_run=True, version="26.124")
+    assert "EXPORT_PROBE_POINTS" not in rescue, "the rescue may fire before the points exist"
+    created = [line for line in _commands(script) if line.split()[0] in _PROBE_CREATION]
+    creation = normal_probe_creation(case, "26.124")
+    assert creation == "".join(f"{line}\n" for line in ["DELETE_PROBE_POINTS", *created])
+    heads = _heads(script)
+    march = heads.index("START_SOLVER")
+    assert heads[march + 1] == "DELETE_PROBE_POINTS", "the post-march creation deletes first"
+    unwindowed = _script(tmp_path / "plain", run_type, _spec(_entry("normal", frame="MRP")))
+    assert "DELETE_PROBE_POINTS" not in _heads(unwindowed)
+    windowless = {k: v for k, v in case.variables.items() if not k.startswith("EXPORT_UNSTEADY")}
+    assert normal_probe_creation(case.model_copy(update={"variables": windowless}), "26.124") == ""
+    fluid_case, _ = _windowed(tmp_path / "fluid", run_type, kind="unsteady")
+    assert normal_probe_creation(fluid_case, "26.124") == ""
+
+
+def _run_counter(tmp_path: Path, case: SimCase, script: Script, steps: int) -> list[str]:
+    """Stage the point's counter program and run it ``steps`` times, as the solver does."""
+    work = tmp_path / "work"
+    for name, text in script.pending_action_scripts.items():  # as the run stages them
+        (work / name).parent.mkdir(parents=True, exist_ok=True)
+        (work / name).write_text(text, encoding="utf-8", newline="\n")
+    stage_counter(work, script, case, "26.124", {})
+    program = work / UNSTEADY_ACTION_PROGRAM
+    written = []
+    for _ in range(steps):
+        subprocess.run([sys.executable, str(program)], check=True)
+        written.append((work / UNSTEADY_ACTION_SCRIPT).read_text(encoding="utf-8"))
+    return written
+
+
+def test_p0370_s5_the_first_exporting_step_creates_the_points_once(tmp_path):
+    """P0370-S5-PROBE-KIND (FR-417 R7): creation on the first exporting step, then exports."""
+    case, script = _windowed(tmp_path, "unsteady")
+    steps = _run_counter(tmp_path, case, script, 4)
+    creation = normal_probe_creation(case, "26.124")
+    assert creation.startswith("DELETE_PROBE_POINTS\nNEW_PROBE_LINE")
+    assert steps[0] == "", "step 1 precedes the window"
+    assert steps[1].startswith(creation), "the first exporting step does not create the points"
+    assert "UPDATE_PROBE_POINTS\n" in steps[1] and "EXPORT_PROBE_POINTS\nP_probes.txt\n" in steps[1]
+    for later in steps[2:]:
+        assert "NEW_PROBE" not in later and "DELETE_PROBE_POINTS" not in later, later
+        assert "UPDATE_PROBE_POINTS\n" in later and "EXPORT_PROBE_POINTS\nP_probes.txt\n" in later
+    fluid_case, fluid = _windowed(tmp_path / "fluid", "unsteady", kind="unsteady")
+    program = _run_counter(tmp_path / "fluid", fluid_case, fluid, 2)
+    assert "PROBE" not in "".join(program)
+
+
+def test_p0370_s5_stamped_normal_exports_feed_the_probes_series(tmp_path, monkeypatch):
+    """P0370-S5-PROBE-KIND (FR-417 R7): one series row per probe and exporting step."""
+    workspace = _normal_workspace(tmp_path, monkeypatch)
+    (record,) = workspace.read_manifest()
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 95.0,
+        "first_step": 95,
+        "time_iterations": 96,
+        "delta_time_s": 0.01,
+    }
+    record = record.model_copy(update={"export_window": window})
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
+    for step in (95, 96):
+        rows = [(n - 1.0, 0.5, 0.0, step + n, 0.0, 0.0) for n in (1, 2, 3)]
+        (workspace.sim_dir("7001") / f"AL-020_probes_iteration={step}.txt").write_text(
+            _probe_export(rows), encoding="utf-8", newline="\n"
+        )
+    write_campaign_products(workspace)
+    series = next((workspace.root / "post").rglob("AL-020_probes_series.csv"))
+    _, rows = read_csv_table(series)
+    assert [(int(row["STEP"]), int(row["PROBE"])) for row in rows] == [
+        (step, probe) for step in (95, 96) for probe in (1, 2, 3)
+    ]
+    assert [float(row["vx"]) for row in rows] == [96.0, 97.0, 98.0, 97.0, 98.0, 99.0]
+
+
+def test_p0370_s5_a_raw_probe_line_is_not_replayed_by_the_continuation(tmp_path):
+    """P0370-S5-PROBE-KIND (FR-417 R6): the setup's own probe line appears once, not twice."""
+    from pyflightstream.cases import RawCommand
+
+    raw = RawCommand(command="NEW_PROBE_POINT VOLUME 7.0 8.0 9.0", before="analysis")
+    spec = _spec(_entry("normal", frame="MRP"))
+    base = _case_for("unsteady")
+    restart = {
+        RESTART_VARIABLE: "{ADDITIONAL_ITERS=12}",
+        RESTART_FROM_VARIABLE: "datapoints/DP-AL+000/archive/20260914-010000/point.fsm",
+        RESTART_ITERATIONS_VARIABLE: "12",
+    }
+    case = _with_pproc(
+        base.model_copy(update={"variables": {**base.variables, **restart}, "raw_commands": [raw]}),
+        _wb_geometry(tmp_path),
+        pproc=spec,
+    ).model_copy(update={"outputs": [n.replace("{name}", "P") for n in spec.outputs(True)]})
+    script = Script("26.124")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        build_script(case, script)
+    assert _commands(script).count("NEW_PROBE_POINT VOLUME 7.0 8.0 9.0") == 1
+    assert "NEW_PROBE_LINE" in _heads(script), "the normal probes were not created"
