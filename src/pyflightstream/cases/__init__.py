@@ -179,6 +179,7 @@ from pyflightstream.cases.pproc import (
     global_frame_plot_declarations,
 )
 from pyflightstream.cases.pproc import EXPANDING_FRAMES as EXPANDING_FRAMES
+from pyflightstream.cases.pproc import INSTALLED_FRAME_FAMILIES as INSTALLED_FRAME_FAMILIES
 from pyflightstream.cases.pproc import SUPERFILE_FORMATS as SUPERFILE_FORMATS
 from pyflightstream.cases.pproc import EquationSpec as EquationSpec
 from pyflightstream.cases.pproc import PerRevolutionSpec as PerRevolutionSpec

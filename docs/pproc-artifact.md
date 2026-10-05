@@ -78,6 +78,7 @@ sections = true                # one table per point from its sectional loads ex
 plots = true                   # one table per unsteady point from its plots export
 custom_polar_format = false    # beside each polar table, the text file the reference tooling opens
 settings_codebook = true          # per matrix, the numeric settings table of every point and its codebook
+installed_frame = []              # "probes" and/or "inflow": copies mirrored through y = 0
 
 [phase_locked]                 # OPTIONAL: the phase-locked table becomes one row per azimuth
 min_revolutions = 4.0          # generated when the row turns AT LEAST this many revolutions
@@ -553,6 +554,22 @@ from the solver-setup snapshot of every recorded point (FR-419). State
 byte for byte. A point whose record holds no snapshot is named in `post.log` and in
 `products.json` under `skipped`, with no row. The encoding is the
 [settings codebook](settings-codebook.md#the-campaign-product) page.
+
+### Installed-frame copies of the inflow tables
+
+`[products] installed_frame` is a list of families, from `"probes"` and `"inflow"`, empty by
+default (any other name is refused when the pproc is read, naming these two). For `"probes"` the
+post writes `probes/<point>_probes_installed.csv` beside each probes table; for `"inflow"` it
+writes `fields/<stem>.inflow_installed.dat` beside each reusable inflow profile. Each copy is the
+table mirrored through `y = 0`, for a rotor installed on the other side of the plane from the one
+simulated: the `Y` position and the `VY` velocity change sign, so does the x and z of a vorticity,
+and every other column is copied as written (FR-420). The columns, and the classes that decide
+them, are in [the installed-frame copy of a product
+table](post-processing-definitions.md#the-installed-frame-copy-of-a-product-table). A column the
+classification cannot place is copied unchanged and named once per simulation in `post.log`. The
+copy holds where the installed configuration is the mirror image of the simulated one, and asserts
+nothing about a flow that is not (a wake, a body or a rotor that is not mirror-symmetric). Each
+copy is listed in `products.json` with kind `installed_frame` and its source table in `source`.
 
 ### Custom polar format
 

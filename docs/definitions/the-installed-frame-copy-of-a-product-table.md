@@ -10,7 +10,7 @@ Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1)
 | `MX` | flip | a moment about an axis in the mirror plane |
 | `MZ` | flip | a moment about an axis in the mirror plane |
 | `CY[A-Z]*` | flip | the side-force coefficients |
-| `CR[A-Z]*` | flip | the roll coefficients, a moment about x |
+| `CR(?!EF)[A-Z]*` | flip | the roll coefficients, a moment about x (never `CREF`, the reference chord) |
 | `CN[BSW]\d*` | flip | the yaw coefficients of the body, stability and wind axes |
 | `CMX` | flip | the coefficient of `MX` |
 | `CMZ` | flip | the coefficient of `MZ` |
@@ -19,6 +19,9 @@ Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1)
 | `BETA` | flip | the sideslip angle |
 | `CS` | flip | the side-force coefficient |
 | `CMN` | flip | the yawing-moment coefficient |
+| `Y` | flip | a position along the mirrored axis: a point at +y appears at -y (class: position) |
+| `VY` | flip | the y component of a velocity (class: polar vector) |
+| `VORTICITY_[XZ]` | flip | the x and z components of a vorticity (class: axial vector) |
 | `AZIMUTH` | azimuth | `psi -> -psi mod 360` |
 | `AZIMUTH_START` | azimuth | `psi -> -psi mod 360` |
 | `AZIMUTH_END` | azimuth | `psi -> -psi mod 360` |
@@ -28,3 +31,11 @@ Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1)
 | `CT` | keep | the thrust coefficient |
 
 The sectional `Fx`, `Fz` and `Moment` are NOT negated by default: the orientation of the section axes is not settled, and negating them on a guess would write a wrong number that looks like a right one. The `flip=` argument names them once it is. Any other column is copied as written.
+
+**The post writes the copies of the inflow tables.** `[products] installed_frame` in the pproc is a list of families from `probes` and `inflow` (default empty; any other name is refused when the pproc is read, naming these two). For `probes` the post writes `probes/<point>_probes_installed.csv` beside each probes table; for `inflow` it writes `<stem>.inflow_installed.dat` beside each reusable inflow profile (`fields/<stem>.inflow.dat`), the six columns `x y z vx vy vz` read as `X Y Z VX VY VZ`. Each copy is the mirror through `y = 0` by the one classification above, so a probe at +y appears at -y, its `VY` changes sign and its vorticity's x and z components change sign, while every other column is copied as written. Mirroring a copy again returns the source.
+
+The classes are three: a POSITION (`Y`) and a POLAR vector (a velocity `VY`, a force `FY`) change the sign of the y component; an AXIAL vector (a moment, a vorticity) changes the sign of its x and z components; an azimuth maps `psi -> -psi mod 360`. A column the classification cannot place is copied unchanged and named once per simulation in `post.log`; the columns the probes table carries by construction (its spine, the condition and reference columns, the fluid parameters and the solver's own probe export) are placed and never named.
+
+Each copy is listed in `products.json` with `"kind": "installed_frame"` and its source table in the entry's `source` field.
+
+The copy is the isolated-frame table mirrored, blade `k` staying blade `k`. It holds where the installed configuration is the mirror image of the simulated one, and it asserts nothing about a flow that is not (a wake, a body or a rotor that is not mirror-symmetric).

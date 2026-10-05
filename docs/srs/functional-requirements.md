@@ -9672,7 +9672,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Evidence: `test_the_table_has_one_row_per_point_read_from_its_record`, `test_the_legend_carries_the_version_and_the_key_of_every_row`, `test_both_files_are_in_the_manifest_with_the_runs_they_derive_from`, `test_the_key_absent_is_on_and_false_changes_no_byte_of_0_36_0`, `test_a_point_without_a_snapshot_is_named_and_gets_no_row` and `test_a_rebuild_replaces_the_pair_and_a_key_withdrawn_retires_it` in `tests/tier1_offline/test_p0370_s7_codebook.py`; the products snapshot regenerated for the default, and `scripts/check_parity.py` naming the difference.
 
-!!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-pending'>pending</span>"
+!!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.08 (0.37.0).
 
     *Origin: GEO-070 candidate "Declarar cópia de tabelas no frame instalado pelo pproc", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
@@ -9688,6 +9688,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R5 The copy is the isolated-frame table mirrored, blade k staying blade k; it holds where the installed configuration is the mirror image of the simulated one, and it asserts nothing about a flow that is not (a wake, a body or a rotor that is not mirror-symmetric).
 
     Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`, carrying P0370-S8-INSTALLED-INFLOW (FR-420): a planted point at +y appears at -y with its VY negated and its vorticity's x and z negated (the assertion that the identity cannot pass); mirroring twice returns the source; a planted unknown column is copied and named once; a mutant dropping one column from the list fails the page comparison; the manifest entries.
+
+    Evidence: `test_a_probe_at_plus_y_appears_at_minus_y_with_its_velocity_mirrored`, `test_the_inflow_profile_is_mirrored_through_y_zero`, `test_the_vorticity_negates_its_x_and_z_and_keeps_y`, `test_mirroring_twice_returns_the_source`, `test_a_column_the_classification_cannot_place_is_copied_and_named_once`, `test_the_manifest_names_each_copy_and_its_source`, `test_with_the_key_empty_or_absent_nothing_new_is_written`, `test_a_family_the_post_does_not_mirror_is_refused_where_the_pproc_is_read`, `test_the_classification_list_is_the_definitions_page_with_the_flow_columns`, `test_the_reference_chord_is_not_a_roll_coefficient` and `test_to_installed_frame_now_mirrors_the_flow_columns_of_a_table_that_carries_them` in `tests/tier1_offline/test_p0370_s8_installed.py`.
 
 !!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.09 (0.37.0).

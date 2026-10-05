@@ -61,6 +61,11 @@ from pyflightstream.post._condition import (
     clock_rotor_facts,
     point_condition,
 )
+from pyflightstream.post._installed_copies import (
+    INFLOW_SUFFIX,
+    write_installed_inflow,
+    write_installed_probes,
+)
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
@@ -209,6 +214,9 @@ class SimContext:
     )
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
+    #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
+    #: is named once for the simulation.
+    installed_unplaced: set[str] = field(default_factory=set)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -746,6 +754,8 @@ def _write_fields(
         return
     for path, entry in fields.items():
         ctx.add(path, {"runs": ctx.sources[point_name], **entry})
+        if path.name.endswith(INFLOW_SUFFIX):
+            write_installed_inflow(ctx, path, point_name)
 
 
 def _probes_products(
@@ -793,6 +803,7 @@ def _probes_products(
         return
     if done is not None:
         ctx.add(done, {"runs": ctx.sources[point.name]})
+        write_installed_probes(ctx, done, point.name)
         _write_fields(ctx, done, point.name)
 
 
@@ -908,6 +919,7 @@ def _unsteady_probes(
             )
         _write_fields(ctx, field, point.name, step_source=plots_table)
         ctx.add(field, {"runs": ctx.sources[point.name]})
+        write_installed_probes(ctx, field, point.name)
     elif probe_requested and ctx.skipped[probe_relative].startswith("no probes table: missing"):
         # F01 REVIEW: the writer returns None when the history
         # carries no whole probe group, and until this line the

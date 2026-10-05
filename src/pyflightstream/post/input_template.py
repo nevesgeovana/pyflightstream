@@ -436,8 +436,7 @@ CX = "-. The axial force coefficient of the airframe, in the MRP frame"
 [names]
 CL_WING = "CL_W"
 
-# Which products are written after the run.
-[products]
+[products]  # Which products are written after the run.
 polars = true
 sections = true
 plots = true
@@ -447,6 +446,7 @@ boundary_layer_integrals = false
 boundary_layer_velocity_profile = false
 superfile_format = "csv"
 settings_codebook = true
+installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
 """
 
 _SURFACE_PROBE_EXAMPLE = """\
