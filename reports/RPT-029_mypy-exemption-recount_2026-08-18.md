@@ -130,18 +130,19 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 159 errors in 16 files (checked 269 source files)
->     Success: no issues found in 269 source files
+>     Found 159 errors in 16 files (checked 282 source files)
+>     Success: no issues found in 282 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-03: 159 errors in 16 of 269 modules.**
+**mypy recount 2026-10-05: 159 errors in 16 of 282 modules.**
 
-The quoted top block and the sentence above are the 2026-10-03 run recorded
-in the dated section at the end. The module total is the 269 of `rel/0-36`
-after the wave-1 cuts and MM, with 159 errors in sixteen dirty modules.
+The quoted top block and the sentence above are the 2026-10-05 run recorded
+in the dated section at the end. The module total is the 282 of `rel/0-37`
+after the 0.37.0 work packages, with 159 errors in sixteen dirty modules.
+The 269 were the tracked package on `rel/0-36` after the wave-1 cuts and MM.
 The earlier 236 were the tracked package on `rel/0-34` with the wave-2
 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
 each reported clean: `pyflightstream._textio` (NFR-32) and
@@ -460,7 +461,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 159 errors in 16 files (checked 269 source files)
+    Found 159 errors in 16 files (checked 282 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1240,3 +1241,24 @@ unchanged. The sentence at the top of this report is this run's. (The 0.35.1.dev
 and the first 0.36.0 module recounts changed only the module figure of the
 2026-10-02 sentence; this run re-measures the errors as well, and the dated
 section above is restored to the 236 modules it measured.)
+
+## Re-measured 2026-10-05, `rel/0-37` with the 0.37.0 work packages merged: the same 159 errors in the same 16 modules, thirteen modules more, all clean
+
+`python scripts/mypy_recount.py` on 2026-10-05, on `rel/0-37` at the merge of the
+0.37.0 documentation (HEAD 6daf49ea), the tree clean as the script reported, with
+python 3.12.0, numpy 2.5.3, xarray 2026.9.0, pandas 3.0.6 and pydantic 2.13.5 (the
+script printed mypy's version as unknown): 159 errors in 16 of 282 modules on 74
+distinct source lines; the shipped configuration is green over all 282. The package
+grew by thirteen modules since the 0.36.0 recount of 2026-10-03, each reported clean
+and none exempted: `cases/workflows/_export_first_step.py`,
+`cases/workflows/_wake_length.py`, `fsi/_direct_morphing.py`,
+`post/_installed_copies.py`, `post/_settings_product.py`, `qa/_spec_26125.py`,
+`run/_collect_logs.py`, `run/_mark_converged.py`, `run/_rebuild_grouped.py`,
+`script/_build_forms.py`, `workspace/_missing_log.py`, `workspace/_step_prune.py`
+and `workspace/_verdicts.py`. The errors by module are in `qa.probes` (79),
+`script.solver_setup` (22), `script` (17), `fsi.nodes` (10), `cases.matrix` (6),
+`probes.planar` (6), `workspace.inputs` (4), six modules with two and three with
+one; by code, 121 `arg-type`, 12 `return-value`, 7 `union-attr`, 5 `operator`,
+5 `assignment`, 4 `call-overload`, 4 `misc` and 1 `attr-defined`. The override list
+of `pyproject.toml` is unchanged. The sentence at the top of this report is this
+run's.

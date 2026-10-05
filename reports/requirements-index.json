@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 381,
+  "cited_by_a_test": 382,
   "total": 441,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -3155,9 +3155,9 @@
    "id": "FR-422",
    "text": "Plan: PFS-2078.02 (0.37.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the owner's request of 2026-10-03 (\"poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio\") and her answer of 2026-10-05 (\"a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas\"); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "FR-423",
