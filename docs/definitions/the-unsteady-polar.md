@@ -4,6 +4,9 @@
   window, and it does **not** read the native coefficient export.
 - **Its columns are the plot variables under the names the export prints them.**
   It does not carry the steady polar's fixed 24 coefficient columns.
+- The source plots table normalizes coefficient plots to the free stream by
+  `(Vref / Vinf)^2`, including `CDP_*` and `CDV_*` on 26.125. Their names stay
+  distinct from `CDI_*` and `CDO_*`; dimensional forces and moments are unchanged.
 - The flight-condition and reference-length columns are still added, because
   those come from the workspace and not from the export.
 

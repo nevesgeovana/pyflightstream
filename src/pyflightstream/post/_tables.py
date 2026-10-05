@@ -232,7 +232,7 @@ SECTION_COLUMNS: tuple[str, ...] = (
 
 #: The plot-column prefixes that are coefficients, which the solver
 #: normalises by its reference velocity and the product by the free stream.
-_COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
+_COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CDP_", "CDV_", "CD_")
 
 #: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
