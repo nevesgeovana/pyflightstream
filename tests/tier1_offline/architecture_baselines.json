@@ -1081,7 +1081,7 @@
    "positional": 5
   },
   "cases/workflows/_probes.py:_pproc_probes": {
-   "complexity": 13,
+   "complexity": 11,
    "branches": 12,
    "statements": 34,
    "positional": 3

@@ -461,6 +461,17 @@ longer where the row names it, for example), the continuation is refused, naming
 the entries; run the row again from the mesh with
 `pyfs-matrix run --force-rerun <point>`.
 
+A row with normal probes that states a per-step export window
+(`EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_AFTER_ITER`,
+`EXPORT_UNSTEADY_LAST_REV` or `EXPORT_UNSTEADY_LAST_ITER`) also exports them at
+every step of the window, as `<point>_probes_iteration=<step>.txt`, which the
+post tables in `series/<point>_probes_series.csv`, one row per step and probe.
+The exports script creates the probe points on the first exporting step
+(`DELETE_PROBE_POINTS`, then the same creation commands as after the march) and
+then runs `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS` at every step. The
+creation after the march is kept and deletes the points first, so the final
+export holds each point once.
+
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
 nothing else; every table the post writes opens with `POL`, the

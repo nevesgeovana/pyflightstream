@@ -63,6 +63,17 @@ SAVEAS ...
 EXPORT_PROBE_POINTS <point>_probes.txt
 ```
 
+With a per-step export window, the normal probes are also exported at every
+step of the window: the exports script of the first exporting step creates them,
+and every step of the window runs
+
+```text
+UPDATE_PROBE_POINTS
+EXPORT_PROBE_POINTS
+<point>_probes.txt
+```
+
+beside the other per-step exports, stamped `<point>_probes_iteration=<step>.txt`.
 See [the probe kind](pproc-artifact.md#the-probe-kind-of-an-unsteady-row).
 
 ## The reductions of an unsteady point

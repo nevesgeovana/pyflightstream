@@ -42,6 +42,7 @@ from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_SCRIPT,
     UNSTEADY_COUNTER_ACTION,
     UnsteadyExportThreshold,
+    normal_probe_creation,
     unsteady_counter_steps,
     unsteady_export_threshold,
 )
@@ -107,7 +108,26 @@ if __name__ == "__main__":
 '''
 
 
-def render_program(threshold: UnsteadyExportThreshold, *, interpreter: str) -> str:
+#: FR-417 R7: what the program of a row with normal probes and a per-step window
+#: writes instead of the plain rewrite. The probe points are created after the
+#: march, which the window's steps precede, so the first exporting step writes
+#: the creation lines (``DELETE_PROBE_POINTS`` first, so a continued run that
+#: already holds them does not hold them twice) before the exports, and every
+#: later step updates and exports them.
+_PLAIN_REWRITE = (
+    '    SCRIPT_FILE.write_text(EXPORTS if current["exporting"] else "", '
+    'encoding="utf-8", newline="\\n")\n'
+)
+_FIRST_STEP_CREATES = (
+    '    first = current["exporting"] and not state(count)["exporting"]\n'
+    '    text = (CREATE + EXPORTS) if first else (EXPORTS if current["exporting"] else "")\n'
+    '    SCRIPT_FILE.write_text(text, encoding="utf-8", newline="\\n")\n'
+)
+
+
+def render_program(
+    threshold: UnsteadyExportThreshold, *, interpreter: str, creation: str = ""
+) -> str:
     r"""Return the program text for one point.
 
     Parameters
@@ -118,6 +138,10 @@ def render_program(threshold: UnsteadyExportThreshold, *, interpreter: str) -> s
     interpreter : str
         The Python the registration line names, recorded in the program
         so a reader of the folder can see which one ran it.
+    creation : str, optional
+        The lines that create the row's normal probe points (FR-417 R7),
+        written on the first exporting step only; empty, the program is the
+        one every other row gets.
 
     Returns
     -------
@@ -149,6 +173,10 @@ def render_program(threshold: UnsteadyExportThreshold, *, interpreter: str) -> s
         "SCRIPT_NAME": PurePosixPath(UNSTEADY_ACTION_SCRIPT).name,
     }
     text = TEMPLATE
+    if creation:
+        text = text.replace("EXPORTS = <EXPORTS>\n", "EXPORTS = <EXPORTS>\nCREATE = <CREATE>\n")
+        text = text.replace(_PLAIN_REWRITE, _FIRST_STEP_CREATES)
+        values["CREATE"] = creation
     for token, value in values.items():
         text = text.replace(f"<{token}>", repr(value))
     return text
@@ -253,7 +281,11 @@ def stage_counter(
     program.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(
         program,
-        render_program(threshold, interpreter=sys.executable)
+        render_program(
+            threshold,
+            interpreter=sys.executable,
+            creation=normal_probe_creation(point_case, fs_version),
+        )
         if threshold is not None
         else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),
     )
