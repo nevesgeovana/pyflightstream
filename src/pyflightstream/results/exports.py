@@ -352,14 +352,16 @@ def _table_region(text: str, header_anchor: str, *, what: str) -> tuple[str, lis
     )
 
 
-def _pinned_columns(header: str, expected: tuple[str, ...], *, what: str) -> tuple[str, ...]:
-    """Refuse a header that is not the pinned column layout of this export."""
+def _pinned_columns(header: str, *expected: tuple[str, ...], what: str) -> tuple[str, ...]:
+    """Refuse a header that is not a pinned column layout of this export, naming each."""
     printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
     reject_duplicate_columns(printed, what=what)
-    if printed != expected:
+    if printed not in expected:
+        layouts = " or ".join(str(list(layout)) for layout in expected)
+        reads = "the layout" if len(expected) == 1 else f"one of {len(expected)} layouts,"
         raise MalformedOutputError(
-            f"the {what} header names {list(printed)}, and this package reads the layout "
-            f"{list(expected)}. The columns of this export are fixed by the solver rather "
+            f"the {what} header names {list(printed)}, and this package reads {reads} "
+            f"{layouts}. The columns of this export are fixed by the solver rather "
             "than chosen by the run, so a header that has moved means the build reordered, "
             "renamed or added a column; reading it by position would carry one physical "
             "quantity under another one's label, which no value downstream would look "
@@ -1107,9 +1109,7 @@ def sweep_columns(header: str, *, what: str) -> tuple[str, ...]:
     MalformedOutputError
         When the header is neither accepted sweep layout.
     """
-    printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
-    expected = _SIMCENTER_SWEEP_COLUMNS if printed == _SIMCENTER_SWEEP_COLUMNS else SWEEP_COLUMNS
-    return _pinned_columns(header, expected, what=what)
+    return _pinned_columns(header, SWEEP_COLUMNS, _SIMCENTER_SWEEP_COLUMNS, what=what)
 
 
 def parse_sweep_spreadsheet(

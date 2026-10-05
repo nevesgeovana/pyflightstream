@@ -73,3 +73,14 @@ def test_an_unobserved_sweep_layout_is_still_refused(replacement):
     text = (FIXTURES / "s10_26125/sweep_26.125.txt").read_text(encoding="utf-8")
     with pytest.raises(MalformedOutputError):
         parse_sweep_spreadsheet(text.replace("CDp, CDv", replacement))
+
+
+@pytest.mark.parametrize("replacement", ["CDp, CDo", "CDp, other", "CDv, CDp"])
+def test_an_unmatched_sweep_header_names_both_accepted_layouts(replacement):
+    """P0370-S10-SIMCENTER-HEADERS (FR-423): the refusal lists the CDi/CDo and CDp/CDv layouts."""
+    text = (FIXTURES / "s10_26125/sweep_26.125.txt").read_text(encoding="utf-8")
+    with pytest.raises(MalformedOutputError) as refused:
+        parse_sweep_spreadsheet(text.replace("CDp, CDv", replacement))
+    said = str(refused.value)
+    assert "one of 2 layouts" in said, said
+    assert "'CL', 'CDi', 'CDo', 'CMx'" in said and "'CL', 'CDp', 'CDv', 'CMx'" in said, said
