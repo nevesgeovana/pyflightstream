@@ -2,7 +2,7 @@
 
 The 26.125 fixture is a byte cut of one solver export of the 26.125 probe
 campaign; ``fixtures/s10_26125/PROVENANCE.md`` names the file, its sha256 and
-the one line changed.
+the changes.
 """
 
 from pathlib import Path
