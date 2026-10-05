@@ -183,7 +183,7 @@ def test_p0370_s9_no_reason_of_the_table_carries_a_report_id():
     assert len(LEFT_OUT_REASONS) >= 7
     for key, reason in LEFT_OUT_REASONS.items():
         assert not re.search(r"RPT-?\d*", reason), key
-        assert "—" not in reason and "–" not in reason, key
+        assert chr(0x2014) not in reason and chr(0x2013) not in reason, key
     control = "a coupled row (RPT-150)"
     assert re.search(r"RPT-?\d*", control)
 
