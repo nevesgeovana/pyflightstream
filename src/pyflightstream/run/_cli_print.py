@@ -80,8 +80,7 @@ def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
 
 
 def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> None:
-    from pyflightstream.workspace._step_prune import kept_phrase
-    from pyflightstream.workspace.storage import human_bytes
+    from pyflightstream.workspace.storage import human_bytes, kept_phrase
 
     mode = "APPLIED" if entry["applied"] else "preview"
     print(f"free-space {entry['recipe']} ({mode})")

@@ -146,6 +146,28 @@ def kept_phrase(selection: Mapping[str, Any], *, exclusive: bool = False) -> str
     return f"{kept} of each export{' only' if exclusive else ''}"
 
 
+def kept_entries(
+    by_step: Mapping[int, Path], steps: Iterable[int], root: Path
+) -> list[dict[str, Any]]:
+    """Return the recorded ``kept`` entries of the steps of one export that stay.
+
+    Parameters
+    ----------
+    by_step : mapping of int to Path
+        The files of one export by step.
+    steps : iterable of int
+        The steps kept.
+    root : Path
+        The workspace root the recorded paths are relative to.
+
+    Returns
+    -------
+    list of dict
+        One ``{"path", "step"}`` per step, in the order given.
+    """
+    return [{"path": by_step[step].relative_to(root).as_posix(), "step": step} for step in steps]
+
+
 def step_export_groups(
     folder: Path, files: Iterable[Path]
 ) -> dict[Path, dict[tuple[str, str], dict[int, Path]]]:

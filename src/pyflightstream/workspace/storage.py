@@ -98,6 +98,7 @@ __all__ = [
     "disk_estimate",
     "ensure_sim_expanded",
     "free_space",
+    "kept_phrase",
     "pruned_step_refusal",
     "read_storage_calls",
     "record_storage_call",
@@ -128,6 +129,8 @@ _RECIPE_TABLES = (PRUNE_MODE, "compact_sims", "delete_extensions", "post_archive
 #: ``prune_step_exports``; the post stage keeps the product a previous post
 #: made under that refusal, where it would otherwise retire it.
 STEP_EXPORTS_PRUNED = "Refused, per-step exports deleted by free-space: "
+#: What a recorded ``prune_step_exports`` step kept, in words (FR-416).
+kept_phrase = step_prune.kept_phrase
 #: The suffix of the temporary name a sync copies a file to before renaming it
 #: in place (P0320-SYNC-ATOMIC); a file left under it by a killed sync is never
 #: brought by another.
@@ -783,10 +786,7 @@ def _prune_step_exports(
         protected: list[str] = []
         for _export, by_step in sorted(exports.items()):
             keeping, doomed = step_prune.split_steps(spec, by_step)
-            for step in keeping:
-                kept.append(
-                    {"path": by_step[step].relative_to(workspace.root).as_posix(), "step": step}
-                )
+            kept += step_prune.kept_entries(by_step, keeping, workspace.root)
             for step in doomed:
                 path = by_step[step]
                 relative = path.relative_to(workspace.root).as_posix()
