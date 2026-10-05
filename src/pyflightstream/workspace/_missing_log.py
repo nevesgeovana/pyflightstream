@@ -81,7 +81,7 @@ def absent_solver_logs(
     """Return the declared solver logs absent from ``folder`` while every other output is there.
 
     THE ONE DECISION OF RAN_MISSING_LOG (FR-413 R6). Empty when no output of
-    ``outputs`` is a declared log, when any declared log is present, or when
+    ``outputs`` is a declared log, when every declared log is present, or when
     any other declared output (those the package writes itself, such as a
     translated Tecplot, excepted) is missing: a point missing an output other
     than its log is FAILED_INCOMPLETE_OUTPUT as before (R7).
@@ -104,12 +104,13 @@ def absent_solver_logs(
     """
     declared = {_name(name) for name in logs}
     log_outputs = [name for name in outputs if _name(name) in declared]
-    if not log_outputs or any((folder / name).exists() for name in log_outputs):
+    absent = [name for name in log_outputs if not (folder / name).exists()]
+    if not absent:
         return ()
     others = [name for name in outputs if name not in log_outputs and name not in written_here]
     if not others or not all((folder / name).is_file() for name in others):
         return ()
-    return tuple(log_outputs)
+    return tuple(absent)
 
 
 def point_absent_logs(record: RunRecord, folder: Path) -> tuple[str, ...]:
