@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.36.0, MIT licensed}
+\institute[]{pyflightstream 0.37.0, MIT licensed}
 \date{October 2026}
 
 \AtBeginSection[]{
@@ -205,6 +205,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of d] (e) {26.122};
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of e] (f) {26.123};
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of f] (g) {26.124};
+      \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of g] (h) {26.125};
       \draw[-{Stealth},thick,accentteal] (z0) -- (z1);
       \draw[-{Stealth},thick,accentteal] (z1) -- (a);
       \draw[-{Stealth},thick,accentteal] (a) -- (b);
@@ -214,7 +215,8 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
       \draw[-{Stealth},thick,accentteal] (d) -- (e);
       \draw[-{Stealth},thick,accentteal] (e) -- (f);
       \draw[-{Stealth},thick,accentteal] (f) -- (g);
-      \node[below=3mm of g,text width=36mm,font=\tiny,align=center]
+      \draw[-{Stealth},thick,accentteal] (g) -- (h);
+      \node[below=3mm of h,text width=36mm,font=\tiny,align=center]
         {one vendor name, "26.12", names every build below 26.101; resolution refuses it and lists them};
     \end{tikzpicture}
     \end{center}
