@@ -36,6 +36,10 @@ _FORM_OF_KEY = {
     EXPORT_UNSTEADY_LAST_ITER_VARIABLE: "last_iterations",
 }
 _REVOLUTION_KEYS = (EXPORT_UNSTEADY_AFTER_REV_VARIABLE, EXPORT_UNSTEADY_LAST_REV_VARIABLE)
+_UNSTEADY_WORKFLOWS = ("unsteady", "unsteady_rotor")
+#: Steps beyond which a product of revolutions and steps a turn is no run at all; it is
+#: capped there so the length check refuses it instead of the conversion overflowing.
+_STEP_CAP = 10**15
 _LAST_KEYS = (EXPORT_UNSTEADY_LAST_REV_VARIABLE, EXPORT_UNSTEADY_LAST_ITER_VARIABLE)
 #: The key that works where the revolutions form cannot, per revolutions key.
 _ITER_REMEDY = {
@@ -84,6 +88,14 @@ def refuse_two_threshold_keys(case: SimCase, stated: dict[str, str]) -> None:
     if len(stated) < 2:
         return
     names = list(stated)
+    if not any(key in _LAST_KEYS for key in names):
+        # Only the 0.13.0 keys: the refusal text of every earlier release, byte for byte.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {EXPORT_UNSTEADY_AFTER_REV_VARIABLE} and "
+            f"{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE} both. The per-step exports begin at "
+            "ONE step, stated in revolutions of the rotor or in time iterations; two "
+            "statements would be two steps nobody keeps in agreement. Keep one."
+        )
     listed = f"{', '.join(names[:-1])} and {names[-1]}"
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {listed} both. The per-step exports begin at "
@@ -108,8 +120,17 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
     Raises
     ------
     CampaignConfigError
-        If ``workflow`` is ``steady``.
+        If ``workflow`` is ``steady``, or the revolutions last form is stated on a
+        run type that has no unsteady clock.
     """
+    if key == EXPORT_UNSTEADY_LAST_REV_VARIABLE and workflow not in _UNSTEADY_WORKFLOWS:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
+            "has no unsteady rotor clock: a revolution is counted on a rotor the run turns "
+            "in a time loop, and this run type has neither. State "
+            f"'{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: <steps>' on an unsteady run type "
+            "instead, or drop the key."
+        )
     if workflow != "steady":
         return
     raise CampaignConfigError(
@@ -119,6 +140,14 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
     )
 
 
+def _steps_of(number: float, per_revolution: float) -> int:
+    """Return ``ceil(number x per_revolution - 1e-9)`` (the after-form's tolerance), capped."""
+    product = number * per_revolution
+    if not math.isfinite(product) or product >= _STEP_CAP:
+        return _STEP_CAP
+    return math.ceil(product - 1e-9)
+
+
 def _revolutions_to_steps(
     case: SimCase, key: str, stepping: TimeStepping, workflow: str
 ) -> tuple[float, int]:
@@ -126,12 +155,12 @@ def _revolutions_to_steps(
     number = _required_float(case, key, quantity="export threshold", unit="revolutions")
     per_revolution = stepping.steps_per_revolution
     if workflow == "unsteady_rotor" and per_revolution is not None:
-        return number, math.ceil(number * per_revolution - 1e-9)
+        return number, _steps_of(number, per_revolution)
     hint = ""
     if per_revolution is not None:
         hint = (
             f" This row's azimuthal clock makes {number} revolutions "
-            f"{math.ceil(number * per_revolution - 1e-9)} steps."
+            f"{_steps_of(number, per_revolution)} steps."
         )
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {key} and names a run type with no rotor "
@@ -202,11 +231,17 @@ def resolve_first_step(
     _refuse_a_non_positive(case, key, number, stepping)
     length = stepping.time_iterations
     if key in _LAST_KEYS:
+        if steps < 1:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {key} as {number}, which rounds to no time "
+                "step of this run, so nothing would be exported. State at least one step "
+                f"('{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: 1' exports the last one)."
+            )
         if steps > length:
             raise CampaignConfigError(
-                f"case {case.sim_id!r} states {key} as {number}, which is the last {steps} "
-                f"steps, and the run is {length} steps long, so there are not that many "
-                f"steps to export. Lower it to at most {length} steps, which exports every "
+                f"case {case.sim_id!r} states {key} as {number}, which is more than the "
+                f"{length} steps the run is long, so there are not that many steps to "
+                f"export. Lower it to at most {length} steps, which exports every "
                 "step, or lengthen the run."
             )
         return _FORM_OF_KEY[key], number, length - steps + 1
