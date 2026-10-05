@@ -1,0 +1,11 @@
+--------------------------------------------------------------------------------------
+
+Simcenter Flightstream 2612, build #10052026
+
+Software copyrights: Siemens, 2024-2026.
+
+--------------------------------------------------------------------------------------
+
+Checking out Altair units...Not available.
+
+Attempting EDU feature checkout...Success!

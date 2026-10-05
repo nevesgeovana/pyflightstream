@@ -37,8 +37,11 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.results import (
+    DRAG_PAIRS,
     NOT_CARRIED_BY_THE_VTK,
+    LoadsReport,
     MalformedOutputError,
+    drag_pair,
     labeled_value,
     parse_loads,
     parse_probe_points,
@@ -92,8 +95,17 @@ LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
     ("csv", "", "csv"),
 )
 
-#: The columns of one loads spreadsheet row, in the solver's order.
+#: The columns of one loads spreadsheet row, in the solver's order, as every
+#: build up to 26.124 prints them. 26.125 prints its drag split ``CDp, CDv`` in
+#: the places of ``CDi, CDo`` (FR-423), and a series carries the names its
+#: steps printed (:func:`_printed_loads_columns`).
 LOADS_COLUMNS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz")
+
+
+def _printed_loads_columns(report: LoadsReport) -> tuple[str, ...]:
+    """Return :data:`LOADS_COLUMNS` with the drag split the table printed (FR-423)."""
+    printed = dict(zip(DRAG_PAIRS[0], drag_pair(report.total), strict=True))
+    return tuple(printed.get(column, column) for column in LOADS_COLUMNS)
 
 
 def stamped_exports(
@@ -323,6 +335,7 @@ def _loads_rows(
 ) -> tuple[tuple[str, ...], list[tuple[object, ...]]]:
     """One row per step, the coefficients of every surface and the Total, wide."""
     columns: list[str] = []
+    loads_columns: tuple[str, ...] = ()
     rows: list[tuple[object, ...]] = []
     for step in steps:
         path = files.get(step)
@@ -334,7 +347,14 @@ def _loads_rows(
             raise ProductError(f"{path} is not a loads table: {error}") from error
         surfaces = {**report.surfaces, "Total": report.total}
         if not columns:
-            columns = [f"{name}_{column}" for name in surfaces for column in LOADS_COLUMNS]
+            loads_columns = _printed_loads_columns(report)
+            columns = [f"{name}_{column}" for name in surfaces for column in loads_columns]
+        elif _printed_loads_columns(report) != loads_columns:
+            raise ProductError(
+                f"{path} prints the drag split {', '.join(drag_pair(report.total))} and the "
+                "first stamped step of the window another; a series is one column set over "
+                "every step, so post the steps of one build together"
+            )
         elif list(surfaces) != _names(columns):
             # The wide table has one column set; a step whose surfaces differ
             # from the first would lose a surface or read as a missing
@@ -348,7 +368,7 @@ def _loads_rows(
         values = [
             surfaces.get(name, {}).get(column, "")
             for name in _names(columns)
-            for column in LOADS_COLUMNS
+            for column in loads_columns
         ]
         rows.append((*_lead(step, delta, step_deg), *context, *values))
     return (*SERIES_LEAD, *CONTEXT_COLUMNS, *columns), rows

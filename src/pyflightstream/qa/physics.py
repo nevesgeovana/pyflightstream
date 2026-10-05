@@ -48,6 +48,7 @@ it is a row of a private workspace, which is the next release's work.
 from __future__ import annotations
 
 import enum
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -66,6 +67,7 @@ from pyflightstream.qa.reports import (
     report_paths,
     resolve_report_date,
 )
+from pyflightstream.results import DRAG_PAIRS, drag_pair
 from pyflightstream.run import (
     ExecutorRecord,
     describe_invocation,
@@ -348,8 +350,22 @@ PHY01_ITERATIONS = 500
 PHY01_CONVERGENCE = 1.0e-5
 PHY02_ALPHA_DEG = 4.0
 
-#: The four aggregated coefficients PHY-05 and the SMI class judge.
+#: The four aggregated coefficients PHY-05 and the SMI class judge, as every
+#: build up to 26.124 prints them. On 26.125 the two drag metrics carry the names
+#: its table prints, ``CDp`` and ``CDv`` (FR-423, :func:`_total_metrics`), and
+#: judge ``NO_REFERENCE`` against a reference measured under the other names.
 _TOTAL_METRIC_NAMES = ("CL", "CDi", "CDo", "CMy")
+
+
+def _total_metrics(total: Mapping[str, float]) -> dict[str, float]:
+    """Return the four aggregated coefficients of a Total row under its printed names."""
+    names = (_TOTAL_METRIC_NAMES[0], *drag_pair(total), _TOTAL_METRIC_NAMES[-1])
+    return {name: total[name] for name in names}
+
+
+def _induced_name(total: Mapping[str, float]) -> str:
+    """Return the induced drag column a Total row prints: ``CDi``, or ``CDp`` on 26.125."""
+    return next((pair[0] for pair in DRAG_PAIRS if pair[0] in total), DRAG_PAIRS[0][0])
 
 
 #: Names 0.13.0 removed from this module (PFS-2031.17, the CHANGELOG entry
@@ -407,7 +423,9 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     lifts = [point.total["CL"] for point in points]
     metrics["CL_slope_per_rad"] = float(np.polyfit(alphas_rad, lifts, 1)[0])
     reference_point = next(point for point in points if point.alpha_deg == 4.0)
-    metrics["CDi_a4"] = reference_point.total["CDi"]
+    # THE INDUCED DRAG UNDER THE NAME THE TABLE PRINTS (FR-423): ``CDp`` on 26.125.
+    induced = _induced_name(reference_point.total)
+    metrics[f"{induced}_a4"] = reference_point.total[induced]
     return metrics
 
 
@@ -430,11 +448,12 @@ def phy02_metrics(full: PointResult, half: PointResult) -> dict[str, float]:
     dict of str to float
         The full and half lift coefficients and their deltas, by metric name.
     """
+    induced = _induced_name(full.total)
     return {
         "CL_full_a4": full.total["CL"],
         "CL_half_a4": half.total["CL"],
         "delta_CL_a4": half.total["CL"] - full.total["CL"],
-        "delta_CDi_a4": half.total["CDi"] - full.total["CDi"],
+        f"delta_{induced}_a4": half.total[induced] - full.total[induced],
     }
 
 
@@ -458,7 +477,7 @@ def phy05_metrics(point: PointResult) -> dict[str, float]:
     dict of str to float
         The four aggregated coefficients of the Total row, by name.
     """
-    return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
+    return _total_metrics(point.total)
 
 
 def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dict[str, float]:
@@ -506,7 +525,11 @@ def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dic
         tag = f"a{alpha:g}"
         s, u = by_alpha_steady[alpha].total, by_alpha_unsteady[alpha].total
         metrics[f"delta_CL_{tag}"] = u["CL"] - s["CL"]
-        metrics[f"delta_CD_{tag}"] = (u["CDi"] + u["CDo"]) - (s["CDi"] + s["CDo"])
+        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: SRC-752 p.227
+        # states it of CDi and CDo, SRC-753 p.229 of CDp and CDv (FR-423).
+        metrics[f"delta_CD_{tag}"] = sum(u[name] for name in drag_pair(u)) - sum(
+            s[name] for name in drag_pair(s)
+        )
         metrics[f"delta_CMy_{tag}"] = u["CMy"] - s["CMy"]
     alphas_rad = np.radians(alphas)
     for label, series in (("steady", by_alpha_steady), ("unsteady", by_alpha_unsteady)):
@@ -885,7 +908,7 @@ def smi_metrics(point: PointResult) -> dict[str, float]:
     dict of str to float
         The aggregated coefficients of the Total row, by name.
     """
-    return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
+    return _total_metrics(point.total)
 
 
 def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:

@@ -39,6 +39,10 @@ them was inferred from an implementation.
 
 [The axes of a steady polar](definitions/the-axes-of-a-steady-polar.md#the-axes-of-a-steady-polar).
 
+<a id="the-drag-split-of-26125"></a>
+
+[The drag split of 26.125, `CDV` and `CDP`](definitions/the-axes-of-a-steady-polar.md#the-drag-split-of-26125).
+
 <a id="the-sections-table-and-which-row-is-which"></a>
 
 [The sections table, and which row is which](definitions/the-sections-table-and-which-row-is-which.md#the-sections-table-and-which-row-is-which).
