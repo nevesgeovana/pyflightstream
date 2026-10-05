@@ -11,6 +11,7 @@ normal export into the probes table with the run's last time step.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import warnings
@@ -419,7 +420,9 @@ def _run_counter(tmp_path: Path, case: SimCase, script: Script, steps: int) -> l
     program = work / UNSTEADY_ACTION_PROGRAM
     written = []
     for _ in range(steps):
-        subprocess.run([sys.executable, str(program)], check=True)
+        # The environment stated, without the package on the path, as the solver runs it.
+        environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+        subprocess.run([sys.executable, str(program)], env=environment, check=True)
         written.append((work / UNSTEADY_ACTION_SCRIPT).read_text(encoding="utf-8"))
     return written
 
