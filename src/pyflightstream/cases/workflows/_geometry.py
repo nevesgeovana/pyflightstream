@@ -520,6 +520,11 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
     * ``[base_regions]``: ``AUTO_DETECT_BASE_REGIONS``, which marked the
       base of a body with a flat base on 26.124 (RPT-066).
 
+    Each AUTOMATIC detection above is written in the build's form: on 26.125,
+    whose manual prints no ``AUTO_DETECT_*`` command, it is the -1 (every
+    boundary) form of the matching ``DETECT_*_BY_SURFACE`` command
+    (FR-423, :func:`pyflightstream.script.helpers.detect_every_boundary`).
+
     Surfaces are cited by the sidecar's names as the import's renames left
     them, exactly as written, never by position.
 
@@ -568,7 +573,7 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
         if marking.sweep_angle_deg is not None:
             script.emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
         if not marking.detect_surfaces:
-            script.emit("AUTO_DETECT_TRAILING_EDGES")
+            helpers.detect_every_boundary(script, "trailing_edges")
         else:
             indices = _sidecar_surfaces(
                 case, script, sidecar, "[trailing_edges]", marking.detect_surfaces
@@ -592,7 +597,7 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
                 f"boundaries that become the base ({page})."
             )
         _base_region_detection_angle(case, script)
-        script.emit("AUTO_DETECT_BASE_REGIONS")
+        helpers.detect_every_boundary(script, "base_regions")
 
 
 def _setup_ports(case: SimCase, script: Script) -> None:
@@ -668,7 +673,8 @@ def _wake_termination_detection(
 ) -> list[tuple[str, tuple[int, ...]]]:
     """Return the ``[wake_termination]`` detection a raw mesh's sidecar writes (G02).
 
-    ``AUTO_DETECT_WAKE_TERMINATION_NODES`` for ``detect = "auto"``, or one
+    ``AUTO_DETECT_WAKE_TERMINATION_NODES`` for ``detect = "auto"`` (its -1
+    by-surface form on 26.125, FR-423), or one
     ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named, cited
     by the sidecar's names exactly; nothing when the table is not written.
     Each command comes with its arguments. WHERE it is emitted is the
@@ -681,7 +687,7 @@ def _wake_termination_detection(
     if wake is None:
         return []
     if wake == "auto":
-        return [("AUTO_DETECT_WAKE_TERMINATION_NODES", ())]
+        return [helpers.every_boundary_detection(script, "wake_termination_nodes")]
     return [
         ("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", (index,))
         for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake)

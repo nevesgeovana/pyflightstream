@@ -241,9 +241,11 @@ def test_every_catalog_spec_builds_a_validated_script(tmp_path):
         workdir.mkdir()
         version = "26.120" if spec.command in flagship else "26.124"
         if spec.command not in CommandRegistry.load().for_version(version):
-            # A command the manual dropped at 26.12 (VOLUME_SECTION_BOUNDARY_LAYER, FR-334)
-            # is built on the last build whose database holds it.
-            version = "26.101"
+            # A command the 26.125 manual documents first (FR-423) is built on 26.125;
+            # a command the manual dropped at 26.12 (VOLUME_SECTION_BOUNDARY_LAYER,
+            # FR-334) on the last build whose database holds it.
+            in_26125 = spec.command in CommandRegistry.load().for_version("26.125")
+            version = "26.125" if in_26125 else "26.101"
         script = generate_probe_script(spec, version, workdir, fsm=fsm)
         assert not script.raw_flag, spec.command
         text = script.render()
@@ -1212,8 +1214,11 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 168 since the wave-2 integration of 0.34.0 (FR-342, FR-321): the entry of
     # SET_WAKE_TERMINATION_TIME_STEPS, which the 4R default makes every unsteady_rotor
     # golden render; it renders in isolation with its argument, so 143 and 95.
-    assert len(PROBE_SPECS) == 168, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 168. Adding one is "
+    # 180 since 0.37.0 (FR-423): twelve of the commands the 26.125 edition documents
+    # first, none of them in the 26.122 view, so they land in not_in_this_view and the
+    # two figures below do not move.
+    assert len(PROBE_SPECS) == 180, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 180. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
     assert renders == 143, (
@@ -1228,7 +1233,8 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # Split by CAUSE, because one bucket called "needs prelude" hid
     # three: a command out of this build's view, one the emitter refuses
     # as broken, and one whose target cites an entity nothing created.
-    assert len(groups["not_in_this_view"]) == 3, groups["not_in_this_view"]
+    # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
+    assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
     assert len(groups["needs_prelude"]) == 20, groups["needs_prelude"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]

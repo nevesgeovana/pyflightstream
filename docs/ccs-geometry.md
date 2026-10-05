@@ -53,7 +53,8 @@ file's `Component` lines, and the boundary it makes takes the first name of
 |---|---|---|---|
 | `component` | wing, fuselage, revolution | an integer from 1 | none: required |
 | `mark_trailing_edges` | wing | `true` or `false` | `true` |
-| `trailing_edge` | wing | `SHARP`, `BLUNT`, `BLEND`, `OPEN` | `SHARP` |
+| `trailing_edge` | wing | `SHARP`, `BLUNT`, `BLEND`, `ROUNDED_BLEND` (26.125 only), `OPEN` | `SHARP` |
+| `te_blend_length_pct` | wing | the blend length in per cent of the cross-section curve length, above 0 and up to 100 (26.125 only, `SET_CCS_TE_BLEND_LENGTH`) | none: the solver's 10 per cent |
 | `close_ends` | wing, fuselage, revolution | `TRUE`, `OPEN`, `CLOSED` | `TRUE` |
 | `loft_u` | wing, fuselage, revolution | `C2` or `C0` | `C2` |
 | `loft_v` | wing, fuselage, revolution | `C2` or `C0` | `C0` on a wing, `C2` otherwise |

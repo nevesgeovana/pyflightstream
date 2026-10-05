@@ -26,6 +26,17 @@ IMPORT:
     "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
     "26.124": {status: documented, note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125":
+      status: documented
+      note: >-
+        SRC-753 p.317 adds two file types, NX_NAS_DAT and NAS, to the eleven
+        SRC-752 p.311 listed; the rest of the grammar is unchanged
+      args:
+        - name: units
+        - name: file_type
+          values: [STL, TRI, P3D, INP, STRUCTURED_QUAD, UNSTRUCTURED_QUAD, LAWGS, VTK, AC, FAC, OBJ, NX_NAS_DAT, NAS]
+        - name: file
+        - name: clear
   notes: >
     Imports a surface mesh into the simulation as a KEY VALUE block:
     length units of the mesh file, one of eleven mesh formats, and the
@@ -58,6 +69,7 @@ CCS_IMPORT:
     "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.317, unchanged from SRC-752 p.311"}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
     control hole-filling at component ends, whether the simulation
@@ -89,6 +101,7 @@ EXPORT_SURFACE_MESH:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
     "26.124": {status: documented, note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.317, unchanged from SRC-752 p.311"}
   notes: >
     Exports one geometry surface (first surface is index 1) or all
     surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
@@ -108,6 +121,7 @@ DELETE_SURFACES:
     "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by the 0.32.0 licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
+    "26.125": {status: documented, note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the

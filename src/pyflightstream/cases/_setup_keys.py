@@ -207,6 +207,8 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
     "unsteady_viscous_coupling_iteration": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
     "moments_model": "SET_ANALYSIS_MOMENTS_MODEL",
     "unsteady_solver_actions": "SET_NEW_UNSTEADY_SOLVER_ACTION",
+    "aeroelastic_convergence_threshold": "SET_AEROELASTIC_CONVERGENCE_THRESHOLD",
+    "solver_time_averaging": "ENABLE_SOLVER_TIME_AVERAGING",
 }
 
 #: The setup's solver settings the input template's example leaves at their
@@ -301,4 +303,6 @@ TEMPLATE_SETTINGS_LEFT_OUT: tuple[str, ...] = (
     "slipstream_wake_stabilization",
     "moments_model",
     "unsteady_solver_actions",
+    "aeroelastic_convergence_threshold",
+    "solver_time_averaging",
 )

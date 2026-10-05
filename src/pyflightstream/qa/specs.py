@@ -42,7 +42,12 @@ from pyflightstream.qa.probes import (
 )
 from pyflightstream.results import imported_trailing_edges
 from pyflightstream.script import Script
-from pyflightstream.script.helpers import initialize_solver, render_wake_edge_node_file
+from pyflightstream.script.helpers import (
+    detect_every_boundary,
+    initialize_solver,
+    render_wake_edge_node_file,
+    wake_edge_import_token,
+)
 
 #: The catalog exports its catalog and nothing else. Without this, every
 #: non-underscore definition here is public the moment the wheel ships,
@@ -263,6 +268,12 @@ _spec(
 
 # --- boundary conditions (SRC-003 pp.319-328) --------------------------
 
+
+def _detect_trailing_edges(script: Script, workdir: Path) -> None:
+    """Detect every trailing edge in the build's form (AUTO on 26.124, -1 on 26.125)."""
+    detect_every_boundary(script, "trailing_edges")
+
+
 _spec(
     command="AUTO_DETECT_TRAILING_EDGES",
     build_target=_emit("AUTO_DETECT_TRAILING_EDGES"),
@@ -281,7 +292,7 @@ _spec(
     command="SET_TRAILING_EDGE_TYPE",
     build_target=_emit("SET_TRAILING_EDGE_TYPE", 1, "RELAXED"),
     requires=Requires.SIM,
-    prelude=_emit("AUTO_DETECT_TRAILING_EDGES"),
+    prelude=_detect_trailing_edges,
     save_state=True,
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the trailing-edge type"),
@@ -290,7 +301,7 @@ _spec(
     command="DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
     build_target=_emit("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", 1),
     requires=Requires.SIM,
-    prelude=_emit("AUTO_DETECT_TRAILING_EDGES"),
+    prelude=_detect_trailing_edges,
     save_state=True,
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the wake-node state"),
@@ -355,7 +366,8 @@ def _wake_edge_import_target(script: Script, workdir: Path) -> None:
     """Write the node file of the wing's 16 mid-points and emit the 26.124 import.
 
     The line is the one ``helpers.mark_wake_edges`` emits: the type, the
-    tolerance, the simulation's unit as the third token, and the node file's
+    tolerance, the third token (the simulation's unit on 26.124, EDGE_TYPE 1 on
+    26.125, FR-423), and the node file's
     path on the next line (RPT-061); the file is the count, the placeholder
     triple and the mid-points. Emitted through the database grammar, so a
     build whose grammar has no third token refuses to build the probe and
@@ -365,7 +377,8 @@ def _wake_edge_import_target(script: Script, workdir: Path) -> None:
     _textio.write_text(
         nodes, render_wake_edge_node_file(_wing_trailing_edge_midpoints(_WAKE_EDGE_WING))
     )
-    script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, "METER", nodes)
+    token = wake_edge_import_token(script, "METER")
+    script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, token, nodes)
 
 
 def _import_lines(artifacts: ProbeArtifacts) -> list[dict[str, int]]:
@@ -926,6 +939,7 @@ _spec(
 )
 
 
+import pyflightstream.qa._spec_26125 as _spec_26125  # noqa: E402,F401
 import pyflightstream.qa._spec_catalog_b as _spec_catalog_b  # noqa: E402,F401
 import pyflightstream.qa._spec_ccs_mesh as _spec_ccs_mesh  # noqa: E402,F401
 import pyflightstream.qa._spec_ccs_noise as _spec_ccs_noise  # noqa: E402,F401

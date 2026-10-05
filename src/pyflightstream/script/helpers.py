@@ -79,6 +79,14 @@ from pyflightstream.script import (
     ScriptReferenceError,
     UnsteadyActionUse,
 )
+from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
+    assign_selected_ccs_curves,
+    detect_every_boundary,
+    every_boundary_detection,
+    solver_time_averaging,
+    takes_every_boundary,
+    wake_edge_import_token,
+)
 from pyflightstream.script._relaxed_te import (  # noqa: F401  (this module is the public path)
     DEFAULT_SHEDDING_DIRECTION,
     RELAXED_SHEDDING_DIRECTIONS,
@@ -2499,7 +2507,10 @@ def mark_wake_edges(
 
     # Emit, then park, then record: a build or an argument the emitter
     # refuses leaves no file parked and no count recorded.
-    script.emit(WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance, units, path)
+    # The third token is the unit on 26.124 and EDGE_TYPE 1 (mid-points) on 26.125.
+    script.emit(
+        WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance, wake_edge_import_token(script, units), path
+    )
     script._pending_input_files[path] = text
     # The count is the file's own first line, so the number recorded is
     # the number written.

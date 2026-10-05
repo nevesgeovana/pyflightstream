@@ -236,6 +236,8 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
     """
     spec, name, component = loft_component(case, "wing")
     emit_curve_prelude(script, case, component)
+    if spec.te_blend_length_pct is not None:
+        script.emit("SET_CCS_TE_BLEND_LENGTH", spec.te_blend_length_pct)
     if spec.subdivisions is not None:
         for direction, count in (
             ("CHORD", spec.subdivisions.chord),
@@ -243,6 +245,9 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
         ):
             if count is not None:
                 script.emit("CCS_WING_MESH_SUBDIVISIONS", direction, count)
+    # 26.125 asks for the curves to be assigned to the component before its
+    # control surfaces (SRC-753 p.307); no earlier build carries the command.
+    helpers.assign_selected_ccs_curves(script, "wing")
     for surface in spec.control_surfaces:
         # ALL TEN, SPACE and AXIS included: round 1 on 26.124 refused the
         # eight-token line the manual's sample prints (probe C3).
