@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._decimal import negated_text
 from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
@@ -151,20 +152,6 @@ def installed_frame_columns(
     return ColumnClassification(flipped, mapped)
 
 
-def _negated(text: str) -> str:
-    """Return ``text`` with its sign flipped, character for character; not a number stays."""
-    stripped = text.strip()
-    try:
-        value = float(stripped)
-    except ValueError:
-        return text
-    if value == 0.0 or not math.isfinite(value):
-        return text
-    if stripped.startswith("-"):
-        return stripped[1:]
-    return "-" + stripped.removeprefix("+")
-
-
 def _mirrored_azimuth(text: str) -> str:
     try:
         value = float(text)
@@ -236,7 +223,7 @@ def to_installed_frame(
     writer.writerow(header)
     for row in body:
         writer.writerow(
-            _negated(cell) if i in negate else _mirrored_azimuth(cell) if i in mirror else cell
+            negated_text(cell) if i in negate else _mirrored_azimuth(cell) if i in mirror else cell
             for i, cell in enumerate(row)
         )
     text = "".join(f"{line}\n" for line in alias) + buffer.getvalue()

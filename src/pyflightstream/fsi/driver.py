@@ -70,7 +70,8 @@ from typing import Any
 import numpy as np
 
 import pyflightstream._textio as _textio
-from pyflightstream.fsi import _direct_morphing, beam, centrifugal, kinematics, nodes, wing
+import pyflightstream.fsi._direct_morphing as _direct_morphing
+from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (

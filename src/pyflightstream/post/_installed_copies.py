@@ -23,10 +23,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pyflightstream._textio as _textio
+from pyflightstream._decimal import negated_text
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
 from pyflightstream._tokens import CONTEXT_COLUMNS
 from pyflightstream.cases import FLUID_PLOT_PARAMETERS
-from pyflightstream.post.inflow_tools import _negated, installed_frame_columns, to_installed_frame
+from pyflightstream.post.inflow_tools import installed_frame_columns, to_installed_frame
 from pyflightstream.post.point_tables import PROBE_SPINE
 
 if TYPE_CHECKING:
@@ -146,7 +147,7 @@ def write_installed_inflow(ctx: SimContext, profile: Path, point_name: str) -> N
             cells = line.split()
             lines.append(
                 " ".join(
-                    _negated(cell) if name in negate else cell
+                    negated_text(cell) if name in negate else cell
                     for name, cell in zip(_PROFILE_COLUMNS, cells, strict=True)
                 )
             )
