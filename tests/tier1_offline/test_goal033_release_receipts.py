@@ -715,12 +715,14 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
 
     GOAL033:capability_ids:items:G67
 
-    Measured, not listed: the 13 setup/BC chapters hold 151 commands, and
-    they divide exactly into 121 in scope and 30 not applicable. Every
+    Measured, not listed: the 13 setup/BC chapters hold 155 commands, and
+    they divide exactly into 121 in scope and 34 not applicable (151, 121
+    and 30 until 0.37.0, whose 26.125 database adds four setup commands no
+    26.124 row carries, each refused on 26.124). Every
     in-scope command with a script route is BUILT here, stated and control,
     and the stated script carries the command's block while the control does
     not; the 12 whose operation is the native replay's carry that replay's
-    marker in its file. Every one of the 29 commands 26.124 lacks is refused
+    marker in its file. Every one of the 33 commands 26.124 lacks is refused
     by the emitter naming it, and the one the owner excluded appears in no
     script any route writes.
     """
@@ -734,7 +736,7 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
     routed = set(setup.ROUTES) | set(setup.SCRIPT_ROUTES) | elsewhere
     refused = set(setup.REFUSED_ON_26124) | set(setup.OWNER_EXCLUDED)
     assert len(setup.SETUP_CHAPTERS) == 13
-    assert (len(chapters), len(routed), len(refused)) == (151, 121, 30)
+    assert (len(chapters), len(routed), len(refused)) == (155, 121, 34)
     assert routed | refused == chapters and not routed & refused
 
     broken, written = [], []
