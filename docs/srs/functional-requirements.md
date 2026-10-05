@@ -9781,7 +9781,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Review evidence: `tests/tier1_offline/test_p0370_s10_sweeper_columns.py` reads the sweep layout of the one 26.125 sweep spreadsheet the probe campaign exported (header quoted in the addendum of 2026-10-05 of `reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md`) through parsing and tabulation, checks its twelve columns and numbers, retains the legacy split, and refuses unobserved layouts. The legacy-only parser fails the 26.125 case.
 
-    Review evidence: `tests/tier1_offline/test_p0370_s10_probe_exponents.py` reads the omitted exponent marker observed in the 26.125 campaign's probe export, preserving all sixteen columns and the subnormal values. The original numeric reader fails four cases; malformed spellings remain refused.
+    Review evidence: `tests/tier1_offline/test_p0370_s10_probe_exponents.py` reads the omitted exponent marker that one probe export of the 26.125 campaign printed in two subnormal fields (line quoted in the addendum of 2026-10-05 of `reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md`), preserving all sixteen columns and the subnormal values. The original numeric reader fails four cases; malformed spellings remain refused.
 
     Review evidence: `tests/tier1_offline/test_p0370_s10_plot_scaling.py::test_drag_plots_use_the_same_free_stream_scale_as_lift` checks both drag pairs at VREF twice VINF and leaves dimensional plots unchanged; removing CDP/CDV from coefficient scaling fails the new pair.
 

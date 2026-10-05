@@ -252,8 +252,9 @@ FlightStream versions.
   probe campaign does (RPT-160, addendum of 2026-10-05), is read with those
   names; the earlier sweep layout is read as before (FR-423).
 - A probe export whose printed numbers omit the exponent marker before a
-  signed three-digit exponent, as 26.125 prints very small values, is read
-  instead of refused (FR-423).
+  signed three-digit exponent is read instead of refused; one 26.125 probe
+  export of the probe campaign printed two subnormal fields in that form
+  (RPT-160, addendum of 2026-10-05) (FR-423).
 
 ### Migration
 

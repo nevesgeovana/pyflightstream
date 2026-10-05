@@ -153,3 +153,25 @@ sweep spreadsheet (RPT-037) prints `CDi` and `CDo`; the other ten names and thei
 are the same. This is one export of one sweep with one point; no other 26.125
 sweep spreadsheet was read, and no 26.124 sweep spreadsheet was read in this
 campaign.
+
+### The probe export (W3-2)
+
+Written by the probe of `EXPORT_PROBE_POINTS` (one probe point created by
+`NEW_PROBE_POINT VOLUME 1.2345 2.3456 3.4567` after a five-iteration solve,
+then exported), file `probes.txt`, 38 lines, sha256
+`5b57cf2ee3574001762d5b72a62c124293a6aa9dcf1c8730275f32556e38665b`. Its title
+line 5 reads `Simcenter Flightstream Probe Points`, its header line 30 and its
+one data row, line 32, read:
+
+```text
+     X, Y, Z, Mach, Cp_ref, vx, vy, vz, vtot, Cp, s_len, momentum_thickness, disp_thick, thickness, CF, Transition
+      0.1234E+01, 0.2346E+01, 0.3457E+01, 0.0000E+00, 0.1000E+01, 0.0000E+00, 0.0000E+00, 0.0000E+00, 0.0000E+00, 0.1000E+01, 0.0000E+00, 0.2964-322, 0.0000E+00, 0.5305-314, 0.0000E+00, 0.0000E+00,
+```
+
+Fourteen fields print a mantissa, `E` and a signed two-digit exponent. Two,
+`momentum_thickness` and `thickness`, print `0.2964-322` and `0.5305-314`: a
+mantissa and a signed three-digit exponent with no `E`, values below the
+smallest normal double (about 2.2e-308). That is what this one export shows:
+one 26.125 probe export printed two subnormal fields without the exponent
+marker. No other 26.125 probe export of the campaign was read for the form,
+and whether 26.124 prints very small values the same way was not read.
