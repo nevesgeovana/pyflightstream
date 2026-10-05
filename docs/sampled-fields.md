@@ -26,7 +26,19 @@ establish the actual native indices; this limitation is not repaired by the
 probe adapter. New locations or histories require recorded samples or a supported
 extraction; post-processing cannot reconstruct an unrecorded flow field.
 
-Each unsteady STEP produces a separate file. Positions in the resulting field
+On an unsteady row an entry with `kind = "normal"` (0.37.0, FR-418) is sampled
+by probe points after the time march, as on a steady row: its layout records
+the steady probe-points export, its fields and `<stem>.inflow.dat` are the ones a
+steady row writes from the same probe values, and the file is named and
+recorded for the run's last time step (`<point>_field_NN_step_<N>`, with
+`sampled_at = "last-time-step"` and the step in its provenance). Nothing is
+averaged over time. This serves an unsteady run without a rotor that settles
+to a steady regime, whose last time step gives a custom inflow for a
+quasi-steady rotor. The steady probe-point convention below was measured on a
+steady solve; its confirmation after an unsteady march is owed to a licensed
+run.
+
+Each unsteady STEP of a fluid-plot entry produces a separate file. Positions in the resulting field
 are in REFERENCE coordinates and metres; velocity is absolute, in REFERENCE
 components and metres per second. The provenance names the original frame,
 its recorded motion, the actual STEP, coordinate conversion, source-file hash

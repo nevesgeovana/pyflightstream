@@ -113,6 +113,12 @@ def _pproc_probes(
     THE VERTEX COUNTER RUNS ACROSS THE ENTRIES (FR-77), because the plot name
     is `{parameter}{n}` and two entries restarting at 1 would write two plots to
     one name, which the solver takes as the same plot.
+
+    NORMAL PROBES OF AN UNSTEADY ROW (FR-417) take the steady route: an
+    unsteady row whose entries all state ``kind = "normal"`` places none of
+    them in INIT and creates them in ANALYSIS, after the time march, with the
+    commands and in the order a steady row uses; the export block then
+    updates and exports them once.
     """
     pproc = case.pproc
     if pproc is None:
@@ -122,12 +128,16 @@ def _pproc_probes(
             f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
         )
     vertex = 0
-    # F01: every declaration follows the run type, including cited profiles.
-    # Unsteady fluid plots are placed in INIT; steady probes in ANALYSIS.
-    if analysis == unsteady:
-        return
-    if unsteady:
+    normal = unsteady and _normal_probes_of(case)
+    if unsteady and not analysis:
         _pproc_surface_probes(case, script, frames)
+    # F01: every declaration follows the run type, including cited profiles.
+    # Unsteady fluid plots are placed in INIT; steady and normal probes in
+    # ANALYSIS, after the solve or the time march.
+    if analysis != (not unsteady or normal):
+        return
+    # FR-417: a normal entry is emitted exactly as a steady row's.
+    unsteady = unsteady and not normal
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
@@ -142,10 +152,12 @@ def _pproc_probes(
             # B10: on a steady run the list enables the entry and filters nothing.
             warn(
                 f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
-                f"(frame {probes.frame!r}) lists parameters, but on a steady run this "
-                "list only enables the entry; it does not filter the probe-points "
-                "export's fixed set of variables. On an unsteady run it selects "
-                "the fluid-plot variables.",
+                f"(frame {probes.frame!r}) lists parameters, but on "
+                + ('a normal probe entry (kind = "normal") ' if normal else "a steady run ")
+                + "this list only enables the entry; it does not filter the probe-points "
+                "export's fixed set of variables. On an unsteady "
+                + ("entry" if normal else "run")
+                + " it selects the fluid-plot variables.",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
@@ -191,6 +203,8 @@ def _pproc_probes(
                     "native_to_m": 1.0 / _from_metres(case, script, "probe field coordinates"),
                     "formats": list(probes.field_formats),
                     "reusable_inflow": probes.reusable_inflow,
+                    # FR-418 R2: the product says which instant it holds.
+                    **({"sampled_at": "last-time-step"} if normal else {}),
                 }
             )
 
@@ -200,6 +214,42 @@ def _pproc_probes(
             "a steady job changed its sampled field layout between points; "
             "run these points separately to retain each field's placement"
         )
+
+
+def _normal_probes_of(case: SimCase) -> bool:
+    """Whether an unsteady row samples its pproc's probes as normal probe points (FR-417 R2).
+
+    Every ``[[probes]]`` entry of one unsteady row is of one kind, an entry
+    that states none counting as unsteady. The pproc's ``[volume_section]`` is
+    sampled through fluid plots on an unsteady row, so it counts as an unsteady
+    entry: a normal probes table and a fluid-plot history would write one
+    ``probes/<point>_probes.csv``.
+
+    Raises
+    ------
+    CampaignConfigError
+        The pproc mixes the two kinds on this row, naming the entries of each.
+    """
+    pproc = case.pproc
+    if pproc is None or not pproc.probes:
+        return False
+    normal = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind == "normal"]
+    if not normal:
+        return False
+    unsteady = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind != "normal"]
+    if pproc.volume_section is not None:
+        unsteady.append("[volume_section]")
+    if unsteady:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} mixes probe kinds "
+            f"on an unsteady row: unsteady (fluid plots at every time step) "
+            f"{', '.join(unsteady)}; normal (probe points at the last time step) "
+            f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
+            'way, an entry stating no kind counting as kind = "unsteady", and a '
+            "[volume_section] is sampled through fluid plots. State one kind on every "
+            "entry, or move the other entries to a second pproc on their own row."
+        )
+    return True
 
 
 #: FR-91. The simulation subfolder the package writes a simulation's probe

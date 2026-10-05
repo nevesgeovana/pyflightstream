@@ -380,9 +380,8 @@ frame = "MRP"
 families = "lifting"
 
 # Fluid probes, one entry per frame sampled: lines, rectangles and circles of
-# points, laid out in the entry's frame in the entry's scale ... An unsteady
-# row samples the parameters listed; a steady row exports its fixed set of
-# variables, the list only switching the entry on, and says so in a warning.
+# points in the entry's frame and scale. An unsteady entry samples the parameters
+# listed; probe points (steady row, normal entry) export a fixed set, with a warning.
 [[probes]]
 frame = "MRP"
 parameters = ["VX", "VY", "VZ", "CP_FREE"]
@@ -390,6 +389,7 @@ points = 11                       # points per line, both ends included
 scale = "m"                       # m, or rotor_radius
 field_formats = []               # opt in with ["vtk", "tecplot"]
 reusable_inflow = false           # requires a global YZ plane and proved SI vectors
+kind = "unsteady"                 # unsteady row: unsteady (every step) or normal (last step)
 
 [[probes.lines]]
 start = [2.0, -1.0, 0.0]

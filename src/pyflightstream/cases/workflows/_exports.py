@@ -286,7 +286,9 @@ def _declared_export_kinds(
     """Return the row's output names and the export kind each one carries."""
     names = list(conventions.outputs or case.outputs)
     kinds = classify_outputs(names)
-    if unsteady:
+    # FR-417: an unsteady row whose probes are NORMAL exports its probe points
+    # once, after the march, as a steady row does.
+    if unsteady and not (case.pproc is not None and case.pproc.samples_normal_probes()):
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
     return names, kinds
@@ -317,7 +319,8 @@ def _export_updates(
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")
         script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
     # F01: only a row that still exports probe points updates them; an
-    # unsteady row samples its probes through fluid plots and has none.
+    # unsteady row samples its probes through fluid plots and has none, unless
+    # they are normal probes (FR-417), created after the march.
     if "probes" in kinds:
         script.emit("UPDATE_PROBE_POINTS")
 

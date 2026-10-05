@@ -751,10 +751,16 @@ def _write_fields(
 def _probes_products(
     ctx: SimContext, point: PolarPoint, probes_path: Path | None, legacy_profiles: bool
 ) -> None:
-    """Write a steady point's probes table; name the profiles an older unsteady point lacks."""
+    """Write a point's probe-points table; name the profiles an older unsteady point lacks.
+
+    A steady point's, and an unsteady point's whose probes are NORMAL (FR-417
+    R4): its probe-points export holds the last time step, which the table's
+    `STEP` states.
+    """
     record = ctx.record_of[point.name]
     unsteady = record.recipe in ("unsteady", "unsteady_rotor")
     probe_relative = f"{PROBES_DIR}/{point.name}_probes.csv"
+    normal = _normal_probes(ctx, record, legacy_profiles)
     if unsteady and legacy_profiles:
         for entry in ctx.pproc.probes:
             if entry.points_file and entry.parameters:
@@ -764,7 +770,14 @@ def _probes_products(
                     "recorded for these probes. Posting again cannot create history; "
                     "a new run is needed. Drawn probes keep their available history."
                 )
-    if unsteady or probes_path is None or not probes_path.is_file():
+    if normal and (probes_path is None or not probes_path.is_file()):
+        ctx.skipped[probe_relative] = (
+            "no probes table: missing probe points export. The probes of this unsteady "
+            'point are normal (kind = "normal"), sampled once after the march; restore or '
+            "collect the recorded probe points export, or run again if none was recorded."
+        )
+        return
+    if (unsteady and not normal) or probes_path is None or not probes_path.is_file():
         return
     target = ctx.target(ctx.out / probe_relative)
     # A SKIP AND NOT THE SIMULATION'S WHOLE STAGE, which is where
@@ -787,6 +800,8 @@ def _probes_products(
             condition=ctx.condition(point),
             reference=ctx.reference,
             pol=ctx.sim_id,
+            # FR-417 R4: a normal probe holds the run's last time step.
+            step=_last_time_step(record) if normal else None,
         )
     except ProductError as error:
         ctx.skipped[probe_relative] = str(error)
@@ -804,8 +819,11 @@ def _plots_products(
     unsteady = record.recipe in ("unsteady", "unsteady_rotor")
     probe_relative = f"{PROBES_DIR}/{point.name}_probes.csv"
     plots = ctx.pproc.products.plots
-    field_requested = bool(ctx.record_of.get(point.name) and record.probe_field_layout)
-    probe_requested = unsteady and (plots or field_requested) and bool(_probe_parameters(ctx.pproc))
+    # FR-417: normal probes are not in the plots history; their table and
+    # fields come from the probe-points export (`_probes_products`).
+    fluid = unsteady and not _normal_probes(ctx, record, legacy_profiles)
+    field_requested = fluid and bool(ctx.record_of.get(point.name) and record.probe_field_layout)
+    probe_requested = fluid and (plots or field_requested) and bool(_probe_parameters(ctx.pproc))
     if probe_requested:
         ctx.skipped[probe_relative] = (
             "no probes table: missing plots history export. Restore or collect the "
@@ -835,7 +853,7 @@ def _plots_products(
         return
     ctx.add(done, {"runs": ctx.sources[point.name]})
     ctx.plots_tables[point.name] = done
-    if unsteady:
+    if fluid:
         _unsteady_probes(ctx, point, done, legacy_profiles, probe_requested=probe_requested)
     _point_reductions(
         done,
@@ -1303,6 +1321,19 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _unsteady_polar_products,
     _superfile_drafts,
 )
+
+
+def _normal_probes(ctx: SimContext, record: RunRecord, legacy_profiles: bool) -> bool:
+    """Whether an unsteady point sampled its pproc's probes as NORMAL probe points (FR-417).
+
+    A record written before 0.25.0 sampled its profiles as an instant of its own
+    and is read as it always was (``legacy_profiles``).
+    """
+    return (
+        record.recipe in ("unsteady", "unsteady_rotor")
+        and not legacy_profiles
+        and ctx.pproc.samples_normal_probes()
+    )
 
 
 def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:

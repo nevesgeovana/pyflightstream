@@ -11,9 +11,16 @@ profiles.
   export never supplies this table.
 - **Steady:** both declaration forms use standard probe points, and the table
   contains the probe-points export. `STEP` is `NA`.
+- **Unsteady, normal probes** (`kind = "normal"` on every `[[probes]]` entry,
+  0.37.0): the probe points are created after the time march with the steady
+  commands, updated and exported once. The table contains that probe-points
+  export, laid out as the steady table, and `STEP` is the run's last time step
+  as the run record states it: the step a stopped run stopped at, else the
+  plan's `time_iterations`. No value is averaged over time. An entry that states
+  no `kind` is an unsteady probe, sampled as above.
 
 Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
-condition block, then the export's own columns (steady) or the sampled
+condition block, then the export's own columns (steady, normal) or the sampled
 parameters (unsteady).
 
 An unsteady run recorded with 0.24.0 or earlier sampled cited profiles only at

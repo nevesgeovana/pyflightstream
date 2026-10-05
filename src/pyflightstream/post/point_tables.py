@@ -523,6 +523,7 @@ def write_probes_table(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     pol: str | int | None = None,
+    step: int | None = None,
 ) -> Path | None:
     """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
 
@@ -572,6 +573,10 @@ def write_probes_table(
         Reference lengths written beside each row.
     pol : str or int, optional
         The polar the point belongs to, written first in every row.
+    step : int, optional
+        The time step the export holds, written in every row's ``STEP``: the
+        last time step of an unsteady run whose probes are normal (FR-417
+        R4). ``NA`` where the caller states none, as on a steady point.
 
     Returns
     -------
@@ -609,7 +614,14 @@ def write_probes_table(
             stated = (float(row[axes["X"]]), float(row[axes["Y"]]), float(row[axes["Z"]]))
         rows.append(
             (
-                *_probe_spine(order, known, stated=stated, context=context, pol=pol),
+                *_probe_spine(
+                    order,
+                    known,
+                    NOT_APPLICABLE if step is None else step,
+                    stated=stated,
+                    context=context,
+                    pol=pol,
+                ),
                 *(float(row[columns.index(name)]) for name in rest),
             )
         )
