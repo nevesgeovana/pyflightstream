@@ -112,7 +112,9 @@ It is the twin of `mark-failed`: it previews unless `--apply`, requires
 `--reason`, copies `runs.json` to the archive first, and keeps under `marked`
 the status each record had, the time, the reason and the verdict. A point
 still `SUBMITTED`, one whose loads export is not on disk, a deleted
-simulation and a point marked failed are refused by name. `show`,
+simulation and a point marked failed are refused by name. A point already
+`CONVERGED` is listed and left alone, and nothing is written while any point
+is refused. `show`,
 `status --points`, `post.log` and every `products.json` entry built from a
 marked point name the verdict, and `rebuild` and `sync` keep it. From Python:
 `pyflightstream.run.records.mark_converged`. A hand edit of `runs.json`, or a
