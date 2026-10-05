@@ -484,7 +484,7 @@ def _cmd_records(args: argparse.Namespace) -> int:
                 args.workspace,
                 out=args.out,
                 all_sims=args.all_sims,
-                sims=None if args.sims is None else _listed_sims(",".join(args.sims)),
+                sims=None if args.sims is None else _listed_sims(args.sims),
                 build_alias=aliases or None,
                 matrix=args.matrix,
                 apply=args.apply,
@@ -501,8 +501,7 @@ def _cmd_records(args: argparse.Namespace) -> int:
 def _cmd_mark_failed(args: argparse.Namespace) -> int:
     """Mark the named simulations' records FAILED_MARKED (FR-309)."""
     try:
-        # FR-395: a run id alias marks that point alone.
-        sims, points = split_typed_ids(_listed_sims(",".join(args.sims)), args.workspace)
+        sims, points = split_typed_ids(_listed_sims(args.sims), args.workspace)  # FR-395
         entry = run_records.mark_failed(
             args.workspace, sims, reason=args.reason, apply=args.apply, points=points
         )

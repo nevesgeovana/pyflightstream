@@ -332,9 +332,8 @@ def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -
     mark.add_argument(
         "--sims",
         required=True,
-        nargs="+",
-        metavar="ID",
-        help=SIMS_SHAPES + "; a run id alias (2006_3) marks that point's record alone",
+        help="simulation ids, comma separated: 2006,2007; a run id alias (2006_3) marks that "
+        "point's record alone",
     )
     mark.add_argument("--reason", default=None, help="why, recorded as given")
     mark.add_argument("--workspace", default=".", help=workspace_help)

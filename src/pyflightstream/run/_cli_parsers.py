@@ -27,7 +27,6 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.run import records as run_records
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
-from pyflightstream.run._mark_converged import SIMS_SHAPES as _SIMS_SHAPES
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.costs import select_cost_file
@@ -425,7 +424,7 @@ def _add_records_parsers(subparsers: Any) -> None:
         action="store_true",
         help="rebuild every simulation folder on disk, recorded or not",
     )
-    rebuild.add_argument("--sims", default=None, nargs="+", metavar="ID", help=_SIMS_SHAPES)
+    rebuild.add_argument("--sims", default=None, help="simulation ids, comma separated: 4001,2009")
     rebuild.add_argument(
         "--build-alias",
         dest="build_alias",

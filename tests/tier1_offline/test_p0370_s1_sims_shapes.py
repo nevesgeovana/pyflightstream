@@ -1,16 +1,18 @@
-"""mark-converged, mark-failed and rebuild take --sims in the same two shapes (FR-414).
+"""mark-converged takes --sims as words or commas; mark-failed and rebuild keep their comma form.
 
-Reproduction: give each command its simulations as words (``7001 7002``)
+Reproduction: give mark-converged its simulations as words (``7001 7002``)
 and as one comma separated word (``7001,7002``) on the package's own run;
-both print the same preview, and each command's help names both shapes.
+both print the same preview. mark-failed and rebuild keep the 0.33.1 action
+of their --sims (one comma separated value, pinned by the CLI contract of
+``test_p0340_kill_wave1.py``), and read it as before.
 """
 
 import pytest
 
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
-COMMANDS = ("mark-converged", "mark-failed", "rebuild")
 SHAPES = "simulation ids: 2006 2007 or 2006,2007"
+COMMA_FORM = "simulation ids, comma separated"
 REASON = "read by hand"
 
 
@@ -21,10 +23,15 @@ def _help(command, tmp_path, capsys):
     return " ".join(capsys.readouterr().out.split())
 
 
-@pytest.mark.parametrize("command", COMMANDS)
-def test_each_help_names_both_shapes(command, tmp_path, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414): the --sims help states both shapes alike."""
-    assert SHAPES in _help(command, tmp_path, capsys)
+def test_mark_converged_help_names_both_shapes(tmp_path, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414): the --sims help of mark-converged states both shapes."""
+    assert SHAPES in _help("mark-converged", tmp_path, capsys)
+
+
+@pytest.mark.parametrize("command", ["mark-failed", "rebuild"])
+def test_mark_failed_and_rebuild_help_name_their_comma_form(command, tmp_path, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414): the 0.33.1 commands keep the form they take."""
+    assert COMMA_FORM in _help(command, tmp_path, capsys)
 
 
 def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
@@ -33,24 +40,30 @@ def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
     assert "name them with --points" in text and "is not read here" in text, text
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        ["mark-failed", "--reason", REASON],
-        ["mark-converged", "--reason", REASON],
-        ["rebuild"],
-    ],
-)
-def test_words_and_commas_read_the_same_ids(command, tmp_path, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414): words and commas give the same preview."""
+def test_words_and_commas_read_the_same_ids(tmp_path, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414): words and commas give mark-converged the same preview."""
     workspace = grouped_workspace(
         tmp_path / "ws", mode="alone", logs=False, sims=("7001", "7002", "7003")
     )
+    command = ["mark-converged", "--reason", REASON]
     words = _verdicts(pyfs([*command, "--sims", "7001", "7002"], workspace.root, capsys))
     commas = _verdicts(pyfs([*command, "--sims", "7001,7002"], workspace.root, capsys))
     assert words == commas
     code, lines = words
-    assert code == 0 and any("sim_7002" in line or "sim 7002" in line for line in lines), words
+    assert code == 0 and any("sim 7002" in line for line in lines), words
+
+
+@pytest.mark.parametrize("command", [["mark-failed", "--reason", REASON], ["rebuild"]])
+def test_mark_failed_and_rebuild_read_their_comma_form(command, tmp_path, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414): the comma form names both simulations, as in 0.36.0."""
+    workspace = grouped_workspace(
+        tmp_path / "ws", mode="alone", logs=False, sims=("7001", "7002", "7003")
+    )
+    code, lines = _verdicts(pyfs([*command, "--sims", "7001,7002"], workspace.root, capsys))
+    assert code == 0, lines
+    for sim in ("7001", "7002"):
+        assert any(f"sim_{sim}" in line or f"sim {sim}" in line for line in lines), lines
+    assert not any("7003" in line for line in lines), lines
 
 
 def _verdicts(result):
