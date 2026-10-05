@@ -99,7 +99,7 @@ def test_plan_resolves_the_patched_cold_start_check(tmp_path, monkeypatch):
 
 def test_parity_compares_grouped_scripts_from_a_synthetic_workspace(tmp_path) -> None:
     """GATEFIX (NFR-40): both grouped modes contribute written job scripts."""
-    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+    from tests.support_helpers import grouped_plan_fixture as _fixture
 
     workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h", "1h"))
     (workspace.root / matrix.name).write_bytes(matrix.read_bytes())
@@ -309,7 +309,7 @@ def test_parity_never_passes_with_only_workspace_refusals(tmp_path, monkeypatch,
 
 def test_parity_collects_a_refused_matrix_and_continues(tmp_path):
     """FIX5 (NFR-40): collect_workspace_scripts(source, copy) survives a blocked row."""
-    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+    from tests.support_helpers import grouped_plan_fixture as _fixture
 
     workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h",))
     text = matrix.read_text(encoding="utf-8")
@@ -458,7 +458,7 @@ def test_parity_keeps_exclusions_and_point_errors_when_a_batch_exists(tmp_path):
     from pyflightstream.cases.workflows import workflow_registry
     from pyflightstream.run.matrix import plan_matrix
     from pyflightstream.workspace import RunRecord, RunStatus
-    from tests.tier1_offline.test_p0350_batch_plan import _fixture
+    from tests.support_helpers import grouped_plan_fixture as _fixture
 
     workspace, matrix = _fixture(tmp_path / "source", walltimes=("1h", "1h", "1h"))
     lines = matrix.read_text(encoding="utf-8").splitlines()

@@ -25,7 +25,8 @@ from that tree:
    its own tree, are byte-identical. The workspace matrices are also planned
    in per-point, batch and polar-sweep modes. A non-submitting executor writes
    their scripts on disposable copies; no solver or scheduler is started.
-   Grouped exclusions retain the planner's reasons in ``grouped_skipped``.
+   Grouped exclusions retain the planner's reasons in ``grouped_skipped``; a changed
+   left-out reason of a row is a difference of kind ``left_out`` (FR-421 R2).
    Matrix/config refusals are listed by matrix, mode and version in
    ``workspace_refused``. Reasons use structured ``(run_id, error)`` pairs from
    ``plan.json`` where available; parsing the message is a fallback. Equal
@@ -144,6 +145,18 @@ _NO_STEP_MESSAGE = (
     r"\(RPT-134\); the table is posted as the march stands\."
 )
 
+#: The left-out reason of a coupled steady or quasi-steady row, as the base (0.36.0) printed it
+#: and as the release prints it (FR-421 R2): the one named difference of the grouped plan text.
+LEFT_OUT_BEFORE = (
+    "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the script "
+    "ends, and on 26.124 the next point of the job crashed the instance (RPT-150)"
+)
+LEFT_OUT_AFTER = (
+    "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the script "
+    "ends, and on 26.124 the next point of the job crashed the instance; run these rows "
+    "point by point, without --batch or --polar-sweep"
+)
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -160,6 +173,23 @@ _NO_STEP_MESSAGE = (
 #: the difference is held to that column, its place and its cells
 #: (:func:`appends_one_column`).
 NAMED_DIFFERENCES: list[dict[str, str]] = [
+    {
+        "kind": "left_out",
+        "pattern": "*",
+        # The reason the grouped plan prints for a coupled row on steady or qsteady_rotor,
+        # the only changed text: the evidence id leaves it and the remedy joins it
+        # (FR-421 R2). FR-410's exclusion itself is unchanged. The removed line is
+        # followed by the added line, in the order the diff lists them; any other
+        # reason, or the same reason with other words, does not match.
+        "lines": r"^(" + re.escape(LEFT_OUT_BEFORE) + "|" + re.escape(LEFT_OUT_AFTER) + ")$",
+        "block": re.escape(LEFT_OUT_BEFORE) + "\n" + re.escape(LEFT_OUT_AFTER),
+        "requirement": "FR-421",
+        "why": (
+            "the plan's left-out line of a coupled steady or quasi-steady row names the "
+            "remedy (run those rows point by point) and no longer cites a report id; the "
+            "exclusion itself is FR-410's, unchanged"
+        ),
+    },
     {
         "kind": "scripts",
         "pattern": "*",
@@ -1232,6 +1262,39 @@ def _compare_workspace_refusals(
         )
 
 
+def _compare_left_out(
+    scripts: dict[str, Any],
+    base: dict[str, Any],
+    release: dict[str, Any],
+    defined: set[str],
+) -> None:
+    """Add every changed left-out reason of the grouped plan to differing, named when stated.
+
+    The key is (matrix, mode, sim): a row the base left out for a reason has the release's
+    reason beside it, and a changed or missing one is a difference that only a named entry
+    (kind ``left_out``) can excuse (FR-421 R2). Entries without a ``sim`` (per-point errors)
+    are compared by :func:`_compare_workspace_refusals`.
+    """
+
+    def indexed(collected: dict[str, Any]) -> dict[tuple[str, str, str], str]:
+        return {
+            (group["matrix"], group["mode"], row["sim"]): row["reason"]
+            for group in collected.get("grouped_skipped", [])
+            for row in group["reasons"]
+            if "sim" in row
+        }
+
+    before, after = indexed(base), indexed(release)
+    for matrix, mode, sim in sorted(before):
+        old, new = before[(matrix, mode, sim)], after.get((matrix, mode, sim))
+        if new == old:
+            continue
+        name = f"workspace/{matrix} ({mode}) left out {sim}"
+        scripts["differing"].append(
+            {"name": name, **name_difference("left_out", name, old, new, defined)}
+        )
+
+
 def _refusal_reasons(refusal: dict[str, Any] | None) -> list[Any]:
     """Compare per-point errors when present, otherwise the complete config refusal."""
     if refusal is None:
@@ -1367,6 +1430,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     _compare_workspace_refusals(
         scripts, workspace_base, workspace_release, {"base": args.base, "release": args.release}
     )
+    _compare_left_out(scripts, workspace_base, workspace_release, defined)
     scripts["workspace_coverage"] = {
         "rendered": [
             {**row, "version": version}

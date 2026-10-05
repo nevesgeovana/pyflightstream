@@ -37,7 +37,7 @@ from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run._batch_plan import eligibility
 from pyflightstream.script import Script
 from pyflightstream.workspace import RunStatus
-from tests.tier1_offline.test_p0350_batch_plan import _fixture as _plan_fixture
+from tests.support_helpers import grouped_plan_fixture as _plan_fixture
 from tests.tier1_offline.test_p0350_batch_plan import _plan as _grouped_plan
 from tests.tier1_offline.test_p0350_batch_run import (
     _matrix,

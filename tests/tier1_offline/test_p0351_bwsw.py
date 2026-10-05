@@ -13,7 +13,7 @@ from pyflightstream.run._batch_split import (
     job_walltime,
     walltime_text,
 )
-from tests.tier1_offline.test_p0350_batch_plan import _fixture
+from tests.support_helpers import grouped_plan_fixture as _fixture
 from tests.tier1_offline.test_p0350_batch_split import _unit
 
 

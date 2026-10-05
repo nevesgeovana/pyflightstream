@@ -170,8 +170,9 @@ one ended the solver process on 26.124
 ([RPT-148](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)).
 It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
-names every polar a grouped job cannot take, with the reason: a LEGACY row, a
-steady row stating `COLD_START` false, a steady point that initialises the solver
+names every polar a grouped job cannot take, with the reason (the help of both
+flags lists the classes, FR-421): a LEGACY row, a coupled row on `steady` or
+`qsteady_rotor`, a steady row stating `COLD_START` false, a steady point that initialises the solver
 more than once (a quasi-steady wheel of several clockings, a wake termination
 read from a file), a `RESTART` row, an unsteady row on a build without
 the action command, and a polar whose points do
@@ -267,7 +268,8 @@ coupled point costs one model load more than the estimate counts for it (about
 two seconds).
 
 A coupled row on `steady` or `qsteady_rotor` is left out with the other steady
-rows. Its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once
+rows, and the plan's line for it says what to do instead: run those rows point by
+point, without `--batch` or `--polar-sweep` (FR-421). Its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once
 and is ended by any line that follows it, so no other point can run after it in
 the same instance. `unsteady_rotor` refuses FSI, whether the point is run alone
 or in a grouped job.

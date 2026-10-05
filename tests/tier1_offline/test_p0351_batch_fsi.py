@@ -285,7 +285,8 @@ def test_p0351_fsi_fr407_a_coupled_unsteady_row_joins(tmp_path):
     steady = steady_wing_case(tmp_path)
     assert eligibility(steady, workspace=workspace, version=BUILD) == (
         "a coupled row on steady or qsteady_rotor: its coupling loop starts only after the "
-        "script ends, and on 26.124 the next point of the job crashed the instance (RPT-150)"
+        "script ends, and on 26.124 the next point of the job crashed the instance; run these "
+        "rows point by point, without --batch or --polar-sweep"
     )
 
 
