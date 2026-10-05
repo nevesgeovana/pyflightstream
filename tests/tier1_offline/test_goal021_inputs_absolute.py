@@ -30,43 +30,17 @@ from pyflightstream.run import SubmittingExecutor
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunRecord, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
-from tests.tier1_offline.test_matrix_run import (
-    FIXTURES,
-    HPC_PROFILE,
-    converged,
-    make_library,
-    stage_geometry,
-)
+from tests.support_helpers import ROTOR_BUILD
+from tests.support_helpers import rotor_row as _rotor_row
+from tests.support_helpers import rotor_workspace as _workspace
+from tests.tier1_offline.test_matrix_run import HPC_PROFILE, converged
 
-BUILD = "26.123"
+BUILD = ROTOR_BUILD
 
 #: The verbs whose file argument the solver READS, and how many lines below
 #: the verb that argument sits. `PROBE_POINTS_IMPORT` is `param_lines`: the
 #: name, then UNITS, FRAME and the path.
 READS = {"OPEN": 1, "PROBE_POINTS_IMPORT": 3}
-
-
-def _rotor_row(tmp_path, *, sweep="0.0,2.0,4.0", extra=""):
-    header, rule, row, *_ = (
-        (FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8").splitlines()
-    )
-    for before, after in (
-        ("| 0.0            |", f"| {sweep:<14} |"),
-        ("| -        | r003", "| wing_clean.fsm | r003"),
-        ("| -     | -        | 26.120", f"| 8     | 1h       | {BUILD}"),
-        ("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25" + extra),
-    ):
-        assert before in row, (before, row)
-        row = row.replace(before, after)
-    matrix = tmp_path / "rotor.fs"
-    matrix.write_text("\n".join((header, rule, row)) + "\n", encoding="utf-8")
-    return matrix
-
-
-def _workspace(tmp_path):
-    workspace = make_library(tmp_path, register_build=(BUILD, "C:/fs/FS.exe"))
-    stage_geometry(workspace, "wing_clean.fsm")
-    return workspace
 
 
 def _run(workspace, matrix, *, name="rotor"):

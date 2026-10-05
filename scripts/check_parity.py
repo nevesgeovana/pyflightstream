@@ -178,11 +178,12 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "pattern": "*",
         # The reason the grouped plan prints for a coupled row on steady or qsteady_rotor,
         # the only changed text: the evidence id leaves it and the remedy joins it
-        # (FR-421 R2). FR-410's exclusion itself is unchanged. The removed line is
-        # followed by the added line, in the order the diff lists them; any other
-        # reason, or the same reason with other words, does not match.
-        "lines": r"^(" + re.escape(LEFT_OUT_BEFORE) + "|" + re.escape(LEFT_OUT_AFTER) + ")$",
-        "block": re.escape(LEFT_OUT_BEFORE) + "\n" + re.escape(LEFT_OUT_AFTER),
+        # (FR-421 R2). FR-410's exclusion itself is unchanged. Only the exact complete pair
+        # matches, old equal to the 0.36.0 text and new equal to the release text, line
+        # endings included: an appended line, a trailing newline, the reverse direction or
+        # any other reason is unnamed.
+        "old_text": LEFT_OUT_BEFORE,
+        "new_text": LEFT_OUT_AFTER,
         "requirement": "FR-421",
         "why": (
             "the plan's left-out line of a coupled steady or quasi-steady row names the "
@@ -1129,6 +1130,8 @@ def name_difference(
             continue
         if new is None:
             continue
+        if "old_text" in named and (old, new) != (named["old_text"], named["new_text"]):
+            continue
         pattern = named.get("lines")
         if pattern and not all(re.search(pattern, line) for line in lines):
             continue
@@ -1270,26 +1273,29 @@ def _compare_left_out(
 ) -> None:
     """Add every changed left-out reason of the grouped plan to differing, named when stated.
 
-    The key is (matrix, mode, sim): a row the base left out for a reason has the release's
-    reason beside it, and a changed or missing one is a difference that only a named entry
-    (kind ``left_out``) can excuse (FR-421 R2). Entries without a ``sim`` (per-point errors)
-    are compared by :func:`_compare_workspace_refusals`.
+    Each side's ``grouped_skipped`` holds the rows the grouped plan left out (``sim``) and the
+    points it blocked (``run_id``), each with its reason. The identity is (matrix, mode, kind,
+    id) and the UNION of both sides is compared: a reason that changed, one the release added
+    and one it dropped are differences that only a named entry (kind ``left_out``) can excuse
+    (FR-421 R2).
     """
 
-    def indexed(collected: dict[str, Any]) -> dict[tuple[str, str, str], str]:
-        return {
-            (group["matrix"], group["mode"], row["sim"]): row["reason"]
-            for group in collected.get("grouped_skipped", [])
-            for row in group["reasons"]
-            if "sim" in row
-        }
+    def indexed(collected: dict[str, Any]) -> dict[tuple[str, str, str, str], str]:
+        found = {}
+        for group in collected.get("grouped_skipped", []):
+            for row in group["reasons"]:
+                kind, ident = ("sim", row["sim"]) if "sim" in row else ("point", row.get("run_id"))
+                if ident is not None:
+                    found[(group["matrix"], group["mode"], kind, ident)] = row["reason"]
+        return found
 
     before, after = indexed(base), indexed(release)
-    for matrix, mode, sim in sorted(before):
-        old, new = before[(matrix, mode, sim)], after.get((matrix, mode, sim))
+    for key in sorted(before.keys() | after.keys()):
+        old, new = before.get(key), after.get(key)
         if new == old:
             continue
-        name = f"workspace/{matrix} ({mode}) left out {sim}"
+        matrix, mode, kind, ident = key
+        name = f"workspace/{matrix} ({mode}) left out {kind} {ident}"
         scripts["differing"].append(
             {"name": name, **name_difference("left_out", name, old, new, defined)}
         )
