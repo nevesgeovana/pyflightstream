@@ -42,11 +42,11 @@ one block, in this order:
 | `TEMP` | K | the air temperature the run resolved for that point |
 | `MU` | Pa s | the dynamic viscosity, written in scientific notation |
 | `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor, and on one that states its speed as `RPM` (in the two quasi-steady tables it is the ratio the rotor ran at where the row requested none, below) |
-| `J_CLOCK` | - | the advance ratio the CLOCK rotor RAN at, `V / (n D)` from this point's free stream, the speed the record kept and the rotor's diameter; `NA` where the record or the reference does not say. The speed of a `qsteady_rotor` point, whose run plans no reductions, is the one its quasi-steady record states, the speed its rotor table divides by (since 0.37.0; it read `NA`) |
+| `J_CLOCK` | - | the advance ratio the CLOCK rotor RAN at, `V / (n D)` from this point's free stream, the speed the record kept and the rotor's diameter; `NA` where the record or the reference does not say. The speed of a `qsteady_rotor` point, whose run plans no reductions, is the one its quasi-steady record states, the speed its rotor table divides by |
 | `RPM_CLOCK` | rev/min | the speed the CLOCK rotor turned at, with its hand; the CLOCK rotor is the one `CLOCK_MOTION` names, or the only rotor the row turns. A row turning several and naming none has no clock, and both columns are `NA` rather than taking one rotor's number for another's |
 | `SREF`, `CREF`, `BREF` | m2, m, m | the reference area, chord and span |
 
-**The super file states each rotor's speed and its diameter** (FR-89, since 0.37.0).
+**The super file states each rotor's speed and its diameter** (FR-89).
 Beside `RPM`, its content carries for each rotor the point turned `RPM_<alias>` (rev/min,
 signed) and, right after it, `DIAMETER_<alias>` (m): the `diameter_m` of the rotor block
 the row's reference declares, the same number the rotor table states and divides by, `NA`

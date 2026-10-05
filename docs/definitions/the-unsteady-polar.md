@@ -17,7 +17,7 @@
   because the plots carry moments and a moment states nothing without its point.
 - **The super file's content is ADDED to this table**, after the plot columns:
   the matrix row's cells, the record's scalars, each rotor's speed and diameter
-  (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`, since 0.37.0), the solver
+  (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`), the solver
   flags. The super file is what the polar does not have; for an unsteady point it
   is not a second file. Its `POL` cell is the row's first column and is not
   written a second time.
