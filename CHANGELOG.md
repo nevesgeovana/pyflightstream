@@ -73,6 +73,188 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+## [0.37.0] - UNRELEASED
+
+### Added
+
+- A run status, `RAN_MISSING_LOG`, for a point whose outputs are all present
+  and whose declared solver log is absent (deleted after the run, or never
+  copied back). `collect`, the grouped collect and `rebuild` decide it by one
+  rule before anything waits for the log or reads the job's end files; the
+  record's `residual_note` names what only the log carries, `wall_time_s` is
+  null and the point is never `CONVERGED`. The post writes every product of
+  such a point, with or without `--check-frozen`, and `post.log` carries one
+  WARNING per point. In a steady job that lost only some point logs, only the
+  affected points take the status and the surviving logs are kept; a grouped
+  point that also has a wall-clock stop keeps `stopped_at` (FR-413).
+- `pyfs-matrix mark-converged --sims ID [ID ...] [--points NAME ...] --reason
+  TEXT [--apply]` records a person's verdict of `CONVERGED`, the twin of
+  `mark-failed`: each record keeps under `marked` the status it had, the time,
+  the reason and the verdict, and `runs.json` is archived first. A point
+  SUBMITTED, without its loads export, deleted or marked failed is refused by
+  name, every refusal rechecked under the manifest lock before anything is
+  written. `show`, `status --points`, `post.log` and every `products.json`
+  entry built from a marked point name the verdict, and `rebuild` and `sync`
+  keep it, a steady job's point marks included. From Python:
+  `pyflightstream.run.records.mark_converged` (FR-414).
+- `pyfs-matrix rebuild` rebuilds grouped runs (`--batch`, `--polar-sweep`): a
+  batch point's script is compared at its batch folder, the rebuilt record
+  names its batch and its job (from the plan receipt), and a simulation still
+  in its batch folder is rebuilt from there and left `SUBMITTED` for `collect`
+  (FR-412).
+- `EXPORT_UNSTEADY_LAST_REV: <turns>` (an `unsteady_rotor` row) and
+  `EXPORT_UNSTEADY_LAST_ITER: <steps>` (an `unsteady` or `unsteady_rotor` row)
+  make the per-step exports cover the last revolutions or the last steps of the
+  run, from step `TIME_ITERATIONS - n + 1` to the last; the run record's
+  `export_window` states them as `last_revolutions` and `last_iterations` with
+  the resolved `first_step` (FR-415).
+- `RUN_WAKE_LENGTH_R: <L>` on an `unsteady_rotor` row states the run length as
+  a target wake length in rotor radii, with exactly one of `DELTA_THETA` or
+  `DELTA_TIME`: `TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))`, by the
+  conversion and the axial velocity rule that size `wake_termination_length`.
+  `pyfs-matrix plan` prints the resolved step count, the revolutions and V_ax
+  per point, `plan.json` carries them as `run_wake_length`, and the run
+  record's solver-flag snapshot carries `run_wake_length`, `run_wake_rule`,
+  `run_wake_v_ax_m_s` and `run_wake_time_iterations` (FR-422, FR-415).
+- `[[prune_step_exports]]` of a `free-space` recipe may state `keep_last = K`
+  (keep the last `K` steps of each per-step export) or `delete_steps = [A, B]`
+  (delete the steps `A` to `B` inclusive), never both; the recorded step entry
+  states the key used (FR-416).
+- A pproc `[[probes]]` entry states its probe kind on `unsteady` and
+  `unsteady_rotor` rows: `kind = "unsteady"` (the default, one fluid plot per
+  point and parameter at every time step) or `kind = "normal"`, probe points
+  created after the time march, updated and exported once to
+  `<point>_probes.txt`, whose probes table holds the run's last time step. With
+  a per-step export window the normal probes are exported at every step of the
+  window. The normal kind is admitted on FlightStream 26.124 only, the build
+  its licensed contract names (FR-417).
+- A normal `[[probes]]` entry with `reusable_inflow = true` or `field_formats`
+  on an unsteady row writes the field products a steady row writes from the
+  same probe values, for the run's last time step; nothing is averaged over
+  time (FR-418).
+- `morphing = "direct"` in the `[config]` table of an FSI input couples a
+  `qsteady_rotor` periodic sector by the solver's direct mesh morphing on
+  26.125, in place of the structural-node import, and the structural program
+  writes one displacement per surface vertex the solver lists. With it
+  `FsiConfig.morphing`, `pyflightstream.cases.fsi_workspace.direct_morphing_refusal`
+  and the command database entry `SET_DIRECT_AEROELASTIC_MESH_MORPHING`
+  (FR-341).
+- The solver settings of every recorded point as a campaign product,
+  `settings/<matrix>_settings.csv` (one numeric row per point opening with
+  `POL` and `RUN_ID`) and its codebook `settings/<matrix>_settings.codebook.json`,
+  listed in `products.json` with kind `settings_codebook`; `[products]
+  settings_codebook` in the pproc, true by default; `write_settings_table`
+  takes `legend=` and `keys=`, and `read_settings_table` returns key columns as
+  text (FR-419).
+- `[products] installed_frame` in the pproc, a list of `probes` and `inflow`:
+  the post writes `probes/<point>_probes_installed.csv` and
+  `fields/<stem>.inflow_installed.dat`, each the table mirrored through
+  `y = 0`, listed in `products.json` with kind `installed_frame`; a rebuilt post
+  that no longer asks a family retires its earlier copies (FR-420).
+- FlightStream 26.125 is a registered build, resolving as `26.125` (vendor name
+  26.12) at build `10052026`, its manual edition backing a `documented` row for
+  every command it documents. The probe campaign of the release verified 141 of
+  its commands on the build, so `pyflightstream.support_table()` lists it at
+  level `operational`; `CREATE_FREE_SURFACE_TFI_MESH` and
+  `NEW_OFF_BODY_STREAMLINE` are recorded broken there and the emitter refuses
+  them. On 26.125 `DIRECTION` of the relaxed CCS trailing edges and `SPACE` and
+  `AXIS` of the flap cove and the morphing surface are required, and the
+  revolve CCS export takes the revolve loft's arguments. Twelve commands its manual
+  documents first enter the command database, each with a probe specification;
+  the setup keys `solver_time_averaging` and
+  `aeroelastic_convergence_threshold`, the `[import.ccs]` key
+  `te_blend_length_pct`, the trailing edge `ROUNDED_BLEND`, the force-plot
+  parameters `CDP` and `CDV`, and the `pyflightstream.script.helpers` functions
+  `detect_every_boundary`, `every_boundary_detection`, `takes_every_boundary`,
+  `wake_edge_import_token`, `assign_selected_ccs_curves` and
+  `solver_time_averaging` reach them (FR-423).
+
+### Changed
+
+- **The settings table and its codebook are default products.** With
+  `settings_codebook = false` in the pproc the products are those of 0.36.0
+  byte for byte (FR-419).
+- **The super content states each rotor's diameter.** The super files and the
+  unsteady polar carry `DIAMETER_<alias>`, in metres, right after each
+  `RPM_<alias>`, `NA` where the reference declares no block of that alias
+  (FR-89).
+- **A quasi-steady point's speed and clock come from its quasi-steady record.**
+  Its super-file row gains `RPM_<alias>`, and `RPM_CLOCK` and `J_CLOCK` are
+  filled in every product of the point that states the condition (FR-89).
+- **The plan's left-out line of a coupled steady or quasi-steady row names the remedy.**
+  It says to run these rows point by point, without `--batch` or
+  `--polar-sweep`, and cites no report id; the exclusion itself is unchanged.
+  Every left-out reason of the grouped plan comes from one table, and the
+  `--batch` and `--polar-sweep` help of `plan` and `run` names every class of
+  row the grouped modes leave out (FR-421, FR-410).
+- **A bare matrix name is read from the workspace, whatever the working directory holds.**
+  A same-named file in the working directory is no longer
+  read and no longer stops the command; when its bytes differ, a WARNING names
+  both files (FR-411).
+- **Unknown keys of a `[[prune_step_exports]]` table are refused** before any
+  file is touched, naming the key and the accepted ones; the refusal of a later
+  post that needs a deleted step says what the call kept (FR-416).
+- **The installed-frame classification negates `Y`, `VY`, `VORTICITY_X` and `VORTICITY_Z`, and no longer `CREF`.**
+  `to_installed_frame` and the post's
+  copies read the one list (FR-420).
+- **On 26.125 the emitter writes the forms its manual documents.** The raw-mesh
+  `detect = "auto"` detections and the minimal workflow write the
+  every-boundary (`-1`) form of the three `DETECT_*_BY_SURFACE` commands, the
+  wake-edge import writes `EDGE_TYPE` `1` as its third token, and the CCS curve
+  route assigns the selected curves to the component. `AUTO_DETECT_*` and
+  `SOLVER_TIME_AVERAGING`, which its manual no longer prints, have no 26.125
+  row. Every script for 26.124 and earlier is byte-identical (FR-423).
+- **The output readers accept the 26.125 exports.** The `Simcenter
+  Flightstream` title and footer, release `2612`, and the loads header
+  `CDp, CDv`, carried under their printed names; the polar writes `CDV` and
+  `CDP` for a 26.125 point where it writes `CD0` and `CDI` for an earlier one
+  (FR-423).
+- `status` counts `RAN_MISSING_LOG` among the runs that ended and apart from
+  `CONVERGED`, and `run --resume` does not run such a point again (FR-413).
+- Every simulation `rebuild` refuses is named with its reason and what to do,
+  the summary ends with the counts rebuilt and refused, and `rebuild --apply`
+  with nothing to write prints every refusal before it stops (FR-412).
+- A row stating two of `EXPORT_UNSTEADY_AFTER_REV`,
+  `EXPORT_UNSTEADY_AFTER_ITER`, `EXPORT_UNSTEADY_LAST_REV` and
+  `EXPORT_UNSTEADY_LAST_ITER` is refused at plan naming both; a last count of
+  zero, a negative one or one beyond `TIME_ITERATIONS` is refused naming the run
+  length; with a pproc `[time_averaging]`, a last form whose first step falls
+  after the averaging window's first step is refused (FR-415).
+- A continuation of a row whose probes are normal creates them after the
+  continued march; an unsteady row whose pproc mixes normal and unsteady probe
+  entries is refused naming the entries of each kind, and any other `kind`
+  value is refused when the pproc is read (FR-417).
+- The plan refuses direct morphing with DEFLECTED nodes, on `unsteady_rotor`,
+  on `steady` and `unsteady`, on a wheel and on a build that does not run the
+  command, each naming the remedy; an FSI input that does not state `morphing`
+  renders, stages and hashes as in 0.36.0. A steady coupling call whose
+  displacement rows differ in number from the previous call's is refused (FR-341).
+- `scripts/check_parity.py` compares the left-out rows and blocked points of the
+  grouped plan per matrix, mode and identity (FR-421); the grouped-plan
+  workspace fixture of the tests lives in `tests/support_helpers.py` (NFR-42).
+
+### Fixed
+
+- `pyfs-matrix rebuild` no longer refuses every simulation of a matrix kept in
+  `inputs/matrices/` that has a `RUN 0` row as being in both homes of the
+  workspace with different content (FR-411).
+- `pyfs-matrix rebuild` no longer refuses every grouped simulation as "the
+  executed script is not the script pyflightstream renders": a batch point's
+  script names its batch folder (FR-412).
+- `collect` no longer waits forever for the log of a grouped point whose
+  cumulative log was deleted, and no longer fails as FAILED_EXECUTION a point
+  whose end-of-job files and outputs are present and whose log is not (FR-413).
+
+### Migration
+
+- Read [Migrating to 0.37.0](docs/migrating-to-0.37.0.md). Inputs from 0.36.0
+  need no changes; the settings table, the rotor diameter columns and the
+  left-out wording change the outputs by default, `runs.json` readers must
+  accept `RAN_MISSING_LOG`, and a `[[prune_step_exports]]` key the mode never
+  read (for example `older_than_days`) must be removed. FlightStream 26.125 is
+  registered at level `operational`; normal probes remain admitted on 26.124
+  only.
+
 ## [0.36.0] - 2026-10-03
 
 ### Added
@@ -14223,7 +14405,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...v0.36.0
 [0.35.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.35.0

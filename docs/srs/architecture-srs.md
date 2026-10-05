@@ -1913,3 +1913,121 @@ differences. The CCS mesh probe judges classify by geometry (FR-401).
   vocabulary and takes the row error class as a keyword-only parameter from
   `cases.matrix`, with no import back into that module. `cases.matrix` keeps the
   existing helper names; name precision remains defined only by `cases.naming.name_field`.
+
+## The 0.37.0 additions and their limits
+
+0.37.0 adds thirteen modules, each in the row of its package, and no new row.
+The order of the stack is unchanged: `post` and `qa`, then `run`, then
+`workspace`, then `cases`, then `script` and `results`, then `commands`, then
+`versions`, then the floors; the `fsi` side branch keeps its place between the
+`script` and `results` row and the `cases` row. `scripts/arch_metrics.py`
+measures the release tree, and its record is the release's architecture
+record. The two packages that declare an order to guard G3(b) place the new
+modules inside it: `cases.workflows` places `_export_first_step` after `_clock`
+and `_wake_length` after `_timing`; `run` places `_rebuild_grouped` and
+`_mark_converged` after `_rebuild_evidence`, and `_collect_logs` after
+`_batch_collect`.
+
+### Recovery: the missing log, grouped rebuild and the person's verdicts
+
+- `workspace/_missing_log.py` is the one rule that names a point whose
+  declared outputs other than its solver log are present while its declared
+  log is absent, `RAN_MISSING_LOG` (FR-413), and the one statement of what is
+  unavailable without the log. It imports `workspace.manifest` alone and sits
+  beneath its three callers: `run/collect.py`, `run/_batch_collect.py` and
+  `run/_rebuild.py`, which each ask it before any rule that would wait for the
+  log or read a job's end files. The post reads only the status they recorded.
+- `run/_collect_logs.py` holds the half of `run/collect.py` that resolves the
+  log a point is judged by (the scheduler's own log, and a job that ended
+  without it), moved out unchanged so the collect stage stays one module under
+  the G1 soft limit.
+- `run/_rebuild_grouped.py` is what a rebuild reads about a grouped run: the
+  batch home of a simulation, the batch its executed script names, and the job
+  entry read off the plan receipt (FR-412). It writes nothing and imports
+  `run._batch_exec` and `workspace._batches`, both below it.
+- `run/_mark_converged.py` is `mark-converged` (FR-414), the twin of
+  `mark-failed`: under the manifest lock, `runs.json` archived first, every
+  refusal checked again under the lock before anything is written. It also
+  registers the two marking commands' parsers, which share their options.
+- `workspace/_verdicts.py` is the one inventory of a person's marks, on a
+  record and on a steady job's point entries. `workspace/storage.py` (the
+  sync) and `run/_rebuild.py` read it, so a later writer never replaces a
+  person's verdict with a computed one (FR-414 R4).
+
+The limit this keeps: no writer of `runs.json` gains a second rule for the
+missing log or for a mark, and the `workspace` row still imports nothing from
+`run`.
+
+### Run length, export windows and pruning
+
+- `cases/workflows/_wake_length.py` is the one conversion of a rotor wake
+  length into time steps, `n = ceil(L R Omega / (V_ax dtheta))`, with one rule
+  for the axial convection speed. The wake termination of FR-321 and the run
+  length of `RUN_WAKE_LENGTH_R` (FR-422) both read it; it lives below the
+  clock because the run length is the clock.
+- `cases/workflows/_export_first_step.py` resolves the four per-step export
+  keys to one first exported step, with their refusals (FR-415);
+  `unsteady_export_threshold` calls it before its first emission, and every
+  later stage reads the resolved step as it read the after-threshold forms.
+- `workspace/_step_prune.py` holds the choice of `keep_last` and
+  `delete_steps` with no file system action: the check of a table's keys
+  before any file is touched, the split of an export's steps into kept and
+  deleted, and the words the record, the console and a later refusal use
+  (FR-416). The deleting and the protection of a record's files stay in
+  `workspace/storage.py`.
+
+### Products: the settings table and the installed-frame copies
+
+- `post/_settings_product.py` is the caller of the library writer
+  `post.settings_table.write_settings_table`: one numeric table per matrix
+  from the solver-setup snapshot each record carries, and its codebook
+  (FR-419). A point with no snapshot gets no row and one INFO line.
+- `post/_installed_copies.py` writes the installed-frame copies of the probes
+  table and the reusable inflow profile (FR-420). It holds no classification
+  of its own: the one list is `post.inflow_tools.FLIPPED_COLUMNS`, which
+  `to_installed_frame` reads too.
+
+### FlightStream 26.125
+
+- The version registry orders 26.125 after 26.124 with its manual edition, its
+  printed release `2612` and its build `10052026`, inheriting no rows; every
+  command its manual documents carries a 26.125 row, and the four it stops
+  printing answer absent (FR-423). The release's probe campaign
+  (`reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`) verified 141 of
+  them on the build and recorded two broken, which the emitter refuses, so the
+  build is `operational`. The registry is data in
+  `commands/_meta.yaml`, read by `versions`.
+- `script/_build_forms.py` writes the one form the target build documents
+  where two builds document two forms of one request: the every-boundary
+  detections, the wake-edge import token, the CCS curve assignment and the
+  solver time averaging. A build that carries the older form keeps it, so a
+  script for 26.124 and earlier is byte-identical.
+- The readers in `results` accept the 26.125 export titles, footer and loads
+  header, and the polar carries the 26.125 drag pair under its own names
+  (`CDV`, `CDP`) beside the earlier pair (`CD0`, `CDI`), never one read as the
+  other.
+- `qa/_spec_26125.py` holds the probe specifications of the twelve commands
+  the 26.125 manual documents first, registered into the shared catalog of
+  `qa._spec_kit`.
+
+### The FSI side branch: direct mesh morphing
+
+`fsi/_direct_morphing.py` is the structural program's half of direct mesh
+morphing (FR-341, route C): with RIGID aerodynamic nodes the solver lists the
+undeformed surface vertices at every call, and the module evaluates the beam
+solution at each vertex by the rigid-section kinematics the mapped route
+encodes at its structural nodes, blending linearly between stations and
+holding the end station's motion outside them. It imports only `fsi` modules.
+`cases/fsi_workspace.py` refuses every combination the route does not support
+(DEFLECTED nodes, `unsteady_rotor`, `steady`, `unsteady`, a wheel, a build
+that does not run the command), so an FSI input that does not state
+`morphing` renders, stages and hashes as before.
+
+### What the release keeps
+
+A key or pproc entry this release adds, when absent, leaves every script,
+record and product byte-identical to 0.36.0. `scripts/check_parity.py` against
+v0.36.0 names the three differences the requirements state: the settings table
+and its manifest entries (FR-419), the rotor diameter and quasi-steady clock
+cells of the super content (FR-89), and the left-out reason of a coupled
+steady row (FR-421).

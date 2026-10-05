@@ -140,10 +140,14 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._rotor_plan` (where each rotor table's rows come
   from), :mod:`pyflightstream.post._reduction_stage` (the reductions of a
   point's plots table), :mod:`pyflightstream.post._rotor_products` (a point's
-  series and its quasi-steady, harmonic, noise and disc-map products) and
-  :mod:`pyflightstream.post._additional` (the products of the additional post)
-  and :mod:`pyflightstream.post._products_campaign` (the campaign products'
-  context, admission and native surface indexing, AD-23).
+  series and its quasi-steady, harmonic, noise and disc-map products),
+  :mod:`pyflightstream.post._additional` (the products of the additional post),
+  :mod:`pyflightstream.post._products_campaign` (the campaign products'
+  context, admission and native surface indexing, AD-23),
+  :mod:`pyflightstream.post._settings_product` (the settings table and its
+  codebook as a campaign product, FR-419) and
+  :mod:`pyflightstream.post._installed_copies` (the installed-frame copies of
+  the probes table and the reusable inflow profile, FR-420).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
