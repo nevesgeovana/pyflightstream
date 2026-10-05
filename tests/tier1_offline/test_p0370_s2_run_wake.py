@@ -389,11 +389,17 @@ def test_p0370_s2_the_run_record_states_the_rule_the_velocity_and_the_count(tmp_
 
 
 def test_p0370_s2_a_row_without_the_key_records_no_run_length_the_control():
-    """P0370-S2-RUN-WAKE (FR-422 R4): a REVOLUTIONS row's snapshot carries no run_wake entry."""
+    """P0370-S2-RUN-WAKE (FR-422 R4): a REVOLUTIONS row's snapshot carries no run_wake entry.
+
+    Its run length is the REVOLUTIONS one: 3 turns of 36 steps (10 degrees a
+    step) emit TIME_ITERATIONS 108, so the absence is of the key and not of a
+    run length.
+    """
     requirement = "FR-422"
-    _, script = _built(_row(**{KEY: None, "REVOLUTIONS": "3"}))
+    lines, script = _built(_row(**{KEY: None, "REVOLUTIONS": "3"}))
     assert script.solver_setup is not None
     assert not any(key.startswith("run_wake") for key in script.solver_setup.derived), requirement
+    assert _march(lines)[0] == "TIME_ITERATIONS 108", (requirement, _march(lines))
 
 
 # --- FR-415 R6: the windows read the resolved count --------------------------
