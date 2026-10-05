@@ -9511,3 +9511,196 @@ Requirements written after the specification was last reconciled with the packag
     Verification: test, `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` (P0360-BATCH-FSI-STEADY, FR-410), and [RPT-150](https://github.com/nevesgeovana/pyflightstream/blob/8983ee62/reports/RPT-150_fsi-steady-in-one-instance_2026-10-03.md). Release 0.36.0.
 
     Evidence: `tests/tier1_offline/test_p0360_gf.py::test_p0360_gf_coupled_steady_stays_out` checks both grouped modes leave out coupled steady and qsteady_rotor rows with the exact reason naming RPT-150 and that the report exists. The original two steady cases fail on 8852906f; removing qsteady_rotor from the steady set fails both quasi-steady cases. RPT-150 records four alone points CONVERGED and two spliced jobs ending with 0xC0000005 without either point's outputs on FlightStream 26.124, build 8172026, far field 5. One case, one build; callback-driven continuation is untested.
+
+## 0.37.0 recovery, run length, probes and usability
+
+The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2026-10-05. Items S1 to S9 of the goal map to FR-411 to FR-422, FR-341 (S6) and NFR-41; the markers `P0370-<item>-<name>` are listed in `docs/srs/markers-0370.json`.
+
+!!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.01 (0.37.0).
+
+    *Origin: the owner's report of 2026-10-03 on 0.35.1 ("primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
+
+    Need: A user whose matrix is in `inputs/matrices/` alone must be able to run `rebuild` (and every other command) on it without being told it is in two places.
+
+    Requirement: When a bare matrix name or stem resolves to exactly one file in the workspace homes (the root and `inputs/matrices/`), that file is the matrix of every command, `rebuild` included; a same-named file elsewhere (the working directory, a `sims/` copy, an archive) is never read and never refuses the command.
+
+    - R1 A same-named file in the working directory whose bytes differ from the workspace's is named in a WARNING line stating which file was read; it no longer refuses the command.
+    - R2 The same stem in both homes with different bytes is still refused, naming both paths and the remedy; identical bytes are read once, as in 0.32.0 (FR-224).
+    - R3 A path given with a folder separator is read as that path, as before.
+    - R4 The offline reproduction of the owner's 0.35.1 case (grouped batch workspace, matrix in `inputs/matrices/` only, `runs.json` and logs deleted) is a tier-1 test.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`, carrying P0370-S1-MATRIX-HOME (FR-411).
+
+!!! requirement "FR-412 rebuild makes the records of a workspace whose runs.json is lost <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.01 (0.37.0).
+
+    *Origin: the owner's report of 2026-10-03 on 0.35.1 ("eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`.*
+
+    Need: A user who deleted `runs.json` while the simulations of a campaign, grouped batches included, are on disk must get the records back from `rebuild`.
+
+    Requirement: `pyfs-matrix rebuild --apply` on a workspace with no `runs.json` shall write a `runs.json` holding one record per point whose outputs are in its datapoint folder, for per-point and grouped (`--batch`, `--polar-sweep`) runs alike, and shall say, per simulation it could not rebuild, why and what to do.
+
+    - R1 A grouped point's outputs are found where the grouped run filed them (its datapoint folder, or its batch folder while that batch has not been relocated); a grouped point is rebuilt naming its batch, as collect records it (FR-366).
+    - R2 A point whose declared solver log is absent and whose other declared outputs are present is rebuilt as `RAN_MISSING_LOG` (FR-413), never refused for the log alone.
+    - R3 Every per-simulation refusal states the simulation, the reason in plain words and the remedy; the summary ends with the count rebuilt and the count refused.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`, carrying P0370-S1-REBUILD-LOST (FR-412): a per-point and a grouped workspace, each run offline with the stub solver, `runs.json` and the logs deleted, rebuilt and then posted.
+
+!!! requirement "FR-413 A point whose outputs are present and whose solver log is absent is RAN_MISSING_LOG, collected and posted <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.01 (0.37.0).
+
+    *Origin: the owner's proposal of 2026-10-03 ("podia ter um status RAN_MISSING_LOG") and her rule of 2026-10-05 ("lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`.*
+
+    Need: A user whose solver logs were deleted after the runs ended must be able to collect and post those points, knowing which conclusions the log would have carried.
+
+    Requirement: A new status `RAN_MISSING_LOG` is recorded for a point whose declared outputs are on disk and settled except its declared solver log. Collect files the outputs and completes the record; the post writes every product of the point as for any admitted record.
+
+    - R1 It is decided at collect, at the grouped collect and at rebuild, before any rule that would wait for the log or read the job's end files; a job's end files with the outputs present give `RAN_MISSING_LOG`, not `FAILED_EXECUTION`.
+    - R2 The record states, in `residual_note`, that the solver log is absent, so the convergence verdict and the solver clock are unavailable; `wall_time_s` and the freeze reading are left unstated, never estimated. The point is never `CONVERGED` by assumption.
+    - R3 The post never withholds a product for this status, with or without `--check-frozen`; its `post.log` carries one WARNING per point naming the status and what is unavailable.
+    - R4 Status-reading commands (`status`, `show`, `plan`, `run --resume`) treat it as a run that ended: `run --resume` does not run it again, and `status` counts it apart from the converged points.
+    - R5 A profile whose `[log] export_log = false` keeps its 0.36.0 behaviour: there the log is not declared, so its absence is not this status.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`, carrying P0370-S1-RAN-MISSING-LOG (FR-413): a steady point, an unsteady point and a grouped point with the log deleted, each collected as RAN_MISSING_LOG and posted (products present, warning line, no CONVERGED), resume skipping them, and the export_log=false control unchanged.
+
+!!! requirement "FR-414 mark-converged records a person's verdict of CONVERGED, with its reason and a copy of runs.json <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.01 (0.37.0).
+
+    *Origin: the owner's request of 2026-10-03 ("me manda um script python simples que marca converged nas polares que eu quiser"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`.*
+
+    Need: A user who knows from her own reading that points converged must be able to record that verdict in the workspace, in the package's own form, instead of editing `runs.json` by hand.
+
+    Requirement: `pyfs-matrix mark-converged --sims ID [ID ...] [--points NAME ...] --reason TEXT [--apply]` sets the status of the named points' records to `CONVERGED`, as `mark-failed` (FR-309) sets `FAILED_MARKED`: under the manifest lock, the previous `runs.json` copied to the archive first, each record stating `marked` with the status it had, the time and the reason.
+
+    - R1 Preview is the default and writes nothing; `--apply` writes. `--reason` is required.
+    - R2 A point still `SUBMITTED`, a point whose loads export is not on disk, a deleted simulation and a point marked failed are refused, each named; an already-converged point is listed and left alone.
+    - R3 The marked verdict is shown by `show` and `status` as the person's, and the post's `post.log` names it per point.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`, carrying P0370-S1-MARK-CONVERGED (FR-414): preview, apply, archive copy, the refusals, and a posted product of a marked point.
+
+!!! requirement "FR-415 The per-step exports can cover the last revolutions or the last steps of a run <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.03 (0.37.0).
+
+    *Origin: the owner's note for 0.37 of 2026-10-05 ("Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV"), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
+
+    Need: A user who wants the per-step exports of the end of a run must be able to say how much of the end, without computing the first step from the run length herself.
+
+    Requirement: A matrix row of `unsteady_rotor` may state `EXPORT_UNSTEADY_LAST_REV: N`, and a row of `unsteady` or `unsteady_rotor` may state `EXPORT_UNSTEADY_LAST_ITER: K`; the per-step exports then cover the last `ceil(N x steps per revolution)` time steps, or the last `K` time steps, of the run.
+
+    - R1 The first exported step is `TIME_ITERATIONS - n + 1`, where `n` is the count above; the last exported step is `TIME_ITERATIONS`. The exports themselves, the action program and the files written per step are those of `EXPORT_UNSTEADY_AFTER_ITER` with that first step.
+    - R2 A row states at most one of `EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_AFTER_ITER`, `EXPORT_UNSTEADY_LAST_REV` and `EXPORT_UNSTEADY_LAST_ITER`; two are refused at plan, naming both.
+    - R3 `EXPORT_UNSTEADY_LAST_REV` on a run type with no rotor clock is refused at plan naming `EXPORT_UNSTEADY_LAST_ITER` as the remedy, as `EXPORT_UNSTEADY_AFTER_REV` is. A value that is not positive, or a count longer than the run, is refused at plan naming the run length.
+    - R4 The run record's `export_window` states the form as written (`last_revolutions` or `last_iterations`), the value as written and the resolved `first_step`; every reader of `export_window` reads `first_step` as before.
+    - R5 With a pproc `[time_averaging]`, a first step after the averaging window's first step is refused as the after-threshold is (G25).
+
+    Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`, carrying P0370-S3-LAST-REV (FR-415): the first step for both forms against the hand count of the docs example (3 revolutions of 36 steps, last 1 revolution exports steps 73 to 108), the refusals of R2 and R3, the record field, and a rendered script equal to the one `EXPORT_UNSTEADY_AFTER_ITER` with the same first step renders.
+
+!!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.04 (0.37.0).
+
+    *Origin: the owner's note for 0.37 of 2026-10-05 ("Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady"), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
+
+    Need: A user who cleans an unsteady workspace must be able to keep more than the last step of each per-step export, or to delete a range of steps she names.
+
+    Requirement: A `[[prune_step_exports]]` table of a free-space recipe may state `keep_last = K` (a positive integer, default 1, the 0.30.0 behaviour) or `delete_steps = [A, B]` (two positive integers, `A <= B`, inclusive), never both.
+
+    - R1 With `keep_last = K`, the last `K` steps of each per-step export of each selected folder are kept and the earlier ones deleted. With `delete_steps = [A, B]`, exactly the steps from A to B of each per-step export are deleted and every other step kept.
+    - R2 Every key of a `[[prune_step_exports]]` table other than `sims`, `status`, `keep_last` and `delete_steps` is refused before any file is touched, naming the key and the accepted ones.
+    - R3 The protected files, the SUBMITTED refusal, the preview without `--apply`, the recorded call and the forgetting of deleted listings in `products.json` are those of 0.30.0; the recorded step entry also states `keep_last` or `delete_steps`.
+    - R4 A later post that needs a deleted step refuses by name as before, and its message states what the call kept (the last K steps, or every step outside A to B), not "the last step".
+
+    Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`, carrying P0370-S4-PRUNE-RANGE (FR-416): keep 12 of 30 steps, delete 5 to 9 of 30, both stated refused, an unknown key refused with no file touched, the recorded entry, and the post refusal text.
+
+!!! requirement "FR-417 A probe entry of an unsteady row states its kind, unsteady (default) or normal <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.05 (0.37.0).
+
+    *Origin: the owner's decision of 2026-10-05 ("no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes."), after a run whose 5835 fluid plots ran far slower than its reservation; scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`.*
+
+    Need: A user of an unsteady run who needs the flow at probe points only at the end of the run must be able to ask for probe points rather than a fluid plot per point and parameter, which the solver evaluates at every time step.
+
+    Requirement: A pproc `[[probes]]` entry may state `kind = "unsteady"` (the default) or `kind = "normal"`. On `unsteady` and `unsteady_rotor` rows, an `unsteady` entry is emitted as in 0.36.0 (one fluid plot per point and parameter, sampled every time step), and a `normal` entry is emitted as probe points created after the march, updated and exported once, so it is sampled at the last time step.
+
+    - R1 A `normal` entry is emitted with the commands a steady row uses for the same shapes (`NEW_PROBE_LINE`, `NEW_PROBE_POINT`, `PROBE_POINTS_IMPORT`) in the same order, after the time march, followed by `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS` to `<point>_probes.txt`; the probe-points export is a declared output of that row.
+    - R2 On one unsteady row the entries of the pproc are all of one kind; a pproc mixing the two on an unsteady row is refused at plan, naming the entries of each kind. On a steady row `kind` is accepted and changes nothing.
+    - R3 An unsteady row with only `normal` entries emits no fluid plot for them; the script of a row whose pproc states no `kind` is byte-identical to 0.36.0.
+    - R4 The post writes `probes/<point>_probes.csv` for a `normal` entry from the probe-points export, with `STEP` the run's last time step and the probe spine of the steady table.
+    - R5 Any other value of `kind` is refused when the pproc is read, naming the two accepted values.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`, carrying P0370-S5-PROBE-KIND (FR-417): the rendered unsteady and unsteady_rotor scripts for both kinds (no fluid plot for normal; probe commands after the march; the export declared), the 0.36.0 script unchanged without `kind`, the mixed refusal, the post table from a recorded export; and a licensed confirmation on 26.124 that the probe points are sampled after an unsteady march (RPT recorded before the partial wheel).
+
+!!! requirement "FR-418 The reusable inflow is built from normal probes of an unsteady run <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.05 (0.37.0).
+
+    *Origin: the owner's correction of 2026-10-05 ("para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady."), scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`.*
+
+    Need: A user of an unsteady run with no rotor that settles to a steady regime must be able to take the custom inflow for a quasi-steady rotor from probes sampled at its last time step.
+
+    Requirement: A `normal` `[[probes]]` entry with `reusable_inflow = true` (or `field_formats`) on an `unsteady` or `unsteady_rotor` row shall produce the same field products a steady row's entry produces, `<stem>.inflow.dat` included, from the probes table of R4 of FR-417.
+
+    - R1 The run records the entry's field layout with the steady probe-points export kind, so the post reads one value per probe at the last time step.
+    - R2 The inflow profile states the velocities in the global frame as the steady route does; nothing is averaged over time and the product says it is the last time step.
+    - R3 An `unsteady` entry with `reusable_inflow` keeps its 0.36.0 behaviour.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`, carrying P0370-S5-NORMAL-INFLOW (FR-418): a recorded unsteady point with a normal entry yields `<stem>.inflow.dat` equal, value for value, to the one the steady route writes from the same probe values.
+
+!!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.07 (0.37.0).
+
+    *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 ("vamos puxar apenas 1 e 2"); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
+
+    Need: A user comparing the solver settings of a campaign's runs must get them as one numeric table with its legend from `pyfs-matrix post`, without calling the library.
+
+    Requirement: With `[products] settings_codebook = true` in the pproc (default false), the post writes, per matrix, `settings/<matrix>_settings.csv` and `settings/<matrix>_settings.codebook.json` from the solver-setup snapshot of every recorded point that has one, through `write_settings_table`.
+
+    - R1 One row per point (the tidy form), keyed by POL and run id; a point without a snapshot is named in `skipped` and in `post.log`, never a blank row.
+    - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
+    - R3 With the key false or absent, the post writes nothing new and its products are byte-identical to 0.36.0.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with and without the key; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot.
+
+!!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.08 (0.37.0).
+
+    *Origin: GEO-070 candidate "Declarar cópia de tabelas no frame instalado pelo pproc", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
+
+    Need: A user whose rotor is installed on the other side of the plane y = 0 from the one she simulated must get the inflow tables mirrored from the post, without running `to_installed_frame` herself.
+
+    Requirement: `[products] installed_frame` in the pproc is a list of families from `{"probes", "inflow"}` (default empty). For `probes` the post writes `probes/<point>_probes_installed.csv` beside each probes table; for `inflow` it writes `<stem>.inflow_installed.dat` beside each reusable inflow profile. Each copy is the mirror through y = 0.
+
+    - R1 The mirror negates the `Y` position and every y component of a polar vector (`VY` and its gradients' y terms) and the x and z components of an axial vector (vorticity), maps an azimuth by `psi -> -psi (mod 360)`, and leaves every other column as written. The classification is one list, shared with `to_installed_frame` and stated on the definitions page; a test holds the three equal.
+    - R2 A column the classification cannot place is copied unchanged and named once in `post.log`.
+    - R3 Each copy is listed in `products.json` naming its source table; with the key empty or absent nothing new is written.
+    - R4 Any other family is refused when the pproc is read, naming the accepted ones.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`, carrying P0370-S8-INSTALLED-INFLOW (FR-420): mirroring a probes table and an inflow profile twice returns the source; a planted point at +y appears at -y with its VY negated; the manifest entries; the shared list against the page.
+
+!!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.09 (0.37.0).
+
+    *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner's answer of 2026-10-05 ("As recusas para o usuário não precisam citar o id do RPT."); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
+
+    Need: A user choosing `--batch` or `--polar-sweep` must learn from the help which rows will be left out and, from each left-out line, what to do instead.
+
+    Requirement: The `--batch` and `--polar-sweep` help shall name every class of row the grouped modes leave out (RESTART and LEGACY rows, and coupled rows on `steady` or `qsteady_rotor`), and the plan's left-out reason of a coupled steady or quasi-steady row shall name the remedy: run those rows point by point, without `--batch` or `--polar-sweep`.
+
+    - R1 The left-out reasons the grouped plan prints name no report id; the evidence id stays in the SRS and the code comments.
+    - R2 FR-410's exclusion is unchanged; only its printed words change, and the parity script names that difference.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`, carrying P0370-S9-GROUPED-HELP (FR-421): both help texts, the plan's left-out line, the absence of an `RPT-` token in every reason the grouped plan can print.
+
+!!! requirement "FR-422 An unsteady rotor row can set its run length from a target wake length <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.02 (0.37.0).
+
+    *Origin: the owner's request of 2026-10-03 ("poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio") and her answer of 2026-10-05 ("a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas"); scope GOAL-044 item S2. Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`.*
+
+    Need: A user of `unsteady_rotor` must be able to state how far the wake should have travelled, in rotor radii, and get the run length from it, as the wake termination already does.
+
+    Requirement: An `unsteady_rotor` row may state `RUN_WAKE_LENGTH_R: L` (a positive number of rotor radii) with `DELTA_THETA` or `DELTA_TIME`; the run's `TIME_ITERATIONS` is then `ceil(L R Omega / (V_ax dtheta))`, computed by the same function and the same axial velocity rule (free stream, or the induced velocity from a stated thrust) that size `wake_termination_length` (FR-321).
+
+    - R1 `RUN_WAKE_LENGTH_R` with `TIME_ITERATIONS` or `REVOLUTIONS` is refused at plan, naming both.
+    - R2 An axial velocity that is not positive is refused at plan, naming the remedy (state the thrust in the setup, or state `REVOLUTIONS`).
+    - R3 The plan prints the resolved step count and revolutions per row, and the run record states the rule, the axial velocity and the resulting `time_iterations`; the averaging window and every export threshold read that count.
+    - R4 A row without the key is byte-identical to 0.36.0.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`, carrying P0370-S2-RUN-WAKE (FR-422): the step count against `wake_termination_of` for the same length, the refusals, the plan line and the record.

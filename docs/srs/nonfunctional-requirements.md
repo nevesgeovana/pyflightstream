@@ -1293,3 +1293,19 @@
     - R2 Shared test support is imported without a licensed-tier dependency.
 
     Verification: `tests/tier1_offline/test_p0360_rv35.py::test_tier1_never_imports_the_licensed_tier`, including the tier-neutral support modules. Tier 1, a guard carrying P0360-RV35-C2-ARCH-1 and NFR-41 scans imports and fails on a planted import of a licensed-tier module. Release 0.36.0.
+
+## 0.37.0
+
+!!! requirement "NFR-41 The parity instrument's tests share one fixture home and cover its refusal fallback <span class='srs-pending'>pending</span>"
+    Plan: PFS-2078.09 (0.37.0).
+
+    *Origin: the 0.36.0 push review of `scripts/check_parity.py` (registered as 0.37 R4), scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`.*
+
+    Need: The parity script decides whether a release changed behaviour; its tests must not depend on another release's test module, and its refusal comparison must be tested on every branch it has.
+
+    Requirement: The grouped-plan workspace fixture the parity tests use lives in `tests/support_helpers.py` and is imported from there by every test that uses it; the refusal comparison of `scripts/check_parity.py` is tested without `plan.json` (the whole-message fallback) and with a one-line change of a refusal message on each branch.
+
+    - R1 No tier-1 test imports a fixture from another test module for the parity tests.
+    - R2 A one-line change of the refusal message is reported as a difference when `plan.json` is absent, and only its per-point reasons count when `plan.json` is present.
+
+    Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`, carrying P0370-S9-PARITY-TESTS (NFR-41).
