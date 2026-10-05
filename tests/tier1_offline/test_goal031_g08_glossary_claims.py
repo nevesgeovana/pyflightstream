@@ -749,7 +749,7 @@ SETTING_VARIATIONS: dict[str, Variation] = {
         [{"type": "COMMAND_LINE", "name": "second", "filename": "echo second"}],
         unsteady_case,
     ),
-    # --- the setup fields of the commands 26.125 adds (FR-423) -----------
+    # --- the setup fields of the commands 26.125 adds (item S10) -----------
     "aeroelastic_convergence_threshold": _setting("aeroelastic_convergence_threshold", 1e-4, 1e-5),
     "solver_time_averaging": _setting("solver_time_averaging", [1, 3], [2, 3], unsteady_case),
     # --- the setup fields 0.29.0 adds ------------------------------------
