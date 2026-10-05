@@ -1347,6 +1347,7 @@ pyfs-matrix sync         runs --workspace DIR [--apply]  # from sync-workspaces.
 pyfs-matrix restore      runs --workspace DIR [--apply]  # a records file, back from archive/
 pyfs-matrix rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
 pyfs-matrix mark-failed  --sims 2006 [--apply]        # a run found wrong, FAILED_MARKED
+pyfs-matrix mark-converged --sims 2006 --reason TEXT [--apply]  # your verdict, CONVERGED
 pyfs-matrix status       --workspace DIR              # per polar: points, states, freshness
 pyfs-matrix show         9101_1 --workspace DIR       # one point's card, outcome first
 pyfs-matrix log          --workspace DIR [--problems] # recorded activity, post and storage
