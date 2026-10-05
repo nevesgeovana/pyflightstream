@@ -153,6 +153,11 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #:   point costs exactly the clock it was given.
 #: * SUBMITTED has no wall time at all: the point is in a queue.
 #:
+#: 0.37.0 added a third (FR-413). RAN_MISSING_LOG has its outputs and no
+#: solver log, so its wall time is not recorded (``wall_time_s`` is null)
+#: and whether it converged cannot be read: it carries no time to an
+#: answer either.
+#:
 #: THE SET IS NAMED FOR THE ESTIMATOR'S QUESTION, "did this run reach an
 #: answer", and the field it fills is `excluded_count` rather than
 #: `failed_count`. It was the second name until 2026-09-13, and the only
@@ -165,7 +170,7 @@ _EXCLUDED_STATUSES = frozenset(
     status
     for status in RunStatus
     if status.name.startswith("FAILED")
-    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED}
+    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
 )
 
 #: Rendered when a point carries no sweep axes at all (a single-point
