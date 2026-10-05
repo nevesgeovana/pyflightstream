@@ -98,9 +98,11 @@ from pyflightstream.post.point_tables import (
     write_unsteady_probes_table,
 )
 from pyflightstream.post.polar import (
-    POLAR_COLUMNS,
     PolarPoint,
+    drag_columned_rows,
+    drag_columns_of,
     group_polar_rows,
+    polar_table_columns,
     polar_table_rows,
     swept_axes,
     swept_polar_file_name,
@@ -561,6 +563,9 @@ def _group_polar(
     # ONE ASSEMBLY. The rows the polar table is written from are the
     # rows the superfile carries, so they are built once here and
     # handed to both writers (FR-89).
+    # EACH ROW'S DRAG SPLIT UNDER ITS OWN NAMES (FR-423): ``CD0, CDI`` up to
+    # 26.124, ``CDV, CDP`` on 26.125, both with `NA` where the table mixes them.
+    drags = [drag_columns_of(point.loads) for point in group_points]
     full = polar_table_rows(
         polar=ctx.sim_id,
         description=ctx.first.description or "",
@@ -568,8 +573,9 @@ def _group_polar(
         reference=ctx.reference,
         rows=rows,
         conditions=group_conditions,
+        drag_columns=drags,
     )
-    write_csv_table(target, POLAR_COLUMNS, full)
+    write_csv_table(target, polar_table_columns(drags), full)
     if ctx.drafts is not None:
         ctx.super_rows[str(group)] = (
             ctx.out
@@ -591,6 +597,7 @@ def _group_polar(
             / POLARS_DIR
             / swept_polar_file_name(ctx.sim_id, name=group_name, group=group, suffix=".dat")
         )
+        coefficient_columns, coefficient_rows = drag_columned_rows(rows, drags)
         write_custom_polar_format(
             target,
             polar=ctx.sim_id,
@@ -599,7 +606,8 @@ def _group_polar(
             group_number=positions.get(group),
             mach=ctx.mach,
             reference=ctx.reference,
-            rows=rows,
+            rows=coefficient_rows,
+            columns=coefficient_columns,
             # FR-94. The row's own label, off the matrix row this
             # polar belongs to. None where the workspace has no
             # matrix to read, which is every campaign authored in
@@ -1275,7 +1283,9 @@ def _superfile_drafts(ctx: SimContext) -> None:
     for group, (path, full, group_points) in ctx.super_rows.items():
         wide = [
             superfile_row(
-                polar_columns=POLAR_COLUMNS,
+                polar_columns=polar_table_columns(
+                    [drag_columns_of(point.loads) for point in group_points]
+                ),
                 polar_values=polar_values,
                 matrix_row=ctx.matrix_row,
                 # NO FALLBACK TO ANOTHER POINT'S RECORD. This read

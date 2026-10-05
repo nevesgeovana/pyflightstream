@@ -902,6 +902,11 @@ REFUSED_ON_26124: dict[str, type[Exception]] = {
             "SET_WAKE_STREAMWISE_AGGLOMERATION",
             "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
             "TRAILING_EDGES_IMPORT",
+            # Documented first by the 26.125 edition (FR-423, SRC-753): no 26.124
+            # row; their setup keys are listed by the FR-319 audit addendum.
+            "DISABLE_SOLVER_TIME_AVERAGING",
+            "ENABLE_SOLVER_TIME_AVERAGING",
+            "SET_AEROELASTIC_CONVERGENCE_THRESHOLD",
             # Recorded removed on 26.124 by the probe that found the build
             # refusing it (RPT-154); the quasi-steady sector's direct route
             # refuses it at plan on that build.

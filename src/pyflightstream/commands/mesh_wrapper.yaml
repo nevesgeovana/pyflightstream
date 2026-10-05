@@ -46,6 +46,7 @@ WRAPPER_SET_INPUT:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Chooses which surfaces the wrap is built over: the count on the
     command line and the indices comma separated on the next, the same
@@ -71,6 +72,7 @@ WRAPPER_SET_GLOBAL_SIZE:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Target triangle edge length of the wrapped mesh, everywhere no local
     or volume control overrides it. The manual states the value must be
@@ -94,6 +96,7 @@ WRAPPER_SET_VERTEX_PROJECTION:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Whether the wrapped mesh's vertices are projected back onto the
     input surfaces, which keeps sharp features the wrap would otherwise
@@ -126,6 +129,7 @@ WRAPPER_SET_ANISOTROPY:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Stretches the target cell size per axis, so 2 1 1 asks for cells
     twice as long in X as in the other two directions. The three are
@@ -151,6 +155,7 @@ WRAPPER_CREATE_LOCAL_CONTROL:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Appends an empty local control, which is then configured by
     WRAPPER_EDIT_LOCAL_CONTROL. It takes nothing and reports nothing, so
@@ -193,6 +198,7 @@ WRAPPER_EDIT_LOCAL_CONTROL:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Gives one local control the surfaces it applies to and the cell size
     it asks for there, overriding the global size on those surfaces.
@@ -222,6 +228,7 @@ WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
     "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.318, unchanged from SRC-750 p.318"}
     "26.124": {status: documented, note: "SRC-752 p.318, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.324, unchanged from SRC-752 p.318"}
   notes: >
     Deletes every local control. There is no command deleting one, so
     correcting a single control means deleting all of them and building
@@ -271,6 +278,7 @@ WRAPPER_NEW_VOLUME_CONTROL:
     "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.319, unchanged from SRC-750 p.319"}
     "26.124": {status: documented, note: "SRC-752 p.319, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.325, unchanged from SRC-752 p.319"}
   notes: >
     Creates a box in which the wrap uses a different cell size, given by
     two opposite corners in a coordinate system. Unlike a local control,
@@ -300,6 +308,7 @@ WRAPPER_DELETE_ALL_VOLUME_CONTROLS:
     "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.319, unchanged from SRC-750 p.319"}
     "26.124": {status: documented, note: "SRC-752 p.319, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.325, unchanged from SRC-752 p.319"}
   notes: >
     Deletes every volume control, and as with the local controls there
     is no command deleting one.
@@ -319,6 +328,7 @@ WRAPPER_EXECUTE:
     "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.319, unchanged from SRC-750 p.319"}
     "26.124": {status: documented, note: "SRC-752 p.319, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.325, unchanged from SRC-752 p.319"}
   notes: >
     Performs the wrap with everything configured above. The one command
     in the chapter that does work rather than describing it, and the
@@ -342,6 +352,7 @@ WRAPPER_TRANSFER:
     "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.319, unchanged from SRC-750 p.319"}
     "26.124": {status: documented, note: "SRC-752 p.319, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.325, unchanged from SRC-752 p.319"}
   notes: >
     Moves the wrapped result into the simulation as geometry, and
     decides what becomes of the surfaces it was built from: REPLACE

@@ -179,6 +179,14 @@ class RunStatus(enum.StrEnum):
     #: delete-sims) treats it as a failure without learning a new name. The
     #: record keeps what it was in ``marked``.
     FAILED_MARKED = "FAILED_MARKED"
+    #: FR-413, 0.37.0: the point's outputs are all present and its declared
+    #: solver log is absent (deleted after the run, or never copied back). NOT A
+    #: FAILURE: the run ENDED with its outputs, which are collected and posted;
+    #: what only the log carries (the residual history, the convergence verdict,
+    #: the frozen-point reading, the solver clock and its iteration count) is
+    #: named in ``residual_note`` as unavailable, and the point is never
+    #: CONVERGED by assumption.
+    RAN_MISSING_LOG = "RAN_MISSING_LOG"
 
 
 class ExecutorRecord(TypedDict):
@@ -988,6 +996,8 @@ class RunRecord(BaseModel):
                         "points_ran": [],
                         # 0.30.0 (M1): a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
+                        # 0.37.0 (FR-414): a person's verdict on one point of the job.
+                        "marked": entry.get("marked") or self.marked,
                     }
                 )
             )

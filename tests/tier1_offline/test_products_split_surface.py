@@ -182,15 +182,20 @@ def test_extracted_product_modules_preserve_the_public_surface():
         (
             "polar",
             {
+                # 26.125 (FR-423): the drag split carried under its own names.
+                "DRAG_PRODUCT_COLUMNS",
                 "GEOMETRY_ANALYSIS_FRAMES",
                 "POLAR_COLUMNS",
                 "SWEEP_AXES",
                 "GroupCoefficients",
                 "PolarPoint",
                 "declined_induced_drag",
+                "drag_columned_rows",
+                "drag_columns_of",
                 "group_coefficients",
                 "group_polar_rows",
                 "polar_row",
+                "polar_table_columns",
                 "polar_table_rows",
                 "swept_axes",
                 "swept_polar_file_name",

@@ -6,7 +6,8 @@ and compared after it, so a write meanwhile refuses the apply, the collect
 made read-only for the length of one call (:func:`collect_without_writing`),
 and the comparison of the script a simulation ran with the script the row
 renders today, with the class of every difference named (:func:`_drift`).
-Nothing here writes into the workspace.
+Nothing here writes into the workspace; the shadow's preparation (its matrix
+re-activated, its inputs copied, its one copy of the matrix) writes only there.
 
 The public names are re-exported, unchanged, by :mod:`pyflightstream.run.records`,
 their path of 0.32.0 (AD-11, since 0.33.0).
@@ -20,6 +21,7 @@ import dataclasses
 import json
 import os
 import re
+import shutil
 import threading
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
@@ -28,6 +30,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream.run._record_files import _ROOT_KINDS, _relative, _root_archives
+from pyflightstream.workspace import matrix_files
 from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path
 from pyflightstream.workspace._script_comparison import (
@@ -326,7 +329,13 @@ def descriptor_folder(base: Path, sim_dir: Path, work_dir: Path, profile: Any) -
 
 
 def _on_disk(base: Path) -> tuple[set[str], set[str]]:
-    folders: set[str] = set()
+    """Every simulation on disk: its folder under ``sims/`` or in a batch folder, and every zip.
+
+    A batch's simulations stay in ``sims/batch/<matrix>_b<ID>/`` until collect
+    moves them home (FR-367), so a rebuild that read ``sims/`` alone never saw
+    a grouped simulation whose batch was not moved yet (FR-412 R1b).
+    """
+    folders: set[str] = set(batch_sim_dirs(base))
     zipped: set[str] = set()
     sims = base / "sims"
     for path in sims.iterdir() if sims.is_dir() else []:
@@ -382,6 +391,78 @@ def _matrices(base: Path, matrix: str | Path | None) -> list[Path]:
     if matrix is not None:
         return [matrix_path(base, matrix).resolve()]
     return [path.resolve() for path in every_matrix(base)]
+
+
+# ---------------------------------------------------------------------------
+# rebuild: the shadow workspace, prepared (its own files only)
+# ---------------------------------------------------------------------------
+
+
+def _reactivate(matrix: Path, sims: set[str]) -> list[str]:
+    """Set RUN to 1 on the rows whose POL is one of ``sims``, in THIS (shadow) file."""
+    lines = matrix.read_text(encoding="utf-8").splitlines(keepends=True)
+    header: tuple[int, int] | None = None
+    changed: list[str] = []
+    for index, line in enumerate(lines):
+        cells = line.split("|")
+        names = [cell.strip() for cell in cells]
+        if header is None and "POL" in names and "RUN" in names:
+            header = (names.index("POL"), names.index("RUN"))
+            continue
+        if header is None or len(cells) <= max(header):
+            continue
+        pol, run = names[header[0]], names[header[1]]
+        if pol in sims and run == "0":
+            width = len(cells[header[1]])
+            cells[header[1]] = cells[header[1]].replace("0", "1", 1) if width else "1"
+            lines[index] = "|".join(cells)
+            changed.append(pol)
+    if changed:
+        _textio.write_text(matrix, "".join(lines))
+    return changed
+
+
+def _copy_inputs(source: Path, target: Path, origin: Path | None) -> list[str]:
+    """Copy ``inputs/`` into the shadow, then lay ``origin``'s files over it.
+
+    Returns the input files, relative to ``inputs/``, that ``origin`` holds
+    with bytes other than the workspace's: the inputs taken from the other
+    origin. Nothing in the workspace's own ``inputs/`` is written.
+    """
+    if source.is_dir():
+        shutil.copytree(source, target, symlinks=False)
+    else:
+        target.mkdir(parents=True)
+    differing: list[str] = []
+    if origin is None:
+        return differing
+    for path in sorted(origin.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(origin)
+        own = source / relative
+        if not own.is_file() or own.read_bytes() != path.read_bytes():
+            differing.append(relative.as_posix())
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, destination)
+    return differing
+
+
+def _shadow_home(shadow: Path, matrix: Path) -> Path:
+    """Return where the shadow holds ``matrix``: over its ``inputs/matrices/`` copy, else the root.
+
+    The shadow's ``inputs/`` is a copy of the workspace's, matrices included, so a
+    second copy at the shadow's root, re-activated to RUN 1, was the same stem in
+    both homes with different bytes, and every row of a matrix kept in
+    ``inputs/matrices/`` with a RUN 0 row was refused as being in two places
+    (FR-411, the owner's report on 0.35.1). The matrix read replaces the one copy
+    of its stem, so the shadow holds it once.
+    """
+    same_stem = [path for path in matrix_files(shadow) if path.stem == matrix.stem]
+    for extra in same_stem[1:]:
+        extra.unlink()
+    return same_stem[0] if same_stem else shadow / matrix.name
 
 
 # ---------------------------------------------------------------------------

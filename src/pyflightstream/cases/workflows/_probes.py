@@ -242,6 +242,19 @@ def _open_the_probe_points(
         script.emit("DELETE_PROBE_POINTS")
 
 
+def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
+    """Enforce the measured version boundary before a normal-probe script is emitted."""
+    if case.recipe not in ("unsteady", "unsteady_rotor") or case.pproc is None:
+        return
+    if any(entry.kind == "normal" for entry in case.pproc.probes):
+        if script.version.canonical != "26.124":
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: normal probes of an unsteady run are verified only "
+                "on FlightStream 26.124. Select that build or use kind = 'unsteady' "
+                "for the probe entries."
+            )
+
+
 def _normal_probes_of(case: SimCase) -> bool:
     """Whether an unsteady row samples its pproc's probes as normal probe points (FR-417 R2).
 

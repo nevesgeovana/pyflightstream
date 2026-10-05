@@ -49,6 +49,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace._batch_relocate import copy_point, move_sim, relink_inputs
 from pyflightstream.workspace._batches import JobEntry, batch_sim_dirs, job_of
+from pyflightstream.workspace._missing_log import point_absent_logs
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
 __all__ = [
@@ -260,7 +261,12 @@ def clock_stop_update(record: RunRecord, work_dir: Path, status: RunStatus) -> d
     stopped = _walltime_stop(work_dir / WALLTIME_CLOCK_STATE)
     if stopped is None:
         return {}
-    return {"stopped_at": stopped, "status": RunStatus.WALLTIME_REACHED}
+    verdict = (
+        RunStatus.RAN_MISSING_LOG
+        if status is RunStatus.RAN_MISSING_LOG
+        else RunStatus.WALLTIME_REACHED
+    )
+    return {"stopped_at": stopped, "status": verdict}
 
 
 @dataclass(frozen=True)
@@ -451,13 +457,30 @@ def _adopt_stop_exports(point: _Point, source: Path | None) -> None:
             shutil.copy2(stamped, path)
 
 
+def _source_unless_absent(point: _Point, source: Path | None) -> tuple[Path | None, bool]:
+    """Return the log's source, or None and True when the point's log is gone (FR-413).
+
+    A point whose declared log and the cumulative copy it is cut from are both
+    absent while every other output is present ran and ended with its outputs:
+    it is copied and moved like any finished point, with no log written, and the
+    collect loop records it RAN_MISSING_LOG by the same rule
+    (:func:`pyflightstream.workspace._missing_log.point_absent_logs`). Asked
+    before anything waits for the log, so the point is not waited for forever.
+    """
+    if source is None or source.exists():
+        return source, False
+    if point_absent_logs(point.record, point.work):
+        return None, True
+    return source, False
+
+
 def _sweep_point(workspace: CampaignWorkspace, point: _Point, job: _Job, *, ended: bool) -> None:
     """Copy (a running batch) and slice the log of one point once its files settled."""
     job_dir = _job_dir(workspace, point.job)
-    source = _log_source(point, job_dir, job.profile)
+    source, absent = _source_unless_absent(point, _log_source(point, job_dir, job.profile))
     if ended:
         _adopt_stop_exports(point, source)
-    if (point.log_name is not None and source is None) or not job.watch.steady(
+    if (point.log_name is not None and source is None and not absent) or not job.watch.steady(
         _waited(point, source)
     ):
         if ended:

@@ -100,11 +100,12 @@ reads it through the post. All of them ask one lookup:
 - with different bytes it is refused before any work, naming both paths:
   every command stops, except `post`, which warns naming both and falls
   back to the run records;
-- a bare name found in a home, given from outside the workspace, whose
-  working directory holds a file of that name too (the file 0.32.0 read):
-  the same bytes are one matrix, and different bytes are refused naming
-  both, so a command never reads another file than 0.32.0 did without
-  saying so.
+- a bare name found in a home is the workspace's matrix for every command,
+  `rebuild` included, whatever the working directory holds (FR-411):
+  a file of that name in the working directory, in `sims/` or in an archive
+  is never read, and when the working directory's copy holds other bytes a
+  WARNING names both files and says the workspace's was read. To read the
+  other one, name it by its folder.
 
 `restore --matrix` names the folder under `post/` by the matrix's stem and
 reads no matrix file. Keep one copy, or make the two identical.

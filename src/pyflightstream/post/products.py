@@ -132,11 +132,13 @@ from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_fact
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
 from pyflightstream.post._products_campaign import (
+    INSTALLED_KIND,
     SETTINGS_KIND,
     _admit_campaign_records,
     _CampaignProducts,
     _index_record_surfaces,
     _warn_unreadable_matrix,
+    carry_marks,
     write_settings_product,
 )
 from pyflightstream.post._products_campaign import (
@@ -252,6 +254,7 @@ from pyflightstream.post.point_tables import read_probe_positions as read_probe_
 from pyflightstream.post.point_tables import (
     write_unsteady_probes_table as write_unsteady_probes_table,
 )
+from pyflightstream.post.polar import DRAG_PRODUCT_COLUMNS as DRAG_PRODUCT_COLUMNS
 from pyflightstream.post.polar import (
     GEOMETRY_ANALYSIS_FRAMES,
     POLAR_COLUMNS,
@@ -266,7 +269,10 @@ from pyflightstream.post.polar import (
     write_recorded_polar,
 )
 from pyflightstream.post.polar import declined_induced_drag as declined_induced_drag
+from pyflightstream.post.polar import drag_columned_rows as drag_columned_rows
+from pyflightstream.post.polar import drag_columns_of as drag_columns_of
 from pyflightstream.post.polar import group_polar_rows as group_polar_rows
+from pyflightstream.post.polar import polar_table_columns as polar_table_columns
 from pyflightstream.post.polar import polar_table_rows as polar_table_rows
 from pyflightstream.post.provenance import PRODUCT_ARCHIVE_DIR as PRODUCT_ARCHIVE_DIR
 from pyflightstream.post.provenance import PRODUCT_ARCHIVE_STAMP as PRODUCT_ARCHIVE_STAMP
@@ -959,6 +965,7 @@ def _campaign_products(
         )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
+        carry_marks(products_index, points)  # FR-414 R3
         _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
     except BaseException as error:
         manifest["complete"] = False
@@ -1382,7 +1389,7 @@ def _retire_optional_products(
 
 
 #: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND,)
+_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND)
 
 
 def _prepare_campaign_rebuild(

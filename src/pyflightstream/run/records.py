@@ -110,6 +110,7 @@ from pyflightstream.run._assemble import ManifestWorkspace as ManifestWorkspace
 from pyflightstream.run._assemble import assemble_records as assemble_records
 from pyflightstream.run._assemble import from_sims_workspace as from_sims_workspace
 from pyflightstream.run._assemble import manifest_workspace as manifest_workspace
+from pyflightstream.run._mark_converged import mark_converged as mark_converged
 from pyflightstream.run._rebuild import QUIET_WINDOW_S as QUIET_WINDOW_S
 from pyflightstream.run._rebuild import REBUILT as REBUILT
 from pyflightstream.run._rebuild import bind_row_builds as bind_row_builds

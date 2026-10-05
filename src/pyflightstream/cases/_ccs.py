@@ -91,6 +91,7 @@ _KIND_KEYS: dict[str, frozenset[str]] = {
             "loft_v",
             "subdivisions",
             "control_surfaces",
+            "te_blend_length_pct",
         }
     ),
     "fuselage": frozenset({"component", "close_ends", "loft_u", "loft_v"}),
@@ -244,6 +245,11 @@ class CcsImportOptions(BaseModel):
         The wing mesh's node counts (a wing only).
     control_surfaces : tuple of CcsControlSurface
         The wing's gapped control surfaces (a wing only).
+    te_blend_length_pct : float or None
+        The length a blended trailing edge is blended over, in per cent of
+        the cross-section curve's length (a wing only, FR-423); None writes
+        nothing and the solver keeps its default, 10 per cent (SRC-753
+        p.298). A build without ``SET_CCS_TE_BLEND_LENGTH`` refuses it.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -255,7 +261,7 @@ class CcsImportOptions(BaseModel):
     #: Whether the wing loft marks its trailing edges.
     mark_trailing_edges: bool = True
     #: The wing's trailing-edge geometry.
-    trailing_edge: Literal["SHARP", "BLUNT", "BLEND", "OPEN"] = "SHARP"
+    trailing_edge: Literal["SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN"] = "SHARP"
     #: Whether the loft closes the component's ends (TRUE, OPEN or CLOSED).
     close_ends: Literal["TRUE", "OPEN", "CLOSED"] = "TRUE"
     #: Loft continuity chordwise on a wing, radial on a fuselage or body of revolution.
@@ -272,6 +278,8 @@ class CcsImportOptions(BaseModel):
     subdivisions: CcsSubdivisions | None = None
     #: The wing's gapped control surfaces, each a NEW_CCS_WING_CONTROL_SURFACE line.
     control_surfaces: tuple[CcsControlSurface, ...] = ()
+    #: The trailing-edge blend length in per cent, a SET_CCS_TE_BLEND_LENGTH line (26.125).
+    te_blend_length_pct: float | None = Field(default=None, gt=0.0, le=100.0)
 
     @model_validator(mode="after")
     def _keys_of_the_kind(self) -> CcsImportOptions:

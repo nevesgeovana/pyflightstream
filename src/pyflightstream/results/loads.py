@@ -14,6 +14,7 @@ its path of 0.32.0 (AD-11, since 0.33.0).
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -39,11 +40,54 @@ from pyflightstream.versions import FsVersion
 __all__ = [
     "LoadsReport",
     "ProbePointsReport",
+    "DRAG_PAIRS",
     "UnsteadyPlotsReport",
+    "drag_pair",
     "parse_loads",
     "parse_probe_points",
     "parse_unsteady_plots",
 ]
+
+#: THE TWO DRAG SPLITS A LOADS SPREADSHEET PRINTS, each under the names the
+#: solver wrote (FR-423). Up to 26.124 the split is ``CDi, CDo``, induced and
+#: skin friction drag (SRC-752 pp.225, 227); 26.125 prints ``CDp, CDv`` in the
+#: same two positions, pressure drag and viscous and separation drag (SRC-753
+#: pp.227, 229). The parsed report keeps whichever pair the header printed;
+#: nothing here says the two pairs measure the same quantities.
+DRAG_PAIRS: tuple[tuple[str, str], ...] = (("CDi", "CDo"), ("CDp", "CDv"))
+
+
+def drag_pair(row: Mapping[str, float]) -> tuple[str, str]:
+    """Return the drag split one parsed loads row carries, in the order it is printed.
+
+    Parameters
+    ----------
+    row : mapping of str to float
+        A row of :class:`LoadsReport`: ``total`` or one of ``surfaces``.
+
+    Returns
+    -------
+    tuple of str
+        ``("CDi", "CDo")`` up to 26.124, ``("CDp", "CDv")`` on 26.125.
+
+    Raises
+    ------
+    MalformedOutputError
+        If the row carries neither pair, or both.
+
+    Examples
+    --------
+    >>> drag_pair({"CL": 0.4, "CDp": 0.01, "CDv": 0.002})
+    ('CDp', 'CDv')
+    """
+    carried = [pair for pair in DRAG_PAIRS if all(name in row for name in pair)]
+    if len(carried) != 1:
+        raise MalformedOutputError(
+            f"the loads row carries the columns {', '.join(row)}, and a loads table "
+            f"names exactly one drag split of {' or '.join(', '.join(p) for p in DRAG_PAIRS)}; "
+            "re-export the loads spreadsheet with EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+        )
+    return carried[0]
 
 
 @dataclass(frozen=True)
@@ -223,6 +267,8 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     # Total refusal that exists for exactly this class of confusion.
     reject_trailing_export(text, what="loads spreadsheet")
     header_cells = labeled_value(text, "Surface,")
+    # THE COLUMNS AS PRINTED, the 26.125 drag split ``CDp, CDv`` included
+    # (FR-423, :data:`DRAG_PAIRS`).
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
     # PYFS-009, now shared with the probe parser (REV010-003). A repeated
     # column name used to build the row dict with the later value winning,

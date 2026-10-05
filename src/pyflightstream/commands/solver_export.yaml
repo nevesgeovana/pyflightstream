@@ -19,6 +19,7 @@ EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.358, unchanged from SRC-750 p.358"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.358, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.367, unchanged from SRC-752 p.358"}
   notes: >
     Exports the aerodynamic loads and moments spreadsheets; the
     primary quantitative output of a steady polar run.
@@ -41,6 +42,7 @@ EXPORT_SOLVER_ANALYSIS_TECPLOT:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.358, unchanged from SRC-750 p.358"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.358, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.367, unchanged from SRC-752 p.358"}
   notes: >
     Exports the Tecplot .dat file for all initialized boundaries, one
     FEPolygon zone in the reference frame with its values per node
@@ -74,6 +76,7 @@ EXPORT_SOLVER_ANALYSIS_VTK:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.358, unchanged from SRC-750 p.358"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.358, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.367, unchanged from SRC-752 p.358"}
   notes: >
     Exports the VTK file. SURFACES takes -1 for all boundaries or a
     count followed by one index per line. Legacy ASCII polydata with one
@@ -109,6 +112,16 @@ SET_VTK_EXPORT_VARIABLES:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.358, unchanged from SRC-750 p.358"}
     "26.124": {status: documented, note: "SRC-752 p.358, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125":
+      status: documented
+      note: >-
+        SRC-753 p.367 adds three variables, C_H, Q_FLUX and WALL_TEMP, to the
+        list SRC-752 p.358 printed; the rest of the grammar is unchanged
+      args:
+        - name: num_variables
+        - name: export_wake
+        - name: variables
+          values: [X, Y, Z, CF, CP, CP_REFERENCE, CP_FREESTREAM, MACH, VX, VY, VZ, VTOT, PSTATIC, BLMOM, BLDISP, BLTHICK, SHAPEFACTOR, TRANS, SEP, BLLENGTH, AREA, VORTICITY, C_H, Q_FLUX, WALL_TEMP]
   notes: >
     NUM_VARIABLES takes -1 for all variables; otherwise one variable
     name follows per line. The CP argument is flagged for depreciation
@@ -165,6 +178,7 @@ EXPORT_SOLVER_ANALYSIS_CSV:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.359, unchanged from SRC-750 p.359"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.359, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.368, unchanged from SRC-752 p.359"}
   notes: >
     Exports the FEM CSV file. The path follows on the line after the
     command name; FORMAT, UNITS, FRAME and SURFACES follow as KEY
@@ -196,6 +210,7 @@ EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.359, unchanged from SRC-750 p.359"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.359, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.368, unchanged from SRC-752 p.359"}
   notes: >
     Exports the NASTRAN PLOAD .bdf file based on the solver results.
 
@@ -224,6 +239,7 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.359, unchanged from SRC-750 p.359"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.359, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.368, unchanged from SRC-752 p.359"}
   notes: >
     Exports the force distribution vectors file for the initialized
     boundaries.
@@ -279,6 +295,7 @@ EXPORT_BL_VELOCITY_PROFILE:
       note: "SRC-750 p.377, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.377, unchanged from SRC-750 p.377"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml", note: "Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a node of the solved surface, its file on the next line [...]"}
+    "26.125": {status: documented, note: "SRC-753 p.383, unchanged from SRC-752 p.377; 26.124 recorded it broken (CMP-26124_2026-09-25_bl-profile), and 26.125 has not run it"}
 
 DELETE_BL_VELOCITY_PROFILE:
   layout: bare
@@ -296,3 +313,4 @@ DELETE_BL_VELOCITY_PROFILE:
       note: "SRC-750 p.377, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.377, unchanged from SRC-750 p.377"}
     "26.124": {status: documented, note: "SRC-752 p.377, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.383, unchanged from SRC-752 p.377"}

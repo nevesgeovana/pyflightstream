@@ -44,6 +44,7 @@ STABILITY_TOOLBOX_SETTINGS:
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
     "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.384, unchanged from SRC-752 p.378"}
   notes: >
     Settings shared by every coefficient the toolbox computes.
 
@@ -110,6 +111,23 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
     "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125":
+      status: documented
+      note: >-
+        SRC-753 p.384 lists CDP and CDV among the numerators where SRC-752
+        p.378 listed CDI and CDO, as the edition renames the drag split of
+        its loads table to pressure drag and viscous and separation drag
+        (the 26.125 entry of manual_editions in _meta.yaml)
+      args:
+        - name: name
+        - name: numerator
+          values: [CL, CDP, CDV, CD, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z]
+        - name: denominator
+        - name: frame
+        - name: units
+        - name: constant
+        - name: boundaries
+        - name: boundary_indices
   notes: >
     Defines one derivative: a numerator variable over a denominator
     variable, scaled by a constant, computed on a named set of
@@ -153,6 +171,7 @@ STABILITY_TOOLBOX_DELETE_ALL:
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
     "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.384, unchanged from SRC-752 p.378"}
   notes: >
     Deletes every user-defined coefficient. There is no command deleting
     one, so correcting a single definition means rebuilding the set.
@@ -172,6 +191,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
     "26.121": {status: documented, note: "SRC-740 pp.374-375, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
     "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.385, unchanged from SRC-752 p.378"}
   notes: >
     Runs the whole set.
 
@@ -201,9 +221,27 @@ STABILITY_TOOLBOX_EXPORT:
     "26.121": {status: documented, note: "SRC-740 p.375, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.379, unchanged from SRC-750 p.379"}
     "26.124": {status: documented, note: "SRC-752 p.379, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.385, unchanged from SRC-752 p.379"}
   notes: >
     Writes the computed coefficients to a file, the path on the next
     line. It is the only command in the chapter that produces an
     artifact a script can read back; whether the solver also prints the
     coefficients to its log is not documented and has not been observed
     here.
+
+STABILITY_TOOLBOX_ANGLE_INCREMENT:
+  layout: inline
+  phase: analysis
+  args:
+    - name: angle_increment
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-753 p.384"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.384, the first edition to document it"}
+  notes: >
+    Sets the angle step, in degrees, the stability and control toolbox
+    applies to the angle of attack and the sideslip angle when it forms
+    their derivatives. First documented by the 26.125 edition; the rate
+    step of the rotation derivatives stays the last argument of
+    STABILITY_TOOLBOX_SETTINGS.

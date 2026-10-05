@@ -1,0 +1,38 @@
+
+
+
+
+                              Aerodynamic loads
+
+
+     Simulation file:                            case.fsm
+     Angle of attack (Deg)                       .000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   49.036
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Incompressible
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    49.036
+     Reference length (m)                        2.526
+     Reference area (m^2)                        50.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             4380000.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            178
+     ----------------------------------------------------------------------------------------------------
+     Surface, Cx, Cy, Cz, CL, CDp, CDv, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     S1,+0.4800000,-0.8500000,-0.3300000,-0.7000000,+0.1800000,+0.5500000,-0.9200000,+0.4000000,+0.7700000
+     S2,+0.2500000,+0.6200000,+0.9900000,+0.4700000,-0.8400000,+0.3200000,-0.6900000,-0.1700000,-0.5400000
+     Total,+0.9100000,+0.3900000,-0.7600000,-0.2400000,-0.6100000,+0.9800000,-0.4600000,-0.8300000,-0.3100000
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Simcenter Flightstream version 2612, build #10052026
+     Company  : Siemens
+     Date: 10/5/2026, Time: 1251 hours (local)

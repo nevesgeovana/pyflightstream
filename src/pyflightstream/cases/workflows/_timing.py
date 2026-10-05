@@ -58,6 +58,12 @@ from ._vocabulary import (
     TIME_ITERATIONS_VARIABLE,
     WALLTIME_VARIABLE,
 )
+from ._vocabulary import (
+    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE as EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+)
+from ._vocabulary import (
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE as EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
 
 
 def march_strategy(

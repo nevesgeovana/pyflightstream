@@ -109,7 +109,7 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
-from pyflightstream.run._cli_parsers import _build_parser, resume_hint
+from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, resume_hint
 from pyflightstream.run._cli_print import (
     _print_delete_sims,
     _print_free_space,
@@ -457,15 +457,17 @@ def _cmd_storage(args: argparse.Namespace) -> int:
 
 #: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1),
 #: and the read-only query verbs of 0.35.0 (:mod:`pyflightstream.run._cli_query`).
-_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed", *QUERY_COMMANDS)
+_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed", "mark-converged", *QUERY_COMMANDS)
 
 
 def _cmd_records(args: argparse.Namespace) -> int:
-    """Run ``restore``, ``rebuild`` or ``mark-failed``, or a query verb such as ``status``."""
+    """Run ``restore``, ``rebuild``, ``mark-failed``, ``mark-converged`` or a query verb."""
     if args.subcommand in QUERY_COMMANDS:
         return run_query(args)
     if args.subcommand == "mark-failed":
         return _cmd_mark_failed(args)
+    if args.subcommand == "mark-converged":
+        return cmd_mark_converged(args)  # FR-414
     try:
         if args.subcommand == "restore":
             entry = run_records.restore(

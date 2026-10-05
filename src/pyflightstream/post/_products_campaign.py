@@ -16,18 +16,30 @@ from typing import TYPE_CHECKING
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
+from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
 from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix
+from pyflightstream.workspace._missing_log import missing_log_warning
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
     from pyflightstream.cases.pproc import PprocSpec
     from pyflightstream.post.superfile import SuperfileDraft
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
+
+
+#: The statuses whose products ``check_frozen`` never withholds. RAN_MISSING_LOG is
+#: one (FR-413 R3): its freeze cannot be read, and the owner's rule of 2026-10-05
+#: is that the post does not refuse it; the point's one WARNING says so.
+_ADMITTED_WHEN_CHECKING = (
+    RunStatus.CONVERGED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.RAN_MISSING_LOG,
+)
 
 
 @dataclass(frozen=True)
@@ -138,16 +150,10 @@ def _admit_campaign_records(
         for point_record in record.as_points():
             if point_record.run_id in superseded:
                 continue
-            frozen_failure = _record_has_frozen_failure(workspace, point_record)
-            if (
-                not check_frozen
-                or frozen_failure
-                or point_record.status
-                in (
-                    RunStatus.CONVERGED,
-                    RunStatus.COMPLETED_MAX_ITER,
-                )
-            ):
+            frozen_failure = _record_has_frozen_failure(
+                workspace, point_record, check_frozen=check_frozen
+            )
+            if not check_frozen or frozen_failure or point_record.status in _ADMITTED_WHEN_CHECKING:
                 by_sim.setdefault(point_record.sim_id, []).append(point_record)
             else:
                 skipped[f"runs/{point_record.run_id}"] = (
@@ -157,10 +163,62 @@ def _admit_campaign_records(
                 )
 
 
-def _record_has_frozen_failure(workspace: CampaignWorkspace, point_record: RunRecord) -> bool:
-    """Report a failed status and read whether its log proves a freeze."""
+def _person_s_verdict(record: RunRecord) -> dict[str, object] | None:
+    """Return the ``marked`` of a point a person judged CONVERGED (FR-414), else None."""
+    marked = record.marked or {}
+    return dict(marked) if marked.get("verdict") == RunStatus.CONVERGED.value else None
+
+
+def _say_a_person_s_verdict(record: RunRecord) -> None:
+    """Name, once in ``post.log``, a point whose CONVERGED is a person's verdict (FR-414 R3)."""
+    marked = _person_s_verdict(record)
+    if marked is None or record.status is not RunStatus.CONVERGED:
+        return
+    warn(
+        f"point={record.run_id} product=all: CONVERGED is a person's verdict "
+        f"(mark-converged, {marked.get('at')}): {marked.get('reason')}; the run was "
+        f"{marked.get('from')}, and the package did not judge it converged.",
+        PyflightstreamWarning,
+        stacklevel=5,
+    )
+
+
+def carry_marks(
+    products_index: Mapping[str, dict[str, object]], points: Sequence[RunRecord]
+) -> None:
+    """Give every product entry built from a point a person judged its ``marked`` (FR-414 R3).
+
+    Keyed by run id under ``marked``, beside ``runs``; an entry built from no
+    such point is left byte for byte as it was.
+    """
+    marks = {point.run_id: mark for point in points if (mark := _person_s_verdict(point))}
+    if not marks:
+        return
+    for entry in products_index.values():
+        runs = entry.get("runs")
+        held = {run: marks[run] for run in runs if run in marks} if isinstance(runs, list) else {}
+        if held:
+            entry["marked"] = held
+
+
+def _record_has_frozen_failure(
+    workspace: CampaignWorkspace, point_record: RunRecord, *, check_frozen: bool = False
+) -> bool:
+    """Report a failed status and read whether its log proves a freeze.
+
+    A RAN_MISSING_LOG point has no log to read: its one WARNING names the
+    status and what is unavailable, and with ``check_frozen`` that its freeze
+    cannot be read (FR-413 R3).
+    """
     frozen_failure = False
-    if point_record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
+    _say_a_person_s_verdict(point_record)
+    if point_record.status is RunStatus.RAN_MISSING_LOG:
+        warn(
+            missing_log_warning(point_record.run_id, check_frozen=check_frozen),
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+    elif point_record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
         warn(
             f"point={point_record.run_id} product=available-exports: "
             f"the recorded status is {point_record.status.value}. "

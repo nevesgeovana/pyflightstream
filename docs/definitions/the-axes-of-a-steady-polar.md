@@ -54,6 +54,24 @@ export's own vector equals its `CDi + CDo`, which the recorded exports
 confirm to their printed precision, under sideslip too. `CD0` and `CDI` are
 those two integrals as the solver states them.
 
+<a id="the-drag-split-of-26125"></a>
+
+**On 26.125 the drag split is `CDV` and `CDP` (FR-423).** The loads export of
+26.125 prints its drag split as `CDp, CDv`, pressure drag and viscous and
+separation drag (SRC-753 pp.227, 229), in the places where every earlier build
+printed `CDi, CDo`, induced and skin friction drag (SRC-752 pp.225, 227). The
+polar carries each pair under its own names and never reads one as the other:
+a 26.125 point writes `CDV` where an earlier point writes `CD0`, the sum of the
+group's `CDv`, and `CDP` where it writes `CDI`, the sum of its `CDp`. A table
+whose points all ran on one build carries that build's pair in the last two
+columns, so a table of 26.124 points is written exactly as before. A table
+holding points of both builds carries `CD0, CDI, CDV, CDP`, each row `NA`
+under the pair its export did not print. On either build the group's total
+drag is the sum of the two columns, which both manuals state of their own pair
+(SRC-752 p.227, SRC-753 p.229). The fixed-width custom polar names its last
+columns the same way, and its count line counts them. The parsed loads report
+and the loads series keep the column names the export printed.
+
 **In a coupled FSI run `CDo` is zero as the solver prints it.** On 26.124
 the loads export of a coupled solve prints `CDo` as zero from the first
 export of its first coupling pass, where the rigid solve of the same wing
@@ -77,7 +95,9 @@ keep the number the export printed, and `post.log` names the declined surfaces
 of each point. The rule reads the printed digits, so a trailing-edged surface
 whose induced drag rounds to zero is declined too. `SET_SIGNIFICANT_DIGITS`
 narrows that band. A polar rebuilt from point folders alone
-(`write_recorded_polar`) has no run record and declines nothing. The
+(`write_recorded_polar`) has no run record and declines nothing. The rule
+reads `CDi` only: a 26.125 export prints `CDp`, and no run has measured what
+it prints for a declined surface, so a 26.125 point declines nothing. The
 fixed-width custom polar carries the same missing value as `nan` in the
 column's own width, since its format writes every number `%10.5f`.
 

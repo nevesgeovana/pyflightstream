@@ -178,6 +178,7 @@ def write_custom_polar_format(
     date: str | None = None,
     configuration: str | None = None,
     group_number: int | None = None,
+    columns: Sequence[str] = COEFFICIENT_COLUMNS,
 ) -> Path:
     """Write one polar of one group in the fixed-width text format the reference tooling opens.
 
@@ -248,6 +249,11 @@ def write_custom_polar_format(
     group_number : int, optional
         The number line 4 states for a named group, its 1-based position in the ``[groups]`` table
         (:func:`group_number`).
+    columns : sequence of str, optional
+        The data columns of lines 8 and 9, :data:`COEFFICIENT_COLUMNS` by default.
+        A polar of 26.125 names its drag split ``CDV, CDP`` in the last two, and a
+        polar holding rows of both builds carries both pairs (FR-423,
+        :func:`pyflightstream.post.polar.drag_columned_rows`).
 
     Returns
     -------
@@ -275,12 +281,12 @@ def write_custom_polar_format(
         "".join(custom_field(name) for name in CUSTOM_REFERENCE_COLUMNS),
         "".join(custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
-        f"{len(COEFFICIENT_COLUMNS):03d}",
-        "".join(custom_field(name) for name in COEFFICIENT_COLUMNS),
+        f"{len(columns):03d}",
+        "".join(custom_field(name) for name in columns),
     ]
     for row in rows:
-        if len(row) != len(COEFFICIENT_COLUMNS):
-            raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
+        if len(row) != len(columns):
+            raise ProductError(f"a polar row has {len(row)} values, not {len(columns)}")
         lines.append("".join(f"{float(value):{CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

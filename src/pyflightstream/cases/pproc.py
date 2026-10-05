@@ -347,6 +347,10 @@ FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "CL": ("CL", "COEFFICIENTS"),
     "CDI": ("CDI", "COEFFICIENTS"),
     "CDO": ("CDO", "COEFFICIENTS"),
+    # The pressure and viscous drag split the 26.125 manual names (FR-423, SRC-753
+    # p.359); 26.125 also ran CDI and CDO (RPT-160), and no earlier build has these.
+    "CDP": ("CDP", "COEFFICIENTS"),
+    "CDV": ("CDV", "COEFFICIENTS"),
     "CD": ("CD", "COEFFICIENTS"),
     "FX": ("FORCE_X", "NEWTONS"),
     "FY": ("FORCE_Y", "NEWTONS"),
@@ -355,6 +359,13 @@ FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "MY": ("MOMENT_Y", "NEWTONS"),
     "MZ": ("MOMENT_Z", "NEWTONS"),
 }
+
+#: The parameters a group plots when it names none: every one but the 26.125 drag
+#: split, which a group asks for by name (FR-423), so a group naming no
+#: parameter writes on every build the ten plots it always wrote.
+DEFAULT_FORCE_PLOTS: tuple[str, ...] = tuple(
+    name for name in FORCE_PLOT_PARAMETERS if name not in ("CDP", "CDV")
+)
 
 #: The six components an axis rotation needs, as `FORCE_PLOT_PARAMETERS` spells them.
 AXES_PLOT_COMPONENTS: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ")
@@ -854,14 +865,14 @@ class PlotsSpec(BaseModel):
     ----------
     parameters : list of str
         The force and moment parameters plotted for every group; unstated,
-        all of them.
+        all of them but CDP and CDV, the 26.125 drag split, named to be plotted.
     groups : list of ForcePlotGroup
         The groups of families, one plot per parameter each.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    parameters: list[str] = Field(default_factory=lambda: list(FORCE_PLOT_PARAMETERS))
+    parameters: list[str] = Field(default_factory=lambda: list(DEFAULT_FORCE_PLOTS))
     groups: list[ForcePlotGroup] = Field(default_factory=list)
 
     @field_validator("parameters")

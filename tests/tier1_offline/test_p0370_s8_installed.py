@@ -147,6 +147,21 @@ def _tree(out: Path) -> dict[str, bytes]:
 BOTH = 'installed_frame = ["probes", "inflow"]\n'
 
 
+def test_withdrawing_installed_families_retires_the_previous_copies(tmp_path):
+    """P0370-S8-INSTALLED-INFLOW (FR-420 R3): no stale installed copy survives withdrawal."""
+    workspace = _workspace(tmp_path, key=BOTH)
+    out = _post(workspace)
+    before = json.loads((out / "products.json").read_text(encoding="utf-8"))["products"]
+    copies = [name for name, entry in before.items() if entry.get("kind") == "installed_frame"]
+    assert copies
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(pproc.read_text(encoding="utf-8").replace(BOTH, ""), encoding="utf-8")
+    write_campaign_products(workspace, matrix_stem=MATRIX, overwrite=True)
+    after = json.loads((out / "products.json").read_text(encoding="utf-8"))["products"]
+    assert not set(copies) & set(after)
+    assert not [name for name in copies if (out / name).exists()]
+
+
 def test_a_probe_at_plus_y_appears_at_minus_y_with_its_velocity_mirrored(tmp_path):
     """P0370-S8-INSTALLED-INFLOW (FR-420): Y and VY negate, every other column stays."""
     out = _post(_workspace(tmp_path, key=BOTH))

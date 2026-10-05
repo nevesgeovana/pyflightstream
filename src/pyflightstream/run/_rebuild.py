@@ -31,21 +31,33 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
+from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
     _compare_scripts,
+    _copy_inputs,
     _drift,
     _Known,
     _known_runs,
     _matrices,
     _on_disk,
     _plan_campaign_name,
+    _reactivate,
     _read_rows,
+    _shadow_home,
     _sim_of,
     _slashes,
     _snapshot,
     collect_without_writing,
     descriptor_folder,
+)
+from pyflightstream.run._rebuild_grouped import (
+    batch_label,
+    grouped_facts,
+    grouped_point,
+    rendered_at_home,
+    simulation_home,
+    with_job,
 )
 from pyflightstream.run._record_files import (
     RecordsError,
@@ -54,6 +66,7 @@ from pyflightstream.run._record_files import (
     _replace_bytes,
     manifest_lock,
 )
+from pyflightstream.workspace._matrix_homes import matrix_path
 from pyflightstream.workspace.naming import (
     DEFAULT_MANIFEST,
     free_root_archive,
@@ -67,6 +80,12 @@ QUIET_WINDOW_S = 1800.0
 
 #: The word every rebuilt record's warning starts with.
 REBUILT = "REBUILT"
+
+#: What to do about a row this version cannot mint again (FR-412 R3).
+_MINT_REMEDY = (
+    "rebuild with the pyflightstream version that ran it, or pass the matrix revision that "
+    "ran (CLI: --matrix FILE)"
+)
 
 _NOT_RECOVERABLE_NOTE = (
     "do not run `pyfs-matrix run --resume` on a refused simulation: with no record, the "
@@ -155,57 +174,6 @@ def bind_row_builds(
     return run_matrix._bind_row_builds(resolved, default, executor, executor_for)
 
 
-def _reactivate(matrix: Path, sims: set[str]) -> list[str]:
-    """Set RUN to 1 on the rows whose POL is one of ``sims``, in THIS (shadow) file."""
-    lines = matrix.read_text(encoding="utf-8").splitlines(keepends=True)
-    header: tuple[int, int] | None = None
-    changed: list[str] = []
-    for index, line in enumerate(lines):
-        cells = line.split("|")
-        names = [cell.strip() for cell in cells]
-        if header is None and "POL" in names and "RUN" in names:
-            header = (names.index("POL"), names.index("RUN"))
-            continue
-        if header is None or len(cells) <= max(header):
-            continue
-        pol, run = names[header[0]], names[header[1]]
-        if pol in sims and run == "0":
-            width = len(cells[header[1]])
-            cells[header[1]] = cells[header[1]].replace("0", "1", 1) if width else "1"
-            lines[index] = "|".join(cells)
-            changed.append(pol)
-    if changed:
-        _textio.write_text(matrix, "".join(lines))
-    return changed
-
-
-def _copy_inputs(source: Path, target: Path, origin: Path | None) -> list[str]:
-    """Copy ``inputs/`` into the shadow, then lay ``origin``'s files over it.
-
-    Returns the input files, relative to ``inputs/``, that ``origin`` holds
-    with bytes other than the workspace's: the inputs taken from the other
-    origin. Nothing in the workspace's own ``inputs/`` is written.
-    """
-    if source.is_dir():
-        shutil.copytree(source, target, symlinks=False)
-    else:
-        target.mkdir(parents=True)
-    differing: list[str] = []
-    if origin is None:
-        return differing
-    for path in sorted(origin.rglob("*")):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(origin)
-        own = source / relative
-        if not own.is_file() or own.read_bytes() != path.read_bytes():
-            differing.append(relative.as_posix())
-            destination = target / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, destination)
-    return differing
-
-
 # ---------------------------------------------------------------------------
 # rebuild: one simulation, re-minted in the shadow
 # ---------------------------------------------------------------------------
@@ -269,6 +237,11 @@ class _Context:
     origin_differs: list[str]
     known: dict[str, _Known]
     quiet_window_s: float
+    #: FR-414 R4: the person's verdicts runs.json holds, by run id, kept over a computed one.
+    verdicts: dict[str, dict[str, Any]] = dataclasses.field(init=False)
+
+    def __post_init__(self) -> None:
+        self.verdicts = person_verdicts(self.base / DEFAULT_MANIFEST)
 
 
 def _mint(
@@ -335,7 +308,7 @@ def _mint(
     if plan.blocked:
         return (
             f"pyflightstream {context.version} refuses this row now, so its record cannot be "
-            f"minted again: {plan.blocked[0].error}"
+            f"minted again: {plan.blocked[0].error}; correct the row, or {_MINT_REMEDY}"
         )
     executor = SubmittingExecutor(
         profile or _stub_profile(),
@@ -364,7 +337,7 @@ def _mint(
     bad = [row for row in rows if row.get("status") != "SUBMITTED"]
     if bad or not rows:
         reason = f"{bad[0].get('status')}: {bad[0].get('error')}" if bad else "no record came out"
-        return f"the package could not mint this row's record again ({reason})"
+        return f"the package could not mint this row's record again ({reason}); {_MINT_REMEDY}"
     scripts = {str(row["script_path"]) for row in rows}
     rendered = "\n".join(
         (shadow / "sims" / f"sim_{sim}" / script).read_text(encoding="utf-8", errors="replace")
@@ -407,6 +380,55 @@ def _utc(path: Path) -> str:
     return dt.datetime.fromtimestamp(path.stat().st_mtime, dt.UTC).isoformat(timespec="seconds")
 
 
+def _mint_one(
+    context: _Context,
+    matrix: Path,
+    sim: str,
+    *,
+    name: str,
+    name_from: str | None,
+    templates: Sequence[str],
+    notes: list[str],
+    out: _Outcome,
+) -> tuple[list[dict[str, Any]], str, Path] | str:
+    """Mint one simulation's rows with the first point-name template whose scripts are on disk.
+
+    Returns the SUBMITTED rows, the rendered script text and the folder the
+    simulation's scripts are in now (its home, or its batch folder before the
+    batch was moved home, FR-412 R1b), or the refusal.
+    """
+    shadow = context.shadow
+    refusal = (
+        "no point-name template names a script that is in the folder; pass the matrix "
+        "revision that ran (CLI: --matrix FILE)"
+    )
+    for template in templates:
+        try:
+            attempt = _mint(context, matrix, sim, template, name, name_from, out, notes)
+        except Exception as error:  # noqa: BLE001 - every refusal of the package is this sim's reason
+            _clear_shadow_run(shadow, sim)
+            return (
+                "the package could not mint this row's record again: "
+                f"{type(error).__name__}: {error}; {_MINT_REMEDY}"
+            )
+        _clear_shadow_run(shadow, sim)
+        if isinstance(attempt, str):
+            return attempt
+        rows, rendered = attempt
+        scripts = [str(row["script_path"]) for row in rows]
+        home = simulation_home(context.base, sim, scripts)
+        missing = [script for script in scripts if not (home / script).is_file()]
+        if missing:
+            refusal = (
+                f"the package names its script {missing[0]}, which is not in the folder: the run "
+                "used another point-name template or another matrix; pass the matrix revision "
+                "that ran (CLI: --matrix FILE)"
+            )
+            continue
+        return rows, rendered, home
+    return refusal
+
+
 def _rebuild_one(
     context: _Context,
     matrix: Path,
@@ -418,45 +440,28 @@ def _rebuild_one(
     out: _Outcome,
 ) -> None:
     """Mint, prove and complete the records of one simulation, or refuse it."""
-    base, shadow = context.base, context.shadow
-    sim_dir = base / "sims" / f"sim_{sim}"
-    minted: tuple[list[dict[str, Any]], str] | None = None
-    refusal = "no point-name template names a script that is in the folder"
-    for template in templates:
-        try:
-            attempt = _mint(context, matrix, sim, template, name, name_from, out, notes)
-        except Exception as error:  # noqa: BLE001 - every refusal of the package is this sim's reason
-            _clear_shadow_run(shadow, sim)
-            refusal = (
-                "the package could not mint this row's record again: "
-                f"{type(error).__name__}: {error}"
-            )
-            break
-        _clear_shadow_run(shadow, sim)
-        if isinstance(attempt, str):
-            refusal = attempt
-            break
-        rows, _rendered = attempt
-        missing = [
-            row["script_path"] for row in rows if not (sim_dir / row["script_path"]).is_file()
-        ]
-        if missing:
-            refusal = (
-                f"the package names its script {missing[0]}, which is not in the folder: the run "
-                "used another point-name template or another matrix"
-            )
-            continue
-        minted = attempt
-        break
-    if minted is None:
-        out.refused[sim] = refusal
+    shadow = context.shadow
+    minted = _mint_one(
+        context,
+        matrix,
+        sim,
+        name=name,
+        name_from=name_from,
+        templates=templates,
+        notes=notes,
+        out=out,
+    )
+    if isinstance(minted, str):
+        out.refused[sim] = minted
         return
-    rows, rendered = minted
+    rows, rendered, sim_dir = minted
     executed = "\n".join(
         (sim_dir / script).read_text(encoding="utf-8", errors="replace")
         for script in sorted({str(row["script_path"]) for row in rows})
     )
-    comparison = _compare_scripts(rendered, executed, shadow)
+    # FR-412: a batch point's script names its batch folder; read the rendering there.
+    label = batch_label(executed, sim)
+    comparison = _compare_scripts(rendered_at_home(rendered, shadow, sim, label), executed, shadow)
     known = context.known.get(sim)
     ran_on = known.package_version if known else None
     if ran_on and ran_on != context.version:
@@ -483,6 +488,36 @@ def _rebuild_one(
             "<their inputs/ folder>); if the run was on another version, rebuild with that one"
         )
         return
+    _complete_rows(
+        context,
+        sim,
+        rows,
+        sim_dir=sim_dir,
+        stem=matrix.stem,
+        executed=executed,
+        run_root=comparison.run_root,
+        inputs_used=inputs_used,
+        notes=notes,
+        out=out,
+    )
+
+
+def _complete_rows(
+    context: _Context,
+    sim: str,
+    rows: Sequence[dict[str, Any]],
+    *,
+    sim_dir: Path,
+    stem: str,
+    executed: str,
+    run_root: str | None,
+    inputs_used: list[str],
+    notes: list[str],
+    out: _Outcome,
+) -> None:
+    """Complete each minted row of one proved simulation from the files on disk."""
+    base, shadow = context.base, context.shadow
+    descriptor_name = getattr(context.profile, "descriptor_name", None)
     for row in rows:
         facts = _facts(context, sim_dir, row)
         if facts is None:
@@ -491,8 +526,20 @@ def _rebuild_one(
         if isinstance(facts, str):
             out.refused[sim] = facts
             return
-        facts["run_root"] = comparison.run_root
-        facts["inputs_used"] = inputs_used
+        grouped = grouped_point(
+            base,
+            stem,
+            str(row["run_id"]),
+            executed=executed,
+            home=sim_dir,
+            run_root=run_root,
+            descriptor_name=descriptor_name,
+        )
+        refusal = grouped_facts(facts, grouped)
+        if refusal is not None:
+            out.refused[sim] = refusal
+            return
+        facts.update(run_root=run_root, inputs_used=inputs_used, sim_dir=sim_dir)
         if facts.get("keep_submitted"):
             completed, deferred = dict(row), facts["keep_submitted"]
         else:
@@ -500,12 +547,15 @@ def _rebuild_one(
                 base, row, staging=shadow / "collect" / f"sim_{sim}"
             )
         record = _finalise(context, sim, completed, facts, deferred, notes)
+        if grouped is not None:
+            record = with_job(record, grouped, row.get("submission") or {})
+        record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
         try:
             from pyflightstream.workspace import RunRecord
 
             RunRecord.model_validate(record)
         except Exception as error:  # noqa: BLE001 - the model's refusal is the reason given
-            out.refused[sim] = f"the rebuilt record does not validate: {error}"
+            out.refused[sim] = f"the rebuilt record does not validate: {error}; {_MINT_REMEDY}"
             return
         out.records.append(record)
 
@@ -567,7 +617,8 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
         else:
             return (
                 f"{row['run_id']}: its datapoint folder holds no declared output, so there is "
-                "no run to record"
+                "no run to record; delete the empty folder, or run the point again (CLI: "
+                "pyfs-matrix run --resume runs the points no record carries)"
             )
     elif not quiet:
         facts["keep_submitted"] = (
@@ -591,7 +642,7 @@ def _finalise(
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
     base, shadow = context.base, context.shadow
-    sim_dir = base / "sims" / f"sim_{sim}"
+    sim_dir: Path = facts.get("sim_dir") or base / "sims" / f"sim_{sim}"
     run_root = facts.get("run_root") or str(base)
     record = _substitute(record, [(str(shadow), run_root), (shadow.as_posix(), _slashes(run_root))])
     reconstructed = ["started_at", "finished_at"]
@@ -734,13 +785,52 @@ def _refuse_before_any_work(
                 "is overwritten"
             )
     if matrix is not None and not Path(matrix).is_file():
-        raise RecordsError(f"rebuild matrix (CLI: --matrix) {matrix}: no such file")
+        raise RecordsError(
+            f"rebuild matrix (CLI: --matrix) {matrix}: no such file in the workspace's matrix "
+            "homes (its root and inputs/matrices/) or at that path; name the matrix the "
+            "simulations ran from"
+        )
     if inputs_from is not None and not Path(inputs_from).is_dir():
         raise RecordsError(
             f"rebuild inputs_from (CLI: --inputs-from) {inputs_from}: no such folder; name the "
             "inputs/ folder of the workspace whose inputs ran"
         )
     return target
+
+
+def _refused_before_minting(
+    sim: str,
+    out: _Outcome,
+    *,
+    retired: set[str],
+    folders: set[str],
+    zipped: set[str],
+    submitted: set[str],
+) -> bool:
+    """Refuse, naming its reason and remedy, a simulation a rebuild cannot start on (FR-412 R3)."""
+    if sim in retired:
+        out.refused[sim] = (
+            "delete-sims retired this simulation, so it is not brought back; run its row again "
+            "to make a new record"
+        )
+    elif sim in zipped and sim not in folders:
+        out.refused[sim] = (
+            "stored compressed (sims/sim_<id>.zip); expand it with the package first, then "
+            "rebuild. A rebuild never expands or deletes an archive"
+        )
+    elif sim not in folders:
+        out.refused[sim] = (
+            "no such simulation folder under sims/ or in a batch folder under sims/batch/; name "
+            "a simulation whose folder is there"
+        )
+    elif sim in submitted:
+        out.refused[sim] = (
+            "SUBMITTED in runs.json: a rebuild gives it no end; pyfs-matrix collect "
+            "completes it, or rebuild every simulation (all_sims, CLI: --all-sims)"
+        )
+    else:
+        return False
+    return True
 
 
 def rebuild(
@@ -833,6 +923,8 @@ def rebuild(
     from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 
     base = Path(root).resolve()
+    # FR-411: a bare name is the workspace's matrix, whatever the working directory holds.
+    matrix = None if matrix is None else matrix_path(base, matrix)
     target = _refuse_before_any_work(base, out, all_sims, sims, matrix, inputs_from)
     lock = base / (DEFAULT_MANIFEST + ".lock")
     if lock.exists():
@@ -873,24 +965,18 @@ def rebuild(
             f"{len(submitted_rows)} record(s) are SUBMITTED in runs.json; all_sims ignores that "
             "status and judges each simulation from its outputs"
         )
-    todo = []
-    for sim in wanted:
-        if sim in retired:
-            out_come.refused[sim] = "delete-sims retired this simulation; it is not brought back"
-        elif sim in zipped and sim not in folders:
-            out_come.refused[sim] = (
-                "stored compressed (sims/sim_<id>.zip); expand it with the package first, then "
-                "rebuild. A rebuild never expands or deletes an archive"
-            )
-        elif sim not in folders:
-            out_come.refused[sim] = "no such simulation folder under sims/"
-        elif sim in submitted_sims and not all_sims:
-            out_come.refused[sim] = (
-                "SUBMITTED in runs.json: a rebuild gives it no end; pyfs-matrix collect "
-                "completes it, or rebuild every simulation (all_sims, CLI: --all-sims)"
-            )
-        else:
-            todo.append(sim)
+    todo = [
+        sim
+        for sim in wanted
+        if not _refused_before_minting(
+            sim,
+            out_come,
+            retired=retired,
+            folders=folders,
+            zipped=zipped,
+            submitted=set() if all_sims else submitted_sims,
+        )
+    ]
     version = str(pyflightstream.__version__)
     if todo:
         known = _known_runs(base, live)
@@ -940,7 +1026,10 @@ def rebuild(
             "written, run it again when it ends"
         )
     if not out_come.records:
-        raise RecordsError("rebuild: no record was rebuilt, so there is nothing to write")
+        # FR-412 R3: every simulation refused is named, with its reason and its remedy.
+        said = summary_lines(entry)
+        head = "rebuild: no record was rebuilt, so there is nothing to write"
+        raise RecordsError("\n".join([head, *said[:-2], said[-1]]))
     ids = {row.get("run_id") for row in live}
     fresh = [row for row in out_come.records if row.get("run_id") not in ids]
     if target is not None:
@@ -982,32 +1071,35 @@ def rebuild(
     return entry
 
 
+def _restore_lines(entry: Mapping[str, Any]) -> list[str]:
+    """Return the lines ``pyfs-matrix restore`` prints for its entry."""
+    lines = [
+        f"restore {entry['kind']}: {entry['source']} -> {entry['target']} (stamp {entry['stamp']})",
+        f"  stamps available: {', '.join(entry['stamps_available'])}",
+    ]
+    if "records" in entry:
+        lines.append(f"  the archived manifest holds {entry['records']} record(s)")
+    if entry["same"]:
+        lines.append("  the current file already holds these bytes; nothing to do")
+    elif entry["applied"]:
+        kept = entry["archived_as"]
+        lines.append("  restored" + (f"; the current file was archived as {kept}" if kept else ""))
+    else:
+        lines.append("  preview only: add --apply to restore it")
+    return lines
+
+
 def summary_lines(entry: Mapping[str, Any]) -> list[str]:
     """Return the lines ``pyfs-matrix restore`` and ``rebuild`` print for an entry.
 
     The entry is what :func:`~pyflightstream.run.records.restore` or
     :func:`rebuild` returned: the lines say what was, or would be, written,
-    and name every refusal.
+    and name every refusal. A rebuild's lines end with the count rebuilt and
+    the count refused (FR-412 R3).
     """
-    lines: list[str] = []
     if "kind" in entry:
-        lines.append(
-            f"restore {entry['kind']}: {entry['source']} -> {entry['target']} "
-            f"(stamp {entry['stamp']})"
-        )
-        lines.append(f"  stamps available: {', '.join(entry['stamps_available'])}")
-        if "records" in entry:
-            lines.append(f"  the archived manifest holds {entry['records']} record(s)")
-        if entry["same"]:
-            lines.append("  the current file already holds these bytes; nothing to do")
-        elif entry["applied"]:
-            kept = entry["archived_as"]
-            lines.append(
-                "  restored" + (f"; the current file was archived as {kept}" if kept else "")
-            )
-        else:
-            lines.append("  preview only: add --apply to restore it")
-        return lines
+        return _restore_lines(entry)
+    lines: list[str] = []
     rebuilt, refused = entry["rebuilt"], entry["refused"]
     lines.append(
         f"rebuild: {len(rebuilt)} record(s) rebuilt with pyflightstream "
@@ -1038,6 +1130,7 @@ def summary_lines(entry: Mapping[str, Any]) -> list[str]:
         )
     else:
         lines.append(f"  preview only: add --apply to write {entry['target']}")
+    lines.append(f"rebuild: {len(rebuilt)} rebuilt, {len(refused)} refused")
     return lines
 
 
@@ -1117,7 +1210,7 @@ def _rebuild_all(
                 chosen = [sim for sim in remaining if by_pol.get(sim) == path]
                 if not chosen:
                     continue
-                shadow_matrix = shadow / path.name
+                shadow_matrix = _shadow_home(shadow, path)
                 shutil.copy2(path, shadow_matrix)
                 sim_notes: dict[str, list[str]] = {sim: [] for sim in chosen}
                 for pol in _reactivate(shadow_matrix, set(chosen)):

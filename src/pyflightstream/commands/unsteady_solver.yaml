@@ -34,6 +34,24 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
+    "26.125":
+      status: documented
+      note: >-
+        SRC-753 p.359 lists CDP and CDV among the parameters where SRC-752
+        p.352 listed CDI and CDO, as the edition renames the drag split of
+        its loads table to pressure drag and viscous and separation drag
+        (the 26.125 entry of manual_editions in _meta.yaml). The 26.125
+        solver still ran CDI and CDO in the cross-build runs of 2026-10-05
+        and wrote them as plot columns, the CDI total equal to the loads
+        table's pressure-drag total (RPT-160), so the four are accepted
+      args:
+        - name: frame
+        - name: units
+        - name: parameter
+          values: [CL, CDI, CDO, CDP, CDV, CD, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z]
+        - name: name
+        - name: boundaries
+        - name: boundary_indices
   notes: >
     Samples one force or moment parameter per solver time step, in
     FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
@@ -119,6 +137,17 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
                    BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
         - name: name
         - name: vertex
+    "26.125":
+      status: documented
+      note: "SRC-753 p.359, unchanged from SRC-752 p.352; the argument list is the one SRC-752 prints, carried with the text"
+      args:
+        - name: frame
+        - name: parameter
+          values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+                   BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+                   BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+        - name: name
+        - name: vertex
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
@@ -145,6 +174,7 @@ UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
     "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
   notes: >
     Removes every unsteady solver plot, force and fluid alike, in one
     call; there is no documented per-plot delete. Found missing from
@@ -169,6 +199,7 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.359, unchanged from SRC-752 p.352"}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.
@@ -201,6 +232,7 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
     "26.122": {status: documented, note: "SRC-750 p.352, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
     "26.124": {status: documented, note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.359, unchanged from SRC-752 p.352"}
   notes: >
     Samples one surface property per solver time step at a fixed
     vertex, the surface counterpart of UNSTEADY_SOLVER_NEW_FLUID_PLOT.
@@ -249,6 +281,7 @@ UNSTEADY_SOLVER_ANIMATION:
     "26.121": {status: documented, note: "SRC-740 pp.351-352, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
     "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
   notes: >
     Writes an output file every so many time steps of an unsteady run,
     which is how an animation is produced.
@@ -461,3 +494,41 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
         no solver-named environment, working directory the simulation
         folder; exports from an action script are stamped _iteration=N.
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "SRC-752 p.353, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
+
+ENABLE_SOLVER_TIME_AVERAGING:
+  layout: inline
+  phase: init
+  args:
+    - name: starting_iteration
+      type: int
+    - name: ending_iteration
+      type: int
+  manual_ref: "SRC-753 p.360"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.360, the first edition to document it"}
+  notes: >
+    Turns on the time averaging of the surface flow properties over a
+    window of unsteady time iterations, from the first iteration of the
+    window to its last, both counted in the solver's own time steps.
+    First documented by the 26.125 edition, where it stands in the place
+    SOLVER_TIME_AVERAGING held in SRC-752 (p.353): that command took the
+    toggle and the window together, and SRC-753 no longer prints it.
+
+    WARNED WHERE NO RUN VERIFIED IT. Its predecessor hung 26.124 (C01,
+    recorded on that command's own 26.124 row). This is another command of
+    another build and nothing has measured it, so the setup key that reaches
+    it (solver_time_averaging) writes the line and warns on a build where it
+    is only documented.
+
+DISABLE_SOLVER_TIME_AVERAGING:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-753 p.360"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.360, the first edition to document it"}
+  notes: >
+    Turns the time averaging of the surface flow properties off. It
+    takes no argument. First documented by the 26.125 edition, beside
+    ENABLE_SOLVER_TIME_AVERAGING.

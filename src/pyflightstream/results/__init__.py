@@ -143,9 +143,11 @@ from pyflightstream.results.exports import (
     parse_sweep_spreadsheet,
 )
 from pyflightstream.results.loads import (
+    DRAG_PAIRS,
     LoadsReport,
     ProbePointsReport,
     UnsteadyPlotsReport,
+    drag_pair,
     parse_loads,
     parse_probe_points,
     parse_unsteady_plots,
@@ -193,6 +195,7 @@ __all__ = [
     "ConditionBinding",
     "ConditionCheck",
     "DATA_ORIGIN_CODES",
+    "DRAG_PAIRS",
     "DATA_ORIGIN_COLUMN",
     "EXPORT_CONVERSIONS",
     "EXPORT_EXCLUDED",
@@ -236,6 +239,7 @@ __all__ = [
     "bind_conditions",
     "classify_solver_mode",
     "delimited_table",
+    "drag_pair",
     "export_conversion",
     "labeled_value",
     "origin_code",

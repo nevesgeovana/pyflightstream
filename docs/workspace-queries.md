@@ -19,12 +19,16 @@ status `planned`, written in lower case because it is derived and never a
 recorded word. A footer states, for each matrix, whether its plan was made from
 the matrix as it is on disk and whether its post indexes every recorded run and
 is complete (FR-382). Recorded words are printed as recorded (FR-384).
+`RAN_MISSING_LOG` (FR-413), a run that ended with its outputs and whose solver
+log is absent, is counted among the runs that ended and apart from
+`CONVERGED`; `show` prints its `residual_note`, which names what the absent log
+would have carried.
 `status --additional` lists the additional runs register with its recorded
 fields and no derived one (FR-393).
 
 `show` prints the record of one datapoint, taken from a simulation
 id and a point, a run id or its alias, outcome first: the status, the verdict
-a `mark-failed` gave, the warnings and the stopping reason, then the evidence
+a `mark-failed` or a `mark-converged` gave (with its reason), the warnings and the stopping reason, then the evidence
 files with their last lines, the log entries that name the point, the chain of
 the run it continues and the run that continued it, the identity of the
 package, build and script, and the inputs (FR-386). A coupled point also names
