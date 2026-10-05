@@ -44,8 +44,14 @@ VOCAB_ROWS_FLOOR = 5
 
 
 def cited_pols(page: Path) -> set[str]:
-    """Return the 8xxx POLs a page quotes, which are the vocabulary matrix's."""
-    return set(re.findall(r"\b(8\d{3})\b", page.read_text(encoding="utf-8")))
+    """Return the 8xxx POLs a page quotes, which are the vocabulary matrix's.
+
+    A POL is a whole number, so four digits that sit after a decimal point
+    or before one (the rotor radius 1.8288 m of the unsteady rotor page)
+    are a measurement and not a row.
+    """
+    pattern = r"(?<![.\d])\b(8\d{3})\b(?!\.\d)"
+    return set(re.findall(pattern, page.read_text(encoding="utf-8")))
 
 
 def test_the_vocabulary_matrix_still_carries_the_rows_the_guide_points_at():
