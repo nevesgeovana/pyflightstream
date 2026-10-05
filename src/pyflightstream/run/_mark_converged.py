@@ -206,13 +206,15 @@ def mark_converged(
     """
     if not str(reason or "").strip():
         raise RunsManifestError(
-            "mark-converged records a person's verdict and needs its reason (CLI: --reason TEXT)"
+            "mark-converged records a person's verdict and needs its reason (CLI: --reason)"
         )
     base = Path(root)
     manifest = base / DEFAULT_MANIFEST
     ids, wanted = _listed(sims), _listed(points)
     if not ids:
-        raise RunsManifestError("name the simulations to mark: --sims 2006 2007")
+        raise RunsManifestError(
+            "name the simulations to mark in sims (CLI: --sims), e.g. 2006 2007"
+        )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
     workspace = CampaignWorkspace(base)

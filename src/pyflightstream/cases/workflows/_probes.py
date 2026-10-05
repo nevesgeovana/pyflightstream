@@ -360,7 +360,8 @@ def _built_from_the_mesh(
             f"case {case.sim_id!r}: its pproc artifact {case.pproc_id!r} samples normal "
             f"probes (entries {entries}), which are created where the row's full script "
             f"places them, and that script cannot be built here ({error}). A continued "
-            "march never created them. Run the row again from the mesh with "
+            "march never created them. Run the row again from the mesh: name the point in "
+            "force_rerun (CLI: --force-rerun) of run_matrix, as in "
             "pyfs-matrix run --force-rerun <point>."
         ) from error
     return scratch
