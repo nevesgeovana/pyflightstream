@@ -100,6 +100,46 @@ the decisions and the package derives the rest.
     part way through a step, at an azimuth nobody chose, and that run
     converges and exports like any other.
 
+* `RUN_WAKE_LENGTH_R: <L>` states the run length as the wake length the
+  run should reach, in rotor radii, in place of `REVOLUTIONS` or
+  `TIME_ITERATIONS` (FR-422). The row states it with exactly one of
+  `DELTA_THETA` or `DELTA_TIME`, and the step count is
+  `TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))`: R the tip radius of the
+  largest rotor the row turns, Omega its speed, dtheta the step in radians and
+  V_ax the axial velocity. It is the conversion and the axial velocity rule of
+  the wake termination's `wake_termination_length`: V_ax is the free stream,
+  or the induced velocity `sqrt(T / (2 rho A))` of the setup's
+  `wake_termination_thrust_n` where that is larger. On a row turning 1200
+  rev/min at 30 m/s, whose rotor block states `diameter_m = 3.6576` (R =
+  1.8288 m), at `DELTA_THETA: 10` (Omega / dtheta = 720 per second),
+
+    ```text
+    VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / RUN_WAKE_LENGTH_R: 4 / LAST_REVS_AVG: 0.25
+    ```
+
+    marches `ceil(4 x 1.8288 x 720 / 30) = 176` steps, 4.89 revolutions of 36
+    steps. The script, the averaging window and every export threshold read
+    that count, so `EXPORT_UNSTEADY_LAST_REV: 1` on this row exports steps 141
+    to 176. `pyfs-matrix plan` prints the count per point, with the
+    revolutions and V_ax:
+
+    ```text
+    <run id>: run length RUN_WAKE_LENGTH_R = 4 R: 176 steps, 4.889 revolution(s), V_ax 30 m/s (free_stream)
+    ```
+
+    and the run record's solver-flag snapshot carries `run_wake_length`,
+    `run_wake_rule`, `run_wake_v_ax_m_s` and `run_wake_time_iterations`.
+
+    **The length is nominal**: the helical travel of the wake at V_ax, not
+    a measured wake. Near hover the free stream goes to zero and the count
+    grows without bound, and the wake termination's revolution cap does not
+    bound the run length; read the printed revolutions before running.
+    Refused at plan, each naming the remedy: the key beside `TIME_ITERATIONS`
+    or `REVOLUTIONS` (both named); both or neither of `DELTA_THETA` and
+    `DELTA_TIME`; a length that is not positive; a rotor with no known
+    diameter; and an axial velocity that is not positive (state
+    `wake_termination_thrust_n` in the setup, or state `REVOLUTIONS`).
+
 * `LOG_OUTPUT: <n>` names WHICH of the row's own `OUTPUTS` is the solver
   log, counted from 1, and the workflow then emits `EXPORT_LOG` for it.
 
@@ -499,7 +539,8 @@ VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOL
 and exports steps 73 to 108. From the first step on, the script, the counter
 program and the files written per step are exactly those of
 `EXPORT_UNSTEADY_AFTER_ITER: 73`. The run length is resolved before the threshold,
-so `n` counts back from the `TIME_ITERATIONS` the run really marches.
+so `n` counts back from the `TIME_ITERATIONS` the run really marches, the one
+`RUN_WAKE_LENGTH_R` resolves included.
 
 What is refused, at plan: two of the four keys on one row, naming both; the
 revolutions form on `unsteady`, naming `EXPORT_UNSTEADY_LAST_ITER` as the form

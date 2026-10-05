@@ -86,8 +86,6 @@ from ._motion import (
 from ._rows import (
     _angle,
     _from_metres,
-    _rotor_of,
-    _the_rotor_a_flat_row_turns,
     _turning_rate,
     _variable,
     _velocity,
@@ -117,6 +115,19 @@ from ._vocabulary import (
     RPM_VARIABLE,
     TRANSLATE_VARIABLE,
     Frames,
+)
+from ._wake_length import (
+    FREE_STREAM as FREE_STREAM,
+)
+from ._wake_length import (
+    INDUCED_VELOCITY as INDUCED_VELOCITY,
+)
+from ._wake_length import (
+    RunWakeLength,
+    _clock_rates,
+    _induced,
+    _radius_and_hub,
+    _wake_steps,
 )
 
 #: What each form of a custom free-stream file is, in the words a refusal
@@ -804,7 +815,7 @@ MEASURED_DEFAULT_PLANES = (
 )
 
 #: The rule that gave V_ax, as the record and the plan name it (FR-323 R6).
-FREE_STREAM, INDUCED_VELOCITY, REVOLUTION_CAP = "free_stream", "induced_velocity", "revolution_cap"
+REVOLUTION_CAP = "revolution_cap"
 
 
 @dataclass(frozen=True)
@@ -957,25 +968,6 @@ def refuse_a_wake_length(case: SimCase, run: str) -> None:
     )
 
 
-def _radius_and_hub(case: SimCase) -> tuple[float | None, float | None]:
-    """Return the largest tip radius the row turns, in metres, and that rotor's hub X."""
-    blocks = (
-        [_rotor_of(case, record) for record in case.motions]
-        if case.motions
-        else [_the_rotor_a_flat_row_turns(case)]
-    )
-    fallback = None if case.reference is None else case.reference.rotor_diameter
-    sized = [
-        (block.diameter_m if block is not None else fallback, block)
-        for block in blocks
-        if block is not None or fallback is not None
-    ]
-    if not sized:
-        return None, None
-    diameter, block = max(sized, key=lambda pair: float(pair[0] or 0.0))
-    return float(diameter or 0.0) / 2.0, None if block is None else block.x_m
-
-
 def rotor_row_stepping(case: SimCase) -> TimeStepping:
     """Return the clock a rotor row's builder runs, from the motion that owns it (FR-64).
 
@@ -993,22 +985,6 @@ def rotor_row_stepping(case: SimCase) -> TimeStepping:
         speeds = [rotor_speed(view) for view in views]
         return rotor_time_stepping(case, speed=_clock_speed(case, views, speeds))
     return rotor_time_stepping(case, speed=rotor_speed(case))
-
-
-def _induced(case: SimCase, radius: float, v_inf: float) -> tuple[float, str]:
-    """Return V_ax and its rule for a length: v_i where a thrust is stated and exceeds V_inf."""
-    thrust = case.solver.wake_termination_thrust_n
-    if thrust is None:
-        return v_inf, FREE_STREAM
-    if case.fluid is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states wake_termination_thrust_n = {thrust} and resolves "
-            "no fluid density, so the induced velocity sqrt(T / (2 rho A)) cannot be "
-            "evaluated (FR-323 R1). State the row's flight condition, or use "
-            "wake_termination_revolutions_cap."
-        )
-    induced = math.sqrt(thrust / (2.0 * case.fluid.density_kg_m3 * math.pi * radius**2))
-    return (induced, INDUCED_VELOCITY) if induced > v_inf else (v_inf, FREE_STREAM)
 
 
 def _length_steps(
@@ -1030,7 +1006,7 @@ def _length_steps(
                 "revolution count that bounds it)."
             )
         return capped, None, REVOLUTION_CAP
-    steps = math.ceil(round(length * radius * omega / (v_ax * dtheta), 9))
+    steps = _wake_steps(length, radius, omega, v_ax, dtheta)
     if capped is not None and steps > capped:
         return capped, v_ax, REVOLUTION_CAP
     return steps, v_ax, rule
@@ -1052,10 +1028,7 @@ def _count_steps(case: SimCase, key: str, value: float, stepping: TimeStepping) 
 
 def _clock(stepping: TimeStepping) -> tuple[float, float]:
     """Return Omega in rad/s and dtheta in rad of the run's clock."""
-    per_revolution = stepping.steps_per_revolution or 0.0
-    omega = abs(stepping.rpm or 0.0) * 2.0 * math.pi / 60.0
-    dtheta = 2.0 * math.pi / per_revolution if per_revolution else omega * stepping.delta_time_s
-    return omega, dtheta
+    return _clock_rates(stepping.rpm, stepping.delta_time_s, stepping.steps_per_revolution)
 
 
 def _downstream(case: SimCase, v_inf: float) -> int:
@@ -1134,11 +1107,15 @@ def settings_with_the_wake(case: SimCase, script: Script, stepping: TimeStepping
     The rotor builders' one call: the steps of :func:`wake_termination_of`
     reach ``SET_WAKE_TERMINATION_TIME_STEPS`` through the settings emitter,
     and a converted length's three values join the solver-flag snapshot the
-    run record carries (FR-321 R5).
+    run record carries (FR-321 R5). A run length stated as a target wake
+    length joins it too: the length, the rule, V_ax and the resulting
+    ``time_iterations`` (FR-422 R3).
     """
     termination = wake_termination_of(case, stepping)
     _settings(case, script, wake_termination_time_steps=termination.steps)
     extra = termination.derived()
+    if stepping.run_wake is not None:
+        extra = {**extra, **stepping.run_wake.derived()}
     if extra and script.solver_setup is not None:
         derived = {**script.solver_setup.derived, **extra}
         script.solver_setup = script.solver_setup.model_copy(update={"derived": derived})
@@ -1173,6 +1150,26 @@ def planned_wake(case: SimCase) -> WakeTermination | None:
         if parse_restart(case) is not None:
             return None
         return wake_termination_of(case)
+    except CampaignConfigError:
+        return None
+
+
+def planned_run_wake(case: SimCase) -> RunWakeLength | None:
+    """Return the run length a rotor point resolves from ``RUN_WAKE_LENGTH_R``, for the plan.
+
+    None for a row that is not ``unsteady_rotor``, that does not state the key,
+    for a continuation (which marches the steps it asks, not the row's run
+    length), and for a row the builder refuses (that point is BLOCKED with the
+    builder's own reason). The clock the builder runs
+    (:func:`rotor_row_stepping`), so the plan prints the count the script
+    carries (FR-422 R3).
+    """
+    if case.recipe != "unsteady_rotor":
+        return None
+    try:
+        if parse_restart(case) is not None:
+            return None
+        return rotor_row_stepping(case).run_wake
     except CampaignConfigError:
         return None
 

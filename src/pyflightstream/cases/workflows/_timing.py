@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import (
     dataclass,
+    replace,
 )
 
 from pyflightstream.cases import (
@@ -55,6 +56,7 @@ from ._vocabulary import (
     RESTART_VARIABLE,
     REVOLUTIONS_VARIABLE,
     RPM_VARIABLE,
+    RUN_WAKE_LENGTH_R_VARIABLE,
     TIME_ITERATIONS_VARIABLE,
     WALLTIME_VARIABLE,
 )
@@ -63,6 +65,11 @@ from ._vocabulary import (
 )
 from ._vocabulary import (
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE as EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
+from ._wake_length import (
+    RunWakeLength,
+    _clock_rates,
+    run_wake_length,
 )
 
 
@@ -182,8 +189,9 @@ class TimeStepping:
     Attributes
     ----------
     stated_form : str
-        ``angular`` (``DELTA_THETA`` and ``REVOLUTIONS``) or ``explicit``
-        (``DELTA_TIME`` and ``TIME_ITERATIONS``).
+        ``angular`` (``DELTA_THETA`` and ``REVOLUTIONS``), ``explicit``
+        (``DELTA_TIME`` and ``TIME_ITERATIONS``) or ``run_wake_length``
+        (``RUN_WAKE_LENGTH_R`` with ``DELTA_THETA`` or ``DELTA_TIME``, FR-422).
     delta_time_s : float
         Solver physical time step in s.
     time_iterations : int
@@ -192,6 +200,9 @@ class TimeStepping:
         The stated pair, where the form was angular.
     rpm : float or None
         The rotor speed the conversion ran against.
+    run_wake : RunWakeLength or None
+        Where the row states ``RUN_WAKE_LENGTH_R`` (FR-422), the target wake
+        length and what resolved ``time_iterations`` from it; None otherwise.
     """
 
     stated_form: str
@@ -200,6 +211,7 @@ class TimeStepping:
     delta_theta_deg: float | None
     revolutions: float | None
     rpm: float | None
+    run_wake: RunWakeLength | None = None
 
     @property
     def steps_per_revolution(self) -> float | None:
@@ -328,8 +340,12 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         If both pairs or neither are stated; if one pair is stated half;
         or if the revolutions and the azimuthal step do not work out to
         a WHOLE number of time steps, which is refused naming the two
-        numbers and the nearest pair that does.
+        numbers and the nearest pair that does. A row stating
+        ``RUN_WAKE_LENGTH_R`` is resolved, and refused, by
+        :func:`_run_wake_stepping` (FR-422).
     """
+    if _variable(case, RUN_WAKE_LENGTH_R_VARIABLE) is not None:
+        return _run_wake_stepping(case, speed)
     angular = {
         key: _variable(case, key)
         for key in (DELTA_THETA_VARIABLE, REVOLUTIONS_VARIABLE)
@@ -403,25 +419,13 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     revolutions = _required_float(
         case, REVOLUTIONS_VARIABLE, quantity="run length", unit="revolutions"
     )
-    if theta <= 0.0 or theta > 360.0:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} declares {DELTA_THETA_VARIABLE} as {theta}, and an "
-            "azimuthal step is a positive angle no larger than a whole revolution. A "
-            "step of 360 degrees resolves nothing inside one turn."
-        )
+    _refuse_an_azimuthal_step_outside_one_turn(case, theta)
     if revolutions <= 0.0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {REVOLUTIONS_VARIABLE} as {revolutions}, "
             "and a run turns for a positive number of revolutions."
         )
-    resolved = _own_speed(case, speed)
-    if resolved.rpm == 0.0:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} resolves a rotor speed of zero, and a degree of "
-            "rotation has no duration on a rotor that does not turn. State the clock "
-            f"as {DELTA_TIME_VARIABLE} and {TIME_ITERATIONS_VARIABLE} if this run "
-            "really is stationary."
-        )
+    resolved = _turning_speed(case, speed)
     # One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm)
     # seconds. The magnitude is what sets the clock: a rotor turning the
     # other way takes the same time to sweep the same angle.
@@ -459,6 +463,120 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         revolutions=revolutions,
         rpm=resolved.rpm,
     )
+
+
+def _refuse_an_azimuthal_step_outside_one_turn(case: SimCase, theta: float) -> None:
+    """Refuse a ``DELTA_THETA`` that is not a positive angle of at most one turn."""
+    if theta <= 0.0 or theta > 360.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {DELTA_THETA_VARIABLE} as {theta}, and an "
+            "azimuthal step is a positive angle no larger than a whole revolution. A "
+            "step of 360 degrees resolves nothing inside one turn."
+        )
+
+
+def _turning_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
+    """Return this case's rotor speed, refusing a rotor that does not turn."""
+    resolved = _own_speed(case, speed)
+    if resolved.rpm == 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} resolves a rotor speed of zero, and a degree of "
+            "rotation has no duration on a rotor that does not turn. State the clock "
+            f"as {DELTA_TIME_VARIABLE} and {TIME_ITERATIONS_VARIABLE} if this run "
+            "really is stationary."
+        )
+    return resolved
+
+
+def _run_wake_length_r(case: SimCase) -> float:
+    """Return the row's ``RUN_WAKE_LENGTH_R``, refusing a second run length or a bad value.
+
+    FR-422 R1: a row states its run length once, so the key beside
+    ``TIME_ITERATIONS`` or ``REVOLUTIONS`` is refused naming both; the length
+    is a positive number of rotor radii.
+    """
+    counts = [
+        key
+        for key in (TIME_ITERATIONS_VARIABLE, REVOLUTIONS_VARIABLE)
+        if _variable(case, key) is not None
+    ]
+    if counts:
+        named = " and ".join(counts)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {RUN_WAKE_LENGTH_R_VARIABLE} and {named}, and "
+            f"each states the run length: {RUN_WAKE_LENGTH_R_VARIABLE} works the step "
+            "count out from the wake length, so a second count is a second number nobody "
+            f"keeps in agreement with it. Remove {named}, or remove "
+            f"{RUN_WAKE_LENGTH_R_VARIABLE}."
+        )
+    length = _required_float(
+        case, RUN_WAKE_LENGTH_R_VARIABLE, quantity="target wake length", unit="rotor radii"
+    )
+    if length <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {RUN_WAKE_LENGTH_R_VARIABLE} as {length:g}, and "
+            "a wake length is a positive number of rotor radii. State a positive length."
+        )
+    return length
+
+
+def _run_wake_step(case: SimCase, rpm: float) -> tuple[float, float | None]:
+    """Return the step in seconds and in degrees (None for seconds) of a run-wake row."""
+    steps = [
+        key
+        for key in (DELTA_THETA_VARIABLE, DELTA_TIME_VARIABLE)
+        if _variable(case, key) is not None
+    ]
+    if len(steps) != 1:
+        stated = f"both {' and '.join(steps)}" if steps else "neither"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {RUN_WAKE_LENGTH_R_VARIABLE} and {stated} of "
+            f"{DELTA_THETA_VARIABLE} and {DELTA_TIME_VARIABLE}, and the step count is "
+            "worked out against exactly one time step. State "
+            f"'{DELTA_THETA_VARIABLE}: <deg>' or '{DELTA_TIME_VARIABLE}: <s>', one of the two."
+        )
+    if steps == [DELTA_THETA_VARIABLE]:
+        theta = _required_float(
+            case, DELTA_THETA_VARIABLE, quantity="azimuthal step", unit="degrees"
+        )
+        _refuse_an_azimuthal_step_outside_one_turn(case, theta)
+        return theta / (6.0 * abs(rpm)), theta
+    delta_time_s = _required_float(
+        case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
+    )
+    if delta_time_s <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {DELTA_TIME_VARIABLE} as {delta_time_s:g}, and a "
+            "time step is a positive number of seconds. State a positive step."
+        )
+    return delta_time_s, None
+
+
+def _run_wake_stepping(case: SimCase, speed: RotorSpeed | None) -> TimeStepping:
+    """Resolve the clock of a row stating ``RUN_WAKE_LENGTH_R`` (FR-422).
+
+    The step is the row's one ``DELTA_THETA`` or ``DELTA_TIME``; the count is
+    ``ceil(L R Omega / (V_ax dtheta))`` from :func:`run_wake_length`, the
+    conversion and the axial velocity rule of the wake termination, with
+    Omega and dtheta from the same clock arithmetic. Every reader of the
+    clock (the script, the export threshold, the averaging window, the plan
+    and the cost table) reads the resolved count, because they all read it
+    from here (FR-415 R6).
+    """
+    length = _run_wake_length_r(case)
+    resolved = _turning_speed(case, speed)
+    delta_time_s, theta = _run_wake_step(case, resolved.rpm)
+    clock = TimeStepping(
+        stated_form="run_wake_length",
+        delta_time_s=delta_time_s,
+        time_iterations=0,
+        delta_theta_deg=theta,
+        revolutions=None,
+        rpm=resolved.rpm,
+    )
+    omega, dtheta = _clock_rates(clock.rpm, clock.delta_time_s, clock.steps_per_revolution)
+    wake = run_wake_length(case, length, omega=omega, dtheta=dtheta)
+    return replace(clock, time_iterations=wake.time_iterations, run_wake=wake)
 
 
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
