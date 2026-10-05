@@ -262,6 +262,13 @@ _DIMENSIONLESS_OR_DEBT = {
     # `wake_edges.tolerance_unit()` reports out of the command database.
     # A `_m` suffix here would be a claim the command does not make.
     "tolerance",
+    # 0.37.0 (FR-423), two 26.125 setup values. A coupling convergence
+    # threshold, dimensionless as `convergence` is: the manual (SRC-753
+    # p.390) states it with no unit, default 1E-3.
+    "aeroelastic_convergence_threshold",  # SolverSettings
+    # A PERCENTAGE of the cross-section curve's length, a ratio, so no SI
+    # suffix exists; `_pct` as in drift_limit_pct (SRC-753 p.298).
+    "te_blend_length_pct",  # CcsImportOptions
 }
 
 #: Class (c): REGISTERED unit debt, closed, each entry naming its unit. These
