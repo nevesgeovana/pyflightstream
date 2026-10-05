@@ -133,7 +133,10 @@ campaign, each by one probe of `reports/compat/CMP-26125_2026-10-05_probe-campai
 on the package's own synthetic test blade (`30_BLADE.fsm` of the tier-3
 inputs), steady, 30 m/s, five iterations, far field 5. The files stayed on the
 measuring machine; each is named here by its sha256 and its lines are quoted
-as the solver wrote them, without their CRLF line ends.
+as the solver wrote them, without their CRLF line ends. The campaign folder is
+kept on the measuring machine (`campaign/shard1/26.125/<probe>/`, the
+probe-campaign working folder of CMP-26125_2026-10-05), and the sources stay
+there.
 
 ### The sweep spreadsheet (W3-1)
 
