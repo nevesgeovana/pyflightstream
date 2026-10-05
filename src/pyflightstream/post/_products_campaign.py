@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
+from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip

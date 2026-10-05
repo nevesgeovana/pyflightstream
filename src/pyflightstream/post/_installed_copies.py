@@ -36,6 +36,7 @@ __all__: list[str] = []
 
 #: The suffix of a reusable inflow profile, and of its installed copy.
 INFLOW_SUFFIX = ".inflow.dat"
+INSTALLED_KIND = "installed_frame"
 _INSTALLED_INFLOW_SUFFIX = ".inflow_installed.dat"
 #: The six columns of a reusable inflow profile, which has no header line.
 _PROFILE_COLUMNS = ("X", "Y", "Z", "VX", "VY", "VZ")
@@ -86,7 +87,7 @@ def _entry(ctx: SimContext, written: Path, source: Path, point_name: str) -> Non
         written,
         {
             "runs": ctx.sources[point_name],
-            "kind": "installed_frame",
+            "kind": INSTALLED_KIND,
             "source": source.relative_to(ctx.out).as_posix(),
         },
     )

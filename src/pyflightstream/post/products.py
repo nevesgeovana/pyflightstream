@@ -132,6 +132,7 @@ from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_fact
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
 from pyflightstream.post._products_campaign import (
+    INSTALLED_KIND,
     SETTINGS_KIND,
     _admit_campaign_records,
     _CampaignProducts,
@@ -1384,7 +1385,7 @@ def _retire_optional_products(
 
 
 #: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND,)
+_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND)
 
 
 def _prepare_campaign_rebuild(
