@@ -30,7 +30,7 @@ from pyflightstream.versions import known_versions, manual_editions, resolve
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 
 #: Twelve of the thirteen commands SRC-753 is the first edition to document; the
-#: thirteenth, SET_DIRECT_AEROELASTIC_MESH_MORPHING, is item S6's (FR-341).
+#: thirteenth, SET_DIRECT_AEROELASTIC_MESH_MORPHING, is item S6's.
 NEW_IN_26125 = (
     "ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE",
     "ASSIGN_SELECTED_CURVES_TO_CCS_REVOLVE_BODY",
@@ -92,10 +92,10 @@ def test_the_registry_knows_26125_with_its_printed_release_and_build():
 
 @pytest.mark.requirement("FR-423")
 def test_every_command_carries_a_26125_row_or_a_documented_absence():
-    """P0370-S10-STATUSES (FR-423): 380 rows from the reading; the absent are accounted for.
+    """P0370-S10-STATUSES (FR-423): 381 rows including S6; absences are accounted for.
 
-    379 documented rows (the commands SRC-753 documents but the one item S6
-    enters, FR-341) and the removed row of
+    380 documented rows, including the direct morphing command item S6
+    enters, and the removed row of
     the renamed SET_OUTFLOW_TRAILING_EDGES. Every command without a row is one
     SRC-753 stopped printing, named in the edition's registration, or one
     neither SRC-752 nor SRC-753 prints and 26.124 does not answer either.
@@ -106,8 +106,9 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
         for name, e in registry.commands.items()
         if "26.125" in e.versions
     }
-    assert len(rows) == 380
-    assert sum(row.status is Status.DOCUMENTED for row in rows.values()) == 379
+    assert len(rows) == 381
+    assert sum(row.status is Status.DOCUMENTED for row in rows.values()) == 380
+    assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
     for name in DROPPED_BY_26125:
