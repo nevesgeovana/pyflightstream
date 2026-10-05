@@ -254,6 +254,11 @@ def test_deflected_nodes_are_refused_naming_the_measured_gap_fr_341():
     said = str(caught.value)
     assert "DEFLECTED" in said and "already deflected" in said and "morphing = 'direct'" in said
     assert "RPT-" not in said
+    # The refused value is no value of the route: the type offers the two it takes.
+    schema = FsiConfig.model_json_schema()["properties"]["morphing"]
+    assert schema["enum"] == ["mapped", "direct"], schema
+    with pytest.raises(ValidationError, match="'mapped' or 'direct'"):
+        FsiConfig.model_validate({**plain.model_dump(), "morphing": "deflected"})
 
 
 @pytest.mark.parametrize(

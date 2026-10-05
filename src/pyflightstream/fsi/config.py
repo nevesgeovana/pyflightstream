@@ -648,7 +648,7 @@ class FsiConfig(BaseModel):
     phases: PhaseSchedule = Field(default_factory=PhaseSchedule)
     node_map_file: str = "fsi_node_map.json"
     wing: FixedWing | None = None
-    morphing: Literal["mapped", "direct", "direct_deflected"] = MAPPED_MORPHING
+    morphing: Literal["mapped", "direct"] = MAPPED_MORPHING
 
     @model_serializer(mode="wrap")
     def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
@@ -664,10 +664,15 @@ class FsiConfig(BaseModel):
             data.pop("morphing", None)
         return data
 
-    @model_validator(mode="after")
-    def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
-        """Refuse the direct routes the measurement did not close (FR-341 R4)."""
-        if self.morphing == DIRECT_MORPHING_DEFLECTED:
+    @model_validator(mode="before")
+    @classmethod
+    def _deflected_morphing_is_explained(cls, data: object) -> object:
+        """Refuse the direct route the measurement did not close, saying why (FR-341 R4).
+
+        ``direct_deflected`` is not a value of the route; it is read before the
+        route's type so the refusal explains it rather than listing the values.
+        """
+        if isinstance(data, dict) and data.get("morphing") == DIRECT_MORPHING_DEFLECTED:
             raise ValueError(
                 "morphing = 'direct_deflected' is not offered: with DEFLECTED aerodynamic "
                 "nodes the solver of build 26.125 placed the surface as written after the "
@@ -676,6 +681,11 @@ class FsiConfig(BaseModel):
                 "Use morphing = 'direct' (RIGID nodes, where two coupling cycles moved the "
                 "surface exactly as written) or leave morphing out (the mapped route)."
             )
+        return data
+
+    @model_validator(mode="after")
+    def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
+        """Refuse direct morphing on a fixed wing, which couples through its nodes (FR-341)."""
         if self.morphing == DIRECT_MORPHING and self.wing is not None:
             raise ValueError(
                 "morphing = 'direct' couples a quasi-steady rotor sector; a fixed wing "
