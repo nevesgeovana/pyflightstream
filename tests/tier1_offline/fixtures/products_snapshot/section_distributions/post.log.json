@@ -14,6 +14,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "series/AL-020_probes_series.csv",
    "product": "series/AL-020_probes_series.csv",
    "message": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table",

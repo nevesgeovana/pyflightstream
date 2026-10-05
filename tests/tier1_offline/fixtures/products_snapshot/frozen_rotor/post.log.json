@@ -78,6 +78,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "sections/AL-020_sloads#distributions",
    "product": "sections/AL-020_sloads#distributions",
    "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",

@@ -3,5 +3,7 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
+INFO point=camp/sim_7001/AL-020 product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
+INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=probes/AL-020_probes.csv#points_file=survey.txt product=probes/AL-020_probes.csv#points_file=survey.txt: probe profile 'survey.txt' was sampled as an instant by pyflightstream 0.24.0; no fluid-plots history was recorded for these probes. Posting again cannot create history; a new run is needed. Drawn probes keep their available history. Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=probes/AL-020_time_average.csv product=probes/AL-020_time_average.csv: the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states. Remedy: restore the required data or correct the stated inputs and post again.

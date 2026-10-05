@@ -9665,7 +9665,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Evidence (offline only; the box stays pending with FR-417, whose licensed confirmation is owed): `tests/tier1_offline/test_p0370_s5_normal_inflow.py::test_p0370_s5_normal_entry_records_the_steady_layout`, `::test_p0370_s5_normal_inflow_equals_the_steady_routes`, `::test_p0370_s5_unsteady_inflow_entry_keeps_its_history_route`. The inflow of a recorded unsteady point is compared value for value with the steady route's from the same probe values. No time average exists on this route to mutate; the mutants that post the normal entry through the per-step fluid-plot history or drop the last time step fail it.
 
-!!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-pending'>pending</span>"
+!!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.07 (0.37.0).
 
     *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 ("vamos puxar apenas 1 e 2"); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
@@ -9674,13 +9674,15 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Requirement: Unless the pproc states `[products] settings_codebook = false` (the default is true, the owner's decision of 2026-10-05: "deixa o codebook ligado por padrao"), the post writes, per matrix, `settings/<matrix>_settings.csv` (one numeric row per point) and its codebook `settings/<matrix>_settings.codebook.json` (the legend from each numeric code to the setting's name and value, as the settings-codebook page documents) from the solver-setup snapshot of every recorded point that has one, through the library writer `write_settings_table`.
 
-    - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (the owner's decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot is named in `skipped` and in `post.log`, never a blank row.
+    - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (the owner's decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot has no row and is named by one INFO line in `post.log`, never a blank row and never a recorded skip (a default-on product must not turn `--strict` red on a workspace whose records predate the snapshot); if no point has a snapshot the two files are not written and `post.log` says so once.
     - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
-    - R3 With the key false, the post writes nothing new and its products are byte-identical to 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by her decision.
+    - R3 With the key false, the post writes nothing new and its products are byte-identical against 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by her decision.
 
-    Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot.
+    Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot (an INFO line, no skip, `--strict` stays green; a mutant recording it as a skip fails).
 
-!!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-pending'>pending</span>"
+    Evidence: `test_the_table_has_one_row_per_point_read_from_its_record`, `test_the_legend_carries_the_version_and_the_key_of_every_row`, `test_both_files_are_in_the_manifest_with_the_runs_they_derive_from`, `test_the_key_absent_is_on_and_false_changes_no_byte_of_0_36_0`, `test_a_point_without_a_snapshot_has_no_row_and_one_info_line_and_no_skip`, `test_no_snapshot_anywhere_writes_neither_file_and_says_so_once`, `test_strict_counts_no_settings_skip_for_records_that_predate_the_snapshot` and `test_a_rebuild_replaces_the_pair_and_a_key_withdrawn_retires_it` in `tests/tier1_offline/test_p0370_s7_codebook.py`; the products snapshot regenerated for the default, and `scripts/check_parity.py` naming the difference.
+
+!!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.08 (0.37.0).
 
     *Origin: GEO-070 candidate "Declarar cópia de tabelas no frame instalado pelo pproc", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
@@ -9696,6 +9698,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R5 The copy is the isolated-frame table mirrored, blade k staying blade k; it holds where the installed configuration is the mirror image of the simulated one, and it asserts nothing about a flow that is not (a wake, a body or a rotor that is not mirror-symmetric).
 
     Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`, carrying P0370-S8-INSTALLED-INFLOW (FR-420): a planted point at +y appears at -y with its VY negated and its vorticity's x and z negated (the assertion that the identity cannot pass); mirroring twice returns the source; a planted unknown column is copied and named once; a mutant dropping one column from the list fails the page comparison; the manifest entries.
+
+    Evidence: `test_a_probe_at_plus_y_appears_at_minus_y_with_its_velocity_mirrored`, `test_the_inflow_profile_is_mirrored_through_y_zero`, `test_the_vorticity_negates_its_x_and_z_and_keeps_y`, `test_mirroring_twice_returns_the_source`, `test_a_column_the_classification_cannot_place_is_copied_and_named_once`, `test_the_manifest_names_each_copy_and_its_source`, `test_with_the_key_empty_or_absent_nothing_new_is_written`, `test_a_family_the_post_does_not_mirror_is_refused_where_the_pproc_is_read`, `test_the_classification_list_is_the_definitions_page_with_the_flow_columns`, `test_the_reference_chord_is_not_a_roll_coefficient` and `test_to_installed_frame_now_mirrors_the_flow_columns_of_a_table_that_carries_them` in `tests/tier1_offline/test_p0370_s8_installed.py`.
 
 !!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.09 (0.37.0).

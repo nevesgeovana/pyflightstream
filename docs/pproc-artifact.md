@@ -78,6 +78,8 @@ polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
 custom_polar_format = false    # beside each polar table, the text file the reference tooling opens
+settings_codebook = true          # per matrix, the numeric settings table of every point and its codebook
+installed_frame = []              # "probes" and/or "inflow": copies mirrored through y = 0
 
 [phase_locked]                 # OPTIONAL: the phase-locked table becomes one row per azimuth
 min_revolutions = 4.0          # generated when the row turns AT LEAST this many revolutions
@@ -580,6 +582,33 @@ every existing workspace keeps. THE COLUMNS AND THE VALUES ARE THE SAME in both:
 it is a second rendering of one table, never a second product. An unsteady simulation has no super file of
 its own, its content rides in `P<sim>_<name>_uns_avg.csv`, so the key has nothing
 to format there.
+
+### The settings table and its codebook
+
+`[products] settings_codebook` is **true by default**: the post writes, per matrix,
+`settings/<matrix>_settings.csv` (one row per point, opening with `POL` and `RUN_ID`, the rest
+numeric) and `settings/<matrix>_settings.codebook.json` beside it,
+from the solver-setup snapshot of every recorded point (FR-419). State
+`settings_codebook = false` to write neither; the products are then those of 0.36.0
+byte for byte. A point whose record holds no snapshot has no row and one INFO line in `post.log`
+(not a skip); with no snapshot at all neither file is written. The encoding is the
+[settings codebook](settings-codebook.md#the-campaign-product) page.
+
+### Installed-frame copies of the inflow tables
+
+`[products] installed_frame` is a list of families, from `"probes"` and `"inflow"`, empty by
+default (any other name is refused when the pproc is read, naming these two). For `"probes"` the
+post writes `probes/<point>_probes_installed.csv` beside each probes table; for `"inflow"` it
+writes `fields/<stem>.inflow_installed.dat` beside each reusable inflow profile. Each copy is the
+table mirrored through `y = 0`, for a rotor installed on the other side of the plane from the one
+simulated: the `Y` position and the `VY` velocity change sign, so does the x and z of a vorticity,
+and every other column is copied as written (FR-420). The columns, and the classes that decide
+them, are in [the installed-frame copy of a product
+table](post-processing-definitions.md#the-installed-frame-copy-of-a-product-table). A column the
+classification cannot place is copied unchanged and named once per simulation in `post.log`. The
+copy holds where the installed configuration is the mirror image of the simulated one, and asserts
+nothing about a flow that is not (a wake, a body or a rotor that is not mirror-symmetric). Each
+copy is listed in `products.json` with kind `installed_frame` and its source table in `source`.
 
 ### Custom polar format
 

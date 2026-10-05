@@ -436,17 +436,17 @@ CX = "-. The axial force coefficient of the airframe, in the MRP frame"
 [names]
 CL_WING = "CL_W"
 
-# Which products are written after the run.
-[products]
+[products]  # Which products are written after the run.
 polars = true
 sections = true
 plots = true
 custom_polar_format = false
-# Raw native integral quantities at declared cuts, with source-cell provenance.
+# Raw native integrals at declared cuts; the distinct velocity profile is refused where unavailable.
 boundary_layer_integrals = false
-# Distinct velocity profile; unavailable builds are refused explicitly.
 boundary_layer_velocity_profile = false
 superfile_format = "csv"
+settings_codebook = true
+installed_frame = []  # "probes" and/or "inflow": copies mirrored through y = 0
 """
 
 _SURFACE_PROBE_EXAMPLE = """\

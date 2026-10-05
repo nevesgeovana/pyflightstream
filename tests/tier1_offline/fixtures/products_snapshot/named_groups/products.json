@@ -54,6 +54,22 @@
    "steps_per_revolution": 2.0,
    "rotor": "PUSHER"
   },
+  "settings/matriz_settings.csv": {
+   "kind": "settings_codebook",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000",
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "settings/matriz_settings.codebook.json": {
+   "kind": "settings_codebook",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000",
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
   "polars/SUPER-6001-M200RE1177AL+sweepBE+000_PUSHER.csv": {
    "sim_id": "6001",
    "pproc": "p001",

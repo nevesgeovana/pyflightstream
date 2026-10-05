@@ -54,6 +54,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "probes/AL-020_phase_locked.csv",
    "product": "probes/AL-020_phase_locked.csv",
    "message": "case '7001' turns 2 rotors, so one blade passage of the ROW has no length: the per-rotor files are probes/AL-020_phase_locked_LIFT_L1.csv and probes/AL-020_phase_locked_PUSHER.csv.",

@@ -587,7 +587,13 @@ def _skipped_besides_the_axes(manifest) -> dict:
     plotted none. The synthetic plots of this module carry no force, so that entry is
     always there; what these tests measure is that NOTHING ELSE is skipped.
     """
-    return {key: why for key, why in manifest["skipped"].items() if not key.endswith("#axes")}
+    # The settings table (FR-419) names a record that holds no solver-setup snapshot, which
+    # these hand-written records never carry; it is measured in test_p0370_s7_codebook.py.
+    return {
+        key: why
+        for key, why in manifest["skipped"].items()
+        if not key.endswith("#axes") and not key.startswith("settings/")
+    }
 
 
 def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):

@@ -4,16 +4,20 @@
  "extracted/additional/p002/sections/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
  "extracted/archive/<STAMP>/post.log": "21fe0afd06a2923a18f8e6a63dd10605901d48bce4c411cbd6558a3feb97a074",
  "extracted/archive/<STAMP>/post.log.json": "0ad1ef9ea6b0cc924efa40b2b4046ed4f9e7c2a43bda3ae53dae44715511f189",
- "extracted/archive/<STAMP>/products.json": "2e03214162f3499c294a81b5b1a033b115591bb8597f2e40ea7c57cdf04081df",
+ "extracted/archive/<STAMP>/products.json": "806c44bbf4f7397515feb7dd4b548002c5b182c98a010561e14f29931cf06c71",
  "extracted/polars/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
  "extracted/polars/SUPER-3207-M200RE230AL+sweep_g01.csv": "42befceba04223c631b11164e8d7bb802778716055f2a73a5958055eb76e1254",
  "extracted/polars/archive/<STAMP>/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
  "extracted/polars/archive/<STAMP>/SUPER-3207-M200RE230AL+sweep_g01.csv": "42befceba04223c631b11164e8d7bb802778716055f2a73a5958055eb76e1254",
  "extracted/post.log": "21fe0afd06a2923a18f8e6a63dd10605901d48bce4c411cbd6558a3feb97a074",
  "extracted/post.log.json": "0ad1ef9ea6b0cc924efa40b2b4046ed4f9e7c2a43bda3ae53dae44715511f189",
- "extracted/products.json": "09ba31bc9ef0220db782c8f4fd40eb24fb883a052dc0197a31849a3de3c23f65",
+ "extracted/products.json": "f12c4e4bc9d8694f9d635bece0998165b93fefc3357b81ab145f76c960791477",
  "extracted/sections/P3207-M200RE230AL+000_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
  "extracted/sections/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
  "extracted/sections/archive/<STAMP>/P3207-M200RE230AL+000_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
- "extracted/sections/archive/<STAMP>/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f"
+ "extracted/sections/archive/<STAMP>/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/settings/archive/<STAMP>/extracted_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
+ "extracted/settings/archive/<STAMP>/extracted_settings.csv": "1667a3457a0091958c773e4778d2d3522798cf600f238f83a7583e44c9653018",
+ "extracted/settings/extracted_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
+ "extracted/settings/extracted_settings.csv": "1667a3457a0091958c773e4778d2d3522798cf600f238f83a7583e44c9653018"
 }

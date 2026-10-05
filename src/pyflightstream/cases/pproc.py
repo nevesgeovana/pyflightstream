@@ -1220,6 +1220,11 @@ class ProbesSpec(BaseModel):
 #: than accepted and ignored; the writer stayed, and this release resumes from it.
 SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
 
+#: The families ``[products] installed_frame`` may name (FR-420): the probes table
+#: and the reusable inflow profile. ONE HOME, read by the validator below and by
+#: the post stage, so a family cannot be accepted by one and ignored by the other.
+INSTALLED_FRAME_FAMILIES: tuple[str, ...] = ("probes", "inflow")
+
 
 class ProductsSpec(BaseModel):
     """The ``[products]`` table: which post-processed CSV tables the campaign writes.
@@ -1249,6 +1254,12 @@ class ProductsSpec(BaseModel):
         custom polar format.
     superfile_format : str
         The format the super file is written in.
+    settings_codebook : bool
+        Writes, per matrix, the all-numeric settings table of every recorded
+        point and its codebook under ``settings/`` (FR-419). On by default.
+    installed_frame : list of str
+        The families of table copied mirrored through y = 0 beside their
+        source, from ``{"probes", "inflow"}`` (FR-420). Empty by default.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1263,6 +1274,26 @@ class ProductsSpec(BaseModel):
     #: A separate wall-normal velocity profile request. Unavailable until a build
     #: proves unattended EXPORT_BL_VELOCITY_PROFILE execution (RPT-027/RPT-075).
     boundary_layer_velocity_profile: bool = False
+    #: FR-419: the numeric settings table of the campaign and its legend. ON by
+    #: default (the owner's decision of 2026-10-05); ``false`` turns it off and
+    #: writes what 0.36.0 wrote.
+    settings_codebook: bool = True
+    #: FR-420: the families whose tables are also written mirrored through y = 0.
+    #: The accepted names are :data:`INSTALLED_FRAME_FAMILIES`, refused where the
+    #: pproc is read.
+    installed_frame: list[str] = Field(default_factory=list)
+
+    @field_validator("installed_frame")
+    @classmethod
+    def _a_family_the_post_mirrors(cls, value: list[str]) -> list[str]:
+        """Refuse a family the post does not mirror, naming the accepted ones."""
+        unknown = [name for name in value if name not in INSTALLED_FRAME_FAMILIES]
+        if unknown:
+            raise ValueError(
+                f"installed_frame names {', '.join(map(repr, unknown))}, which the post does "
+                f"not mirror; the accepted families are {', '.join(INSTALLED_FRAME_FAMILIES)}"
+            )
+        return value
 
     @field_validator("boundary_layer_velocity_profile")
     @classmethod

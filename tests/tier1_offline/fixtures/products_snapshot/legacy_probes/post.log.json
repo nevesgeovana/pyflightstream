@@ -6,6 +6,22 @@
  "check_frozen": false,
  "records": [
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "probes/AL-020_probes.csv#points_file=survey.txt",
    "product": "probes/AL-020_probes.csv#points_file=survey.txt",
    "message": "probe profile 'survey.txt' was sampled as an instant by pyflightstream 0.24.0; no fluid-plots history was recorded for these probes. Posting again cannot create history; a new run is needed. Drawn probes keep their available history.",

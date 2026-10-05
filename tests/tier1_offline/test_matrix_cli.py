@@ -407,8 +407,10 @@ def test_strict_exits_zero_when_nothing_was_skipped(tmp_path, capsys):
     from tests.tier1_offline.test_post_products import LOADS
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
+    # The hand-written record carries no solver-setup snapshot, which the settings table
+    # (FR-419, on by default) would name as skipped; this test is about a clean rebuild.
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = "all"\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n\n[products]\nsettings_codebook = false\n', encoding="utf-8"
     )
     _record_a_converged_polar(workspace, "3207", {"alpha": -2.0}, LOADS)
     assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 0

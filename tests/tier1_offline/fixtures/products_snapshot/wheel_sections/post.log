@@ -6,6 +6,8 @@ check_frozen=False (refuse instead of warn)
 WARNING point=DP product=sections: THRUST_PCT_K_GT_0_1 reads NA: the total over the stations of rotor PROP is zero
 WARNING point=DP product=sections: TORQUE_PCT_K_GT_0_1 reads NA: the total over the stations of rotor PROP is zero
 WARNING point=DP product=sections/DP_harmonics.csv: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart
+INFO point=camp/sim_7001/DP product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
+INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=sections/DP_harmonics.csv#rotor=PROP#station=1 product=sections/DP_harmonics.csv#rotor=PROP#station=1: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=sections/DP_harmonics.csv product=sections/DP_harmonics.csv: no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=polars/P7001-PROP_qs_positions.csv product=polars/P7001-PROP_qs_positions.csv: these quasi-steady points are not rows of the clockings tables: DP: the point states no density Remedy: restore the required data or correct the stated inputs and post again.

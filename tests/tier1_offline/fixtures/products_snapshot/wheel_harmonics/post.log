@@ -9,6 +9,8 @@ WARNING point=campaign product=stage: sections/DP_cp_Blade3.csv not written: no 
 WARNING point=campaign product=stage: sections/DP_cp_Blade4.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
 WARNING point=campaign product=stage: sections/DP_cp_Blade5.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
 WARNING point=campaign product=stage: sections/DP_cp_Blade6.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
+INFO point=camp/sim_7001/DP product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
+INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=sections/DP_cp_Blade1.csv product=sections/DP_cp_Blade1.csv: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=sections/DP_cp_Blade2.csv product=sections/DP_cp_Blade2.csv: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=sections/DP_cp_Blade3.csv product=sections/DP_cp_Blade3.csv: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.

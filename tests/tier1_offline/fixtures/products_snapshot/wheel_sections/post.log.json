@@ -30,6 +30,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/DP",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "sections/DP_harmonics.csv#rotor=PROP#station=1",
    "product": "sections/DP_harmonics.csv#rotor=PROP#station=1",
    "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",

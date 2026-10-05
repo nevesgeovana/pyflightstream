@@ -14,6 +14,30 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_3207/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "camp/sim_3207/AL+020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "runs/camp/sim_3207/AL+020",
    "product": "runs/camp/sim_3207/AL+020",
    "message": "this run has status FAILED_EXECUTION and names no output file, so no product holds a row of it; collect it, or look at how it was submitted",

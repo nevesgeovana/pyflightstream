@@ -430,6 +430,22 @@
    "severity": "warning"
   },
   {
+   "point": "camp/sim_7001/AL-020",
+   "product": "settings/products_settings.csv",
+   "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
+   "point": "campaign",
+   "product": "settings/products_settings.csv",
+   "message": "no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written",
+   "remedy": null,
+   "category": "configuration",
+   "severity": "info"
+  },
+  {
    "point": "sections/AL-020_cp_Blade1.csv#step=1",
    "product": "sections/AL-020_cp_Blade1.csv#step=1",
    "message": "missing AL-020_cp_iteration=1.txt",

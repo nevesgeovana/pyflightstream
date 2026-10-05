@@ -29,7 +29,8 @@ the names its own stage code reads.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +117,11 @@ _POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=True)
 _POST_VERDICTS: ContextVar[dict[tuple[Path, bool], FrozenSolve | None] | None] = ContextVar(
     "post_verdicts", default=None
 )
+
+
+#: The INFO records of the post in progress (FR-419): what a post says in ``post.log``
+#: that is neither a warning nor a skip. None outside a post, where nothing is kept.
+_POST_NOTES: ContextVar[list[dict[str, str | None]] | None] = ContextVar("post_notes", default=None)
 
 
 def _judge_average(
@@ -435,6 +441,40 @@ def _log_record(
         "category": warning_category(product, message),
         "severity": severity,
     }
+
+
+@contextmanager
+def post_notes() -> Iterator[list[_LogRecord]]:
+    """Keep the INFO lines :func:`post_note` records in this context, and only here.
+
+    Yields
+    ------
+    list of dict
+        The records so far, filled as they are noted; the caller writes them to the log.
+    """
+    notes: list[_LogRecord] = []
+    token = _POST_NOTES.set(notes)
+    try:
+        yield notes
+    finally:
+        _POST_NOTES.reset(token)
+
+
+def post_note(point: str, product: str, message: str) -> None:
+    """Record one INFO line of ``post.log``: a fact of this post that is no warning and no skip.
+
+    Parameters
+    ----------
+    point, product : str
+        The point and the product the line is about.
+    message : str
+        The line, on one line.
+    """
+    notes = _POST_NOTES.get()
+    if notes is not None:
+        notes.append(
+            _log_record(point, product, " ".join(message.splitlines()), None, severity="info")
+        )
 
 
 def _warning_record(text: str) -> _LogRecord:

@@ -67,14 +67,16 @@ __all__ = [
 #: digit or the end of the name (so ``FY``, ``FY_BLADE1`` and ``CNB1`` match and
 #: ``FYZ`` does not). A force or moment component along y, a moment about x or
 #: z, the side and yaw coefficients, the sense of rotation and its derived
-#: quantities. ONE LIST: the definitions page states the same and a test holds
-#: them equal.
+#: quantities, and (FR-420) the flow columns of the probes table and of
+#: the inflow profile: the ``Y`` position, the velocity component ``VY`` and the
+#: x and z components of the vorticity. ONE LIST: the definitions page states the same
+#: and a test holds them equal.
 FLIPPED_COLUMNS: tuple[str, ...] = (
     "FY",
     "MX",
     "MZ",
     "CY[A-Z]*",
-    "CR[A-Z]*",
+    "CR(?!EF)[A-Z]*",
     "CN[BSW]\\d*",
     "CMX",
     "CMZ",
@@ -83,6 +85,9 @@ FLIPPED_COLUMNS: tuple[str, ...] = (
     "BETA",
     "CS",
     "CMN",
+    "Y",
+    "VY",
+    "VORTICITY_[XZ]",
 )
 
 #: The columns the mirror maps by ``psi -> -psi (mod 360)``, matched
@@ -177,8 +182,11 @@ def to_installed_frame(
 
     The installed frame is the isolated one mirrored through ``y = 0``: the
     columns of :data:`FLIPPED_COLUMNS` (and those named in ``flip``) change
-    sign, the azimuths of :data:`AZIMUTH_COLUMNS` map ``psi -> -psi mod 360``,
-    every other cell is copied as written. Blade and family names do not
+    sign (a position along y, a polar vector's y component, an axial vector's x
+    and z components), the azimuths of :data:`AZIMUTH_COLUMNS` map
+    ``psi -> -psi mod 360``, every other cell is copied as written. The list
+    holds the ``Y`` position, ``VY`` and the vorticity's x and z columns, so a
+    table carrying them is mirrored there too. Blade and family names do not
     change: blade ``k`` of the image wheel (at ``+(k - 1) 60`` degrees on a
     six-blade wheel) is blade ``k`` of the installed wheel (at ``-(k - 1)
     60``). A rotor table may open with ONE alias line with no comma, which is

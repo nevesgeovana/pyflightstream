@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
+from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
+from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
@@ -23,6 +25,7 @@ from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
+    from pyflightstream.cases.pproc import PprocSpec
     from pyflightstream.post.superfile import SuperfileDraft
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
@@ -48,6 +51,9 @@ class _CampaignProducts:
     archive_stamp: datetime | None
     check_frozen: bool
     partial: _PartialPost | None
+    #: The pproc each simulation followed (None where it could not be resolved),
+    #: filled as the simulations are written, for the products that span them.
+    pprocs: dict[str, PprocSpec | None] = field(default_factory=dict)
 
 
 def _index_record_surfaces(
