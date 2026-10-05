@@ -99,6 +99,9 @@ from pyflightstream.post.point_tables import (
     write_unsteady_probes_table,
 )
 from pyflightstream.post.polar import (
+    POLAR_COLUMNS as POLAR_COLUMNS,
+)
+from pyflightstream.post.polar import (
     PolarPoint,
     drag_columned_rows,
     drag_columns_of,
