@@ -999,20 +999,9 @@ _AD06_RESIDUALS = {
 #: line in a file this session did not own; the fix is in the handover, and
 #: the entry goes stale and fails the moment it lands.
 _UNREACHABLE_FROM_ITS_PACKAGE_ROOT = {
-    "pyflightstream.post.settings_table": (
-        "post/__init__.py mentions it in its docstring and imports nothing from "
-        "it; the re-export is owed and this entry goes stale the moment it lands"
-    ),
-    # 0.32.0: two library modules that no module of the package imports, by
-    # the architecture record (docs/srs/architecture-srs.md, the post row and
-    # "The inflow tools"), which test_p0320_arch_review.py pins as having no
-    # caller. Re-exporting them from post/__init__.py would contradict that
-    # record, so each is listed until a command or a stage calls it.
-    "pyflightstream.post.inflow_tools": (
-        "library functions no command calls in 0.32.0, reached from Python only "
-        "(P0320-ARCH-INFLOW); the entry closes when a command wires the installed "
-        "frame or the blade-view harmonics"
-    ),
+    # 0.37.0: settings_table and inflow_tools left this list when the settings
+    # codebook product (item S7) and the installed-frame copies (item S8) made the
+    # post stage import them.
     "pyflightstream.post.qsteady_noise": (
         "the exploratory noise model, not wired into the post stage and its report "
         "writer left unfilled (P0320-QS-NOISE, FR-304); the entry closes when the "
