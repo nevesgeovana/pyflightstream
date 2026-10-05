@@ -435,7 +435,7 @@ CommandNotInVersionError: CAD_CREATE_BOX has no recorded evidence
 for FlightStream 25.000. Recorded evidence: 26.100 (documented),
 26.101 (documented), 26.120 (documented), 26.121 (documented),
 26.122 (documented, inherited), 26.123 (documented),
-26.124 (documented).
+26.124 (documented), 26.125 (documented).
 \end{lstlisting}
   \begin{itemize}
     \item The refusal lists exactly what is known, per version, so you can decide: switch versions, or contribute the missing evidence.
@@ -1210,7 +1210,7 @@ rename_group_products(root, {1: "PUSHER"})
     \midrule
     AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to a hotfix build where the same probe passes; the compatibility matrix names which \\
     SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
-    NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123, 26.124 & use probe lattices for off-body data \\
+    NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123, 26.124, 26.125 & use probe lattices for off-body data \\
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\
     SOLVER\_TIME\_AVERAGING hangs the solver before it marches & 26.124 & never emitted since 0.28.0: the pproc's \code{[time\_averaging]} makes the package average the per-step surface exports itself, the average the solver computes on 26.122 (RPT-079) \\
     EXPORT\_BL\_VELOCITY\_PROFILE holds an unattended script & 26.124 & the boundary-layer thicknesses come from the VTK surface; the profile needs a person at the machine (RPT-075) \\
@@ -1221,6 +1221,7 @@ rename_group_products(root, {1: "PUSHER"})
     EXPORT\_REVOLVE\_CCS\_FILE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
     EXPORT\_FUSELAGE\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
     EXPORT\_WING\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
+    CREATE\_FREE\_SURFACE\_TFI\_MESH aborts the script & 26.125 & the documented call raised a modal error naming a perimeter curve with no virtual curves assigned; what the free surface needs first is not measured, so leave it out of a script, and the builder refuses it meanwhile \\
     \bottomrule
   \end{tabular}
   \vspace{2mm}
