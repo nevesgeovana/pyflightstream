@@ -64,6 +64,7 @@ EXECUTE_AEROELASTIC_ANALYSIS:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
   notes: >
     Runs the steady-state aeroelastic analysis. For unsteady coupling
     the manual instructs the regular solver execution with
@@ -87,6 +88,7 @@ ASSIGN_AEROELASTIC_SURFACES:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-090, RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
   notes: >
     Mesh boundaries whose deflections the toolbox interpolates; one
     index per line after the count, -1 selects all boundaries with no
@@ -123,6 +125,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
   notes: >
     Links user-defined coordinate systems for the aeroelastic
     interpolation, one index per line after the count.
@@ -166,6 +169,7 @@ IMPORT_AEROELASTIC_STRUCTURAL_NODES:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
   notes: >
     Imports the structural node list; the file is three comma
     separated columns X,Y,Z per node (SRC-003 p.274), interpreted in
@@ -183,6 +187,7 @@ DELETE_AEROELASTIC_STRUCTURAL_NODES:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
   notes: Deletes all imported structural nodes.
 
 SET_AEROELASTIC_WORKING_DIRECTORY:
@@ -199,6 +204,7 @@ SET_AEROELASTIC_WORKING_DIRECTORY:
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
     "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.382"}
   notes: >
     Runtime folder of the coupling: FlightStream writes FSIDisp.txt
     and the loads exports there and executes the runtime command
@@ -219,6 +225,7 @@ SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
     "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
   notes: >
     FlightStream script executed between FSI iterations, before the
     external executable; the documented mechanism for exporting the
@@ -239,6 +246,7 @@ SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
     "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
   notes: >
     Full command executed per coupling iteration in the working
     directory. The dry run observed a bare invocation: no arguments
@@ -257,6 +265,7 @@ SET_AEROELASTIC_ITERATIONS:
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
     "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
   notes: >
     Two-way coupling iterations: the total count in steady mode, the
     count per time step in unsteady mode (SRC-003 p.275).
@@ -275,6 +284,21 @@ SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
     "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
   notes: >
     Toggles the FSI execution inside the unsteady solver; with ENABLE
     the coupling runs on the regular solver start.
+
+SET_AEROELASTIC_CONVERGENCE_THRESHOLD:
+  layout: inline
+  phase: init
+  args:
+    - name: threshold
+      type: float
+  manual_ref: "SRC-753 p.390"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.390, the first edition to document it"}
+  notes: >
+    Sets the convergence threshold of an aeroelastic coupling run. The
+    page gives 1E-3 as the default and prints 1E-05 in its sample. First
+    documented by the 26.125 edition, at the end of the coupling chapter.

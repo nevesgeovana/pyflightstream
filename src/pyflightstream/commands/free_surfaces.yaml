@@ -1,0 +1,65 @@
+# Free Surfaces: the commands of the section of that name, first printed by
+# the 26.125 edition of the manual (SRC-753 p.338). No earlier edition has
+# the section, so every entry here carries a 26.125 row and no other.
+
+CREATE_FREE_SURFACE_TFI_MESH:
+  layout: inline
+  phase: geometry
+  args:
+    - name: z_offset
+      type: float
+      unit: "simulation length units"
+    - name: x_min
+      type: float
+      unit: "simulation length units"
+    - name: x_max
+      type: float
+      unit: "simulation length units"
+    - name: y_length
+      type: float
+      unit: "simulation length units"
+    - name: hull_points
+      type: int
+    - name: lateral_points
+      type: int
+  manual_ref: "SRC-753 p.338"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+  notes: >
+    Creates a free-surface mesh parallel to the XY plane of the reference
+    system: its height, its extent in X from the minimum to the maximum,
+    its lateral width, then the node counts along the hull (X) and across
+    the surface (Y). First documented by the 26.125 edition, in a Free
+    Surfaces section no earlier edition has. The lengths are in the
+    simulation's own unit, the only unit a mesh coordinate has; the page
+    states none.
+
+FREE_SURFACE_EXPORT_TYPE:
+  layout: inline
+  phase: export
+  args:
+    - name: type
+      type: enum
+      values: ["1", "2"]
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-753 p.338"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+  notes: >
+    Exports the free surface as a VTK file whose path follows on the next
+    line: type 1 writes the two-dimensional surface, type 2 the wave
+    elevation in three dimensions. First documented by the 26.125 edition.
+
+DELETE_FREE_SURFACE:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-753 p.338"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+  notes: >
+    Deletes the free surface. The page prints the bare name with no
+    parameter table and no sample. First documented by the 26.125
+    edition.

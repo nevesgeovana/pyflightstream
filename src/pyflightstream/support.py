@@ -61,7 +61,7 @@ import enum
 from pydantic import BaseModel, ConfigDict
 
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.script import Script
+from pyflightstream.script import Script, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -126,6 +126,13 @@ MINIMAL_WORKFLOW_COMMANDS: tuple[str, ...] = (
     "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
     "CLOSE_FLIGHTSTREAM",
 )
+
+#: A link of the minimal workflow that a build may write in another form
+#: (FR-423): 26.125's manual prints no automatic trailing-edge detection and
+#: documents the every-boundary form of the by-surface detection in its place.
+_LINK_ALTERNATIVES: dict[str, str] = {
+    "AUTO_DETECT_TRAILING_EDGES": "DETECT_TRAILING_EDGES_BY_SURFACE",
+}
 
 
 class VersionSupport(BaseModel):
@@ -230,7 +237,7 @@ def minimal_workflow(
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "STL", geometry, clear=True)
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    script.emit("AUTO_DETECT_TRAILING_EDGES")
+    helpers.detect_every_boundary(script, "trailing_edges")
     script.emit("SET_FREESTREAM", "CONSTANT")
     # Explicit properties rather than AIR_ALTITUDE: the altitude command
     # is recorded broken on 26.120 and would make the reference workflow
@@ -266,7 +273,12 @@ def minimal_workflow(
 def _workflow_gaps(version: FsVersion, registry: CommandRegistry) -> tuple[str, ...]:
     """Return the workflow commands this version cannot emit, in order."""
     view = registry.for_version(version)
-    return tuple(name for name in MINIMAL_WORKFLOW_COMMANDS if name not in view)
+    return tuple(
+        name
+        for name in MINIMAL_WORKFLOW_COMMANDS
+        if name not in view
+        and not helpers.takes_every_boundary(view, _LINK_ALTERNATIVES.get(name, name))
+    )
 
 
 def version_support(

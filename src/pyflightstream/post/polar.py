@@ -53,19 +53,23 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post.axes import polar_axis_coefficients
 from pyflightstream.post.point_tables import write_plots_table, write_sections_table
-from pyflightstream.results import LoadsReport, parse_loads
+from pyflightstream.results import DRAG_PAIRS, LoadsReport, drag_pair, parse_loads
 from pyflightstream.workspace.naming import group_token, sweep_file_stem
 
 __all__ = [
+    "DRAG_PRODUCT_COLUMNS",
     "GEOMETRY_ANALYSIS_FRAMES",
     "POLAR_COLUMNS",
     "SWEEP_AXES",
     "GroupCoefficients",
     "PolarPoint",
     "declined_induced_drag",
+    "drag_columned_rows",
+    "drag_columns_of",
     "group_coefficients",
     "group_polar_rows",
     "polar_row",
+    "polar_table_columns",
     "polar_table_rows",
     "swept_axes",
     "swept_polar_file_name",
@@ -116,6 +120,111 @@ POLAR_COLUMNS: tuple[str, ...] = (
     *COEFFICIENT_COLUMNS,
 )
 
+#: THE PRODUCT COLUMNS OF A DRAG SPLIT, by the loads columns they are summed from
+#: (FR-423), in the order the twenty-four place them: the profile or viscous part,
+#: then the induced or pressure part. Up to 26.124 the loads table prints
+#: ``CDi, CDo`` and the polar writes ``CD0, CDI``; 26.125 prints ``CDp, CDv``
+#: (SRC-753 pp.227, 229) and the polar writes ``CDV, CDP`` in the same two
+#: places. Each pair is carried under its own names: nothing here says the two
+#: splits measure the same quantities. A table holding rows of both builds
+#: carries both pairs, the absent one ``NA`` in each row.
+DRAG_PRODUCT_COLUMNS: dict[tuple[str, str], tuple[str, str]] = {
+    DRAG_PAIRS[0]: (COEFFICIENT_COLUMNS[-2], COEFFICIENT_COLUMNS[-1]),
+    DRAG_PAIRS[1]: ("CDV", "CDP"),
+}
+
+#: The split every build up to 26.124 prints, and the two cells of a split a
+#: row's loads table did not print.
+_LEGACY_DRAG: tuple[str, str] = DRAG_PRODUCT_COLUMNS[DRAG_PAIRS[0]]
+_NA_PAIR: tuple[float, float] = (math.nan, math.nan)
+
+
+def _drag_kinds(owned: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Return the splits a table's rows carry, in the order of :data:`DRAG_PRODUCT_COLUMNS`."""
+    return [kind for kind in DRAG_PRODUCT_COLUMNS.values() if kind in owned] or [_LEGACY_DRAG]
+
+
+def drag_columns_of(loads: LoadsReport) -> tuple[str, str]:
+    """Return the product columns of the drag split a loads table prints (FR-423).
+
+    Parameters
+    ----------
+    loads : LoadsReport
+        The parsed loads table.
+
+    Returns
+    -------
+    tuple of str
+        ``("CD0", "CDI")`` up to 26.124, ``("CDV", "CDP")`` on 26.125.
+    """
+    return DRAG_PRODUCT_COLUMNS[drag_pair(loads.total)]
+
+
+def drag_columned_rows(
+    rows: Sequence[Sequence[float]], drag_columns: Sequence[tuple[str, str]] | None = None
+) -> tuple[tuple[str, ...], list[tuple[float, ...]]]:
+    """Return the coefficient columns of a polar table and its rows under them (FR-423).
+
+    Every row of ``rows`` is twenty-four values wide, :func:`polar_row`'s, its
+    last two the drag split of its own loads table. A table whose rows all
+    carry one split names the last two columns after it, ``CD0, CDI`` or
+    ``CDV, CDP``, and its rows are unchanged. A table holding both carries both
+    pairs, in the order of :data:`DRAG_PRODUCT_COLUMNS`, each row ``NA`` (NaN)
+    under the pair its loads table did not print, never zero.
+
+    Parameters
+    ----------
+    rows : sequence of sequence of float
+        The coefficient rows, each :func:`polar_row`'s.
+    drag_columns : sequence of tuple of str, optional
+        The product columns of each row's split, :func:`drag_columns_of` of its
+        loads table; None is ``CD0, CDI`` for every row.
+
+    Returns
+    -------
+    tuple
+        The coefficient column names and the rows written under them.
+
+    Raises
+    ------
+    ProductError
+        If ``drag_columns`` does not hold one entry per row.
+    """
+    owned = [_LEGACY_DRAG] * len(rows) if drag_columns is None else list(drag_columns)
+    if len(owned) != len(rows):
+        raise ProductError(
+            f"the polar table was given {len(owned)} drag split(s) for {len(rows)} rows"
+        )
+    kinds = _drag_kinds(owned)
+    columns = (*COEFFICIENT_COLUMNS[:-2], *(name for kind in kinds for name in kind))
+    if len(kinds) == 1:
+        return columns, [tuple(row) for row in rows]
+    widened = [
+        (
+            *row[:-2],
+            *(value for kind in kinds for value in (row[-2:] if kind == own else _NA_PAIR)),
+        )
+        for row, own in zip(rows, owned, strict=True)
+    ]
+    return columns, widened
+
+
+def polar_table_columns(drag_columns: Sequence[tuple[str, str]] | None = None) -> tuple[str, ...]:
+    """Return the columns of a polar table whose rows carry these drag splits (FR-423).
+
+    Parameters
+    ----------
+    drag_columns : sequence of tuple of str, optional
+        The product columns of each row's split; None is :data:`POLAR_COLUMNS`.
+
+    Returns
+    -------
+    tuple of str
+        :data:`POLAR_COLUMNS` with its last two columns named after the splits.
+    """
+    kinds = _drag_kinds(list(drag_columns or ()))
+    return (*POLAR_COLUMNS[:-2], *(name for kind in kinds for name in kind))
+
 
 @dataclass(frozen=True)
 class GroupCoefficients:
@@ -152,6 +261,9 @@ class GroupCoefficients:
     families_used: tuple[str, ...]
     force: tuple[float, float, float] = (0.0, 0.0, 0.0)
     moment: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    #: The product columns ``drag_profile`` and ``drag_induced`` are written under
+    #: (FR-423): ``CD0, CDI`` up to 26.124, ``CDV, CDP`` on 26.125.
+    drag_columns: tuple[str, str] = (COEFFICIENT_COLUMNS[-2], COEFFICIENT_COLUMNS[-1])
 
 
 @dataclass(frozen=True)
@@ -264,19 +376,24 @@ def group_coefficients(
     selected: list[str] = []
     if families or empty_is_every:
         selected = select_group_members(families, list(loads.surfaces), aliases)
+    # THE SPLIT AS THE TABLE PRINTS IT (FR-423): ``CDi, CDo`` up to 26.124,
+    # ``CDp, CDv`` on 26.125, never one read under the other's name.
+    induced_key, profile_key = drag_pair(loads.total)
     for family in selected:
         row = loads.surfaces[family]
         used.append(family)
         # NOT COMPUTED IS NOT ZERO (PFS-2006.03): the printed 0.0 of a declined
         # surface stays in the parsed table, and no sum made here takes it.
-        cdi = math.nan if family in declined else row["CDi"]
-        drag += cdi + row["CDo"]
+        cdi = math.nan if family in declined else row[induced_key]
+        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: SRC-752 p.227
+        # states it of CDi and CDo, SRC-753 p.229 of CDp and CDv (FR-423).
+        drag += cdi + row[profile_key]
         side += row["Cy"]
         lift += row["CL"]
         roll -= row["CMx"] * cref / bref_m
         pitch += row["CMy"]
         yaw -= row["CMz"] * cref / bref_m
-        profile += row["CDo"]
+        profile += row[profile_key]
         induced += cdi
         for at, (f, m) in enumerate((("Cx", "CMx"), ("Cy", "CMy"), ("Cz", "CMz"))):
             force[at] += row[f]
@@ -285,6 +402,7 @@ def group_coefficients(
         drag, side, lift, roll, pitch, yaw, profile, induced, tuple(used),
         force=(force[0], force[1], force[2]),
         moment=(moment[0], moment[1], moment[2]),
+        drag_columns=DRAG_PRODUCT_COLUMNS[(induced_key, profile_key)],
     )  # fmt: skip
 
 
@@ -330,6 +448,11 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     tuple of str
         The names of the declined surfaces, in table order; empty when none.
     """
+    # THE RULE READS CDi ONLY (FR-423). SRC-003 p.202 says a declined surface
+    # prints its CDi as zero; no run has measured what 26.125 prints in its CDp
+    # for such a surface, so a table printing the 26.125 split declines nothing.
+    if DRAG_PAIRS[0][0] not in loads.total:
+        return ()
     names = list(loads.surfaces)
     if isinstance(selection, str):
         listed = set(names) if selection == "all" else set()
@@ -538,8 +661,9 @@ def polar_table_rows(
     rows: Sequence[Sequence[float]],
     advance_ratios: Sequence[float | None] | None = None,
     conditions: Sequence[Mapping[str, object]] | None = None,
+    drag_columns: Sequence[tuple[str, str]] | None = None,
 ) -> list[tuple[object, ...]]:
-    """Assemble the rows of one polar table, each under :data:`POLAR_COLUMNS`.
+    """Assemble the rows of one polar table, each under :func:`polar_table_columns`.
 
     ``conditions`` is the flight condition of each row, in the row order, for
     the columns the twenty-four coefficients do NOT carry: ``VINF``, ``ALT``
@@ -575,6 +699,9 @@ def polar_table_rows(
         The advance ratio of each row; None entries read ``NA``.
     conditions : sequence of mapping, optional
         The flight condition of each row, in row order.
+    drag_columns : sequence of tuple of str, optional
+        The product columns of each row's drag split (FR-423,
+        :func:`drag_columned_rows`); None is ``CD0, CDI`` for every row.
 
     Returns
     -------
@@ -606,12 +733,14 @@ def polar_table_rows(
         raise ProductError(
             f"the polar table was given {len(states)} flight condition(s) for {len(rows)} rows"
         )
-    full: list[tuple[object, ...]] = []
-    for row, state in zip(rows, states, strict=True):
+    for row in rows:
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        full.append((*lead, *context_row(state, columns=_POLAR_CONDITION_COLUMNS), *row))
-    return full
+    _columns, named = drag_columned_rows(rows, drag_columns)
+    return [
+        (*lead, *context_row(state, columns=_POLAR_CONDITION_COLUMNS), *row)
+        for row, state in zip(named, states, strict=True)
+    ]
 
 
 def write_polar_table(
@@ -623,6 +752,7 @@ def write_polar_table(
     reference: ReferenceValues,
     rows: Sequence[Sequence[float]],
     advance_ratios: Sequence[float | None] | None = None,
+    drag_columns: Sequence[tuple[str, str]] | None = None,
 ) -> Path:
     """Write one polar table: the reference block and the coefficients per point.
 
@@ -657,6 +787,9 @@ def write_polar_table(
         them.
     advance_ratios : sequence of float or None, optional
         The advance ratio of each row; None entries read ``NA``.
+    drag_columns : sequence of tuple of str, optional
+        The product columns of each row's drag split (FR-423); None is
+        ``CD0, CDI`` for every row.
 
     Returns
     -------
@@ -676,8 +809,9 @@ def write_polar_table(
         reference=reference,
         rows=rows,
         advance_ratios=advance_ratios,
+        drag_columns=drag_columns,
     )
-    return write_csv_table(path, POLAR_COLUMNS, full)
+    return write_csv_table(path, polar_table_columns(drag_columns), full)
 
 
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
@@ -858,6 +992,7 @@ def write_recorded_polar(
                 rows=group_polar_rows(
                     points, list(families), mach=mach, reference=ref, aliases=aliases
                 ),
+                drag_columns=[drag_columns_of(point.loads) for point in points],
             )
         )
     for point in points:

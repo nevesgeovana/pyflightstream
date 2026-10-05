@@ -43,6 +43,7 @@ DEFAULT_CCS_FUSELAGE_MESH_SETTINGS:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: documented, note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
   notes: >
     Resets every mesh setting of the CCS fuselage in one parametric
     direction: subdivisions, growth scheme, growth rate and periodicity.
@@ -65,6 +66,7 @@ CCS_FUSELAGE_MESH_SUBDIVISIONS:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
   notes: >
     Grid node count along the named direction of the lofted fuselage.
 
@@ -86,6 +88,7 @@ CCS_FUSELAGE_MESH_GROWTH_SCHEME:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
   notes: >
     How grid nodes cluster along the direction. NONE spaces them evenly;
     SUCCESSIVE and REVERSE cluster toward one end and the other;
@@ -109,6 +112,7 @@ CCS_FUSELAGE_MESH_GROWTH_RATE:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
   notes: >
     Ratio between the sizes of consecutive cells under the clustering
     scheme of the same direction. The manual states the value must be
@@ -133,6 +137,7 @@ CCS_FUSELAGE_MESH_PERIODICITY:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
   notes: >
     Number of times the clustering pattern repeats along the direction,
     so a value of 2 clusters the nodes twice over the same span. The
@@ -158,6 +163,7 @@ NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "SRC-753 p.311, read against SRC-752 p.305: the parameter table differs in layout spacing only"}
   notes: >
     Inserts extra grid nodes over an axial parametric interval. U0 and
     U1 are parametric positions between 0 and 1 with U1 greater than U0,
@@ -179,6 +185,7 @@ DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
     "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: documented, note: "SRC-753 p.312, unchanged from SRC-752 p.306"}
   notes: >
     Deletes one axial refinement zone by its 1-based index, or every one
     of them when passed -1. The -1 is recorded here and not declared as
@@ -211,6 +218,20 @@ NEW_CCS_FUSELAGE_RELAXED_TE:
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.125":
+      status: documented
+      note: >-
+        SRC-753 p.312 adds a fourth argument to the three of SRC-752 p.306:
+        DIRECTION of the relaxed shedding line, 0 axial (the default) or 1
+        azimuthal
+      args:
+        - name: u
+        - name: v0
+        - name: v1
+        - name: direction
+          type: enum
+          values: ["0", "1"]
+          required: false
   notes: >
     Marks a strip of the fuselage as a relaxed trailing edge, where the
     solver applies the Kutta condition with a relaxed formulation. U is
@@ -232,6 +253,7 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
     "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: documented, note: "SRC-753 p.312, unchanged from SRC-752 p.306"}
   notes: >
     Deletes one relaxed trailing-edge boundary by its 1-based index, or
     every one of them when passed -1. Not declared as all_sentinel, for
@@ -269,6 +291,7 @@ EXPORT_FUSELAGE_CCS_FILE:
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the CCS file the command names [...]"}
+    "26.125": {status: documented, note: "SRC-753 p.312, read against SRC-752 p.306: the parameter table differs in layout spacing only and the sample passes CLOSED for the end closure, a token the entry already lists"}
   notes: >
     Writes the lofted fuselage to a file instead of into the simulation.
     LOFT_TYPE_U is RADIAL here and LOFT_TYPE_V is AXIAL, which is not
@@ -298,3 +321,16 @@ EXPORT_FUSELAGE_CCS_FILE:
     the whole CCS family carries: the table states the two words and
     every sample passes TRUE, so refusing the sample's own value would
     refuse the only form the vendor has written as a runnable line.
+
+ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-753 p.311"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.311, the first edition to document it"}
+  notes: >
+    Assigns the selected curves to the CCS fuselage component. The page
+    asks for it before any command that adds a refinement zone or a
+    trailing edge to the component. It takes no argument. First
+    documented by the 26.125 edition.

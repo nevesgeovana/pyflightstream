@@ -83,6 +83,8 @@ def test_the_printed_name_comes_from_a_solver_banner_and_not_from_the_alias():
     ``test_every_registered_build_comes_from_a_committed_report``,
     applied to the other half of the same banner line.
     """
+    # 26.125 prints its release with no dot (2612, RPT-160), so the token is
+    # digits with an optional fractional part.
     observed: dict[str, set[str]] = {}
     for path in sorted((REPO / "reports").rglob("*.yaml")):
         with open(path, encoding="utf-8") as handle:
@@ -91,7 +93,7 @@ def test_the_printed_name_comes_from_a_solver_banner_and_not_from_the_alias():
             continue
         version = document.get("fs_version")
         for line in document.get("solver_identity") or ():
-            match = re.search(r"version\s*\W*\s*([0-9]+\.[0-9]+)", str(line))
+            match = re.search(r"version\s*\W*\s*([0-9]+(?:\.[0-9]+)?)", str(line))
             if version and match:
                 observed.setdefault(str(version), set()).add(match.group(1))
 

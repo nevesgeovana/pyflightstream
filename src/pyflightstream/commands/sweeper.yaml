@@ -41,6 +41,7 @@ SWEEPER_SET_AOA_SWEEP:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.364, unchanged from SRC-750 p.364"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.364, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.370, unchanged from SRC-752 p.364"}
   notes: >
     Angle of attack axis of the sweeper. Three modes with three
     different tails: UNIFORM takes exactly three numbers, CUSTOM takes
@@ -89,6 +90,7 @@ SWEEPER_SET_BETA_SWEEP:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.364, unchanged from SRC-750 p.364"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.364, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.370, unchanged from SRC-752 p.364"}
   notes: >
     Side-slip axis of the sweeper, with the grammar of
     SWEEPER_SET_AOA_SWEEP above and the same reading of its third
@@ -116,6 +118,7 @@ SWEEPER_SET_VELOCITY_SWEEP:
     "26.121": {status: documented, note: "SRC-740 p.361, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.364, unchanged from SRC-750 p.364"}
     "26.124": {status: documented, note: "SRC-752 p.364, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.370, unchanged from SRC-752 p.364"}
   notes: >
     Free-stream velocity axis of the sweeper. It used to declare the
     file path alone, which made it the one axis that could not take an
@@ -147,6 +150,7 @@ SWEEPER_SET_MACH_SWEEP:
     "26.121": {status: documented, note: "SRC-740 p.362, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.365, unchanged from SRC-750 p.365"}
     "26.124": {status: documented, note: "SRC-752 p.365, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.371, unchanged from SRC-752 p.365"}
   notes: >
     Mach number axis of the sweeper, dimensionless. Absent from this
     database until 2026-08-06 for the same reason the UNIFORM mode was:
@@ -174,6 +178,7 @@ SWEEPER_POST_RUN_SCRIPT:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.365, unchanged from SRC-750 p.365"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.365, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.371, unchanged from SRC-752 p.365"}
   notes: >
     Per-run post-processing script executed after each sweep point,
     for example a surface section extraction script. The path is
@@ -193,6 +198,7 @@ SWEEPER_CLEAR_SOLUTION:
     "26.121": {status: documented, note: "SRC-740 p.362, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.365, unchanged from SRC-750 p.365"}
     "26.124": {status: documented, note: "SRC-752 p.365, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "SRC-753 p.371, unchanged from SRC-752 p.365"}
   notes: >
     Controls solution reuse between sweep runs. The manual gives it a
     sample and no parameter table, so the two tokens are read from the
@@ -263,6 +269,7 @@ SWEEPER_START:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.366, unchanged from SRC-750 p.366"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.366, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.372, unchanged from SRC-752 p.366"}
 
 SWEEPER_EXPORT_SPREADSHEET:
   layout: inline
@@ -278,6 +285,7 @@ SWEEPER_EXPORT_SPREADSHEET:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.365, unchanged from SRC-750 p.365"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.365, the SRC-751 file, carried from 26.123"}
+    "26.125": {status: documented, note: "SRC-753 p.371, unchanged from SRC-752 p.365"}
 
 EXECUTE_SOLVER_SWEEPER:
   layout: param_lines
@@ -379,3 +387,16 @@ EXECUTE_SOLVER_SWEEPER:
     which the manual states in its row. The second is the last line of
     the block and is the sweep results FILE. A reader seeing two
     unlabelled paths cannot tell them apart by shape, only by position.
+
+RESET_SOLVER_SWEEPER:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-753 p.372"
+  versions:
+    "26.125": {status: documented, note: "SRC-753 p.372, the first edition to document it"}
+  notes: >
+    Resets the solver's sweeper toolbox. It takes no argument; the page
+    prints the bare command after SWEEPER_START and does not say which
+    settings the reset returns to their defaults. First documented by
+    the 26.125 edition.

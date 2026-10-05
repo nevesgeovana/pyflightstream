@@ -217,3 +217,15 @@ skeleton's `INITIALIZE_SOLVER` call (`cases/workflows/_freestream.py`
 0.33.0 did, and the plan warns on every rotor point whose plane is the
 solver's `DEFAULT` or sits before the wake length (FR-325). The release's own
 setup-key recount carries the row as covered.
+
+## Addendum, 2026-10-05: the two Unsteady Solver commands of 26.125 (FR-423)
+
+The 26.125 edition of the manual (SRC-753 p.360) documents two commands of
+the Unsteady Solver chapter no earlier edition has, and stops printing
+`SOLVER_TIME_AVERAGING`, whose row above stands for the builds that carry it.
+The audit is complete for 26.125 with these two rows:
+
+| Command | Section | Status | Key | Where emitted | What the package did |
+|---|---|---|---|---|---|
+| `ENABLE_SOLVER_TIME_AVERAGING` | Unsteady Solver | given a key now | setup: solver_time_averaging | cases/_setup_link.py `emit_setup_extras`, end of the solver settings, marching rows | FR-423: the first and last time iteration of the solver's own surface average; a build where the command is documented and not verified gets the line and a warning, since the command it replaces hung 26.124 |
+| `DISABLE_SOLVER_TIME_AVERAGING` | Unsteady Solver | not a choosable value | none | nowhere | takes no argument; a session never has the solver average on unless the key above asked for it |

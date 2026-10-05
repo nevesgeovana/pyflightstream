@@ -2362,6 +2362,7 @@ EXPECTED_SYMMETRY = {
     "26.122": ("NONE", "MIRROR", "PERIODIC"),
     "26.123": ("NONE", "MIRROR", "PERIODIC"),
     "26.124": ("NONE", "MIRROR", "PERIODIC"),
+    "26.125": ("NONE", "MIRROR", "PERIODIC"),
 }
 
 

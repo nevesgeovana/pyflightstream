@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyflightstream.cases.ccs_wing import emit_curve_prelude, loft_component
+from pyflightstream.script import helpers
 
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
@@ -45,5 +46,6 @@ def emit_ccs_fuselage(script: Script, case: SimCase) -> None:
     """
     spec, name, component = loft_component(case, "fuselage")
     emit_curve_prelude(script, case, component)
+    helpers.assign_selected_ccs_curves(script, "fuselage")
     loft_u, loft_v = spec.lofts
     script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", name, spec.close_ends, loft_u, loft_v)

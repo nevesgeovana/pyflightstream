@@ -105,6 +105,14 @@ EMITTABLE = {
     # (RPT-068). The row stays, as removed. SET_UNSTEADY_VISCOUS_COUPLING_
     # ITERATION gained a removed row on the same run and was never counted here.
     "26.124": 370,
+    # 2026-10-05 (FR-423), registered with its own edition, SRC-753, which
+    # documents 380 commands: 330 carried word for word from SRC-752, 37 read
+    # anew, 12 entered for the first time; the thirteenth new one,
+    # SET_DIRECT_AEROELASTIC_MESH_MORPHING, is entered by item S6 (FR-341).
+    # The four SRC-753 stops printing answer absent, and
+    # SET_OUTFLOW_TRAILING_EDGES keeps its removed row naming the successor,
+    # so it is not counted.
+    "26.125": 379,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -174,6 +182,9 @@ VERIFIED = {
     # (CMP-26124_2026-10-02_t1-probe) verified ROTATE_SURFACE,
     # SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS: 118.
     "26.124": 118,
+    # 2026-10-05 (FR-423): registered from its manual, nothing run through the
+    # probe harness yet. The campaign of the 0.37.0 kit is what raises it.
+    "26.125": 0,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
@@ -188,7 +199,10 @@ VERIFIED = {
 #: here, so a rename RAISES this figure even though the vendor's own
 #: surface did not grow; the older name keeps its rows and gains a
 #: `removed` one naming the successor.
-ENTRIES = 415
+#:
+#: +12 on 2026-10-05 (FR-423): the commands the 26.125 edition (SRC-753) is
+#: the first to document, but the one item S6 enters (FR-341).
+ENTRIES = 427
 
 
 def _emittable(canonical: str) -> int:

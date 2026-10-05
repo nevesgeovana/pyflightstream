@@ -42,7 +42,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import CampaignConfigError, SimCase
+from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
 from pyflightstream.script import Script, helpers
 
@@ -214,7 +214,7 @@ def loads_selections(case: SimCase, script: Script) -> None:
 LINKED_MOMENTS_MODEL = "VORTICITY"
 
 #: The setup keys only a marching row may state (FR-319).
-MARCHING_KEYS = ("unsteady_solver_actions",)
+MARCHING_KEYS = ("unsteady_solver_actions", "solver_time_averaging")
 
 
 def moments_model_of(case: SimCase, *, rotor: bool) -> tuple[str | None, bool]:
@@ -307,6 +307,24 @@ def emit_setup_extras(case: SimCase, script: Script, *, marching: bool) -> None:
     for action in solver.unsteady_solver_actions or ():
         helpers.unsteady_action(
             script, name=action.name, kind=action.type, filename=action.filename
+        )
+    _emit_26125_keys(solver, script)
+
+
+def _emit_26125_keys(solver: SolverSettings, script: Script) -> None:
+    """Emit the setup keys of the commands 26.125 adds, where a setup states them (FR-423).
+
+    Each is None by default and writes nothing then, so a setup that names none
+    of them is byte-identical. A build without the command refuses the key,
+    through the emitter; the time average warns on a build where the command
+    is documented and not verified (its predecessor hung 26.124).
+    """
+    if solver.solver_time_averaging is not None:
+        first, last = solver.solver_time_averaging
+        helpers.solver_time_averaging(script, (first, last))
+    if solver.aeroelastic_convergence_threshold is not None:
+        script.emit(
+            "SET_AEROELASTIC_CONVERGENCE_THRESHOLD", solver.aeroelastic_convergence_threshold
         )
 
 

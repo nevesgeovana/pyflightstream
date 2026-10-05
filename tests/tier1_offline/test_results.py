@@ -892,6 +892,8 @@ def test_the_excluded_set_is_exactly_the_three_structured_formats():
         "EXPORT_SOLVER_ANALYSIS_VTK": "vtk",
         "EXPORT_VOLUME_SECTION_VTK": "vtk",
         "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": "nastran",
+        # 26.125 (FR-423): a VTK file, so inside the vtk scoping of 2026-08-16.
+        "FREE_SURFACE_EXPORT_TYPE": "vtk",
     }, (
         "the excluded set moved. It is the author's scoping of 2026-08-16 and "
         "not an implementation convenience: a format leaving the default set "

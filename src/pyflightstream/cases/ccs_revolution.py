@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyflightstream.cases.ccs_wing import REFERENCE_FRAME, emit_curve_prelude, loft_component
+from pyflightstream.script import helpers
 
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
@@ -49,6 +50,7 @@ def emit_ccs_revolution(script: Script, case: SimCase) -> None:
     """
     spec, name, component = loft_component(case, "revolution")
     emit_curve_prelude(script, case, component)
+    helpers.assign_selected_ccs_curves(script, "revolution")
     loft_u, loft_v = spec.lofts
     script.emit(
         "CAD_CREATE_REVOLVE_MESH_FROM_CCS",

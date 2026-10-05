@@ -40,5 +40,47 @@
   ],
   "P0370-S9-PARITY-TESTS": [
     "NFR-42"
+  ],
+  "P0370-S10-REGISTRY": [
+    "FR-423"
+  ],
+  "P0370-S10-STATUSES": [
+    "FR-423"
+  ],
+  "P0370-S10-NEW-COMMANDS": [
+    "FR-423"
+  ],
+  "P0370-S10-DETECTION": [
+    "FR-423"
+  ],
+  "P0370-S10-WAKE-TOKEN": [
+    "FR-423"
+  ],
+  "P0370-S10-CCS-ASSIGN": [
+    "FR-423"
+  ],
+  "P0370-S10-SETUP-KEYS": [
+    "FR-423"
+  ],
+  "P0370-S10-FORCE-PLOT": [
+    "FR-423"
+  ],
+  "P0370-S10-PROBE-SCRIPTS": [
+    "FR-423"
+  ],
+  "P0370-S10-SIMCENTER-HEADERS": [
+    "FR-423"
+  ],
+  "P0370-S10-DRAG-COLUMNS": [
+    "FR-423"
+  ],
+  "P0370-S10-PRINTS-CHECK": [
+    "FR-423"
+  ],
+  "P0370-S10-IDENTITY-LINE": [
+    "FR-423"
+  ],
+  "P0370-S10-26124-UNCHANGED": [
+    "FR-423"
   ]
 }

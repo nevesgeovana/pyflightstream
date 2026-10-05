@@ -39,7 +39,7 @@ from pyflightstream.qa.probes import (
     emit_solver_setup,
 )
 from pyflightstream.script import Script
-from pyflightstream.script.helpers import initialize_solver
+from pyflightstream.script.helpers import assign_selected_ccs_curves, initialize_solver
 
 __all__: list[str] = []
 
@@ -131,9 +131,24 @@ def _ccs_select(script: Script, workdir: Path) -> None:
     script.emit("CAD_CREATE_CURVE_SELECT", -1)
 
 
+#: The component kind of each component of the probe file, for the curve
+#: assignment 26.125 asks for before a component gets a control surface, a
+#: refinement zone or a trailing edge (FR-423, SRC-753 pp.307, 311, 314).
+_COMPONENT_KINDS = {1: "wing", 2: "fuselage", 3: "revolution"}
+
+
+def _ccs_assign(component: int) -> Callable[[Script, Path], None]:
+    """Assign the selected curves to the component, on a build that carries the command."""
+
+    def build(script: Script, workdir: Path) -> None:
+        assign_selected_ccs_curves(script, _COMPONENT_KINDS[component])
+
+    return build
+
+
 def _ccs_curve(component: int) -> Callable[[Script, Path], None]:
-    """Initialize the loft session, import one component's curves, select them."""
-    return _seq(_ccs_initialize, _ccs_import(component), _ccs_select)
+    """Initialize the loft session, import one component's curves, select and assign them."""
+    return _seq(_ccs_initialize, _ccs_import(component), _ccs_select, _ccs_assign(component))
 
 
 def _wing_loft(name: str) -> Callable[[Script, Path], None]:

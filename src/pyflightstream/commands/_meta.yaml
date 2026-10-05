@@ -319,6 +319,34 @@ versions:
     # a build is answered for by what was read or run on IT, and what was
     # read for it is 26.123's text.
     inherits_base: false
+  - canonical: "26.125"
+    alias: "26.12"
+    # The fifth hotfix of the 26.12 release, delivered 2026-10-05 and
+    # registered here the same day (FR-423). Release order puts it last.
+    #
+    # build AND prints ARE THE SOLVER'S OWN FOOTER, read from the outputs of
+    # the cross-build runs of 2026-10-05, in which 26.125 solved six recorded
+    # points of a 26.124 campaign; the identity lines are committed in
+    # reports/probes/RPT-160_2026-10-05_evidence.yaml and the report beside
+    # it. Three things change form at once against 26.124's footer: the
+    # product name (Simcenter Flightstream), the version token (2612 where
+    # 26.124 printed 26.1, with no dot) and the build number. The
+    # executable carries none of them as a literal string (its banner
+    # formats them at run time). The probe campaign's first step,
+    # `pyfs-qa probe --identity-only`, writes the compat identity report,
+    # and it must agree with these two fields.
+    build: "10052026"
+    prints: "2612"
+    #
+    # UNLIKE 26.124, ITS MANUAL IS A NEW EDITION (SRC-753, 425 pages
+    # against 417): the release notes, the EULA, the three libraries and
+    # the sample script are byte-identical to the 26.124 package, and the
+    # manual and the executable are the two files that differ. Its rows
+    # are therefore read from SRC-753 itself: carried forward from 26.124
+    # where the two editions describe a command identically, read anew
+    # where they do not, and absent where SRC-753 stops documenting the
+    # command (the manual_editions entry below lists those).
+    inherits_base: false
 
 # Every range below except the last was MEASURED on 2026-08-06 rather
 # than transcribed. The 26.123 row is the exception and states its own
@@ -568,3 +596,45 @@ manual_editions:
     two-value IMPORT_WAKE_EDGES_FROM_FILE line the edition prints refused
     as a syntax error; the 26.124 row of that command states the grammar
     the build reads.
+  "26.125": >
+    SRC-753: Simcenter Flightstream User Guide, 26.12 hotfix build 5
+    edition, 425 pages, scripting reference pp.288-390 with its Script
+    Index at pp.391-397; cited in version notes as "SRC-753 p.N".
+    Registered 2026-10-05, the day the build was delivered. The document
+    carries the vendor's new product name; its creation date is
+    2026-09-25.
+
+    IT DOCUMENTS 380 COMMANDS AGAINST 371 FOR SRC-752, counted by this
+    package's own reader over both editions (`pyfs-manual surface`):
+    thirteen gained and four no longer printed. The gained are the three
+    ASSIGN_SELECTED_CURVES_TO_CCS_* commands of the CCS chapters, the
+    three free-surface commands (CREATE_FREE_SURFACE_TFI_MESH,
+    FREE_SURFACE_EXPORT_TYPE, DELETE_FREE_SURFACE), the pair
+    ENABLE_SOLVER_TIME_AVERAGING and DISABLE_SOLVER_TIME_AVERAGING, which
+    stands where SOLVER_TIME_AVERAGING stood, RESET_SOLVER_SWEEPER,
+    SET_AEROELASTIC_CONVERGENCE_THRESHOLD, SET_CCS_TE_BLEND_LENGTH (named
+    in the CCS file description of SRC-752 at p.85 and given a script
+    entry only here), SET_DIRECT_AEROELASTIC_MESH_MORPHING and
+    STABILITY_TOOLBOX_ANGLE_INCREMENT. The four it stops printing are
+    AUTO_DETECT_BASE_REGIONS, AUTO_DETECT_TRAILING_EDGES,
+    AUTO_DETECT_WAKE_TERMINATION_NODES and SOLVER_TIME_AVERAGING; their
+    names appear nowhere in its text. SET_DIRECT_AEROELASTIC_MESH_MORPHING
+    is entered by item S6 of 0.37.0 (FR-341, RPT-154), not with the other
+    twelve. Each of the four answers ABSENT on
+    26.125 (no version row), the encoding decided for a dropped page on
+    2026-08-19 (PFS-2026.04): an edition dropping a page is a fact about
+    a document, and only a run of the build can make a row removed.
+
+    The release notes in the package are byte-identical to the 26.124
+    package's and document none of the difference, as RPT-014 found for
+    26.121.
+
+    OUTSIDE THE SCRIPTING REFERENCE, ONE RENAME REACHES THE OUTPUTS. The
+    loads chapter (SRC-753 pp.227 and 229, against SRC-752 pp.225 and 227)
+    renames the two drag columns of the loads spreadsheet: CDi (induced
+    drag) becomes CDp (pressure drag) and CDo (skin friction drag) becomes
+    CDv (viscous and separation drag), and the paragraph that said the
+    induced drag is computed from the surface vorticity or the pressure now
+    says it of the pressure drag. The force-plot and stability-coefficient
+    commands rename their tokens to match (CDP, CDV), and the 26.125 loads
+    exports print the new column names (RPT-160).

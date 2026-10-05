@@ -1,0 +1,39 @@
+
+
+
+
+                              Simcenter Flightstream Unsteady Solver Plots
+
+
+     Simulation file:                            case.fsm
+     Angle of attack (Deg)                       .000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   49.036
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        .007
+     Solver model:                               Incompressible
+     Solver mode:                                Unsteady
+     Reference velocity (m/s)                    49.036
+     Reference length (m)                        2.526
+     Reference area (m^2)                        50.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             4380000.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            1381
+----------------------------------------------------------------------------------------------------
+Time-step,CL_G1,CDI_G1,CDO_G1,CD_G1,FX_G1,FY_G1,FZ_G1,MX_G1,MY_G1,MZ_G1,
+----------------------------------------------------------------------------------------------------
+1.0000,.40000E-02,-.77000E-01,.25000E-03,-.62000E-01,-99.00,47.00,84.00,-32.00,-69.00,-17.00,
+2.0000,.54000E-01,-.91000E-01,.39000E-03,-.76000E-01,-24.00,61.00,98.00,-46.00,-83.00,-31.00,
+3.0000,.68000E-01,-.16000E-01,.53000E-03,-.90000E-01,-38.00,75.00,23.00,-60.00,-97.00,-45.00,
+4.0000,.82000E-01,-.30000E-01,.67000E-03,-.15000E-01,-52.00,8.900,37.00,-74.00,-22.00,-59.00,
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Simcenter Flightstream version 2612, build #10052026
+     Company  : Siemens
+     Date: 10/5/2026, Time: 1255 hours (local)

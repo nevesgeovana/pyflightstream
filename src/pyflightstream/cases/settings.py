@@ -271,6 +271,15 @@ class SolverSettings(BaseModel):
         pressure.
     aeroelastic_rbf_type : str, optional
         The radial basis function of the aeroelastic mesh morphing.
+    aeroelastic_convergence_threshold : float, optional
+        The convergence threshold of an aeroelastic coupling run
+        (``SET_AEROELASTIC_CONVERGENCE_THRESHOLD``, 26.125, FR-423); None
+        writes nothing and the solver keeps its default.
+    solver_time_averaging : list of int, optional
+        The first and the last time iteration the solver averages the
+        surface flow over (``ENABLE_SOLVER_TIME_AVERAGING``, 26.125,
+        FR-423). Unsteady rows only; a build where no run verified the
+        command warns. None writes nothing.
     print_rotor_induced_velocities : bool, optional
         Prints the rotor-induced velocities to the log at every time
         step of an unsteady run.
@@ -698,6 +707,11 @@ class SolverSettings(BaseModel):
     #: SET_NEW_UNSTEADY_SOLVER_ACTION (FR-319): actions run after every time step
     #: of an unsteady row, after the package's own. None emits nothing.
     unsteady_solver_actions: list[UnsteadyAction] | None = Field(default=None, min_length=1)
+    #: SET_AEROELASTIC_CONVERGENCE_THRESHOLD (FR-423, 26.125). None emits nothing.
+    aeroelastic_convergence_threshold: float | None = Field(default=None, gt=0.0)
+    #: ENABLE_SOLVER_TIME_AVERAGING (FR-423, 26.125): the first and last time
+    #: iteration of the solver's own surface average. None emits nothing.
+    solver_time_averaging: list[int] | None = Field(default=None, min_length=2, max_length=2)
 
     @field_validator("load_units")
     @classmethod

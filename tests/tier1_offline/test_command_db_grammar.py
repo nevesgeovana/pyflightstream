@@ -358,6 +358,142 @@ PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
     ("SOLVER_PROXIMAL_BOUNDARIES", "26.121"): ("boundary_indices",),
 }
 
+# 26.125 (FR-423): THE EDITION READ AGAINST 26.124's, page against page
+# (SRC-753 against SRC-752, `pyfs-manual register`). Thirty-seven commands
+# read differently; these are the ones whose GRAMMAR moved, each a row of its
+# own, and the commands whose text moved without a grammar change carry a
+# plain row with the reading in its note. Two new delta forms arrive with
+# this edition: `sentinel:<arg>`, an index that gains the -1 every-boundary
+# form, and `command_line`, a keyword block whose every argument moves onto
+# the command line (the six colour-map commands).
+_FORCE_SPLIT_125 = (
+    "CL",
+    "CDP",
+    "CDV",
+    "CD",
+    "FORCE_X",
+    "FORCE_Y",
+    "FORCE_Z",
+    "MOMENT_X",
+    "MOMENT_Y",
+    "MOMENT_Z",
+)
+_TE_GEOMETRIES_125 = ("SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN")
+PER_VERSION_GRAMMAR_26125: dict[str, dict[str, tuple]] = {
+    "CAD_CREATE_WING_MESH_FROM_CCS": {"enum:te_geometry": _TE_GEOMETRIES_125},
+    "EXPORT_WING_CCS_FILE": {"enum:te_geometry": _TE_GEOMETRIES_125},
+    "CREATE_AIRFOIL_SEPARATION": {
+        "names": ("name", "num_boundaries", "leading_edge_type", "boundary_indices")
+    },
+    "CREATE_NEW_ACTUATOR": {"enum:subtype": ("CUSTOM", "ELLIPTICAL", "GENERIC")},
+    "DETECT_BASE_REGIONS_BY_SURFACE": {"sentinel:boundary_index": -1},
+    "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE": {"sentinel:surface_id": -1},
+    "DETECT_TRAILING_EDGES_BY_SURFACE": {"optional": ("surface_indices",)},
+    "SURFACE_COMBINE": {"optional": ("surface_indices",)},
+    "IMPORT": {
+        "enum:file_type": (
+            "STL",
+            "TRI",
+            "P3D",
+            "INP",
+            "STRUCTURED_QUAD",
+            "UNSTRUCTURED_QUAD",
+            "LAWGS",
+            "VTK",
+            "AC",
+            "FAC",
+            "OBJ",
+            "NX_NAS_DAT",
+            "NAS",
+        )
+    },
+    "IMPORT_WAKE_EDGES_FROM_FILE": {"names": ("type", "tolerance", "edge_type", "file")},
+    "NEW_CCS_FUSELAGE_RELAXED_TE": {"names": ("u", "v0", "v1", "direction")},
+    "NEW_CCS_REVOLVE_RELAXED_TE": {"names": ("u", "v0", "v1", "direction")},
+    "NEW_CCS_WING_FLAP_COVE": {
+        "names": ("name", "v0", "v1", "u00", "u01", "cove_type", "space", "axis")
+    },
+    "NEW_CCS_WING_MORPHING_SURFACE": {
+        "names": ("name", "v0", "v1", "u0", "u1", "hinge_height", "angle", "space", "axis")
+    },
+    "SET_SCENE_COLORMAP_CUSTOM_MODE": {"command_line": ("colormap", "custom_range")},
+    "SET_SCENE_COLORMAP_CUSTOM_RANGE": {
+        "command_line": ("colormap", "cut_off_mode", "maximum", "minimum")
+    },
+    "SET_SCENE_COLORMAP_POSITION": {"command_line": ("colormap", "x", "y")},
+    "SET_SCENE_COLORMAP_SHADING": {"command_line": ("colormap", "reverse", "smooth")},
+    "SET_SCENE_COLORMAP_SIZE": {"command_line": ("colormap", "thickness", "height")},
+    "SET_SCENE_COLORMAP_TYPE": {"command_line": ("colormap", "type")},
+    "SET_VTK_EXPORT_VARIABLES": {
+        "enum:variables": (
+            "X",
+            "Y",
+            "Z",
+            "CF",
+            "CP",
+            "CP_REFERENCE",
+            "CP_FREESTREAM",
+            "MACH",
+            "VX",
+            "VY",
+            "VZ",
+            "VTOT",
+            "PSTATIC",
+            "BLMOM",
+            "BLDISP",
+            "BLTHICK",
+            "SHAPEFACTOR",
+            "TRANS",
+            "SEP",
+            "BLLENGTH",
+            "AREA",
+            "VORTICITY",
+            "C_H",
+            "Q_FLUX",
+            "WALL_TEMP",
+        )
+    },
+    "STABILITY_TOOLBOX_NEW_COEFFICIENT": {"enum:numerator": _FORCE_SPLIT_125},
+    # CDI and CDO stay: the 26.125 solver ran them (RPT-160) beside the CDP and
+    # CDV its page lists.
+    "UNSTEADY_SOLVER_NEW_FORCE_PLOT": {
+        "enum:parameter": ("CL", "CDI", "CDO", "CDP", "CDV", *_FORCE_SPLIT_125[3:])
+    },
+    # The two whose 26.125 page reads as 26.124's, carried with the text.
+    "SET_SCENE_CONTOUR": PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"]["26.124"],
+    "UNSTEADY_SOLVER_NEW_FLUID_PLOT": PER_VERSION_GRAMMAR["UNSTEADY_SOLVER_NEW_FLUID_PLOT"][
+        "26.124"
+    ],
+}
+for _command, _delta in PER_VERSION_GRAMMAR_26125.items():
+    PER_VERSION_GRAMMAR.setdefault(_command, {})["26.125"] = _delta
+PER_VERSION_OPTIONAL.update(
+    {
+        ("CREATE_AIRFOIL_SEPARATION", "26.125"): ("boundary_indices",),
+        ("CREATE_NEW_ACTUATOR", "26.125"): ("subtype",),
+        ("DETECT_TRAILING_EDGES_BY_SURFACE", "26.125"): ("surface_indices",),
+        ("IMPORT", "26.125"): ("clear",),
+        ("NEW_CCS_FUSELAGE_RELAXED_TE", "26.125"): ("direction",),
+        ("NEW_CCS_REVOLVE_RELAXED_TE", "26.125"): ("direction",),
+        ("NEW_CCS_WING_FLAP_COVE", "26.125"): ("space", "axis"),
+        ("NEW_CCS_WING_MORPHING_SURFACE", "26.125"): ("space", "axis"),
+        ("SET_VTK_EXPORT_VARIABLES", "26.125"): ("variables",),
+        ("STABILITY_TOOLBOX_NEW_COEFFICIENT", "26.125"): ("boundary_indices",),
+        ("SURFACE_COMBINE", "26.125"): ("surface_indices",),
+        ("UNSTEADY_SOLVER_NEW_FORCE_PLOT", "26.125"): ("boundary_indices",),
+    }
+)
+
+
+def _layout_delta(command: str, version: str, arg: str, field: str) -> bool:
+    """Say whether a delta table names this field of this argument (the 26.125 forms)."""
+    delta = PER_VERSION_GRAMMAR.get(command, {}).get(version, {})
+    if field == "all_sentinel":
+        return f"sentinel:{arg}" in delta
+    if field == "on_command_line":
+        return arg in delta.get("command_line", ())
+    return False
+
 
 def _overrides():
     """Return the registry and every (command, version) row stating args."""
@@ -397,9 +533,13 @@ def test_a_per_version_grammar_actually_differs_from_the_base(command):
     rather than left to mislead.
     """
     registry, found = _overrides()
-    base = tuple((a.name, a.required, a.values) for a in registry.commands[command].args)
+
+    def shape(a):
+        return (a.name, a.required, a.values, a.all_sentinel, a.on_command_line)
+
+    base = tuple(shape(a) for a in registry.commands[command].args)
     for version, args in found[command].items():
-        override = tuple((a.name, a.required, a.values) for a in args)
+        override = tuple(shape(a) for a in args)
         assert override != base, (
             f"{command} states a grammar for {version} that is identical to the base "
             "grammar, so it claims a difference it does not have"
@@ -439,6 +579,19 @@ def test_a_per_version_grammar_differs_in_the_way_the_manual_says(command):
             assert base_arg.unit != unit, (
                 f"{command} records the same {arg_name} unit for {version} as for "
                 "every other build, so the row claims a difference it does not have"
+            )
+        for key, sentinel in expected.items():
+            if not key.startswith("sentinel:"):
+                continue
+            arg_name = key.removeprefix("sentinel:")
+            assert by_name[arg_name].all_sentinel == sentinel, (
+                f"{command} on {version} must take {sentinel} for every boundary in "
+                f"{arg_name}; that build's page prints the form"
+            )
+        for arg_name in expected.get("command_line", ()):
+            assert by_name[arg_name].on_command_line is True, (
+                f"{command} on {version} writes {arg_name} on the command line, as that "
+                "build's page prints the command on one line"
             )
         for key, values in expected.items():
             if not key.startswith("enum:"):
@@ -557,7 +710,9 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) names
     # type and tolerance by name alone, which inherit type and values, and type and
     # unit: four fields.
-    assert checked == 52, (
+    # 0.37.0 S10 (FR-423): the twenty-five 26.125 overrides name their arguments
+    # and inherit the rest, 142 fields more.
+    assert checked == 194, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -643,6 +798,8 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
                 for field in _COMPARED_FIELDS:
                     if field in _FIELDS_A_DELTA_MAY_TOUCH:
                         continue
+                    if _layout_delta(command, version, arg.name, field):
+                        continue
                     compared += 1
                     assert getattr(arg, field) == getattr(inherited, field), (
                         f"{command} on {version} gives {arg.name!r} a different {field!r} "
@@ -668,7 +825,9 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
     # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) carries
     # two arguments the base also carries, type and tolerance, times the eight fields.
-    assert compared == 1088, (
+    # 0.37.0 S10 (FR-423): the 26.125 overrides add 693 comparisons; the fields a
+    # `sentinel:` or `command_line` delta names are skipped for that argument only.
+    assert compared == 1781, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"

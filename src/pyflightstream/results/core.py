@@ -80,8 +80,14 @@ DASHED_LINE = re.compile(r"^-{4,}$")
 #: 33, 36, 39 and so on in one file. The anchor is the repeated header and
 #: never a row count, which is why the split is on the header alone.
 RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
+#: The export footer naming the build. Two product names are read: the
+#: ``Flightstream version 26.1`` of every build up to 26.124 and the
+#: ``Simcenter Flightstream version 2612`` that 26.125 prints in every export
+#: (FR-423, measured on its exports of 2026-10-05). The version token is kept
+#: verbatim; :func:`cross_check_version` reads it against the registry.
 SOFTWARE_LINE = re.compile(
-    r"Software\s*:\s*Flightstream version\s+(?P<version>\S+),\s*build\s*#(?P<build>\d+)",
+    r"Software\s*:\s*(?:Simcenter\s+)?Flightstream version\s+(?P<version>\S+),"
+    r"\s*build\s*#(?P<build>\d+)",
     re.IGNORECASE,
 )
 
@@ -775,6 +781,13 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
     "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": ExportConversion(
         EXPORT_EXCLUDED, None, "nastran", "a Nastran bulk-data deck, read by the solver it feeds"
     ),
+    "FREE_SURFACE_EXPORT_TYPE": ExportConversion(
+        EXPORT_EXCLUDED,
+        None,
+        "vtk",
+        "a free-surface mesh as VTK (26.125, SRC-753 p.338), read by ParaView and every "
+        "VTK reader; no workflow writes it",
+    ),
     "SET_VTK_EXPORT_VARIABLES": ExportConversion(
         EXPORT_NOT_AN_EXPORT, None, None, "chooses the variables a later VTK export writes"
     ),
@@ -1035,7 +1048,16 @@ def cross_check_version(
             )
         return
     alias = version.alias
-    consistent = alias == reported or alias.startswith(reported) or reported.startswith(alias)
+    # THE REGISTRY'S OWN RECORD OF WHAT THE BUILD PRINTS COMES FIRST (FR-423).
+    # 26.125 prints its release as ``2612``, which no prefix of its alias
+    # ``26.12`` matches, so a build that states ``prints`` is matched on it
+    # exactly; the alias prefix stays the reading for a row that states none.
+    consistent = (
+        (version.prints is not None and reported == version.prints)
+        or alias == reported
+        or alias.startswith(reported)
+        or reported.startswith(alias)
+    )
     if not consistent:
         warn(
             f"the output reports FlightStream {reported!r} but the run requested "

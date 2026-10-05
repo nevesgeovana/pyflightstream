@@ -1,0 +1,35 @@
+report: reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md
+date: '2026-10-05'
+fs_version: '26.125'
+question: what does FlightStream 26.125 print about itself, and how do its exports differ in form from
+  26.124's on the same points (FR-423)
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.125': 'withheld; build 10052026'
+how_it_ran: six recorded points of a 26.124 campaign (one steady, two quasi-steady rotor, three unsteady rotor)
+  re-run on the 26.125 executable from their recorded scripts, one solver at a time, far field 5, and every export
+  compared against the 26.124 export of the same point
+solver_identity:
+- 'Simcenter Flightstream 2612, build #10052026'
+- 'Simcenter Flightstream version 2612, build #10052026'
+where_each_identity_line_is_printed:
+  'Simcenter Flightstream 2612, build #10052026': 'the solver log of every point, where 26.124 printed
+    its release as 26.1'
+  'Simcenter Flightstream version 2612, build #10052026': 'the Software line closing every loads export,
+    where 26.124 printed Flightstream version 26.1, build #8172026, beside a Company line naming Siemens
+    where 26.124 named Altair'
+export_title_lines:
+  probe points: Simcenter Flightstream Probe Points (26.124 FlightStream Probe Points)
+  surface sectional loads: Simcenter Flightstream Surface Sectional Loads (26.124 FlightStream Surface Sectional
+    Loads)
+  surface sections: Simcenter Flightstream Surface Sections (26.124 FlightStream Surface Sections)
+  plots: Simcenter Flightstream plot (26.124 FlightStream plot)
+loads_columns:
+  '26.124': Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+  '26.125': Surface, Cx, Cy, Cz, CL, CDp, CDv, CMx, CMy, CMz
+  same_point_steady: the pressure-drag column of 26.125 equals the induced-drag column of 26.124 to the printed
+    digit on every surface row of the steady point; the viscous column is larger than the skin-friction column,
+    by about a fifth on the steady point's total
+force_plot_tokens: 'the recorded unsteady scripts request UNSTEADY_SOLVER_NEW_FORCE_PLOT with PARAMETER CDI and
+  CDO; 26.125 ran them and wrote CDI and CDO plot columns, the CDI total equal to the loads export''s pressure-drag
+  total'
