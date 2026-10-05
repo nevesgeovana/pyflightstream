@@ -148,8 +148,9 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
 
     Marking wake edges from a file replaces an angle criterion that
     cannot mark the edges this capability exists for. The replacement is
-    verified on 26.124 alone, by the compat probe of 2026-09-24 (its
-    grammar settled first by RPT-061), while what it replaces carries
+    verified on 26.124, by the compat probe of 2026-09-24 (its grammar
+    settled first by RPT-061), and on 26.125 by the 26.125 probe campaign
+    of 0.37.0, while what it replaces carries
     committed probe reports on three builds. A later reader who meets only
     the default reads it as settled practice everywhere, which is what this
     sentence exists to prevent.
@@ -174,18 +175,23 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
             "probe report covers for the command being replaced"
         )
 
-    # THE COMPAT PROBE OF 2026-09-24 promoted 26.124 and only 26.124: the
-    # notice names the report and the build, says 26.123 is not one, and
-    # stops calling 26.124 a move to weaker evidence.
+    # THE COMPAT PROBE OF 2026-09-24 promoted 26.124, and the 26.125 probe
+    # campaign of 0.37.0 promoted 26.125: the notice names both reports and
+    # both builds, says 26.123 is not one, and stops calling either a move to
+    # weaker evidence.
     report = "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
+    campaign = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
     imported = registry.commands[WAKE_EDGE_IMPORT_COMMAND]
-    assert [c for c, row in imported.versions.items() if row.report] == ["26.124"], (
-        "the wake-edge import cites a compat report on a build other than 26.124 alone"
+    assert [c for c, row in imported.versions.items() if row.report] == ["26.124", "26.125"], (
+        "the wake-edge import cites a compat report on a build other than 26.124 and 26.125"
     )
-    later = evidence_notice("26.124")
-    assert report in later and "verified on 26.124" in later, later
-    assert "weaker evidence" not in later, "26.124 is verified and still called weaker evidence"
-    assert "verified on 26.124 and not on 26.123" in notice and "weaker evidence" in notice, notice
+    for build in ("26.124", "26.125"):
+        later = evidence_notice(build)
+        assert report in later and campaign in later, later
+        assert "verified on 26.124, 26.125" in later, later
+        assert "weaker evidence" not in later, f"{build} is verified and still called weaker"
+    assert "verified on 26.124, 26.125 and not on 26.123" in notice, notice
+    assert "weaker evidence" in notice, notice
     assert WakeEdgeImport(nodes=ONE_NODE).evidence_notice("26.123") == notice
 
 
