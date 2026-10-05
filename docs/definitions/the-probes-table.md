@@ -1,8 +1,8 @@
 ## The probes table
 
-Solver numbers whose three-digit exponent omits `E`, such as `0.2964-322`,
-are read as `0.2964E-322`. These printed values remain in their own columns;
-their small magnitude alone neither drops the export nor substitutes a missing value.
+The probes table, `probes/<point>_probes.csv`, lists the solver's values at
+the probe points a point's `[[probes]]` declarations name: one row per probe
+point, and one per solver step where the run samples a history.
 
 The run type selects the source of `probes/<point>_probes.csv` for every
 `[[probes]]` declaration, including drawn shapes and cited `points_file`
@@ -26,6 +26,10 @@ profiles.
 Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
 condition block, then the export's own columns (steady, normal) or the sampled
 parameters (unsteady).
+
+Solver numbers whose three-digit exponent omits `E`, such as `0.2964-322`,
+are read as `0.2964E-322`. These printed values remain in their own columns;
+their small magnitude alone neither drops the export nor substitutes a missing value.
 
 An unsteady run recorded with 0.24.0 or earlier sampled cited profiles only at
 the final instant. Those probes have no recorded history: posting again skips
