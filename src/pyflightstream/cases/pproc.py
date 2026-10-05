@@ -21,7 +21,7 @@ import math
 import re
 import string
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
@@ -162,6 +162,12 @@ EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
 #: are saved once after the march (GOAL-033 T40, 26.124 build 8172026).
 STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes"})
 
+#: FR-417: the probe kinds a ``[[probes]]`` entry may state. ``unsteady`` (the
+#: default) samples through fluid plots at every time step; ``normal`` creates
+#: probe points after the time march and exports them once.
+ProbeKind = Literal["unsteady", "normal"]
+PROBE_KINDS: tuple[str, ...] = get_args(ProbeKind)
+
 #: The kinds a pproc must switch ON: every other kind is on unless its
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
 #: distribution (G10 of 0.27.0) grow with the mesh, so they are asked for
@@ -204,6 +210,7 @@ def default_outputs(
     exports: Mapping[str, bool] | None = None,
     *,
     has_sections: bool = False,
+    normal_probes: bool = False,
 ) -> list[str]:
     """Return the output names a workflow row gets when it declares none.
 
@@ -232,6 +239,9 @@ def default_outputs(
         The pproc artifact's ``[exports]`` table.
     has_sections : bool, optional
         Whether the pproc declares surface sections to plot.
+    normal_probes : bool, optional
+        Whether an unsteady row samples its pproc's probes as normal probe
+        points (FR-417), whose probe-points export it then keeps.
 
     Returns
     -------
@@ -251,7 +261,7 @@ def default_outputs(
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady)
         and kind not in VOLUME_SECTION_KINDS.values()
-        and not (unsteady and kind in STEADY_ONLY_EXPORT_KINDS)
+        and not (unsteady and not normal_probes and kind in STEADY_ONLY_EXPORT_KINDS)
         and wanted(kind)
     ]
 
@@ -1074,6 +1084,12 @@ class ProbesSpec(BaseModel):
     points_file : str, optional
         The name of a points file of ``inputs/profiles/``, cited instead of
         drawing lines and planes.
+    kind : {'unsteady', 'normal'}
+        How an unsteady row samples the entry: ``unsteady``, one
+        fluid plot per point and parameter evaluated at every time step, or
+        ``normal``, probe points created after the time march and exported
+        once, at the last time step. A steady row accepts either and samples
+        probe points.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1114,6 +1130,26 @@ class ProbesSpec(BaseModel):
     #: working directory rather than the submitted point's simulation folder.
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
+    #: FR-417: how an unsteady row samples this entry. ``unsteady`` (the
+    #: default, the 0.36.0 behaviour) is one fluid plot per point and
+    #: parameter, a history at every time step; ``normal`` is probe points
+    #: created after the time march with the steady commands, updated and
+    #: exported once, so they hold the last time step. A steady row samples
+    #: probe points whatever the entry states.
+    kind: ProbeKind = "unsteady"
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _a_known_probe_kind(cls, value: object) -> object:
+        """Refuse a probe kind other than the two, naming both (FR-417 R5)."""
+        if value not in PROBE_KINDS:
+            raise ValueError(
+                f"probe kind {value!r} is not one of {' or '.join(map(repr, PROBE_KINDS))}: "
+                'write kind = "unsteady" for a fluid plot per point and parameter, '
+                'evaluated at every time step, or kind = "normal" for probe points '
+                "sampled once, at the last time step"
+            )
+        return value
 
     @model_validator(mode="after")
     def _points_come_from_one_place(self) -> ProbesSpec:
@@ -1905,8 +1941,12 @@ class PprocSpec(BaseModel):
         declares one (G05); an unsteady row declares none, and its builder
         refuses the artifact.
         """
+        normal = unsteady and self.samples_normal_probes()
         names = default_outputs(
-            unsteady, self.exports, has_sections=bool(self.sections.distributions)
+            unsteady,
+            self.exports,
+            has_sections=bool(self.sections.distributions),
+            normal_probes=normal,
         )
         if self.products.boundary_layer_integrals:
             # Requested products require their native source exports, as fields do.
@@ -1918,7 +1958,25 @@ class PprocSpec(BaseModel):
             or self.volume_section is not None
             or any(entry.field_formats or entry.reusable_inflow for entry in self.probes)
         ):
-            source = "{name}_plots.txt" if unsteady else "{name}_probes.txt"
+            # FR-418: a NORMAL entry's field is read from the probe-points
+            # export on an unsteady row too, not from the plots history.
+            source = "{name}_plots.txt" if unsteady and not normal else "{name}_probes.txt"
             if source not in names:
                 names.append(source)
         return names
+
+    def samples_normal_probes(self) -> bool:
+        """Whether an unsteady row samples this artifact's probes as NORMAL probe points.
+
+        True when the artifact declares at least one ``[[probes]]`` entry and
+        every entry states ``kind = "normal"`` (FR-417); an entry that states no
+        kind is ``unsteady``. A mixture is refused by the unsteady builders,
+        naming the entries of each kind; a steady row samples probe points
+        whatever this says.
+
+        Returns
+        -------
+        bool
+            Whether the entries are all normal probes.
+        """
+        return bool(self.probes) and all(entry.kind == "normal" for entry in self.probes)

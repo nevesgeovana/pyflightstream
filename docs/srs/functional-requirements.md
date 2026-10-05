@@ -9514,7 +9514,7 @@ Requirements written after the specification was last reconciled with the packag
 
 ## 0.37.0 recovery, run length, probes and usability
 
-The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2026-10-05. Items S1 to S9 of the goal map to FR-411 to FR-422 and NFR-42; S6 is carried by the existing FR-341 (the modal FSI backend, route C by direct morphing), gated on a licensed test first. Two terms hold for the whole section. The SETTLED OUTPUTS of a point are its declared outputs other than its solver log, each present and unchanged between two observations (collect's settled rule). A key or pproc entry this section adds, when absent, leaves every script, record and product byte-identical to 0.36.0; `scripts/check_parity.py` from v0.36.0 is the instrument, and its only named difference is FR-421 R2; the markers `P0370-<item>-<name>` are listed in `docs/srs/markers-0370.json`.
+The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2026-10-05. Items S1 to S9 of the goal map to FR-411 to FR-422 and NFR-42; S6 is carried by the existing FR-341 (the modal FSI backend, route C by direct morphing), gated on a licensed test first. Two terms hold for the whole section. The SETTLED OUTPUTS of a point are its declared outputs other than its solver log, each present and unchanged between two observations (collect's settled rule). A key or pproc entry this section adds, when absent, leaves every script, record and product byte-identical to 0.36.0; `scripts/check_parity.py` with v0.36.0 as its base is the instrument, and its only named difference is FR-421 R2; the markers `P0370-<item>-<name>` are listed in `docs/srs/markers-0370.json`.
 
 !!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.01 (0.37.0).
@@ -9640,6 +9640,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification (tier 3, licensed, BLOCKING: the partial wheel does not ship normal probes before it): on FlightStream 26.124 only (no other build is admitted for the normal kind until measured), far field 5, one `unsteady` row and one `unsteady_rotor` row, the same points as unsteady and as normal probes, with and without `UPDATE_PROBE_POINTS` (unprobed on every build, CMP-26101); criterion: at the last time step each normal probe's velocity equals the fluid plot's value at the same point to the printed digits, and differs from its step-1 value; the arm without the update says whether it is needed. Recorded as an RPT, which the marker test then cites.
 
+    Evidence (offline only; the box stays pending until the licensed confirmation above, owed and not run in this lane): `tests/tier1_offline/test_p0370_s5_probe_kind.py::test_p0370_s5_normal_entry_is_probe_points_after_the_march`, `::test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0`, `::test_p0370_s5_mixed_kinds_are_refused_naming_both_lists`, `::test_p0370_s5_a_steady_row_accepts_kind_and_changes_nothing`, `::test_p0370_s5_an_unknown_kind_is_refused_naming_the_two`, `::test_p0370_s5_post_writes_the_normal_table_at_the_last_step`, `::test_p0370_s5_post_names_a_missing_normal_export`. Mutants that emit fluid plots for a normal entry, create the normal probes before the march, accept a mixture, accept any kind, drop the last time step from `STEP` or post a normal row through the fluid-plot history each fail them.
+
 !!! requirement "FR-418 The reusable inflow is built from normal probes of an unsteady run <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.05 (0.37.0).
 
@@ -9654,6 +9656,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R3 An `unsteady` entry with `reusable_inflow` keeps its 0.36.0 behaviour.
 
     Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`, carrying P0370-S5-NORMAL-INFLOW (FR-418): a recorded unsteady point with a normal entry yields `<stem>.inflow.dat` equal, value for value, to the one the steady route writes from the same probe values (the steady route's own output is the oracle); a mutant that averages over time fails it.
+
+    Evidence (offline only; the box stays pending with FR-417, whose licensed confirmation is owed): `tests/tier1_offline/test_p0370_s5_normal_inflow.py::test_p0370_s5_normal_entry_records_the_steady_layout`, `::test_p0370_s5_normal_inflow_equals_the_steady_routes`, `::test_p0370_s5_unsteady_inflow_entry_keeps_its_history_route`. The inflow of a recorded unsteady point is compared value for value with the steady route's from the same probe values. No time average exists on this route to mutate; the mutants that post the normal entry through the per-step fluid-plot history or drop the last time step fail it.
 
 !!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.07 (0.37.0).

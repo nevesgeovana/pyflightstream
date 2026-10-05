@@ -110,6 +110,11 @@ export window (`EXPORT_UNSTEADY_AFTER_ITER`) is not needed for them and does
 not change them: the fluid plots sample every step of the run, and
 `field time-mean --last K` chooses the steps averaged.
 
+An entry that states `kind = "normal"` is sampled once, by probe points after
+the time march, and the post writes one
+`fields/<point>_field_NN_step_<N>.inflow.dat` for the run's last time step `N`
+(FR-418); see [sampled fields](sampled-fields.md).
+
 ```toml title="inputs/pproc/p010.toml"
 [groups]
 "1" = "all"

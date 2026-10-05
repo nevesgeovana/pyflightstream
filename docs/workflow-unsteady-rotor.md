@@ -395,6 +395,14 @@ Two things about that conversion are worth knowing before you run it:
   own, which is run identity and not a converter's to invent. Split them
   by hand, giving each the POL you want, then run the command.
 
+## Normal probes on a rotor row
+
+A `[[probes]]` entry of a rotor row is a fluid plot per point and parameter,
+written at every time step, unless it states `kind = "normal"`: then it is a
+probe point created after the march and exported once, at the last time step,
+as on the `unsteady` run type
+([Probes: unsteady or normal](workflow-unsteady.md#probes-unsteady-or-normal)).
+
 ## Exports that begin after a threshold
 
 A rotor run settles over its first revolutions, and the loads, sections

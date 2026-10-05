@@ -35,6 +35,28 @@ the iteration counter judges nothing and the run would be recorded
 `COMPLETED_MAX_ITER` whatever the solver did. Name the log among the
 row's outputs and the residuals decide instead.
 
+## Probes: unsteady or normal
+
+A pproc `[[probes]]` entry on this run type is an UNSTEADY probe unless it
+states `kind = "normal"` (0.37.0): one fluid plot per point and parameter,
+whose history the solver writes at every time step. A NORMAL probe is a probe
+point created after the time march, updated and exported once, so the probes
+table and any sampled field or reusable inflow hold the run's last time step.
+Use it when only the end of the run is needed. Every entry of one row is of one
+kind. The script of a normal entry, after the march:
+
+```text
+START_SOLVER
+NEW_PROBE_LINE ... / NEW_PROBE_POINT VOLUME ... / PROBE_POINTS_IMPORT ...
+UPDATE_ALL_SURFACE_SECTIONS
+COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS
+UPDATE_PROBE_POINTS
+SAVEAS ...
+EXPORT_PROBE_POINTS <point>_probes.txt
+```
+
+See [the probe kind](pproc-artifact.md#the-probe-kind-of-an-unsteady-row).
+
 ## The reductions of an unsteady point
 
 An unsteady point's plots table is its raw time history, one row per solver

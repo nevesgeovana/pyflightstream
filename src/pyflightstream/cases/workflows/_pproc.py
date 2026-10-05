@@ -239,10 +239,15 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     pproc = case.pproc
     if pproc is None:
         return
+    # FR-418: a normal entry's field is read from the probe-points export, so
+    # it asks nothing of the plots.
     if (
         pproc.surface_probes
         or pproc.volume_section is not None
-        or any(entry.field_formats or entry.reusable_inflow for entry in pproc.probes)
+        or any(
+            (entry.field_formats or entry.reusable_inflow) and entry.kind != "normal"
+            for entry in pproc.probes
+        )
     ):
         script.emit("UNSTEADY_SOLVER_DELETE_ALL_PLOTS")
     inventory = _inventory(script)

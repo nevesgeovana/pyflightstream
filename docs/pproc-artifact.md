@@ -71,6 +71,7 @@ scale = "rotor_radius"         # or "m"; the radius is THAT rotor's, not the con
 [[probes.lines]]
 start = [-2.0, -1.0, 0.0]
 end = [-2.0, 1.0, 0.0]
+# kind = "normal"              # unsteady rows: probe points at the last time step
 
 [products]                     # the post-processed CSV tables the campaign writes
 polars = true                  # one polar table per group, per point
@@ -434,6 +435,27 @@ The meaning of a `[[probes]]` entry's `parameters` list depends on the run type;
 see [Probe parameters](post-processing-definitions.md#probe-parameters) for the
 definition and the steady-plan warning.
 
+### The probe kind of an unsteady row
+
+On an `unsteady` or `unsteady_rotor` row a `[[probes]]` entry states how it is
+sampled with `kind` (0.37.0, FR-417):
+
+- `kind = "unsteady"`, the default: one fluid plot per point and parameter,
+  which the solver evaluates at every time step.
+  The probes table holds one row per point and step.
+- `kind = "normal"`: probe points created after the time march with the
+  commands a steady row uses (`NEW_PROBE_LINE`, `NEW_PROBE_POINT`,
+  `PROBE_POINTS_IMPORT`), then `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS`
+  once, to `<point>_probes.txt`, which becomes a declared output of the row. No
+  fluid plot is created for them, and the probes table holds the last time step.
+
+Every entry of one unsteady row is of one kind; a pproc mixing the two (an entry
+with no `kind` counts as unsteady, and a `[volume_section]` is sampled through
+fluid plots) is refused when the row is built, naming the entries of each kind.
+Any other value is refused when the pproc is read. On a steady row `kind` is
+accepted and changes nothing. A normal probe is not created again by a
+continuation of a stopped march.
+
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
 nothing else; every table the post writes opens with `POL`, the
@@ -464,7 +486,8 @@ then carries its own export's fluid quantities in their own names and
 units: a steady row brings Mach, Cp, the velocity components and the
 boundary-layer columns; an unsteady row brings the parameters its probe
 entry asked for, one row per point and solver step. `STEP` carries `NA` on a
-steady row, which has one step.
+steady row, which has one step, and the run's last time step on an unsteady row
+whose probes are normal.
 
 The `X`, `Y`, `Z` and `FRAME` columns are why this table exists. An
 unsteady plots export numbers its probe columns, one per parameter the
