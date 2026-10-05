@@ -50,6 +50,9 @@ __all__ = [
 #: The two shapes ``--sims`` takes in mark-converged, mark-failed and rebuild.
 SIMS_SHAPES = "simulation ids: 2006 2007 or 2006,2007"
 
+#: What to do when a named simulation or point has no record.
+_REMEDY = "check the ids against runs.json, or rebuild it with pyfs-matrix rebuild"
+
 #: The verdict this command gives, written into ``marked``.
 _VERDICT = RunStatus.CONVERGED
 
@@ -119,18 +122,18 @@ def _plan(
     if unknown:
         raise RunsManifestError(
             f"no record in {DEFAULT_MANIFEST} for simulation(s) {', '.join(unknown)}; nothing "
-            "was marked"
+            f"was marked; {_REMEDY}"
         )
     todo: list[tuple[dict, dict, str, str]] = []
     already: list[str] = []
-    named: set[str] = set()
+    held: list[str] = []
     for row in live:
         if str(row.get("sim_id")) not in ids:
             continue
         for name, run_id, unit in _units(row):
+            held.append(name)
             if points and name not in points:
                 continue
-            named.add(name)
             why = _refusal(workspace, row, unit)
             if why is not None:
                 refused[run_id] = why
@@ -138,11 +141,12 @@ def _plan(
                 already.append(run_id)
             else:
                 todo.append((row, unit, run_id, str(unit.get("status"))))
-    missing = [point for point in points if point not in named]
+    missing = [point for point in points if point not in held]
     if missing:
         raise RunsManifestError(
             f"no record of simulation(s) {', '.join(ids)} names the point(s) "
-            f"{', '.join(missing)}; nothing was marked"
+            f"{', '.join(missing)}; nothing was marked; their records hold "
+            f"{', '.join(dict.fromkeys(held)) or 'no point'}; {_REMEDY}"
         )
     return todo, already, refused
 

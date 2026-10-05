@@ -231,3 +231,21 @@ def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, c
     assert [item["run_id"] for item in entry["runs"]["conflicts"]] == ["campo/sim_7004/AL+000"]
     row = json.loads(main.manifest_path.read_text("utf-8"))[0]
     assert (row["status"], row["marked"]) == ("CONVERGED", marked)
+
+
+def test_p0370_s1_unknown_ids_name_the_remedy_and_the_points_held(workspace):
+    """P0370-S1-MARK-CONVERGED (FR-414 R2): an unknown simulation or point names the remedy.
+
+    A point no record names lists the point names the records do hold, so a
+    misspelled name is seen at once.
+    """
+    before = workspace.manifest_path.read_bytes()
+    with pytest.raises(RunsManifestError) as unknown:
+        mark_converged(workspace.root, ["7999"], reason=REASON, apply=True)
+    assert "7999" in str(unknown.value) and "pyfs-matrix rebuild" in str(unknown.value)
+    with pytest.raises(RunsManifestError) as missing:
+        mark_converged(workspace.root, ["7001"], reason=REASON, points=["AL+099"], apply=True)
+    said = str(missing.value)
+    assert "AL+099" in said and "pyfs-matrix rebuild" in said, said
+    assert "their records hold V0300RE120AL+000, V0300RE120AL+020" in said, said
+    assert workspace.manifest_path.read_bytes() == before
