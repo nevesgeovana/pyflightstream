@@ -3068,7 +3068,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's report of 2026-10-03 on 0.35.1 (\"primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_matrix_home.py.*",
+   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (\"primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_matrix_home.py.*",
    "verification": "test"
   },
   {
@@ -3076,7 +3076,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's report of 2026-10-03 on 0.35.1 (\"eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_rebuild_lost.py.*",
+   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (\"eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_rebuild_lost.py.*",
    "verification": "test"
   },
   {
@@ -3084,7 +3084,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's proposal of 2026-10-03 (\"podia ter um status RAN_MISSING_LOG\") and her rule of 2026-10-05 (\"lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
+   "evidence": "*Origin: owner proposal of 2026-10-03 (\"podia ter um status RAN_MISSING_LOG\") and the rule of 2026-10-05 (\"lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
    "verification": "test"
   },
   {
@@ -3092,7 +3092,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's request of 2026-10-03 (\"me manda um script python simples que marca converged nas polares que eu quiser\"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_mark_converged.py.*",
+   "evidence": "*Origin: owner request of 2026-10-03 (\"me manda um script python simples que marca converged nas polares que eu quiser\"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_mark_converged.py.*",
    "verification": "test"
   },
   {
@@ -3100,7 +3100,7 @@
    "text": "Plan: PFS-2078.03 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's note for 0.37 of 2026-10-05 (\"Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV\"), scope GOAL-044 item S3. Verification: test, tests/tier1_offline/test_p0370_s3_last_rev.py.*",
+   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (\"Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV\"), scope GOAL-044 item S3. Verification: test, tests/tier1_offline/test_p0370_s3_last_rev.py.*",
    "verification": "test"
   },
   {
@@ -3108,7 +3108,7 @@
    "text": "Plan: PFS-2078.04 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's note for 0.37 of 2026-10-05 (\"Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady\"), scope GOAL-044 item S4. Verification: test, tests/tier1_offline/test_p0370_s4_prune_range.py.*",
+   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (\"Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady\"), scope GOAL-044 item S4. Verification: test, tests/tier1_offline/test_p0370_s4_prune_range.py.*",
    "verification": "test"
   },
   {
@@ -3116,7 +3116,7 @@
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the owner's decision of 2026-10-05 (\"no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes.\"), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
+   "evidence": "*Origin: owner decision of 2026-10-05 (\"no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes.\"), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
    "verification": "none"
   },
   {
@@ -3124,7 +3124,7 @@
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the owner's correction of 2026-10-05 (\"para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady.\"), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
+   "evidence": "*Origin: owner correction of 2026-10-05 (\"para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady.\"), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
    "verification": "none"
   },
   {
@@ -3148,7 +3148,7 @@
    "text": "Plan: PFS-2078.09 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner's answer of 2026-10-05 (\"As recusas para o usuário não precisam citar o id do RPT.\"); scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_grouped_help.py.*",
+   "evidence": "*Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 (\"As recusas para o usuário não precisam citar o id do RPT.\"); scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_grouped_help.py.*",
    "verification": "test"
   },
   {
@@ -3156,7 +3156,7 @@
    "text": "Plan: PFS-2078.02 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's request of 2026-10-03 (\"poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio\") and her answer of 2026-10-05 (\"a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas\"); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
+   "evidence": "*Origin: owner request of 2026-10-03 (\"poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio\") and the answer of 2026-10-05 (\"a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas\"); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
    "verification": "test"
   },
   {
@@ -3164,7 +3164,7 @@
    "text": "Plan: PFS-2078.10 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's request of 2026-10-05 (\"agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace\") and her widening the same day (\"inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace\"); scope GOAL-044 item S10. Verification: test, tests/tier1_offline/test_p0370_s10_build_26125.py and tests/tier1_offline/test_p0370_s10_simcenter_outputs.py; the tier-2 probe campaign of 26.125, owed.*",
+   "evidence": "*Origin: owner request of 2026-10-05 (\"agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace\") and its widening the same day (\"inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace\"); scope GOAL-044 item S10. Verification: test, tests/tier1_offline/test_p0370_s10_build_26125.py and tests/tier1_offline/test_p0370_s10_simcenter_outputs.py; the tier-2 probe campaign of 26.125, owed.*",
    "verification": "test"
   },
   {
