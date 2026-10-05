@@ -8,7 +8,6 @@ the stop text are what the run writes beside its script to watch itself.
 
 from __future__ import annotations
 
-import math
 from dataclasses import (
     dataclass,
 )
@@ -39,6 +38,13 @@ from ._conventions import (
     WorkflowConventions,
     select_workflow,
 )
+from ._export_first_step import (
+    refuse_a_threshold_after_the_averaging_start,
+    refuse_threshold_on_a_steady_run,
+    refuse_two_threshold_keys,
+    resolve_first_step,
+    stated_threshold_keys,
+)
 from ._exports import (
     _UPDATED_KINDS,
     _surface_export,
@@ -51,8 +57,6 @@ from ._motion import (
     _motion_view,
 )
 from ._rows import (
-    _required_float,
-    _required_int,
     _variable,
     continuation_of,
     rotor_speed,
@@ -67,8 +71,6 @@ from ._timing import (
 from ._vocabulary import (
     _UNSTEADY_RECIPES,
     END_OF_RUN_EXPORT_KINDS,
-    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
-    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     ROTORLESS_REFUSED_KEYS,
     WALLTIME_STOP_VERB,
     WALLTIME_VARIABLE,
@@ -125,7 +127,8 @@ class UnsteadyExportThreshold:
     Attributes
     ----------
     stated_form : str
-        ``revolutions`` or ``iterations``: the key the row wrote.
+        ``revolutions``, ``iterations``, ``last_revolutions`` or
+        ``last_iterations``: the key the row wrote.
     stated_value : float
         The value it wrote.
     first_step : int
@@ -155,6 +158,25 @@ class UnsteadyExportThreshold:
     step_deg: float | None
     rpm: float | None
     exports: str
+
+    @property
+    def program_form(self) -> str:
+        """Return the form the counter program compares in.
+
+        A last form counts back from the end of the run, which the program
+        cannot know, so it compares the invocation count against the
+        resolved first step: the program of ``EXPORT_UNSTEADY_LAST_REV`` is
+        that of ``EXPORT_UNSTEADY_AFTER_ITER`` with the same first step
+        (FR-415 R1).
+        """
+        return "iterations" if self.stated_form.startswith("last_") else self.stated_form
+
+    @property
+    def program_value(self) -> float:
+        """Return the threshold the counter program compares against, in its own form."""
+        if self.stated_form.startswith("last_"):
+            return float(self.first_step)
+        return self.stated_value
 
     def record(self) -> dict[str, object]:
         """Return the stated form and the derived step, for a reader of the run."""
@@ -279,8 +301,9 @@ def unsteady_export_threshold(
     Parameters
     ----------
     case : SimCase
-        The case; its variables may carry ``EXPORT_UNSTEADY_AFTER_REV`` or
-        ``EXPORT_UNSTEADY_AFTER_ITER``.
+        The case; its variables may carry one of ``EXPORT_UNSTEADY_AFTER_REV``,
+        ``EXPORT_UNSTEADY_AFTER_ITER``, ``EXPORT_UNSTEADY_LAST_REV`` or
+        ``EXPORT_UNSTEADY_LAST_ITER``.
     conventions : WorkflowConventions, optional
         The rendered output names; defaults to the case's own.
     version : str or FsVersion, optional
@@ -290,23 +313,20 @@ def unsteady_export_threshold(
     Returns
     -------
     UnsteadyExportThreshold or None
-        None when the row states neither key, which is every row written
-        before 0.13.0.
+        None when the row states none of the four keys, which is every row
+        written before 0.13.0. A last form resolves to the first step
+        ``TIME_ITERATIONS - n + 1`` (FR-415).
 
     Raises
     ------
     CampaignConfigError
-        If both keys are stated, naming both; if the row names the steady
+        If two keys are stated, naming them; if the row names the steady
         run type, which has no time loop; if the revolutions form is
         stated on the run type that turns nothing, naming the iterations
         form that would work; if the value is not a positive number; or if
         the threshold lies beyond the run, naming both numbers.
     """
-    stated = {
-        key: text
-        for key in (EXPORT_UNSTEADY_AFTER_REV_VARIABLE, EXPORT_UNSTEADY_AFTER_ITER_VARIABLE)
-        if (text := _variable(case, key)) is not None
-    }
+    stated = stated_threshold_keys(case)
     averaged = (
         case.pproc.time_averaging is not None
         and case.recipe in _UNSTEADY_RECIPES
@@ -341,76 +361,18 @@ def unsteady_export_threshold(
                 conventions or WorkflowConventions.for_case(case), case, version=version
             ),
         )
-    if len(stated) == 2:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {EXPORT_UNSTEADY_AFTER_REV_VARIABLE} and "
-            f"{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE} both. The per-step exports begin at "
-            "ONE step, stated in revolutions of the rotor or in time iterations; two "
-            "statements would be two steps nobody keeps in agreement. Keep one."
-        )
+    refuse_two_threshold_keys(case, stated)
     key = next(iter(stated))
     workflow = select_workflow(case)
-    if workflow == "steady":
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {key} and names the steady run type, which has "
-            "no time loop: an unsteady solver action runs after each time step, and a "
-            "steady solve has none. State the key on an unsteady run type, or drop it."
-        )
+    refuse_threshold_on_a_steady_run(case, key, workflow)
     if workflow == "unsteady_rotor":
         stepping = _rotor_clock(case)
     else:
         stepping = unsteady_time_stepping(case)
     per_revolution = stepping.steps_per_revolution
-    number: float
-    if key == EXPORT_UNSTEADY_AFTER_REV_VARIABLE:
-        number = _required_float(case, key, quantity="export threshold", unit="revolutions")
-        if workflow != "unsteady_rotor" or per_revolution is None:
-            hint = ""
-            if per_revolution is not None:
-                hint = (
-                    f" This row's azimuthal clock makes {number} revolutions "
-                    f"{math.ceil(number * per_revolution - 1e-9)} steps."
-                )
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {key} and names a run type with no rotor "
-                "clock: a revolution is counted on a rotor the run turns, and this one "
-                f"turns nothing. State '{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: <steps>' "
-                f"instead.{hint}"
-            )
-        form = "revolutions"
-        first_step = math.ceil(number * per_revolution - 1e-9)
-    else:
-        number = _required_int(case, key, quantity="export threshold", unit="time steps")
-        form = "iterations"
-        first_step = int(number)
-    if number <= 0:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {key} as {number}, and the threshold is the step "
-            "the exports begin on, so it is a positive number. "
-            f"'{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: 1' exports from the first step."
-        )
-    if first_step > stepping.time_iterations:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {key} as {number}, which is step {first_step}, "
-            f"and the run is {stepping.time_iterations} steps long, so no step would "
-            "reach the threshold and nothing would be exported. Lower it, or lengthen "
-            "the run."
-        )
+    form, number, first_step = resolve_first_step(case, key, stepping, workflow)
     if averaged:
-        # G25: the average needs every step of its window exported, so a threshold
-        # after the window's first step would leave the average nothing but a skip.
-        window = surface_time_averaging(case)
-        assert window is not None
-        start = int(window["iterations"][0])
-        if first_step > start:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {key} as {number}, which is step {first_step}, "
-                f"and the pproc's [time_averaging] averages the surface from step {start}: "
-                "the per-step exports begin at the threshold, so the steps of the window "
-                f"before it would never be exported and the average would be skipped. State "
-                f"'{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: {start}' or earlier, or shorten "
-                "the window."
-            )
+        refuse_a_threshold_after_the_averaging_start(case, key, number, first_step)
     return UnsteadyExportThreshold(
         stated_form=form,
         stated_value=float(number),

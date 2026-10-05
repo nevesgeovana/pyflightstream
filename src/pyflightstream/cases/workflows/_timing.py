@@ -48,8 +48,7 @@ from ._vocabulary import (
     ADVANCE_RATIO_VARIABLE,
     DELTA_THETA_VARIABLE,
     DELTA_TIME_VARIABLE,
-    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
-    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+    EXPORT_THRESHOLD_VARIABLES,
     RESTART_ADDITIONAL_ITERS,
     RESTART_ADDITIONAL_REVS,
     RESTART_FINISH_PENDING,
@@ -115,22 +114,14 @@ def march_strategy(
     if select_workflow(case) not in ("unsteady", "unsteady_rotor"):
         return None
     wanted: list[tuple[str, str]] = []
-    if case.variables.get(EXPORT_UNSTEADY_AFTER_ITER_VARIABLE) not in (None, ""):
-        wanted.append(
-            (
-                f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_ITER_VARIABLE})",
-                f"remove {EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}, and the plots table still "
-                "records every time step",
+    for key in EXPORT_THRESHOLD_VARIABLES:
+        if case.variables.get(key) not in (None, ""):
+            wanted.append(
+                (
+                    f"per-step snapshot exports ({key})",
+                    f"remove {key}, and the plots table still records every time step",
+                )
             )
-        )
-    if case.variables.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE) not in (None, ""):
-        wanted.append(
-            (
-                f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_REV_VARIABLE})",
-                f"remove {EXPORT_UNSTEADY_AFTER_REV_VARIABLE}, and the plots table still "
-                "records every time step",
-            )
-        )
     if row_walltime_s(case) is not None:
         wanted.append(
             (

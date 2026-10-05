@@ -29,6 +29,14 @@ steps-spelled preset key for it. Drop the key from the preset the row
 names, or give that row a preset of its own. A steady row meets a
 different refusal for a different reason, and a rotor row meets none.
 
+**The per-step exports of the end of the run** are stated on this run type in
+time steps: `EXPORT_UNSTEADY_AFTER_ITER: <step>` begins them at a step, and
+`EXPORT_UNSTEADY_LAST_ITER: <steps>` covers the last `<steps>` steps of the run
+(first exported step `TIME_ITERATIONS - <steps> + 1`), at most one of the two
+per row (FR-415). The revolutions forms are refused here, having no rotor clock;
+the refusal names the iterations form. See [the last revolutions or the last
+steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-steps-of-a-run).
+
 **`LOG_OUTPUT` applies here too**, and for the same reason it applies to
 a rotor run: an unsteady time loop always reaches its prescribed end, so
 the iteration counter judges nothing and the run would be recorded

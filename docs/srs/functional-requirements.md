@@ -9585,7 +9585,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`, carrying P0370-S1-MARK-CONVERGED (FR-414): preview (runs.json byte-equal), apply, the archive copy equal to the previous runs.json, one case per refusal class of R2 asserting its message, `show` and `status` naming the person's verdict, and a posted product of a marked point.
 
-!!! requirement "FR-415 The per-step exports can cover the last revolutions or the last steps of a run <span class='srs-pending'>pending</span>"
+!!! requirement "FR-415 The per-step exports can cover the last revolutions or the last steps of a run <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.03 (0.37.0).
 
     *Origin: the owner's note for 0.37 of 2026-10-05 ("Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV"), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
@@ -9603,6 +9603,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R7 A row stating none of the four keys renders byte-identical to 0.36.0.
 
     Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`, carrying P0370-S3-LAST-REV (FR-415): the first step for both forms against hand counts (3 revolutions of 36 steps: the last 1 revolution exports steps 73 to 108; a non-integer product, 0.5 revolution of 36.4 steps per revolution gives n = 19), `n = TIME_ITERATIONS` accepted and `TIME_ITERATIONS + 1` refused, the refusals of R2, R3 and R5, the record field, and a rendered script equal to the one `EXPORT_UNSTEADY_AFTER_ITER` with the same first step renders.
+
+    Evidence: `tests/tier1_offline/test_p0370_s3_last_rev.py`: `test_the_last_revolution_of_three_exports_steps_73_to_108`, `test_a_non_integer_product_rounds_the_count_up` and `test_the_last_k_steps_start_at_the_run_length_minus_k_plus_one` (R1, hand counts), `test_n_equal_to_the_run_length_is_accepted_and_one_more_is_refused_naming_the_length`, `test_a_value_that_is_not_positive_is_refused_naming_the_key`, `test_a_fractional_step_count_is_refused` and `test_the_revolutions_form_without_a_rotor_clock_names_the_iterations_form` (R3), `test_two_threshold_keys_are_refused_naming_both` (R2), `test_a_first_step_after_the_averaging_window_start_is_refused` (R5), `test_the_export_window_states_the_form_the_value_and_the_first_step` (R4), `test_a_last_row_renders_the_script_and_program_of_after_iter_at_its_first_step` and `test_the_counter_program_of_a_last_row_exports_the_last_steps_and_no_earlier_one` (R1), `test_a_row_stating_none_of_the_four_keys_has_no_threshold_and_a_count_only_program` (R7; the byte-identity goldens of `tests/tier1_offline/test_workflows.py` are the other half). R6 holds by construction (the first step reads the stepping's own `time_iterations`); its combined test with FR-422's `RUN_WAKE_LENGTH_R` is owed to the FR-422 lane.
 
 !!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.04 (0.37.0).

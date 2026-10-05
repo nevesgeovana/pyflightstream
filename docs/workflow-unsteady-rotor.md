@@ -127,7 +127,11 @@ the decisions and the package derives the rest.
   counted on the rotor the run turns, so that form belongs to
   `unsteady_rotor`; `unsteady` takes the iterations form only, and a
   steady row is refused either, having no time loop for an action to
-  run in. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
+  run in. `EXPORT_UNSTEADY_LAST_REV: <turns>` and `EXPORT_UNSTEADY_LAST_ITER:
+  <steps>` state the same exports from the END of the run instead: the last
+  turns or the last steps (the first form belongs to `unsteady_rotor`, the
+  second to both unsteady types), and the row still states at most one of the
+  four. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
   for the worked example and what the run leaves.
 
 **The plan states how fast each rotor's tip moves (0.30.0).** For every
@@ -465,6 +469,37 @@ This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
 exports: the exports begin AFTER a threshold, in the reference definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
+
+### The last revolutions or the last steps of a run
+
+To export the end of a run without counting its length yourself, state how
+much of the end instead of where it begins (FR-415). `EXPORT_UNSTEADY_LAST_REV:
+<turns>` on a rotor row, or `EXPORT_UNSTEADY_LAST_ITER: <steps>` on a rotor or
+an `unsteady` row, makes the per-step exports cover the last `n` time steps of
+the run, with `n = ceil(turns x steps per revolution)` for the first form
+(`steps per revolution` is the rotor clock's, `360 / DELTA_THETA`) and `n = <steps>`
+for the second. The first exported step is `TIME_ITERATIONS - n + 1` and the last
+is `TIME_ITERATIONS`. On row 7001 above, three revolutions of 36 steps, the last
+revolution is
+
+```text
+VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_LAST_REV: 1
+```
+
+and exports steps 73 to 108. From the first step on, the script, the counter
+program and the files written per step are exactly those of
+`EXPORT_UNSTEADY_AFTER_ITER: 73`. The run length is resolved before the threshold,
+so `n` counts back from the `TIME_ITERATIONS` the run really marches.
+
+What is refused, at plan: two of the four keys on one row, naming both; the
+revolutions form on `unsteady`, naming `EXPORT_UNSTEADY_LAST_ITER` as the form
+that works; a value that is not positive; an `n` larger than `TIME_ITERATIONS`,
+naming the run length (an `n` equal to it exports every step); and, with a pproc
+`[time_averaging]`, a first step after the averaging window's first step, as for
+the after-threshold forms. The run record's `export_window` states the form
+(`iterations` and `revolutions` for the after forms, `last_iterations` and
+`last_revolutions` for these), the value as written and the resolved
+`first_step`, which every reader of the window reads as before.
 
 **One file per sections distribution (0.25.0).** Post always writes
 `sections/<point>_sloads_<name>.csv` and `sections/<point>_cp_<name>.csv` for
