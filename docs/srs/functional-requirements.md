@@ -9604,7 +9604,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`, carrying P0370-S3-LAST-REV (FR-415): the first step for both forms against hand counts (3 revolutions of 36 steps: the last 1 revolution exports steps 73 to 108; a non-integer product, 0.5 revolution of 36.4 steps per revolution gives n = 19), `n = TIME_ITERATIONS` accepted and `TIME_ITERATIONS + 1` refused, the refusals of R2, R3 and R5, the record field, and a rendered script equal to the one `EXPORT_UNSTEADY_AFTER_ITER` with the same first step renders.
 
-!!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-pending'>pending</span>"
+!!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.04 (0.37.0).
 
     *Origin: the owner's note for 0.37 of 2026-10-05 ("Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady"), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
@@ -9620,6 +9620,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R5 A recipe that states neither key does what 0.36.0 did, byte for byte in what it deletes and records.
 
     Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`, carrying P0370-S4-PRUNE-RANGE (FR-416): keep 12 of 30 steps, delete 5 to 9 of 30, `K` above the count and a range outside the steps (nothing deleted), both stated refused, an unknown key refused with the tree unchanged (snapshot compare), the accepted keys equal to the 0.30.0 keys plus the two new ones, the recorded entry, and the post refusal text.
+
+    Evidence: `test_keep_last_twelve_of_thirty_keeps_the_last_twelve_of_each_export`, `test_delete_steps_five_to_nine_deletes_exactly_that_range_of_each_export`, `test_a_count_above_the_steps_or_a_range_outside_them_deletes_nothing_and_is_no_error`, `test_an_unknown_key_is_refused_naming_it_and_the_accepted_keys_with_the_tree_unchanged`, `test_both_keys_stated_is_refused_with_the_tree_unchanged`, `test_the_accepted_keys_are_the_030_keys_plus_keep_last_and_delete_steps`, `test_the_recorded_call_carries_the_stated_key_in_its_step_entry`, `test_a_later_post_refusal_says_what_the_call_kept_not_the_last_step` and `test_a_table_that_states_neither_key_deletes_and_records_what_0360_did` in `tests/tier1_offline/test_p0370_s4_prune_range.py`.
 
 !!! requirement "FR-417 A probe entry of an unsteady row states its kind, unsteady (default) or normal <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.05 (0.37.0).

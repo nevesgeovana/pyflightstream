@@ -36,6 +36,7 @@ def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
     from pyflightstream.workspace.storage import human_bytes
 
     done = "deleted" if applied else "would delete"
+    stated = "keep_last" in step or "delete_steps" in step
     if step["mode"] == "prune_step_exports":
         for point in step["points"]:
             for item in point["files"]:
@@ -46,7 +47,9 @@ def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
             for relative in point["protected"]:
                 print(f"      {relative}  kept (a record names it as an output)")
             for item in point["kept"]:
-                print(f"      {item['path']}  kept (last step {item['step']})")
+                print(
+                    f"      {item['path']}  kept ({'' if stated else 'last '}step {item['step']})"
+                )
     elif step["mode"] == "compact_sims":
         for item in step["sims"]:
             if applied:
@@ -77,6 +80,7 @@ def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
 
 
 def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> None:
+    from pyflightstream.workspace._step_prune import kept_phrase
     from pyflightstream.workspace.storage import human_bytes
 
     mode = "APPLIED" if entry["applied"] else "preview"
@@ -86,8 +90,8 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
             files = [item for point in step["points"] for item in point["files"]]
             print(
                 f"  prune_step_exports: {len(step['points'])} point(s), {len(files)} per-step "
-                f"file(s), {human_bytes(sum(item['bytes'] for item in files))}; the last step "
-                "of each export kept"
+                f"file(s), {human_bytes(sum(item['bytes'] for item in files))}; "
+                f"{kept_phrase(step)} kept"
             )
             for point in step["points"]:
                 steps = point["deleted_steps"]
