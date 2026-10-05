@@ -286,6 +286,21 @@ LAST_ITERS_AVG_VARIABLE = "LAST_ITERS_AVG"
 #: the averaging window of the reductions.
 EXPORT_UNSTEADY_AFTER_REV_VARIABLE = "EXPORT_UNSTEADY_AFTER_REV"
 EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
+#: The same exports stated from the END of the run (FR-415): the last
+#: ``N`` revolutions of the rotor clock or the last ``K`` time steps. They
+#: resolve to the first step ``TIME_ITERATIONS - n + 1`` and from there on
+#: are the exports of ``EXPORT_UNSTEADY_AFTER_ITER``. A row states at most
+#: one of the four threshold keys; the revolutions form needs a rotor clock
+#: as ``EXPORT_UNSTEADY_AFTER_REV`` does.
+EXPORT_UNSTEADY_LAST_REV_VARIABLE = "EXPORT_UNSTEADY_LAST_REV"
+EXPORT_UNSTEADY_LAST_ITER_VARIABLE = "EXPORT_UNSTEADY_LAST_ITER"
+#: The four threshold keys, in the order a refusal names them.
+EXPORT_THRESHOLD_VARIABLES: tuple[str, ...] = (
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
+)
 
 #: The mode the case is initialized under. The accepted tokens are READ
 #: FROM THE COMMAND DATABASE per build rather than restated here, and on
@@ -958,6 +973,7 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     LAST_ITERS_AVG_VARIABLE,
     BLADES_VARIABLE,
     EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+    EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
     # Unsteady's alone: only a run that marches in time can be continued
     # from where the clock stopped it.
     RESTART_VARIABLE,
@@ -981,6 +997,7 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     MOVING_BOUNDARIES_VARIABLE,
     MOTIONS_VARIABLE,
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+    EXPORT_UNSTEADY_LAST_REV_VARIABLE,
 )
 #: THE QUASI-STEADY ROTOR'S VOCABULARY (0.30.0): what a steady row reads, the
 #: rotor's speed, and the count of clockings. Not ``COLD_START``, which only a
@@ -1277,6 +1294,15 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
                 "into the program they run."
             ),
         ),
+        EXPORT_UNSTEADY_LAST_ITER_VARIABLE: InputKey(
+            "The last time steps of the run the per-step exports cover; the first exported "
+            "step is TIME_ITERATIONS - K + 1.",
+            "a time step count",
+            unscripted=(
+                "stating it registers the per-step actions, and the run writes the first "
+                "step into the program they run."
+            ),
+        ),
         RESTART_VARIABLE: InputKey(
             "How to continue a run that stopped on the wall clock.",
             "{FINISH_PENDING}, {ADDITIONAL_ITERS=<n>} or {ADDITIONAL_REVS=<n>}",
@@ -1348,6 +1374,15 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             unscripted=(
                 "stating it registers the per-step actions, and the run writes the step it "
                 "falls on into the program they run."
+            ),
+        ),
+        EXPORT_UNSTEADY_LAST_REV_VARIABLE: InputKey(
+            "The last revolutions of the rotor clock the per-step exports cover, taken "
+            "up to the next whole time step.",
+            "revolutions",
+            unscripted=(
+                "stating it registers the per-step actions, and the run writes the first "
+                "step into the program they run."
             ),
         ),
         # NO COMMAND BY ITSELF: it sets how many steady solves the wheel is clocked

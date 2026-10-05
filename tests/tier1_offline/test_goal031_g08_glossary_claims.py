@@ -481,6 +481,7 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     "LAST_ITERS_AVG": _rows(unsteady_case, "LAST_ITERS_AVG", "100", "200"),
     "BLADES": _rows(rotor_case, "BLADES", "4", "6"),
     "EXPORT_UNSTEADY_AFTER_ITER": _rows(unsteady_case, "EXPORT_UNSTEADY_AFTER_ITER", "10", "20"),
+    "EXPORT_UNSTEADY_LAST_ITER": _rows(unsteady_case, "EXPORT_UNSTEADY_LAST_ITER", "10", "20"),
     "RESTART": Variation(
         lambda _: _continuing("{ADDITIONAL_ITERS=120}", "120"),
         lambda _: _continuing("{ADDITIONAL_ITERS=200}", "200"),
@@ -553,6 +554,7 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         ),
     ),
     "EXPORT_UNSTEADY_AFTER_REV": _rows(rotor_case, "EXPORT_UNSTEADY_AFTER_REV", "0.1", "0.2"),
+    "EXPORT_UNSTEADY_LAST_REV": _rows(rotor_case, "EXPORT_UNSTEADY_LAST_REV", "0.1", "0.2"),
     "RAW": Variation(
         lambda _: _raw("SOLVER_SET_ITERATIONS 100"), lambda _: _raw("SOLVER_SET_ITERATIONS 200")
     ),

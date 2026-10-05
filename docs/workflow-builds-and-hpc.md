@@ -84,7 +84,8 @@ with a sentence naming the build, the feature, the builds that document
 the actions and the change to the row that runs where you asked:
 
 - snapshots from a threshold (`EXPORT_UNSTEADY_AFTER_ITER`,
-  `EXPORT_UNSTEADY_AFTER_REV`), because the step counter is an action;
+  `EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_LAST_ITER`,
+  `EXPORT_UNSTEADY_LAST_REV`), because the step counter is an action;
 - the wall clock inside the run (`WALLTIME`), because the clock and its
   stop are actions; size `TIME_ITERATIONS` to the queue instead and
   continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;

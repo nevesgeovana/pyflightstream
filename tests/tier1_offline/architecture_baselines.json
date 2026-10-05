@@ -990,12 +990,6 @@
    "statements": 49,
    "positional": 1
   },
-  "cases/workflows/_clock.py:unsteady_export_threshold": {
-   "complexity": 13,
-   "branches": 14,
-   "statements": 45,
-   "positional": 2
-  },
   "cases/workflows/_exports.py:_surface_export": {
    "complexity": 11,
    "branches": 11,
@@ -1619,6 +1613,7 @@
     "_probes",
     "_batch_actions",
     "_clock",
+    "_export_first_step",
     "_exports",
     "_reductions",
     "_freestream",
