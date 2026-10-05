@@ -45,6 +45,7 @@ from ._exports import (
 )
 from ._probes import (
     _creation_of_normal_probes,
+    _refuse_unmeasured_normal_probes,
 )
 from ._qsteady_rotor import (
     _build_qsteady_rotor,
@@ -270,6 +271,7 @@ def build_script(
     'SET_FREESTREAM CONSTANT'
     """
     _refuse_retired_window_keys(case)
+    _refuse_unmeasured_normal_probes(case, script)
     _refuse_rotor_shedding(case)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         names = list((conventions.outputs if conventions else None) or case.outputs)
