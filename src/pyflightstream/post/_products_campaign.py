@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 #: The statuses whose products ``check_frozen`` never withholds. RAN_MISSING_LOG is
-#: one (FR-413 R3): its freeze cannot be read, and the owner's rule of 2026-10-05
+#: one (FR-413 R3): its freeze cannot be read, and the requirement
 #: is that the post does not refuse it; the point's one WARNING says so.
 _ADMITTED_WHEN_CHECKING = (
     RunStatus.CONVERGED,

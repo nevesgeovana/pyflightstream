@@ -561,7 +561,7 @@ def _rotor_columns(
     cites, the same number the rotor table states and divides by; `NA` where
     the reference declares no block of that alias. A speed with no diameter
     beside it is not the rotor's condition: every rotor coefficient and the
-    advance ratio divide by both (FR-89, the owner's report of 2026-10-05,
+    advance ratio divide by both (FR-89,
     P0370-S11-SUPER-DIAMETER).
 
     THE ROW'S OWN SPEED where the plan states none at all, as the clock

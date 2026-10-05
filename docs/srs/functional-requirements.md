@@ -3548,7 +3548,7 @@ requirement below is one seam of that division.
     has already happened. The matrix still supplies every key the record does
     not, which is every key of every row that has not run.
 
-    R-S11 (0.37.0, 2026-10-05; item S11 of GOAL-044). *Origin: the owner's report "o diametro nao ta indo pro super file no unsteady?" and her decision "corrige na 37".* EACH ROTOR'S DIAMETER IS A VARIABLE OF ITS CONDITION. The super content (the steady and quasi-steady super file, and the unsteady polar that carries it) shall state, for each rotor the point turned, `DIAMETER_<alias>` in metres right after `RPM_<alias>`: the `diameter_m` of the rotor block the row's reference declares, the number the rotor table states and divides by, `NA` where the reference declares no block of that alias. Where a point's plan states no rotor speed, a `qsteady_rotor` point's, the speed is the one its quasi-steady record states (the source its rotor table reads): it fills `RPM_<alias>` of the super content and the clock, `RPM_CLOCK` and `J_CLOCK`, of every product of the point; `RPM` keeps what the row and the plan state. A row that turns no rotor gains no column. The union of what the workspace knows names `DIAMETER_<alias>` beside `RPM_<alias>` for every rotor a record plans. The one named difference against 0.36.0 is these inserted columns and the filled clock cells (`scripts/check_parity.py`, FR-89 entries). Marker P0370-S11-SUPER-DIAMETER. <span class='srs-implemented'>implemented</span>
+    R-S11 (0.37.0, 2026-10-05; item S11 of GOAL-044). *Origin: owner report "o diametro nao ta indo pro super file no unsteady?" and the decision "corrige na 37".* EACH ROTOR'S DIAMETER IS A VARIABLE OF ITS CONDITION. The super content (the steady and quasi-steady super file, and the unsteady polar that carries it) shall state, for each rotor the point turned, `DIAMETER_<alias>` in metres right after `RPM_<alias>`: the `diameter_m` of the rotor block the row's reference declares, the number the rotor table states and divides by, `NA` where the reference declares no block of that alias. Where a point's plan states no rotor speed, a `qsteady_rotor` point's, the speed is the one its quasi-steady record states (the source its rotor table reads): it fills `RPM_<alias>` of the super content and the clock, `RPM_CLOCK` and `J_CLOCK`, of every product of the point; `RPM` keeps what the row and the plan state. A row that turns no rotor gains no column. The union of what the workspace knows names `DIAMETER_<alias>` beside `RPM_<alias>` for every rotor a record plans. The one named difference against 0.36.0 is these inserted columns and the filled clock cells (`scripts/check_parity.py`, FR-89 entries). Marker P0370-S11-SUPER-DIAMETER. <span class='srs-implemented'>implemented</span>
 
     Plan: PFS-2078.11 (0.37.0).
 
@@ -9534,7 +9534,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: the owner's report of 2026-10-03 on 0.35.1 ("primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
+    *Origin: owner report of 2026-10-03 on 0.35.1 ("primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
 
     Need: A user whose matrix is in `inputs/matrices/` alone must be able to run `rebuild` (and every other command) on it without being told it is in two places.
 
@@ -9544,7 +9544,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R2 The same stem in both homes with different bytes is still refused, naming both paths and the remedy; identical bytes are read once, as in 0.32.0 (FR-224).
     - R3 A path given with a folder separator is read as that path, as before.
     - R5 A command run from the workspace root on a matrix in one home prints and writes what it did in 0.36.0.
-    - R4 The offline reproduction of the owner's 0.35.1 case (grouped batch workspace, matrix in `inputs/matrices/` only, `runs.json` and logs deleted) is a tier-1 test.
+    - R4 The offline reproduction of the reported 0.35.1 case (grouped batch workspace, matrix in `inputs/matrices/` only, `runs.json` and logs deleted) is a tier-1 test.
 
     Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`, carrying P0370-S1-MATRIX-HOME (FR-411).
 
@@ -9553,7 +9553,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-412 rebuild makes the records of a workspace whose runs.json is lost <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: the owner's report of 2026-10-03 on 0.35.1 ("eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`.*
+    *Origin: owner report of 2026-10-03 on 0.35.1 ("eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`.*
 
     Need: A user who deleted `runs.json` while the simulations of a campaign, grouped batches included, are on disk must get the records back from `rebuild`.
 
@@ -9563,16 +9563,16 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R1b A grouped point whose outputs are still in its batch folder (the batch not yet relocated) is rebuilt from there, naming its batch.
     - R2 A point whose declared solver log is absent and whose other declared outputs are present is rebuilt as `RAN_MISSING_LOG` (FR-413), never refused for the log alone.
     - R3 Every per-simulation refusal states the simulation, the reason in plain words and the remedy; the summary ends with the count rebuilt and the count refused.
-    - R4 A rebuilt record states what collect would state from the files on disk; what only a log or the original submission carried (the solver clock, the scheduler's job id) is left unstated, never invented. The owner's own 0.35.1 workspace, rebuilt with the partial wheel, is the real-workspace check, owed.
+    - R4 A rebuilt record states what collect would state from the files on disk; what only a log or the original submission carried (the solver clock, the scheduler's job id) is left unstated, never invented. The reported 0.35.1 workspace itself, rebuilt with the partial wheel, is the real-workspace check, owed.
 
     Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`, carrying P0370-S1-REBUILD-LOST (FR-412): a per-point and a grouped workspace, the grouped one also hand-built in the file layout a grouped run leaves (datapoint folder, and batch folder before relocation), `runs.json` and the logs deleted, rebuilt and then posted; mutants that look only in the datapoint folder (R1b) or refuse on the missing log (R2) fail it; the refusal text is asserted to carry the simulation, the reason and the remedy (R3).
 
-    Evidence: `tests/tier1_offline/test_p0370_s1_rebuild_lost.py::test_p0370_s1_rebuild_writes_the_records_of_a_lost_runs_json` (per point and grouped: rebuilt RAN_MISSING_LOG, the grouped records naming their batch and job, the scheduler's fields left empty, then posted), `::test_p0370_s1_a_batch_not_moved_home_is_rebuilt_from_its_folder` (R1b: rebuilt from the batch folder, left SUBMITTED with its job entry, then collect moves it home and the post writes it), `::test_p0370_s1_every_refusal_names_the_simulation_its_reason_and_its_remedy` (R3, preview and `--apply`). Mutants: the simulation looked for only in `sims/sim_<id>/` fails R1b; the log rule disabled (the point refused FAILED_INCOMPLETE_OUTPUT) fails R2; `--apply` refusing with the 0.36.0 one-line message fails R3. Reading taken: R1b's "rebuilt from there" leaves the record SUBMITTED with its job entry for collect to move home, since a rebuild writes nothing in the tree and a completed record would name outputs the post does not find there. The real-workspace check on the owner's 0.35.1 workspace (R4) is owed.
+    Evidence: `tests/tier1_offline/test_p0370_s1_rebuild_lost.py::test_p0370_s1_rebuild_writes_the_records_of_a_lost_runs_json` (per point and grouped: rebuilt RAN_MISSING_LOG, the grouped records naming their batch and job, the scheduler's fields left empty, then posted), `::test_p0370_s1_a_batch_not_moved_home_is_rebuilt_from_its_folder` (R1b: rebuilt from the batch folder, left SUBMITTED with its job entry, then collect moves it home and the post writes it), `::test_p0370_s1_every_refusal_names_the_simulation_its_reason_and_its_remedy` (R3, preview and `--apply`). Mutants: the simulation looked for only in `sims/sim_<id>/` fails R1b; the log rule disabled (the point refused FAILED_INCOMPLETE_OUTPUT) fails R2; `--apply` refusing with the 0.36.0 one-line message fails R3. Reading taken: R1b's "rebuilt from there" leaves the record SUBMITTED with its job entry for collect to move home, since a rebuild writes nothing in the tree and a completed record would name outputs the post does not find there. The real-workspace check on the reported 0.35.1 workspace (R4) is owed.
 
 !!! requirement "FR-413 A point whose outputs are present and whose solver log is absent is RAN_MISSING_LOG, collected and posted <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: the owner's proposal of 2026-10-03 ("podia ter um status RAN_MISSING_LOG") and her rule of 2026-10-05 ("lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`.*
+    *Origin: owner proposal of 2026-10-03 ("podia ter um status RAN_MISSING_LOG") and the rule of 2026-10-05 ("lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`.*
 
     Need: A user whose solver logs were deleted after the runs ended must be able to collect and post those points, knowing which conclusions the log would have carried.
 
@@ -9593,9 +9593,9 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-414 mark-converged records a person's verdict of CONVERGED, with its reason and a copy of runs.json <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: the owner's request of 2026-10-03 ("me manda um script python simples que marca converged nas polares que eu quiser"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`.*
+    *Origin: owner request of 2026-10-03 ("me manda um script python simples que marca converged nas polares que eu quiser"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`.*
 
-    Need: A user who knows from her own reading that points converged must be able to record that verdict in the workspace, in the package's own form, instead of editing `runs.json` by hand.
+    Need: A user who knows from their own reading that points converged must be able to record that verdict in the workspace, in the package's own form, instead of editing `runs.json` by hand.
 
     Requirement: `pyfs-matrix mark-converged --sims ID [ID ...] [--points NAME ...] --reason TEXT [--apply]` sets the status of the named points' records to `CONVERGED`, as `mark-failed` (FR-309) sets `FAILED_MARKED`: under the manifest lock, the previous `runs.json` copied to the archive first, each record stating `marked` with the status it had, the time and the reason.
 
@@ -9611,7 +9611,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-415 The per-step exports can cover the last revolutions or the last steps of a run <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.03 (0.37.0).
 
-    *Origin: the owner's note for 0.37 of 2026-10-05 ("Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV"), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
+    *Origin: owner note for 0.37 of 2026-10-05 ("Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV"), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
 
     Need: A user who wants the per-step exports of the end of a run must be able to say how much of the end, without computing the first step from the run length herself.
 
@@ -9632,9 +9632,9 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.04 (0.37.0).
 
-    *Origin: the owner's note for 0.37 of 2026-10-05 ("Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady"), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
+    *Origin: owner note for 0.37 of 2026-10-05 ("Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady"), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
 
-    Need: A user who cleans an unsteady workspace must be able to keep more than the last step of each per-step export, or to delete a range of steps she names.
+    Need: A user who cleans an unsteady workspace must be able to keep more than the last step of each per-step export, or to delete a range of steps they name.
 
     Requirement: A `[[prune_step_exports]]` table of a free-space recipe may state `keep_last = K` (a positive integer, default 1, the 0.30.0 behaviour) or `delete_steps = [A, B]` (two positive integers, `A <= B`, inclusive), never both. A step is the time-step number the solver writes in the file name (`<name>_iteration=<step>`); a per-step export is the set of such files of one name.
 
@@ -9651,7 +9651,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-417 A probe entry of an unsteady row states its kind, unsteady (default) or normal <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.05 (0.37.0).
 
-    *Origin: the owner's decision of 2026-10-05 ("no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes."), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`.*
+    *Origin: owner decision of 2026-10-05 ("no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes."), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`.*
 
     Need: A user of an unsteady run who needs the flow at probe points only at the end of the run must be able to ask for probe points rather than a fluid plot per point and parameter, whose history the solver writes at every time step (RPT-083 measured fluid plots as per-step histories and the steady `EXPORT_PROBE_POINTS`; it measured no probe point after an unsteady march).
 
@@ -9674,7 +9674,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-418 The reusable inflow is built from normal probes of an unsteady run <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.05 (0.37.0).
 
-    *Origin: the owner's correction of 2026-10-05 ("para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady."), scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`.*
+    *Origin: owner correction of 2026-10-05 ("para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady."), scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`.*
 
     Need: A user of an unsteady run with no rotor that settles to a steady regime must be able to take the custom inflow for a quasi-steady rotor from probes sampled at its last time step.
 
@@ -9695,11 +9695,11 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Need: A user comparing the solver settings of a campaign's runs must get them as one numeric table with its legend from `pyfs-matrix post`, without calling the library.
 
-    Requirement: Unless the pproc states `[products] settings_codebook = false` (the default is true, the owner's decision of 2026-10-05: "deixa o codebook ligado por padrao"), the post writes, per matrix, `settings/<matrix>_settings.csv` (one numeric row per point) and its codebook `settings/<matrix>_settings.codebook.json` (the legend from each numeric code to the setting's name and value, as the settings-codebook page documents) from the solver-setup snapshot of every recorded point that has one, through the library writer `write_settings_table`.
+    Requirement: Unless the pproc states `[products] settings_codebook = false` (the default is true, owner decision of 2026-10-05: "deixa o codebook ligado por padrao"), the post writes, per matrix, `settings/<matrix>_settings.csv` (one numeric row per point) and its codebook `settings/<matrix>_settings.codebook.json` (the legend from each numeric code to the setting's name and value, as the settings-codebook page documents) from the solver-setup snapshot of every recorded point that has one, through the library writer `write_settings_table`.
 
-    - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (the owner's decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot has no row and is named by one INFO line in `post.log`, never a blank row and never a recorded skip (a default-on product must not turn `--strict` red on a workspace whose records predate the snapshot); if no point has a snapshot the two files are not written and `post.log` says so once.
+    - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (owner decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot has no row and is named by one INFO line in `post.log`, never a blank row and never a recorded skip (a default-on product must not turn `--strict` red on a workspace whose records predate the snapshot); if no point has a snapshot the two files are not written and `post.log` says so once.
     - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
-    - R3 With the key false, the post writes nothing new and its products are byte-identical against 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by her decision.
+    - R3 With the key false, the post writes nothing new and its products are byte-identical against 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by that decision.
 
     Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot (an INFO line, no skip, `--strict` stays green; a mutant recording it as a skip fails).
 
@@ -9710,7 +9710,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     *Origin: GEO-070 candidate "Declarar cópia de tabelas no frame instalado pelo pproc", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
 
-    Need: A user whose rotor is installed on the other side of the plane y = 0 from the one she simulated must get the inflow tables mirrored from the post, without running `to_installed_frame` herself.
+    Need: A user whose rotor is installed on the other side of the plane y = 0 from the one simulated must get the inflow tables mirrored from the post, without running `to_installed_frame` herself.
 
     Requirement: `[products] installed_frame` in the pproc is a list of families from `{"probes", "inflow"}` (default empty). For `probes` the post writes `probes/<point>_probes_installed.csv` beside each probes table; for `inflow` it writes `<stem>.inflow_installed.dat` beside each reusable inflow profile. Each copy is the mirror through y = 0.
 
@@ -9727,7 +9727,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.09 (0.37.0).
 
-    *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner's answer of 2026-10-05 ("As recusas para o usuário não precisam citar o id do RPT."); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
+    *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 ("As recusas para o usuário não precisam citar o id do RPT."); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
 
     Need: A user choosing `--batch` or `--polar-sweep` must learn from the help which rows will be left out and, from each left-out line, what to do instead.
 
@@ -9743,7 +9743,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-422 An unsteady rotor row can set its run length from a target wake length <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.02 (0.37.0).
 
-    *Origin: the owner's request of 2026-10-03 ("poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio") and her answer of 2026-10-05 ("a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas"); scope GOAL-044 item S2. Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`.*
+    *Origin: owner request of 2026-10-03 ("poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio") and the answer of 2026-10-05 ("a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas"); scope GOAL-044 item S2. Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`.*
 
     Need: A user of `unsteady_rotor` must be able to state how far the wake should have travelled, in rotor radii, and get the run length from it, as the wake termination already does.
 
@@ -9764,7 +9764,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-423 FlightStream 26.125 is a supported build <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.10 (0.37.0).
 
-    *Origin: the owner's request of 2026-10-05 ("agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace") and her widening the same day ("inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace"); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, owed.*
+    *Origin: owner request of 2026-10-05 ("agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace") and its widening the same day ("inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace"); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, owed.*
 
     Need: A user holding the 26.125 build must be able to emit scripts for it, run a workspace on it and read its outputs, with every command the build's manual documents available and judged.
 

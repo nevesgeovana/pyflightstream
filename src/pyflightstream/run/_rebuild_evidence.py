@@ -456,7 +456,7 @@ def _shadow_home(shadow: Path, matrix: Path) -> Path:
     second copy at the shadow's root, re-activated to RUN 1, was the same stem in
     both homes with different bytes, and every row of a matrix kept in
     ``inputs/matrices/`` with a RUN 0 row was refused as being in two places
-    (FR-411, the owner's report on 0.35.1). The matrix read replaces the one copy
+    (FR-411, a report on 0.35.1). The matrix read replaces the one copy
     of its stem, so the shadow holds it once.
     """
     same_stem = [path for path in matrix_files(shadow) if path.stem == matrix.stem]
