@@ -84,7 +84,8 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     parser = capture_parser("pyflightstream.run.cli:main")
     choices = list(parser._subparsers._group_actions[0].choices)
     # 0.34.0 appends `degenerate` (FR-330), last, as every later command is;
-    # 0.35.0 appends the read-only `status` (FR-379).
+    # 0.35.0 appends the read-only `status` (FR-379); 0.37.0 appends `mark-converged`
+    # (FR-414, the owner's requirement).
     assert choices == [
         *V0330_SUBCOMMANDS,
         "degenerate",
@@ -94,6 +95,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
         "trace",
         "history",
         "diff",
+        "mark-converged",
     ]
 
 

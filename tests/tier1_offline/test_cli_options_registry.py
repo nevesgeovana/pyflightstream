@@ -529,6 +529,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "collect",
             "delete-sims",
             "inspect-setups",
+            "mark-converged",
             "mark-failed",
             "plan",
             "post",
@@ -537,7 +538,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "mark-converged", "plan", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "cost_file"): frozenset({"inspect-setups", "plan"}),
@@ -558,6 +559,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "delete-sims",
             "free-space",
             "inspect-setups",
+            "mark-converged",
             "mark-failed",
             "plan",
             "post",
@@ -571,9 +573,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-matrix", "apply"): frozenset(
-        {"delete-sims", "free-space", "mark-failed", "rebuild", "restore", "sync"}
+        {"delete-sims", "free-space", "mark-converged", "mark-failed", "rebuild", "restore", "sync"}
     ),
-    ("pyfs-matrix", "reason"): frozenset({"mark-failed"}),
+    ("pyfs-matrix", "reason"): frozenset({"mark-converged", "mark-failed"}),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
     ("pyfs-matrix", "force"): frozenset({"delete-sims"}),

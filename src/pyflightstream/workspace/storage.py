@@ -69,12 +69,7 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace._links import (
-    _is_link,
-    _is_reparse,
-    _make_dir_link,
-    _remove_link,
-)
+from pyflightstream.workspace._links import _is_link, _is_reparse, _make_dir_link, _remove_link
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -1688,7 +1683,10 @@ def _merge_runs(
         mine = merged[index[run_id]]
         if mine == row:
             continue
-        if mine.get("status") == RunStatus.SUBMITTED.value or prefer_other:
+        # FR-414 R4: a row carrying a person's verdict (``marked``) is never
+        # replaced by one that does not; the merge names it as a conflict.
+        verdict_lost = bool(mine.get("marked")) and not row.get("marked")
+        if (mine.get("status") == RunStatus.SUBMITTED.value or prefer_other) and not verdict_lost:
             merged[index[run_id]] = row
             replaced.append(
                 {

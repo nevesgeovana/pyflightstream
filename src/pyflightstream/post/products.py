@@ -137,6 +137,7 @@ from pyflightstream.post._products_campaign import (
     _CampaignProducts,
     _index_record_surfaces,
     _warn_unreadable_matrix,
+    carry_marks,
     write_settings_product,
 )
 from pyflightstream.post._products_campaign import (
@@ -959,6 +960,7 @@ def _campaign_products(
         )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
+        carry_marks(products_index, points)  # FR-414 R3
         _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
     except BaseException as error:
         manifest["complete"] = False

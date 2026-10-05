@@ -42,6 +42,9 @@ CLOSED_SET = {
     "SUBMITTED",
     # 0.33.0 (FR-309): the person's verdict, minted by mark-failed and never by collect.
     "FAILED_MARKED",
+    # 0.37.0, added by the owner's requirement: every output present and the declared
+    # solver log absent, a run that ended; minted by collect and by rebuild.
+    "RAN_MISSING_LOG",
 }
 
 
@@ -261,7 +264,11 @@ def test_goal020_collect_sweeps_a_workspace_with_nothing_submitted(tmp_path):
 
 
 def test_goal020_collect_mints_no_ninth_status():
-    """0.17.0 spent a value on SUBMITTED; the answer to that question is not a ninth."""
+    """0.17.0 spent a value on SUBMITTED; the answer to that question is not a ninth.
+
+    The set grows only by a requirement: FAILED_MARKED (0.33.0) and RAN_MISSING_LOG
+    (FR-413, the owner's, whose expectation this test now carries).
+    """
     assert {member.name for member in RunStatus} == CLOSED_SET
 
 

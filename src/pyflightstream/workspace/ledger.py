@@ -136,7 +136,13 @@ _PLAN_FILE = "plan.json"
 _PRODUCTS_FILE = "products.json"
 
 #: The recorded words that ended a run without failing it, in the enum's order.
-_CONCLUDED = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.WALLTIME_REACHED)
+#: RAN_MISSING_LOG (FR-413) ended with its outputs, and is counted apart from CONVERGED.
+_CONCLUDED = (
+    RunStatus.CONVERGED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.WALLTIME_REACHED,
+    RunStatus.RAN_MISSING_LOG,
+)
 
 #: A point-name field code back to the sweep variable it writes (``AL`` to ``alpha``).
 _AXIS_OF_CODE = {
@@ -174,7 +180,8 @@ def status_text(counts: Mapping[str, int]) -> str:
 
     One word when every datapoint shares it. Otherwise each word with its count,
     in the order of FR-379 R3: the concluded words (CONVERGED,
-    COMPLETED_MAX_ITER, WALLTIME_REACHED), then the failed ones (``FAILED_*``),
+    COMPLETED_MAX_ITER, WALLTIME_REACHED, RAN_MISSING_LOG), then the failed ones
+    (``FAILED_*``),
     then SUBMITTED, then :data:`PLANNED`; a word no group names comes last.
 
     Parameters

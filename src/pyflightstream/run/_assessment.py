@@ -1171,6 +1171,8 @@ _STATUS_SEVERITY: tuple[RunStatus, ...] = (
     RunStatus.SUBMITTED,
     RunStatus.COMPLETED_MAX_ITER,
     RunStatus.WALLTIME_REACHED,
+    # FR-413: the outputs are present and the log is not; no verdict either way.
+    RunStatus.RAN_MISSING_LOG,
     RunStatus.FAILED_SCRIPT,
     RunStatus.FAILED_EXECUTION,
     RunStatus.FAILED_INCOMPLETE_OUTPUT,

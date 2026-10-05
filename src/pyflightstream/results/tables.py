@@ -185,7 +185,7 @@ class _ManifestWorkspace(Protocol):
 #: FAILED, so a point still in a scheduler's queue was counted as a run that
 #: should have produced coefficients and then complained about for not
 #: having them, on every successful cluster submission (PFS-2010.01.03).
-_RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED")
+_RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED", "RAN_MISSING_LOG")
 
 # Fixed identity and outcome columns of one run row, in output order;
 # sweep point axes are inserted after sim_id and must not collide.
