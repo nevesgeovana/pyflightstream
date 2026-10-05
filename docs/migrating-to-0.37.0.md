@@ -204,10 +204,10 @@ What differs on 26.125:
   (`NEW_CCS_WING_FLAP_COVE`, `NEW_CCS_WING_MORPHING_SURFACE`) are required on
   26.125, and the revolve CCS export (`EXPORT_REVOLVE_CCS_FILE`) takes the
   revolve loft's arguments.
-- **Refused on 26.125, admitted on 26.124 only.** The additional post. Normal
-  probes on an unsteady row (`kind = "normal"`, FR-417) are admitted on 26.124
-  and 26.125, the two builds measured. Direct mesh morphing (FR-341) is
-  refused on 26.124, whose build does not run the command.
+- **Build-dependent admission.** Normal probes on an unsteady row
+  (`kind = "normal"`, FR-417) are admitted on 26.124 and 26.125, the two
+  builds measured. Direct mesh morphing (FR-341) is admitted on 26.125 only
+  and refused on 26.124, whose build does not run the command.
 - **New commands.** Twelve commands the 26.125 manual documents first enter the
   command database, each with a probe specification, and reach a workspace as
   the keys below or through a row's `RAW` column.
