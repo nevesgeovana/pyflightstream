@@ -203,14 +203,16 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _listed_sims(text: str) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
-    Read by ``delete-sims``, ``rebuild``, ``post``, ``collect`` and ``status`` ``--sims``
-    (FR-307); the form's one home is :func:`pyflightstream.workspace.ledger.listed_sims`.
+    Read by the positional ids of ``delete-sims`` and by ``--sims`` of ``rebuild``,
+    ``mark-failed``, ``post``, ``collect`` and ``status`` (FR-307); ``mark-converged``
+    reads its ``--sims`` words through the same reader. The form's one home is
+    :func:`pyflightstream.workspace.ledger.listed_sims`.
     """
     return listed_sims(text)
 
 
 def _whole_sims(args: argparse.Namespace) -> list[str]:
-    """Read ``delete-sims --sims``, refusing a run id alias (FR-395)."""
+    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
     manifest = getattr(args, "runs", None) or "runs.json"
     return split_typed_ids(
         _listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True

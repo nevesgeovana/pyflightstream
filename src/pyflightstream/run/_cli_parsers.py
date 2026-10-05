@@ -25,6 +25,7 @@ from pyflightstream.cases.workflows import (
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._alias import SIMS_IDS_HELP
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
@@ -316,7 +317,7 @@ def _add_storage_parsers(subparsers: Any) -> None:
             "leaves it, recorded stale; regenerate reruns that matrix's post without them."
         ),
     )
-    delete.add_argument("sims", help="simulation ids, comma separated: 4001,2009")
+    delete.add_argument("sims", help=SIMS_IDS_HELP)
     delete.add_argument("--workspace", default=".", help=workspace_help)
     delete.add_argument(
         "--matrix-products",
@@ -424,7 +425,7 @@ def _add_records_parsers(subparsers: Any) -> None:
         action="store_true",
         help="rebuild every simulation folder on disk, recorded or not",
     )
-    rebuild.add_argument("--sims", default=None, help="simulation ids, comma separated: 4001,2009")
+    rebuild.add_argument("--sims", default=None, help=SIMS_IDS_HELP)
     rebuild.add_argument(
         "--build-alias",
         dest="build_alias",

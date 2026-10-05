@@ -34,6 +34,12 @@ from pyflightstream.workspace import JOB_TAG
 #: What joins the simulation id and the index: ``2006_3``.
 ALIAS_JOINER = "_"
 
+#: The one help text of the simulation ids a records command reads, in the form
+#: :func:`pyflightstream.workspace.ledger.listed_sims` reads them: one value, comma
+#: separated, square brackets allowed (``delete-sims``, ``rebuild``, ``mark-failed``
+#: and ``mark-converged``, which also takes the ids as separate words).
+SIMS_IDS_HELP = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
+
 
 class AliasError(MatrixError):
     """An alias that names no point, or whose two readings disagree (FR-395 R5)."""

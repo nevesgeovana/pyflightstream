@@ -32,10 +32,12 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
+from pyflightstream.run._alias import SIMS_IDS_HELP
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace._verdicts import marked_units
+from pyflightstream.workspace.ledger import listed_sims
 from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
 
 __all__ = [
@@ -47,9 +49,6 @@ __all__ = [
     "person_verdicts",
 ]
 
-#: The two shapes ``--sims`` takes in mark-converged, mark-failed and rebuild.
-SIMS_SHAPES = "simulation ids: 2006 2007 or 2006,2007"
-
 #: What to do when a named simulation or point has no record.
 _REMEDY = "check the ids against runs.json, or rebuild it with pyfs-matrix rebuild"
 
@@ -58,9 +57,13 @@ _VERDICT = RunStatus.CONVERGED
 
 
 def _listed(values: Sequence[str] | None) -> list[str]:
-    """Read ids given as words, commas or both: ``2006 2007`` or ``2006,2007``."""
-    words = [part.strip().strip("[]") for value in values or [] for part in str(value).split(",")]
-    return list(dict.fromkeys(word for word in words if word))
+    """Read ids given as words, commas or both, through the one reader of the form.
+
+    The words are joined with commas and read by
+    :func:`pyflightstream.workspace.ledger.listed_sims`, so ``2006 2007``,
+    ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
+    """
+    return list(dict.fromkeys(listed_sims(",".join(str(value) for value in values or []))))
 
 
 def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
@@ -332,8 +335,7 @@ def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -
     mark.add_argument(
         "--sims",
         required=True,
-        help="simulation ids, comma separated: 2006,2007; a run id alias (2006_3) marks that "
-        "point's record alone",
+        help=SIMS_IDS_HELP + "; a run id alias (2006_3) marks that point's record alone",
     )
     mark.add_argument("--reason", default=None, help="why, recorded as given")
     mark.add_argument("--workspace", default=".", help=workspace_help)
@@ -361,8 +363,8 @@ def add_mark_converged_parser(subparsers: Any) -> None:
         required=True,
         nargs="+",
         metavar="ID",
-        help=SIMS_SHAPES + "; to mark some of their points, name them with --points "
-        "(a run id alias such as 2006_3 is not read here)",
+        help=SIMS_IDS_HELP + ", or as words: 2006 2007; to mark some of their points, name "
+        "them with --points (a run id alias such as 2006_3 is not read here)",
     )
     converged.add_argument(
         "--points",

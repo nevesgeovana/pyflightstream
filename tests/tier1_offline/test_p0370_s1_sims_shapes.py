@@ -11,8 +11,8 @@ import pytest
 
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
-SHAPES = "simulation ids: 2006 2007 or 2006,2007"
-COMMA_FORM = "simulation ids, comma separated"
+COMMA_FORM = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
+WORDS = "or as words: 2006 2007"
 REASON = "read by hand"
 
 
@@ -25,13 +25,15 @@ def _help(command, tmp_path, capsys):
 
 def test_mark_converged_help_names_both_shapes(tmp_path, capsys):
     """P0370-S1-MARK-CONVERGED (FR-414): the --sims help of mark-converged states both shapes."""
-    assert SHAPES in _help("mark-converged", tmp_path, capsys)
+    text = _help("mark-converged", tmp_path, capsys)
+    assert COMMA_FORM in text and WORDS in text, text
 
 
 @pytest.mark.parametrize("command", ["mark-failed", "rebuild"])
 def test_mark_failed_and_rebuild_help_name_their_comma_form(command, tmp_path, capsys):
     """P0370-S1-MARK-CONVERGED (FR-414): the 0.33.1 commands keep the form they take."""
-    assert COMMA_FORM in _help(command, tmp_path, capsys)
+    text = _help(command, tmp_path, capsys)
+    assert COMMA_FORM in text and WORDS not in text, text
 
 
 def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
@@ -41,14 +43,20 @@ def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
 
 
 def test_words_and_commas_read_the_same_ids(tmp_path, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414): words and commas give mark-converged the same preview."""
+    """P0370-S1-MARK-CONVERGED (FR-414): words, commas and brackets give the same preview.
+
+    mark-converged reads the ids through ``workspace.ledger.listed_sims``, the
+    reader of every other records command (ARCH-1), so the bracketed form the
+    help names stays accepted.
+    """
     workspace = grouped_workspace(
         tmp_path / "ws", mode="alone", logs=False, sims=("7001", "7002", "7003")
     )
     command = ["mark-converged", "--reason", REASON]
     words = _verdicts(pyfs([*command, "--sims", "7001", "7002"], workspace.root, capsys))
     commas = _verdicts(pyfs([*command, "--sims", "7001,7002"], workspace.root, capsys))
-    assert words == commas
+    brackets = _verdicts(pyfs([*command, "--sims", "[7001,7002]"], workspace.root, capsys))
+    assert words == commas == brackets
     code, lines = words
     assert code == 0 and any("sim 7002" in line for line in lines), words
 
