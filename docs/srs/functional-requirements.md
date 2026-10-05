@@ -9764,7 +9764,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-423 FlightStream 26.125 is a supported build <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.10 (0.37.0).
 
-    *Origin: owner request of 2026-10-05 ("agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace") and its widening the same day ("inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace"); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, owed.*
+    *Origin: owner request of 2026-10-05 ("agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace") and its widening the same day ("inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace"); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, run on 2026-10-05 (`reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`, R6).*
 
     Need: A user holding the 26.125 build must be able to emit scripts for it, run a workspace on it and read its outputs, with every command the build's manual documents available and judged.
 
