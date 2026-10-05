@@ -156,6 +156,44 @@ def _admit_campaign_records(
                 )
 
 
+def _person_s_verdict(record: RunRecord) -> dict[str, object] | None:
+    """Return the ``marked`` of a point a person judged CONVERGED (FR-414), else None."""
+    marked = record.marked or {}
+    return dict(marked) if marked.get("verdict") == RunStatus.CONVERGED.value else None
+
+
+def _say_a_person_s_verdict(record: RunRecord) -> None:
+    """Name, once in ``post.log``, a point whose CONVERGED is a person's verdict (FR-414 R3)."""
+    marked = _person_s_verdict(record)
+    if marked is None or record.status is not RunStatus.CONVERGED:
+        return
+    warn(
+        f"point={record.run_id} product=all: CONVERGED is a person's verdict "
+        f"(mark-converged, {marked.get('at')}): {marked.get('reason')}; the run was "
+        f"{marked.get('from')}, and the package did not judge it converged.",
+        PyflightstreamWarning,
+        stacklevel=5,
+    )
+
+
+def carry_marks(
+    products_index: Mapping[str, dict[str, object]], points: Sequence[RunRecord]
+) -> None:
+    """Give every product entry built from a point a person judged its ``marked`` (FR-414 R3).
+
+    Keyed by run id under ``marked``, beside ``runs``; an entry built from no
+    such point is left byte for byte as it was.
+    """
+    marks = {point.run_id: mark for point in points if (mark := _person_s_verdict(point))}
+    if not marks:
+        return
+    for entry in products_index.values():
+        runs = entry.get("runs")
+        held = {run: marks[run] for run in runs if run in marks} if isinstance(runs, list) else {}
+        if held:
+            entry["marked"] = held
+
+
 def _record_has_frozen_failure(
     workspace: CampaignWorkspace, point_record: RunRecord, *, check_frozen: bool = False
 ) -> bool:
@@ -166,6 +204,7 @@ def _record_has_frozen_failure(
     cannot be read (FR-413 R3).
     """
     frozen_failure = False
+    _say_a_person_s_verdict(point_record)
     if point_record.status is RunStatus.RAN_MISSING_LOG:
         warn(
             missing_log_warning(point_record.run_id, check_frozen=check_frozen),

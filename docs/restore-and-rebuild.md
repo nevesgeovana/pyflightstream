@@ -115,9 +115,8 @@ What a rebuild decides, and how:
 - **A row switched off after it ran** (`RUN 0`) still describes that run: the
   row is set to `RUN 1` in the throwaway copy only, and the record says so.
   The throwaway copy holds the matrix once, in the home the workspace keeps
-  it in; until 0.37.0 a matrix kept in `inputs/matrices/` with a `RUN 0` row
-  was copied a second time to the copy's root, and every simulation was
-  refused as having its matrix "in both homes" (FR-411).
+  it in, so a matrix kept in `inputs/matrices/` with a `RUN 0` row is never
+  read as being "in both homes" (FR-411).
 - **The matrix is the workspace's.** `--matrix NAME` with a bare name or stem
   reads the matrix in the workspace's root or `inputs/matrices/`, from any
   working directory; a file of that name in the working directory is not read,
@@ -164,8 +163,7 @@ compressed (`sims/sim_<id>.zip`), one retired by `delete-sims`, one whose
 folder holds no declared output, and the cases above that are refused. The
 summary ends with the count rebuilt and the count refused
 (`rebuild: 2 rebuilt, 1 refused`), and `--apply` with nothing to write prints
-every refusal before it stops (FR-412), where 0.36.0 printed only that no
-record was rebuilt.
+every refusal before it stops (FR-412).
 
 !!! warning
     Never run `pyfs-matrix run --resume` on a simulation a rebuild refused:
@@ -195,10 +193,46 @@ the cost estimate leaves its wall time out, and `delete-sims` deletes the simula
 without `--force`. A simulation id with no record is refused by name before
 anything is written, and a record already `FAILED_MARKED` is left as it is.
 
+## Mark a run converged after reading it
+
+The other verdict a person gives. You can know, from your own reading of a
+point's products and history, that it converged where the package could not
+say so: its log was deleted (`RAN_MISSING_LOG`), or its march reached its last
+step (`COMPLETED_MAX_ITER`). `mark-converged` records that verdict, instead of
+an edit of `runs.json` by hand (FR-414):
+
+```text
+pyfs-matrix mark-converged --sims 2006 2007 --reason "residuals flat over the last revolution"
+pyfs-matrix mark-converged --sims 2006 --points AL+020 --reason "..." --apply
+```
+
+Without `--apply` it previews and writes nothing; `--reason` is required, and
+`--points` narrows the mark to the named points of the simulations. Each
+marked record becomes `CONVERGED` and keeps under `marked` the status it had
+(`from`), when (`at`), your reason (`reason`) and the verdict (`verdict`);
+`runs.json` is copied to `archive/runs-<stamp>.json` first, so
+`pyfs-matrix restore runs` undoes it. A point of a steady job is marked alone,
+and the job takes its worst point's status.
+
+Refused by name, with the reason and what to do, and nothing written while
+any is named: a point still `SUBMITTED` (collect it first), a point whose loads
+export is not on disk (restore its folder or collect it again), a simulation
+`delete-sims` deleted, and a point marked failed (restore `runs.json` from
+before that mark first). A point already `CONVERGED` is listed and left alone.
+
+The verdict stays the person's everywhere: `show` prints it under `marked`,
+`status --points` prints the status the point had (`was`), `post.log` names
+each marked point once, and every entry of `products.json` built from a marked
+point carries its `marked` field, by run id. A later writer keeps it: a
+rebuild keeps the person's status and says which status the files support, and
+a `sync` that prefers the other workspace names a marked record as a conflict
+and leaves it.
+
 ## From Python
 
-`pyflightstream.run.records.restore`, `pyflightstream.run.records.rebuild`
-and `pyflightstream.run.records.mark_failed` take the same options as the commands and return what they did, or would do,
+`pyflightstream.run.records.restore`, `pyflightstream.run.records.rebuild`,
+`pyflightstream.run.records.mark_failed` and
+`pyflightstream.run.records.mark_converged` take the same options as the commands and return what they did, or would do,
 as a dictionary; `summary_lines` gives the lines the commands print.
 `collect_without_writing` is the read-only collection on its own, and
 `manifest_lock` holds the lease the workspace's writers hold around a

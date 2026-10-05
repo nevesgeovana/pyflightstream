@@ -101,12 +101,11 @@ reads it through the post. All of them ask one lookup:
   every command stops, except `post`, which warns naming both and falls
   back to the run records;
 - a bare name found in a home is the workspace's matrix for every command,
-  `rebuild` included, whatever the working directory holds (FR-411, 0.37.0):
+  `rebuild` included, whatever the working directory holds (FR-411):
   a file of that name in the working directory, in `sims/` or in an archive
   is never read, and when the working directory's copy holds other bytes a
   WARNING names both files and says the workspace's was read. To read the
-  other one, name it by its folder. Until 0.36.0 that case refused the
-  command.
+  other one, name it by its folder.
 
 `restore --matrix` names the folder under `post/` by the matrix's stem and
 reads no matrix file. Keep one copy, or make the two identical.

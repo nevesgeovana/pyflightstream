@@ -4,7 +4,7 @@
   "post/corrections.py": 1005,
   "post/input_template.py": 1455,
   "run/matrix.py": 1279,
-  "workspace/storage.py": 1487
+  "workspace/storage.py": 1483
  },
  "function_lines": {
   "post/section_distributions.py:_matching_distributions": 328,
@@ -1643,6 +1643,7 @@
     "_rebuild",
     "_rebuild_evidence",
     "_rebuild_grouped",
+    "_mark_converged",
     "_assemble",
     "collect",
     "_batch_collect",

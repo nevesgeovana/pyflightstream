@@ -26,6 +26,8 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.run import records as run_records
 from pyflightstream.run._cli_query import add_query_parsers
+from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
+from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
@@ -243,6 +245,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_post_selection_parsers(subparsers)
     _add_degenerate_parsers(subparsers)
     _add_query_parsers(subparsers)
+    add_mark_converged_parser(subparsers)  # 0.37.0, FR-414
     return parser
 
 
@@ -388,7 +391,7 @@ _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
 
 def _add_records_parsers(subparsers: Any) -> None:
-    """Register ``restore`` and ``rebuild`` (0.32.0) and ``mark-failed`` (0.33.0, FR-309)."""
+    """Register ``restore``, ``rebuild`` (0.32.0), ``mark-failed`` and ``mark-converged``."""
     workspace_help = "the workspace root carrying runs.json (default: the current directory)"
     apply_help = "change files; without it the command previews and changes nothing"
     restore = subparsers.add_parser(
@@ -441,26 +444,7 @@ def _add_records_parsers(subparsers: Any) -> None:
         "changed after the run; each record names the inputs taken from it",
     )
     rebuild.add_argument("--apply", action="store_true", help=apply_help)
-    mark = subparsers.add_parser(
-        "mark-failed",
-        help="mark every run record of the named simulations FAILED_MARKED, whatever it "
-        "ended in (preview unless --apply)",
-        description=(
-            "A run can end CONVERGED and be found wrong later. Its records become "
-            "FAILED_MARKED, which the post, the re-run and delete-sims treat as any "
-            "failure, and each keeps the status it had, when and why under 'marked'; "
-            "runs.json is copied to archive/ first (FR-309)."
-        ),
-    )
-    mark.add_argument(
-        "--sims",
-        required=True,
-        help="simulation ids, comma separated: 2006,2007; a run id alias (2006_3) marks that "
-        "point's record alone",
-    )
-    mark.add_argument("--reason", default=None, help="why, recorded as given")
-    mark.add_argument("--workspace", default=".", help=workspace_help)
-    mark.add_argument("--apply", action="store_true", help=apply_help)
+    add_mark_parsers(subparsers, workspace_help=workspace_help, apply_help=apply_help)
 
 
 def _add_query_parsers(subparsers: Any) -> None:

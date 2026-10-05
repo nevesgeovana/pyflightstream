@@ -996,6 +996,8 @@ class RunRecord(BaseModel):
                         "points_ran": [],
                         # 0.30.0 (M1): a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
+                        # 0.37.0 (FR-414): a person's verdict on one point of the job.
+                        "marked": entry.get("marked") or self.marked,
                     }
                 )
             )

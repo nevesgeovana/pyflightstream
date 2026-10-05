@@ -31,6 +31,7 @@ from typing import Any
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
+from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
     _compare_scripts,
@@ -236,6 +237,11 @@ class _Context:
     origin_differs: list[str]
     known: dict[str, _Known]
     quiet_window_s: float
+    #: FR-414 R4: the person's verdicts runs.json holds, by run id, kept over a computed one.
+    verdicts: dict[str, dict[str, Any]] = dataclasses.field(init=False)
+
+    def __post_init__(self) -> None:
+        self.verdicts = person_verdicts(self.base / DEFAULT_MANIFEST)
 
 
 def _mint(
@@ -543,6 +549,7 @@ def _complete_rows(
         record = _finalise(context, sim, completed, facts, deferred, notes)
         if grouped is not None:
             record = with_job(record, grouped, row.get("submission") or {})
+        record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
         try:
             from pyflightstream.workspace import RunRecord
 

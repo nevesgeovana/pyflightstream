@@ -196,9 +196,9 @@ system, or a job the scheduler requeued, can be misjudged.
 
 ### A point whose log is gone and whose outputs are all there
 
-Since 0.37.0 (FR-413), a point whose declared outputs are all present and
+A point whose declared outputs are all present and
 settled while the solver log its script exports (`EXPORT_LOG`) is absent is
-recorded `RAN_MISSING_LOG`: the log was deleted after the run, or never came
+recorded `RAN_MISSING_LOG` (FR-413): the log was deleted after the run, or never came
 back. `collect` decides it before it waits for the log and before it reads the
 end-of-job files above, for a point submitted alone, a steady job and a point
 of a grouped job (`--batch`, `--polar-sweep`) alike, so such a point is neither

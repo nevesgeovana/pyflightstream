@@ -203,7 +203,7 @@ handed to a scheduler and not yet collected, and
 FAILED_MARKED, a run the person marked failed with `pyfs-matrix
 mark-failed`, whose record keeps under `marked` the status it had, when
 and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../migrating-to-0.33.0.md); and
-RAN_MISSING_LOG, since 0.37.0 (FR-413), a run whose outputs are all present
+RAN_MISSING_LOG (FR-413), a run whose outputs are all present
 and whose declared solver log is absent, not a failure, whose `residual_note`
 names what the log would have carried; a reader must support it to read a
 `runs.json` holding it), iterations, residual,

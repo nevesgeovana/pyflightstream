@@ -28,7 +28,7 @@ fields and no derived one (FR-393).
 
 `show` prints the record of one datapoint, taken from a simulation
 id and a point, a run id or its alias, outcome first: the status, the verdict
-a `mark-failed` gave, the warnings and the stopping reason, then the evidence
+a `mark-failed` or a `mark-converged` gave (with its reason), the warnings and the stopping reason, then the evidence
 files with their last lines, the log entries that name the point, the chain of
 the run it continues and the run that continued it, the identity of the
 package, build and script, and the inputs (FR-386). A coupled point also names
