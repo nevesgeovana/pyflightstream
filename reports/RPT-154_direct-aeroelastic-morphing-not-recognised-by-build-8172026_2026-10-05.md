@@ -25,3 +25,7 @@ Route C cannot be implemented or verified on build 8172026. The item remains on 
 ## Limits
 
 One build and one case were measured. The file format expected by direct mode is unknown. Because the direct command was refused, this experiment provides no evidence about its file exchange, displacement semantics, or behavior after a supported build becomes available.
+
+## Addendum (2026-10-05): the 26.124 manual does not document the command
+
+The Method's first sentence says the 26.124 user manual documents `SET_DIRECT_AEROELASTIC_MESH_MORPHING` on its aeroelastic coupling toolbox page. It does not. The 26.124 package's PDF manual (SRC-752, 417 pages) was searched page by page, and its compiled help was extracted and searched file by file: neither prints the command name. Its aeroelastic coupling toolbox page (SRC-752 p.382) documents the structural-node commands only. The command form the arms used, `SET_DIRECT_AEROELASTIC_MESH_MORPHING <frame> RIGID|DEFLECTED`, is first printed by the 26.125 edition (SRC-753 p.388), which is what the command database's 26.125 registration records. The measured result above is unchanged: build 8172026 refused the command in all four direct arms.

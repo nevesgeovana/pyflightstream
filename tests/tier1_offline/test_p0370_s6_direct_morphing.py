@@ -164,11 +164,12 @@ def _render(case: SimCase, build: str) -> tuple[str, Script]:
     return script.render(), script
 
 
-def _coupling_block(rendered: str) -> str:
+def _coupling_block(rendered: str) -> list[str]:
+    """The coupling block's lines, blank lines left out."""
     lines = rendered.splitlines()
     start = lines.index("AEROELASTIC_RBF_TYPE MULTI_QUADRATIC")
     end = next(i for i, line in enumerate(lines) if line.startswith("SET_AEROELASTIC_ITERATIONS"))
-    return "\n".join(lines[start : end + 1])
+    return [line for line in lines[start : end + 1] if line]
 
 
 _INTERPRETER = re.compile(r'^(".*") "fsi_callback.py"$', re.M)
@@ -184,9 +185,11 @@ def _sha256(text: str) -> str:
 def test_a_direct_sector_row_renders_the_licensed_arm_lines_fr_341(tmp_path):
     """P0370-S6-DIRECT-MORPHING (FR-341): the direct row is the arm Q4 of 26.125, line for line.
 
-    Against the mapped row of the same case, the import and its node file give
-    way to the one direct line, in the frame the sections are cut in, RIGID;
-    everything else, the staged files included, is the same.
+    Blank lines aside: the arm's edit kept the blank line that followed the node
+    file's name, and the emitter writes none after a one-line command. Against
+    the mapped row of the same case, the import, its node file and that blank
+    line give way to the one direct line, in the frame the sections are cut in,
+    RIGID; everything else, the staged files included, is the same.
     """
     mapped, mapped_script = _render(_sector(tmp_path), "26.125")
     direct, direct_script = _render(_sector(tmp_path, morphing="direct"), "26.125")
@@ -194,11 +197,10 @@ def test_a_direct_sector_row_renders_the_licensed_arm_lines_fr_341(tmp_path):
     assert frame is not None
     interpreter = _INTERPRETER.search(direct)
     assert interpreter is not None
-    assert _coupling_block(direct) == PROBE_ARM_BLOCK.format(
-        frame=frame.group(1), interpreter=interpreter.group(1)
-    )
+    arm = PROBE_ARM_BLOCK.format(frame=frame.group(1), interpreter=interpreter.group(1))
+    assert _coupling_block(direct) == [line for line in arm.splitlines() if line]
     replaced = mapped.replace(
-        f"IMPORT_AEROELASTIC_STRUCTURAL_NODES {frame.group(1)} DISABLE\nfsi_nodes.csv\n",
+        f"IMPORT_AEROELASTIC_STRUCTURAL_NODES {frame.group(1)} DISABLE\nfsi_nodes.csv\n\n",
         f"{DIRECT_MORPHING_COMMAND} {frame.group(1)} RIGID\n",
     )
     assert replaced != mapped and direct == replaced
