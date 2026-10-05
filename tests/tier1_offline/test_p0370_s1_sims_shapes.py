@@ -9,7 +9,6 @@ of their --sims (one comma separated value, pinned by the CLI contract of
 
 import pytest
 
-from pyflightstream.run._mark_converged import _listed
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
 COMMA_FORM = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
@@ -76,10 +75,24 @@ def test_mark_failed_and_rebuild_read_their_comma_form(command, tmp_path, capsys
     assert not any("7003" in line for line in lines), lines
 
 
-def test_one_quoted_value_of_words_reads_as_separate_ids():
-    """P0370-S1-MARK-CONVERGED (FR-414): ``--sims "2006 2007"`` is two ids, not 20062007."""
-    assert _listed(["2006 2007"]) == ["2006", "2007"]
-    assert _listed(["2006", "2007,2008"]) == ["2006", "2007", "2008"]
+def test_one_quoted_value_of_words_reads_as_separate_ids(tmp_path, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414): ``--sims "7001 7002"`` is two ids, not 70017002.
+
+    Driven through the command line, as a shell passes one quoted value: the
+    preview names the same simulations as the separate words and the commas.
+    """
+    workspace = grouped_workspace(
+        tmp_path / "ws", mode="alone", logs=False, sims=("7001", "7002", "7003")
+    )
+    command = ["mark-converged", "--reason", REASON]
+    quoted = _verdicts(pyfs([*command, "--sims", "7001 7002"], workspace.root, capsys))
+    words = _verdicts(pyfs([*command, "--sims", "7001", "7002"], workspace.root, capsys))
+    mixed = _verdicts(pyfs([*command, "--sims", "7001", "7002,7003"], workspace.root, capsys))
+    assert quoted == words
+    code, lines = quoted
+    assert code == 0 and any("sim 7001" in line for line in lines), quoted
+    assert any("sim 7002" in line for line in lines), quoted
+    assert any("sim 7003" in line for line in mixed[1]), mixed
 
 
 def _verdicts(result):
