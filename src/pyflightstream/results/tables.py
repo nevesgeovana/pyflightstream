@@ -104,12 +104,15 @@ from pyflightstream.results.exports import (
     OFF_BODY_STREAMLINE_COLUMNS,
     SOLVER_ANALYSIS_CSV_COLUMNS,
     SURFACE_SECTION_COLUMNS,
-    SWEEP_COLUMNS,
     ForceDistributionReport,
     OffBodyStreamlinesReport,
     SolverAnalysisCsvReport,
     SurfaceSectionsReport,
     SweepSpreadsheetReport,
+    _sweep_columns,
+)
+from pyflightstream.results.exports import (
+    SWEEP_COLUMNS as SWEEP_COLUMNS,
 )
 from pyflightstream.results.loads import (
     LoadsReport,
@@ -1167,9 +1170,7 @@ def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
     """
     import pandas as pd
 
-    columns = _pinned_frame_columns(
-        tuple(report.columns), SWEEP_COLUMNS, what="sweeper spreadsheet report"
-    )
+    columns = list(_sweep_columns(",".join(report.columns), what="sweeper spreadsheet report"))
     frame = pd.DataFrame(report.values, columns=columns)
     frame["force_units"] = report.force_units
     frame["moment_units"] = report.moment_units
