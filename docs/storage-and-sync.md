@@ -125,19 +125,43 @@ sims = "all"
 status = ["CONVERGED", "COMPLETED_MAX_ITER"]
 ```
 
+By default this table keeps only the last step. Two optional keys change
+that, and a table states at most one of them:
+
+```toml
+[[prune_step_exports]]
+sims = "all"
+keep_last = 12          # keep the last 12 steps of each export
+
+[[prune_step_exports]]
+sims = "all"
+delete_steps = [5, 9]   # delete steps 5 to 9 (inclusive), keep every other step
+```
+
 For an unsteady row that exports at every step
 (`EXPORT_UNSTEADY_AFTER_ITER` or `EXPORT_UNSTEADY_AFTER_REV`), the solver
 writes one file per step and export where the point ran, stamped
 `<name>_iteration=<step>` before the extension (`.txt`, `.dat`, `.vtk` or
 `.csv`): the loads, the sectional loads (`_sloads`), the Cp sections
-(`_cp`), the probes (`_probes`) and each surface. This table keeps the LAST
-step of each of those exports, point by point, and deletes the earlier
-steps.
+(`_cp`), the probes (`_probes`) and each surface. With neither key, this
+table keeps the LAST step of each of those exports, point by point, and
+deletes the earlier steps. A step is the time-step number the solver writes
+in the file name (`<name>_iteration=<step>`).
 
 - `sims` and `status` select simulations exactly as for `compact_sims`.
-- Each export keeps its own last step: a probe export that stopped one step
-  before the loads keeps that step, it is not deleted for want of the later
-  one.
+- `keep_last = K` (a positive whole number, default 1) keeps the last `K`
+  steps of each export and deletes the earlier ones. A `K` at or above the
+  number of steps on disk deletes nothing.
+- `delete_steps = [A, B]` (two positive whole numbers, `A <= B`) deletes the
+  steps from `A` to `B` inclusive of each export and keeps every other step.
+  A range that holds no step on disk deletes nothing.
+- Stating both `keep_last` and `delete_steps`, a value that is not as above,
+  or any key other than `sims`, `status`, `keep_last` and `delete_steps` is
+  refused before any file is touched, naming the key and the accepted ones.
+  Deleting nothing is not an error: the recorded call says what was deleted.
+- Each export is read on its own steps: a probe export that stopped one step
+  before the loads keeps its own last step, it is not deleted for want of the
+  later one.
 - A simulation with any run still `SUBMITTED` is refused and keeps every
   step.
 - The declared outputs, the scripts, the logs and every file a run record
@@ -145,9 +169,10 @@ steps.
   nothing under a simulation's `inputs` is read, whether it is a link into
   the geometry library or a staged copy.
 
-The recorded call lists, for each point folder, the runs it belongs to, the
-steps deleted (`deleted_steps`), every file deleted with its step and size,
-and the files kept. Once applied, the listings of the deleted files leave
+The recorded call states `keep_last` or `delete_steps` as the table did
+(nothing is added for a table that states neither), and lists, for each point
+folder, the runs it belongs to, the steps deleted (`deleted_steps`), every
+file deleted with its step and size, and the files kept. Once applied, the listings of the deleted files leave
 the matrix's `products.json`, with a `pruned_by_storage` note saying which
 and when, because that manifest never names a file that is not on disk.
 
@@ -161,8 +186,10 @@ What happens to the post afterwards:
 - A product a later `post` would build from a window that includes a
   deleted step is refused, never written from the steps that remain. The
   refusal is recorded in `products.json` under `skipped`, under the
-  product's name, and names the missing steps, the first missing file and
-  the call of `storage_management.json` that deleted them.
+  product's name, and names the missing steps, the first missing file, the
+  call of `storage_management.json` that deleted them and what that call
+  kept ("the last step of each export only", "the last 12 steps of each
+  export only" or "every step outside 5 to 9 of each export").
 - A step that was never exported, which no storage call deleted, keeps the
   rule it had before: the series is written from the steps that exist, and
   the time-averaged surface is skipped naming the step.

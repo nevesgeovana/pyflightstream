@@ -48,7 +48,6 @@ import datetime as _dt
 import hashlib
 import json
 import os
-import re
 import shutil
 import tomllib
 import zipfile
@@ -59,6 +58,7 @@ from typing import Any, cast
 
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
+import pyflightstream.workspace._step_prune as step_prune
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -124,10 +124,6 @@ _PROTECTED_SUFFIXES = (".fsm",)
 #: the last step of each export (0.30.0).
 PRUNE_MODE = "prune_step_exports"
 _RECIPE_TABLES = (PRUNE_MODE, "compact_sims", "delete_extensions", "post_archives")
-#: A per-step export: the solver stamps ``_iteration=<step>`` before the
-#: extension of every file an unsteady action exports at a step (RPT-041), the
-#: pattern :func:`pyflightstream.post.series.stamped_exports` reads them by.
-_STEP_EXPORT = re.compile(r"^(?P<stem>.+)_iteration=(?P<step>\d+)\.(?P<ext>txt|dat|vtk|csv)$")
 #: What a post's refusal opens with when a step it needs was deleted by
 #: ``prune_step_exports``; the post stage keeps the product a previous post
 #: made under that refusal, where it would otherwise retire it.
@@ -735,29 +731,8 @@ def read_recipe(root: Path, recipe: str) -> tuple[Path, dict[str, Any]]:
         entries = document.get(table, [])
         if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
             raise StorageError(f"{path}: {table} is written [[{table}]], one table per step")
+    step_prune.check_prune_tables(path, document.get(PRUNE_MODE, []), StorageError)
     return path, document
-
-
-def _step_export_groups(folder: Path) -> dict[Path, dict[tuple[str, str], dict[int, Path]]]:
-    """Every per-step export below a simulation folder, by its folder, then export, then step.
-
-    An export is its stem (the ``_cp``, ``_sloads`` or ``_probes`` suffix
-    included) and its extension, so the loads, the sectional loads, the probes
-    and each surface of one point are separate exports, each with its own last
-    step. Nothing under the simulation's ``inputs`` or ``scripts`` is read,
-    and no link or junction is followed.
-    """
-    groups: dict[Path, dict[tuple[str, str], dict[int, Path]]] = {}
-    for path in _walk_files(folder):
-        if path.relative_to(folder).parts[0] in ("inputs", "scripts"):
-            continue
-        matched = _STEP_EXPORT.match(path.name)
-        if matched is None:
-            continue
-        export = (matched.group("stem"), matched.group("ext"))
-        by_step = groups.setdefault(path.parent, {}).setdefault(export, {})
-        by_step[int(matched.group("step"))] = path
-    return groups
 
 
 def _runs_of_folder(sim_dir: Path, rows: list[dict[str, Any]], folder: Path) -> list[str]:
@@ -783,30 +758,37 @@ def _prune_step_exports(
     sim: str,
     rows: list[dict[str, Any]],
     *,
+    spec: dict[str, Any],
     apply: bool,
     deleted: set[Path],
 ) -> list[dict[str, Any]]:
-    """Delete one simulation's per-step exports but the last step of each (preview by default).
+    """Delete one simulation's per-step exports the table's ``spec`` selects (preview by default).
+
+    ``spec`` is a ``[[prune_step_exports]]`` table: without ``keep_last`` or
+    ``delete_steps`` every step but the last of each export goes (0.30.0).
 
     Returns one entry per point folder that has a step to delete: the runs it
     belongs to, the steps deleted, every file deleted with its step and size,
-    the files kept (each export's last step) and those a record protects.
+    the files kept (the last step of each export unless ``spec`` says otherwise)
+    and those a record protects.
     ``deleted`` receives each deleted file's resolved path.
     """
     sim_dir = workspace.sim_dir(sim)
     keep = _protected(workspace, sim, rows)
     points: list[dict[str, Any]] = []
-    for folder, exports in sorted(_step_export_groups(sim_dir).items()):
+    groups = step_prune.step_export_groups(sim_dir, _walk_files(sim_dir))
+    for folder, exports in sorted(groups.items()):
         files: list[dict[str, Any]] = []
         kept: list[dict[str, Any]] = []
         protected: list[str] = []
         for _export, by_step in sorted(exports.items()):
-            last = max(by_step)
-            relative_last = by_step[last].relative_to(workspace.root).as_posix()
-            kept.append({"path": relative_last, "step": last})
-            for step, path in sorted(by_step.items()):
-                if step == last:
-                    continue
+            keeping, doomed = step_prune.split_steps(spec, by_step)
+            for step in keeping:
+                kept.append(
+                    {"path": by_step[step].relative_to(workspace.root).as_posix(), "step": step}
+                )
+            for step in doomed:
+                path = by_step[step]
                 relative = path.relative_to(workspace.root).as_posix()
                 if path.resolve() in keep:
                     protected.append(relative)
@@ -865,8 +847,8 @@ def _forget_pruned_listings(workspace: CampaignWorkspace, deleted: set[Path]) ->
     return changed
 
 
-def _pruned_files(root: Path, run_id: str) -> dict[str, tuple[int, str]]:
-    """Each per-step file ``prune_step_exports`` deleted for a run: its call and recipe.
+def _pruned_files(root: Path, run_id: str) -> dict[str, tuple[int, str, str]]:
+    """Each per-step file ``prune_step_exports`` deleted for a run: call, recipe, what it kept.
 
     Keyed by the file's resolved path, case-folded where the file system folds
     case. A storage record this package cannot read names nothing.
@@ -875,19 +857,20 @@ def _pruned_files(root: Path, run_id: str) -> dict[str, tuple[int, str]]:
         calls = read_storage_calls(root)
     except (StorageError, OSError, ValueError):
         return {}
-    found: dict[str, tuple[int, str]] = {}
+    found: dict[str, tuple[int, str, str]] = {}
     for index, call in enumerate(calls):
         if call.get("action") != "free-space" or not call.get("applied"):
             continue
         for step in call.get("steps") or []:
             if not isinstance(step, dict) or step.get("mode") != PRUNE_MODE:
                 continue
+            kept = step_prune.kept_phrase(step, exclusive=True)
             for point in step.get("points") or []:
                 if run_id not in (point.get("run_ids") or []):
                     continue
                 for item in point.get("files") or []:
                     key = os.path.normcase(str((root / str(item["path"])).resolve()))
-                    found[key] = (index, str(call.get("recipe")))
+                    found[key] = (index, str(call.get("recipe")), kept)
     return found
 
 
@@ -931,7 +914,7 @@ def pruned_step_refusal(
     if not expected or not (root / STORAGE_FILE).is_file():
         return None
     pruned = _pruned_files(root, run_id)
-    hits: dict[int, tuple[Path, tuple[int, str]]] = {}
+    hits: dict[int, tuple[Path, tuple[int, str, str]]] = {}
     for step, paths in sorted(expected.items()):
         for path in paths:
             found = pruned.get(os.path.normcase(str(path.resolve())))
@@ -944,12 +927,12 @@ def pruned_step_refusal(
     shown = ", ".join(str(step) for step in steps[:8])
     if len(steps) > 8:
         shown += f", ..., {steps[-1]} ({len(steps)} steps)"
-    path, (index, recipe) = hits[steps[0]]
+    path, (index, recipe, kept) = hits[steps[0]]
     return (
         f"{STEP_EXPORTS_PRUNED}{product} needs step(s) {shown} of the window {window[0]} to "
         f"{window[1]}, and their per-step exports ({path.name} the first) were deleted by "
         f"free-space {recipe} ({PRUNE_MODE}, call {index} of {STORAGE_FILE}), which kept "
-        "the last step of each export only. The product is not written from the steps that "
+        f"{kept}. The product is not written from the steps that "
         "remain; a product made before that call stays as it was."
     )
 
@@ -1007,7 +990,12 @@ def free_space(
     # PRUNE FIRST (0.30.0), so a recipe that prunes and then compacts prunes
     # folders that are still folders: a compacted simulation is not read here.
     for spec in document.get(PRUNE_MODE, []):
-        step: dict[str, Any] = {"mode": PRUNE_MODE, "points": [], "refused": {}}
+        step: dict[str, Any] = {
+            "mode": PRUNE_MODE,
+            "points": [],
+            "refused": {},
+            **step_prune.selection_record(spec),
+        }
         deleted: set[Path] = set()
         selected = _select_sims(spec, records, present)
         for sim in tracked(f"free-space: {PRUNE_MODE}", selected, label=_sim_folder):
@@ -1016,7 +1004,7 @@ def free_space(
                 step["refused"][sim] = "a run is still SUBMITTED; every step is kept"
                 continue
             step["points"] += _prune_step_exports(
-                workspace, sim, rows, apply=apply, deleted=deleted
+                workspace, sim, rows, spec=spec, apply=apply, deleted=deleted
             )
         if apply:
             freed += sum(item["bytes"] for point in step["points"] for item in point["files"])

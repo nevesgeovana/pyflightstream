@@ -278,16 +278,16 @@ def _add_storage_parsers(subparsers: Any) -> None:
         "free-space",
         help="run a storage recipe inputs/management/m<id>.toml (preview unless --apply)",
         description=(
-            "Runs the recipe's steps in order: [[prune_step_exports]] deletes an unsteady "
-            "point's per-step exports (the *_iteration=<step> files) except the last step of "
-            "each export, and a later post refuses a product that needs a deleted step, "
-            "naming it; [[compact_sims]] zips a simulation folder "
-            "into sims/sim_<id>.zip (post, collect and a continuation restore it "
-            "automatically), [[delete_extensions]] deletes files of the named extensions "
-            "under sims/ except what a later post needs (saved simulations, scripts, logs, "
-            "and every file a run record names or hashes), [[post_archives]] compacts or "
-            "deletes the archive/<stamp>/ folders the post wrote. Nothing outside sims/ "
-            "and the post archives is touched. Every call is recorded in "
+            "Runs the recipe's steps in order: [[prune_step_exports]] deletes an unsteady point's "
+            "per-step exports (the *_iteration=<step> files) except the last step of each export "
+            "(keep_last = K keeps the last K steps, delete_steps = [A, B] deletes the steps A to B "
+            "and keeps the rest), and a later post refuses a product that needs a deleted step, "
+            "naming it; [[compact_sims]] zips a simulation folder into sims/sim_<id>.zip (post, "
+            "collect and a continuation restore it automatically), [[delete_extensions]] deletes "
+            "files of the named extensions under sims/ except what a later post needs (saved "
+            "simulations, scripts, logs, and every file a run record names or hashes), "
+            "[[post_archives]] compacts or deletes the archive/<stamp>/ folders the post wrote. "
+            "Nothing outside sims/ and the post archives is touched. Every call is recorded in "
             "storage_management.json."
         ),
     )

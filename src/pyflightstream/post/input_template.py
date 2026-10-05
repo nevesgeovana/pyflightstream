@@ -967,6 +967,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 (
                     "[[prune_step_exports]]\n"
                     'sims = "all"\n'
+                    "# keep_last = 12  (or: delete_steps = [5, 9])\n"
                     "\n"
                     "[[compact_sims]]\n"
                     'sims = "all"\n'
@@ -982,17 +983,16 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             ),
         ),
         after=(
-            "`[[prune_step_exports]]` deletes the per-step exports of an unsteady "
-            "point but the last step of each export; a later `post` refuses a product "
-            "that needs a deleted step and names it. "
-            "`[[compact_sims]]` zips a converged simulation folder to "
-            "`sims/sim_<id>.zip`, restored automatically the next time `post`, "
-            "`collect` or a continuation reads it. `[[delete_extensions]]` deletes "
-            "files of the named extension under `sims/`; `.fsm`, scripts and logs "
-            "are never deleted regardless. `[[post_archives]]` compacts or deletes "
-            "the `post/<matrix>/archive/<stamp>/` folders a superseded product "
-            "left, keeping the newest `keep_latest` of each matrix regardless of "
-            "age. See docs/storage-and-sync.md."
+            "`[[prune_step_exports]]` deletes the per-step exports of an unsteady point but the "
+            "last step of each export (`keep_last = 12` keeps the last 12 steps, `delete_steps = "
+            "[5, 9]` deletes steps 5 to 9 and keeps the rest, never both); a later `post` refuses "
+            "a product that needs a deleted step and names it. `[[compact_sims]]` zips a converged"
+            " simulation folder to `sims/sim_<id>.zip`, restored automatically the next time "
+            "`post`, `collect` or a continuation reads it. `[[delete_extensions]]` deletes files "
+            "of the named extension under `sims/`; `.fsm`, scripts and logs are never deleted "
+            "regardless. `[[post_archives]]` compacts or deletes the "
+            "`post/<matrix>/archive/<stamp>/` folders a superseded product left, keeping the "
+            "newest `keep_latest` of each matrix regardless of age. See docs/storage-and-sync.md."
         ),
         pages=(_page("storage-and-sync", "Storage and sync"),),
     ),
