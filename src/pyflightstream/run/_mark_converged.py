@@ -151,12 +151,12 @@ def _plan(
         )
     todo: list[tuple[dict, dict, str, str]] = []
     already: list[str] = []
-    held: list[str] = []
+    held: dict[str, list[str]] = {}
     for row in live:
         if str(row.get("sim_id")) not in ids:
             continue
         for name, run_id, unit in _units(row):
-            held.append(name)
+            held.setdefault(str(row.get("sim_id")), []).append(name)
             if points and name not in points:
                 continue
             why = _refusal(workspace, row, unit)
@@ -166,12 +166,15 @@ def _plan(
                 already.append(run_id)
             else:
                 todo.append((row, unit, run_id, str(unit.get("status"))))
-    missing = [point for point in points if point not in held]
+    missing = [point for point in points if not any(point in names for names in held.values())]
     if missing:
+        holding = "; ".join(
+            f"sim {sim}: {', '.join(dict.fromkeys(names))}" for sim, names in held.items()
+        )
         raise RunsManifestError(
             f"no record of simulation(s) {', '.join(ids)} names the point(s) "
             f"{', '.join(missing)}; nothing was marked; their records hold "
-            f"{', '.join(dict.fromkeys(held)) or 'no point'}; {_REMEDY}"
+            f"{holding or 'no point'}; {_REMEDY}"
         )
     return todo, already, refused
 
