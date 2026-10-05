@@ -238,7 +238,7 @@ STABILITY_TOOLBOX_ANGLE_INCREMENT:
       unit: "deg"
   manual_ref: "SRC-753 p.384"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.384, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.384, the first edition to document it"}
   notes: >
     Sets the angle step, in degrees, the stability and control toolbox
     applies to the angle of attack and the sideslip angle when it forms

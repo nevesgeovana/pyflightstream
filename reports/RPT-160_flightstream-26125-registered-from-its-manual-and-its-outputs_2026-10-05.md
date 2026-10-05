@@ -94,11 +94,32 @@ lines and the measured forms are committed in
   the CDO plot the viscous total. The 26.125 row of the command therefore accepts
   the four tokens, the two the page prints and the two the run measured.
 
-## 4. What remains for a run
+## 4. The probe campaign
 
-Every 26.125 status is `documented`. The probe campaign of the release kit
-runs every probe specification of the catalog on 26.125, writes
-`reports/compat/CMP-26125_<date>_*.yaml`, and its identity step must print the
-build and release recorded here. Whether the build still answers the four
-commands its manual stopped printing is asked by no probe, since a command
-with no row is not probed.
+The campaign of the same day ran every probe specification with a 26.125 row,
+175, on two solvers at a time, far field 5 before every initialisation, and
+wrote `reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`; its identity
+report, `reports/compat/CMP-26125_2026-10-05_identity.yaml`, prints the build
+and release recorded above. The first pass recorded 138 verified and 7 broken.
+Five of the seven were the probe's own lines: four wrote the form of 26.124
+where SRC-753 adds DIRECTION, or SPACE and AXIS, and one wrote the revolve
+export in the six-placeholder form of its page heading where the page's sample
+prints the revolve loft's form. Re-probed the same day in the printed forms,
+the morphing surface, the flap cove and the revolve export ran and showed their
+effect, and the two relaxed trailing edges ran with no abort and no observable
+effect; the committed report carries the re-probed lines and names both
+passes. The 26.125 rows of the four make DIRECTION, SPACE and AXIS required,
+the line without them having aborted, and the revolve export's row states the
+sample's form.
+
+Two stay broken on the documented form: `CREATE_FREE_SURFACE_TFI_MESH` on a
+session holding the probe blade raises a modal error naming a perimeter curve
+with no virtual curves, which stops an unattended script, and
+`NEW_OFF_BODY_STREAMLINE` ends the solver with an access violation, as on
+26.124. No run type writes either, and the emitter refuses both on 26.125,
+naming the evidence.
+
+Final: 141 verified, 2 broken, 236 unprobed, and the database promoted from the
+report. With the minimal workflow's commands verified, 26.125 is
+`operational`. The four commands SRC-753 stops printing have no 26.125 row and
+were not asked.

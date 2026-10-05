@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.qa import specs
 from pyflightstream.qa.compat import apply_compat
 from pyflightstream.qa.probes import generate_probe_script
@@ -66,7 +67,14 @@ CHAPTERS = (
     "ccs_fuselage_mesh.yaml",
     "ccs_revolve_mesh.yaml",
 )
-ARM_CN = (*chapter_commands(*CHAPTERS), "DELETE_SURFACES")
+#: The arm reads the chapters as they stood for 26.124, the build it ran on: the
+#: curve assignments the 26.125 edition adds to the three CCS chapters (item S10)
+#: have no 26.124 row and are judged by the 26.125 campaign instead.
+ARM_CN = tuple(
+    name
+    for name in (*chapter_commands(*CHAPTERS), "DELETE_SURFACES")
+    if "26.124" in CommandRegistry.load().commands[name].versions
+)
 EVERY = tuple(dict.fromkeys((*R1_SET, *ARM_CN)))
 
 

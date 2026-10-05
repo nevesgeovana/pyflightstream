@@ -9,6 +9,7 @@ stays as it was.
 
 from __future__ import annotations
 
+import dataclasses
 import warnings
 
 import pytest
@@ -45,6 +46,9 @@ NEW_IN_26125 = (
     "SET_CCS_TE_BLEND_LENGTH",
     "STABILITY_TOOLBOX_ANGLE_INCREMENT",
 )
+
+#: The compat report of the 26.125 probe campaign (2026-10-05).
+CAMPAIGN = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
 
 #: The four commands SRC-753 stops printing, absent on 26.125.
 DROPPED_BY_26125 = (
@@ -106,8 +110,14 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
         for name, e in registry.commands.items()
         if "26.125" in e.versions
     }
-    assert len(rows) == 380
-    assert sum(row.status is Status.DOCUMENTED for row in rows.values()) == 379
+    # 381 since item S6 entered SET_DIRECT_AEROELASTIC_MESH_MORPHING with its 26.125
+    # row; the probe campaign of 2026-10-05 moved 141 to verified and 2 to broken.
+    assert len(rows) == 381
+    counts = {status: 0 for status in Status}
+    for row in rows.values():
+        counts[row.status] += 1
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (141, 2, 1)
+    assert counts[Status.DOCUMENTED] == 237
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
     for name in DROPPED_BY_26125:
@@ -126,7 +136,8 @@ def test_the_new_commands_are_entered_on_26125_alone_with_a_probe_each():
     for name in NEW_IN_26125:
         entry = registry.commands[name]
         assert set(entry.versions) == {"26.125"}, name
-        assert entry.versions["26.125"].status is Status.DOCUMENTED
+        row = entry.versions["26.125"]
+        assert row.status is Status.DOCUMENTED or row.report.endswith(CAMPAIGN), name
         assert entry.manual_ref.startswith("SRC-753 p."), name
         assert name in PROBE_SPECS, name
     with pytest.raises(CommandNotInVersionError):
@@ -234,8 +245,27 @@ def test_the_26125_setup_keys_write_their_lines_and_nothing_unstated(recwarn):
 
 @pytest.mark.requirement("FR-423")
 def test_the_solver_average_warns_where_no_run_verified_it_and_refuses_a_steady_row():
-    """P0370-S10-SETUP-KEYS (FR-423): the hang of its predecessor is said, and steady refuses."""
-    script = Script("26.125")
+    """P0370-S10-SETUP-KEYS (FR-423): the hang of its predecessor is said, and steady refuses.
+
+    The campaign verified the command on 26.125, so the build itself warns
+    nothing; a database where its row is only documented warns.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        helpers.solver_time_averaging(Script("26.125"), (1, 3))
+    database = CommandRegistry.load()
+    entry = database.commands["ENABLE_SOLVER_TIME_AVERAGING"]
+    documented = entry.versions["26.125"].model_copy(
+        update={"status": Status.DOCUMENTED, "report": None}
+    )
+    unverified = dataclasses.replace(
+        database,
+        commands={
+            **database.commands,
+            entry.name: entry.model_copy(update={"versions": {"26.125": documented}}),
+        },
+    )
+    script = Script("26.125", registry=unverified)
     with pytest.warns(PyflightstreamWarning, match="hung the 26.124 solver"):
         helpers.solver_time_averaging(script, (1, 3))
     from pyflightstream.script import CommandArgumentError

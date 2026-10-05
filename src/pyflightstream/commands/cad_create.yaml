@@ -1202,7 +1202,8 @@ CAD_CREATE_WING_MESH_FROM_CCS:
     "26.123": {status: documented, note: "SRC-751 p.304, unchanged from SRC-750 p.304"}
     "26.124": {status: documented, note: "SRC-752 p.304, the SRC-751 file, carried from 26.123; not run on 26.124"}
     "26.125":
-      status: documented
+      status: verified
+      report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
         SRC-753 p.309 adds ROUNDED_BLEND to the trailing-edge geometries
         SRC-752 p.304 listed, and its sample passes CLOSED for the end
@@ -1252,7 +1253,7 @@ CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
     "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.312, read against SRC-752 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.312, read against SRC-752 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
   notes: >
     Lofts a fuselage mesh boundary from the CCS fuselage component. Here
     LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, which is NOT what
@@ -1297,7 +1298,7 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
     "26.124": {status: documented, note: "SRC-752 p.309, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.315, read against SRC-752 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.315, read against SRC-752 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
   notes: >
     Lofts a body of revolution from the CCS revolve component. EIGHT
     arguments, and the signature parser reports seven for the same

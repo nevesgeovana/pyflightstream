@@ -51,7 +51,7 @@ SET_TRAILING_EDGE_TYPE:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.323, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: documented, note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
     RELAXED sheds half, approximating body carryover at non-lifting
@@ -107,7 +107,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.323, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: documented, note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
   layout: bare
@@ -268,7 +268,7 @@ FLUID_PROPERTIES:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, unchanged from SRC-750 p.333"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.333, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: documented, note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
@@ -302,7 +302,7 @@ AIR_ALTITUDE:
       note: "Read that report with its erratum beside it, CMP-26122_2026-08-11_full_erratum_2026-08-11.md: the detail on this record carries the probe spec's static cross-build sentence, which is false on this build and which the record's own effect: true contradicts"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, unchanged from SRC-750 p.333"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.333, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: documented, note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 
@@ -761,7 +761,8 @@ IMPORT_WAKE_EDGES_FROM_FILE:
           type: path
           own_line: true
     "26.125":
-      status: documented
+      status: verified
+      report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
         SRC-753 p.329 prints the third token 26.124 was measured to require
         (RPT-061) and names it: EDGE_TYPE, 1 when the file lists edge

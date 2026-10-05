@@ -358,7 +358,7 @@ PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
     ("SOLVER_PROXIMAL_BOUNDARIES", "26.121"): ("boundary_indices",),
 }
 
-# 26.125 (FR-423): THE EDITION READ AGAINST 26.124's, page against page
+# 26.125 (item S10): THE EDITION READ AGAINST 26.124's, page against page
 # (SRC-753 against SRC-752, `pyfs-manual register`). Thirty-seven commands
 # read differently; these are the ones whose GRAMMAR moved, each a row of its
 # own, and the commands whose text moved without a grammar change carry a
@@ -408,6 +408,21 @@ PER_VERSION_GRAMMAR_26125: dict[str, dict[str, tuple]] = {
         )
     },
     "IMPORT_WAKE_EDGES_FROM_FILE": {"names": ("type", "tolerance", "edge_type", "file")},
+    # The page's sample form, after the heading's form aborted on 26.124 and 26.125
+    # and the sample's ran (the probe campaign of 2026-10-05, re-probed).
+    "EXPORT_REVOLVE_CCS_FILE": {
+        "names": (
+            "name",
+            "frame",
+            "axis",
+            "start_angle",
+            "end_angle",
+            "close_ends",
+            "loft_type_u",
+            "loft_type_v",
+            "file",
+        )
+    },
     "NEW_CCS_FUSELAGE_RELAXED_TE": {"names": ("u", "v0", "v1", "direction")},
     "NEW_CCS_REVOLVE_RELAXED_TE": {"names": ("u", "v0", "v1", "direction")},
     "NEW_CCS_WING_FLAP_COVE": {
@@ -473,10 +488,6 @@ PER_VERSION_OPTIONAL.update(
         ("CREATE_NEW_ACTUATOR", "26.125"): ("subtype",),
         ("DETECT_TRAILING_EDGES_BY_SURFACE", "26.125"): ("surface_indices",),
         ("IMPORT", "26.125"): ("clear",),
-        ("NEW_CCS_FUSELAGE_RELAXED_TE", "26.125"): ("direction",),
-        ("NEW_CCS_REVOLVE_RELAXED_TE", "26.125"): ("direction",),
-        ("NEW_CCS_WING_FLAP_COVE", "26.125"): ("space", "axis"),
-        ("NEW_CCS_WING_MORPHING_SURFACE", "26.125"): ("space", "axis"),
         ("SET_VTK_EXPORT_VARIABLES", "26.125"): ("variables",),
         ("STABILITY_TOOLBOX_NEW_COEFFICIENT", "26.125"): ("boundary_indices",),
         ("SURFACE_COMBINE", "26.125"): ("surface_indices",),
@@ -710,9 +721,10 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) names
     # type and tolerance by name alone, which inherit type and values, and type and
     # unit: four fields.
-    # 0.37.0 S10 (FR-423): the twenty-five 26.125 overrides name their arguments
+    # 0.37.0 item S10: the twenty-five 26.125 overrides name their arguments
     # and inherit the rest, 142 fields more.
-    assert checked == 194, (
+    # 203 since the 26.125 revolve export states the sample's form (nine fields).
+    assert checked == 203, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -825,9 +837,10 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
     # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) carries
     # two arguments the base also carries, type and tolerance, times the eight fields.
-    # 0.37.0 S10 (FR-423): the 26.125 overrides add 693 comparisons; the fields a
+    # 0.37.0 item S10: the 26.125 overrides add 693 comparisons; the fields a
     # `sentinel:` or `command_line` delta names are skipped for that argument only.
-    assert compared == 1781, (
+    # 1821 since the 26.125 revolve export override (five arguments the base carries).
+    assert compared == 1821, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"
