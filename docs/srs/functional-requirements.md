@@ -9781,6 +9781,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Review evidence: `tests/tier1_offline/test_p0370_s10_sweeper_columns.py` reads the observed 26.125 sweep layout through parsing and tabulation, checks its twelve columns and numbers, retains the legacy split, and refuses unobserved layouts. The legacy-only parser fails the 26.125 case.
 
+    Review evidence: `tests/tier1_offline/test_p0370_s10_probe_exponents.py` reads the omitted exponent marker observed in the 26.125 campaign's probe export, preserving all sixteen columns and the subnormal values. The original numeric reader fails four cases; malformed spellings remain refused.
+
     Review evidence: `tests/tier1_offline/test_p0370_s10_plot_scaling.py::test_drag_plots_use_the_same_free_stream_scale_as_lift` checks both drag pairs at VREF twice VINF and leaves dimensional plots unchanged; removing CDP/CDV from coefficient scaling fails the new pair.
 
     Verification: test, the two files above carrying P0370-S10-* (FR-423), each with a mutant run; and R6, the tier-2 campaign above.

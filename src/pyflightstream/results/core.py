@@ -206,11 +206,17 @@ def optional_labeled_value(text: str, label: str) -> str | None:
         return None
 
 
+#: The solver omits E when a formatted exponent needs three digits. This
+#: complete decimal-mantissa form was observed in 26.125 probe exports.
+_OMITTED_EXPONENT_MARKER = re.compile(r"([+-]?(?:[0-9]+\.[0-9]*|\.[0-9]+))([+-][0-9]{3})")
+
+
 def parse_number(token: str) -> float:
     """Parse one solver-printed number.
 
     Accepts the solver's forms: ``.000``, ``4380000.``, ``1.000E-05``,
-    and signed values such as ``+0.0002056``.
+    signed values such as ``+0.0002056``, and three-digit exponents with
+    the marker omitted, such as ``0.2964-322`` (``0.2964E-322``).
 
     Parameters
     ----------
@@ -230,6 +236,8 @@ def parse_number(token: str) -> float:
     try:
         return float(token)
     except ValueError as error:
+        if match := _OMITTED_EXPONENT_MARKER.fullmatch(token.strip()):
+            return float(f"{match[1]}e{match[2]}")
         raise MalformedOutputError(
             f"{token!r} is not a solver-printed number; expected forms like "
             "'.000', '4380000.', or '1.000E-05'"
