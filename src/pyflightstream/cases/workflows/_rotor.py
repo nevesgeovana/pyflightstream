@@ -545,6 +545,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             conventions,
             *continuation,
             threshold=unsteady_export_threshold(case, conventions, version=script.version),
+            build=lambda full, scratch: _build_unsteady_rotor(full, scratch, conventions),
         )
         return
     # Resolved before the first emission, as every refusal of a row key

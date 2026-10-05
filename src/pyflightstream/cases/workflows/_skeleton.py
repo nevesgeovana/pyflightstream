@@ -12,6 +12,7 @@ from __future__ import annotations
 import sys
 from collections.abc import (
     Callable,
+    Sequence,
 )
 
 import pyflightstream.cases._setup_link as _setup_link
@@ -65,6 +66,7 @@ from ._pproc import (
     _pproc_sections,
 )
 from ._probes import (
+    RecordedCommand,
     _pproc_probes,
 )
 from ._rows import (
@@ -324,6 +326,7 @@ def _script_tail(
     unsteady: bool,
     frames: Frames | None = None,
     reopens_a_saved_state: bool = False,
+    replayed_probes: Sequence[RecordedCommand] = (),
 ) -> None:
     """Emit the four phases every run type ends with, each preceded by its raw commands.
 
@@ -355,7 +358,14 @@ def _script_tail(
         refuse_lines_after_steady_analysis(script.render())
         _finish_custom_field_coverage(case, script)
         return
-    _script_solve_and_export(conventions, case, script, unsteady=unsteady, frames=frames)
+    _script_solve_and_export(
+        conventions,
+        case,
+        script,
+        unsteady=unsteady,
+        frames=frames,
+        replayed_probes=replayed_probes,
+    )
     script.emit("CLOSE_FLIGHTSTREAM")
     _finish_custom_field_coverage(case, script)
 
@@ -669,6 +679,7 @@ def _script_solve_and_export(
     *,
     unsteady: bool,
     frames: Frames | None = None,
+    replayed_probes: Sequence[RecordedCommand] = (),
 ) -> None:
     """Emit the exec, analysis and export phases, which happen PER POINT.
 
@@ -693,6 +704,9 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
+    # FR-417 R6: a continuation creates the normal probes its full script would.
+    for name, args, kwargs in replayed_probes:
+        script.emit(name, *args, **kwargs)  # type: ignore[arg-type]
     # 0.32.0 (E2): the acoustic signals, computed from the march and exported.
     _acoustics.emit_acoustic_signals(
         case,

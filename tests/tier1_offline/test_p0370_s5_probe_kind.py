@@ -18,7 +18,12 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError, PprocSpec
-from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows import (
+    RESTART_FROM_VARIABLE,
+    RESTART_ITERATIONS_VARIABLE,
+    RESTART_VARIABLE,
+    build_script,
+)
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
@@ -261,3 +266,91 @@ def test_p0370_s5_post_names_a_missing_normal_export(tmp_path, monkeypatch):
     skipped = _products_manifest(workspace).get("skipped", {})
     reason = skipped.get("probes/AL-020_probes.csv", "")
     assert "probe points export" in reason and 'kind = "normal"' in reason, skipped
+
+
+def _continuation(tmp_path: Path, run_type: str, spec: PprocSpec) -> tuple[Script, Script]:
+    """The full script of a row and the script continuing it from its saved state."""
+    full = _script(tmp_path / "full", run_type, spec)
+    form = "{ADDITIONAL_REVS=1}" if run_type == "unsteady_rotor" else "{ADDITIONAL_ITERS=12}"
+    base = _case_for(run_type)
+    restart = {
+        RESTART_VARIABLE: form,
+        RESTART_FROM_VARIABLE: "datapoints/DP-AL+000/archive/20260914-010000/point.fsm",
+        RESTART_ITERATIONS_VARIABLE: "12",
+    }
+    (tmp_path / "cont").mkdir(parents=True)
+    case = _with_pproc(
+        base.model_copy(update={"variables": {**base.variables, **restart}}),
+        _wb_geometry(tmp_path / "cont"),
+        pproc=spec,
+    )
+    names = [name.replace("{name}", "P") for name in spec.outputs(True)]
+    script = Script("26.124")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        build_script(case.model_copy(update={"outputs": names}), script)
+    return full, script
+
+
+_FRAME_HEADS = ("CREATE_NEW_COORDINATE_SYSTEM", "SET_COORDINATE_SYSTEM", "INITIALIZE_SOLVER")
+
+
+@pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
+def test_p0370_s5_a_continuation_creates_the_normal_probes_after_its_march(tmp_path, run_type):
+    """P0370-S5-PROBE-KIND (FR-417 R6): the full script's probe commands, after the march."""
+    spec = _spec(_entry("normal", frame="MRP"))
+    full, continued = _continuation(tmp_path, run_type, spec)
+    heads = _heads(continued)
+    assert heads[0] == "OPEN" and not set(heads) & set(_FRAME_HEADS), (
+        "a continuation emits no frame, motion or initialization (FR-396)"
+    )
+    probes = [line for line in _commands(continued) if line.split()[0] in _PROBE_CREATION]
+    assert probes, "the continuation never created the normal probes the stopped run lacked"
+    assert probes == [line for line in _commands(full) if line.split()[0] in _PROBE_CREATION]
+    created = [i for i, head in enumerate(heads) if head in _PROBE_CREATION]
+    assert heads.index("START_SOLVER") < min(created)
+    assert max(created) < heads.index("UPDATE_PROBE_POINTS") < heads.index("EXPORT_PROBE_POINTS")
+    assert continued.probe_points == full.probe_points
+
+
+@pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
+def test_p0370_s5_a_continuation_without_normal_probes_creates_none(tmp_path, run_type):
+    """P0370-S5-PROBE-KIND (FR-417 R6): no normal entry, no probe command, as in 0.36.0."""
+    _, continued = _continuation(tmp_path, run_type, _spec(_entry()))
+    heads = _heads(continued)
+    assert not set(heads) & {*_PROBE_CREATION, "UPDATE_PROBE_POINTS", "EXPORT_PROBE_POINTS"}
+    assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in heads and continued.probe_points == []
+
+
+@pytest.mark.parametrize("kind", ["unsteady", "normal"])
+def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(tmp_path, kind):
+    """P0370-S5-PROBE-KIND (FR-417 R6): without its full script, a rerun from the mesh."""
+    spec = _spec(_entry(kind, frame="MRP"), _entry(kind, frame="MRP"))
+    base = _case_for("unsteady")
+    restart = {
+        RESTART_VARIABLE: "{ADDITIONAL_ITERS=12}",
+        RESTART_FROM_VARIABLE: "datapoints/DP-AL+000/archive/20260914-010000/point.fsm",
+        RESTART_ITERATIONS_VARIABLE: "12",
+    }
+    case = _with_pproc(
+        base.model_copy(update={"variables": {**base.variables, **restart}}),
+        _wb_geometry(tmp_path),
+        pproc=spec,
+    ).model_copy(
+        update={
+            "geometry": str(tmp_path / "moved_away.fsm"),
+            "outputs": [name.replace("{name}", "P") for name in spec.outputs(True)],
+        }
+    )
+    script = Script("26.124")
+    if kind == "unsteady":
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            build_script(case, script)
+        assert _heads(script)[0] == "OPEN", "a continuation never reads the mesh"
+        return
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(case, script)
+    message = str(refused.value)
+    assert "normal probes (entries 1, 2)" in message, message
+    assert "moved_away.fsm" in message and "pyfs-matrix run --force-rerun <point>" in message
