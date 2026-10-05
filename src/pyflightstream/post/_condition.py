@@ -25,12 +25,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import PprocSpec
+from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import averaging_span
-from pyflightstream.cases.workflows import BLADE_FAMILIES_KEY
+from pyflightstream.cases.workflows import BLADE_FAMILIES_KEY, QSTEADY_ROTOR
 from pyflightstream.post._stage import _POST_REFUSES
 from pyflightstream.post._tables import ProductError, ReferenceValues, rotor_advance_ratio
 from pyflightstream.results import LoadsReport, MalformedOutputError, labeled_value
@@ -69,10 +71,53 @@ def _advance_ratio_of(point: PolarPoint) -> float | None:
     return float(stated) if isinstance(stated, int | float) else None
 
 
+def row_rotor_speeds(record: object | None, loads_path: Path | None) -> dict[str, float]:
+    """Return the speed a point's OWN ROW turned its rotor at, where no plan records it.
+
+    A ``qsteady_rotor`` run is steady and plans no reductions, so its record
+    states no rotor speed; the builder wrote the row's speed in the
+    quasi-steady record beside the point's loads export, and the rotor table
+    and the quasi-steady tables read it there (0.30.0, L1). This is that one
+    source, ``{alias: rev/min, signed}``, for every other product of the point
+    (FR-89, P0370-S11-SUPER-DIAMETER). Empty for any other run type, and for a
+    quasi-steady record that cannot be read: its own tables name that refusal.
+    """
+    if getattr(record, "recipe", None) != QSTEADY_ROTOR or loads_path is None:
+        return {}
+    try:
+        quasi = read_qsteady_record(loads_path)
+    except QsteadyRecordError:
+        return {}
+    return {str(quasi.rotor_alias): float(quasi.rpm)}
+
+
+def _recorded_speeds(
+    reductions: object, own_speeds: Mapping[str, float] | None
+) -> dict[str, float]:
+    """Return each rotor's speed the record's plan states, or the row's own where it states none.
+
+    THE ROW'S OWN SPEED ONLY WHERE THE PLAN STATES NONE AT ALL, neither a rotor
+    block nor the flat field: a plan that states a speed is what the run turned,
+    and it is never replaced (FR-89, P0370-S11-SUPER-DIAMETER).
+    """
+    rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
+    speeds: dict[str, float] = {}
+    if isinstance(rotors, Mapping):
+        for turned, block in rotors.items():
+            if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
+                speeds[str(turned)] = float(block["rpm"])
+    flat = reductions.get("rpm") if isinstance(reductions, Mapping) else None
+    if not speeds and not isinstance(flat, int | float) and own_speeds:
+        speeds = {str(alias): float(rpm) for alias, rpm in own_speeds.items()}
+    return speeds
+
+
 def clock_rotor_facts(
     record: RunRecord | None,
     matrix_row: MatrixRow | None,
     artifact: object | None,
+    *,
+    own_speeds: Mapping[str, float] | None = None,
 ) -> dict[str, object]:
     """Return the CLOCK rotor's alias, speed and diameter, as far as they are known.
 
@@ -83,14 +128,30 @@ def clock_rotor_facts(
     The speed comes from the RECORD, which is what the run actually turned, and
     the diameter from the reference artifact the row cites. Both are needed for
     the ratio and either may be absent on a record written before 0.24.0.
+
+    ``own_speeds`` is the row's own speed by alias, :func:`row_rotor_speeds`,
+    taken only where the record's plan states no speed at all: a quasi-steady
+    point's, which the rotor table and the quasi-steady tables already read
+    (0.37.0, FR-89, P0370-S11-SUPER-DIAMETER). Its clock read `NA` until then.
+
+    Parameters
+    ----------
+    record : RunRecord or None
+        The point's run record.
+    matrix_row : MatrixRow or None
+        The point's matrix row, for ``CLOCK_MOTION``.
+    artifact : object or None
+        The reference artifact the row cites, for each rotor's diameter.
+    own_speeds : mapping of str to float, optional
+        The row's own speed by rotor alias, where the record plans none.
+
+    Returns
+    -------
+    dict
+        ``alias``, ``rpm`` and ``diameter_m``, each None where not known.
     """
     reductions = getattr(record, "reductions", None)
-    rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
-    speeds: dict[str, float] = {}
-    if isinstance(rotors, Mapping):
-        for turned, block in rotors.items():
-            if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
-                speeds[str(turned)] = float(block["rpm"])
+    speeds = _recorded_speeds(reductions, own_speeds)
     named = str((getattr(matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "").strip()
     blocks = getattr(artifact, "rotors", None) or {}
     declared: Mapping[str, object] = blocks if isinstance(blocks, Mapping) else {}

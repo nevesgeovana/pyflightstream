@@ -1146,12 +1146,6 @@
    "statements": 43,
    "positional": 6
   },
-  "post/_condition.py:clock_rotor_facts": {
-   "complexity": 12,
-   "branches": 10,
-   "statements": 33,
-   "positional": 3
-  },
   "post/_condition.py:point_condition": {
    "complexity": 15,
    "branches": 14,

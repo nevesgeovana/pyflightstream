@@ -169,6 +169,20 @@ _SETTINGS_MANIFEST_LINE = (
     r"|   \]|  \},?)"
 )
 
+#: FR-89, P0370-S11-SUPER-DIAMETER (0.37.0): the columns the super content inserts (each
+#: rotor's speed and diameter), the clock columns a quasi-steady point fills, and a cell of
+#: either (a number as the products write it, fixed or free).
+_S11_INSERTED = r"(?:RPM|DIAMETER)_[A-Za-z0-9_]+"
+_S11_FILLED = r"J_CLOCK|RPM_CLOCK"
+_S11_NUMBER = r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
+_S11_WHY = (
+    "P0370-S11-SUPER-DIAMETER: the super content states each rotor's diameter, the rotor "
+    "block's diameter_m the rotor table divides by, beside its speed, and a quasi-steady "
+    "point's speed and clock from its quasi-steady record where its plan states none; the "
+    "owner's decision of 2026-10-05 on her report that the diameter did not reach the "
+    "super file"
+)
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -184,6 +198,10 @@ _SETTINGS_MANIFEST_LINE = (
 #: LAST to the file, and ``cells`` the regex each of its cells must match whole, so
 #: the difference is held to that column, its place and its cells
 #: (:func:`appends_one_column`).
+#: ``inserted_columns``, when given, is the regex every column the release INSERTS must
+#: match whole (an empty string inserts none), and ``filled_columns`` the regex of the
+#: columns whose cells may change, only from ``NA`` to a cell matching ``cells``; every
+#: other column keeps its name, its order and its cells (:func:`inserts_and_fills`).
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "left_out",
@@ -539,6 +557,46 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "why": (
             "the machine-readable form of the same warning on a continuation that adds no "
             "time step (FR-396 R3)"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/SUPER-*.csv",
+        # P0370-S11-SUPER-DIAMETER: each rotor's DIAMETER_<alias> beside its RPM_<alias>
+        # (and RPM_<alias> itself on a quasi-steady point, whose plan states no speed),
+        # columns INSERTED, each cell NA or a number; and the clock cells J_CLOCK and
+        # RPM_CLOCK FILLED, NA in the base and a number in the release. Every other
+        # column keeps its name, its order and every cell (:func:`inserts_and_fills`).
+        "inserted_columns": _S11_INSERTED,
+        "filled_columns": _S11_FILLED,
+        "cells": _S11_NUMBER,
+        "requirement": "FR-89",
+        "why": _S11_WHY,
+    },
+    {
+        "kind": "post",
+        "pattern": "*_uns_avg.csv",
+        # The unsteady polar carries the super content, so the same two changes.
+        "inserted_columns": _S11_INSERTED,
+        "filled_columns": _S11_FILLED,
+        "cells": _S11_NUMBER,
+        "requirement": "FR-89",
+        "why": _S11_WHY,
+    },
+    {
+        "kind": "post",
+        "pattern": "*.csv",
+        # Every other product that states the condition block: only the clock cells
+        # FILLED, NA to a number, and no column inserted, removed or moved.
+        "inserted_columns": "",
+        "filled_columns": _S11_FILLED,
+        "cells": _S11_NUMBER,
+        "requirement": "FR-89",
+        "why": (
+            "P0370-S11-SUPER-DIAMETER: a quasi-steady point's clock, J_CLOCK and RPM_CLOCK, "
+            "is taken from the speed its quasi-steady record states where its plan states "
+            "none, the speed its rotor table already used; it read NA (the owner's decision "
+            "of 2026-10-05)"
         ),
     },
 ]
@@ -1165,6 +1223,51 @@ def appends_one_column(old: str, new: str, column: str, cells: str) -> bool:
 LEGACY_FIELD = 16
 
 
+def _fields(line: str, legacy: bool) -> list[str]:
+    """Split one line of a product into its cells, CSV or ``legacy_polar`` fixed width."""
+    if not legacy:
+        return line.split(",")
+    return [line[i : i + LEGACY_FIELD].strip(" ") for i in range(0, len(line), LEGACY_FIELD)]
+
+
+def inserts_and_fills(old: str, new: str, inserted: str, filled: str, cells: str) -> bool:
+    """Whether ``new`` is ``old`` with columns inserted and NA cells filled, and nothing else.
+
+    Every column of ``new`` that ``old`` lacks must match ``inserted`` whole (an
+    empty ``inserted`` admits none), and its every cell be ``NA`` or match
+    ``cells``. Taken out, the header must be ``old``'s, in its order. A cell of
+    a column matching ``filled`` may go from ``NA`` to a cell matching
+    ``cells``; every other cell is the old one. The line count and the final
+    line end are the same, and the two texts differ.
+    """
+    before, after = old.splitlines(), new.splitlines()
+    if not before or len(before) != len(after) or old.endswith("\n") != new.endswith("\n"):
+        return False
+    legacy = "," not in before[0] and len(before[0]) % LEGACY_FIELD == 0
+    if legacy and len(after[0]) % LEGACY_FIELD:
+        return False
+    head_old, head_new = _fields(before[0], legacy), _fields(after[0], legacy)
+    kept = [i for i, name in enumerate(head_new) if name in head_old]
+    added = [i for i, name in enumerate(head_new) if name not in head_old]
+    if [head_new[i] for i in kept] != head_old or len(set(head_new)) != len(head_new):
+        return False
+    if added and not (inserted and all(re.fullmatch(inserted, head_new[i]) for i in added)):
+        return False
+    for was, now in zip(before[1:], after[1:], strict=True):
+        old_cells, new_cells = _fields(was, legacy), _fields(now, legacy)
+        if len(old_cells) != len(head_old) or len(new_cells) != len(head_new):
+            return False
+        if not all(re.fullmatch(rf"NA|{cells}", new_cells[i]) for i in added):
+            return False
+        for name, cell, i in zip(head_old, old_cells, kept, strict=True):
+            fresh = new_cells[i]
+            if fresh == cell:
+                continue
+            if not (re.fullmatch(filled, name) and cell == "NA" and re.fullmatch(cells, fresh)):
+                return False
+    return old != new
+
+
 def _csv_cell(line: str) -> tuple[str, str | None]:
     """Split a CSV line into everything before its last cell and that cell."""
     head, comma, cell = line.rpartition(",")
@@ -1210,6 +1313,10 @@ def name_difference(
             continue
         appended = named.get("appended_column")
         if appended and not appends_one_column(old or "", new, appended, named["cells"]):
+            continue
+        if "inserted_columns" in named and not inserts_and_fills(
+            old or "", new, named["inserted_columns"], named["filled_columns"], named["cells"]
+        ):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"

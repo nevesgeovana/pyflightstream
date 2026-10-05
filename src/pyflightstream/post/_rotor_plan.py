@@ -39,6 +39,7 @@ from pyflightstream.post._condition import (
     _free_stream_and_sound,
     clock_rotor_facts,
     point_condition,
+    row_rotor_speeds,
 )
 from pyflightstream.post._stage import POLARS_DIR, _a_name_a_file_may_carry, _judge_average
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, ReferenceValues, plots_table_series
@@ -911,7 +912,12 @@ def _plan_rotor_row(
         "condition": point_condition(
             point,
             mach=record.mach or 0.0,
-            clock=clock_rotor_facts(record, ctx.matrix_row, ctx.artifact),
+            clock=clock_rotor_facts(
+                record,
+                ctx.matrix_row,
+                ctx.artifact,
+                own_speeds=row_rotor_speeds(record, point.loads_path),
+            ),
         ),
         "rpm": rpm,
         "density": float(density),

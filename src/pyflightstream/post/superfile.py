@@ -378,6 +378,8 @@ def superfile_row(
     record: object | None,
     sweep_row: Mapping[str, object] | None,
     plots_row: Mapping[str, str] | None,
+    rotors: Mapping[str, object] | None = None,
+    own_speeds: Mapping[str, float] | None = None,
 ) -> dict[str, str]:
     """Assemble one row of a superfile: one CONVERGED point, everything known about it.
 
@@ -413,6 +415,12 @@ def superfile_row(
         The point's row of the campaign sweep table.
     plots_row : mapping of str to str, or None
         The last row of the point's plots table.
+    rotors : mapping of str to object, optional
+        The rotor blocks of the reference the row cites, by alias, read for
+        each one's ``diameter_m``: the diameter the rotor table divides by.
+    own_speeds : mapping of str to float, optional
+        The row's own speed by rotor alias, taken where the record's plan
+        states none (a quasi-steady point's, from its quasi-steady record).
 
     Returns
     -------
@@ -502,8 +510,10 @@ def superfile_row(
             _take(row, key, matrix_row.flight_condition[key])
         for key, column in _AXIS_COLUMNS.items():
             _take(row, key, row.get(column, ""))
-    # 4. RPM, by name, and one column per rotor where the row turns several.
-    for key, value in _rotor_speeds(getattr(record, "reductions", None)).items():
+    # 4. RPM, by name, and per rotor its speed and its diameter (0.37.0).
+    for key, value in _rotor_columns(
+        getattr(record, "reductions", None), own_speeds, rotors or {}
+    ).items():
         _take(row, key, value)
     # 5. EVERYTHING THE CAMPAIGN SWEEP TABLE HOLDS: the run id, the status,
     #    the iterations, the residual, the wall time, the solver build and
@@ -540,6 +550,56 @@ def _records_cell(records: Sequence[Mapping[str, str]]) -> str:
         "{" + ", ".join(f"{key}: {value}" for key, value in record.items()) + "}"
         for record in records
     )
+
+
+def _rotor_columns(
+    reductions: object, own_speeds: Mapping[str, float] | None, rotors: Mapping[str, object]
+) -> dict[str, object]:
+    """Return ``RPM``, and per rotor ``RPM_<alias>`` and right after it ``DIAMETER_<alias>``.
+
+    THE DIAMETER IS THE ROTOR BLOCK'S ``diameter_m``, of the reference the row
+    cites, the same number the rotor table states and divides by; `NA` where
+    the reference declares no block of that alias. A speed with no diameter
+    beside it is not the rotor's condition: every rotor coefficient and the
+    advance ratio divide by both (FR-89, the owner's report of 2026-10-05,
+    P0370-S11-SUPER-DIAMETER).
+
+    THE ROW'S OWN SPEED where the plan states none at all, as the clock
+    columns take it (:func:`pyflightstream.post._condition.row_rotor_speeds`):
+    it reaches the per-rotor columns only, and ``RPM`` stays as the row and the
+    plan state it.
+    """
+    columns = _rotor_speeds(reductions)
+    named = [key for key in columns if key != RPM_COLUMN]
+    if not named and _states_no_speed(reductions):
+        columns = {f"{RPM_COLUMN}_{alias}": rpm for alias, rpm in (own_speeds or {}).items()}
+        columns[RPM_COLUMN] = None
+    out: dict[str, object] = {}
+    for key, value in columns.items():
+        out[key] = value
+        if key != RPM_COLUMN:
+            alias = key[len(RPM_COLUMN) + 1 :]
+            block = next(
+                (rotors[name] for name in rotors if str(name).casefold() == alias.casefold()),
+                None,
+            )
+            span = getattr(block, "diameter_m", None)
+            out[f"DIAMETER_{alias}"] = (
+                float(span)
+                if isinstance(span, int | float) and not isinstance(span, bool)
+                else None
+            )
+    return out
+
+
+def _states_no_speed(reductions: object) -> bool:
+    """Whether a record's plan states no rotor speed: no rotor block's, and no flat one."""
+    if not isinstance(reductions, Mapping):
+        return True
+    rotors = reductions.get("rotors")
+    blocks = rotors.values() if isinstance(rotors, Mapping) else ()
+    stated = any(isinstance(b, Mapping) and b.get("rpm") is not None for b in blocks)
+    return not stated and reductions.get("rpm") is None
 
 
 def _rotor_speeds(reductions: object) -> dict[str, object]:
@@ -900,6 +960,8 @@ def union_the_workspace_knows(
             rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
             for alias in rotors or {}:
                 known.add(f"{RPM_COLUMN}_{alias}")
+                # 0.37.0: each rotor's diameter beside its speed (FR-89).
+                known.add(f"DIAMETER_{alias}")
     if matrix_stem:
         known |= _matrix_names(root / f"{matrix_stem}{_MATRIX_SUFFIX}", pols)
     return known
