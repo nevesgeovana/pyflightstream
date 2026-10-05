@@ -26,13 +26,16 @@ from pyflightstream.run._plan import plan_receipt_error
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt
 
-#: The sentence both grouped flags end their help with (FR-421): the classes of row the grouped
-#: modes leave out, and what to do with them. The reasons themselves are in
-#: ``LEFT_OUT_REASONS`` of :mod:`pyflightstream.run._batch_plan`.
+#: The sentence both grouped flags end their help with (FR-421): every class of row the grouped
+#: modes leave out, one phrase per key of ``LEFT_OUT_REASONS`` of
+#: :mod:`pyflightstream.run._batch_plan` (a test holds the two in step), and what to do with them.
 GROUPED_LEFT_OUT_HELP = (
-    "a job holds steady or unsteady polars, never both. RESTART rows, LEGACY rows and coupled "
-    "rows on steady or qsteady_rotor are left out, each named by the plan; run those rows "
-    "point by point, without this flag."
+    "a job holds steady or unsteady polars, never both. Each row left out is named by the "
+    "plan: LEGACY rows, RESTART rows, steady rows stating COLD_START false, coupled rows on "
+    "steady or qsteady_rotor, unsteady rows on a build without the unsteady action command, "
+    "polars whose points do not splice into one job (a steady point that initialises the "
+    "solver twice among them) and rows whose points are all recorded. Run those rows point "
+    "by point, without this flag."
 )
 
 

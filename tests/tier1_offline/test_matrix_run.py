@@ -57,11 +57,14 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.flight_condition import FlightConditionError
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
+from tests.support_helpers import FIXTURE as FIXTURE
+from tests.support_helpers import FIXTURES as FIXTURES
+from tests.support_helpers import REGISTRY_FIXTURE as REGISTRY_FIXTURE
+from tests.support_helpers import fixture_codes as fixture_codes
+from tests.support_helpers import make_library as make_library
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation_with
+from tests.support_helpers import stage_geometry as stage_geometry
 
-FIXTURES = Path(__file__).parent / "fixtures"
-FIXTURE = FIXTURES / "matrix.fs"
-REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"
 # Codes map to registry names; the callables land in recipe_registry.
 RECIPES = {"003": "steady", "004": "steady"}
 
@@ -130,87 +133,12 @@ def converged(case, execution, sim_dir):
     return Assessment(status=RunStatus.CONVERGED, iterations=120, residual=3.2e-6)
 
 
-#: Artifact bodies by the THREE-DIGIT TAIL of the code that names them.
-#:
-#: The fixtures spell their REF, SET and ENTRY codes with a kind letter
-#: (``r003``, ``s002``, ``e001``) while a matrix written inline by a test
-#: still spells them bare (``003``), and both are legitimate ids: the
-#: input library resolves whatever the column says. Keying by the tail is
-#: what lets one library cover both, so a fixture that changes its
-#: spelling does not silently take the whole module red.
-REFERENCE_BODIES = {
-    "003": "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n",
-    "004": "area_m2 = 12.0\nchord_m = 1.5\nspan_m = 9.0\n",
-}
-SETUP_BODIES = {
-    "002": "iterations = 800\nconvergence = 1e-6\n",
-    "003": "iterations = 400\nwake_layers = 4\n",
-}
-#: Keyed by NUMBER since 0.13.0 (PFS-2032.03): the polar table written per
-#: group carries the number in its name, and a word there is refused at plan.
-GROUP_BODIES = {"001": '[groups]\n"1" = "all"\n"2" = "wing_left"\n'}
-
-
-def fixture_codes(path=FIXTURE):
-    """Return the REF, SET and ENTRY codes one fixture actually spells.
-
-    Read from the file rather than written here, so the assertions below
-    name the codes the matrix names and cannot drift from it.
-    """
-    rows = read_matrix(path, active_only=False)
-    return {
-        "ref": [row.ref_code for row in rows],
-        "set": [row.set_code for row in rows],
-        "entry": [row.pproc_code for row in rows],
-    }
-
-
 def code_for(pol, kind, path=FIXTURE):
     """Return the `kind` code the row with this POL names."""
     for row in read_matrix(path, active_only=False):
         if row.pol == pol:
             return {"ref": row.ref_code, "set": row.set_code, "entry": row.pproc_code}[kind]
     raise AssertionError(f"POL {pol} is not in {path}")
-
-
-def make_library(tmp_path, *, register_build=None):
-    """Build a synthetic workspace input library covering the fixtures."""
-    workspace = CampaignWorkspace.init(tmp_path / "camp")
-    inputs = workspace.inputs_dir
-    spelled = {"references": set(), "setups": set(), "pproc": set()}
-    for path in (FIXTURE, REGISTRY_FIXTURE):
-        codes = fixture_codes(path)
-        spelled["references"] |= set(codes["ref"])
-        spelled["setups"] |= set(codes["set"])
-        spelled["pproc"] |= set(codes["entry"])
-    # The body tables are keyed by the bare three-digit code, which is
-    # what the codes were before 0.8.0. Every id the library can resolve
-    # now DECLARES its kind with a leading letter (PFS-2009.01), so the
-    # letter is added here rather than staging both spellings: a bare
-    # file is one no id can reach, and leaving it on disk would teach a
-    # later reader that the old spelling still resolves. Measured
-    # 2026-08-19: it staged six such files, found by the currency guard
-    # over this builder rather than by any test of the library itself.
-    for tail in REFERENCE_BODIES:
-        spelled["references"].add(f"r{tail}")
-    for tail in SETUP_BODIES:
-        spelled["setups"].add(f"s{tail}")
-    for tail in GROUP_BODIES:
-        spelled["pproc"].add(f"p{tail}")
-    for subdir, bodies in (
-        ("references", REFERENCE_BODIES),
-        ("setups", SETUP_BODIES),
-        ("pproc", GROUP_BODIES),
-    ):
-        for code in sorted(spelled[subdir]):
-            body = bodies.get(code[-3:])
-            if body is not None:
-                (inputs / subdir / f"{code}.toml").write_text(body, encoding="utf-8")
-    if register_build is not None:
-        build_id, exe_path = register_build
-        with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
-            handle.write(f'"{build_id}" = "{exe_path}"\n')
-    return workspace
 
 
 def register(workspace, build_id, exe_path, version=None):
@@ -2623,13 +2551,6 @@ GEOMETRY_ROW = (
     "7001 | TestWing | GEOMETRY_ROW | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
     "| 003 | 26.120 |  0 | 1 | OUTPUTS: loads_{{point}}.txt{tail}"
 )
-
-
-def stage_geometry(workspace, name, body=b"fake simulation"):
-    """Put one file in the workspace geometry library and return its path."""
-    path = workspace.inputs_dir / "geometries" / name
-    path.write_bytes(body)
-    return path
 
 
 def geometry_matrix(tmp_path, tail, stem="geometry.fs"):

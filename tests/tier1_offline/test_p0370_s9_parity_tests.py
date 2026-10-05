@@ -4,7 +4,8 @@
 refusal has three branches: the structured per-point reasons of ``plan.json``, a message that
 lists points (parsed), and the whole message (a refusal before planning). Every branch is tested
 with a one-line change, and the grouped-plan workspace the parity tests use is defined once, in
-``tests/support_helpers.py``.
+``tests/support_helpers.py``. The FR-421 comparison of left-out reasons is tested through the real
+``parity()`` verdict over controlled collector observations.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+from argparse import Namespace
 from pathlib import Path
 
 from tests.support_helpers import grouped_plan_fixture
@@ -72,38 +74,80 @@ def _differences(before: dict, after: dict) -> list[dict]:
     return scripts["differing"]
 
 
+def _tier1_imports(source: str) -> list[str]:
+    """Return every tier-1 test module a source imports, at any depth of the source."""
+    modules = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            modules.append(node.module)
+        elif isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "import_module"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            modules.append(str(node.args[0].value))
+    return [name for name in modules if name.split(".")[:2] == ["tests", "tier1_offline"]]
+
+
+def _builder_definitions(source: str) -> list[str]:
+    return [
+        node.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name in FIXTURE_BUILDERS
+    ]
+
+
+#: The builders the grouped-plan workspace is made of: each is defined once, in the support module.
+FIXTURE_BUILDERS = (
+    "grouped_plan_fixture",
+    "rotor_workspace",
+    "rotor_row",
+    "make_library",
+    "fixture_codes",
+    "stage_geometry",
+)
+
+
 def test_p0370_s9_the_fixture_has_one_definition_in_the_support_module():
-    """P0370-S9-PARITY-TESTS (NFR-42 R1): no tier-1 test defines or imports the fixture elsewhere.
+    """P0370-S9-PARITY-TESTS (NFR-42 R1): the fixture and every builder it uses live in one module.
 
-    The scan walks every tier-1 module: a ``def _fixture`` of the grouped plan, or an import of
-    a fixture out of ``test_p0350_batch_plan``, is a second home. The planted source is caught.
+    The dependency graph is walked, not one spelling: the support module imports no tier-1 test
+    module at any depth, each builder of the fixture is defined there and nowhere in tier 1, and
+    no tier-1 module imports the fixture from another test module under any name. A planted lazy
+    import and a planted second definition are caught.
     """
-
-    def offences(source: str) -> list[str]:
-        found = []
-        for node in ast.walk(ast.parse(source)):
-            if isinstance(node, ast.FunctionDef) and node.name == "grouped_plan_fixture":
-                found.append(f"defines {node.name}")
-            if (
-                isinstance(node, ast.ImportFrom)
-                and node.module
-                and node.module.endswith("test_p0350_batch_plan")
-            ):
-                found.extend(
-                    f"imports {item.name}" for item in node.names if item.name == "_fixture"
-                )
-        return found
-
-    found = {
+    support = (REPO / "tests" / "support_helpers.py").read_text(encoding="utf-8")
+    assert _tier1_imports(support) == []
+    assert sorted(_builder_definitions(support)) == sorted(FIXTURE_BUILDERS)
+    second = {
+        path.name: found
+        for path in TIER1.glob("*.py")
+        if (found := _builder_definitions(path.read_text(encoding="utf-8")))
+    }
+    assert not second
+    homes = {
         path.name: hits
         for path in TIER1.glob("*.py")
-        if (hits := offences(path.read_text(encoding="utf-8")))
+        if (
+            hits := [
+                f"{node.module}.{item.name}"
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.ImportFrom)
+                and node.module
+                and node.module.startswith("tests.tier1_offline")
+                for item in node.names
+                if item.name in ("_fixture", "grouped_plan_fixture")
+            ]
+        )
     }
-    assert not found
-    support = (REPO / "tests" / "support_helpers.py").read_text(encoding="utf-8")
-    assert offences(support) == ["defines grouped_plan_fixture"]
-    planted = "from tests.tier1_offline.test_p0350_batch_plan import _fixture\n"
-    assert offences(planted) == ["imports _fixture"]
+    assert not homes
+    lazy = "def grouped_plan_fixture():\n    from tests.tier1_offline.test_x import _workspace\n"
+    assert _tier1_imports(lazy) == ["tests.tier1_offline.test_x"]
+    assert _builder_definitions("def make_library(tmp_path):\n    pass\n") == ["make_library"]
 
 
 def test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace(tmp_path):
@@ -180,3 +224,140 @@ def test_p0370_s9_a_refusal_on_one_side_only_is_a_difference():
     )
     (entry,) = scripts["differing"]
     assert entry["base"] is None and entry["release"] == "refused"
+
+
+def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
+    """Run the real ``parity()`` over controlled collector observations at both trees.
+
+    The two sides render the same workspace script and differ only in what the grouped plan left
+    out (``grouped_skipped``), so the receipt's differences and verdict are the instrument's own
+    answer about that one change. FR-421 is the only requirement the release SRS defines here.
+    """
+    parity = _parity()
+
+    def git(*args, binary=False):
+        return Path(parity.__file__).read_bytes() if binary else "a" * 40
+
+    def collect(python, mode, tree, work, argument=None):
+        if mode == "api":
+            return {
+                "exports": {"pyflightstream": ["public"]},
+                "offered": {"pyflightstream.other": ["public"]},
+                "unimportable": {},
+                "classifier_control": True,
+            }
+        if mode == "resolve":
+            return [
+                f"{module}.{name}"
+                for module, name in json.loads(argument.read_text())
+                if name == parity.PLANTED_NAME
+            ]
+        if mode == "cli":
+            return {"spellings": ["pyfs-matrix"], "unavailable": {}}
+        if mode == "scripts":
+            return {"render/control.txt": "render\n"}
+        assert mode == "workspace-scripts"
+        skipped = base_skipped if work.name == "base" else release_skipped
+        return {
+            "scripts": {"sims/sim_7002/control.txt": "workspace\n"},
+            "grouped_skipped": [
+                {"matrix": "m.fs", "mode": "--batch", "reasons": skipped},
+            ],
+            "grouped_attempted": ["--batch"],
+            "workspace_refused": [],
+            "workspace_rendered": [{"matrix": "m.fs", "mode": "--per-point"}],
+        }
+
+    def post(python, tree, source, ws, keep):
+        keep.mkdir()
+        (keep / "control.txt").write_bytes(b"post\n")
+        return {"exit": 0, "stderr_tail": ""}
+
+    monkeypatch.setattr(parity, "git", git)
+    monkeypatch.setattr(parity, "export", lambda sha, tree: tree.mkdir(exist_ok=True))
+    monkeypatch.setattr(parity, "run_child", collect)
+    monkeypatch.setattr(parity, "run_post", post)
+    monkeypatch.setattr(parity, "srs_ids", lambda tree: {"FR-421"})
+    return parity, parity.parity(
+        Namespace(
+            base="base",
+            release="release",
+            workspace=tmp_path,
+            temp=tmp_path,
+            python="unused",
+            keep=False,
+            allow_no_grouped=True,
+        )
+    )
+
+
+def _sim(reason):
+    return [{"sim": "7001", "reason": reason}]
+
+
+def test_p0370_s9_the_verdict_names_exactly_the_changed_coupled_reason(tmp_path, monkeypatch):
+    """P0370-S9-GROUPED-HELP (FR-421 R2): ``parity()`` passes the one exact old to new pair.
+
+    The release's reason is the 0.36.0 text replaced by the 0.37.0 text, and nothing else
+    differs: the receipt lists one difference, named FR-421, and the verdict is PASS. The same
+    run with the comparison removed from the pipeline would list none.
+    """
+    parity = _parity()
+    _, receipt = _verdict(
+        tmp_path, monkeypatch, _sim(parity.LEFT_OUT_BEFORE), _sim(parity.LEFT_OUT_AFTER)
+    )
+    (entry,) = receipt["scripts"]["differing"]
+    assert entry["requirement"] == "FR-421"
+    assert entry["name"] == "workspace/m.fs (--batch) left out sim 7001"
+    assert receipt["verdict"] == "PARITY: PASS"
+    _, same = _verdict(
+        tmp_path, monkeypatch, _sim(parity.LEFT_OUT_AFTER), _sim(parity.LEFT_OUT_AFTER)
+    )
+    assert same["scripts"]["differing"] == []
+    assert same["verdict"] == "PARITY: PASS"
+
+
+def test_p0370_s9_the_verdict_refuses_every_other_change_of_a_left_out_reason(
+    tmp_path, monkeypatch
+):
+    """P0370-S9-GROUPED-HELP (FR-421 R2): append-only, newline, reverse, unrelated are unnamed.
+
+    Each change reaches the final verdict as a difference without a requirement, and the verdict
+    is FAIL: a reason with the pair appended to it, the new text with a trailing newline, the
+    pair reversed, an unrelated reason changed, an exclusion the release added and one it dropped.
+    """
+    parity = _parity()
+    before, after = parity.LEFT_OUT_BEFORE, parity.LEFT_OUT_AFTER
+    restart = "a RESTART row opens a datapoint's saved simulation"
+    cases = {
+        "append-only": (_sim(restart), _sim(f"{restart}\n{before}\n{after}")),
+        "extra newline": (_sim(before), _sim(after + "\n")),
+        "reverse": (_sim(after), _sim(before)),
+        "unrelated": (_sim(restart), _sim("a restart row")),
+        "pair on another reason": (_sim(restart), _sim(after)),
+        "added exclusion": ([], _sim(after)),
+        "dropped exclusion": (_sim(after), []),
+    }
+    for label, (base, release) in cases.items():
+        _, receipt = _verdict(tmp_path, monkeypatch, base, release)
+        (entry,) = receipt["scripts"]["differing"]
+        assert "requirement" not in entry, label
+        assert receipt["verdict"] == "PARITY: FAIL", label
+
+
+def test_p0370_s9_the_verdict_compares_grouped_point_errors(tmp_path, monkeypatch):
+    """P0370-S9-GROUPED-HELP (FR-421 R2): a changed per-point error fails the verdict.
+
+    A point the grouped plan blocked beside a written batch carries ``run_id`` and ``reason``;
+    its reason changing between the trees is a difference, and the same error on both sides is not.
+    """
+    point = "rotor/sim_7002/V0300RE120AL+000"
+    old = [{"run_id": point, "reason": "old failure"}]
+    _, same = _verdict(tmp_path, monkeypatch, old, old)
+    assert same["scripts"]["differing"] == []
+    assert same["verdict"] == "PARITY: PASS"
+    _, receipt = _verdict(tmp_path, monkeypatch, old, [{"run_id": point, "reason": "new failure"}])
+    (entry,) = receipt["scripts"]["differing"]
+    assert entry["name"] == f"workspace/m.fs (--batch) left out point {point}"
+    assert "requirement" not in entry
+    assert receipt["verdict"] == "PARITY: FAIL"

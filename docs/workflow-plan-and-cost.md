@@ -171,11 +171,11 @@ one ended the solver process on 26.124
 It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
 names every polar a grouped job cannot take, with the reason (the help of both
-flags lists the classes, FR-421): a LEGACY row, a coupled row on `steady` or
+flags lists every class, FR-421): a LEGACY row, a coupled row on `steady` or
 `qsteady_rotor`, a steady row stating `COLD_START` false, a steady point that initialises the solver
 more than once (a quasi-steady wheel of several clockings, a wake termination
 read from a file), a `RESTART` row, an unsteady row on a build without
-the action command, and a polar whose points do
+the action command, a polar all of whose points are already recorded, and a polar whose points do
 not splice into one script. A steady job registers no solver action: a later
 point of a polar is restated from `SOLVER_SET_AOA` after
 `REMOVE_INITIALIZATION`; a later point that differs before it (a swept flow

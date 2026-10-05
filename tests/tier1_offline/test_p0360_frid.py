@@ -334,7 +334,7 @@ def _helper_duplicates(source: str, support: str) -> list[str]:
 def test_shared_helpers_have_one_definition():
     """P0360-RV-A1 (NFR-39): renamed or identically named local copies are refused."""
     support = (REPO / "tests/support_helpers.py").read_text(encoding="utf-8")
-    assert len([n for n in ast.parse(support).body if isinstance(n, ast.FunctionDef)]) == 5
+    assert len([n for n in ast.parse(support).body if isinstance(n, ast.FunctionDef)]) == 10
     duplicates = {
         path.name: found
         for path in TIER1.rglob("*.py")
