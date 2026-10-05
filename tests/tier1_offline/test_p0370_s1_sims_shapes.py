@@ -39,7 +39,8 @@ def test_mark_failed_and_rebuild_help_name_their_comma_form(command, tmp_path, c
 def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
     """P0370-S1-MARK-CONVERGED (FR-414): points are chosen by --points, not by the alias."""
     text = _help("mark-converged", tmp_path, capsys)
-    assert "name them with --points" in text and "is not read here" in text, text
+    assert "name them with --points" in text, text
+    assert "2006_3 is refused, naming the --sims and --points" in text, text
 
 
 def test_words_and_commas_read_the_same_ids(tmp_path, capsys):

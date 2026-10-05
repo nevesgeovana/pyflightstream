@@ -32,7 +32,7 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
-from pyflightstream.run._alias import SIMS_IDS_HELP
+from pyflightstream.run._alias import SIMS_IDS_HELP, split_typed_ids
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
@@ -64,6 +64,28 @@ def _listed(values: Sequence[str] | None) -> list[str]:
     ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
     """
     return list(dict.fromkeys(listed_sims(",".join(str(value) for value in values or []))))
+
+
+def _whole_simulations(base: Path, ids: list[str]) -> list[str]:
+    """Return ``ids``, refusing a run id alias with the ``--sims`` and ``--points`` that name it.
+
+    The alias is read by the resolver of ``mark-failed``
+    (:func:`pyflightstream.run._alias.split_typed_ids`), so the two commands
+    recognise the same ``<sim>_<index>``; this command selects points by name,
+    so the refusal spells the point's simulation and name.
+    """
+    sims, aliased = split_typed_ids(ids, base)
+    if not aliased:
+        return sims
+    named = [text for text in ids if text not in sims]
+    spelled = "; ".join(
+        f"--sims {sim} --points {' '.join(names)}" for sim, names in aliased.items()
+    )
+    raise RunsManifestError(
+        f"sims (CLI: --sims) names the run id alias(es) {', '.join(named)}, and "
+        "mark-converged selects points by simulation and point name; nothing was marked; "
+        f"name them as {spelled}"
+    )
 
 
 def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
@@ -211,8 +233,12 @@ def mark_converged(
     ------
     RunsManifestError
         No reason, no simulation named, no ``runs.json``, a simulation or a
-        point no record names; applying while any point is refused, naming
-        each, with nothing written.
+        point no record names, a run id alias (``2006_3``, refused naming the
+        ``sims`` and ``points`` that select its point); applying while any
+        point is refused, naming each, with nothing written.
+    AliasError
+        An alias the records and the plan read differently, or that names no
+        point, as ``mark-failed`` refuses it.
     """
     if not str(reason or "").strip():
         raise RunsManifestError(
@@ -227,6 +253,7 @@ def mark_converged(
         )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
+    ids = _whole_simulations(base, ids)
     workspace = CampaignWorkspace(base)
     todo, result = _checked_plan(
         workspace, _read(manifest), ids, wanted, reason=reason, apply=apply
@@ -364,7 +391,8 @@ def add_mark_converged_parser(subparsers: Any) -> None:
         nargs="+",
         metavar="ID",
         help=SIMS_IDS_HELP + ", or as words: 2006 2007; to mark some of their points, name "
-        "them with --points (a run id alias such as 2006_3 is not read here)",
+        "them with --points (a run id alias such as 2006_3 is refused, naming the --sims "
+        "and --points that select its point)",
     )
     converged.add_argument(
         "--points",

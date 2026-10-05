@@ -207,8 +207,12 @@ pyfs-matrix mark-converged --sims 2006 --points AL+020 --reason "..." --apply
 ```
 
 Without `--apply` it previews and writes nothing; `--reason` is required, and
-`--points` narrows the mark to the named points of the simulations. Each
-marked record becomes `CONVERGED` and keeps under `marked` the status it had
+`--points` narrows the mark to the named points of the simulations.
+`--sims` takes whole simulations, as words, comma separated or in brackets
+(`2006 2007`, `2006,2007`, `[2006,2007]`), and `--points` the point names.
+Unlike `mark-failed`, it does not mark a run id alias (`2006_3`): the alias is
+read as `mark-failed` reads it and refused, and the refusal names the
+`--sims` and `--points` that select its point (`--sims 2006 --points AL+020`). Each marked record becomes `CONVERGED` and keeps under `marked` the status it had
 (`from`), when (`at`), your reason (`reason`) and the verdict (`verdict`);
 `runs.json` is copied to `archive/runs-<stamp>.json` first, so
 `pyfs-matrix restore runs` undoes it. A point of a steady job is marked alone,
