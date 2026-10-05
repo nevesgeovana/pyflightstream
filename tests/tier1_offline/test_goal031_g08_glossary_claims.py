@@ -555,6 +555,7 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "EXPORT_UNSTEADY_AFTER_REV": _rows(rotor_case, "EXPORT_UNSTEADY_AFTER_REV", "0.1", "0.2"),
     "EXPORT_UNSTEADY_LAST_REV": _rows(rotor_case, "EXPORT_UNSTEADY_LAST_REV", "0.1", "0.2"),
+    "RUN_WAKE_LENGTH_R": _rows(rotor_case, "RUN_WAKE_LENGTH_R", "4", "6", TIME_ITERATIONS=None),
     "RAW": Variation(
         lambda _: _raw("SOLVER_SET_ITERATIONS 100"), lambda _: _raw("SOLVER_SET_ITERATIONS 200")
     ),

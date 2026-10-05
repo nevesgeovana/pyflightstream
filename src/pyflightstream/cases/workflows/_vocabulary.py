@@ -243,6 +243,13 @@ DELTA_THETA_VARIABLE = "DELTA_THETA"
 #: :data:`DELTA_TIME_VARIABLE` and :data:`TIME_ITERATIONS_VARIABLE`,
 #: which stay for the matrices already written in them.
 REVOLUTIONS_VARIABLE = "REVOLUTIONS"
+#: The run length of an ``unsteady_rotor`` row stated as a target wake length,
+#: in rotor radii (FR-422): ``TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))``,
+#: the conversion and the axial velocity rule of ``wake_termination_length``.
+#: Stated with exactly one of :data:`DELTA_THETA_VARIABLE` or
+#: :data:`DELTA_TIME_VARIABLE`, and in place of :data:`TIME_ITERATIONS_VARIABLE`
+#: and :data:`REVOLUTIONS_VARIABLE`.
+RUN_WAKE_LENGTH_R_VARIABLE = "RUN_WAKE_LENGTH_R"
 #: WHICH of the row's OUTPUTS is the solver log, by 1-based position.
 #: Absent means no log is exported, which is what
 #: every workflow did before this release. A log is what turns an
@@ -998,6 +1005,8 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     MOTIONS_VARIABLE,
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    # FR-422: the run length from a target wake length, a rotor's radii.
+    RUN_WAKE_LENGTH_R_VARIABLE,
 )
 #: THE QUASI-STEADY ROTOR'S VOCABULARY (0.30.0): what a steady row reads, the
 #: rotor's speed, and the count of clockings. Not ``COLD_START``, which only a
@@ -1384,6 +1393,15 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
                 "stating it registers the per-step actions, and the run writes the first "
                 "step into the program they run."
             ),
+        ),
+        RUN_WAKE_LENGTH_R_VARIABLE: InputKey(
+            "The run length as the wake length the run should reach, in rotor radii: "
+            "TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta)), with V_ax the free stream "
+            "or the induced velocity of the setup's stated thrust, as wake_termination_length "
+            "converts; stated with DELTA_THETA or DELTA_TIME, in place of REVOLUTIONS and "
+            "TIME_ITERATIONS. A nominal length, not a measured wake.",
+            "rotor radii",
+            "SET_SOLVER_UNSTEADY",
         ),
         # NO COMMAND BY ITSELF: it sets how many steady solves the wheel is clocked
         # through, each a ROTATE_SURFACE, a second INITIALIZE_SOLVER and a solve.

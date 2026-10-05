@@ -56,6 +56,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.cases.workflows._freestream import (
     WakeTermination,
+    planned_run_wake,
     planned_wake,
     wake_warnings,
 )
@@ -184,6 +185,12 @@ class PointPlan:
         radii, the steps, the rule that gave V_ax and V_ax in m/s, as
         :meth:`pyflightstream.cases.workflows._freestream.WakeTermination.record`
         states them. Empty on every other point.
+    run_wake_length : dict of str to object
+        On a point of an ``unsteady_rotor`` row stating ``RUN_WAKE_LENGTH_R``
+        (FR-422 R3, 0.37.0), the run length resolved from it: the length asked
+        in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
+        the revolutions they turn. Empty on every other point, and then left
+        out of ``plan.json``.
     """
 
     run_id: str
@@ -199,6 +206,7 @@ class PointPlan:
     qsteady_validity: dict[str, object] = field(default_factory=dict)
     continuation: str | None = None
     wake_termination: dict[str, object] = field(default_factory=dict)
+    run_wake_length: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -805,7 +813,26 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.wake_termination:
             lines.append(f"  {entry.run_id}: {wake_termination_line(entry.wake_termination)}")
+    # 0.37.0 (FR-422 R3): a run length stated as a wake length states its count.
+    for entry in points:
+        if entry.run_wake_length:
+            lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
     return lines
+
+
+def run_wake_length_line(run: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one point's run length from a wake length (FR-422).
+
+    ``run`` is one :attr:`PointPlan.run_wake_length`: the length asked, the
+    resolved step count and the revolutions it turns, and the V_ax with the
+    rule that gave it. The length is nominal (R5), so the revolutions are
+    what a user checks near hover.
+    """
+    return (
+        f"run length RUN_WAKE_LENGTH_R = {run.get('length_r'):g} R: "
+        f"{run.get('time_iterations')} steps, {run.get('revolutions'):.4g} revolution(s), "
+        f"V_ax {run.get('v_ax_m_s'):.4g} m/s ({run.get('rule')})"
+    )
 
 
 def wake_termination_line(wake: Mapping[str, object]) -> str:
@@ -1130,7 +1157,7 @@ def plan_campaign(
             "package_version": pyflightstream.__version__,
             "build_groups": groups,
             "setup_inspections": list(setup_inspections or ()),
-            "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
+            "points": [_point_record(entry) for entry in points],
             # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
             # and then "plan, edit the matrix, run" passes a gate that read
@@ -1233,6 +1260,18 @@ def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:
             )
 
 
+def _point_record(entry: PointPlan) -> dict[str, Any]:
+    """Return one point as ``plan.json`` writes it.
+
+    The run length of FR-422 is written only where the row states it, so a
+    plan of rows that do not carries the keys 0.36.0 wrote.
+    """
+    record = {**asdict(entry), "status": str(entry.status)}
+    if not entry.run_wake_length:
+        del record["run_wake_length"]
+    return record
+
+
 def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
     """Return what a point's plan states about its rotors, wheel and wake, READY or not.
 
@@ -1241,10 +1280,12 @@ def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
     termination keeps (0.34.0, FR-321 R5).
     """
     wake = planned_wake(point_case)
+    run = planned_run_wake(point_case)
     return {
         "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(point_case)},
         "qsteady_validity": qsteady_validity(point_case, inflow_fft=inflow_fft) or {},
         "wake_termination": {} if wake is None else wake.record(),
+        "run_wake_length": {} if run is None else run.record(),
     }
 
 

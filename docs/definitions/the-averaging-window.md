@@ -19,6 +19,11 @@ the temporal setup: `DELTA_TIME`, `TIME_ITERATIONS` and `RPM` are all on the sam
 row. Putting it in the pproc would separate the window from the quantities that
 define it.
 
+**The window ends at the run's last step, the resolved `TIME_ITERATIONS`**:
+the count the row states, the one `REVOLUTIONS` and `DELTA_THETA` work out to,
+or the one `RUN_WAKE_LENGTH_R` works out to from a target wake length (FR-422),
+whichever the row states.
+
 `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are **retired** -- they were the same idea
 under another name in another place, and two spellings of one idea are how two
 published numbers come to disagree.

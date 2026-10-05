@@ -1616,6 +1616,7 @@
     "_geometry",
     "_names",
     "_timing",
+    "_wake_length",
     "_motion",
     "_actuator",
     "_rows",
