@@ -1296,7 +1296,7 @@
 
 ## 0.37.0
 
-!!! requirement "NFR-41 The parity instrument's tests share one fixture home and cover its refusal fallback <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-42 The parity instrument's tests share one fixture home and cover its refusal fallback <span class='srs-pending'>pending</span>"
     Plan: PFS-2078.09 (0.37.0).
 
     *Origin: the 0.36.0 push review of `scripts/check_parity.py` (registered as 0.37 R4), scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`.*
@@ -1308,4 +1308,4 @@
     - R1 No tier-1 test imports a fixture from another test module for the parity tests.
     - R2 A one-line change of the refusal message is reported as a difference when `plan.json` is absent, and only its per-point reasons count when `plan.json` is present.
 
-    Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`, carrying P0370-S9-PARITY-TESTS (NFR-41).
+    Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`, carrying P0370-S9-PARITY-TESTS (NFR-42).
