@@ -70,6 +70,8 @@ from pyflightstream.workspace import (
     post_stages,
 )
 from pyflightstream.workspace._links import _is_link, _is_reparse, _make_dir_link, _remove_link
+from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
+from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -110,10 +112,6 @@ SYNC_CONFIG = Path("inputs") / "sync-workspaces.toml"
 SYNC_LEVELS = ("runs", "post", "fsm", "all")
 MATRIX_PRODUCT_CHOICES = ("points-only", "regenerate")
 COMPACTED_SUFFIX = ".zip"
-#: The key of a ``runs.json`` row that is a note, not a record: the id it names
-#: belonged to a simulation that ``delete-sims`` deleted. ``read_manifest``
-#: passes such a row over; the raw manifest carries it as evidence.
-DELETED_SIM_KEY = "deleted_sim"
 _COMPACT_META = "_pyfs_compacted.json"
 _PROTECTED_SUFFIXES = (".fsm",)
 #: The recipe mode that deletes an unsteady point's per-step exports, all but
@@ -1651,60 +1649,6 @@ def _sim_folders(
         "both": sorted(main_ids & other_ids),
         "without_record": sorted((main_ids | (other_ids & brought)) - recorded - noted),
     }
-
-
-def _merge_runs(
-    main_rows: list[dict[str, Any]], other_rows: list[dict[str, Any]], prefer_other: bool
-):
-    deleted = {
-        str(run)
-        for row in main_rows
-        if row.get(DELETED_SIM_KEY) is not None
-        for run in row.get("deleted_run_ids", [])
-    }
-    index = {row.get("run_id"): i for i, row in enumerate(main_rows)}
-    merged = [dict(row) for row in main_rows]
-    added: list[str] = []
-    replaced: list[dict[str, Any]] = []
-    conflicts: list[dict[str, Any]] = []
-    for row in other_rows:
-        run_id = row.get("run_id")
-        if not run_id:
-            conflicts.append({"run_id": None, "reason": "a record without run_id"})
-            continue
-        if str(run_id) in deleted:
-            conflicts.append({"run_id": run_id, "reason": "deleted in main by delete-sims"})
-            continue
-        if run_id not in index:
-            index[run_id] = len(merged)
-            merged.append(row)
-            added.append(str(run_id))
-            continue
-        mine = merged[index[run_id]]
-        if mine == row:
-            continue
-        # FR-414 R4: a row carrying a person's verdict (``marked``) is never
-        # replaced by one that does not; the merge names it as a conflict.
-        verdict_lost = bool(mine.get("marked")) and not row.get("marked")
-        if (mine.get("status") == RunStatus.SUBMITTED.value or prefer_other) and not verdict_lost:
-            merged[index[run_id]] = row
-            replaced.append(
-                {
-                    "run_id": run_id,
-                    "from": mine.get("status"),
-                    "to": row.get("status"),
-                    "forced": mine.get("status") != RunStatus.SUBMITTED.value,
-                }
-            )
-        else:
-            conflicts.append(
-                {
-                    "run_id": run_id,
-                    "main_status": mine.get("status"),
-                    "other_status": row.get("status"),
-                }
-            )
-    return merged, added, replaced, conflicts
 
 
 def _plan_points_without_record(

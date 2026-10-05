@@ -35,6 +35,7 @@ from pyflightstream.cases import classify_outputs
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace._verdicts import marked_units
 from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
 
 __all__ = [
@@ -242,7 +243,7 @@ def person_verdicts(manifest: Path) -> dict[str, dict[str, Any]]:
     return {
         str(row["run_id"]): row
         for row in rows
-        if isinstance(row, dict) and row.get("marked") and row.get("run_id")
+        if isinstance(row, dict) and marked_units(row) and row.get("run_id")
     }
 
 
@@ -253,7 +254,25 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
     verdict by a computed status in silence: the record keeps ``marked`` and
     the status it gave, and says which status the files supported.
     """
-    if row is None or not row.get("marked"):
+    if row is None:
+        return record
+    units = marked_units(row)
+    if any(key for key in units):
+        points = record.get("points_ran") or []
+        missing = set(units) - {"", *(str(point.get("tag")) for point in points)}
+        if missing:
+            raise RunsManifestError(
+                f"rebuild would lose marked point(s) {', '.join(sorted(missing))}; "
+                "restore the point declarations before rebuilding"
+            )
+        record = {
+            **record,
+            "points_ran": [
+                keep_verdict(point, units.get(str(point.get("tag")))) for point in points
+            ],
+        }
+        record["status"] = _worst(record)
+    if not row.get("marked"):
         return record
     note = (
         f"a person's verdict is kept: {row.get('status')} by mark ({row['marked'].get('at')}); "

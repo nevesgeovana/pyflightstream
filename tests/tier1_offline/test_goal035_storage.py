@@ -785,8 +785,8 @@ def test_cli_delete_sims_accepts_the_owners_bracketed_id_list(tmp_path):
 # touched: the coordinator is editing it in a parallel session.
 
 
-def _mutant_module(tmp_path: Path, old: str, new: str, tag: str):
-    text = STORAGE_SRC.read_text(encoding="utf-8")
+def _mutant_module(tmp_path: Path, old: str, new: str, tag: str, *, source: Path = STORAGE_SRC):
+    text = source.read_text(encoding="utf-8")
     count = text.count(old)
     assert count == 1, f"mutant anchor for {tag!r} matched {count} times, not exactly 1"
     mutated = text.replace(old, new, 1)
@@ -1009,8 +1009,14 @@ def test_a_deleted_run_id_is_not_re_added_by_merge_runs(tmp_path):
 
 
 def test_mutant_re_adding_a_deleted_run_id_is_caught(tmp_path):
-    mutant = _mutant_module(tmp_path, _DELETED_OLD, _DELETED_NEW, "deletedrun")
-    assert not _deleted_run_stays_out(mutant)
+    mutant = _mutant_module(
+        tmp_path,
+        _DELETED_OLD,
+        _DELETED_NEW,
+        "deletedrun",
+        source=STORAGE_SRC.with_name("_verdicts.py"),
+    )
+    assert not _deleted_run_stays_out(SimpleNamespace(_merge_runs=mutant.merge_runs))
 
 
 # ---- 6: apply is refused without --matrix-products when a product is shared

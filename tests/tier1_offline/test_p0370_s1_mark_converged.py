@@ -172,6 +172,34 @@ def test_p0370_s1_show_status_and_the_post_name_the_person_s_verdict(workspace, 
         assert {mark["reason"] for mark in entry["marked"].values()} == {REASON}
 
 
+def test_p0370_s1_rebuild_keeps_marked_steady_points(workspace, capsys):
+    """P0370-S1-MARK-CONVERGED (FR-414 R4): rebuild retains nested steady-job marks."""
+    from pyflightstream.workspace import RunRecord
+
+    mark_converged(workspace.root, ["7002"], reason=REASON, apply=True)
+    before = {
+        point.run_id: point.marked
+        for record in workspace.read_manifest()
+        for point in record.as_points()
+        if point.sim_id == "7002"
+    }
+    old = time.time() - 3600
+    for path in (workspace.root / "sims").rglob("*"):
+        os.utime(path, (old, old))
+    code, said = pyfs(
+        ["rebuild", "--all-sims", "--out", "rebuilt.json", "--apply"], workspace.root, capsys
+    )
+    assert code == 0, said
+    rebuilt = json.loads((workspace.root / "rebuilt.json").read_text("utf-8"))
+    after = {
+        point.run_id: (point.status, point.marked)
+        for row in rebuilt
+        for point in RunRecord.model_validate(row).as_points()
+        if point.sim_id == "7002"
+    }
+    assert after == {run_id: (RunStatus.CONVERGED, mark) for run_id, mark in before.items()}
+
+
 def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, capsys):
     """P0370-S1-MARK-CONVERGED (FR-414 R4): rebuild and sync never replace the verdict in silence.
 
