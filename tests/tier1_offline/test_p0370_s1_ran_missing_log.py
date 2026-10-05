@@ -11,7 +11,6 @@ and the commands run through ``pyfs-matrix``.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import warnings
 from pathlib import Path
@@ -138,16 +137,29 @@ def test_p0370_s1_status_show_plan_and_resume_read_a_run_that_ended(tmp_path, ca
     before = workspace.manifest_path.read_bytes()
     assert _resume(workspace) == []
     assert workspace.manifest_path.read_bytes() == before, "run --resume ran a point that ended"
-    # The control: with one record gone, the same resume runs that point again.
+    # The control: one point not ended (its record gone), and the same resume
+    # runs exactly that point again.
     workspace.manifest_path.write_text(json.dumps(rows[:2], indent=2), encoding="utf-8")
-    with contextlib.suppress(CampaignErrors):  # it fails here: the stub submits nothing
-        _resume(workspace)
+    assert _resume(workspace) == [rows[2]["run_id"]]
     assert [row["run_id"] for row in _records(workspace.root)][2:] == [rows[2]["run_id"]]
 
 
-def _resume(workspace):
-    """``run --resume`` of the owner's matrix, on the profile that submits through its command."""
+def _resume(workspace) -> list[str]:
+    """``run --resume`` of the owner's matrix, on the profile that submits through its command.
+
+    Returns the run ids the resume wrote, whether their points succeeded or
+    not: the stub submits nothing, so a point the resume runs fails, and the
+    error carries every record the call wrote.
+    """
     profile = workspace.inputs_dir / "hpc" / "h001.toml"
+    try:
+        written = _run_resume(workspace, profile)
+    except CampaignErrors as error:
+        written = error.records
+    return [record.run_id for record in written]
+
+
+def _run_resume(workspace, profile):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return run_matrix(
