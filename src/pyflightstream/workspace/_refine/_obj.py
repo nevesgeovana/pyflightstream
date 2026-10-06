@@ -18,6 +18,7 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
+from pyflightstream._decimal import plain_decimal
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 
@@ -35,6 +36,9 @@ class ObjMesh:
     families: dict[str, Faces]
     header: list[str] = field(default_factory=list)
     family_tag: str = "g"
+    #: Per vertex, the coordinate text to write (the source's ``v`` words, as read),
+    #: or None to write the number itself; empty to write every vertex's number.
+    vertex_text: list[str | None] = field(default_factory=list)
 
     def family_vertices(self, name: str) -> NDArray[numpy.int64]:
         """Return the sorted indices of the vertices the family's faces use."""
@@ -91,6 +95,8 @@ def read_obj(path: str | Path) -> ObjMesh:
             mesh.header.append(s)
         elif s and not s.startswith("#"):
             current = _statement(f"{source}: line {number}", s, verts, mesh, current)
+            if len(verts) > len(mesh.vertex_text):
+                mesh.vertex_text.append(" ".join(s.split()[1:4]))
     if not mesh.families:
         raise _refuse(source, "the file holds no face")
     mesh.verts = numpy.asarray(verts, dtype=float).reshape(-1, 3)
@@ -119,12 +125,30 @@ def _statement(
     return current
 
 
+def coordinates(point: NDArray[numpy.float64]) -> str:
+    """Return a point as written: each coordinate the plain decimal that reads back to it.
+
+    The shortest round-trip digits and never an exponent
+    (:func:`pyflightstream._decimal.plain_decimal`), so a node written and
+    read back is the node computed, at any scale (FR-424 R7).
+    """
+    return " ".join(plain_decimal(float(x)) for x in point)
+
+
 def obj_text(mesh: ObjMesh, note: str | None = None) -> str:
-    """Return the OBJ text of a mesh, nine decimals per coordinate, families in their order."""
+    """Return the OBJ text of a mesh, families in their order.
+
+    A vertex whose source text is known (``vertex_text``) is written as the
+    source wrote it; every other is written by :func:`coordinates`.
+    """
     lines = list(mesh.header)
     if note:
         lines.append(f"# {note}")
-    lines += [f"v {x:.9f} {y:.9f} {z:.9f}" for x, y, z in mesh.verts]
+    known = mesh.vertex_text if len(mesh.vertex_text) == len(mesh.verts) else []
+    lines += [
+        f"v {known[i] if known and known[i] is not None else coordinates(p)}"
+        for i, p in enumerate(mesh.verts)
+    ]
     for name, faces in mesh.families.items():
         lines.append(f"{mesh.family_tag} {name}")
         lines += ["f " + " ".join(str(v + 1) for v in f) for f in faces]
@@ -285,7 +309,7 @@ def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
 def write_te(path: str | Path, unit: str, midpoints: NDArray[numpy.float64]) -> Path:
     """Write a trailing-edge points file under the given unit line and return the path."""
     target = Path(path)
-    rows = [unit] + [f"{x:.9f},{y:.9f},{z:.9f}" for x, y, z in midpoints]
+    rows = [unit] + [coordinates(p).replace(" ", ",") for p in midpoints]
     _textio.write_lines(target, rows)
     return target
 

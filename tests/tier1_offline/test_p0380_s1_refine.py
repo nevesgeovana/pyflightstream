@@ -35,6 +35,7 @@ from tests.p0380_mesh_fixtures import (
     Composite,
     body_of_revolution,
     face_coordinates,
+    l_sheet,
     read_mesh,
     sheet_with_strips,
     write_source,
@@ -822,6 +823,42 @@ def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path):
     vertex_lines = _mesh_lines(src, ("v",))
     assert [vertex_lines[v] for v in order] != vertex_lines
     assert sorted(vertex_lines[v] for v in order) == sorted(vertex_lines)
+
+
+def _sheet_source(folder: Path, scale: float) -> tuple[Path, numpy.ndarray]:
+    """Write the L-shaped multiblock sheet scaled by ``scale``, each coordinate round-trip exact."""
+    sheet = l_sheet()
+    verts = sheet.verts * scale
+    lines = ["v " + " ".join(format(float(x), ".17g") for x in p) for p in verts] + ["g S"]
+    lines += ["f " + " ".join(str(v + 1) for v in f) for f in sheet.faces]
+    folder.mkdir(parents=True)
+    src = folder / "plate.obj"
+    src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return src, verts
+
+
+@pytest.mark.parametrize("scale", [1e-7, 0.01, 1.0, 1e3])
+def test_r7_factor_one_keeps_every_source_coordinate_at_any_precision(tmp_path, scale):
+    """P0380-REFINE (FR-424 R7; FR-426 R2 G1, G6): coordinates are written so they read back equal.
+
+    A source written with 17 significant digits, at scales from 1e-7 to 1e3,
+    refined at factor 1 reads back with every coordinate equal to the
+    source's and G6 passes; refined at factor 2 its new nodes stay distinct
+    (G1 finds no two nodes at one position). Control: the source's
+    coordinates written with nine decimals, as the writer wrote them, are
+    not the source's at these scales.
+    """
+    src, verts = _sheet_source(tmp_path / "src", scale)
+    level = refine_mesh(src, 1.0)
+    new, _ = read_mesh(level.obj)
+    assert numpy.array_equal(new, verts)
+    assert all(g.passed for g in level.audit.gates)
+    assert next(g for g in level.audit.gates if g.name == "G6").verdict == "pass"
+    finer = refine_mesh(src, 2.0)
+    g1 = next(g for g in finer.audit.gates if g.name == "G1")
+    assert g1.values["node_pairs_at_one_position"] == 0 and g1.passed
+    nine = numpy.array([[float(f"{x:.9f}") for x in p] for p in verts])
+    assert scale == 1.0 or not numpy.array_equal(nine, verts)
 
 
 # --------------------------------------------------------------------- R9 method

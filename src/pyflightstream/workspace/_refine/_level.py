@@ -537,6 +537,21 @@ def _source_numbering(
     return verts[order], renumbered
 
 
+def _source_text(work: _Work, verts: Points) -> list[str | None]:
+    """Return, per level node, the source's coordinate text when the node is a source node.
+
+    A node equal in every coordinate to the source node at its position is
+    written as the source wrote it, so a node the refinement kept is the
+    source's in its text too (FR-424 R7); any other node is written by
+    :func:`._obj.coordinates`.
+    """
+    if not len(verts) or len(work.mesh.vertex_text) != len(work.mesh.verts):
+        return []
+    dist, index = NearestIndex(work.mesh.verts).query(verts)
+    same = (dist == 0.0) & numpy.all(work.mesh.verts[index] == verts, axis=1)
+    return [work.mesh.vertex_text[int(i)] if s else None for i, s in zip(index, same, strict=True)]
+
+
 def _te_points_of(work: _Work, name: str) -> NDArray[numpy.bool_]:
     """Return which listed trailing-edge points lie on an edge of the family."""
     if not len(work.te_points):
@@ -682,7 +697,9 @@ def _write(
 ) -> list[Path]:
     """Write the level's files into ``folder`` and return them, the OBJ first."""
     stem = folder.name.removesuffix(STAGING_SUFFIX)
-    mesh = ObjMesh(verts, faces, list(work.mesh.header), work.mesh.family_tag)
+    mesh = ObjMesh(
+        verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
+    )
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
     if len(work.te_points):
