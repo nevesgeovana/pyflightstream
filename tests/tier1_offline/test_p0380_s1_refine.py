@@ -251,7 +251,7 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
         (
             "[families.G]\nfactr = 2\n",
             "[families.G]: unknown key 'factr'; the known keys are factor, chordwise, "
-            "spanwise, method, axial, circumferential, axis, origin",
+            "spanwise, method, axial, circumferential, axis, origin, elements",
         ),
         (
             "[families.Fin]\nfactor = 2\n",

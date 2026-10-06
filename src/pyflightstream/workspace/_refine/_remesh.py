@@ -14,6 +14,17 @@ share it). An interface with a family outside the group is FROZEN: its nodes
 never move, unless :meth:`Remesher.conform` first rebuilds it on the new
 nodes of a grid family refined before it.
 
+QUAD-DOMINANT families (the refinement file's ``elements``) are remeshed into
+triangles first, so sizes, curves, frozen and conformed interfaces, the
+trailing edge and a stretch are all honored as above; their triangles are
+then paired into quadrilaterals across edges that are no curve, each pair
+merged only into a convex quadrilateral within ``QUAD_ANGLE_BAND`` and
+``QUAD_WARP_DEGREES`` of :mod:`._geometry`, best quality first; the
+triangles left unpaired stay. Their free nodes are then smoothed and
+projected onto the source surface as above, curve, fixed and corner nodes
+held, and a move that would break a face is undone. A family in the default
+mode, ``"triangles"``, is returned exactly as the remesh ends.
+
 The projection onto the source surface searches a spatial index that ships
 with the geometry extra, so every import of trimesh, scipy and rtree here is
 deferred: a refinement of grid families alone imports none of them
@@ -33,7 +44,10 @@ from typing import Any, NamedTuple
 import numpy
 
 from pyflightstream.extras import MissingExtraError, missing_extra
+from pyflightstream.workspace._refine._config import QUAD_DOMINANT, TRIANGLES
 from pyflightstream.workspace._refine._geometry import (
+    QUAD_ANGLE_BAND,
+    QUAD_WARP_DEGREES,
     RIDGE_DEGREES,
     Faces,
     Points,
@@ -42,6 +56,7 @@ from pyflightstream.workspace._refine._geometry import (
     edge_faces,
     order_like,
     orient_like,
+    quad_shapes,
 )
 from pyflightstream.workspace._refine._obj import ObjMesh
 
@@ -57,6 +72,13 @@ COLLAPSE_RATIO = 4.0 / 5.0
 COLLAPSE_COSINE = 0.2
 #: A flip is refused when a new face's normal keeps less than this cosine.
 FLIP_COSINE = 0.3
+#: Quad-dominant: a pairing grows the matching along alternating paths this many pairs deep.
+AUGMENT_DEPTH = 4
+#: Quad-dominant: the passes of smoothing after the pairing. Measured on a remeshed plate, one
+#: pass to three lowers the median skewness from 0.30 to 0.26, six only to 0.25.
+SMOOTH_PASSES = 3
+#: Quad-dominant: a smoothing move is undone when a face's normal keeps less than this cosine.
+SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
 #: What the geometry extra supplies to a remesh, for the refusal of FR-424 R10.
@@ -622,6 +644,143 @@ class Remesher:
             "not_removed": len(dropped) - sum(dropped),
         }
 
+    # ---- quad-dominant: pairing triangles into quadrilaterals
+
+    def _real_all(self) -> Points:
+        """Return the real coordinates of every node, a fixed node's exactly as it came."""
+        return self._real_points(range(len(self.V)))
+
+    def _mergeable(self, k: Edge, labels: set[str]) -> tuple[int, int] | None:
+        """Return the two triangles an edge may be merged across, or None.
+
+        It may when it is no curve (an open boundary, the trailing edge, a
+        ridge, an interface, a frozen edge) and its two faces are triangles
+        of one quad-dominant family.
+        """
+        fs = self.E.get(k, set())
+        if len(fs) != 2 or k in self.CE or k in self.frozen:
+            return None
+        i, j = sorted(fs)
+        same = self.L[i] == self.L[j] and self.L[i] in labels
+        return (i, j) if same and len(self.F[i]) == len(self.F[j]) == 3 else None
+
+    def _merge_candidates(self, labels: set[str]) -> tuple[list[tuple[int, int]], Faces, Points]:
+        """Return every pair of triangles that merges into a valid quadrilateral, and its quality.
+
+        A quadrilateral is valid when it is convex, every interior angle lies
+        in ``QUAD_ANGLE_BAND`` and its warp is at most ``QUAD_WARP_DEGREES``,
+        all measured in the real space. Its quality is one minus its
+        equiangle skewness, 1 for a rectangle.
+        """
+        pairs: list[tuple[int, int]] = []
+        quads: Faces = []
+        for k in sorted(self.E):
+            pair = self._mergeable(k, labels)
+            quad = None if pair is None else _quad_of(self.F[pair[0]], self.F[pair[1]], k)
+            if pair is not None and quad is not None:
+                pairs.append(pair)
+                quads.append(quad)
+        if not quads:
+            return [], [], numpy.zeros(0)
+        angle, warp, convex = quad_shapes(self._real_all()[numpy.array(quads)])
+        low, high = QUAD_ANGLE_BAND
+        valid = convex & (angle.min(axis=1) >= low) & (angle.max(axis=1) <= high)
+        valid &= warp <= QUAD_WARP_DEGREES
+        quality = 1.0 - numpy.abs(angle - 90.0).max(axis=1) / 90.0
+        keep = numpy.nonzero(valid)[0].tolist()
+        return [pairs[c] for c in keep], [quads[c] for c in keep], quality[keep]
+
+    def pair_quads(self, labels: Iterable[str]) -> int:
+        """Merge pairs of triangles of the given families into quadrilaterals; return how many.
+
+        The pairs are chosen best quality first (a greedy matching), then
+        the matching is grown along alternating paths of up to
+        :data:`AUGMENT_DEPTH` matched pairs, each of which merges one more
+        pair, so the share of quadrilaterals is high. A quadrilateral runs
+        through its corners the way its two triangles did, so it keeps their
+        orientation. Curves are never merged across; nodes do not move.
+        """
+        pairs, quads, quality = self._merge_candidates(set(labels))
+        mate = _matching(pairs, quality)
+        merged = 0
+        for (i, j), quad in zip(pairs, quads, strict=True):
+            if mate.get(i) == j and i in self.F and j in self.F:
+                label = self.L[i]
+                self._del_face(i)
+                self._del_face(j)
+                self._new_face(quad, label)
+                merged += 1
+        return merged
+
+    def _edge_neighbors(self, v: int) -> list[int]:
+        """Return the nodes joined to v by a face edge (not across a quadrilateral)."""
+        out: set[int] = set()
+        for i in self.VF[v]:
+            f = self.F[i]
+            j = f.index(v)
+            out.update((f[j - 1], f[(j + 1) % len(f)]))
+        return sorted(out)
+
+    def _face_valid(self, i: int, real: Points, normal: Points) -> bool:
+        """Return whether a face keeps its normal's direction and, a quadrilateral, its shape."""
+        p = real[self.F[i]]
+        if not _keeps_direction(normal, _face_normal(p), SMOOTH_COSINE):
+            return False
+        if len(p) != 4:
+            return True
+        angle, warp, convex = quad_shapes(p[None])
+        low, high = QUAD_ANGLE_BAND
+        inside = low <= float(angle.min()) and float(angle.max()) <= high
+        return bool(convex[0]) and inside and float(warp[0]) <= QUAD_WARP_DEGREES
+
+    def smooth_quads(self, labels: Iterable[str]) -> int:
+        """Smooth the free nodes of quad-dominant families once; return how many moved.
+
+        A node moves halfway to the centroid of its edge neighbors within its
+        tangent plane and is projected onto the source surface, as the
+        remesh's own smoothing does. Nodes on a curve, fixed, frozen or at a
+        corner never move, nor any node of a family not in ``labels``. A move
+        that turns a face by more than :data:`SMOOTH_COSINE` allows or leaves
+        a quadrilateral outside the merge bounds is undone, with the moves of
+        the face's other nodes, until every face is valid again.
+        """
+        families = set(labels)
+        free = [
+            v
+            for v in sorted(v for v, fs in self.VF.items() if fs)
+            if v not in self.fixed
+            and v not in self.vcurve
+            and v not in self.corner
+            and all(self.L[i] in families for i in self.VF[v])
+        ]
+        if not free:
+            return 0
+        before = {v: (self.V[v].copy(), self.h[v]) for v in free}
+        real = self._real_all()
+        touched = sorted({i for v in free for i in self.VF[v]})
+        normals = {i: _face_normal(real[self.F[i]]) for i in touched}
+        self._onto_surface({v: self._tangent_quad_move(v) for v in free})
+        moved = set(free)
+        while True:
+            real = self._real_all()
+            bad = [i for i in touched if not self._face_valid(i, real, normals[i])]
+            back = {v for i in bad for v in self.F[i] if v in moved}
+            if not back:
+                return len(moved)
+            for v in sorted(back):
+                self.V[v], self.h[v] = before[v]
+            moved -= back
+
+    def _tangent_quad_move(self, v: int) -> Points:
+        """Return v moved halfway to its edge neighbors' centroid within its tangent plane."""
+        centroid = numpy.mean([self.V[u] for u in self._edge_neighbors(v)], axis=0)
+        normal = numpy.zeros(3)
+        for i in sorted(self.VF[v]):
+            normal += _face_normal(numpy.array([self.V[x] for x in self.F[i]]))
+        normal /= max(float(numpy.linalg.norm(normal)), 1e-300)
+        d = centroid - self.V[v]
+        return self.V[v] + 0.5 * (d - numpy.dot(d, normal) * normal)
+
     # ---- the result
 
     def edge_ratio_median(self) -> float:
@@ -640,6 +799,107 @@ class Remesher:
         te = [k for k, key in self.CE.items() if key == TRAILING_EDGE]
         mid = 0.5 * (self._real_points([a for a, _ in te]) + self._real_points([b for _, b in te]))
         return points, dict(families), mid
+
+
+def _face_normal(p: Points) -> Points:
+    """Return a polygon's (unnormalized) normal: the cross product of its diagonals for four."""
+    if len(p) == 4:
+        return numpy.cross(p[2] - p[0], p[3] - p[1])
+    return _unit_normal(p)
+
+
+def _quad_of(f0: list[int], f1: list[int], k: Edge) -> list[int] | None:
+    """Return the quadrilateral two triangles sharing the edge k make, or None.
+
+    The first triangle runs a, b, c and the second must run b, a, d (the two
+    agree in orientation); the quadrilateral is a, d, b, c, which runs every
+    remaining edge the way its triangle did.
+    """
+    a, b = k
+    j = f0.index(a)
+    if f0[(j + 1) % 3] != b:
+        a, b = b, a
+        j = f0.index(a)
+    c = f0[(j + 2) % 3]
+    m = f1.index(b)
+    if f1[(m + 1) % 3] != a:
+        return None
+    return [a, f1[(m + 2) % 3], b, c]
+
+
+def _matching(pairs: Sequence[tuple[int, int]], quality: Points) -> dict[int, int]:
+    """Return a matching of triangles: greedy best quality first, then grown.
+
+    Ties of quality are broken by the pair's face numbers, so the matching is
+    deterministic (FR-424 R12).
+    """
+    mate: dict[int, int] = {}
+    order = sorted(range(len(pairs)), key=lambda c: (-float(quality[c]), pairs[c]))
+    for c in order:
+        i, j = pairs[c]
+        if i not in mate and j not in mate:
+            mate[i], mate[j] = j, i
+    around: dict[int, list[int]] = defaultdict(list)
+    for c in order:
+        i, j = pairs[c]
+        around[i].append(j)
+        around[j].append(i)
+    grown = True
+    while grown:
+        grown = False
+        for t in sorted(around):
+            if t not in mate and _augment(t, around, mate, AUGMENT_DEPTH, {t}):
+                grown = True
+    return mate
+
+
+def _augment(
+    t: int, around: Mapping[int, list[int]], mate: dict[int, int], depth: int, seen: set[int]
+) -> bool:
+    """Grow the matching by an alternating path from the free triangle t; return success.
+
+    The path leaves t by a pair not in the matching, crosses a matched pair,
+    and so on, until it reaches a free triangle, at most ``depth`` matched
+    pairs deep and never through a triangle twice; it is then flipped, which
+    matches one more pair.
+    """
+    for u in around[t]:
+        if u in seen:
+            continue
+        w = mate.get(u)
+        if w is None:
+            mate[t], mate[u] = u, t
+            return True
+        if depth > 0 and w not in seen and _augment(w, around, mate, depth - 1, seen | {u, w}):
+            mate[t], mate[u] = u, t
+            return True
+    return False
+
+
+def element_report(mode: str, faces: Faces) -> dict[str, Any]:
+    """Return what ``refine.json`` states of a remeshed family's elements.
+
+    Parameters
+    ----------
+    mode : str
+        The family's element mode, ``"triangles"`` or ``"quad-dominant"``.
+    faces : list of list of int
+        Its faces in the level.
+
+    Returns
+    -------
+    dict
+        ``elements`` (the mode), ``quads``, ``triangles`` and ``quad_share``
+        (the quadrilaterals over the faces, six decimals).
+    """
+    quads = sum(len(f) == 4 for f in faces)
+    share = quads / len(faces) if faces else 0.0
+    return {
+        "elements": mode,
+        "quads": quads,
+        "triangles": len(faces) - quads,
+        "quad_share": round(share, 6),
+    }
 
 
 def _segment_distance(a: Points, b: Points, p: Points) -> float:
@@ -768,6 +1028,7 @@ def refine_group(
     *,
     conform: Sequence[tuple[Iterable[int], Points]] = (),
     stretch: Stretch | None = None,
+    elements: str | Mapping[str, str] = TRIANGLES,
 ) -> Remeshed:
     """Remesh a group of families together (FR-424 R8, FR-425 R2, FR-428).
 
@@ -799,6 +1060,13 @@ def refine_group(
     stretch : Stretch, optional
         The map of a body refined with ``axial`` and ``circumferential``;
         every family of the group is remeshed in its space.
+    elements : str or mapping of str to str, optional
+        One element mode for every family, or a mode per family:
+        ``"triangles"`` (the default; the remesh is returned as it ends) or
+        ``"quad-dominant"`` (after the remesh, the family's triangles are
+        paired into quadrilaterals by :meth:`Remesher.pair_quads` and its free
+        nodes smoothed :data:`SMOOTH_PASSES` times by
+        :meth:`Remesher.smooth_quads`).
 
     Returns
     -------
@@ -825,6 +1093,12 @@ def refine_group(
         remesher.conform([local[v] for v in old if v in local], new) for old, new in conform
     ]
     remesher.run()
+    modes = dict(elements) if isinstance(elements, Mapping) else dict.fromkeys(names, elements)
+    quad_families = [n for n in names if modes.get(n, TRIANGLES) == QUAD_DOMINANT]
+    if quad_families:
+        remesher.pair_quads(quad_families)
+        for _ in range(SMOOTH_PASSES):
+            remesher.smooth_quads(quad_families)
     points, families, te_mid = remesher.result()
     kinds: dict[str, int] = defaultdict(int)
     for key in curve.values():

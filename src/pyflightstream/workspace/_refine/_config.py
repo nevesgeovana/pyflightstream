@@ -3,9 +3,19 @@
 The factors come from the call (FACTOR, ``--chordwise``, ``--spanwise``) or,
 when the call gives none, from the refinement file: ``--config FILE`` or
 ``<stem>.refine.toml`` beside the mesh. The file's ``[components]``,
-``[periodic]`` and ``[refine] tag`` are read whenever the file exists. Every
-refusal names the file, the table and the key, lists the known keys, and is
-raised before any family is touched.
+``[periodic]``, ``[refine] tag`` and the element modes (``[refine] elements``
+and each family's ``elements``) are read whenever the file exists, whatever
+gives the factors. Every refusal names the file, the table and the key, lists
+the known keys, and is raised before any family is touched.
+
+THE ELEMENT MODE of a remeshed family is ``"triangles"`` (the default) or
+``"quad-dominant"`` (its triangles are then paired into quadrilaterals,
+:mod:`._remesh`). ``[refine] elements`` gives the mode of every remeshed
+family, and a family's own ``elements`` replaces it for that family; a table
+may state ``elements`` alone. A grid family keeps its cells: ``elements`` in a
+table that states ``method = "grid"`` is refused, and a mode that reaches a
+family resolved to a grid under ``"auto"`` is ignored and ``refine.json`` says
+so.
 """
 
 from __future__ import annotations
@@ -22,6 +32,12 @@ from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-424 R9).
 METHODS = ("auto", "grid", "remesh")
+#: The element mode of a remeshed family that states none (today's triangles).
+TRIANGLES = "triangles"
+#: The element mode whose triangles are paired into quadrilaterals after the remesh.
+QUAD_DOMINANT = "quad-dominant"
+#: The element modes a remeshed family may state, the default first.
+ELEMENTS = (TRIANGLES, QUAD_DOMINANT)
 #: The keys of a ``[families.<name>]`` table.
 FAMILY_KEYS = (
     "factor",
@@ -32,7 +48,10 @@ FAMILY_KEYS = (
     "circumferential",
     "axis",
     "origin",
+    "elements",
 )
+#: The keys of ``[refine]``.
+REFINE_KEYS = ("tag", "elements")
 #: The keys of ``[periodic]`` (FR-427).
 PERIODIC_KEYS = ("axis", "origin", "copies")
 #: The top-level tables of a refinement file.
@@ -78,13 +97,23 @@ class Periodic:
 
 @dataclass(frozen=True)
 class RefineRequest:
-    """Everything a refinement was asked: specs, tag, components and periodicity."""
+    """Everything a refinement was asked: specs, tag, components, periodicity and element modes.
+
+    ``elements`` holds the modes the file states per family, and
+    ``default_elements`` the mode of ``[refine] elements`` (else triangles).
+    """
 
     specs: dict[str, FamilySpec]
     tag: str | None = None
     components: dict[str, list[str]] = field(default_factory=dict)
     periodic: Periodic | None = None
     config: Path | None = None
+    elements: dict[str, str] = field(default_factory=dict)
+    default_elements: str = TRIANGLES
+
+    def elements_of(self, family: str) -> str:
+        """Return the element mode of a family: its own, else the file's default."""
+        return self.elements.get(family, self.default_elements)
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -113,6 +142,16 @@ def _vector(where: str, value: Any, *, nonzero: bool) -> tuple[float, float, flo
     return numbers[0], numbers[1], numbers[2]
 
 
+def elements_mode(where: str, value: Any) -> str:
+    """Return an element mode, refusing anything but one of :data:`ELEMENTS`."""
+    if value not in ELEMENTS:
+        raise _refuse(
+            f"{where} elements",
+            f"{value!r} is not an element mode; the modes are {', '.join(ELEMENTS)}",
+        )
+    return str(value)
+
+
 def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
     unknown = sorted(set(table) - set(FAMILY_KEYS))
     if unknown:
@@ -122,6 +161,11 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
     method = table.get("method", "auto")
     if method not in METHODS:
         raise _refuse(f"{where} method", f"{method!r} is not one of {', '.join(METHODS)}")
+    if "elements" in table and method == "grid":
+        raise _refuse(
+            f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
+        )
+    table = {k: v for k, v in table.items() if k != "elements"}
     body = [k for k in ("axial", "circumferential") if k in table]
     if body:
         return _body_spec(where, table, method)
@@ -234,16 +278,27 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
         )
     families = data.get("families") or {}
     specs: dict[str, FamilySpec] = {}
+    elements: dict[str, str] = {}
     for name, table in families.items():
         where = f"{source} [families.{name}]"
         if name not in names:
             raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
-        specs[name] = _family_spec(where, table)
+        if "elements" in table:
+            elements[name] = elements_mode(where, table["elements"])
+        if set(table) != {"elements"}:
+            specs[name] = _family_spec(where, table)
     refine = data.get("refine") or {}
-    if set(refine) - {"tag"}:
-        raise _refuse(f"{source} [refine]", "the only key is tag")
+    unknown = sorted(set(refine) - set(REFINE_KEYS))
+    if unknown:
+        raise _refuse(
+            f"{source} [refine]",
+            f"unknown key {unknown[0]!r}; the known keys are {', '.join(REFINE_KEYS)}",
+        )
+    default = refine.get("elements", TRIANGLES)
     return {
         "specs": specs,
+        "elements": elements,
+        "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": refine.get("tag"),
         "components": _components(source, data.get("components") or {}, names),
         "periodic": _periodic(source, data["periodic"]) if "periodic" in data else None,
@@ -276,7 +331,14 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     stated = (
         read_refine_file(file, names)
         if file
-        else {"specs": {}, "tag": None, "components": {}, "periodic": None}
+        else {
+            "specs": {},
+            "elements": {},
+            "default_elements": TRIANGLES,
+            "tag": None,
+            "components": {},
+            "periodic": None,
+        }
     )
     if factor is None and chordwise is None and spanwise is None:
         if not stated["specs"]:
@@ -308,6 +370,8 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         components=stated["components"],
         periodic=stated["periodic"],
         config=file,
+        elements=stated["elements"],
+        default_elements=stated["default_elements"],
     )
 
 
