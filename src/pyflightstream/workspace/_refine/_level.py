@@ -379,7 +379,28 @@ def _assemble(work: _Work) -> tuple[Points, dict[str, Faces], Points]:
             verts, faces[family] + faces.pop(band), work.mesh.verts, work.original[family]
         )
     midpoints = numpy.vstack(te) if te else numpy.zeros((0, 3))
+    verts, faces = _source_numbering(verts, faces, work.mesh.verts, work.scale)
     return verts, faces, midpoints
+
+
+def _source_numbering(
+    verts: Points, faces: dict[str, Faces], source: Points, scale: float
+) -> tuple[Points, dict[str, Faces]]:
+    """Renumber the level's nodes the way the source numbers them (FR-424 R7).
+
+    A node at a source node's position takes that node's place in the source's
+    order; the new nodes follow, in their order of first use. A level that
+    keeps every source node, a grid at factor 1, is written with the source's
+    vertex list.
+    """
+    dist, index = _geometry.NearestIndex(source).query(verts)
+    kept = dist <= _geometry.DUPLICATE_FRACTION * scale
+    key = numpy.where(kept, index, len(source) + numpy.arange(len(verts)))
+    order = numpy.argsort(key, kind="stable")
+    rank = numpy.empty(len(verts), dtype=numpy.int64)
+    rank[order] = numpy.arange(len(verts))
+    renumbered = {n: [[int(rank[v]) for v in f] for f in fs] for n, fs in faces.items()}
+    return verts[order], renumbered
 
 
 def _te_points_of(work: _Work, name: str) -> NDArray[numpy.bool_]:
