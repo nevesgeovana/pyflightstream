@@ -74,6 +74,9 @@ PUBLIC_HOMES = {
     "write_input_guides": "pyflightstream.workspace",
     "trailing_edge_midpoints": "pyflightstream.workspace.trailing_edges",
     "write_trailing_edge_node_file": "pyflightstream.workspace.trailing_edges",
+    "ThinBlade": "pyflightstream.workspace._degenerate",
+    "derive_thin_blade": "pyflightstream.workspace._degenerate",
+    "thin_blade_path": "pyflightstream.workspace._degenerate",
 }
 
 

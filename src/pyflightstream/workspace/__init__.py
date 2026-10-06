@@ -115,7 +115,9 @@ by name over both homes, which every command that takes a matrix reads;
 preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
 and boundary conditions and the plan warning that asks for it. A private
 module carries a 0.34 feature: ``workspace._degenerate``, the thin blade
-derived from a blade mesh and written beside it.
+derived from a blade mesh and written beside it; since 0.38 its three names,
+:func:`derive_thin_blade`, :class:`ThinBlade` and :func:`thin_blade_path`, are
+offered here.
 """
 
 from __future__ import annotations
@@ -171,6 +173,7 @@ from pyflightstream.script._surface_averaging import (
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace import manifest as _manifest
+from pyflightstream.workspace._degenerate import ThinBlade, derive_thin_blade, thin_blade_path
 from pyflightstream.workspace._layout import MATRIX_FOLDERS as MATRIX_FOLDERS
 from pyflightstream.workspace._layout import REFERENCE_POINTS_FILE as REFERENCE_POINTS_FILE
 from pyflightstream.workspace._layout import STEM_REGISTERED_KINDS as STEM_REGISTERED_KINDS
@@ -340,6 +343,9 @@ __all__ = [
     "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
 ]
+# 0.38.0 (FR-429): the thin blade of 0.34 is public. One appended line, because the module
+# sits at the 1000 code lines the size lens allows.
+__all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
 
 
 def collection_name(declared: str | Path) -> str:
