@@ -30,6 +30,10 @@ EDGE_BAND = (0.8, 1.2)
 GRID_SURFACE_DISTANCE = 1e-3
 #: FR-426 R2 G1: two nodes closer than this fraction of the size are one position.
 DUPLICATE_FRACTION = 1e-9
+#: FR-426 R2 G1: a face whose area is below this fraction of the size squared has zero area.
+ZERO_AREA_FRACTION = 1e-12
+#: FR-426 R2 G4: a trailing-edge point lies on the edge whose mid-point is this close (of the size).
+TE_POINT_FRACTION = 1e-6
 #: FR-426 R3: the 95th percentile of the equiangle skewness may grow by this much.
 SKEWNESS_MARGIN = 0.05
 #: FR-426 R3: the 95th percentile of the quadrilateral warp may reach this many degrees.
@@ -44,6 +48,17 @@ PERCENTILE = 95.0
 ASPECT_LIMIT = 50.0
 #: FR-426 R4: the face quality ratio called good below this.
 QUALITY_GOOD = 2.0
+#: FR-426 R4: the pre-processor's panel quality thresholds, counted and never judged:
+#: (figure, measure, counted when above the limit rather than below it, limit).
+PANEL_PRACTICE_COUNTS: tuple[tuple[str, str, bool, float], ...] = (
+    ("aspect_over_8", "aspect", True, 8.0),
+    ("aspect_over_20", "aspect", True, 20.0),
+    ("skewness_over_0p5", "skewness", True, 0.5),
+    ("warp_over_10_degrees", "warp", True, 10.0),
+    ("warp_over_45_degrees", "warp", True, 45.0),
+    ("quad_min_angle_under_45_degrees", "quad_min_angle", False, 45.0),
+    ("tri_min_angle_under_30_degrees", "tri_min_angle", False, 30.0),
+)
 #: FR-427 R1: the matched cut nodes of a periodic level lie within this fraction of the size.
 PERIODIC_LEVEL_FRACTION = 1e-9
 #: FR-427 R2: the source's cut boundaries must match within this fraction of the size.
@@ -126,6 +141,35 @@ def dihedral_degrees(verts: Points, faces: Faces) -> dict[tuple[int, int], float
             cosine = float(numpy.clip(numpy.dot(unit[fs[0]], unit[fs[1]]), -1.0, 1.0))
             out[edge] = math.degrees(math.acos(cosine))
     return out
+
+
+#: The direction close pairs are swept along; any fixed direction is exact, and
+#: one off every axis and diagonal keeps a structured grid's rows apart.
+_SWEEP = numpy.array([0.5390, 0.6830, 0.4930]) / numpy.linalg.norm([0.5390, 0.6830, 0.4930])
+
+
+def close_pairs(points: Points, tolerance: float) -> NDArray[numpy.int64]:
+    """Return every pair of points within ``tolerance`` of each other, lower index first.
+
+    The points are sorted by their coordinate along one fixed direction; two
+    points within the tolerance are within it along that direction too, so
+    each point is compared only with the run of successors that stays within
+    it. The answer is exact, and needs numpy alone.
+    """
+    pts = numpy.asarray(points, dtype=float).reshape(-1, 3)
+    key = pts @ _SWEEP
+    order = numpy.argsort(key, kind="stable")
+    ranked = key[order]
+    found = [numpy.zeros((0, 2), dtype=numpy.int64)]
+    for shift in range(1, len(order)):
+        near = ranked[shift:] - ranked[:-shift] <= tolerance
+        if not near.any():
+            break
+        a, b = order[:-shift][near], order[shift:][near]
+        close = numpy.linalg.norm(pts[a] - pts[b], axis=1) <= tolerance
+        found.append(numpy.stack([numpy.minimum(a, b), numpy.maximum(a, b)], axis=1)[close])
+    pairs = numpy.concatenate(found)
+    return pairs[numpy.lexsort((pairs[:, 1], pairs[:, 0]))]
 
 
 class NearestIndex:

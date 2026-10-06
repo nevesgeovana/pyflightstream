@@ -22,6 +22,7 @@ removes the reason those wrappers existed, the same fix ``_digest`` and
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import sys
 from pathlib import Path
@@ -87,3 +88,29 @@ def _remove_link(link: Path) -> None:
         os.rmdir(link)
     else:
         os.unlink(link)
+
+
+def _sim_files(sim: Path) -> list[Path]:
+    """Every file under a simulation folder, never crossing a link."""
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(sim):
+        here = Path(dirpath)
+        dirnames[:] = sorted(name for name in dirnames if not _is_link(here / name))
+        found.extend(here / name for name in sorted(filenames))
+    return found
+
+
+def _remove_sim_tree(sim: Path) -> None:
+    """Remove a simulation folder, unlinking every link inside it first.
+
+    The estate's own incident is the reason this is not a bare rmtree: a
+    scan that crossed sixteen junctions reported 13.8 GB inside a 6.4 GB
+    tree, and a removal that crossed one would have deleted the survivor.
+    """
+    for dirpath, dirnames, _ in os.walk(sim):
+        here = Path(dirpath)
+        for name in list(dirnames):
+            if _is_link(here / name):
+                _remove_link(here / name)
+                dirnames.remove(name)
+    shutil.rmtree(sim)
