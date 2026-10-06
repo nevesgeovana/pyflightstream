@@ -130,18 +130,19 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 159 errors in 16 files (checked 282 source files)
->     Success: no issues found in 282 source files
+>     Found 159 errors in 16 files (checked 292 source files)
+>     Success: no issues found in 292 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-05: 159 errors in 16 of 282 modules.**
+**mypy recount 2026-10-06: 159 errors in 16 of 292 modules.**
 
-The quoted top block and the sentence above are the 2026-10-05 run recorded
-in the dated section at the end. The module total is the 282 of `rel/0-37`
-after the 0.37.0 work packages, with 159 errors in sixteen dirty modules.
+The quoted top block and the sentence above are the 2026-10-06 run recorded
+in the dated section at the end. The module total is the 292 of `rel/0-38`
+after the 0.38.0 work packages, with 159 errors in sixteen dirty modules.
+The 282 were the tracked package on `rel/0-37` after the 0.37.0 work packages.
 The 269 were the tracked package on `rel/0-36` after the wave-1 cuts and MM.
 The earlier 236 were the tracked package on `rel/0-34` with the wave-2
 packages of 0.34.0 merged, two more than the 234 of the wave-1 tip,
@@ -461,7 +462,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 159 errors in 16 files (checked 282 source files)
+    Found 159 errors in 16 files (checked 292 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1247,7 +1248,7 @@ section above is restored to the 236 modules it measured.)
 `python scripts/mypy_recount.py` on 2026-10-05, on `rel/0-37` at the merge of the
 0.37.0 documentation (HEAD 6daf49ea), the tree clean as the script reported, with
 python 3.12.0, numpy 2.5.3, xarray 2026.9.0, pandas 3.0.6 and pydantic 2.13.5 (the
-script printed mypy's version as unknown): 159 errors in 16 of 282 modules on 74
+script printed mypy's version as unknown), then 159 errors in 16 of the 282 modules on 74
 distinct source lines; the shipped configuration is green over all 282. The package
 grew by thirteen modules since the 0.36.0 recount of 2026-10-03, each reported clean
 and none exempted: `cases/workflows/_export_first_step.py`,
@@ -1262,3 +1263,7 @@ one; by code, 121 `arg-type`, 12 `return-value`, 7 `union-attr`, 5 `operator`,
 5 `assignment`, 4 `call-overload`, 4 `misc` and 1 `attr-defined`. The override list
 of `pyproject.toml` is unchanged. The sentence at the top of this report is this
 run's.
+
+## Re-count of 2026-10-06 (0.38.0)
+
+`python scripts/mypy_recount.py` on 2026-10-06, on `rel/0-38` with every 0.38.0 package merged (the refinement, the audit, the periodic sector and the body factors), python 3.12.0: 159 errors in 16 of 292 modules on 74 distinct source lines; the shipped configuration is green over all 292 (`Success: no issues found in 292 source files`). The package grew by ten modules, each clean and none exempted: `run/_cli_mesh.py`, `workspace/_refine/__init__.py`, `_audit.py`, `_config.py`, `_geometry.py`, `_grid.py`, `_level.py`, `_obj.py`, `_periodic.py` and `_remesh.py`. The dirty set and its 159 errors are unchanged.

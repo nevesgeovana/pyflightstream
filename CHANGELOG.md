@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Internal (0.38.0 development)
+
+- mypy recount 2026-10-06: 159 errors in 16 of 292 modules, on `rel/0-38` with every package merged;
+  the ten new modules are clean and none is exempted (RPT-029).
+
 ### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
