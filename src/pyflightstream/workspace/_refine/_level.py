@@ -119,6 +119,7 @@ class _Work:
     cuts: list[_periodic.CutPair] = field(default_factory=list)
     periodic: dict[str, Any] | None = None
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
+    unchanged: list[str] = field(default_factory=list)  # the families G6 compares
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -684,6 +685,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         "specs": specs,
         "components": work.request.components,
         "ignored_families_tables": list(work.request.ignored),
+        "unchanged_grids": list(work.unchanged),
         "families": {
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands
         },
@@ -815,10 +817,8 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
     )
     faces = _components(work, faces)
-    merged = {m for members in work.request.components.values() for m in members}
-    unchanged = [
-        n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0) and n not in merged
-    ]
+    work.unchanged = _unchanged_grids(work, list(faces))
+    unchanged = work.unchanged
     staging = folder.with_name(folder.name + STAGING_SUFFIX)
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
@@ -833,6 +833,23 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
     report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
     return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+
+
+def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
+    """Return the level's families G6 compares with the source's (FR-426 R2, FR-424 R7).
+
+    A grid family written at factor 1, and a component whose every member is
+    one, in the level's family order. ``refine.json`` lists them, so the
+    audit of a saved level judges G6 as the refinement's own audit does.
+    """
+    ones = {n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0)}
+    components = work.request.components
+    return [
+        n
+        for n in families
+        if (n in components and all(m in ones for m in components[n]))
+        or (n not in components and n in ones)
+    ]
 
 
 def _publish(staging: Path, folder: Path) -> None:

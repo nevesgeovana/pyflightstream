@@ -861,6 +861,45 @@ def test_r7_factor_one_keeps_every_source_coordinate_at_any_precision(tmp_path, 
     assert scale == 1.0 or not numpy.array_equal(nine, verts)
 
 
+def _swap_two_faces(obj: Path) -> None:
+    """Exchange the first two face lines of an OBJ in place."""
+    lines = obj.read_text(encoding="utf-8").splitlines()
+    a, b = [i for i, line in enumerate(lines) if line.startswith("f ")][:2]
+    lines[a], lines[b] = lines[b], lines[a]
+    obj.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("components", [None, '[components]\nWing = ["G"]\n'])
+def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, components):
+    """P0380-REFINE (FR-424 R7; FR-426 R1, R2 G6): G6 is judged from the level's refine.json.
+
+    refine.json lists the grid families written at factor 1 (a component
+    whose every member is one counts as one), and audit_mesh, and so the
+    command, read it for a level audited against the source it names. A saved
+    factor-1 level with two faces exchanged fails G6 and audit-mesh exits 1.
+    Controls: the unmodified level passes with G6 judged; refine.json naming
+    another source leaves G6 not judged.
+    """
+    from pyflightstream.workspace import audit_mesh
+
+    src = _source(tmp_path, refine_toml=components)
+    level = refine_mesh(src, 1.0)
+    family = "G" if components is None else "Wing"
+    record = _json(level.files[3])
+    assert record["unchanged_grids"] == [family]
+    again = audit_mesh(level.obj, against=src)
+    assert [(g.family, g.verdict) for g in again.gates if g.name == "G6"] == [(family, "pass")]
+    _swap_two_faces(level.obj)
+    failed = audit_mesh(level.obj, against=src)
+    assert [(g.family, g.verdict) for g in failed.gates if g.name == "G6"] == [(family, "fail")]
+    capsys.readouterr()
+    assert cli.main(["audit-mesh", str(level.obj), "--against", str(src)]) == 1
+    record["source"] = "another.obj"
+    level.files[3].write_text(json.dumps(record), encoding="utf-8")
+    other = audit_mesh(level.obj, against=src)
+    assert next(g for g in other.gates if g.name == "G6").verdict == "not judged"
+
+
 # --------------------------------------------------------------------- R9 method
 
 

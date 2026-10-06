@@ -812,7 +812,10 @@ aspect ratio exceeds 50, the trailing-edge triangles whose aspect ratio exceeds
 
 Without `--against` only G1, G2 and G4 are judged and the rest is reported.
 G6 is judged only for a level `refine` wrote, which names its grid families at
-factor 1.
+factor 1 (and each component whose every member is one) in its `refine.json`
+under `unchanged_grids`; `audit-mesh` reads them from the level's
+`refine.json` when it names that level and the source given with `--against`,
+so a saved level is re-audited as `refine` audited it.
 
 `audit.json` holds `schema_version`, `mesh`, `source`, `passed`, `gates` and
 `checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or
@@ -828,7 +831,7 @@ Each of these is imported from `pyflightstream.workspace`.
 |---|---|
 | `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False)` | writes a level and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
-| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares |
+| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)` |
 
 ### Limits of the refinement

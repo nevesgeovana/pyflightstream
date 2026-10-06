@@ -241,7 +241,11 @@ def audit_mesh(
         judged and the rest is reported (FR-426 R5).
     unchanged_grids : sequence of str, optional
         The grid families a refinement wrote at factor 1, whose faces G6
-        compares with the source's; without them G6 is not judged.
+        compares with the source's. Without them they are read from the
+        level's ``<stem>.refine.json`` when it names this level and the
+        source ``against`` (its ``unchanged_grids``), so a saved level is
+        re-audited as the refinement audited it; with neither, G6 is not
+        judged.
 
     Returns
     -------
@@ -257,9 +261,11 @@ def audit_mesh(
         file named and missing or malformed; nothing is written.
     """
     level = _read(Path(mesh))
-    components = _components_of(Path(mesh))
+    record = _record_of(Path(mesh))
+    components = _components_of(record)
     source = None if against is None else _read(Path(against), components)
-    gates = _gates(level, source, tuple(unchanged_grids))
+    grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
+    gates = _gates(level, source, grids)
     figures = dict(_all_figures(level))
     checks = tuple(_checks(figures, None if source is None else dict(_all_figures(source))))
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
@@ -301,16 +307,45 @@ def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> 
     return _measure(obj, points)
 
 
-def _components_of(level: Path) -> dict[str, list[str]]:
-    """Return the components a refinement recorded in the level's ``refine.json``, if any."""
-    record = level.with_name(level.stem + ".refine.json")
-    if not record.is_file():
+def _record_of(level: Path) -> dict[str, Any]:
+    """Return the level's ``refine.json`` (an empty record when there is none or it is not JSON)."""
+    path = level.with_name(level.stem + ".refine.json")
+    if not path.is_file():
         return {}
     try:
-        found = json.loads(record.read_text(encoding="utf-8")).get("components") or {}
-    except (json.JSONDecodeError, AttributeError):
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return {}
-    return {str(c): [str(m) for m in members] for c, members in dict(found).items()}
+    return record if isinstance(record, dict) else {}
+
+
+def _components_of(record: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Return the components a refinement recorded in the level's ``refine.json``, if any."""
+    found = record.get("components")
+    if not isinstance(found, dict):
+        return {}
+    return {
+        str(c): [str(m) for m in members]
+        for c, members in found.items()
+        if isinstance(members, list)
+    }
+
+
+def _recorded_grids(
+    record: Mapping[str, Any], level: Path, against: str | Path | None
+) -> tuple[str, ...]:
+    """Return the grid families the refinement wrote at factor 1, which G6 compares (R2).
+
+    They are read only from a record that names this level's stem and the
+    source it is audited against, so a record of another refinement is not
+    taken for this one's.
+    """
+    found = record.get("unchanged_grids")
+    if against is None or record.get("level") != level.stem:
+        return ()
+    if record.get("source") != Path(against).name or not isinstance(found, list):
+        return ()
+    return tuple(n for n in found if isinstance(n, str))
 
 
 def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
