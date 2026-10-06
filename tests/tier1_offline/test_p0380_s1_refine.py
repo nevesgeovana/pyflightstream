@@ -680,6 +680,50 @@ def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_p
     assert level.audit.mesh == level.obj and level.audit.path.is_file()
 
 
+#: The same boundaries file spelled in six legal TOML ways (the fixture's own form first).
+SIDECARS = {
+    "double-quoted": 'boundaries = ["G", "T"]\n\n[trailing_edges]\nfile = "wing.te.txt"\n',
+    "literal-strings": "boundaries = ['G', 'T']\n[trailing_edges]\nfile = 'wing.te.txt'\n",
+    "multi-line-commented": (
+        '# the boundaries\nboundaries = [\n  "G", # the grid\n  "T",\n] # end\n'
+        '[trailing_edges]\nfile = "wing.te.txt" # the points\n'
+    ),
+    "inline-table-escapes": (
+        'boundaries = ["\\u0047", "T"]\ntrailing_edges = { file = "wing\\u002ete.txt" }\n'
+    ),
+    "dotted-key": "boundaries = ['G', 'T']\ntrailing_edges.file = 'wing.te.txt'\n",
+    "quoted-keys": '"boundaries" = ["G", "T"]\n"trailing_edges"."file" = "wing.te.txt"\n',
+}
+
+
+@pytest.mark.parametrize("spelling", list(SIDECARS))
+def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelling):
+    """P0380-REFINE (FR-424 R4; FR-425 R4): the level's boundaries file is the source's, rewritten.
+
+    The source's boundaries file is spelled with literal strings, comments,
+    a multi-line array, an inline table with escapes or a dotted key, beside
+    an unrelated ``[import]`` table and a comment. With ``[components]
+    Wing = ["G", "T"]`` the level's file names the component and the new
+    points file, its other values are the source's, its comments are kept, and
+    its boundaries are the output OBJ's families. Control: the fixture's own
+    double-quoted spelling gives the same values.
+    """
+    text = SIDECARS[spelling] + '\n[import]\nunits = "METER" # stated, never assumed\n'
+    src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
+    src.with_name("wing.boundaries.toml").write_text(text, encoding="utf-8")
+    level = refine_mesh(src, 1.0)
+    written = level.files[2].read_text(encoding="utf-8")
+    import tomllib
+
+    values = tomllib.loads(written)
+    assert values["boundaries"] == ["Wing"] == list(read_mesh(level.obj)[1])
+    assert values["trailing_edges"] == {"file": "wing_R1.te.txt"} and level.files[1].is_file()
+    assert values["import"] == {"units": "METER"} and "# stated, never assumed" in written
+    if spelling == "multi-line-commented":
+        assert "# the points" in written and written.startswith("# the boundaries\n")
+    assert next(g for g in level.audit.gates if g.name == "G4").passed
+
+
 def _points_in(src: Path, unit: str, scale: float, mesh_unit: str | None) -> list[str]:
     """Rewrite the source's points file in ``unit`` (coordinates times ``scale``).
 

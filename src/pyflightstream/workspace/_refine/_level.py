@@ -33,11 +33,13 @@ file it names) is read in step 1, so a refusal comes before any work (R11).
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import json
 import os
 import re
 import shutil
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -116,6 +118,7 @@ class _Work:
     bands: dict[str, str] = field(default_factory=dict)
     cuts: list[_periodic.CutPair] = field(default_factory=list)
     periodic: dict[str, Any] | None = None
+    sidecar: str | None = None  # the level's boundaries file, rewritten before any work
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -571,24 +574,84 @@ def _components(work: _Work, faces: dict[str, Faces]) -> dict[str, Faces]:
 
 
 def _boundaries_text(work: _Work, stem: str) -> str | None:
-    """Return the source's boundaries file naming the new points file and the components."""
-    side = work.source.with_name(work.source.stem + ".boundaries.toml")
-    if not side.is_file():
+    """Return the source's boundaries file naming the new points file and the components.
+
+    The file is read as TOML, and only the two values that change are
+    rewritten in place: ``[trailing_edges] file`` and, with components, the
+    ``boundaries`` list (FR-425 R4); every other byte, comments included, is
+    the source's. Each rewrite is checked by parsing the result, which must
+    equal the source's values with those two replaced, so no spelling of
+    TOML can make a rewrite land on the wrong text.
+
+    Raises
+    ------
+    InputArtifactError
+        A value the rewrite cannot place; nothing was written. It is called
+        before any family is resampled (FR-424 R11).
+    """
+    read = _obj.read_sidecar(work.source)
+    if read is None:
         return None
+    side, data = read
     text = side.read_text(encoding="utf-8")
-    te = _obj.te_file(work.source)
-    if te is not None:
-        text = text.replace(f'"{te.name}"', f'"{stem}{TE_SUFFIX}"')
+    table = data.get("trailing_edges")
+    named = table.get("file") if isinstance(table, dict) else None
+    if isinstance(named, str):
+        changed = copy.deepcopy(data)
+        changed["trailing_edges"]["file"] = f"{stem}{TE_SUFFIX}"
+        text = _rewrite(side, text, "file", named, changed)
+        data = changed
     owner = {m: c for c, members in work.request.components.items() for m in members}
-    match = re.search(r"boundaries\s*=\s*\[(.*?)\]", text, re.DOTALL)
-    if match and owner:
-        names: list[str] = []
-        for n in re.findall(r'"([^"]+)"', match.group(1)):
-            if owner.get(n, n) not in names:
-                names.append(owner.get(n, n))
-        listed = "boundaries = [" + ", ".join(f'"{n}"' for n in names) + "]"
-        text = text[: match.start()] + listed + text[match.end() :]
+    listed = data.get("boundaries")
+    if owner and isinstance(listed, list) and all(isinstance(n, str) for n in listed):
+        names = list(dict.fromkeys(owner.get(n, n) for n in listed))
+        changed = copy.deepcopy(data)
+        changed["boundaries"] = names
+        text = _rewrite(side, text, "boundaries", listed, changed)
     return text
+
+
+#: The places a value can be closed: a quote of a string or the bracket of an array.
+_VALUE_ENDS = re.compile(r"[\"'\]]")
+
+
+def _rewrite(side: Path, text: str, key: str, old: object, wanted: dict[str, Any]) -> str:
+    """Return ``text`` with the value of ``key`` replaced so that it parses to ``wanted``.
+
+    Every spelling of the key (bare, quoted, the last part of a dotted key, a
+    member of an inline table) is a candidate; the value after it is the
+    shortest text that parses to ``old``; the first replacement whose whole
+    file parses to ``wanted`` is the one. The new value is written as JSON
+    strings, which are TOML basic strings.
+    """
+    new = json.dumps(_value_of(wanted, key), ensure_ascii=False)
+    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
+    for match in re.finditer(spelled, text):
+        start = match.end()
+        for end in (m.end() for m in _VALUE_ENDS.finditer(text, start)):
+            try:
+                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
+            except tomllib.TOMLDecodeError:
+                continue
+            if value != old:
+                continue
+            candidate = text[:start] + new + text[end:]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+            break
+    raise _refuse(
+        str(side),
+        f"the value of {key} cannot be rewritten for the level; state it as "
+        f"{key} = {json.dumps(old, ensure_ascii=False)} and run again",
+    )
+
+
+def _value_of(data: dict[str, Any], key: str) -> object:
+    """Return the value a rewrite writes: the ``boundaries`` list or the points file name."""
+    return data[key] if key == "boundaries" else data["trailing_edges"][key]
 
 
 def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:
@@ -625,10 +688,9 @@ def _write(
     if len(work.te_points):
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
-    text = _boundaries_text(work, stem)
-    if text is not None:
-        target = folder / f"{stem}.boundaries.toml"
-        _textio.write_text(target, text)
+    if work.sidecar is not None:
+        target = folder / f"{stem}{_obj.SIDECAR_SUFFIX}"
+        _textio.write_text(target, work.sidecar)
         written.append(target)
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
@@ -721,6 +783,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
+    work.sidecar = _boundaries_text(work, stem)
     where = f"{source} [periodic]"
     work.cuts = _periodic.find_cuts(
         obj.verts, obj.families, request.periodic, size=work.scale, where=where
