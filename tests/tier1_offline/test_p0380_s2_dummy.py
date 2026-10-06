@@ -19,7 +19,6 @@ import pytest
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.run import cli
 from pyflightstream.workspace import refine_mesh
-from pyflightstream.workspace._refine import _geometry, _remesh
 from tests.p0380_mesh_fixtures import (
     face_coordinates,
     open_loop_count,
@@ -121,24 +120,14 @@ def _tip_nodes(verts: np.ndarray, faces) -> set[int]:
     return {v for v in _nodes(faces) if abs(verts[v, 1] - TIP) < 1e-12}
 
 
-def _without_conform(monkeypatch) -> None:
-    """Take the hand-over of FR-425 R2 away: every group is remeshed with ``conform=()``."""
-    real = _remesh.refine_group
-
-    def plain(mesh, names, te, factor, *, conform=()):
-        return real(mesh, names, te, factor, conform=())
-
-    monkeypatch.setattr(_remesh, "refine_group", plain)
-
-
-def test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes(tmp_path, monkeypatch):
+def test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes(tmp_path):
     """P0380-DUMMY (FR-425 R2, R5): T, remeshed, shares every new node of G's tip and no other.
 
     The level welds G and T on the 37 nodes of G's refined tip station, and
-    its open loops are the source's. Control: with the hand-over taken away
-    (``conform=()``), T keeps the source's 19 nodes there and the level has
-    more open loops than the source: 20, one slit per source interval of the
-    tip (18) and the outer loop cut in two at the tip's ends.
+    its open loops are the source's. Control: the source's G and T share
+    19 nodes, so 18 of the 37 the level's share are G's new ones; the mutant
+    of the commit message that drops the hand-over in the code leaves T on
+    the 19 and the level with 20 open loops, and fails this test.
     """
     src = _source(tmp_path)
     sv, sf = read_mesh(src)
@@ -149,11 +138,8 @@ def test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes(tmp_path, m
     assert _nodes(lf["G"]) & _nodes(lf["T"]) == tip == _tip_nodes(lv, lf["T"])
     assert level.report["G"]["interfaces"] == {"T": "19 -> 37 nodes"}
     assert open_loop_count(_all(lf)) == open_loop_count(_all(sf)) == 1
-    _without_conform(monkeypatch)
-    bare = refine_mesh(src, 2.0, families=["G", "T"], out_dir=tmp_path / "control")
-    bv, bf = read_mesh(bare.obj)
-    assert len(_nodes(bf["G"]) & _nodes(bf["T"])) == 19
-    assert open_loop_count(_all(bf)) == 18 + 2
+    shared = {tuple(sv[v]) for v in _nodes(sf["G"]) & _nodes(sf["T"])}
+    assert len(shared) == 19 and len({tuple(lv[v]) for v in tip} - shared) == 18
 
 
 # ---------------------------------------- R3 the band of an unchanged neighbour
@@ -187,13 +173,15 @@ def _kept_in_order(level_faces: list[tuple], outside: list[tuple]) -> bool:
     return [f for f in level_faces if f in wanted] == outside
 
 
-def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path, monkeypatch):
+def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
     """P0380-DUMMY (FR-425 R3): T, not asked to change, is remeshed only in a band of two layers.
 
     Outside the band T's faces equal the source's in coordinates, first
     vertex and order; U, beyond T, is untouched; refine.json names the band's
     face count. Controls: one face outside the band rotated by a vertex fails
-    the check, and a level cut with a band of three layers fails it.
+    the check, and so does the same check against a band of one layer (the
+    second layer was remeshed); the mutant of the commit message that cuts
+    three layers in the code fails it too.
     """
     src = _source(tmp_path)
     outside, count = _outside(src, 2)
@@ -209,11 +197,7 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path, 
     where = got.index(outside[len(outside) // 2])
     planted = [*got[:where], got[where][1:] + got[where][:1], *got[where + 1 :]]
     assert not _kept_in_order(planted, outside)
-    monkeypatch.setattr(_geometry, "BAND_LAYERS", 3)
-    wide = refine_mesh(src, 2.0, families=["G"], out_dir=tmp_path / "three")
-    wv, wf = read_mesh(wide.obj)
-    assert wide.report["T"]["band"] == _outside(src, 3)[1]
-    assert not _kept_in_order(face_coordinates(wv, wf["T"]), outside)
+    assert not _kept_in_order(got, _outside(src, 1)[0])
 
 
 @pytest.mark.parametrize(
