@@ -104,41 +104,34 @@ def test_r1_a_factor_not_above_zero_is_refused_by_both_routes(tmp_path, capsys, 
     assert code == 0 and _left(tmp_path) == ["wing_R2"]
 
 
-def test_r1_a_factor_that_is_not_a_number_is_refused(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1): a non-number is refused by the function and the command.
+def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R1, R11): FACTOR ``two`` is refused alike by the function and command.
 
-    The function names the value; the command's parser refuses it with exit 2.
-    Control: the number 2 passes both.
+    The command exits 2 with the function's own text, which names the value
+    and ends "Nothing was written.". Control: the number 2 passes both.
     """
     src = _source(tmp_path)
     text = _refused(tmp_path, src, "two")
-    assert "the factor 'two' is not a number; give a number above zero" in text
-    _refused(tmp_path, src, 2.0, chordwise="two")
-    with pytest.raises(SystemExit) as caught:
-        cli.main(["refine", str(src), "two"])
-    assert caught.value.code == 2 and _left(tmp_path) == []
+    assert f"{src} FACTOR: the factor 'two' is not a number; give a number above zero" in text
+    code, _, err = _command(capsys, str(src), "two")
+    assert code == 2 and text in err and _left(tmp_path) == []
     assert isinstance(refine_mesh(src, 2.0), RefinedMesh)
+    assert _command(capsys, str(src), "2", "--overwrite")[0] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT: src/pyflightstream/run/_cli_mesh.py:139 (and :143, :144) parses FACTOR, "
-        "--chordwise and --spanwise with type=float, so argparse refuses 'two' with its usage "
-        "error ('invalid float value') instead of refine_mesh's text, which ends 'Nothing was "
-        "written.' (FR-424 statement: the same message text; R11)"
-    ),
-)
-def test_r1_the_command_refuses_a_non_number_with_the_functions_text(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1, R11): the command's refusal of a non-number is the function's."""
+@pytest.mark.parametrize("flag", ["chordwise", "spanwise"])
+def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys, flag):
+    """P0380-REFINE (FR-424 R1, R11): ``--chordwise two`` and ``--spanwise two`` alike.
+
+    The command's refusal is the function's text, naming the flag and the
+    value. Control: the same flag with the number 2 exits 0.
+    """
     src = _source(tmp_path)
-    text = _refused(tmp_path, src, "two")
-    capsys.readouterr()
-    try:
-        code = cli.main(["refine", str(src), "two"])
-    except SystemExit as stop:
-        code = stop.code
-    assert code == 2 and text in capsys.readouterr().err
+    text = _refused(tmp_path, src, 1.0, **{flag: "two"})
+    assert f"{src} --{flag}: the factor 'two' is not a number" in text
+    code, _, err = _command(capsys, str(src), "1", f"--{flag}", "two")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    assert _command(capsys, str(src), "1", f"--{flag}", "2")[0] == 0
 
 
 @pytest.mark.parametrize(
