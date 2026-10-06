@@ -645,6 +645,34 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
         )
 
 
+def curve_changes(grid: Grid, edges: Iterable[Edge], *, chordwise: float, spanwise: float) -> bool:
+    """Return whether resampling would change the nodes of a curve of the grid's boundary.
+
+    Read from the counts alone, before any family is resampled (FR-424
+    R11): a boundary edge along a station keeps its nodes when the
+    chordwise parameters are the source's integers, and an edge along a
+    column when the spanwise ones are; an edge the grid does not place is
+    taken to change. The orchestrator plans the band of an unchanged
+    neighbour with it (FR-425 R3), so its extra is checked first (R10).
+    """
+    k, n = grid.ids.shape
+    s, _ = _chordwise_params(grid, chordwise)
+    t = numpy.linspace(0, k - 1, _count(k - 1, spanwise) + 1)
+    chord = not (len(s) == n and numpy.array_equal(s, numpy.arange(n)))
+    span = not (len(t) == k and numpy.array_equal(t, numpy.arange(k)))
+    place = {int(v): (r, c) for (r, c), v in numpy.ndenumerate(grid.ids)}
+    for a, b in edges:
+        pa, pb = place.get(a), place.get(b)
+        if pa is None or pb is None:
+            return chord or span
+        along_station, along_column = pa[0] == pb[0], pa[1] == pb[1]
+        if (along_station and chord) or (along_column and span):
+            return True
+        if not along_station and not along_column:
+            return chord or span
+    return False
+
+
 # ------------------------------------------------------------- the resampling
 
 

@@ -412,6 +412,16 @@ def _count(m: int, factor: float) -> int:
     return max(1, round(m * factor))
 
 
+def nodes_change(blocks: Blocks, factor: float) -> bool:
+    """Return whether resampling by ``factor`` would change the nodes of any patch side.
+
+    Read from the counts alone, before any family is resampled (FR-424
+    R11): a side keeps its nodes when its count is the source's. Any side
+    changing is taken to change every curve the family shares.
+    """
+    return any(_count(len(arc) - 1, factor) != len(arc) - 1 for arc in blocks.arcs)
+
+
 # ------------------------------------------------------------- the resampling
 
 

@@ -194,10 +194,42 @@ def _decide(work: _Work) -> None:
                 f"{work.source} family {name}",
                 "chordwise and spanwise apply to a grid; it is remeshed, give factor",
             )
-    if work.remesh:
+    bands = _planned_bands(work)
+    if work.remesh or bands:
         from pyflightstream.workspace._refine._remesh import require_geometry_extra
 
-        require_geometry_extra(work.remesh)
+        require_geometry_extra([*work.remesh, *bands])
+
+
+def _planned_bands(work: _Work) -> list[str]:
+    """Return the unchanged families whose band will be remeshed (FR-425 R3), before any work.
+
+    An unchanged neighbour gets a band when it shares a curve with a grid
+    family whose nodes on that curve change, which the grid's counts tell
+    without resampling it (:func:`._grid.curve_changes`,
+    :func:`._blocks.nodes_change`); its remesh needs the geometry extra like
+    any other (FR-424 R10, R11).
+    """
+    planned: list[str] = []
+    for name in [n for n in work.names if n not in work.request.specs]:
+        for grid_name, grid in work.grids.items():
+            old = work.fam_v[grid_name] & work.fam_v[name]
+            edges = [
+                e
+                for e in _geometry.boundary_edges(work.mesh.families[grid_name])
+                if e[0] in old and e[1] in old
+            ]
+            if not edges:
+                continue
+            chordwise, spanwise = work.request.specs[grid_name].directions
+            if isinstance(grid, _blocks.Blocks):
+                changes = _blocks.nodes_change(grid, chordwise)
+            else:
+                changes = _grid.curve_changes(grid, edges, chordwise=chordwise, spanwise=spanwise)
+            if changes:
+                planned.append(name)
+                break
+    return planned
 
 
 def _grid_after_grid(work: _Work) -> None:

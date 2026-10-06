@@ -955,6 +955,42 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
     assert level.report["T"]["method"] == "remesh" and _left(root) == ["wing_R2"]
 
 
+def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resampling(
+    tmp_path, monkeypatch, capsys
+):
+    """P0380-REFINE (FR-424 R10, R11; FR-425 R3): the band's remesh is planned before any work.
+
+    Only G is selected, beside the unchanged strip T; G's tip station, the
+    curve they share, gains nodes at factor 2, so T must be remeshed in its
+    band. With scipy and rtree unimportable the refusal names T and the
+    remedy, by both routes, before any grid is resampled (a profile records
+    every call of the resampling). Controls: at chordwise 1 and spanwise 2
+    the shared station keeps its nodes, so no band is needed and the level is
+    written without the extra; with the extra the band is written.
+    """
+    src = _source(tmp_path, WITH_T)
+    with monkeypatch.context() as blocked:
+        for name in ("scipy", "scipy.spatial", "rtree"):
+            blocked.setitem(sys.modules, name, None)
+        caught: list[MissingExtraError] = []
+
+        def refused() -> None:
+            with pytest.raises(MissingExtraError) as error:
+                refine_mesh(src, 2.0, families=["G"])
+            caught.append(error.value)
+
+        assert _resampled_while(refused) == []
+        text = str(caught[0])
+        assert "family T" in text and "~band" not in text and "pyflightstream[geom]" in text
+        assert text.endswith("Nothing was written.") and _left(tmp_path) == []
+        code, _, err = _command(capsys, str(src), "2", "--families", "G")
+        assert code == 2 and text in err and _left(tmp_path) == []
+        kept = refine_mesh(src, 1.0, families=["G"], spanwise=2.0)
+        assert kept.report["T"] == {"method": "copied"}
+    level = refine_mesh(src, 2.0, families=["G"])
+    assert level.report["T"]["method"] == "unchanged" and level.report["T"]["band"] > 0
+
+
 # ------------------------------------------------------- R12, R13 the bytes written
 
 
