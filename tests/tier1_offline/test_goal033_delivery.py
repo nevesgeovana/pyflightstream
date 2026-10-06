@@ -482,6 +482,13 @@ _MIGRATION_NAMES_0_35_0 = {
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
+    "0.38.0": {
+        "`pyfs-matrix degenerate` calls the public `derive_thin_blade`.": (
+            "`pyflightstream.workspace._degenerate`",
+            "derive_thin_blade",
+            "FR-429",
+        ),
+    },
     "0.37.0": {
         "The settings table and its codebook are default products.": (
             "settings_codebook = false",
@@ -575,6 +582,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
 #: The inputs each release's summary refuses, each of which its section and
 #: its migration page must name, and further words its page must carry.
 _REFUSED_BY_RELEASE = {
+    "0.38.0": ("--overwrite", "geom"),
     "0.37.0": ("older_than_days", "SOLVER_TIME_AVERAGING", "26.124"),
     "0.36.0": ("steady", "qsteady_rotor", "FR-410", "RPT-150"),
     "0.35.1": ("COLD_START",),
@@ -593,6 +601,18 @@ _REFUSED_BY_RELEASE = {
     "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
+    "0.38.0": (
+        "needs no changes",
+        "pyfs-matrix refine",
+        "pyfs-matrix audit-mesh",
+        "refine_mesh",
+        "RefinedMesh",
+        "audit_mesh",
+        "MeshAudit",
+        "derive_thin_blade",
+        "`[components]`",
+        "`[periodic]`",
+    ),
     "0.37.0": (
         "no changes to its inputs",
         "RAN_MISSING_LOG",

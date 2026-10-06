@@ -2,7 +2,10 @@
 
 > Frozen record: not edited after its release.
 
-A workspace using 0.37.0 needs no changes. Nothing is removed, no key, command
+A workspace using 0.37.0 needs no changes. The refinement file gains one new
+optional key, `elements` (`"triangles"`, the default, or `"quad-dominant"`), in a
+family table and in `[refine]`; nothing has to be changed to keep the output of a
+file that does not state it. Nothing is removed, no key, command
 or product of 0.37.0 changes, and a matrix, setup or pproc renders the same
 scripts and writes the same records as in 0.37.0. The release adds two
 `pyfs-matrix` verbs that work on a panel mesh outside any matrix, `refine`

@@ -2036,14 +2036,14 @@ steady row (FR-421).
 
 ## The 0.38.0 additions and their limits
 
-0.38.0 adds ten modules, each in the row of its package, and no new row. The
+0.38.0 adds eleven modules, each in the row of its package, and no new row. The
 order of the stack is unchanged: `post` and `qa`, then `run`, then
 `workspace`, then `cases`, then `script` and `results`, then `commands`, then
 `versions`, then the floors; the `fsi` side branch keeps its place.
 `scripts/arch_metrics.py` measures the release tree, and RPT-161 is the
-release's architecture record (292 modules; no import from `workspace` to
-`run`). Nine of the ten modules are the private package
-`workspace/_refine/`; the tenth is `run/_cli_mesh.py`.
+release's architecture record (293 modules; no import from `workspace` to
+`run`). Ten of the eleven modules are the private package
+`workspace/_refine/`; the eleventh is `run/_cli_mesh.py`.
 
 ### The refinement package and its layering
 
@@ -2077,6 +2077,11 @@ from the floor up:
   deferred to the call that remeshes.
 - `_periodic.py` finds the two cut faces of a sector and matches them node for
   node in the level (FR-427).
+- `_blocks.py` recovers what `_grid.py` does not: a smooth tube, resampled by a
+  periodic cubic spline, and a multiblock family, cut into four-sided patches
+  along the grid lines through its singular nodes and resampled patch by patch
+  with each shared side resampled once (FR-424 R15, R16). It needs numpy alone,
+  and `_level.py` calls it for a family whose grid `_grid.py` does not recover.
 - `_level.py` writes a level: grids first, then the bands of unchanged
   neighbours, the cut faces and the remeshed groups, the components, the files
   and the audit (FR-424, FR-425). It imports `_remesh` deferred, inside the step

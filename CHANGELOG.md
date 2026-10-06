@@ -114,7 +114,23 @@ FlightStream versions.
   check passes, 1 when one fails (the audit is still written) and 2 on a refusal; `--csv`
   writes one row per family and figure. Every `refine` audits its level against its source
   the same way and reports a failure as a warning. From Python:
-  `pyflightstream.workspace.audit_mesh`, which returns a `MeshAudit` (FR-426).
+  `pyflightstream.workspace.audit_mesh`, which returns a `MeshAudit` (FR-426). A level
+  written with `[components]` is audited against the union of each component's members in the
+  source, and a figure within 1e-6 of a limit or a floor meets it.
+- A smooth tube, a tube of quadrilaterals with no trailing edge and no edge sharper than the
+  ridge angle, is a grid family: its seam is the lowest source node index on its first end
+  station, its circumferential direction is a periodic cubic spline, it writes no
+  trailing-edge points, and at factor 1 it is the source (FR-424 R15).
+- A multiblock family, an all-quadrilateral family cut into four-sided patches along the grid
+  lines through its singular nodes, is recovered and resampled patch by patch with each shared
+  side resampled once, so neighbouring patches hold the same nodes; `refine.json` reports the
+  layout `multiblock`, the patches and each patch's rows and columns, and `--chordwise` and
+  `--spanwise` are refused on it, naming it (FR-424 R16).
+- `elements = "quad-dominant"`, in a family table or in `[refine]`, pairs the remeshed
+  triangles of a family into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10
+  degrees), never across a curve, and reports the quads, the triangles and the quad share per
+  family; `"triangles"` stays the default, and the key is ignored on a family that resolves to
+  a grid (FR-424 R17).
 - `[periodic]` in the refinement file, `axis`, `origin` and `copies`, refines a periodic
   sector so that its two cut faces still match node for node; a source whose cut faces do not
   match is refused naming the largest distance (FR-427).
@@ -145,9 +161,14 @@ FlightStream versions.
   different `axial` and `circumferential` factors: a stretched face is skewed against an
   isotropic source by construction. The level is written; read the warning as the stretch
   asked for (FR-428).
-- A grid whose lateral cells mix quadrilaterals and triangulated quadrilaterals is not
-  recovered as a grid: under `method = "auto"` it is remeshed, and under `method = "grid"` it
-  is refused naming the reason (FR-424 R9).
+- A lateral grid that mixes quadrilateral and triangulated cells is remeshed under `auto` (a
+  family of quadrilaterals only is recovered as one grid, a smooth tube or a multiblock), and
+  refused under `method = "grid"` naming the reason (FR-424 R9).
+- The audit's growth and skewness checks read a quadrilateral beside a triangle as a size jump
+  and a paired rhombus as skewed, so quad-dominant levels warn by construction (FR-424 R17,
+  FR-426).
+- Across a multiblock patch side the surface is continuous, not smooth: no spline crosses it
+  (FR-424 R16).
 - A triangulated tip cap (any triangulation other than a pole fan or a zipper) is not part of
   a grid. Give it a family of its own in the pre-processor, refine the blade as a grid, and
   merge the two with `[components]` (FR-425).
@@ -157,8 +178,8 @@ FlightStream versions.
 
 ### Internal
 
-- mypy recount 2026-10-06: 159 errors in 16 of 292 modules, on `rel/0-38` with every package merged;
-  the ten new modules are clean and none is exempted (RPT-029).
+- mypy recount 2026-10-06: 159 errors in 16 of 293 modules, on `rel/0-38` with every package merged;
+  the eleven new modules are clean and none is exempted (RPT-029).
 - `python scripts/run_guards.py` runs the cross-cutting guard tests in one pytest invocation of
   four workers and prints each guard file's result: exit 1 when one fails or runs no test, 2
   when a listed file is missing. A test that pins the digest of rendered text holding a path

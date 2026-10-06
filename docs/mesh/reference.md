@@ -643,6 +643,7 @@ own mesh needs, and every family it names must be a family of that mesh.
 ```toml title="every-key.refine.toml"
 [refine]
 tag = "fine"
+elements = "triangles"
 
 [families.Wing]
 factor = 2
@@ -653,6 +654,7 @@ method = "grid"
 [families.Tip]
 factor = 2
 method = "remesh"
+elements = "quad-dominant"
 
 [families.Spinner]
 axial = 2
@@ -671,7 +673,9 @@ copies = 6
 
 | table | key | value | meaning |
 |---|---|---|---|
-| `[refine]` | `tag` | text | the level's name, `<stem>_<tag>`, in place of the factors; the only key of the table |
+| `[refine]` | `tag` | text | the level's name, `<stem>_<tag>`, in place of the factors |
+| `[refine]` | `elements` | `"triangles"` (default) or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
+| `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
 | `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
@@ -737,7 +741,16 @@ Its `families` entry holds, per family:
   (chordwise and spanwise, before and after), `faces` (before and after),
   `order` (`"sweep"` when the source's sweep was kept, `"nearest"` otherwise)
   and `interfaces` (the nodes of each curve it shares);
+- a smooth tube is a grid whose circumferential direction is a periodic cubic
+  spline, with the seam at the lowest source node index of its first end
+  station and no trailing-edge points; a multiblock family reports `layout`
+  `"multiblock"`, `patches` (their number), `blocks` (each patch's `rows` and
+  `columns` before and after), `arcs` (the patch sides) and `order`
+  (`"nearest"`); `--chordwise` and `--spanwise` are refused on it, and across a
+  patch side the level is continuous, not smooth;
 - a remeshed family: `method` (`"remesh"`), `reason` (why no grid was taken),
+  `elements`, `quads`, `triangles` and `quad_share` (the element mode and its
+  counts; `elements` on a grid says the key was ignored),
   the families remeshed together, the curve edges kept, the median ratio of
   edge length to target, the interfaces rebuilt on a grid's nodes, and the
   face counts before and after;
@@ -810,10 +823,19 @@ Each of these is imported from `pyflightstream.workspace`.
   every level of a body refined with different `axial` and `circumferential`
   factors, because a stretched face is skewed against an isotropic source by
   construction. The level is written; the warning is the stretch asked for.
-- **A grid that mixes cells is no grid.** A family whose lateral cells mix
-  quadrilaterals and triangulated quadrilaterals is not recovered as a grid:
-  under `method = "auto"` it is remeshed, and under `method = "grid"` it is
-  refused naming the reason.
+- **A grid that mixes cells is remeshed.** A lateral grid that mixes
+  quadrilateral and triangulated cells is remeshed under `method = "auto"` and
+  refused under `method = "grid"` naming the reason; a family of quadrilaterals
+  only is recovered as one grid, a smooth tube or a multiblock.
+- **Quad-dominant levels warn.** The audit's growth and skewness checks read a
+  quadrilateral beside a triangle as a size jump and a paired rhombus as
+  skewed, so a quad-dominant level warns by construction.
+- **A multiblock patch side is continuous, not smooth.** No spline crosses it.
+- **Factor 1.** Under `method = "auto"` a family at factor 1 is copied; a
+  family that states `method = "remesh"` is remeshed at any factor.
+- **A component is audited against its members.** A level written with
+  `[components]` is compared with the union of the members in the source,
+  read from the level's `refine.json`.
 - **A triangulated tip cap is not part of a grid.** A cap is part of a grid only
   when it is a fan of triangles around one pole node or a zipper. Give any other
   cap a family of its own in the pre-processor and merge it back with

@@ -200,6 +200,61 @@ a curve with a refined grid is rebuilt on the grid's new nodes; a family the
 refinement does not change is remeshed only in a band of two face layers along
 that curve, and is otherwise the source's face for face.
 
+### Tubes and multiblock families
+
+Two more layouts are recovered as grids, from the connectivity alone, when a
+family holds quadrilaterals only. A SMOOTH TUBE (a nacelle, a duct, a spinner
+cut open at both ends) has no trailing edge and no edge sharper than the ridge
+angle; it is resampled as a grid whose circumferential direction is a periodic
+spline, so the seam has no kink, and it writes no trailing-edge points. A
+MULTIBLOCK family, such as a body with a cap or a junction, is cut into
+four-sided patches along the grid lines that run from its singular nodes (a
+node of other than four faces inside, of other than two at the boundary); each
+patch side is resampled once, so two patches hold the same nodes on the side
+they share.
+
+`W1_R2.refine.json` reports the layout `multiblock` for such a family, with the
+number of patches and each patch's rows and columns. Because a multiblock
+family has no single chordwise or spanwise direction, `--chordwise` and
+`--spanwise` are refused on it, naming it; give it `FACTOR` or a `factor` in
+its table. Across a patch side the level is continuous but not smooth: no
+spline crosses it. A family with a triangle, one patch, or a patch that is not
+four-sided or wraps onto itself is not a multiblock and is remeshed under
+`method = "auto"`, as before.
+
+### Quadrilateral elements for a remeshed family
+
+A remeshed family is written in triangles. The key `elements` in a family
+table, or in `[refine]` as the default of every remeshed family, asks for
+`"quad-dominant"` instead:
+
+```toml title="inputs/geometries/W1/W1.refine.toml"
+[refine]
+elements = "quad-dominant"
+
+[families.Tip]
+factor = 2
+elements = "triangles"
+```
+
+The remeshed triangles are paired into convex quadrilaterals (every angle
+between 30 and 150 degrees, warp at most 10 degrees), never across an open
+boundary, the trailing edge or a ridge, best pairs first, and the interior
+nodes are smoothed along the surface. `refine.json` reports per family the
+elements, the quads, the triangles and the quad share. An unknown value, and
+`elements` on a table that states `method = "grid"`, are refused; on a family
+that `"auto"` resolves to a grid the key is ignored and `refine.json` says so.
+The audit's size growth and skewness checks read a quadrilateral beside a
+triangle as a size jump and a paired rhombus as skewed, so a quad-dominant
+level warns by construction; the level is written.
+
+### Factor 1
+
+At factor 1 a family under `method = "auto"` is copied: a grid family keeps the
+source's nodes and faces in order, and a family that would be remeshed is
+unchanged. A family whose table states `method = "remesh"` is remeshed at any
+factor, factor 1 included.
+
 ### A solid blade kept structured by dummy families
 
 A blade whose tip is closed by a triangulated cap is not one grid: a cap is part
@@ -285,6 +340,12 @@ G6 not judged on (whole mesh): grid_families_at_factor_1 0
 relative checks: 8 pass, 0 fail, 1 not judged
 every gate and check passed
 ```
+
+A level written with `[components]` is audited against the union of each
+component's members in the source (the components are read from the level's
+`refine.json`), so the dummy families of the example above are compared as the
+one family the solver sees. A figure within a millionth of a limit or a floor
+meets it.
 
 `pyfs-matrix audit-mesh` runs the same audit on any OBJ, alone or against the
 mesh it was made from, and its exit status is the verdict: 0 when every gate
