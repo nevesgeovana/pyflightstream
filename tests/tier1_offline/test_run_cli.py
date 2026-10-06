@@ -651,7 +651,10 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # it reads one blade mesh and takes no recipe, no version and no executable.
     # `status` joined at 0.35.0 (FR-379): it reads the records and writes nothing.
     # `mark-converged` joined at 0.37.0 (FR-414), beside `mark-failed`.
+    # `audit-mesh` joined at 0.38.0 (FR-426): it reads one OBJ (and its source)
+    # and takes no recipe, no version and no executable.
     assert set(choices) == {
+        "audit-mesh",
         "collect",
         "convert",
         "degenerate",

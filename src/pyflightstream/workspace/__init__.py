@@ -116,6 +116,11 @@ preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
 and boundary conditions and the plan warning that asks for it. A private
 module carries a 0.34 feature: ``workspace._degenerate``, the thin blade
 derived from a blade mesh and written beside it.
+
+The 0.38 workspace audits a panel mesh: :func:`audit_mesh` judges an OBJ's
+topology, trailing edge and panel quality, alone or against the source it was
+made from, and returns a :class:`MeshAudit` (FR-426). It lives in the private
+package ``workspace._refine``.
 """
 
 from __future__ import annotations
@@ -186,6 +191,8 @@ from pyflightstream.workspace._layout import matrix_files as matrix_files
 from pyflightstream.workspace._layout import point_kind as point_kind
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
 from pyflightstream.workspace._links import _is_reparse as _is_reparse
+from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
+from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
 from pyflightstream.workspace.inputs import INPUT_KINDS as INPUT_KINDS
@@ -339,6 +346,9 @@ __all__ = [
     "write_input_guides",
     "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
+    # 0.38.0 (FR-426): the audit of a panel mesh, alone or against its source.
+    "MeshAudit",
+    "audit_mesh",
 ]
 
 
@@ -543,15 +553,13 @@ def selected_sims(
     command may select from (one matrix's for the post), and ``scope`` says
     which in the refusal, for example ``"of matrix 'matriz'"``.
     """
-    named = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
-    if not named:
+    if not (named := list(dict.fromkeys(str(s).strip() for s in sims if str(s).strip()))):
         raise WorkspaceError(
             "sims (CLI: --sims) names no simulation; give the ids comma separated, for "
             "example --sims 2006,2007"
         )
     recorded = sorted({record.sim_id for record in records})
-    unknown = [sim for sim in named if sim not in recorded]
-    if unknown:
+    if unknown := [sim for sim in named if sim not in recorded]:
         raise WorkspaceError(
             f"sims (CLI: --sims) names simulation(s) {', '.join(unknown)}, which hold no "
             f"record {scope}; the simulations recorded {scope} are "

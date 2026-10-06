@@ -1420,7 +1420,7 @@
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
   "script/__init__.py": 1954,
-  "workspace/__init__.py": 2045
+  "workspace/__init__.py": 2043
  },
  "facade_definitions": {
   "fsi/__init__.py": [
@@ -1626,6 +1626,7 @@
     "_cli_query",
     "_cli_query_point",
     "_cli_query_history",
+    "_cli_mesh",
     "_batch_run",
     "rename",
     "_batch_plan",
