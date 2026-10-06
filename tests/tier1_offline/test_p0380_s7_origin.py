@@ -412,7 +412,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-423": "79971e8b60224a2be7122b4fcd0f0f8ab6abcdc2e5bdd6296fda6a13bcfac554",
     "FR-424": "f11d4b1e06b3ac3cfb09238431a293cb2515d28a9c8437cca3c959c46a4d223d",
     "FR-425": "a3dc2a22dfef87563c2bd10f65fe4ac4920589590f6ae99d84910e9856c25d8c",
-    # FR-426 re-pinned at 85d92803: R3 dropped a personal attribution (the W0 CI fix).
+    # Re-pinned at 85d92803: R3 of the next box dropped a personal attribution (the W0 CI fix).
     "FR-426": "5772b72bdff5080e97fe573ce6825003a233eebb710e75bb71ef9fe1f1ff1d4e",
     "FR-427": "36a84eacf0dacabd2ee8e7dc5dec1cc4b39f3444e48208d3798c7670817df4c9",
     "FR-428": "9d4cd4b7130eafc0dce64fa39af99fd38474f38e3b96d4e952c537c631096505",
@@ -645,7 +645,7 @@ def test_p0380_origin_no_line_of_the_public_srs_holds_a_drive_or_profile_path():
     # The profile paths are assembled here, so this file holds no literal one of its own.
     [
         "see C:/" + "Users/someone/file",
-        r"see D:\work\pfs",
+        "see D:" + "\\work\\pfs",
         "in C:\\" + "Users\\x",
         "at /" + "home/someone/x",
     ],
