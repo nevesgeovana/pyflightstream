@@ -28,6 +28,15 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def fold_separators(text: str) -> str:
+    """Text with every backslash turned into a forward slash, before it is hashed (NFR-44 R2).
+
+    A pinned digest of rendered text that holds a staged path must be the same
+    on Windows and on Linux; the caller masks the absolute root first.
+    """
+    return text.replace("\\", "/")
+
+
 def saved_mesh_fixture(path: Path, names: Sequence[str]) -> Path:
     """Write the smallest saved simulation carrying a mesh block.
 

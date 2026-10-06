@@ -65,6 +65,7 @@ from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import FSI_TEMPLATE, resolve_fsi_setup
+from tests.support_helpers import fold_separators
 from tests.tier1_offline.conftest import make_uniform_blade_config
 
 ROTOR = RotorBlock(
@@ -219,7 +220,7 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
     for case in (_sector(tmp_path), _sector(tmp_path, morphing="mapped")):
         rendered, script = _render(case, "26.124")
         masked = _INTERPRETER.sub('"PY" "fsi_callback.py"', rendered).replace(str(tmp_path), "TMP")
-        masked = masked.replace("TMP\\", "TMP/")  # one hash on Windows and Linux
+        masked = fold_separators(masked)  # one hash on Windows and Linux (NFR-44 R2)
         assert _sha256(masked) == MAPPED_SCRIPT_SHA256
         staged = effective_fsi_config(case)
         assert staged is not None
