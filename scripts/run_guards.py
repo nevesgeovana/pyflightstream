@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
             "-p",
             "no:cacheprovider",
             "-n",
-            "auto",
+            "4",
             f"--junitxml={junit}",
             *GUARDS,
         ]
