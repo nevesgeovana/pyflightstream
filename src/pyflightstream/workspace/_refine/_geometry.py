@@ -83,6 +83,10 @@ PERIODIC_LEVEL_FRACTION = 1e-9
 PERIODIC_SOURCE_FRACTION = 1e-6
 #: FR-428 R1: the projected edge lengths match their factor within this fraction.
 AXIAL_BAND = 0.15
+#: FR-425 R2, R3 and FR-427: a level node lies on a source curve (a grid's interface with
+#: a neighbour, a periodic cut) when it is within this fraction of the nearest segment's
+#: length from it.
+ON_CURVE_FRACTION = 0.25
 #: FR-425 R3: the band of an unchanged neighbour is this many face layers deep.
 BAND_LAYERS = 2
 #: The schema version of refine.json and audit.json (FR-424 R4, FR-426 R1).

@@ -133,7 +133,7 @@ def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> se
         return set()
     edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
     dist, index = NearestIndex(mid).query(points)
-    hit = dist < 1e-6 * scale
+    hit = dist < _geometry.TE_POINT_FRACTION * scale
     return {int(v) for v in edges[index[hit]].ravel()}
 
 
@@ -336,8 +336,9 @@ def _interface_points(
     """Return the grid's new boundary nodes on the curve it shares with a neighbour.
 
     The curve is the grid's source boundary edges whose two ends are shared
-    (``old``); a new node is on it when it lies within a quarter of a
-    segment's length from one of those edges.
+    (``old``); a new node is on it when it lies within
+    :data:`._geometry.ON_CURVE_FRACTION` of a segment's length from one of
+    those edges.
     """
     source_edges = [
         e for e in _geometry.boundary_edges(work.mesh.families[name]) if e[0] in old and e[1] in old
@@ -356,7 +357,7 @@ def _interface_points(
         )
         d = numpy.linalg.norm(a + t[:, None] * ab - p, axis=1)
         j = int(numpy.argmin(d))
-        if d[j] < 0.25 * length[j]:
+        if d[j] < _geometry.ON_CURVE_FRACTION * length[j]:
             keep.append(v)
     return level.points[keep] if keep else None
 
@@ -364,9 +365,8 @@ def _interface_points(
 def _unchanged_curve(work: _Work, old: set[int], new: Points) -> bool:
     """Return whether the grid kept exactly the source nodes of a shared curve."""
     olds = work.mesh.verts[sorted(old)]
-    return (
-        len(new) == len(olds) and float(NearestIndex(olds).query(new)[0].max()) < 1e-9 * work.scale
-    )
+    tolerance = _geometry.DUPLICATE_FRACTION * work.scale
+    return len(new) == len(olds) and float(NearestIndex(olds).query(new)[0].max()) < tolerance
 
 
 def _bands(work: _Work) -> None:
@@ -541,13 +541,16 @@ def _te_points_of(work: _Work, name: str) -> NDArray[numpy.bool_]:
         return numpy.zeros(0, dtype=bool)
     _, mid = _obj.edge_midpoints(work.mesh.verts, work.mesh.families[name])
     dist, _ = NearestIndex(mid).query(work.te_points)
-    return dist < 1e-6 * work.scale
+    return dist < _geometry.TE_POINT_FRACTION * work.scale
 
 
 def _weld(
     verts: Points, families: dict[str, Faces], scale: float
 ) -> tuple[Points, dict[str, Faces]]:
-    """Weld nodes that coincide within 1e-9 of the size; drop unused ones, in order of first use."""
+    """Weld nodes that coincide within DUPLICATE_FRACTION of the size; drop unused ones.
+
+    The nodes kept are numbered in their order of first use.
+    """
     tolerance = max(_geometry.DUPLICATE_FRACTION * scale, 1e-300)
     keys = numpy.round(verts / tolerance).astype(numpy.int64)
     _, first, inverse = numpy.unique(keys, axis=0, return_index=True, return_inverse=True)

@@ -34,6 +34,7 @@ from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace._refine._config import Periodic
 from pyflightstream.workspace._refine._geometry import (
     DUPLICATE_FRACTION,
+    ON_CURVE_FRACTION,
     PERIODIC_LEVEL_FRACTION,
     PERIODIC_SOURCE_FRACTION,
     RIDGE_DEGREES,
@@ -45,10 +46,6 @@ from pyflightstream.workspace._refine._geometry import (
     segment_distances,
 )
 from pyflightstream.workspace._refine._obj import KIND
-
-#: A level node is on a source cut when it lies within this fraction of the
-#: nearest cut segment's length from it (the rule of a grid's interfaces).
-ON_CUT_FRACTION = 0.25
 
 Conform = list[tuple[set[int], Points]]
 
@@ -285,12 +282,12 @@ class _Plan:
 
 
 def _near(points: Points, a: Points, b: Points) -> NDArray[numpy.bool_]:
-    """Return which points lie on the segments a-b (within ON_CUT_FRACTION of a segment)."""
+    """Return which points lie on the segments a-b (within ON_CURVE_FRACTION of a segment)."""
     if not len(a) or not len(points):
         return numpy.zeros(len(points), dtype=bool)
     dist, k = segment_distances(points, a, b)
     length = numpy.linalg.norm(numpy.asarray(b) - numpy.asarray(a), axis=1)
-    return numpy.asarray(dist < ON_CUT_FRACTION * length[k])
+    return numpy.asarray(dist < ON_CURVE_FRACTION * length[k])
 
 
 def _edges_of(plan: _Plan, chain: Sequence[int], name: str) -> list[tuple[int, int]]:

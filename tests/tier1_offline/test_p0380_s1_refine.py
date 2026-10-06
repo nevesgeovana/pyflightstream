@@ -613,17 +613,34 @@ def _reaching(found: set[str], prefixes: tuple[str, ...]) -> list[str]:
 
 
 REFINE = "pyflightstream.workspace._refine"
-PRIVATE = tuple(f"{REFINE}.{m}" for m in ("_grid", "_remesh", "_level", "_config"))
+#: The modules of the refinement package the audit may import: the shared helpers.
+AUDIT_MAY_IMPORT = ("_audit", "_geometry", "_obj")
+
+
+def _refinement_modules() -> tuple[str, ...]:
+    """Return every module of the refinement package the audit must not import.
+
+    Read from the package's files, so a module added to the refinement is
+    covered without editing a list (the shared helpers are the exceptions).
+    """
+    folder = PACKAGE / "workspace" / "_refine"
+    names = sorted(p.stem for p in folder.glob("*.py") if p.stem != "__init__")
+    return tuple(f"{REFINE}.{n}" for n in names if n not in AUDIT_MAY_IMPORT)
+
+
+PRIVATE = _refinement_modules()
 
 
 def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows():
     """P0380-REFINE (FR-424 R14): an AST walk of every import, deferred ones included.
 
     ``workspace/_refine`` imports nothing of ``pyflightstream.run``; ``_audit``
-    imports none of ``_grid``, ``_remesh``, ``_level`` and ``_config``; the
-    command reaches the refinement only through public names of
+    imports no module of the refinement package but the shared helpers
+    ``_geometry`` and ``_obj`` (the list is read from the package's files);
+    the command reaches the refinement only through public names of
     ``pyflightstream.workspace``. Controls: each rule run on a planted source
-    holding the forbidden import (deferred, inside a function) reports it.
+    holding the forbidden import (deferred, inside a function) reports it,
+    every refinement module among them.
     """
     refine = PACKAGE / "workspace" / "_refine"
     files = sorted(refine.glob("*.py"))
@@ -644,11 +661,65 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
         "pyflightstream.run.cli",
     ]
     assert _reaching(planted, PRIVATE) == [f"{REFINE}._grid", f"{REFINE}._level"]
+    names = {"_blocks", "_config", "_grid", "_level", "_periodic", "_remesh"}
+    assert {m.rpartition(".")[2] for m in PRIVATE} >= names
+    for module in PRIVATE:
+        leaf = module.rpartition(".")[2]
+        planted = _imports(f"def f():\n    from . import {leaf}\n", REFINE)
+        assert _reaching(planted, PRIVATE) == [module], leaf
+        planted = _imports(f"from {module} import x\n", REFINE)
+        assert module in _reaching(planted, PRIVATE), leaf
     command = _imports(
         "def g():\n    from pyflightstream.workspace._refine._level import refine_mesh\n",
         "pyflightstream.run",
     )
     assert _reaching(command, (REFINE,)) == [f"{REFINE}._level", f"{REFINE}._level.refine_mesh"]
+
+
+#: The shared engineering thresholds of the section, defined once in ``_geometry``.
+SHARED_THRESHOLDS = (
+    "DUPLICATE_FRACTION",
+    "TE_POINT_FRACTION",
+    "GRID_SURFACE_DISTANCE",
+    "ZERO_AREA_FRACTION",
+    "ON_CURVE_FRACTION",
+)
+
+
+def _threshold_literals(text: str, values: set[float]) -> list[tuple[int, float]]:
+    """Return the line and value of every numeric literal of the source equal to a threshold."""
+    return sorted(
+        (node.lineno, float(node.value))
+        for node in ast.walk(ast.parse(text))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, float)
+        and float(node.value) in values
+    )
+
+
+def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
+    """P0380-REFINE (section thresholds rule): a shared threshold is defined once, in _geometry.
+
+    No module of the refinement package but ``_geometry`` spells the value of
+    a shared fraction as a literal; the remesher's own tuning constants are
+    named in ``_remesh`` and not shared, so it is not scanned. The rule of a
+    node on a shared curve (``ON_CURVE_FRACTION``) is read by the grid's
+    interfaces and the periodic cuts alike. Control: a planted source that
+    spells the trailing-edge distance as a literal is reported.
+    """
+    from pyflightstream.workspace._refine import _geometry, _level, _periodic
+
+    values = {float(getattr(_geometry, name)) for name in SHARED_THRESHOLDS} - {0.25}
+    folder = PACKAGE / "workspace" / "_refine"
+    for path in sorted(folder.glob("*.py")):
+        if path.stem in ("_geometry", "_remesh", "__init__"):
+            continue
+        assert _threshold_literals(path.read_text(encoding="utf-8"), values) == [], path.name
+    assert _periodic.ON_CURVE_FRACTION is _geometry.ON_CURVE_FRACTION
+    assert _level._geometry is _geometry
+    assert not hasattr(_periodic, "ON_CUT_FRACTION")
+    planted = "def hit(d, scale):\n    return d < 1e-6 * scale\n"
+    assert _threshold_literals(planted, values) == [(2, 1e-6)]
 
 
 def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):
