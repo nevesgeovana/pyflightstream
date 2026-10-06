@@ -3,6 +3,7 @@
 % 02-workspaces/text/03-inputs.tex
 
 \section{The input files}
+\label{sec:inputs}
 
 \begin{frame}{The row names things, the files define them}
 \slidefig[0.62]{guide-inputs-into-run}
@@ -220,13 +221,17 @@ points_file = "disk_survey.txt"     # inputs/profiles/disk_survey.txt
 \small \code{executables.toml} is about the \textbf{study} and is versioned.
 \code{executables.local.toml} is about the \textbf{machine} and is not.
 \end{block}
-\begin{alertblock}{Exactly one HPC profile}
-\small More than one in \code{inputs/hpc/} is refused: there is no selector.
+\begin{alertblock}{One profile per cluster}
+\small One profile in \code{inputs/hpc/} needs no option. With several,
+\code{--hpc NAME} on \pyfs{plan}, \pyfs{run} and \pyfs{collect} selects
+\code{inputs/hpc/<NAME>.toml}; none selected is refused, never guessed.
 \end{alertblock}
 \end{column}
 \begin{column}{0.48\textwidth}
 \begin{lstlisting}[style=ftsbase]
 # inputs/hpc/h001.toml
+max_walltime = "48:00:00"   # longest job the queue takes
+
 [descriptor.fields]
 version = "{fs_build_alias}"
 
@@ -237,6 +242,47 @@ version = "{fs_build_alias}"
   \item The row keeps the build, the profile gives the scheduler's word.
   \item A declaration, not a check: the build number in the collected log is
         the proof.
+  \item \code{max\_walltime} (\code{HH:MM:SS}, hours may pass 24) caps a
+        grouped job; without the key there is no limit.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{\code{inputs/costs/}: what a point costs on this machine}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=ftsbase]
+# inputs/costs/c001.toml
+[reference]    # one run measured here
+mesh_faces = 10000
+ncpus = 4
+wall_time_s = 1000.0
+steps = 100
+
+[parallel]     # speedup per NCPUS
+ncpus = [1, 2, 4, 8]
+speedup = [1.0, 1.9, 3.6, 6.5]
+
+[mesh]
+exponent_b = 1.0
+[steps]
+exponent = 1.0
+[flags]        # one multiplier per flag
+viscous_coupling = 2.0
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{itemize}\small
+  \item One file per machine, read by \code{plan --cost} and by the
+        estimate of a grouped plan. Several: \code{--cost-file NAME}.
+  \item Time scales from the anchor run: the speedup, linear between two
+        stated counts; mesh faces to the power \code{b}; steps to their
+        exponent; each flag the row sets.
+  \item A processor count outside the curve is \textbf{never
+        extrapolated}: the estimate is withheld. An unknown key is refused.
+  \item The values are yours: the package ships only a synthetic
+        \code{examples/costs/c000.toml}.
 \end{itemize}
 \end{column}
 \end{columns}
