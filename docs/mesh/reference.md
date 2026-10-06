@@ -786,7 +786,7 @@ FIGURE is reported and never judged.
 |---|---|
 | G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
 | G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
-| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes |
+| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
 | G4 | a trailing-edge point lies on no mesh edge, or the trailing-edge chains are not the source's in number |
 | G5 | two families that shared nodes in the source share none |
 | G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |

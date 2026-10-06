@@ -87,6 +87,12 @@ AXIAL_BAND = 0.15
 #: a neighbour, a periodic cut) when it is within this fraction of the nearest segment's
 #: length from it.
 ON_CURVE_FRACTION = 0.25
+#: FR-425 R5, FR-426 R2 G3: a level loop closes the same opening as a source loop when every
+#: node of each lies within this fraction of the source loop's extent (the diagonal of its
+#: bounding box) from the other's polyline. Resampling a loop moves its polyline by the
+#: sagitta of the segments it merges, a few hundredths of the extent of a coarsened circle;
+#: a hole moved by one cell of its own size moves by at least 0.7 of it.
+OPENING_FRACTION = 0.25
 #: FR-425 R3: the band of an unchanged neighbour is this many face layers deep.
 BAND_LAYERS = 2
 #: The schema version of refine.json and audit.json (FR-424 R4, FR-426 R1).

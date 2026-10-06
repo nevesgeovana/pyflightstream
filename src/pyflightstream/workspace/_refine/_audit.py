@@ -45,6 +45,7 @@ from pyflightstream.workspace._refine._geometry import (
     DUPLICATE_FRACTION,
     GROWTH_DIHEDRAL_DEGREES,
     GROWTH_FLOOR,
+    OPENING_FRACTION,
     PANEL_PRACTICE_COUNTS,
     PERCENTILE,
     QUALITY_GOOD,
@@ -60,6 +61,7 @@ from pyflightstream.workspace._refine._geometry import (
     dihedral_degrees,
     edge_faces,
     normals_and_centroids,
+    segment_distances,
     triangles,
 )
 from pyflightstream.workspace._refine._obj import (
@@ -601,18 +603,43 @@ def _g2(m: _Mesh) -> Iterator[AuditItem]:
 def _unmatched_loops(level: _Mesh, source: _Mesh) -> int:
     """Return how many open loops of either mesh close no opening of the other.
 
-    Each level loop is matched to the source loop most of its nodes are
-    nearest to; the count is the loops of both meshes left without a partner.
+    Each level loop is offered the source loops its nodes are nearest to,
+    most votes first, and takes the first not yet taken that closes the same
+    opening (:func:`_same_opening`), so the match is one to one and spatial;
+    the count is the loops of both meshes left without a partner.
     """
     old, new = boundary_loops(source.faces), boundary_loops(level.faces)
     if not old or not new:
         return len(old) + len(new)
     label = numpy.repeat(numpy.arange(len(old)), [len(loop) for loop in old])
     index = NearestIndex(source.obj.verts[numpy.concatenate(old)])
-    hit = {
-        int(numpy.bincount(label[index.query(level.obj.verts[loop])[1]]).argmax()) for loop in new
-    }
-    return (len(new) - len(hit)) + (len(old) - len(hit))
+    taken: set[int] = set()
+    for loop in new:
+        points = level.obj.verts[loop]
+        votes = numpy.bincount(label[index.query(points)[1]], minlength=len(old))
+        for k in numpy.argsort(-votes, kind="stable"):
+            if votes[k] == 0:
+                break
+            if int(k) not in taken and _same_opening(points, source.obj.verts[old[k]]):
+                taken.add(int(k))
+                break
+    return (len(new) - len(taken)) + (len(old) - len(taken))
+
+
+def _same_opening(mine: Array, theirs: Array) -> bool:
+    """Return whether two closed loops bound the same opening (FR-425 R5).
+
+    Every node of each lies within :data:`OPENING_FRACTION` of the source
+    loop's extent from the other's polyline, so the loops coincide up to the
+    resampling of their segments.
+    """
+    extent = float(numpy.linalg.norm(numpy.ptp(theirs, axis=0)))
+    limit = OPENING_FRACTION * max(extent, _TINY)
+    for points, loop in ((mine, theirs), (theirs, mine)):
+        distance, _ = segment_distances(points, loop, numpy.roll(loop, -1, axis=0))
+        if float(distance.max()) > limit:
+            return False
+    return True
 
 
 def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
