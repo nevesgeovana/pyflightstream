@@ -1377,8 +1377,8 @@ the base could not offer while it bundled several.
     scored, each waiting for a recorded export that could tell a right
     sign from a wrong one: the stability- and wind-axis moments and side
     force, the rotor coefficients, the sectional loads, the unsteady
-    history and the far field. The conventions entry "Axes and signs of
-    every emitted coefficient" says the same, per family.*
+    history and the far field. The conventions entry 'Axes and signs of
+    every emitted coefficient' says the same, per family.*
 
     Read with PFS-2062, PFS-2062.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
@@ -2040,10 +2040,9 @@ at what operating point, and the mesh says what was actually meshed.** Every
 requirement below is one seam of that division.
 
 !!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-implemented'>implemented</span>"
-    *Origin: the design decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
-    para referencia". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
+    *Origin: the design decisions of 2026-09-09 and 2026-09-10: every alias goes to the reference. Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
     the tests those nodes name. SUPERSEDES the `[aliases]` table of
-    FR-30c, "Declared inventories are range-checked", which shipped it in the
+    FR-30c, 'Declared inventories are range-checked', which shipped it in the
     setup preset one release earlier. Evidence:
     `tests/tier1_offline/test_reference_vocabulary.py` (the table, a nested alias, a ring, and
     the self-reference that is not one) and
@@ -2179,8 +2178,7 @@ requirement below is one seam of that division.
     declare.
 
 !!! requirement "FR-62 The frames a rotor instantiates take its alias as their radical <span class='srs-implemented'>implemented</span>"
-    *Origin: the design of 2026-09-10, "<ALIAS>_SMRP para o eixo local
-    estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento".
+    *Origin: the design of 2026-09-10: `<ALIAS>_SMRP` names the static local axis and `<ALIAS>_RMRP` the axis that turns with the motion.
     Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py`, where the frames take the radical, the blade
     frames TURN with the blades, a record naming no rotor keeps the 0.14.0
@@ -2205,11 +2203,10 @@ requirement below is one seam of that division.
     colliding on one radical.
 
 !!! requirement "FR-63 The rotor speed lives in the motion record, resolved against that rotor's own diameter <span class='srs-implemented'>implemented</span>"
-    *Origin: the design of 2026-09-10 and the reference reminder of the same night, "a
-    razao de avanco vira RPM usando o diametro de cada rotor". Carried by
+    *Origin: the design of 2026-09-10 and the reference reminder of the same night: the advance ratio becomes RPM using the diameter of each rotor. Carried by
     PFS-2035.05 and PFS-2035.18. Evidence: `tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ`, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b.
-    AMENDS FR-56, "The reference artifact states only what rows share, with
-    one length per quantity", whose single `rotor_diameter_m` is the
+    AMENDS FR-56, 'The reference artifact states only what rows share, with
+    one length per quantity', whose single `rotor_diameter_m` is the
     advance-ratio length today.*
 
     Read with PFS-2066, PFS-2066.02, PFS-2070, PFS-2070.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
@@ -2233,8 +2230,7 @@ requirement below is one seam of that division.
     it.
 
 !!! requirement "FR-64 Every rotor row names the motion that owns the clock <span class='srs-implemented'>implemented</span>"
-    *Origin: the design of 2026-09-10, "o setup temporal exige qual o
-    movimento de referencia". Carried by PFS-2035.07. Evidence:
+    *Origin: the design of 2026-09-10: the temporal setup requires the reference motion to be stated. Carried by PFS-2035.07. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py` (the clock follows the named
     motion and not the fastest; a row stating a `MOTIONS` list without the key
     is refused naming the motions it could choose; the flat pre-0.15.0 form is
@@ -2346,8 +2342,7 @@ requirement below is one seam of that division.
     the rotor speed is refused.
 
 !!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-implemented'>implemented</span>"
-    *Origin: the design decision of 2026-09-10, "a linha ganha um jeito de passar
-    comando bruto, mantendo a feature original preservada". Carried by
+    *Origin: the design decision of 2026-09-10: a row gains a way to pass a raw command while the original feature stays preserved. Carried by
     PFS-2035.10. Evidence: `tests/tier1_offline/test_raw_on_the_row.py` (the cell
     states one record and several; a file path survives the record separator; a
     record stating both forms, neither form, no phase, or a key a raw command
@@ -2445,8 +2440,7 @@ requirement below is one seam of that division.
     lens, 2026-09-10).
 
 !!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-implemented'>implemented</span>"
-    *Origin: the rule of 2026-09-10, "um sweep e aplicado a uma variavel que
-    DEFINE a condicao de voo e a apenas uma variavel". Carried by PFS-2035.14,
+    *Origin: the rule of 2026-09-10: a sweep is applied to one variable, and only one, that DEFINES the flight condition. Carried by PFS-2035.14,
     which closes PFS-2035.12 and bounds PFS-2035.06. Evidence:
     `tests/tier1_offline/test_matrix.py` (the axis is read off the cell; a row
     with no swept key, with two, with a key this release cannot vary, or with
@@ -2562,8 +2556,7 @@ requirement below is one seam of that division.
     motion instead, which is FR-63.
 
 !!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-implemented'>implemented</span>"
-    *Origin: the design decision of 2026-09-10, "o comando de rotate tambem tem que
-    ser atualizado para ficar compativel com o do movimento". Carried by
+    *Origin: the design decision of 2026-09-10: the rotate command must also be updated to stay compatible with the motion command. Carried by
     PFS-2035.17. Evidence: `tests/tier1_offline/test_rotor_by_alias.py` (the
     rotation cites the alias and turns that rotor's boundaries and no other's;
     the frames the alias owns turn with it, by name; an undeclared alias is
@@ -2578,7 +2571,7 @@ requirement below is one seam of that division.
     not turn, none at all for a row that turned nothing, the turning frames
     never doubled, and the same answer when the entry names the hub frame
     itself). AMENDS the
-    `ROTATE` record of FR-35, "Matrix as first-class interface", whose
+    `ROTATE` record of FR-35, 'Matrix as first-class interface', whose
     `FAMILIES` and `AUX_FRAMES` keys this replaces.*
 
     A `ROTATE` record states `ALIAS` where it stated `FAMILIES`, so a rotation
@@ -2684,8 +2677,8 @@ requirement below is one seam of that division.
     over the three layers, and the lane's mutation scoring recorded in
     `GeoversePlan/coordination/projects/pyflightstream/IMPL-0150-DECISIONS_rounds.ledger`
     and `REL-0150_rounds.ledger`, which name each mutant, its verdict and
-    the one that survives). AMENDS FR-59, "A reference
-    declares the names a study gives to its boundaries", whose rule that a
+    the one that survives). AMENDS FR-59, 'A reference
+    declares the names a study gives to its boundaries', whose rule that a
     member the opened mesh does not carry is ignored becomes the DEFAULT
     rather than the only reading.*
 
@@ -2853,9 +2846,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the instruction of 2026-09-10, "sobre o surface section,
-    registra no backlog para deixarmos a opcao de especificar por distribuicao
-    mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.
+    *Origin: the instruction of 2026-09-10: for the surface section, register in the backlog the option to specify by distribution, keeping the general option that exists today. Carried by PFS-2035.23.
     Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. `count` is a field of `[sections]` and governs every
@@ -3329,8 +3320,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the second feedback item of 2026-09-10, "trocar
-    sims\sim_<>\raw por sims\sim_<>\outputs". Carried by PFS-2036.02.
+    *Origin: the second feedback item of 2026-09-10: the raw folder of a simulation is replaced by its outputs folder. Carried by PFS-2036.02.
     Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*
 
     WHAT IT IS FOR. `raw` names how the data arrived; `outputs` names what it
@@ -3404,8 +3394,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the fourth feedback item of 2026-09-10, "nomes arquivos
-    em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
+    *Origin: the fourth feedback item of 2026-09-10: file names under the matrix provenance folder of the post do not follow the standard. Carried by PFS-2036.04.
     Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. Two conventions sit in one run for one point:
@@ -3486,8 +3475,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-88 The polar tables live in a polars subfolder <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the reference sixth feedback item of 2026-09-10, "crie uma
-    subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
+    *Origin: the reference sixth feedback item of 2026-09-10: a polars subfolder for the current per-point CSV and DAT files.
     Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. Measured in the reference workspace, `post/matriz/`
@@ -3505,11 +3493,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-89 One derived file per polar and group carries everything the workspace knows <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the seventh feedback item of 2026-09-10, "crie um super
-    arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre
-    aquela simulacao", and, asked again the same evening, "todas as variaveis
-    que definem a condicao de voo precisam obrigatoriamente estar nesse super
-    arquivo". Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*
+    *Origin: the seventh feedback item of 2026-09-10: a derived super file, so that the file alone says everything about that simulation, and, asked again the same evening, every variable that defines the flight condition must be in that super file. Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*
 
     WHAT IT IS FOR. Knowing what one simulation was and what it produced
     currently takes the polar table, the campaign sweep table, the matrix row,
@@ -5415,7 +5399,7 @@ Requirements written after the specification was last reconciled with the packag
     control surface of a CCS wing declared from the geometry's sidecar.
     Licensed round 1 on 26.124 refused the eight-token line the manual's own
     sample prints (`NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5
-    20.0 1.0`, "Review command syntax and arguments", probe C3), while SRC-752
+    20.0 1.0`, 'Review command syntax and arguments', probe C3), while SRC-752
     p.303 declares ten parameters. Solution, release 0.32.0: each
     `[[import.ccs.control_surfaces]]` table of a wing becomes one line with
     SPACE and AXIS always written. Trace: `tests/tier1_offline/test_p0320_ccs.py`,
@@ -6071,9 +6055,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-112 The pproc declares a time-averaged surface, and the package averages the per-step exports <span class='srs-implemented'>implemented</span>"
 
-    *Origin: F02 of the 0.25.0 scope and G25 of the 0.28.0 scope. The need, in
-    the requester's words: "pyfs pode fazer a media com as exportações ja no
-    esquema como sections". Evidence:
+    *Origin: F02 of the 0.25.0 scope and G25 of the 0.28.0 scope. The need: the package can average the exports already written in the sections scheme. Evidence:
     `tests/tier1_offline/test_f02_time_averaging_refusal.py` (the refusal
     where the solver's own average is not recorded verified) and
     `tests/tier1_offline/test_g25_surface_time_average.py` (the window, the
@@ -6108,9 +6090,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-113 The surface flow leaves in VTK and CSV, and the Tecplot file is written from the VTK <span class='srs-implemented'>implemented</span>"
 
-    *Origin: F03 of the 0.25.0 scope and G45 of the 0.28.0 scope. The need, in
-    the requester's words: "tradutor vtk para tecplot (se vtk tiver mais
-    outputs) - usar sempre essa rota para tecplot". Evidence:
+    *Origin: F03 of the 0.25.0 scope and G45 of the 0.28.0 scope. The need: a translator from VTK to Tecplot (where the VTK has more outputs), always using that route for Tecplot. Evidence:
     `tests/tier1_offline/test_surface_exports.py` (the two kinds, their
     default off, the variable list validated against the database) and
     `tests/tier1_offline/test_g45_tecplot_from_vtk.py` (the translation, the
@@ -6214,8 +6194,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-117 On an unsteady row every probe is a fluid plot, and its table is the plots history <span class='srs-implemented'>implemented</span>"
 
-    *Origin: F01 of the 0.25.0 scope. The scope row words the need: "A fonte da
-    probe segue o tipo de corrida, SEMPRE." Evidence:
+    *Origin: F01 of the 0.25.0 scope. The scope row words the need: the probe source follows the run type, ALWAYS. Evidence:
     `tests/tier1_offline/test_f01_probe_source.py` and
     `tests/tier1_offline/test_rel0250_f01_probe_skip.py`.*
 
@@ -6289,8 +6268,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-120 Every post writes a log of its own, human and machine readable <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the same decision as FR-119: "sempre seja escrito um log do proprio
-    post com warnings se aplicavel." Evidence:
+    *Origin: the same decision as FR-119: a log of the post itself is always written, with warnings where applicable. Evidence:
     `tests/tier1_offline/test_post_log.py` and
     `tests/tier1_offline/test_post_diagnostics.py`.*
 
@@ -6317,8 +6295,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-121 Every point of a row naming a run type leaves its final saved simulation <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G11 of the 0.27.0 scope. The need, in the requester's words: "isso
-    não tá formalizado". Evidence:
+    *Origin: G11 of the 0.27.0 scope. The need: the saved simulation is not formalised. Evidence:
     `tests/tier1_offline/test_saved_simulation.py` (a save in every workflow
     script of every run type and build, first among the point's exports, one for
     each point of a steady sweep, collected and hashed, a missing one recorded
@@ -6362,8 +6339,7 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-123 The input files describe themselves: a glossary of every key and a template of every file <span class='srs-implemented'>implemented</span>"
 
     *Origin: G08 of the 0.27.0 scope and G47 of the 0.28.0 scope. The need for
-    the second, in the requester's words: "Criar um md input_template dentro de
-    inputs". Evidence: `tests/tier1_offline/test_goal031_g08_input_glossary.py`
+    the second: a markdown input_template is created inside inputs. Evidence: `tests/tier1_offline/test_goal031_g08_input_glossary.py`
     (a key added with no row fails) and
     `tests/tier1_offline/test_g47_input_template.py` (every template read back
     with the package's own reader).*
@@ -6388,9 +6364,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-124 Every table the post writes opens with its header and the polar, and no cell needs quoting <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G16 of the 0.27.0 scope. The need, in the requester's words: "o
-    numero da polar vai em todos os arquivos como um coluna", and of the rotor
-    table's first line: "coloca isso como coluna tb". Evidence:
+    *Origin: G16 of the 0.27.0 scope. The need: the polar number goes in every file as a column, and of the rotor
+    table's first line: the same, as a column. Evidence:
     `tests/tier1_offline/test_g16_polar_column.py` (every table written is read
     back, including by `numpy.genfromtxt`).*
 
@@ -6414,9 +6389,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-125 A row states a custom free stream by an input file, and the plan checks the field against the body <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need, in
-    the requester's words: "quero ja incluir na 27" and "custom freestream (G18)
-    por arquivo de input". Evidence:
+    *Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need: to include it already in 0.27 and a custom freestream (G18) from an input file. Evidence:
     `tests/tier1_offline/test_g15_custom_freestream.py` (the script, both forms,
     every refusal, and the coverage warning of `test_g18_*`).*
 
@@ -6467,10 +6440,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-127 The FSI's blade properties come from its sections and a material <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G41 of the 0.28.0 scope, mandatory. The need, in the requester's
-    words: "Geralmente blades de tunel de metal sao massiças, entao eu quero essa
-    capacidade no fsi do pyflightstream pq ja destrava muita analise" and "Tudo
-    precisa estar escriptado e reproduzivel". Evidence:
+    *Origin: G41 of the 0.28.0 scope, mandatory. The need: metal wind-tunnel blades are usually massive, so this capability is wanted in the FSI of the package because it unlocks much analysis and everything must be scripted and reproducible. Evidence:
     `tests/tier1_offline/test_g41_section_properties.py` (closed forms for
     rectangles, plates, polygons standing for circles and ellipses, the torsion
     constant converging, the material database, the round trip and the
@@ -6525,8 +6495,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-129 A local run's log reads at a glance, and an unsteady point says how far it is <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G43 of the 0.28.0 scope. The need, in the requester's words: "vamos
-    deixar o log de execução local mais bonitinho". Evidence:
+    *Origin: G43 of the 0.28.0 scope. The need: the local execution log is made nicer. Evidence:
     `tests/tier1_offline/test_g43_local_log.py` (the banner, the numbering, the
     summary table, the progress cadence and its refusal).*
 
@@ -6548,9 +6517,7 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-130 A run that submits to a cluster does not post <span class='srs-implemented'>implemented</span>"
 
     *Origin: G43 of the 0.28.0 scope, from a submission of 25 points that printed
-    270 lines. The need, in the requester's words: "ta muito poluido o log do run
-    com submissao para o hpc" and "se for submissao para linux, o run nao deveria
-    rodar post". Evidence:
+    270 lines. The need: the run log of a submission to the HPC is too polluted and for a submission to Linux the run should not run the post. Evidence:
     `tests/tier1_offline/test_goal021_swept_row.py`
     (`test_g43_a_run_that_submits_does_not_post`) and
     `tests/tier1_offline/test_g43_local_log.py`.*
@@ -6570,8 +6537,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-131 The whole matrix is run again by one flag <span class='srs-implemented'>implemented</span>"
 
-    *Origin: G44 of the 0.28.0 scope. The need, in the requester's words: "para
-    28, eu quero um --force-rerun-all". Evidence:
+    *Origin: G44 of the 0.28.0 scope. The need: a --force-rerun-all option is wanted for 0.28. Evidence:
     `tests/tier1_offline/test_g44_force_rerun_all.py`.*
 
     `pyfs-matrix run --force-rerun-all [--sims SIM ...]` archives every recorded
@@ -6591,8 +6557,7 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-132 The plan warns when a plot group takes the rotor table's plot name <span class='srs-implemented'>implemented</span>"
 
     *Origin: G42 of the 0.28.0 scope, from a submission of 25 rows whose rotor
-    tables were skipped. The decision, in the requester's words: "nao precisa
-    fazer essa mudança, coloca no plan o aviso". Evidence:
+    tables were skipped. The decision: the change is not needed, the plan carries a warning instead. Evidence:
     `tests/tier1_offline/test_goal028_rotor_plot_group.py`
     (`test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name`).*
 
@@ -8379,7 +8344,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2073, PFS-2073.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section "The two checks the route's memory asked of this run", check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence: RPT-128, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5, on a cambered NACA 4412 half wing: on the rigid point the summed cut moments are 1.00825 of the solver's moment about the same line and the summed cut forces 0.99033 of the lift, so `xz_moment_verdict` is `confirmed` by R2 (the coupled point 1.00791 and 0.99045); the FSI page's XZ reading cites RPT-128 (R3). RPT-128 records in its front matter a machine-readable `xz_moment_verdict` of `confirmed` or `refuted` with the two ratios; the marker test reads it, recomputes the verdict from the two ratios by R2, and asserts the branch it names, a missing or inconsistent value failing it; the two ratios are the fields `xz_moment_ratio` and `xz_force_ratio`. Marker test: `tests/tier1_offline/test_p0340_fsi_rpt128.py::test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_fr_340`, with `::test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340` as the control of the criterion. R4 does not apply, and nothing stays owed.*
+    *Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section 'The two checks the route's memory asked of this run', check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence: RPT-128, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5, on a cambered NACA 4412 half wing: on the rigid point the summed cut moments are 1.00825 of the solver's moment about the same line and the summed cut forces 0.99033 of the lift, so `xz_moment_verdict` is `confirmed` by R2 (the coupled point 1.00791 and 0.99045); the FSI page's XZ reading cites RPT-128 (R3). RPT-128 records in its front matter a machine-readable `xz_moment_verdict` of `confirmed` or `refuted` with the two ratios; the marker test reads it, recomputes the verdict from the two ratios by R2, and asserts the branch it names, a missing or inconsistent value failing it; the two ratios are the fields `xz_moment_ratio` and `xz_force_ratio`. Marker test: `tests/tier1_offline/test_p0340_fsi_rpt128.py::test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_fr_340`, with `::test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340` as the control of the criterion. R4 does not apply, and nothing stays owed.*
 
     Need: An XZ cut is a section of the wing by a plane parallel to the simulation's XZ plane at one spanwise station; the package reads the `Moment` of each cut as positive about +y, nose up (the reading RPT-092 states and found consistent in sign), and the FSI route takes the torsion it applies from it. The risk is the magnitude.
 
@@ -8397,7 +8362,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2073, PFS-2073.04: planned at 0.34.0 (GOAL-039), moved to 0.36.0 on 2026-10-01, carried by item S6 of 0.37.0 (GOAL-044).
 
-    *Origin: planning item PFS-2073.04 (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Scope GOAL-044 item S6, narrowed by the owner on 2026-10-05 after the 26.125 licensed arms: "S6 (a), implementa só no qsteady" (the quasi-steady rotor sector with direct morphing; unsteady_rotor refused with the measured reason). Marker P0370-S6-DIRECT-MORPHING; it replaces P0340-FSI-MODAL, whose report RPT-129 was never run because 26.124 does not recognise the command (RPT-154). Verification: test, `tests/tier1_offline/test_p0370_s6_direct_morphing.py` (offline: the option, its refusals, the structural program's rows and the unchanged mapped route), and the licensed arms of RPT-155 (tier 3).*
+    *Origin: planning item PFS-2073.04 (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Scope GOAL-044 item S6, narrowed by the owner on 2026-10-05 after the 26.125 licensed arms: part (a) only, implemented only in qsteady (the quasi-steady rotor sector with direct morphing; unsteady_rotor refused with the measured reason). Marker P0370-S6-DIRECT-MORPHING; it replaces P0340-FSI-MODAL, whose report RPT-129 was never run because 26.124 does not recognise the command (RPT-154). Verification: test, `tests/tier1_offline/test_p0370_s6_direct_morphing.py` (offline: the option, its refusals, the structural program's rows and the unchanged mapped route), and the licensed arms of RPT-155 (tier 3).*
 
     Need: Route C of the coupling design moves the solver's surface mesh directly by the displacements the structural program returns (direct morphing), with no structural nodes imported and no interpolation by the solver between them. The truncation test applies arbitrary displacements, not ones a structural solution produced, through two loop cycles, to see whether the solver keeps what it is given.
 
@@ -8423,7 +8388,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2073, PFS-2073.06, PFS-2075, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2073.06 of the 0.34.0 scope, "T1: probe specifications for the four commands that have none, for tier 2" (GEO-071, section 4.3): tier 2 (the `pyfs-qa probe` tier defined in `docs/tiers.md`) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Read at 0.35.0 (GOAL-040): the promotion of R3, applied from the report committed under `reports/compat/`. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence: the census of R1 and a test that each command of it has a catalog entry; RPT-127, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5: `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` verified, RPT-127's evidence committed as `reports/probes/RPT-127_2026-10-02_evidence.yaml`, and a test that RPT-127 states the verdict that evidence records, with a planted mismatch as its control. Tests written: `tests/tier1_offline/test_p0340_t1_probe_specs.py`, `tests/tier1_offline/test_rpt127_fr342_tier2.py`. The compat report is committed as `reports/compat/CMP-26124_2026-10-02_t1-probe.yaml` and the three database statuses are promoted from it (`pyfs-qa apply-compat`; `SET_NEW_UNSTEADY_SOLVER_ACTION` folded into its multi-line block by hand, as the tool directs), with `tests/tier1_offline/test_rpt127_fr342_tier2.py::test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342`.*
+    *Origin: planning item PFS-2073.06 of the 0.34.0 scope, 'T1: probe specifications for the four commands that have none, for tier 2' (GEO-071, section 4.3): tier 2 (the `pyfs-qa probe` tier defined in `docs/tiers.md`) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Read at 0.35.0 (GOAL-040): the promotion of R3, applied from the report committed under `reports/compat/`. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence: the census of R1 and a test that each command of it has a catalog entry; RPT-127, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5: `ROTATE_SURFACE`, `SET_NEW_UNSTEADY_SOLVER_ACTION` and `SET_WAKE_TERMINATION_TIME_STEPS` verified, RPT-127's evidence committed as `reports/probes/RPT-127_2026-10-02_evidence.yaml`, and a test that RPT-127 states the verdict that evidence records, with a planted mismatch as its control. Tests written: `tests/tier1_offline/test_p0340_t1_probe_specs.py`, `tests/tier1_offline/test_rpt127_fr342_tier2.py`. The compat report is committed as `reports/compat/CMP-26124_2026-10-02_t1-probe.yaml` and the three database statuses are promoted from it (`pyfs-qa apply-compat`; `SET_NEW_UNSTEADY_SOLVER_ACTION` folded into its multi-line block by hand, as the tool directs), with `tests/tier1_offline/test_rpt127_fr342_tier2.py::test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342`.*
 
     Need: A command the package emits that has no probe specification is never re-measured, so a change in the solver would not be seen.
 
@@ -8507,7 +8472,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with GOAL-039, wave 2, package ADPROF at 0.34.0: the 0.34.0 package work reads this requirement.
 
-    *Origin: the author request of 2026-10-01, "tools/fts-research/scripts/ad_design.py --> vamos adicionar ao workspace igual fields", and the placement "0.34" of the same day: the actuator-disc profiles a research study wrote by a script of its own become a workspace operation, the way the field operations build a custom free stream (FR-250 and the field operations of 0.31.0). The method is the one the study measured on 26.124 and RPT-137 summarises (the CUSTOM profiles carried 0.95 to 1.04 of the thrust asked; the ELLIPTICAL model, native, about 0.62; a RELAXED disc ignored the profile); the form of the file is RPT-070's. Marker P0340-ADPROF; read at 0.34.0 (GOAL-039, wave 2). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, each R-item verified on its own, every expected number worked out in the test from a synthetic fixture. Evidence: `tests/tier1_offline/test_p0340_adprof.py` (R1 `::test_p0340_adprof_a_pol_s_written_sections_become_the_profile`, `::test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k`, `::test_p0340_adprof_pol_finds_its_family_s_table_alone` and `::test_p0340_adprof_refusals_name_what_is_wrong`; R2 `::test_p0340_adprof_the_uniform_and_betz_prandtl_shapes`; R3 `::test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both`; R4 `::test_p0340_adprof_the_integral_of_the_written_rows_is_stated`; R5 and R7 `::test_p0340_adprof_the_plan_reads_the_written_profile`, the file bound by the row's PROFILE, read by the run's profile reader unchanged, every point READY, the RELAXED disc noted by the command and warned about by the plan with a RIGID disc as the control, and R5's refusals of a disc both named and stated and of a disc whose `profile_units` are not `NEWTONS` in `::test_p0340_adprof_refusals_name_what_is_wrong`; R6 `::test_p0340_adprof_preview_overwrite_and_one_file_per_stem` and the foreign-option case of `::test_p0340_adprof_refusals_name_what_is_wrong`; R7 `::test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so`), the module `pyflightstream.workspace.actuator_profiles` with its doctests, and the page `docs/actuator-profiles.md`.*
+    *Origin: the author request of 2026-10-01, to add the script to the workspace, as the field operations are, and the placement "0.34" of the same day: the actuator-disc profiles a research study wrote by a script of its own become a workspace operation, the way the field operations build a custom free stream (FR-250 and the field operations of 0.31.0). The method is the one the study measured on 26.124 and RPT-137 summarises (the CUSTOM profiles carried 0.95 to 1.04 of the thrust asked; the ELLIPTICAL model, native, about 0.62; a RELAXED disc ignored the profile); the form of the file is RPT-070's. Marker P0340-ADPROF; read at 0.34.0 (GOAL-039, wave 2). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, each R-item verified on its own, every expected number worked out in the test from a synthetic fixture. Evidence: `tests/tier1_offline/test_p0340_adprof.py` (R1 `::test_p0340_adprof_a_pol_s_written_sections_become_the_profile`, `::test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k`, `::test_p0340_adprof_pol_finds_its_family_s_table_alone` and `::test_p0340_adprof_refusals_name_what_is_wrong`; R2 `::test_p0340_adprof_the_uniform_and_betz_prandtl_shapes`; R3 `::test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both`; R4 `::test_p0340_adprof_the_integral_of_the_written_rows_is_stated`; R5 and R7 `::test_p0340_adprof_the_plan_reads_the_written_profile`, the file bound by the row's PROFILE, read by the run's profile reader unchanged, every point READY, the RELAXED disc noted by the command and warned about by the plan with a RIGID disc as the control, and R5's refusals of a disc both named and stated and of a disc whose `profile_units` are not `NEWTONS` in `::test_p0340_adprof_refusals_name_what_is_wrong`; R6 `::test_p0340_adprof_preview_overwrite_and_one_file_per_stem` and the foreign-option case of `::test_p0340_adprof_refusals_name_what_is_wrong`; R7 `::test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so`), the module `pyflightstream.workspace.actuator_profiles` with its doctests, and the page `docs/actuator-profiles.md`.*
 
     Need: A study that loads an actuator disc with a measured or a generic radial profile writes the file by hand or by a script outside the package, so neither its form nor its scale is checked before a seat is spent.
 
@@ -8525,7 +8490,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-348 The inventory states a geometry's face count, and the super file and the unsteady polar carry it as their last column <span class='srs-pending'>pending</span>"
 
-    *Origin: the author decision of 2026-10-01 that brings the export of the mesh face count into 0.34.0, in the words "passa para entrar na 34 exportar o mesh_faces, pode ser no inventory e ele só puxa de lá se o campo existir" (the inventory states it, and the post takes it only where the field exists); the build first took a field that exists only with the sha256 the run recorded for the file, and at the integration of 2026-10-02 the session decided to follow those words: the field is taken whenever it exists, and where the inventory's `mesh_sha256` is not the sha256 the run recorded, the post log warns naming both and never blocks (R3); measured before it, no column of the super file or of the unsteady polar carried the face count, so a run's cost could not be set against the size of its mesh beside `NCPUS`. Marker P0340-MESH-FACES; read at 0.34.0 (GOAL-039, wave 2, package MESHFACES). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only. Evidence: `tests/tier1_offline/test_p0340_mesh_faces.py::test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys_fr_348` (R1 and R2 on a synthetic mesh block, with a block holding a face that is not a triangle and a block that ends after its records as the controls), `::test_the_inventory_command_counts_each_group_of_an_obj_fr_348` (R1 and R2 on an OBJ through `pyfs-matrix inventory`, an empty group and the faces before the first group included), `::test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348` (R3 and R4 on two recorded campaigns, a super file one and an unsteady rotor one, the same campaign whose run recorded another sha256 as the control: the count in every row as well, a post log warning naming both sha256 that the first post does not write, and every other cell the same), `::test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348` (R4 across the drafts of one campaign), `::test_a_count_whose_file_moved_under_it_is_not_written_fr_348` (R1 and R2: a file whose sha256 differs after the count gives no inventory line, and a count per boundary that does not stand beside the listed boundaries is left out), `::test_the_post_never_counts_and_a_missing_count_is_na_fr_348` (R5: an inventory without `mesh_faces` beside the very bytes the run recorded, so a post that counted would write 7, and the post writes `NA`; then the inventory with its count beside a geometry replaced by bytes no face reader can count, so a post that counted would fail or write `NA`, and the post writes the inventory's 7), `::test_the_parity_names_the_column_whole_and_alone_fr_348` and `::test_the_snapshot_admits_the_column_whole_and_alone_fr_348` (R6, each with its controls: a second change, the column not last, a cell that is not a count, an added line, and a product the requirement does not name), and `::test_the_definitions_page_and_the_glossary_state_the_column_fr_348` (R7); each test was proved by a mutant of the code it covers, made in place and restored.*
+    *Origin: the author decision of 2026-10-01 that brings the export of the mesh face count into 0.34.0, with the instruction to export it, possibly through the inventory, the post pulling it only if the field exists (the inventory states it, and the post takes it only where the field exists); the build first took a field that exists only with the sha256 the run recorded for the file, and at the integration of 2026-10-02 the session decided to follow that instruction: the field is taken whenever it exists, and where the inventory's `mesh_sha256` is not the sha256 the run recorded, the post log warns naming both and never blocks (R3); measured before it, no column of the super file or of the unsteady polar carried the face count, so a run's cost could not be set against the size of its mesh beside `NCPUS`. Marker P0340-MESH-FACES; read at 0.34.0 (GOAL-039, wave 2, package MESHFACES). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only. Evidence: `tests/tier1_offline/test_p0340_mesh_faces.py::test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys_fr_348` (R1 and R2 on a synthetic mesh block, with a block holding a face that is not a triangle and a block that ends after its records as the controls), `::test_the_inventory_command_counts_each_group_of_an_obj_fr_348` (R1 and R2 on an OBJ through `pyfs-matrix inventory`, an empty group and the faces before the first group included), `::test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348` (R3 and R4 on two recorded campaigns, a super file one and an unsteady rotor one, the same campaign whose run recorded another sha256 as the control: the count in every row as well, a post log warning naming both sha256 that the first post does not write, and every other cell the same), `::test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348` (R4 across the drafts of one campaign), `::test_a_count_whose_file_moved_under_it_is_not_written_fr_348` (R1 and R2: a file whose sha256 differs after the count gives no inventory line, and a count per boundary that does not stand beside the listed boundaries is left out), `::test_the_post_never_counts_and_a_missing_count_is_na_fr_348` (R5: an inventory without `mesh_faces` beside the very bytes the run recorded, so a post that counted would write 7, and the post writes `NA`; then the inventory with its count beside a geometry replaced by bytes no face reader can count, so a post that counted would fail or write `NA`, and the post writes the inventory's 7), `::test_the_parity_names_the_column_whole_and_alone_fr_348` and `::test_the_snapshot_admits_the_column_whole_and_alone_fr_348` (R6, each with its controls: a second change, the column not last, a cell that is not a count, an added line, and a product the requirement does not name), and `::test_the_definitions_page_and_the_glossary_state_the_column_fr_348` (R7); each test was proved by a mutant of the code it covers, made in place and restored.*
 
     Need: The time a run takes grows with the faces of its mesh, and no product said how many faces a run had, so the cost of a set of runs could not be read against the size of the meshes they solved.
 
@@ -9534,7 +9499,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-411 Every command that names a matrix finds it in its one workspace home, whatever the working directory holds <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: owner report of 2026-10-03 on 0.35.1 ("primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
+    *Origin: owner report of 2026-10-03 on 0.35.1 (a matrix reported in two places while it was only in inputs/matrices), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_matrix_home.py`.*
 
     Need: A user whose matrix is in `inputs/matrices/` alone must be able to run `rebuild` (and every other command) on it without being told it is in two places.
 
@@ -9553,7 +9518,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-412 rebuild makes the records of a workspace whose runs.json is lost <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: owner report of 2026-10-03 on 0.35.1 ("eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`.*
+    *Origin: owner report of 2026-10-03 on 0.35.1 (a runs.json deleted by accident that could not be regenerated, the error not saying there is no record), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_rebuild_lost.py`.*
 
     Need: A user who deleted `runs.json` while the simulations of a campaign, grouped batches included, are on disk must get the records back from `rebuild`.
 
@@ -9572,7 +9537,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-413 A point whose outputs are present and whose solver log is absent is RAN_MISSING_LOG, collected and posted <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: owner proposal of 2026-10-03 ("podia ter um status RAN_MISSING_LOG") and the rule of 2026-10-05 ("lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda"), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`.*
+    *Origin: owner proposal of 2026-10-03 (a status RAN_MISSING_LOG could exist) and the rule of 2026-10-05 (the post does not refuse when the status is RAN_MISSING_LOG, it still runs), scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_ran_missing_log.py`.*
 
     Need: A user whose solver logs were deleted after the runs ended must be able to collect and post those points, knowing which conclusions the log would have carried.
 
@@ -9593,7 +9558,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-414 mark-converged records a person's verdict of CONVERGED, with its reason and a copy of runs.json <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.01 (0.37.0).
 
-    *Origin: owner request of 2026-10-03 ("me manda um script python simples que marca converged nas polares que eu quiser"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`.*
+    *Origin: owner request of 2026-10-03 (a simple Python script that marks converged the polars wanted), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, `tests/tier1_offline/test_p0370_s1_mark_converged.py`.*
 
     Need: A user who knows from their own reading that points converged must be able to record that verdict in the workspace, in the package's own form, instead of editing `runs.json` by hand.
 
@@ -9611,7 +9576,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-415 The per-step exports can cover the last revolutions or the last steps of a run <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.03 (0.37.0).
 
-    *Origin: owner note for 0.37 of 2026-10-05 ("Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV"), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
+    *Origin: owner note for 0.37 of 2026-10-05 (EXPORT_UNSTEADY_AFTER_REV exists today, also create EXPORT_UNSTEADY_LAST_REV), scope GOAL-044 item S3. Verification: test, `tests/tier1_offline/test_p0370_s3_last_rev.py`.*
 
     Need: A user who wants the per-step exports of the end of a run must be able to say how much of the end, without computing the first step from the run length herself.
 
@@ -9632,7 +9597,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-416 free-space keeps the last K per-step exports, or deletes a stated step range <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.04 (0.37.0).
 
-    *Origin: owner note for 0.37 of 2026-10-05 ("Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady"), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
+    *Origin: owner note for 0.37 of 2026-10-05 (a free-space recipe that takes the range of iterations to delete, to keep the last 12 iterations of an unsteady post-processing), scope GOAL-044 item S4. Verification: test, `tests/tier1_offline/test_p0370_s4_prune_range.py`.*
 
     Need: A user who cleans an unsteady workspace must be able to keep more than the last step of each per-step export, or to delete a range of steps they name.
 
@@ -9651,7 +9616,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-417 A probe entry of an unsteady row states its kind, unsteady (default) or normal <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.05 (0.37.0).
 
-    *Origin: owner decision of 2026-10-05 ("no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes."), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`.*
+    *Origin: owner decision of 2026-10-05 (in unsteady and unsteady rotor runs, an option to state whether the probes are unsteady probes or normal probes, unsteady probes by default), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_probe_kind.py`.*
 
     Need: A user of an unsteady run who needs the flow at probe points only at the end of the run must be able to ask for probe points rather than a fluid plot per point and parameter, whose history the solver writes at every time step (RPT-083 measured fluid plots as per-step histories and the steady `EXPORT_PROBE_POINTS`; it measured no probe point after an unsteady march).
 
@@ -9674,7 +9639,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-418 The reusable inflow is built from normal probes of an unsteady run <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.05 (0.37.0).
 
-    *Origin: owner correction of 2026-10-05 ("para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady."), scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`.*
+    *Origin: owner correction of 2026-10-05 (for an unsteady run without a rotor the solution may reach a steady regime with no harmonic, so the probe of the last iteration serves a quasi-steady study; the inflow function must therefore be able to generate the inflow from the normal probes of an unsteady run too), scope GOAL-044 item S5. Verification: test, `tests/tier1_offline/test_p0370_s5_normal_inflow.py`.*
 
     Need: A user of an unsteady run with no rotor that settles to a steady regime must be able to take the custom inflow for a quasi-steady rotor from probes sampled at its last time step.
 
@@ -9691,7 +9656,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.07 (0.37.0).
 
-    *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 ("vamos puxar apenas 1 e 2"); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
+    *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (only candidates 1 and 2 taken); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
 
     Need: A user comparing the solver settings of a campaign's runs must get them as one numeric table with its legend from `pyfs-matrix post`, without calling the library.
 
@@ -9708,7 +9673,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-420 The pproc asks for installed-frame copies of the inflow tables <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.08 (0.37.0).
 
-    *Origin: GEO-070 candidate "Declarar cópia de tabelas no frame instalado pelo pproc", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
+    *Origin: GEO-070 candidate declaring a copy of tables in the frame installed by the post, taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, `tests/tier1_offline/test_p0370_s8_installed.py`.*
 
     Need: A user whose rotor is installed on the other side of the plane y = 0 from the one simulated must get the inflow tables mirrored from the post, without running `to_installed_frame` herself.
 
@@ -9727,7 +9692,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-421 The grouped modes' help names every row they leave out, and their refusals name the remedy <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.09 (0.37.0).
 
-    *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 ("As recusas para o usuário não precisam citar o id do RPT."); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
+    *Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 (refusals shown to the user need not cite the RPT id); scope GOAL-044 item S9. Verification: test, `tests/tier1_offline/test_p0370_s9_grouped_help.py`.*
 
     Need: A user choosing `--batch` or `--polar-sweep` must learn from the help which rows will be left out and, from each left-out line, what to do instead.
 
@@ -9743,7 +9708,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-422 An unsteady rotor row can set its run length from a target wake length <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.02 (0.37.0).
 
-    *Origin: owner request of 2026-10-03 ("poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio") and the answer of 2026-10-05 ("a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas"); scope GOAL-044 item S2. Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`.*
+    *Origin: owner request of 2026-10-03 (the iterations or revolutions defined from the length of the rotor wake as a multiple of the radius) and the answer of 2026-10-05 (the wake is measured helically, which is the advance-ratio concept already built into the iteration count for the wake termination; what is wanted is the same for the number of simulated iterations); scope GOAL-044 item S2. Verification: test, `tests/tier1_offline/test_p0370_s2_run_wake.py`.*
 
     Need: A user of `unsteady_rotor` must be able to state how far the wake should have travelled, in rotor radii, and get the run length from it, as the wake termination already does.
 
@@ -9764,7 +9729,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-423 FlightStream 26.125 is a supported build <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.10 (0.37.0).
 
-    *Origin: owner request of 2026-10-05 ("agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace") and its widening the same day ("inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace"); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, run on 2026-10-05 (`reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`, R6).*
+    *Origin: owner request of 2026-10-05 (build 26.125 is now in scope of 0.37, so all the probes run to catch every command, test them and make them available to run simulations through emit and through the workspace) and its widening the same day (include all the new commands too, with 26.125 fully absorbed in the package and in the workspace); scope GOAL-044 item S10. Verification: test, `tests/tier1_offline/test_p0370_s10_build_26125.py` and `tests/tier1_offline/test_p0370_s10_simcenter_outputs.py`; the tier-2 probe campaign of 26.125, run on 2026-10-05 (`reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml`, R6).*
 
     Need: A user holding the 26.125 build must be able to emit scripts for it, run a workspace on it and read its outputs, with every command the build's manual documents available and judged.
 

@@ -896,8 +896,7 @@
     the set of modules does not grow. `py.typed` is still not shipped.
 
 !!! requirement "NFR-28 A shipped workspace reads as a set-up, not as a diary <span class='srs-pending'>pending</span>"
-    *Origin: feedback item #0 of 2026-09-02, "tratar como um teste
-    simples sem comentarios de historico". Carried by PFS-2029.13.
+    *Origin: feedback item #0 of 2026-09-02, treat it as a simple test with no comments of history. Carried by PFS-2029.13.
     Evidence owed: the checker that node names.*
 
     Every comment in a workspace artifact this repository ships or
