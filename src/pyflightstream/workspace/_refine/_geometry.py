@@ -42,8 +42,8 @@ SKEWNESS_MARGIN = 0.05
 WARP_FLOOR_DEGREES = 10.0
 #: FR-426 R3: the 95th percentile of the size growth may reach this ratio.
 GROWTH_FLOOR = 2.0
-#: FR-426 R3: a figure within this fraction of a limit or a floor meets it; the written
-#: coordinates carry nine decimals, so a level equal to its source differs by rounding.
+#: FR-426 R3: a figure within this fraction of a limit or a floor meets it, so a figure
+#: computed in a different order of floating-point operations is not judged by rounding.
 CHECK_TOLERANCE = 1e-6
 #: FR-426 R3: size growth is measured across edges whose dihedral is below this.
 GROWTH_DIHEDRAL_DEGREES = 30.0
@@ -83,6 +83,16 @@ PERIODIC_LEVEL_FRACTION = 1e-9
 PERIODIC_SOURCE_FRACTION = 1e-6
 #: FR-428 R1: the projected edge lengths match their factor within this fraction.
 AXIAL_BAND = 0.15
+#: FR-425 R2, R3 and FR-427: a level node lies on a source curve (a grid's interface with
+#: a neighbour, a periodic cut) when it is within this fraction of the nearest segment's
+#: length from it.
+ON_CURVE_FRACTION = 0.25
+#: FR-425 R5, FR-426 R2 G3: a level loop closes the same opening as a source loop when every
+#: node of each lies within this fraction of the source loop's extent (the diagonal of its
+#: bounding box) from the other's polyline. Resampling a loop moves its polyline by the
+#: sagitta of the segments it merges, a few hundredths of the extent of a coarsened circle;
+#: a hole moved by one cell of its own size moves by at least 0.7 of it.
+OPENING_FRACTION = 0.25
 #: FR-425 R3: the band of an unchanged neighbour is this many face layers deep.
 BAND_LAYERS = 2
 #: The schema version of refine.json and audit.json (FR-424 R4, FR-426 R1).

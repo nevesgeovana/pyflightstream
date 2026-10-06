@@ -9,14 +9,18 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
+from pyflightstream._decimal import plain_decimal
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._lengths import METRES_PER_UNIT, scale
 
 Faces = list[list[int]]
 
@@ -32,6 +36,9 @@ class ObjMesh:
     families: dict[str, Faces]
     header: list[str] = field(default_factory=list)
     family_tag: str = "g"
+    #: Per vertex, the coordinate text to write (the source's ``v`` words, as read),
+    #: or None to write the number itself; empty to write every vertex's number.
+    vertex_text: list[str | None] = field(default_factory=list)
 
     def family_vertices(self, name: str) -> NDArray[numpy.int64]:
         """Return the sorted indices of the vertices the family's faces use."""
@@ -88,6 +95,8 @@ def read_obj(path: str | Path) -> ObjMesh:
             mesh.header.append(s)
         elif s and not s.startswith("#"):
             current = _statement(f"{source}: line {number}", s, verts, mesh, current)
+            if len(verts) > len(mesh.vertex_text):
+                mesh.vertex_text.append(" ".join(s.split()[1:4]))
     if not mesh.families:
         raise _refuse(source, "the file holds no face")
     mesh.verts = numpy.asarray(verts, dtype=float).reshape(-1, 3)
@@ -116,12 +125,30 @@ def _statement(
     return current
 
 
+def coordinates(point: NDArray[numpy.float64]) -> str:
+    """Return a point as written: each coordinate the plain decimal that reads back to it.
+
+    The shortest round-trip digits and never an exponent
+    (:func:`pyflightstream._decimal.plain_decimal`), so a node written and
+    read back is the node computed, at any scale (FR-424 R7).
+    """
+    return " ".join(plain_decimal(float(x)) for x in point)
+
+
 def obj_text(mesh: ObjMesh, note: str | None = None) -> str:
-    """Return the OBJ text of a mesh, nine decimals per coordinate, families in their order."""
+    """Return the OBJ text of a mesh, families in their order.
+
+    A vertex whose source text is known (``vertex_text``) is written as the
+    source wrote it; every other is written by :func:`coordinates`.
+    """
     lines = list(mesh.header)
     if note:
         lines.append(f"# {note}")
-    lines += [f"v {x:.9f} {y:.9f} {z:.9f}" for x, y, z in mesh.verts]
+    known = mesh.vertex_text if len(mesh.vertex_text) == len(mesh.verts) else []
+    lines += [
+        f"v {known[i] if known and known[i] is not None else coordinates(p)}"
+        for i, p in enumerate(mesh.verts)
+    ]
     for name, faces in mesh.families.items():
         lines.append(f"{mesh.family_tag} {name}")
         lines += ["f " + " ".join(str(v + 1) for v in f) for f in faces]
@@ -149,6 +176,123 @@ def compact(
     return verts[keep], {n: [[order[v] for v in f] for f in fs] for n, fs in families.items()}
 
 
+#: The suffix of a mesh's boundaries file, beside it.
+SIDECAR_SUFFIX = ".boundaries.toml"
+#: The suffix of a mesh's trailing-edge points file when its boundaries file names none.
+TE_SUFFIX = ".te.txt"
+
+
+def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
+    """Return a mesh's boundaries file and its tables, or None when it has none.
+
+    Raises
+    ------
+    InputArtifactError
+        The file is not TOML; nothing was written.
+    """
+    sidecar = Path(obj).with_name(Path(obj).stem + SIDECAR_SUFFIX)
+    if not sidecar.is_file():
+        return None
+    try:
+        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise InputArtifactError(
+            f"{sidecar}: not TOML ({error}). Fix the file and run again. Nothing was written.",
+            kind=KIND,
+        ) from error
+
+
+def te_file(obj: str | Path) -> Path | None:
+    """Return a mesh's trailing-edge points file, or None when it has none.
+
+    It is the file the boundaries file names under ``[trailing_edges] file``,
+    or else ``<stem>.te.txt`` beside the mesh. The refinement and the audit
+    both read it here, so they refuse the same inputs (FR-424 R11).
+
+    Raises
+    ------
+    InputArtifactError
+        The boundaries file is not TOML, or names a points file that does not
+        exist; nothing was written.
+    """
+    read = read_sidecar(obj)
+    named = None
+    if read is not None:
+        table = read[1].get("trailing_edges")
+        named = table.get("file") if isinstance(table, dict) else None
+    if read is not None and isinstance(named, str):
+        file = read[0].parent / named
+        if not file.is_file():
+            raise InputArtifactError(
+                f"{read[0]}: names the trailing-edge file {named}, which does not exist. "
+                "Write the points file or remove the key and run again. Nothing was written.",
+                kind=KIND,
+            )
+        return file
+    default = Path(obj).with_name(Path(obj).stem + TE_SUFFIX)
+    return default if default.is_file() else None
+
+
+def mesh_unit(obj: str | Path) -> str | None:
+    """Return the length unit the boundaries file states for the mesh, ``[import] units``.
+
+    The unit a raw mesh is written in is stated there and never assumed
+    (:class:`pyflightstream.cases.mesh.MeshImport`); None when it is not stated.
+    """
+    read = read_sidecar(obj)
+    table = None if read is None else read[1].get("import")
+    units = table.get("units") if isinstance(table, dict) else None
+    return units.strip().upper() if isinstance(units, str) and units.strip() else None
+
+
+@dataclass(frozen=True)
+class TrailingPoints:
+    """A mesh's trailing-edge points: the file's unit line and the points in the mesh's unit.
+
+    ``to_file`` multiplies a length in the mesh's unit into the file's unit,
+    so a points file written back keeps the source file's unit line.
+    """
+
+    unit: str
+    points: NDArray[numpy.float64]
+    to_file: float
+
+
+def te_points(obj: str | Path) -> TrailingPoints | None:
+    """Read a mesh's trailing-edge points and convert them to the mesh's unit.
+
+    The points file states its unit on its first line; the mesh's unit is the
+    ``[import] units`` of its boundaries file. When both are stated and differ
+    the points are converted (:func:`pyflightstream._lengths.scale`), as the
+    package converts a points file for a run; when the mesh states none, the
+    points are read in the mesh's unit.
+
+    Raises
+    ------
+    InputArtifactError
+        The points file, or the boundaries file that names it, is refused
+        (:func:`te_file`, :func:`read_te`), or the two units cannot be
+        converted (a unit that names no scale); nothing was written.
+    """
+    file = te_file(obj)
+    if file is None:
+        return None
+    unit, points = read_te(file)
+    target = mesh_unit(obj)
+    if target is None or unit.strip().upper() == target:
+        return TrailingPoints(unit, points, 1.0)
+    into, back = scale(unit.strip().upper(), target), scale(target, unit.strip().upper())
+    if into is None or back is None:
+        raise InputArtifactError(
+            f"{file}: its points are in {unit} and the mesh is in {target} (the [import] units "
+            "of its boundaries file), and one of the two names no length scale, so the points "
+            f"cannot be converted. Give both in one of {', '.join(METRES_PER_UNIT)} and run "
+            "again. Nothing was written.",
+            kind=KIND,
+        )
+    return TrailingPoints(unit, points * into, back)
+
+
 def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
     """Read a trailing-edge points file: a unit line, then one ``x,y,z`` row per point."""
     source = Path(path)
@@ -165,7 +309,7 @@ def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
 def write_te(path: str | Path, unit: str, midpoints: NDArray[numpy.float64]) -> Path:
     """Write a trailing-edge points file under the given unit line and return the path."""
     target = Path(path)
-    rows = [unit] + [f"{x:.9f},{y:.9f},{z:.9f}" for x, y, z in midpoints]
+    rows = [unit] + [coordinates(p).replace(" ", ",") for p in midpoints]
     _textio.write_lines(target, rows)
     return target
 

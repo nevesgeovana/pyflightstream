@@ -21,17 +21,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy
 import pytest
 
 import pyflightstream
 import pyflightstream.workspace as workspace
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
 from pyflightstream.workspace._refine._grid import recover_grid
 from tests.p0380_mesh_fixtures import (
+    Composite,
+    body_of_revolution,
     face_coordinates,
+    l_sheet,
     read_mesh,
     sheet_with_strips,
     write_source,
@@ -211,6 +215,80 @@ def test_r2_components_are_read_whatever_gives_the_factors(tmp_path):
     assert list(read_mesh(level.obj)[1]) == ["Wing"]
 
 
+def _two_tubes(tmp_path: Path, refine_toml: str) -> Path:
+    """Write two disconnected smooth tubes, families A and B, as ``<tmp>/src/tubes.obj``."""
+    body = body_of_revolution()
+    n = len(body.verts)
+    mesh = Composite(
+        numpy.vstack([body.verts, body.verts + [0.0, 4.0, 0.0]]),
+        {"A": body.faces, "B": [[v + n for v in f] for f in body.faces]},
+        numpy.zeros((0, 3)),
+        {},
+    )
+    return write_source(tmp_path / "src", "tubes", mesh, refine_toml=refine_toml)
+
+
+BOTH_TABLES = "[families.A]\nfactor = 2\n[families.B]\nfactor = 2\n"
+
+
+def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R2, R11): ``--families`` selects when the file gives the factors.
+
+    The file states factor 2 for A and B; ``families=["A"]`` changes A alone
+    and B is written as the source holds it. A selected name the mesh does
+    not hold is refused on this route as on the FACTOR route, and so is a
+    selection the file states no factor for. Control: without the selection
+    both tubes are refined.
+    """
+    src = _two_tubes(tmp_path, BOTH_TABLES)
+    text = _refused(tmp_path, src, families=["A", "Z"])
+    assert f"{src}: the mesh holds no family 'Z'; it holds A, B" in text
+    code, _, err = _command(capsys, str(src), "--families", "A,Z")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    src.with_name("tubes.refine.toml").write_bytes(b"[families.A]\nfactor = 2\n")
+    text = _refused(tmp_path, src, families=["B"])
+    assert "states no factor for the selected families B" in text
+    src.with_name("tubes.refine.toml").write_bytes(BOTH_TABLES.encode("utf-8"))
+    sv, sf = read_mesh(src)
+    level = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
+    lv, lf = read_mesh(level.obj)
+    assert len(lf["A"]) == 4 * len(sf["A"])
+    assert face_coordinates(lv, lf["B"]) == face_coordinates(sv, sf["B"])
+    assert level.folder.name == "tubes_R-A2" and level.report["B"] == {"method": "copied"}
+    code, _, _ = _command(capsys, str(src), "--families", "A", "--out-dir", str(tmp_path / "cmd"))
+    assert code == 0
+    assert len(read_mesh(tmp_path / "cmd" / "tubes_R-A2" / "tubes_R-A2.obj")[1]["B"]) == 144
+    both = refine_mesh(src, out_dir=tmp_path / "all")
+    assert both.folder.name == "tubes_R2" and len(read_mesh(both.obj)[1]["B"]) == 576
+
+
+def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
+    """P0380-REFINE (FR-424 R2, R4): a [families.*] table the refinement does not read is said.
+
+    With FACTOR, the file's family tables are not read for their factors
+    (R2), and with ``--families`` on the file's factors an unselected table is
+    not read: each is a warning naming the tables, and ``refine.json`` lists
+    them under ``ignored_families_tables``. Control: the file's factors for
+    every family warn of nothing and record an empty list.
+    """
+    src = _two_tubes(tmp_path, BOTH_TABLES)
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.A\], \[families\.B\]") as seen:
+        called = refine_mesh(src, 1.0, out_dir=tmp_path / "called")
+    assert "FACTOR, --chordwise or --spanwise gives the factors" in str(seen[0].message)
+    assert _json(called.files[2])["ignored_families_tables"] == ["A", "B"]
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]") as seen:
+        one = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
+    assert "--families selects A" in str(seen[0].message)
+    assert _json(one.files[2])["ignored_families_tables"] == ["B"]
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        every = refine_mesh(src, out_dir=tmp_path / "every")
+    assert not [w for w in caught if "families." in str(w.message)]
+    assert _json(every.files[2])["ignored_families_tables"] == []
+
+
 def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
     """P0380-REFINE (FR-424 R2, R11): no FACTOR, no direction and no file is refused.
 
@@ -281,6 +359,68 @@ def test_r3_the_refinement_file_is_refused_naming_file_table_and_key(tmp_path, c
     assert code == 2 and text in err and _left(tmp_path) == []
     src.with_name("wing.refine.toml").write_bytes(b"[families.G]\nfactor = 2\n")
     assert _command(capsys, str(src))[0] == 0 and _left(tmp_path) == ["wing_R2"]
+
+
+@pytest.mark.parametrize(
+    ("toml", "said"),
+    [
+        ("families = 3\n", "[families]: the value 3 is not a table"),
+        ("families = []\n", "[families]: the value [] is not a table"),
+        ("[families]\nG = 3\n", "[families.G]: the value 3 is not a table"),
+        ("refine = 3\n", "[refine]: the value 3 is not a table"),
+        ("refine = false\n", "[refine]: the value False is not a table"),
+        ("components = 0\n", "[components]: the table must map a component name"),
+        ("[refine]\ntag = 3\n", "[refine] tag: 3 is not a text"),
+    ],
+    ids=["families-scalar", "families-empty-list", "family-scalar", "refine-scalar",
+         "refine-false", "components-zero", "tag-number"],
+)  # fmt: skip
+def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsys, toml, said):
+    """P0380-REFINE (FR-424 R3, R11): valid TOML whose table is a scalar, a list or falsey.
+
+    Each is refused by the function and the command alike with the standard
+    refusal (the file, the table, what to write, "Nothing was written."), not
+    a Python exception. The factor is given in the call, so the file is read
+    only for its tables. Control: the file's tables written as tables pass.
+    """
+    src = _source(tmp_path, refine_toml=toml)
+    text = _refused(tmp_path, src, 1.0)
+    assert text.startswith(str(src.with_name("wing.refine.toml"))) and said in text, text
+    code, _, err = _command(capsys, str(src), "1")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    src.with_name("wing.refine.toml").write_bytes(
+        b'[refine]\ntag = "t"\n[families.G]\nfactor = 1\n[components]\nAll = ["G"]\n'
+    )
+    assert _command(capsys, str(src), "1")[0] == 0
+
+
+@pytest.mark.parametrize(
+    ("toml", "said"),
+    [
+        (
+            "[periodic]\naxis = [1, 0, 0]\nspin = 1\n",
+            "unknown key spin; missing keys origin, copies; the keys are axis, origin, copies",
+        ),
+        (
+            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\n",
+            "missing key copies; the keys are axis, origin, copies",
+        ),
+        (
+            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\ncopies = 3\nturns = 1\nspin = 2\n",
+            "unknown keys spin, turns; the keys are axis, origin, copies",
+        ),
+    ],
+    ids=["unknown-and-missing", "missing", "unknown"],
+)
+def test_r3_a_periodic_table_names_its_unknown_and_its_missing_keys(tmp_path, toml, said):
+    """P0380-REFINE (FR-424 R3; FR-427 R2): the refusal names each unknown and each missing key.
+
+    The unknown keys and the missing keys are named separately, not as one
+    "unknown or missing" key.
+    """
+    src = _source(tmp_path, refine_toml=toml)
+    text = _refused(tmp_path, src, 1.0)
+    assert f"{src.with_name('wing.refine.toml')} [periodic]: {said}" in text, text
 
 
 # ---------------------------------------------------------- R4 what a level holds
@@ -391,6 +531,27 @@ def test_r5_the_command_writes_the_tagged_level_and_prints_its_files(tmp_path, c
         assert str(path) in out
 
 
+def test_r5_the_refine_help_states_its_exit_status_beside_audit_meshs(capsys):
+    """P0380-REFINE (FR-424; FR-426 R1): ``refine --help`` says a failed audit still exits 0.
+
+    The help states that ``refine`` exits 0 when the level is written, a
+    failed audit being a warning with the audit written, that ``audit-mesh``
+    exits 1 on a failed audit, and that a refusal exits 2. Control: the
+    ``audit-mesh`` help states its own exit status.
+    """
+    help_text = {}
+    for verb in ("refine", "audit-mesh"):
+        capsys.readouterr()
+        with pytest.raises(SystemExit):
+            cli.main([verb, "--help"])
+        help_text[verb] = " ".join(capsys.readouterr().out.split())
+    said = help_text["refine"]
+    assert "Exits 0 when the level is written, even when its audit fails" in said, said
+    assert "audit-mesh exits 1 on the same audit" in said
+    assert "Exits 2 when the request is refused" in said
+    assert "Exits 0 when every gate and check passes, 1 when one fails" in help_text["audit-mesh"]
+
+
 def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
     """P0380-REFINE (FR-424 R5, R11): a second run is refused and leaves the first level alone.
 
@@ -441,6 +602,216 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     assert _left(tmp_path) == ["wing_R0p5", "wing_R2"]
 
 
+def _resampled_while(call) -> list[str]:
+    """Run ``call()`` and return the grid resamplings it started (a profile, no patching)."""
+    seen: list[str] = []
+
+    def profile(frame, event, arg):
+        if event == "call" and frame.f_code.co_name in ("refine_grid", "refine_blocks"):
+            seen.append(frame.f_code.co_name)
+
+    sys.setprofile(profile)
+    try:
+        call()
+    finally:
+        sys.setprofile(None)
+    return seen
+
+
+@pytest.mark.parametrize(
+    ("sidecar", "said"),
+    [
+        (
+            'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\n',
+            "names the trailing-edge file missing.te.txt, which does not exist",
+        ),
+        ('boundaries = ["G"\n', "not TOML"),
+    ],
+    ids=["missing-points-file", "malformed-sidecar"],
+)
+def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
+    tmp_path, capsys, sidecar, said
+):
+    """P0380-REFINE (FR-424 R5, R11; FR-426 R2 G4): the inputs the audit reads are checked first.
+
+    A boundaries file naming a points file that does not exist, or that is not
+    TOML, is refused by the function and the command before any family is
+    resampled (a profile records every call of the grid resampling), and no
+    level folder is published. With ``overwrite`` the level already there is
+    kept byte for byte. Controls: the audit refuses the same sidecar with the
+    same reason, and the profile sees the resampling of a run that is not
+    refused.
+    """
+    from pyflightstream.workspace import audit_mesh
+
+    src = _source(tmp_path)
+    assert _resampled_while(lambda: refine_mesh(src, 2.0)) == ["refine_grid"]
+    first = tmp_path / "wing_R2"
+    kept = _snapshot(first)
+    src.with_name("wing.boundaries.toml").write_bytes(sidecar.encode("utf-8"))
+    caught: list[InputArtifactError] = []
+
+    def refused() -> None:
+        with pytest.raises(InputArtifactError) as error:
+            refine_mesh(src, 2.0, overwrite=True)
+        caught.append(error.value)
+
+    assert _resampled_while(refused) == []
+    text = str(caught[0])
+    assert said in text and text.endswith("Nothing was written."), text
+    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first) == kept
+    code, _, err = _command(capsys, str(src), "1")
+    assert code == 2 and said in err and _left(tmp_path) == ["wing_R2"]
+    with pytest.raises(InputArtifactError, match=said):
+        audit_mesh(src)
+
+
+def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_path):
+    """P0380-REFINE (FR-424 R4, R5): the level is published only after its audit is written.
+
+    The audit runs inside the staging folder. Coarsening the strip T at 0.5
+    fails its growth check, a warning, which a caller running with warnings
+    as errors turns into an exception raised by the audit: no level folder is
+    published, no staging folder is left, and with ``overwrite`` the previous
+    level is kept byte for byte. Control: the same call with warnings shown
+    replaces the level, and the returned audit names the published folder.
+    """
+    import warnings
+
+    pytest.importorskip("trimesh")
+    src = _source(tmp_path, WITH_T)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        first = refine_mesh(src, 0.5)
+    assert not first.audit.passed
+    (first.folder / "planted.txt").write_bytes(b"x")
+    kept = _snapshot(first.folder)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        with pytest.raises(PyflightstreamWarning, match="audit check growth failed on T"):
+            refine_mesh(src, 0.5, overwrite=True)
+        assert _left(tmp_path) == ["wing_R0p5"] and _snapshot(first.folder) == kept
+        with pytest.raises(PyflightstreamWarning):
+            refine_mesh(src, 0.5, out_dir=tmp_path / "other")
+        assert not any((tmp_path / "other").iterdir())
+    with pytest.warns(PyflightstreamWarning, match="growth failed on T"):
+        level = refine_mesh(src, 0.5, overwrite=True)
+    assert not (level.folder / "planted.txt").exists() and _left(tmp_path) == ["other", "wing_R0p5"]
+    assert level.audit is not None
+    assert level.audit.path == level.folder / "wing_R0p5.audit.json" == level.files[-1]
+    assert level.audit.mesh == level.obj and level.audit.path.is_file()
+
+
+#: The same boundaries file spelled in six legal TOML ways (the fixture's own form first).
+SIDECARS = {
+    "double-quoted": 'boundaries = ["G", "T"]\n\n[trailing_edges]\nfile = "wing.te.txt"\n',
+    "literal-strings": "boundaries = ['G', 'T']\n[trailing_edges]\nfile = 'wing.te.txt'\n",
+    "multi-line-commented": (
+        '# the boundaries\nboundaries = [\n  "G", # the grid\n  "T",\n] # end\n'
+        '[trailing_edges]\nfile = "wing.te.txt" # the points\n'
+    ),
+    "inline-table-escapes": (
+        'boundaries = ["\\u0047", "T"]\ntrailing_edges = { file = "wing\\u002ete.txt" }\n'
+    ),
+    "dotted-key": "boundaries = ['G', 'T']\ntrailing_edges.file = 'wing.te.txt'\n",
+    "quoted-keys": '"boundaries" = ["G", "T"]\n"trailing_edges"."file" = "wing.te.txt"\n',
+}
+
+
+@pytest.mark.parametrize("spelling", list(SIDECARS))
+def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelling):
+    """P0380-REFINE (FR-424 R4; FR-425 R4): the level's boundaries file is the source's, rewritten.
+
+    The source's boundaries file is spelled with literal strings, comments,
+    a multi-line array, an inline table with escapes or a dotted key, beside
+    an unrelated ``[import]`` table and a comment. With ``[components]
+    Wing = ["G", "T"]`` the level's file names the component and the new
+    points file, its other values are the source's, its comments are kept, and
+    its boundaries are the output OBJ's families. Control: the fixture's own
+    double-quoted spelling gives the same values.
+    """
+    text = SIDECARS[spelling] + '\n[import]\nunits = "METER" # stated, never assumed\n'
+    src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
+    src.with_name("wing.boundaries.toml").write_text(text, encoding="utf-8")
+    level = refine_mesh(src, 1.0)
+    written = level.files[2].read_text(encoding="utf-8")
+    import tomllib
+
+    values = tomllib.loads(written)
+    assert values["boundaries"] == ["Wing"] == list(read_mesh(level.obj)[1])
+    assert values["trailing_edges"] == {"file": "wing_R1.te.txt"} and level.files[1].is_file()
+    assert values["import"] == {"units": "METER"} and "# stated, never assumed" in written
+    if spelling == "multi-line-commented":
+        assert "# the points" in written and written.startswith("# the boundaries\n")
+    assert next(g for g in level.audit.gates if g.name == "G4").passed
+
+
+def _points_in(src: Path, unit: str, scale: float, mesh_unit: str | None) -> list[str]:
+    """Rewrite the source's points file in ``unit`` (coordinates times ``scale``).
+
+    The boundaries file gains ``[import] units = mesh_unit`` when one is given;
+    return the rows written after the unit line.
+    """
+    side = src.with_name("wing.boundaries.toml")
+    if mesh_unit is not None:
+        side.write_text(
+            side.read_text(encoding="utf-8") + f'\n[import]\nunits = "{mesh_unit}"\n',
+            encoding="utf-8",
+        )
+    points = src.with_name("wing.te.txt")
+    rows = points.read_text(encoding="utf-8").split()[1:]
+    scaled = [",".join(repr(float(x) * scale) for x in row.split(",")) for row in rows]
+    points.write_text("\n".join([unit, *scaled]) + "\n", encoding="utf-8")
+    return scaled
+
+
+def _g4(audit) -> dict:
+    return dict(next(g for g in audit.gates if g.name == "G4").values)
+
+
+@pytest.mark.parametrize("factor", [1.0, 2.0])
+def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, capsys, factor):
+    """P0380-REFINE (FR-424 R4, R6; FR-426 R2 G4): the points file's unit line is honoured.
+
+    The OBJ is in metres (``[import] units = "METER"`` of its boundaries file,
+    the package's convention) and its trailing-edge points are the same
+    physical mid-points written in millimetres. The audit matches every point
+    to an edge, and the level's points file keeps the MILLIMETER unit line with
+    one mid-point per trailing-edge edge, in millimetres; the level's audit
+    passes G4 with the source's chain count. At factor 1 the level's points are
+    the source's. Controls: the same file declaring the mesh in MILLIMETER
+    matches no point (G4 fails), and a unit that names no scale is refused.
+    """
+    src = _source(tmp_path)
+    rows = _points_in(src, "MILLIMETER", 1000.0, "METER")
+    from pyflightstream.workspace import audit_mesh
+
+    alone = audit_mesh(src)
+    assert _g4(alone)["points_on_edges"] == _g4(alone)["points"] == len(rows) > 0
+    capsys.readouterr()
+    assert cli.main(["audit-mesh", str(src)]) == 0
+    alone.path.unlink()
+    level = refine_mesh(src, factor)
+    lines = level.files[1].read_text(encoding="utf-8").split()
+    assert level.files[1].name == f"{level.folder.name}.te.txt" and lines[0] == "MILLIMETER"
+    written = numpy.array([[float(x) for x in r.split(",")] for r in lines[1:]])
+    source = numpy.array([[float(x) for x in r.split(",")] for r in rows])
+    if factor == 1.0:
+        assert numpy.allclose(written, source, rtol=0, atol=1e-6)
+    else:
+        assert len(written) == 2 * len(source)
+    g4 = _g4(level.audit)
+    assert g4["points_on_edges"] == g4["points"] == len(written)
+    assert g4["chains"] == g4["source_chains"] == 1 and level.audit.passed
+    control = _source(tmp_path / "control")
+    _points_in(control, "MILLIMETER", 1000.0, "MILLIMETER")
+    assert _g4(audit_mesh(control))["points_on_edges"] == 0
+    other = _source(tmp_path / "other")
+    _points_in(other, "OTHER", 1.0, "METER")
+    with pytest.raises(InputArtifactError, match="OTHER.*Nothing was written"):
+        refine_mesh(other, factor)
+
+
 # ----------------------------------------------------------------- R7 face order
 
 
@@ -473,6 +844,81 @@ def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path):
     vertex_lines = _mesh_lines(src, ("v",))
     assert [vertex_lines[v] for v in order] != vertex_lines
     assert sorted(vertex_lines[v] for v in order) == sorted(vertex_lines)
+
+
+def _sheet_source(folder: Path, scale: float) -> tuple[Path, numpy.ndarray]:
+    """Write the L-shaped multiblock sheet scaled by ``scale``, each coordinate round-trip exact."""
+    sheet = l_sheet()
+    verts = sheet.verts * scale
+    lines = ["v " + " ".join(format(float(x), ".17g") for x in p) for p in verts] + ["g S"]
+    lines += ["f " + " ".join(str(v + 1) for v in f) for f in sheet.faces]
+    folder.mkdir(parents=True)
+    src = folder / "plate.obj"
+    src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return src, verts
+
+
+@pytest.mark.parametrize("scale", [1e-7, 0.01, 1.0, 1e3])
+def test_r7_factor_one_keeps_every_source_coordinate_at_any_precision(tmp_path, scale):
+    """P0380-REFINE (FR-424 R7; FR-426 R2 G1, G6): coordinates are written so they read back equal.
+
+    A source written with 17 significant digits, at scales from 1e-7 to 1e3,
+    refined at factor 1 reads back with every coordinate equal to the
+    source's and G6 passes; refined at factor 2 its new nodes stay distinct
+    (G1 finds no two nodes at one position). Control: the source's
+    coordinates written with nine decimals, as the writer wrote them, are
+    not the source's at these scales.
+    """
+    src, verts = _sheet_source(tmp_path / "src", scale)
+    level = refine_mesh(src, 1.0)
+    new, _ = read_mesh(level.obj)
+    assert numpy.array_equal(new, verts)
+    assert all(g.passed for g in level.audit.gates)
+    assert next(g for g in level.audit.gates if g.name == "G6").verdict == "pass"
+    finer = refine_mesh(src, 2.0)
+    g1 = next(g for g in finer.audit.gates if g.name == "G1")
+    assert g1.values["node_pairs_at_one_position"] == 0 and g1.passed
+    nine = numpy.array([[float(f"{x:.9f}") for x in p] for p in verts])
+    assert scale == 1.0 or not numpy.array_equal(nine, verts)
+
+
+def _swap_two_faces(obj: Path) -> None:
+    """Exchange the first two face lines of an OBJ in place."""
+    lines = obj.read_text(encoding="utf-8").splitlines()
+    a, b = [i for i, line in enumerate(lines) if line.startswith("f ")][:2]
+    lines[a], lines[b] = lines[b], lines[a]
+    obj.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("components", [None, '[components]\nWing = ["G"]\n'])
+def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, components):
+    """P0380-REFINE (FR-424 R7; FR-426 R1, R2 G6): G6 is judged from the level's refine.json.
+
+    refine.json lists the grid families written at factor 1 (a component
+    whose every member is one counts as one), and audit_mesh, and so the
+    command, read it for a level audited against the source it names. A saved
+    factor-1 level with two faces exchanged fails G6 and audit-mesh exits 1.
+    Controls: the unmodified level passes with G6 judged; refine.json naming
+    another source leaves G6 not judged.
+    """
+    from pyflightstream.workspace import audit_mesh
+
+    src = _source(tmp_path, refine_toml=components)
+    level = refine_mesh(src, 1.0)
+    family = "G" if components is None else "Wing"
+    record = _json(level.files[3])
+    assert record["unchanged_grids"] == [family]
+    again = audit_mesh(level.obj, against=src)
+    assert [(g.family, g.verdict) for g in again.gates if g.name == "G6"] == [(family, "pass")]
+    _swap_two_faces(level.obj)
+    failed = audit_mesh(level.obj, against=src)
+    assert [(g.family, g.verdict) for g in failed.gates if g.name == "G6"] == [(family, "fail")]
+    capsys.readouterr()
+    assert cli.main(["audit-mesh", str(level.obj), "--against", str(src)]) == 1
+    record["source"] = "another.obj"
+    level.files[3].write_text(json.dumps(record), encoding="utf-8")
+    other = audit_mesh(level.obj, against=src)
+    assert next(g for g in other.gates if g.name == "G6").verdict == "not judged"
 
 
 # --------------------------------------------------------------------- R9 method
@@ -528,6 +974,42 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
         assert code == 2 and text in err and _left(root) == []
     level = refine_mesh(src, 2.0)
     assert level.report["T"]["method"] == "remesh" and _left(root) == ["wing_R2"]
+
+
+def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resampling(
+    tmp_path, monkeypatch, capsys
+):
+    """P0380-REFINE (FR-424 R10, R11; FR-425 R3): the band's remesh is planned before any work.
+
+    Only G is selected, beside the unchanged strip T; G's tip station, the
+    curve they share, gains nodes at factor 2, so T must be remeshed in its
+    band. With scipy and rtree unimportable the refusal names T and the
+    remedy, by both routes, before any grid is resampled (a profile records
+    every call of the resampling). Controls: at chordwise 1 and spanwise 2
+    the shared station keeps its nodes, so no band is needed and the level is
+    written without the extra; with the extra the band is written.
+    """
+    src = _source(tmp_path, WITH_T)
+    with monkeypatch.context() as blocked:
+        for name in ("scipy", "scipy.spatial", "rtree"):
+            blocked.setitem(sys.modules, name, None)
+        caught: list[MissingExtraError] = []
+
+        def refused() -> None:
+            with pytest.raises(MissingExtraError) as error:
+                refine_mesh(src, 2.0, families=["G"])
+            caught.append(error.value)
+
+        assert _resampled_while(refused) == []
+        text = str(caught[0])
+        assert "family T" in text and "~band" not in text and "pyflightstream[geom]" in text
+        assert text.endswith("Nothing was written.") and _left(tmp_path) == []
+        code, _, err = _command(capsys, str(src), "2", "--families", "G")
+        assert code == 2 and text in err and _left(tmp_path) == []
+        kept = refine_mesh(src, 1.0, families=["G"], spanwise=2.0)
+        assert kept.report["T"] == {"method": "copied"}
+    level = refine_mesh(src, 2.0, families=["G"])
+    assert level.report["T"]["method"] == "unchanged" and level.report["T"]["band"] > 0
 
 
 # ------------------------------------------------------- R12, R13 the bytes written
@@ -613,17 +1095,34 @@ def _reaching(found: set[str], prefixes: tuple[str, ...]) -> list[str]:
 
 
 REFINE = "pyflightstream.workspace._refine"
-PRIVATE = tuple(f"{REFINE}.{m}" for m in ("_grid", "_remesh", "_level", "_config"))
+#: The modules of the refinement package the audit may import: the shared helpers.
+AUDIT_MAY_IMPORT = ("_audit", "_geometry", "_obj")
+
+
+def _refinement_modules() -> tuple[str, ...]:
+    """Return every module of the refinement package the audit must not import.
+
+    Read from the package's files, so a module added to the refinement is
+    covered without editing a list (the shared helpers are the exceptions).
+    """
+    folder = PACKAGE / "workspace" / "_refine"
+    names = sorted(p.stem for p in folder.glob("*.py") if p.stem != "__init__")
+    return tuple(f"{REFINE}.{n}" for n in names if n not in AUDIT_MAY_IMPORT)
+
+
+PRIVATE = _refinement_modules()
 
 
 def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows():
     """P0380-REFINE (FR-424 R14): an AST walk of every import, deferred ones included.
 
     ``workspace/_refine`` imports nothing of ``pyflightstream.run``; ``_audit``
-    imports none of ``_grid``, ``_remesh``, ``_level`` and ``_config``; the
-    command reaches the refinement only through public names of
+    imports no module of the refinement package but the shared helpers
+    ``_geometry`` and ``_obj`` (the list is read from the package's files);
+    the command reaches the refinement only through public names of
     ``pyflightstream.workspace``. Controls: each rule run on a planted source
-    holding the forbidden import (deferred, inside a function) reports it.
+    holding the forbidden import (deferred, inside a function) reports it,
+    every refinement module among them.
     """
     refine = PACKAGE / "workspace" / "_refine"
     files = sorted(refine.glob("*.py"))
@@ -644,11 +1143,65 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
         "pyflightstream.run.cli",
     ]
     assert _reaching(planted, PRIVATE) == [f"{REFINE}._grid", f"{REFINE}._level"]
+    names = {"_blocks", "_config", "_grid", "_level", "_periodic", "_remesh"}
+    assert {m.rpartition(".")[2] for m in PRIVATE} >= names
+    for module in PRIVATE:
+        leaf = module.rpartition(".")[2]
+        planted = _imports(f"def f():\n    from . import {leaf}\n", REFINE)
+        assert _reaching(planted, PRIVATE) == [module], leaf
+        planted = _imports(f"from {module} import x\n", REFINE)
+        assert module in _reaching(planted, PRIVATE), leaf
     command = _imports(
         "def g():\n    from pyflightstream.workspace._refine._level import refine_mesh\n",
         "pyflightstream.run",
     )
     assert _reaching(command, (REFINE,)) == [f"{REFINE}._level", f"{REFINE}._level.refine_mesh"]
+
+
+#: The shared engineering thresholds of the section, defined once in ``_geometry``.
+SHARED_THRESHOLDS = (
+    "DUPLICATE_FRACTION",
+    "TE_POINT_FRACTION",
+    "GRID_SURFACE_DISTANCE",
+    "ZERO_AREA_FRACTION",
+    "ON_CURVE_FRACTION",
+    "OPENING_FRACTION",
+)
+
+
+def _threshold_literals(text: str, values: set[float]) -> list[tuple[int, float]]:
+    """Return the line and value of every numeric literal of the source equal to a threshold."""
+    return sorted(
+        (node.lineno, float(node.value))
+        for node in ast.walk(ast.parse(text))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, float)
+        and float(node.value) in values
+    )
+
+
+def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
+    """P0380-REFINE (section thresholds rule): a shared threshold is defined once, in _geometry.
+
+    No module of the refinement package but ``_geometry`` spells the value of
+    a shared fraction as a literal; the remesher's own tuning constants are
+    named in ``_remesh`` and not shared, so it is not scanned. The rule of a
+    node on a shared curve (``ON_CURVE_FRACTION``) is read by the grid's
+    interfaces and the periodic cuts alike. Control: a planted source that
+    spells the trailing-edge distance as a literal is reported.
+    """
+    from pyflightstream.workspace._refine import _geometry, _periodic
+
+    values = {float(getattr(_geometry, name)) for name in SHARED_THRESHOLDS} - {0.25}
+    folder = PACKAGE / "workspace" / "_refine"
+    for path in sorted(folder.glob("*.py")):
+        if path.stem in ("_geometry", "_remesh", "__init__"):
+            continue
+        assert _threshold_literals(path.read_text(encoding="utf-8"), values) == [], path.name
+    assert _periodic.ON_CURVE_FRACTION is _geometry.ON_CURVE_FRACTION
+    assert not hasattr(_periodic, "ON_CUT_FRACTION")
+    planted = "def hit(d, scale):\n    return d < 1e-6 * scale\n"
+    assert _threshold_literals(planted, values) == [(2, 1e-6)]
 
 
 def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):

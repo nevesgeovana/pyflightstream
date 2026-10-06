@@ -60,13 +60,17 @@ def _outcomes(junit: Path, guards: tuple[str, ...]) -> dict[str, list[str] | Non
     """Map each guard file to the names of its failed tests; None when none of its tests ran.
 
     A test case belongs to a guard when its dotted class name is the guard's
-    module or starts with it (a test class inside the module).
+    module or starts with it (a test class inside the module). A skipped case
+    did not run, so a guard whose every case was skipped maps to None and is
+    reported NOT RUN (NFR-44 R1).
     """
     modules = {g: g[: -len(".py")].replace("/", ".") for g in guards}
     result: dict[str, list[str] | None] = dict.fromkeys(guards)
     for case in ET.parse(junit).getroot().iter("testcase"):
         classname = case.get("classname") or ""
         bad = case.find("failure") is not None or case.find("error") is not None
+        if case.find("skipped") is not None and not bad:
+            continue
         for guard, module in modules.items():
             if classname == module or classname.startswith(module + "."):
                 names = result[guard] if result[guard] is not None else []

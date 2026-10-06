@@ -23,16 +23,23 @@ The order, from the source to the level folder:
    a factor-1 family or the band of an unchanged neighbour stays frozen;
 6. assemble in the source's family order, weld the shared nodes, put each
    band back into its family in the source's order, group the components
-   (FR-425 R4), and write the level into a temporary folder renamed once
-   complete (FR-424 R4, R5).
+   (FR-425 R4), write the level into a temporary folder, audit it there
+   (FR-426), and rename it once complete; an existing level is replaced only
+   then (FR-424 R4, R5).
+
+Every input the audit refuses (the boundaries file, the trailing-edge points
+file it names) is read in step 1, so a refusal comes before any work (R11).
 """
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import json
 import os
 import re
 import shutil
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,9 +61,12 @@ Points = NDArray[numpy.float64]
 #: The suffix of a band family while it is remeshed; it never reaches the level.
 BAND_SUFFIX = "~band"
 #: The trailing-edge points file of a mesh, when its boundaries file names none.
-TE_SUFFIX = ".te.txt"
+TE_SUFFIX = _obj.TE_SUFFIX
 #: The folder a level is written into before it is renamed to its own name (FR-424 R5).
 STAGING_SUFFIX = ".partial"
+#: The name an existing level is moved to while ``overwrite`` replaces it, until the new
+#: level is in place (FR-424 R5): an error before then puts it back.
+PREVIOUS_SUFFIX = ".previous"
 
 
 @dataclass(frozen=True)
@@ -93,7 +103,8 @@ class _Work:
     mesh: ObjMesh
     request: RefineRequest
     te_unit: str
-    te_points: Points
+    te_to_file: float
+    te_points: Points  # in the mesh's unit; te_to_file turns a length into te_unit's
     names: list[str]
     original: dict[str, Faces]
     fam_v: dict[str, set[int]]
@@ -107,6 +118,8 @@ class _Work:
     bands: dict[str, str] = field(default_factory=dict)
     cuts: list[_periodic.CutPair] = field(default_factory=list)
     periodic: dict[str, Any] | None = None
+    sidecar: str | None = None  # the level's boundaries file, rewritten before any work
+    unchanged: list[str] = field(default_factory=list)  # the families G6 compares
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -116,30 +129,19 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 # --------------------------------------------------------------------- reading
 
 
-def _te_file(source: Path) -> Path | None:
-    """Return the trailing-edge points file the boundaries file names, else ``<stem>.te.txt``."""
-    side = source.with_name(source.stem + ".boundaries.toml")
-    if side.is_file():
-        match = re.search(r'(?m)^\s*file\s*=\s*"([^"]+)"', side.read_text(encoding="utf-8"))
-        if match and source.with_name(match.group(1)).is_file():
-            return source.with_name(match.group(1))
-    beside = source.with_name(source.stem + TE_SUFFIX)
-    return beside if beside.is_file() else None
-
-
 def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[int]:
     """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
     if not len(points):
         return set()
     edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
     dist, index = NearestIndex(mid).query(points)
-    hit = dist < 1e-6 * scale
+    hit = dist < _geometry.TE_POINT_FRACTION * scale
     return {int(v) for v in edges[index[hit]].ravel()}
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
-    te = _te_file(source)
-    unit, points = _obj.read_te(te) if te else ("METER", numpy.zeros((0, 3)))
+    te = _obj.te_points(source)
+    unit, points = ("METER", numpy.zeros((0, 3))) if te is None else (te.unit, te.points)
     scale = mesh.size
     names = list(mesh.families)
     return _Work(
@@ -147,6 +149,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         mesh=mesh,
         request=request,
         te_unit=unit,
+        te_to_file=1.0 if te is None else te.to_file,
         te_points=points,
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
@@ -191,10 +194,42 @@ def _decide(work: _Work) -> None:
                 f"{work.source} family {name}",
                 "chordwise and spanwise apply to a grid; it is remeshed, give factor",
             )
-    if work.remesh:
+    bands = _planned_bands(work)
+    if work.remesh or bands:
         from pyflightstream.workspace._refine._remesh import require_geometry_extra
 
-        require_geometry_extra(work.remesh)
+        require_geometry_extra([*work.remesh, *bands])
+
+
+def _planned_bands(work: _Work) -> list[str]:
+    """Return the unchanged families whose band will be remeshed (FR-425 R3), before any work.
+
+    An unchanged neighbour gets a band when it shares a curve with a grid
+    family whose nodes on that curve change, which the grid's counts tell
+    without resampling it (:func:`._grid.curve_changes`,
+    :func:`._blocks.nodes_change`); its remesh needs the geometry extra like
+    any other (FR-424 R10, R11).
+    """
+    planned: list[str] = []
+    for name in [n for n in work.names if n not in work.request.specs]:
+        for grid_name, grid in work.grids.items():
+            old = work.fam_v[grid_name] & work.fam_v[name]
+            edges = [
+                e
+                for e in _geometry.boundary_edges(work.mesh.families[grid_name])
+                if e[0] in old and e[1] in old
+            ]
+            if not edges:
+                continue
+            chordwise, spanwise = work.request.specs[grid_name].directions
+            if isinstance(grid, _blocks.Blocks):
+                changes = _blocks.nodes_change(grid, chordwise)
+            else:
+                changes = _grid.curve_changes(grid, edges, chordwise=chordwise, spanwise=spanwise)
+            if changes:
+                planned.append(name)
+                break
+    return planned
 
 
 def _grid_after_grid(work: _Work) -> None:
@@ -336,8 +371,9 @@ def _interface_points(
     """Return the grid's new boundary nodes on the curve it shares with a neighbour.
 
     The curve is the grid's source boundary edges whose two ends are shared
-    (``old``); a new node is on it when it lies within a quarter of a
-    segment's length from one of those edges.
+    (``old``); a new node is on it when it lies within
+    :data:`._geometry.ON_CURVE_FRACTION` of a segment's length from one of
+    those edges.
     """
     source_edges = [
         e for e in _geometry.boundary_edges(work.mesh.families[name]) if e[0] in old and e[1] in old
@@ -356,7 +392,7 @@ def _interface_points(
         )
         d = numpy.linalg.norm(a + t[:, None] * ab - p, axis=1)
         j = int(numpy.argmin(d))
-        if d[j] < 0.25 * length[j]:
+        if d[j] < _geometry.ON_CURVE_FRACTION * length[j]:
             keep.append(v)
     return level.points[keep] if keep else None
 
@@ -364,9 +400,8 @@ def _interface_points(
 def _unchanged_curve(work: _Work, old: set[int], new: Points) -> bool:
     """Return whether the grid kept exactly the source nodes of a shared curve."""
     olds = work.mesh.verts[sorted(old)]
-    return (
-        len(new) == len(olds) and float(NearestIndex(olds).query(new)[0].max()) < 1e-9 * work.scale
-    )
+    tolerance = _geometry.DUPLICATE_FRACTION * work.scale
+    return len(new) == len(olds) and float(NearestIndex(olds).query(new)[0].max()) < tolerance
 
 
 def _bands(work: _Work) -> None:
@@ -535,19 +570,37 @@ def _source_numbering(
     return verts[order], renumbered
 
 
+def _source_text(work: _Work, verts: Points) -> list[str | None]:
+    """Return, per level node, the source's coordinate text when the node is a source node.
+
+    A node equal in every coordinate to the source node at its position is
+    written as the source wrote it, so a node the refinement kept is the
+    source's in its text too (FR-424 R7); any other node is written by
+    :func:`._obj.coordinates`.
+    """
+    if not len(verts) or len(work.mesh.vertex_text) != len(work.mesh.verts):
+        return []
+    dist, index = NearestIndex(work.mesh.verts).query(verts)
+    same = (dist == 0.0) & numpy.all(work.mesh.verts[index] == verts, axis=1)
+    return [work.mesh.vertex_text[int(i)] if s else None for i, s in zip(index, same, strict=True)]
+
+
 def _te_points_of(work: _Work, name: str) -> NDArray[numpy.bool_]:
     """Return which listed trailing-edge points lie on an edge of the family."""
     if not len(work.te_points):
         return numpy.zeros(0, dtype=bool)
     _, mid = _obj.edge_midpoints(work.mesh.verts, work.mesh.families[name])
     dist, _ = NearestIndex(mid).query(work.te_points)
-    return dist < 1e-6 * work.scale
+    return dist < _geometry.TE_POINT_FRACTION * work.scale
 
 
 def _weld(
     verts: Points, families: dict[str, Faces], scale: float
 ) -> tuple[Points, dict[str, Faces]]:
-    """Weld nodes that coincide within 1e-9 of the size; drop unused ones, in order of first use."""
+    """Weld nodes that coincide within DUPLICATE_FRACTION of the size; drop unused ones.
+
+    The nodes kept are numbered in their order of first use.
+    """
     tolerance = max(_geometry.DUPLICATE_FRACTION * scale, 1e-300)
     keys = numpy.round(verts / tolerance).astype(numpy.int64)
     _, first, inverse = numpy.unique(keys, axis=0, return_index=True, return_inverse=True)
@@ -569,24 +622,84 @@ def _components(work: _Work, faces: dict[str, Faces]) -> dict[str, Faces]:
 
 
 def _boundaries_text(work: _Work, stem: str) -> str | None:
-    """Return the source's boundaries file naming the new points file and the components."""
-    side = work.source.with_name(work.source.stem + ".boundaries.toml")
-    if not side.is_file():
+    """Return the source's boundaries file naming the new points file and the components.
+
+    The file is read as TOML, and only the two values that change are
+    rewritten in place: ``[trailing_edges] file`` and, with components, the
+    ``boundaries`` list (FR-425 R4); every other byte, comments included, is
+    the source's. Each rewrite is checked by parsing the result, which must
+    equal the source's values with those two replaced, so no spelling of
+    TOML can make a rewrite land on the wrong text.
+
+    Raises
+    ------
+    InputArtifactError
+        A value the rewrite cannot place; nothing was written. It is called
+        before any family is resampled (FR-424 R11).
+    """
+    read = _obj.read_sidecar(work.source)
+    if read is None:
         return None
+    side, data = read
     text = side.read_text(encoding="utf-8")
-    te = _te_file(work.source)
-    if te is not None:
-        text = text.replace(f'"{te.name}"', f'"{stem}{TE_SUFFIX}"')
+    table = data.get("trailing_edges")
+    named = table.get("file") if isinstance(table, dict) else None
+    if isinstance(named, str):
+        changed = copy.deepcopy(data)
+        changed["trailing_edges"]["file"] = f"{stem}{TE_SUFFIX}"
+        text = _rewrite(side, text, "file", named, changed)
+        data = changed
     owner = {m: c for c, members in work.request.components.items() for m in members}
-    match = re.search(r"boundaries\s*=\s*\[(.*?)\]", text, re.DOTALL)
-    if match and owner:
-        names: list[str] = []
-        for n in re.findall(r'"([^"]+)"', match.group(1)):
-            if owner.get(n, n) not in names:
-                names.append(owner.get(n, n))
-        listed = "boundaries = [" + ", ".join(f'"{n}"' for n in names) + "]"
-        text = text[: match.start()] + listed + text[match.end() :]
+    listed = data.get("boundaries")
+    if owner and isinstance(listed, list) and all(isinstance(n, str) for n in listed):
+        names = list(dict.fromkeys(owner.get(n, n) for n in listed))
+        changed = copy.deepcopy(data)
+        changed["boundaries"] = names
+        text = _rewrite(side, text, "boundaries", listed, changed)
     return text
+
+
+#: The places a value can be closed: a quote of a string or the bracket of an array.
+_VALUE_ENDS = re.compile(r"[\"'\]]")
+
+
+def _rewrite(side: Path, text: str, key: str, old: object, wanted: dict[str, Any]) -> str:
+    """Return ``text`` with the value of ``key`` replaced so that it parses to ``wanted``.
+
+    Every spelling of the key (bare, quoted, the last part of a dotted key, a
+    member of an inline table) is a candidate; the value after it is the
+    shortest text that parses to ``old``; the first replacement whose whole
+    file parses to ``wanted`` is the one. The new value is written as JSON
+    strings, which are TOML basic strings.
+    """
+    new = json.dumps(_value_of(wanted, key), ensure_ascii=False)
+    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
+    for match in re.finditer(spelled, text):
+        start = match.end()
+        for end in (m.end() for m in _VALUE_ENDS.finditer(text, start)):
+            try:
+                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
+            except tomllib.TOMLDecodeError:
+                continue
+            if value != old:
+                continue
+            candidate = text[:start] + new + text[end:]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+            break
+    raise _refuse(
+        str(side),
+        f"the value of {key} cannot be rewritten for the level; state it as "
+        f"{key} = {json.dumps(old, ensure_ascii=False)} and run again",
+    )
+
+
+def _value_of(data: dict[str, Any], key: str) -> object:
+    """Return the value a rewrite writes: the ``boundaries`` list or the points file name."""
+    return data[key] if key == "boundaries" else data["trailing_edges"][key]
 
 
 def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:
@@ -603,6 +716,8 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         "config": None if work.request.config is None else work.request.config.name,
         "specs": specs,
         "components": work.request.components,
+        "ignored_families_tables": list(work.request.ignored),
+        "unchanged_grids": list(work.unchanged),
         "families": {
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands
         },
@@ -616,15 +731,17 @@ def _write(
 ) -> list[Path]:
     """Write the level's files into ``folder`` and return them, the OBJ first."""
     stem = folder.name.removesuffix(STAGING_SUFFIX)
-    mesh = ObjMesh(verts, faces, list(work.mesh.header), work.mesh.family_tag)
+    mesh = ObjMesh(
+        verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
+    )
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
     if len(work.te_points):
-        written.append(_obj.write_te(folder / f"{stem}{TE_SUFFIX}", work.te_unit, te))
-    text = _boundaries_text(work, stem)
-    if text is not None:
-        target = folder / f"{stem}.boundaries.toml"
-        _textio.write_text(target, text)
+        target = folder / f"{stem}{TE_SUFFIX}"
+        written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
+    if work.sidecar is not None:
+        target = folder / f"{stem}{_obj.SIDECAR_SUFFIX}"
+        _textio.write_text(target, work.sidecar)
         written.append(target)
     record = folder / f"{stem}.refine.json"
     _textio.write_json(
@@ -717,6 +834,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
+    work.sidecar = _boundaries_text(work, stem)
     where = f"{source} [periodic]"
     work.cuts = _periodic.find_cuts(
         obj.verts, obj.families, request.periodic, size=work.scale, where=where
@@ -731,23 +849,58 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
     )
     faces = _components(work, faces)
+    work.unchanged = _unchanged_grids(work, list(faces))
+    unchanged = work.unchanged
     staging = folder.with_name(folder.name + STAGING_SUFFIX)
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
         written = _write(work, staging, verts, faces, te)
-        if folder.exists():
-            shutil.rmtree(folder)
-        staging.rename(folder)
+        audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
+        _publish(staging, folder)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
-    files = tuple(folder / p.name for p in written)
-    report = json.loads(files[-1].read_text(encoding="utf-8"))["families"]
-    merged = {m for members in work.request.components.values() for m in members}
-    unchanged = [
-        n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0) and n not in merged
-    ]
-    audit = audit_mesh(files[0], against=source, unchanged_grids=unchanged)
-    files = (*files, audit.path)
+    files = tuple(folder / p.name for p in (*written, audit.path))
+    audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
+    report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
     return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+
+
+def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
+    """Return the level's families G6 compares with the source's (FR-426 R2, FR-424 R7).
+
+    A grid family written at factor 1, and a component whose every member is
+    one, in the level's family order. ``refine.json`` lists them, so the
+    audit of a saved level judges G6 as the refinement's own audit does.
+    """
+    ones = {n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0)}
+    components = work.request.components
+    return [
+        n
+        for n in families
+        if (n in components and all(m in ones for m in components[n]))
+        or (n not in components and n in ones)
+    ]
+
+
+def _publish(staging: Path, folder: Path) -> None:
+    """Rename the complete, audited staging folder to the level (FR-424 R5).
+
+    An existing level is moved aside first and removed only once the new one
+    is in place; if the rename fails, it is put back. A path that is not a
+    folder is never replaced.
+    """
+    previous = folder.with_name(folder.name + PREVIOUS_SUFFIX)
+    shutil.rmtree(previous, ignore_errors=True)
+    if folder.exists() and not folder.is_dir():
+        raise FileExistsError(f"{folder} exists and is not a level folder; it was not replaced")
+    if folder.exists():
+        folder.rename(previous)
+    try:
+        staging.rename(folder)
+    except BaseException:
+        if previous.exists() and not folder.exists():
+            previous.rename(folder)
+        raise
+    shutil.rmtree(previous, ignore_errors=True)

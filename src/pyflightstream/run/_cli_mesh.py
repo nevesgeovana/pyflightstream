@@ -71,8 +71,11 @@ def add_mesh_parsers(subparsers: Any) -> None:
 def _refused_csv(csv: str | None) -> str | None:
     """Return the refusal of a ``--csv`` file that cannot be written, before anything is.
 
-    A folder that does not exist, or a path that is a folder, is refused
-    before the audit runs, so a refusal leaves no audit behind (FR-426 R1).
+    A folder that does not exist, a path that is a folder, and a file that
+    cannot be opened for writing are refused before the audit runs, so a
+    refusal leaves no audit behind (FR-426 R1). The file is opened for
+    appending, which changes nothing in it, and removed again when the probe
+    created it.
     """
     if csv is None:
         return None
@@ -82,23 +85,57 @@ def _refused_csv(csv: str | None) -> str | None:
             f"{target}: --csv names a folder, or a file in a folder that does not exist. "
             "Name a file in an existing folder and run again. Nothing was written."
         )
+    existed = target.exists()
+    try:
+        with target.open("a", encoding="utf-8"):
+            pass
+    except OSError as error:
+        return (
+            f"{target}: --csv names a file that cannot be written ({_reason(error)}). "
+            "Close it or make it writable, or name another file, and run again. "
+            "Nothing was written."
+        )
+    if not existed:
+        target.unlink(missing_ok=True)
     return None
+
+
+def _reason(error: OSError) -> str:
+    """Return what the system said of a failed file operation, without the path it repeats."""
+    return str(error.strerror or error)
 
 
 def run_audit_mesh(args: argparse.Namespace) -> int:
     """Audit one OBJ, alone or against its source, and write its audit beside it (FR-426).
 
     The summary goes to standard output, then the audit written and the CSV
-    of ``--csv``, one path per line.
+    of ``--csv``, one path per line. Every refusal, an error of the file
+    system included, is printed in the standard shape (the object, the
+    reason, what to do), ending "Nothing was written." only when that holds.
     """
     if (refused := _refused_csv(args.csv_file)) is not None:
         print(refused, file=sys.stderr)
         return EXIT_REFUSED
     try:
         audit = audit_mesh(args.mesh, against=args.against)
-        written = [audit.path] + _csv(audit, args.csv_file)
-    except (OSError, PyflightstreamError) as error:
+    except PyflightstreamError as error:
         print(str(error), file=sys.stderr)
+        return EXIT_REFUSED
+    except OSError as error:
+        print(
+            f"{error.filename or args.mesh}: the audit could not read or write it "
+            f"({_reason(error)}). Make it readable, and its folder writable, and run again.",
+            file=sys.stderr,
+        )
+        return EXIT_REFUSED
+    try:
+        written = [audit.path] + _csv(audit, args.csv_file)
+    except OSError as error:
+        print(
+            f"{args.csv_file}: the CSV could not be written ({_reason(error)}). Close it or "
+            f"name another file and run again. The audit {audit.path} was written.",
+            file=sys.stderr,
+        )
         return EXIT_REFUSED
     for line in audit.summary() + [str(path) for path in written]:
         print(line)
@@ -120,7 +157,9 @@ _REFINE_DESCRIPTION = (
     "file (--config, or <stem>.refine.toml beside the mesh), whose [components], [periodic] and "
     "[refine] tag are read whenever it exists. Faces are written in the source's order. The "
     "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "
-    "no executable."
+    "no executable. Exits 0 when the level is written, even when its audit fails: each failed "
+    "gate or check is a warning and the audit is written beside the level, while audit-mesh "
+    "exits 1 on the same audit. Exits 2 when the request is refused, and then writes nothing."
 )
 
 

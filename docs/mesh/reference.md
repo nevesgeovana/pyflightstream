@@ -616,9 +616,11 @@ the request is refused. `audit-mesh` exits 0 when every gate and check passes,
 A refusal is printed on standard error, names the object, what was refused and
 what to do, and ends with `Nothing was written.`: every refusal of the
 arguments, the refinement file, the family names and the installed extras comes
-before any family is resampled and before any file is written. A level is
-written into `<folder>.partial` and renamed once complete, so an error leaves
-no level folder behind.
+before any family is resampled and before any file is written, and so does a
+refusal of the boundaries file or of the points file it names, which the audit
+reads. A level is written into `<folder>.partial`, audited there, and renamed
+once complete, so an error leaves no level folder behind; with `--overwrite`
+the existing level is replaced only then, and kept when an error comes first.
 
 ### Where the factors come from
 
@@ -628,9 +630,15 @@ no level folder behind.
 2. When the command gives none of FACTOR, `--chordwise` and `--spanwise`, the
    factors are the `[families.<name>]` tables of the refinement file:
    `--config FILE`, or else `<stem>.refine.toml` beside the mesh. A family the
-   file does not name is not changed.
-3. With no factor on the command and no file, or a file that states no
-   family, the command is refused.
+   file does not name is not changed. `--families` then selects among the
+   file's tables: an unselected family is not changed, and a selected name the
+   mesh does not hold is refused, as on the FACTOR route.
+3. With no factor on the command and no file, a file that states no family,
+   or a selection the file states no factor for, the command is refused.
+4. A `[families.<name>]` table whose factors are not read (every one when the
+   command gives the factors, an unselected one under `--families`) is a
+   warning naming it, and `refine.json` lists it under
+   `ignored_families_tables`; an `elements` key in it still applies.
 
 The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
 are read whenever the file exists, whatever gives the factors.
@@ -727,11 +735,17 @@ through the package's one text route, without a carriage return.
 | `<stem>_<tag>.audit.json` | always | the audit of the level against its source |
 
 The source's points file is the one its `<stem>.boundaries.toml` names under
-`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh.
+`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh. Its points
+are in the unit its first line names; when the boundaries file states the
+mesh's unit (`[import] units`) and it differs, the points are converted to it
+before they are matched to the mesh's edges, by `refine` and `audit-mesh`
+alike, and the level's points file is written back in the source file's unit.
+A unit that names no scale (OTHER) is then refused.
 
 `refine.json` states `schema_version` (1), `source`, `level`, `config` (the
 refinement file read, or null), `specs` (the factors of each family),
-`components`, `faces` (the face count of each family of the output) and, with
+`components`, `ignored_families_tables` (the families whose file table was not
+read for its factors), `faces` (the face count of each family of the output) and, with
 `[periodic]`, `periodic` (the two cut faces, their angle, their node counts and
 the largest distance between matched nodes in the source and in the level).
 Its `families` entry holds, per family:
@@ -772,7 +786,7 @@ FIGURE is reported and never judged.
 |---|---|
 | G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
 | G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
-| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes |
+| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
 | G4 | a trailing-edge point lies on no mesh edge, or the trailing-edge chains are not the source's in number |
 | G5 | two families that shared nodes in the source share none |
 | G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |
@@ -798,7 +812,10 @@ aspect ratio exceeds 50, the trailing-edge triangles whose aspect ratio exceeds
 
 Without `--against` only G1, G2 and G4 are judged and the rest is reported.
 G6 is judged only for a level `refine` wrote, which names its grid families at
-factor 1.
+factor 1 (and each component whose every member is one) in its `refine.json`
+under `unchanged_grids`; `audit-mesh` reads them from the level's
+`refine.json` when it names that level and the source given with `--against`,
+so a saved level is re-audited as `refine` audited it.
 
 `audit.json` holds `schema_version`, `mesh`, `source`, `passed`, `gates` and
 `checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or
@@ -814,7 +831,7 @@ Each of these is imported from `pyflightstream.workspace`.
 |---|---|
 | `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False)` | writes a level and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
-| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares |
+| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)` |
 
 ### Limits of the refinement

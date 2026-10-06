@@ -107,6 +107,49 @@ def test_p0380_guards_a_guard_that_ran_no_test_is_red(tmp_path, monkeypatch, cap
     assert "guards: RED" in out
 
 
+def test_p0380_guards_a_guard_whose_tests_were_all_skipped_is_not_run(
+    tmp_path, monkeypatch, capsys
+):
+    """P0380-GUARDS (NFR-44 R1): a guard of which every test was skipped ran no test.
+
+    The pytest run is replaced by one that writes pytest's JUnit shape (no
+    worker is launched): a passing guard, a guard whose one test is skipped,
+    and a guard with one passing and one skipped test. Control: the mixed
+    guard is PASS, so only the wholly skipped one turns the command red.
+    """
+    import types
+
+    guards = _run_guards()
+    (tmp_path / "tests").mkdir()
+    names = ("green", "skipped", "mixed")
+    for name in names:
+        (tmp_path / "tests" / f"test_{name}.py").write_text("# fixture\n", encoding="utf-8")
+    monkeypatch.setattr(guards, "ROOT", tmp_path)
+    monkeypatch.setattr(guards, "GUARDS", tuple(f"tests/test_{n}.py" for n in names))
+    skip = '<skipped type="pytest.skip" message="no" />'
+    cases = (
+        '<testcase classname="tests.test_green" name="test_ok" />'
+        f'<testcase classname="tests.test_skipped" name="test_check">{skip}</testcase>'
+        '<testcase classname="tests.test_mixed" name="test_ok" />'
+        f'<testcase classname="tests.test_mixed" name="test_later">{skip}</testcase>'
+    )
+
+    def simulated(command, **kwargs):
+        report = Path(next(a.split("=", 1)[1] for a in command if a.startswith("--junitxml=")))
+        report.write_text(
+            f"<testsuites><testsuite>{cases}</testsuite></testsuites>", encoding="utf-8"
+        )
+        return types.SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(guards.subprocess, "run", simulated)
+    assert guards.main([]) == 1
+    out = capsys.readouterr().out
+    assert "NOT RUN tests/test_skipped.py" in out
+    assert "PASS    tests/test_mixed.py" in out
+    assert "PASS    tests/test_green.py" in out
+    assert "guards: RED" in out
+
+
 def test_p0380_guards_run_four_workers(tmp_path, monkeypatch):
     """P0380-GUARDS (NFR-44 R1): the command runs four pytest workers, never one per CPU.
 

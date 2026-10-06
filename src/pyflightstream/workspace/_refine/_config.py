@@ -5,8 +5,12 @@ when the call gives none, from the refinement file: ``--config FILE`` or
 ``<stem>.refine.toml`` beside the mesh. The file's ``[components]``,
 ``[periodic]``, ``[refine] tag`` and the element modes (``[refine] elements``
 and each family's ``elements``) are read whenever the file exists, whatever
-gives the factors. Every refusal names the file, the table and the key, lists
-the known keys, and is raised before any family is touched.
+gives the factors. ``families`` selects the families to change on either
+route: from the call's factors, or from the file's tables, whose unselected
+tables are then not read. A file table whose factors are not read is a
+warning naming it, and ``refine.json`` lists it. Every refusal names the
+file, the table and the key, lists the known keys, and is raised before any
+family is touched.
 
 THE ELEMENT MODE of a remeshed family is ``"triangles"`` (the default) or
 ``"quad-dominant"`` (its triangles are then paired into quadrilaterals,
@@ -22,12 +26,13 @@ from __future__ import annotations
 
 import math
 import tomllib
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-424 R9).
@@ -101,6 +106,10 @@ class RefineRequest:
 
     ``elements`` holds the modes the file states per family, and
     ``default_elements`` the mode of ``[refine] elements`` (else triangles).
+    ``ignored`` names the families whose ``[families.<name>]`` table states
+    factors the refinement does not read: every one when the call gives the
+    factors, and the unselected ones when ``families`` selects from the
+    file's factors.
     """
 
     specs: dict[str, FamilySpec]
@@ -110,6 +119,7 @@ class RefineRequest:
     config: Path | None = None
     elements: dict[str, str] = field(default_factory=dict)
     default_elements: str = TRIANGLES
+    ignored: tuple[str, ...] = ()
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -242,6 +252,20 @@ def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[st
     return out
 
 
+def _keys(kind: str, names: Sequence[str]) -> str:
+    """Return ``unknown key a`` or ``unknown keys a, b`` (empty when there is none)."""
+    if not names:
+        return ""
+    return f"{kind} key{'s' if len(names) > 1 else ''} {', '.join(names)}"
+
+
+def _table(where: str, value: Any, remedy: str) -> dict[str, Any]:
+    """Return a TOML table, refusing a value of another shape (a number, a list, false)."""
+    if not isinstance(value, dict):
+        raise _refuse(where, f"the value {value!r} is not a table; {remedy}")
+    return value
+
+
 def _periodic(path: Path, raw: Any) -> Periodic:
     """Return ``[periodic]`` (FR-427): axis, origin and the number of copies in a turn."""
     where = f"{path} [periodic]"
@@ -250,9 +274,10 @@ def _periodic(path: Path, raw: Any) -> Periodic:
     unknown = sorted(set(raw) - set(PERIODIC_KEYS))
     missing = [k for k in PERIODIC_KEYS if k not in raw]
     if unknown or missing:
-        key = unknown[0] if unknown else missing[0]
+        said = [_keys("unknown", unknown), _keys("missing", missing)]
         raise _refuse(
-            where, f"key {key!r} unknown or missing; the keys are {', '.join(PERIODIC_KEYS)}"
+            where,
+            f"{'; '.join(s for s in said if s)}; the keys are {', '.join(PERIODIC_KEYS)}",
         )
     copies = raw["copies"]
     if isinstance(copies, bool) or not isinstance(copies, int) or copies < 2:
@@ -276,31 +301,48 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
         raise _refuse(
             str(source), f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}"
         )
-    families = data.get("families") or {}
+    families = _table(
+        f"{source} [families]",
+        data.get("families", {}),
+        f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
+    )
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
-    for name, table in families.items():
+    for name, raw in families.items():
         where = f"{source} [families.{name}]"
+        table = _table(
+            where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
+        )
         if name not in names:
             raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
         if set(table) != {"elements"}:
             specs[name] = _family_spec(where, table)
-    refine = data.get("refine") or {}
+    refine = _table(
+        f"{source} [refine]",
+        data.get("refine", {}),
+        f"write [refine] with the keys {', '.join(REFINE_KEYS)}",
+    )
     unknown = sorted(set(refine) - set(REFINE_KEYS))
     if unknown:
         raise _refuse(
             f"{source} [refine]",
             f"unknown key {unknown[0]!r}; the known keys are {', '.join(REFINE_KEYS)}",
         )
+    tag = refine.get("tag")
+    if tag is not None and (not isinstance(tag, str) or not tag):
+        raise _refuse(
+            f"{source} [refine] tag",
+            f'{tag!r} is not a text; give the tag as a non-empty string, such as tag = "fine"',
+        )
     default = refine.get("elements", TRIANGLES)
     return {
         "specs": specs,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
-        "tag": refine.get("tag"),
-        "components": _components(source, data.get("components") or {}, names),
+        "tag": tag,
+        "components": _components(source, data.get("components", {}), names),
         "periodic": _periodic(source, data["periodic"]) if "periodic" in data else None,
     }
 
@@ -340,21 +382,31 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "periodic": None,
         }
     )
+    chosen = list(names) if families is None else list(families)
+    missing = [n for n in chosen if n not in names]
+    if missing:
+        raise _refuse(
+            str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
+        )
+    stated_specs: dict[str, FamilySpec] = stated["specs"]
     if factor is None and chordwise is None and spanwise is None:
-        if not stated["specs"]:
+        if not stated_specs:
             raise _refuse(
                 str(mesh),
                 "no factor was given and no refinement file states one; give FACTOR "
                 f"or write {mesh.stem}.refine.toml beside the mesh",
             )
-        specs = stated["specs"]
-    else:
-        chosen = list(names) if families is None else list(families)
-        missing = [n for n in chosen if n not in names]
-        if missing:
+        specs = {n: s for n, s in stated_specs.items() if n in chosen}
+        if not specs:
             raise _refuse(
-                str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
+                str(file),
+                f"the refinement file states no factor for the selected families "
+                f"{', '.join(chosen)}; add a [families.<name>] table for one of them, "
+                "or give FACTOR",
             )
+        reason = f"--families selects {', '.join(chosen)}"
+        ignored = tuple(n for n in stated_specs if n not in specs)
+    else:
         base = positive(f"{mesh} FACTOR", 1.0 if factor is None else factor)
         specs = {
             n: FamilySpec(
@@ -364,6 +416,16 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
             for n in chosen
         }
+        reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-424 R2)"
+        ignored = tuple(stated_specs)
+    if ignored:
+        tables = ", ".join(f"[families.{n}]" for n in ignored)
+        warnings.warn(
+            f"{file}: the tables {tables} are not read for their factors and methods, because "
+            f"{reason}; an elements key in them still applies.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],
@@ -372,6 +434,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         config=file,
         elements=stated["elements"],
         default_elements=stated["default_elements"],
+        ignored=ignored,
     )
 
 

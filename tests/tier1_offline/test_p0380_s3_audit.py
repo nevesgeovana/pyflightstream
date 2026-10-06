@@ -221,6 +221,38 @@ def test_g3_fails_on_a_new_hole_and_on_a_hole_moved_elsewhere(tmp_path):
     assert _item(audit, "G3").values["open_loops"] == 2
 
 
+def _plate(path: Path, hole: tuple[int, int]) -> Path:
+    """Write an 8 by 8 plate of unit quadrilaterals with the one cell ``hole`` left open."""
+    nodes = [f"v {i} {j} 0" for j in range(9) for i in range(9)]
+    cells = [
+        f"f {9 * j + i + 1} {9 * j + i + 2} {9 * (j + 1) + i + 2} {9 * (j + 1) + i + 1}"
+        for j in range(8)
+        for i in range(8)
+        if (i, j) != hole
+    ]
+    path.write_text("\n".join([*nodes, "g S", *cells]) + "\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("hole", [(3, 2), (4, 3), (5, 5)], ids=["beside", "near", "far"])
+def test_g3_fails_on_a_hole_moved_near_with_the_outer_boundary_unchanged(tmp_path, hole):
+    """P0380-AUDIT (FR-426 R2 G3; FR-425 R5): a hole closed and another opened nearby fails G3.
+
+    The plate's outer boundary is unchanged and the level holds as many loops
+    as the source, so only the place of the opening tells them apart: a hole
+    moved to the next cell, to a cell two away or far away is not the source's
+    opening. Control: the same plate against itself passes G3 with no loop
+    unmatched.
+    """
+    src = _plate(tmp_path / "source.obj", (2, 2))
+    level = _plate(tmp_path / "level.obj", hole)
+    same, said = _audit(src, src)
+    assert _item(same, "G3").values["unmatched_loops"] == 0 and same.passed and said == []
+    audit, said = _audit(level, src)
+    _assert_fails(audit, said, "G3", "(whole mesh)", "unmatched_loops 2")
+    assert _item(audit, "G3").values["open_loops"] == 2
+
+
 def test_g4_fails_on_a_point_off_every_edge_and_on_a_split_chain(tmp_path):
     """P0380-AUDIT (FR-426 R2 G4, R5): a trailing-edge point off every mesh edge fails G4, alone
     too; a points file whose chains are not the source's in number fails G4 against it."""
@@ -472,6 +504,36 @@ def test_the_command_exits_2_on_a_refusal_and_writes_nothing(tmp_path, capsys):
         err = capsys.readouterr().err
         assert code == 2 and refusal in err and "Nothing was written." in err, (argv, err)
     assert not list(tmp_path.rglob("*.audit.json"))
+
+
+def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, capsys):
+    """P0380-AUDIT (FR-426 R1): a CSV file that cannot be written is refused before any audit.
+
+    The file exists and is read-only, so writing it would fail after the audit
+    was written; the command refuses it first with the standard refusal (the
+    file, the reason, what to do, "Nothing was written."), exits 2 and leaves
+    no audit. Control: the same file made writable again is written and the
+    command exits 0.
+    """
+    import os
+    import stat
+
+    level, src = _pair(tmp_path, Mesh())
+    target = tmp_path / "figures.csv"
+    target.write_text("kept\n", encoding="utf-8")
+    os.chmod(target, stat.S_IREAD)
+    try:
+        if os.access(target, os.W_OK):
+            pytest.skip("this account writes read-only files")
+        code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+        err = capsys.readouterr().err
+        assert code == 2 and f"{target}: --csv names a file that cannot be written" in err
+        assert "and run again. Nothing was written." in err, err
+        assert not list(tmp_path.rglob("*.audit.json")) and target.read_text() == "kept\n"
+    finally:
+        os.chmod(target, stat.S_IREAD | stat.S_IWRITE)
+    code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+    assert code == 0 and target.read_text(encoding="utf-8").startswith("family,figure,value")
 
 
 def test_the_command_reaches_the_audit_only_through_the_public_function():

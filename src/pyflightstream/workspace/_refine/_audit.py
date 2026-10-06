@@ -18,13 +18,14 @@ stem is ``<stem>_<tag>``), with ``schema_version``, through the package's one
 text route; a gate or check that fails is a warning naming it, the family and
 its values. The trailing-edge points file of a mesh is the one its
 ``<stem>.boundaries.toml`` names under ``[trailing_edges] file``, or else
-``<stem>.te.txt`` beside it.
+``<stem>.te.txt`` beside it; its points are converted from the unit on its
+first line to the mesh's (the ``[import] units`` of the boundaries file)
+before they are matched to the mesh's edges.
 """
 
 from __future__ import annotations
 
 import json
-import tomllib
 import warnings
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
@@ -44,6 +45,7 @@ from pyflightstream.workspace._refine._geometry import (
     DUPLICATE_FRACTION,
     GROWTH_DIHEDRAL_DEGREES,
     GROWTH_FLOOR,
+    OPENING_FRACTION,
     PANEL_PRACTICE_COUNTS,
     PERCENTILE,
     QUALITY_GOOD,
@@ -59,9 +61,16 @@ from pyflightstream.workspace._refine._geometry import (
     dihedral_degrees,
     edge_faces,
     normals_and_centroids,
+    segment_distances,
     triangles,
 )
-from pyflightstream.workspace._refine._obj import KIND, ObjMesh, edge_midpoints, read_obj, read_te
+from pyflightstream.workspace._refine._obj import (
+    KIND,
+    ObjMesh,
+    edge_midpoints,
+    read_obj,
+    te_points,
+)
 
 Faces = list[list[int]]
 Value = float | int | str | bool | None
@@ -234,7 +243,11 @@ def audit_mesh(
         judged and the rest is reported (FR-426 R5).
     unchanged_grids : sequence of str, optional
         The grid families a refinement wrote at factor 1, whose faces G6
-        compares with the source's; without them G6 is not judged.
+        compares with the source's. Without them they are read from the
+        level's ``<stem>.refine.json`` when it names this level and the
+        source ``against`` (its ``unchanged_grids``), so a saved level is
+        re-audited as the refinement audited it; with neither, G6 is not
+        judged.
 
     Returns
     -------
@@ -250,9 +263,11 @@ def audit_mesh(
         file named and missing or malformed; nothing is written.
     """
     level = _read(Path(mesh))
-    components = _components_of(Path(mesh))
+    record = _record_of(Path(mesh))
+    components = _components_of(record)
     source = None if against is None else _read(Path(against), components)
-    gates = _gates(level, source, tuple(unchanged_grids))
+    grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
+    gates = _gates(level, source, grids)
     figures = dict(_all_figures(level))
     checks = tuple(_checks(figures, None if source is None else dict(_all_figures(source))))
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
@@ -289,21 +304,50 @@ def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> 
     obj = read_obj(path)
     if components:
         obj = _grouped(obj, components)
-    te = _te_file(path)
-    points = None if te is None else read_te(te)[1]
+    te = te_points(path)
+    points = None if te is None else te.points
     return _measure(obj, points)
 
 
-def _components_of(level: Path) -> dict[str, list[str]]:
-    """Return the components a refinement recorded in the level's ``refine.json``, if any."""
-    record = level.with_name(level.stem + ".refine.json")
-    if not record.is_file():
+def _record_of(level: Path) -> dict[str, Any]:
+    """Return the level's ``refine.json`` (an empty record when there is none or it is not JSON)."""
+    path = level.with_name(level.stem + ".refine.json")
+    if not path.is_file():
         return {}
     try:
-        found = json.loads(record.read_text(encoding="utf-8")).get("components") or {}
-    except (json.JSONDecodeError, AttributeError):
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return {}
-    return {str(c): [str(m) for m in members] for c, members in dict(found).items()}
+    return record if isinstance(record, dict) else {}
+
+
+def _components_of(record: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Return the components a refinement recorded in the level's ``refine.json``, if any."""
+    found = record.get("components")
+    if not isinstance(found, dict):
+        return {}
+    return {
+        str(c): [str(m) for m in members]
+        for c, members in found.items()
+        if isinstance(members, list)
+    }
+
+
+def _recorded_grids(
+    record: Mapping[str, Any], level: Path, against: str | Path | None
+) -> tuple[str, ...]:
+    """Return the grid families the refinement wrote at factor 1, which G6 compares (R2).
+
+    They are read only from a record that names this level's stem and the
+    source it is audited against, so a record of another refinement is not
+    taken for this one's.
+    """
+    found = record.get("unchanged_grids")
+    if against is None or record.get("level") != level.stem:
+        return ()
+    if record.get("source") != Path(against).name or not isinstance(found, list):
+        return ()
+    return tuple(n for n in found if isinstance(n, str))
 
 
 def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
@@ -313,30 +357,6 @@ def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
     for name, faces in obj.families.items():
         families.setdefault(owner.get(name, name), []).extend(faces)
     return ObjMesh(obj.verts, families, obj.header, obj.family_tag)
-
-
-def _te_file(obj: Path) -> Path | None:
-    """Return the trailing-edge points file of an OBJ, or None when it has none."""
-    sidecar = obj.with_name(obj.stem + ".boundaries.toml")
-    named = None
-    if sidecar.is_file():
-        try:
-            data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
-        except tomllib.TOMLDecodeError as error:
-            raise _refusal(sidecar, f"not TOML ({error})", "Fix the file and run again.") from error
-        table = data.get("trailing_edges")
-        named = table.get("file") if isinstance(table, dict) else None
-    if isinstance(named, str):
-        file = sidecar.parent / named
-        if not file.is_file():
-            raise _refusal(
-                sidecar,
-                f"names the trailing-edge file {named}, which does not exist",
-                "Write the points file or remove the key and run again.",
-            )
-        return file
-    default = obj.with_suffix(".te.txt")
-    return default if default.is_file() else None
 
 
 def _measure(obj: ObjMesh, points: Array | None) -> _Mesh:
@@ -583,18 +603,43 @@ def _g2(m: _Mesh) -> Iterator[AuditItem]:
 def _unmatched_loops(level: _Mesh, source: _Mesh) -> int:
     """Return how many open loops of either mesh close no opening of the other.
 
-    Each level loop is matched to the source loop most of its nodes are
-    nearest to; the count is the loops of both meshes left without a partner.
+    Each level loop is offered the source loops its nodes are nearest to,
+    most votes first, and takes the first not yet taken that closes the same
+    opening (:func:`_same_opening`), so the match is one to one and spatial;
+    the count is the loops of both meshes left without a partner.
     """
     old, new = boundary_loops(source.faces), boundary_loops(level.faces)
     if not old or not new:
         return len(old) + len(new)
     label = numpy.repeat(numpy.arange(len(old)), [len(loop) for loop in old])
     index = NearestIndex(source.obj.verts[numpy.concatenate(old)])
-    hit = {
-        int(numpy.bincount(label[index.query(level.obj.verts[loop])[1]]).argmax()) for loop in new
-    }
-    return (len(new) - len(hit)) + (len(old) - len(hit))
+    taken: set[int] = set()
+    for loop in new:
+        points = level.obj.verts[loop]
+        votes = numpy.bincount(label[index.query(points)[1]], minlength=len(old))
+        for k in numpy.argsort(-votes, kind="stable"):
+            if votes[k] == 0:
+                break
+            if int(k) not in taken and _same_opening(points, source.obj.verts[old[k]]):
+                taken.add(int(k))
+                break
+    return (len(new) - len(taken)) + (len(old) - len(taken))
+
+
+def _same_opening(mine: Array, theirs: Array) -> bool:
+    """Return whether two closed loops bound the same opening (FR-425 R5).
+
+    Every node of each lies within :data:`OPENING_FRACTION` of the source
+    loop's extent from the other's polyline, so the loops coincide up to the
+    resampling of their segments.
+    """
+    extent = float(numpy.linalg.norm(numpy.ptp(theirs, axis=0)))
+    limit = OPENING_FRACTION * max(extent, _TINY)
+    for points, loop in ((mine, theirs), (theirs, mine)):
+        distance, _ = segment_distances(points, loop, numpy.roll(loop, -1, axis=0))
+        if float(distance.max()) > limit:
+            return False
+    return True
 
 
 def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
