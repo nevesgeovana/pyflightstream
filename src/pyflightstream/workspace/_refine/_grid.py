@@ -7,7 +7,12 @@ triangles, laid out as a SHEET (an open grid with four corners) or as a TUBE
 a POLE fan (triangles around one node, the far end) or closed by a ZIPPER cap
 (a strip pairing the upper node i with the lower node n - i, a triangle at
 each end of the strip). The trailing edge is the grid line through the
-family's trailing-edge vertices; it is chordwise index 0.
+family's trailing-edge vertices; it is chordwise index 0. A SMOOTH TUBE (a
+body of revolution: a spinner, a nacelle barrel) holds no trailing-edge vertex
+and no edge whose dihedral exceeds ``_geometry.RIDGE_DEGREES``; its seam,
+chordwise index 0, is the lowest source vertex index of its first station,
+and its chordwise direction is resampled by a periodic spline, so the closed
+section has no knot and no kink at the seam.
 
 The surface the orchestrator calls:
 
@@ -21,8 +26,9 @@ The surface the orchestrator calls:
 - :func:`refine_grid` ``(verts, faces, grid, chordwise=, spanwise=)`` returns
   a :class:`GridLevel`: the new points, the faces as indices into them, the
   trailing-edge mid-points and the per-family report.
-- :func:`not_a_knot` is the cubic spline the resampling uses, written with
-  numpy alone: this module imports neither scipy nor rtree (R10).
+- :func:`not_a_knot` is the cubic spline the resampling uses, and
+  :func:`periodic` the closed one of a smooth tube's sections, both written
+  with numpy alone: this module imports neither scipy nor rtree (R10).
 
 Resampling (R6) is a cubic spline in INDEX space, so the clustering of the
 source is kept and only the counts change: ``round(f m)`` intervals per index
@@ -53,8 +59,10 @@ from numpy.typing import NDArray
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace._refine._geometry import (
+    RIDGE_DEGREES,
     Faces,
     Points,
+    dihedral_degrees,
     edge_faces,
     order_like,
     orient_like,
@@ -91,6 +99,9 @@ class Grid:
         Per lateral cell, shape (K - 1, cells): 0 when its two triangles share
         the diagonal (k, i)-(k+1, i+1), 1 when they share (k, i+1)-(k+1, i);
         None for quadrilaterals.
+    smooth : bool
+        A tube without trailing edge: column 0 is the seam, ``i_le`` is 0 and
+        the chordwise direction is resampled by the periodic spline.
     """
 
     layout: str
@@ -99,6 +110,7 @@ class Grid:
     pole: int | None
     i_le: int
     cell_diag: NDArray[numpy.int64] | None
+    smooth: bool = False
 
     @property
     def wrap(self) -> bool:
@@ -115,7 +127,8 @@ class Grid:
         """Return the recovery reason of a grid that was recovered."""
         k, n = self.ids.shape
         split = "quadrilaterals" if self.cell_diag is None else "split quadrilaterals"
-        return f"a {self.layout} of {k} stations by {n} chordwise nodes of {split}"
+        layout = "smooth tube without trailing edge" if self.smooth else self.layout
+        return f"a {layout} of {k} stations by {n} chordwise nodes of {split}"
 
 
 @dataclass(frozen=True, eq=False)
@@ -171,6 +184,45 @@ def not_a_knot(values: NDArray[numpy.float64], params: NDArray[numpy.float64]) -
     else:
         out = _evaluate(flat, _second_derivatives(flat), p)
     exact = (p == numpy.floor(p)) & (p >= 0) & (p <= m)
+    out[exact] = flat[p[exact].astype(numpy.int64)]
+    return out.reshape((len(p),) + y.shape[1:])
+
+
+def periodic(values: NDArray[numpy.float64], params: NDArray[numpy.float64]) -> Points:
+    """Evaluate the periodic cubic spline through values at the indices 0..n-1, period n.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        Shape (n, ...): the nodes of a closed loop at the integer parameters
+        0 to n - 1; the node after n - 1 is node 0.
+    params : numpy.ndarray
+        The parameters to evaluate at, within [0, n).
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape (len(params), ...). An integer parameter returns its node
+        exactly. The spline and its first two derivatives are continuous all
+        around the loop, the seam included; with fewer than three nodes the
+        interpolation is linear.
+    """
+    y = numpy.asarray(values, dtype=float)
+    p = numpy.asarray(params, dtype=float).reshape(-1)
+    n = y.shape[0]
+    flat = y.reshape(n, -1)
+    closed = numpy.vstack([flat, flat[:1]])
+    if n < 3:
+        x = numpy.arange(n + 1)
+        out = numpy.stack([numpy.interp(p, x, closed[:, j]) for j in range(flat.shape[1])], axis=1)
+    else:
+        # M(i-1) + 4 M(i) + M(i+1) = 6 (y(i+1) - 2 y(i) + y(i-1)) around the loop: a
+        # circulant system, diagonal in the discrete Fourier basis.
+        rhs = 6.0 * (numpy.roll(flat, -1, axis=0) - 2.0 * flat + numpy.roll(flat, 1, axis=0))
+        eigen = 4.0 + 2.0 * numpy.cos(2.0 * numpy.pi * numpy.arange(n) / n)
+        second = numpy.fft.ifft(numpy.fft.fft(rhs, axis=0) / eigen[:, None], axis=0).real
+        out = _evaluate(closed, numpy.vstack([second, second[:1]]), p)
+    exact = (p == numpy.floor(p)) & (p >= 0) & (p < n)
     out[exact] = flat[p[exact].astype(numpy.int64)]
     return out.reshape((len(p),) + y.shape[1:])
 
@@ -254,17 +306,23 @@ def _recover(verts: Points, faces: Faces, te: frozenset[int]) -> Grid:
     lmap = edge_faces(lateral)
     adj = _adjacency(lmap)
     layout, seed = _layout_and_seed(verts, lateral, lmap)
-    rows, pole = _rows(verts, seed, adj, layout == "tube", te)
+    smooth = layout == "tube" and not te and _without_ridge(verts, faces)
+    rows, pole = _rows(verts, seed, adj, layout == "tube", te, smooth=smooth)
     ids = numpy.array(rows, dtype=numpy.int64)
     if layout == "sheet":
         ids = _sheet_trailing_edge_first(ids, te)
         ends, i_le = ("edge", "edge"), ids.shape[1] - 1
     else:
-        ends, i_le = _tube_ends(verts, ids, pole, cap_verts, te)
+        ends, i_le = _tube_ends(verts, ids, pole, cap_verts, te, smooth=smooth)
     diag = _cell_diagonals(ids, lateral, lmap, layout == "tube", pole)
-    grid = Grid(layout, ids, ends, pole, i_le, diag)
+    grid = Grid(layout, ids, ends, pole, i_le, diag, smooth)
     _check_covers(grid, faces)
     return grid
+
+
+def _without_ridge(verts: Points, faces: Faces) -> bool:
+    """Return whether no edge of the family is sharper than the ridge angle (FR-424 R8)."""
+    return all(d <= RIDGE_DEGREES for d in dihedral_degrees(verts, faces).values())
 
 
 def _adjacency(edges: Iterable[Edge]) -> dict[int, set[int]]:
@@ -408,9 +466,19 @@ def _layers(seed: list[int], adj: Mapping[int, set[int]]) -> list[list[int]]:
 
 
 def _rows(
-    verts: Points, seed: list[int], adj: Mapping[int, set[int]], tube: bool, te: frozenset[int]
+    verts: Points,
+    seed: list[int],
+    adj: Mapping[int, set[int]],
+    tube: bool,
+    te: frozenset[int],
+    *,
+    smooth: bool = False,
 ) -> tuple[list[list[int]], int | None]:
-    """Return the stations, each ordered like the one before it, and a far pole."""
+    """Return the stations, each ordered like the one before it, and a far pole.
+
+    A tube starts at a trailing-edge vertex of its first station; a smooth tube
+    at the lowest source vertex index of it (its seam).
+    """
     layers = _layers(seed, adj)
     pole = layers.pop()[0] if tube and len(layers) > 1 and len(layers[-1]) == 1 else None
     sizes = {len(layer) for layer in layers}
@@ -420,7 +488,7 @@ def _rows(
         raise _NotAGridError("fewer than two stations")
     first, _ = _chain_order(layers[0], adj)
     if tube:
-        at = [i for i, v in enumerate(first) if v in te]
+        at = [first.index(min(first))] if smooth else [i for i, v in enumerate(first) if v in te]
         if not at:
             raise _NotAGridError("no trailing-edge vertex on the end loop")
         first = first[at[0] :] + first[: at[0]]
@@ -473,8 +541,14 @@ def _tube_ends(
     pole: int | None,
     cap_verts: set[int],
     te: frozenset[int],
+    *,
+    smooth: bool = False,
 ) -> tuple[tuple[str, str], int]:
-    """Return the kind of each end of a tube and its leading-edge index."""
+    """Return the kind of each end of a tube and its leading-edge index (0 for a smooth tube)."""
+    if smooth:
+        if cap_verts:
+            raise _NotAGridError("a zipper cap needs a trailing edge")
+        return ("open", "pole" if pole is not None else "open"), 0
     if not all(int(v) in te for v in ids[:, 0]):
         raise _NotAGridError("the trailing edge is not the chordwise index 0 line")
     n = ids.shape[1]
@@ -591,6 +665,8 @@ def _chordwise_params(grid: Grid, factor: float) -> tuple[NDArray[numpy.float64]
     if not grid.wrap:
         s = numpy.linspace(0, n - 1, _count(n - 1, factor) + 1)
         return s, len(s) - 1
+    if grid.smooth:
+        return numpy.linspace(0, n, _count(n, factor) + 1)[:-1], 0
     m1, m2 = grid.i_le, n - grid.i_le
     n1 = _count(m1, factor)
     n2 = n1 if "zipper" in grid.ends else _count(m2, factor)
@@ -603,8 +679,11 @@ def _resample(source: Points, grid: Grid, chordwise: float, spanwise: float) -> 
     """Resample the source nodes (K, n, 3) along both index directions."""
     k, n = grid.ids.shape
     s, new_le = _chordwise_params(grid, chordwise)
-    chain = numpy.concatenate([source, source[:, :1]], axis=1) if grid.wrap else source
-    across = not_a_knot(chain.transpose(1, 0, 2), s).transpose(1, 0, 2)
+    if grid.smooth:
+        across = periodic(source.transpose(1, 0, 2), s).transpose(1, 0, 2)
+    else:
+        chain = numpy.concatenate([source, source[:, :1]], axis=1) if grid.wrap else source
+        across = not_a_knot(chain.transpose(1, 0, 2), s).transpose(1, 0, 2)
     t = numpy.linspace(0, k - 1, _count(k - 1, spanwise) + 1)
     nodes = not_a_knot(across, t)
     old_k = numpy.minimum(numpy.floor(0.5 * (t[:-1] + t[1:])).astype(numpy.int64), k - 2)
@@ -711,6 +790,8 @@ def refine_grid(
         old = _EndFrame.of(grid.ids, grid.i_le, grid.pole)
         ordered = _align_end_rotation(ordered, new, old, faces)
     te = 0.5 * (sampled.nodes[:-1, 0] + sampled.nodes[1:, 0])
+    if grid.smooth:
+        te = numpy.zeros((0, 3))
     report = _report(grid, sampled, len(faces), len(ordered), swept is not None)
     return GridLevel(points, ordered, te, report)
 
@@ -730,6 +811,7 @@ def _report(
         "intervals": {"chordwise": [chord, chord_after], "spanwise": [span, kp - 1]},
         "faces": [before, after],
         "order": "sweep" if swept else "nearest",
+        "chordwise_spline": "periodic" if grid.smooth else "not-a-knot",
     }
 
 
