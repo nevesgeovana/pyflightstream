@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.71.0 |
+| Version | 1.72.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,9 +41,9 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-423, each with origin, status, and evidence.
+   FR-429, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-42.
+   NFR-01 to NFR-44.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.72.0 | 2026-10-06 | The 0.38.0 requirements (GOAL-045): FR-424 to FR-429, NFR-43 and NFR-44, written before the first package commit, all pending, with their P0380 markers in `docs/srs/markers-0380.json`. |
 | 1.71.0 | 2026-10-05 | The 0.37.0 requirements (GOAL-044): FR-411 to FR-422 and NFR-42, written and reviewed before the first package commit; FR-410 amended by FR-421. |
 | 1.70.0 | 2026-10-03 | The 0.36.0 S1 requirements: FR-409 and conditional FR-410, NFR-33 to NFR-41, all pending with their verification obligations; FR-407 R2 points to its conditional amendment. AD-16 to AD-18 are reconciled to implemented from their tracked modules and shipped evidence; AD-19 to AD-23 specify the five pending structural work packages under AD-15 and NFR-40, with the ARCH-3 downward-edge answer and roadmap mappings. The 0.36.0 marker map is completed and the requirement ranges and generated index are refreshed. |
 | 1.69.1 | 2026-10-02 | **THE QUERY VERBS AND THE OTHER 0.35.0 REQUIREMENTS ARE WRITTEN BEFORE THEY ARE BUILT, FR-379 TO FR-399; THIS ROW MOVES NO STATUS.** FR-379 to FR-394 specify `pyfs-matrix status` by polar with its selection, its planned points and its freshness footer, one effective record per datapoint, read-only queries, recorded words, machine output, `show`, `log`, the Python mirror `pyflightstream.workspace.ledger`, `trace`, `history`, `diff`, `log --storage`, `status --additional` and the coupled-run block of `show`; FR-395 the run id alias `<sim>_<index>`; FR-396 the continuation fix (RPT-134); FR-397 the post writing no `archive/` folder by default; FR-398 the cost file; FR-399 the nested pytest runs. FR-318 gains clause R6 (the vorticity drag list before `START_SOLVER`, RPT-133) and FR-96 a forward reference to FR-396; its known-defect line stays until the fix ships. Every requirement is pending, with its P0350 marker in `docs/srs/markers-0350.json`. |

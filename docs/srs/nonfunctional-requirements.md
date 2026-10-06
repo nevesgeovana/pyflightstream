@@ -1311,3 +1311,27 @@
     Verification: test, `tests/tier1_offline/test_p0370_s9_parity_tests.py`, carrying P0370-S9-PARITY-TESTS (NFR-42).
 
     Evidence: `test_p0370_s9_the_fixture_has_one_definition_in_the_support_module` (the dependency graph: the support module imports no tier-1 test module at any depth, each builder of the fixture is defined there and nowhere in tier 1, no tier-1 module imports the fixture from a test module), `test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace`, `test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_difference`, `test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared`, `test_p0370_s9_with_a_plan_only_the_per_point_reasons_count` and `test_p0370_s9_a_refusal_on_one_side_only_is_a_difference` in `tests/tier1_offline/test_p0370_s9_parity_tests.py`. The fixture is `grouped_plan_fixture` of `tests/support_helpers.py`, with `rotor_workspace`, `rotor_row`, `make_library`, `fixture_codes` and `stage_geometry` moved there from test modules. Mutants killed: the whole-message fallback returning nothing, the `plan.json` branch comparing the whole message, the parsed-message branch comparing the heading, a lazy tier-1 import inside the support module, the fixture imported from a test module again.
+
+!!! requirement "NFR-43 A public requirement states its need, its requirement and its evidence, and narrates no person <span class='srs-pending'>pending</span>"
+    Plan: PFS-2079.09 (0.38.0).
+
+    *Origin: scope GOAL-045 item S7, the 0.37.0 release review (TW F-2). Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`.*
+
+    Requirement: The Origin line of every requirement box of the public SRS names the scope item, the plan node or the evidence that gave the requirement; it quotes no person and recounts no run of a person's work. The words that set a requirement live in the private record of its release.
+
+    - R1 No Origin line of the public SRS holds a quotation in a language other than English, or a first-person account.
+    - R2 The boxes of 0.37.0 are rewritten under R1 with their requirement text unchanged.
+
+    Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`, carrying P0380-ORIGIN (NFR-43).
+
+!!! requirement "NFR-44 The cross-cutting guards run alone in minutes, and a hash of rendered text does not depend on the path separator <span class='srs-pending'>pending</span>"
+    Plan: GOAL-045 arm GD (0.38.0).
+
+    *Origin: the 0.37.0 release, where four full suites ran for failures the guards show in a minute, and a test hashed a rendered path with the platform's separator and failed only on Linux. Verification: test, `tests/tier1_offline/test_p0380_guards.py`.*
+
+    Requirement: `python scripts/run_guards.py` runs the cross-cutting guard tests (architecture metrics, private-name coupling, the requirements index, the repository guards, house style, the documented rows, claim currency, the release-ready record, the command-line help) in one process and states each guard's result; every test that pins a digest of text holding a path computes it through one fold of the path separators.
+
+    - R1 The guards command exits non-zero when any guard fails and names it.
+    - R2 A digest of a rendered script or product that holds a staged path is the same on Windows and on Linux.
+
+    Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44).

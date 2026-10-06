@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 382,
-  "total": 441,
+  "total": 449,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3168,6 +3168,54 @@
    "verification": "test"
   },
   {
+   "id": "FR-424",
+   "text": "Plan: PFS-2079.01 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S1; the proof of concept of 2026-10-06 and its solver comparison. Verification: test, tests/tier1_offline/test_p0380_s1_refine.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-425",
+   "text": "Plan: PFS-2079.02 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S2; a blade split into dummy families in the pre-processor, the region frozen before trimming as one family and the trimmed strip or the tip cap as others. Verification: test, tests/tier1_offline/test_p0380_s2_dummy.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-426",
+   "text": "Plan: PFS-2079.03 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S3; the panel-mesh practices gathered for the pre-processor and the solver's guide, measured on the proof of concept's levels. Verification: test, tests/tier1_offline/test_p0380_s3_audit.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-427",
+   "text": "Plan: PFS-2079.04 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, tests/tier1_offline/test_p0380_s4_sector.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-428",
+   "text": "Plan: PFS-2079.05 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S5. Verification: test, tests/tier1_offline/test_p0380_s5_axial.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-429",
+   "text": "Plan: PFS-2079.06 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade lives in a private module, called only by pyfs-matrix degenerate. Verification: test, tests/tier1_offline/test_p0380_s6_degapi.py.*",
+   "verification": "none"
+  },
+  {
    "id": "NFR-01",
    "text": "The package is didactic by construction: NFR-01a to NFR-01d state what that means in four claims.",
    "priority": "M",
@@ -3534,6 +3582,22 @@
    "status": "implemented",
    "evidence": "*Origin: the 0.36.0 push review of scripts/check_parity.py (registered as 0.37 R4), scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_parity_tests.py.*",
    "verification": "test"
+  },
+  {
+   "id": "NFR-43",
+   "text": "Plan: PFS-2079.09 (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-045 item S7, the 0.37.0 release review (TW F-2). Verification: test, tests/tier1_offline/test_p0380_s7_origin.py.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-44",
+   "text": "Plan: GOAL-045 arm GD (0.38.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the 0.37.0 release, where four full suites ran for failures the guards show in a minute, and a test hashed a rendered path with the platform's separator and failed only on Linux. Verification: test, tests/tier1_offline/test_p0380_guards.py.*",
+   "verification": "none"
   }
  ]
 }
