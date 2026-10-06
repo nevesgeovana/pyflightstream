@@ -101,7 +101,8 @@ class _Work:
     mesh: ObjMesh
     request: RefineRequest
     te_unit: str
-    te_points: Points
+    te_to_file: float
+    te_points: Points  # in the mesh's unit; te_to_file turns a length into te_unit's
     names: list[str]
     original: dict[str, Faces]
     fam_v: dict[str, set[int]]
@@ -135,8 +136,8 @@ def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> se
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
-    te = _obj.te_file(source)
-    unit, points = _obj.read_te(te) if te else ("METER", numpy.zeros((0, 3)))
+    te = _obj.te_points(source)
+    unit, points = ("METER", numpy.zeros((0, 3))) if te is None else (te.unit, te.points)
     scale = mesh.size
     names = list(mesh.families)
     return _Work(
@@ -144,6 +145,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         mesh=mesh,
         request=request,
         te_unit=unit,
+        te_to_file=1.0 if te is None else te.to_file,
         te_points=points,
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
@@ -621,7 +623,8 @@ def _write(
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
     if len(work.te_points):
-        written.append(_obj.write_te(folder / f"{stem}{TE_SUFFIX}", work.te_unit, te))
+        target = folder / f"{stem}{TE_SUFFIX}"
+        written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
     text = _boundaries_text(work, stem)
     if text is not None:
         target = folder / f"{stem}.boundaries.toml"

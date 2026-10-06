@@ -735,7 +735,12 @@ through the package's one text route, without a carriage return.
 | `<stem>_<tag>.audit.json` | always | the audit of the level against its source |
 
 The source's points file is the one its `<stem>.boundaries.toml` names under
-`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh.
+`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh. Its points
+are in the unit its first line names; when the boundaries file states the
+mesh's unit (`[import] units`) and it differs, the points are converted to it
+before they are matched to the mesh's edges, by `refine` and `audit-mesh`
+alike, and the level's points file is written back in the source file's unit.
+A unit that names no scale (OTHER) is then refused.
 
 `refine.json` states `schema_version` (1), `source`, `level`, `config` (the
 refinement file read, or null), `specs` (the factors of each family),

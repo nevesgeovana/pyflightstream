@@ -580,6 +580,22 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     assert _left(tmp_path) == ["wing_R0p5", "wing_R2"]
 
 
+def _resampled_while(call) -> list[str]:
+    """Run ``call()`` and return the grid resamplings it started (a profile, no patching)."""
+    seen: list[str] = []
+
+    def profile(frame, event, arg):
+        if event == "call" and frame.f_code.co_name in ("refine_grid", "refine_blocks"):
+            seen.append(frame.f_code.co_name)
+
+    sys.setprofile(profile)
+    try:
+        call()
+    finally:
+        sys.setprofile(None)
+    return seen
+
+
 @pytest.mark.parametrize(
     ("sidecar", "said"),
     [
@@ -592,75 +608,142 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     ids=["missing-points-file", "malformed-sidecar"],
 )
 def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
-    tmp_path, capsys, monkeypatch, sidecar, said
+    tmp_path, capsys, sidecar, said
 ):
     """P0380-REFINE (FR-424 R5, R11; FR-426 R2 G4): the inputs the audit reads are checked first.
 
     A boundaries file naming a points file that does not exist, or that is not
     TOML, is refused by the function and the command before any family is
-    resampled (the grid's resampling is replaced by one that fails the test if
-    called), and no level folder is published. With ``overwrite`` the level
-    already there is kept byte for byte. Control: the audit refuses the same
-    sidecar with the same reason.
+    resampled (a profile records every call of the grid resampling), and no
+    level folder is published. With ``overwrite`` the level already there is
+    kept byte for byte. Controls: the audit refuses the same sidecar with the
+    same reason, and the profile sees the resampling of a run that is not
+    refused.
     """
     from pyflightstream.workspace import audit_mesh
-    from pyflightstream.workspace._refine import _grid
 
     src = _source(tmp_path)
-    first = refine_mesh(src, 2.0)
-    kept = _snapshot(first.folder)
+    assert _resampled_while(lambda: refine_mesh(src, 2.0)) == ["refine_grid"]
+    first = tmp_path / "wing_R2"
+    kept = _snapshot(first)
     src.with_name("wing.boundaries.toml").write_bytes(sidecar.encode("utf-8"))
+    caught: list[InputArtifactError] = []
 
-    def never(*args, **kwargs):
-        raise AssertionError("a family was resampled before the refusal")
+    def refused() -> None:
+        with pytest.raises(InputArtifactError) as error:
+            refine_mesh(src, 2.0, overwrite=True)
+        caught.append(error.value)
 
-    monkeypatch.setattr(_grid, "refine_grid", never)
-    with pytest.raises(InputArtifactError) as caught:
-        refine_mesh(src, 2.0, overwrite=True)
-    text = str(caught.value)
+    assert _resampled_while(refused) == []
+    text = str(caught[0])
     assert said in text and text.endswith("Nothing was written."), text
-    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first.folder) == kept
+    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first) == kept
     code, _, err = _command(capsys, str(src), "1")
     assert code == 2 and said in err and _left(tmp_path) == ["wing_R2"]
     with pytest.raises(InputArtifactError, match=said):
         audit_mesh(src)
 
 
-def test_r5_an_audit_that_fails_to_run_publishes_nothing_and_keeps_the_old_level(
-    tmp_path, monkeypatch
-):
+def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_path):
     """P0380-REFINE (FR-424 R4, R5): the level is published only after its audit is written.
 
-    The audit runs inside the staging folder; when it raises (here an error
-    writing audit.json), no level folder is published, no staging folder is
-    left, and with ``overwrite`` the previous level is kept byte for byte.
-    Control: the same call without the error replaces the level and the
-    returned audit names the published folder.
+    The audit runs inside the staging folder. Coarsening the strip T at 0.5
+    fails its growth check, a warning, which a caller running with warnings
+    as errors turns into an exception raised by the audit: no level folder is
+    published, no staging folder is left, and with ``overwrite`` the previous
+    level is kept byte for byte. Control: the same call with warnings shown
+    replaces the level, and the returned audit names the published folder.
     """
-    from pyflightstream.workspace._refine import _level
+    import warnings
 
-    src = _source(tmp_path)
-    first = refine_mesh(src, 2.0)
+    pytest.importorskip("trimesh")
+    src = _source(tmp_path, WITH_T)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        first = refine_mesh(src, 0.5)
+    assert not first.audit.passed
     (first.folder / "planted.txt").write_bytes(b"x")
     kept = _snapshot(first.folder)
-    real = _level.audit_mesh
-
-    def failing(*args, **kwargs):
-        raise OSError("the audit could not be written")
-
-    monkeypatch.setattr(_level, "audit_mesh", failing)
-    with pytest.raises(OSError, match="the audit could not be written"):
-        refine_mesh(src, 2.0, overwrite=True)
-    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first.folder) == kept
-    with pytest.raises(OSError):
-        refine_mesh(src, 0.5)
-    assert _left(tmp_path) == ["wing_R2"]
-    monkeypatch.setattr(_level, "audit_mesh", real)
-    level = refine_mesh(src, 2.0, overwrite=True)
-    assert not (level.folder / "planted.txt").exists() and _left(tmp_path) == ["wing_R2"]
-    assert level.audit is not None and level.audit.path == level.folder / "wing_R2.audit.json"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        with pytest.raises(PyflightstreamWarning, match="audit check growth failed on T"):
+            refine_mesh(src, 0.5, overwrite=True)
+        assert _left(tmp_path) == ["wing_R0p5"] and _snapshot(first.folder) == kept
+        with pytest.raises(PyflightstreamWarning):
+            refine_mesh(src, 0.5, out_dir=tmp_path / "other")
+        assert not any((tmp_path / "other").iterdir())
+    with pytest.warns(PyflightstreamWarning, match="growth failed on T"):
+        level = refine_mesh(src, 0.5, overwrite=True)
+    assert not (level.folder / "planted.txt").exists() and _left(tmp_path) == ["other", "wing_R0p5"]
+    assert level.audit is not None
+    assert level.audit.path == level.folder / "wing_R0p5.audit.json" == level.files[-1]
     assert level.audit.mesh == level.obj and level.audit.path.is_file()
-    assert level.files[-1] == level.audit.path
+
+
+def _points_in(src: Path, unit: str, scale: float, mesh_unit: str | None) -> list[str]:
+    """Rewrite the source's points file in ``unit`` (coordinates times ``scale``).
+
+    The boundaries file gains ``[import] units = mesh_unit`` when one is given;
+    return the rows written after the unit line.
+    """
+    side = src.with_name("wing.boundaries.toml")
+    if mesh_unit is not None:
+        side.write_text(
+            side.read_text(encoding="utf-8") + f'\n[import]\nunits = "{mesh_unit}"\n',
+            encoding="utf-8",
+        )
+    points = src.with_name("wing.te.txt")
+    rows = points.read_text(encoding="utf-8").split()[1:]
+    scaled = [",".join(repr(float(x) * scale) for x in row.split(",")) for row in rows]
+    points.write_text("\n".join([unit, *scaled]) + "\n", encoding="utf-8")
+    return scaled
+
+
+def _g4(audit) -> dict:
+    return dict(next(g for g in audit.gates if g.name == "G4").values)
+
+
+@pytest.mark.parametrize("factor", [1.0, 2.0])
+def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, capsys, factor):
+    """P0380-REFINE (FR-424 R4, R6; FR-426 R2 G4): the points file's unit line is honoured.
+
+    The OBJ is in metres (``[import] units = "METER"`` of its boundaries file,
+    the package's convention) and its trailing-edge points are the same
+    physical mid-points written in millimetres. The audit matches every point
+    to an edge, and the level's points file keeps the MILLIMETER unit line with
+    one mid-point per trailing-edge edge, in millimetres; the level's audit
+    passes G4 with the source's chain count. At factor 1 the level's points are
+    the source's. Controls: the same file declaring the mesh in MILLIMETER
+    matches no point (G4 fails), and a unit that names no scale is refused.
+    """
+    src = _source(tmp_path)
+    rows = _points_in(src, "MILLIMETER", 1000.0, "METER")
+    from pyflightstream.workspace import audit_mesh
+
+    alone = audit_mesh(src)
+    assert _g4(alone)["points_on_edges"] == _g4(alone)["points"] == len(rows) > 0
+    capsys.readouterr()
+    assert cli.main(["audit-mesh", str(src)]) == 0
+    alone.path.unlink()
+    level = refine_mesh(src, factor)
+    lines = level.files[1].read_text(encoding="utf-8").split()
+    assert level.files[1].name == f"{level.folder.name}.te.txt" and lines[0] == "MILLIMETER"
+    written = numpy.array([[float(x) for x in r.split(",")] for r in lines[1:]])
+    source = numpy.array([[float(x) for x in r.split(",")] for r in rows])
+    if factor == 1.0:
+        assert numpy.allclose(written, source, rtol=0, atol=1e-6)
+    else:
+        assert len(written) == 2 * len(source)
+    g4 = _g4(level.audit)
+    assert g4["points_on_edges"] == g4["points"] == len(written)
+    assert g4["chains"] == g4["source_chains"] == 1 and level.audit.passed
+    control = _source(tmp_path / "control")
+    _points_in(control, "MILLIMETER", 1000.0, "MILLIMETER")
+    assert _g4(audit_mesh(control))["points_on_edges"] == 0
+    other = _source(tmp_path / "other")
+    _points_in(other, "OTHER", 1.0, "METER")
+    with pytest.raises(InputArtifactError, match="OTHER.*Nothing was written"):
+        refine_mesh(other, factor)
 
 
 # ----------------------------------------------------------------- R7 face order
@@ -929,7 +1012,7 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
     interfaces and the periodic cuts alike. Control: a planted source that
     spells the trailing-edge distance as a literal is reported.
     """
-    from pyflightstream.workspace._refine import _geometry, _level, _periodic
+    from pyflightstream.workspace._refine import _geometry, _periodic
 
     values = {float(getattr(_geometry, name)) for name in SHARED_THRESHOLDS} - {0.25}
     folder = PACKAGE / "workspace" / "_refine"
@@ -938,7 +1021,6 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
             continue
         assert _threshold_literals(path.read_text(encoding="utf-8"), values) == [], path.name
     assert _periodic.ON_CURVE_FRACTION is _geometry.ON_CURVE_FRACTION
-    assert _level._geometry is _geometry
     assert not hasattr(_periodic, "ON_CUT_FRACTION")
     planted = "def hit(d, scale):\n    return d < 1e-6 * scale\n"
     assert _threshold_literals(planted, values) == [(2, 1e-6)]

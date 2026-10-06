@@ -18,7 +18,9 @@ stem is ``<stem>_<tag>``), with ``schema_version``, through the package's one
 text route; a gate or check that fails is a warning naming it, the family and
 its values. The trailing-edge points file of a mesh is the one its
 ``<stem>.boundaries.toml`` names under ``[trailing_edges] file``, or else
-``<stem>.te.txt`` beside it.
+``<stem>.te.txt`` beside it; its points are converted from the unit on its
+first line to the mesh's (the ``[import] units`` of the boundaries file)
+before they are matched to the mesh's edges.
 """
 
 from __future__ import annotations
@@ -65,8 +67,7 @@ from pyflightstream.workspace._refine._obj import (
     ObjMesh,
     edge_midpoints,
     read_obj,
-    read_te,
-    te_file,
+    te_points,
 )
 
 Faces = list[list[int]]
@@ -295,8 +296,8 @@ def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> 
     obj = read_obj(path)
     if components:
         obj = _grouped(obj, components)
-    te = te_file(path)
-    points = None if te is None else read_te(te)[1]
+    te = te_points(path)
+    points = None if te is None else te.points
     return _measure(obj, points)
 
 

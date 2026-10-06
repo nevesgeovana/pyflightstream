@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._lengths import METRES_PER_UNIT, scale
 
 Faces = list[list[int]]
 
@@ -206,6 +207,66 @@ def te_file(obj: str | Path) -> Path | None:
         return file
     default = Path(obj).with_name(Path(obj).stem + TE_SUFFIX)
     return default if default.is_file() else None
+
+
+def mesh_unit(obj: str | Path) -> str | None:
+    """Return the length unit the boundaries file states for the mesh, ``[import] units``.
+
+    The unit a raw mesh is written in is stated there and never assumed
+    (:class:`pyflightstream.cases.mesh.MeshImport`); None when it is not stated.
+    """
+    read = read_sidecar(obj)
+    table = None if read is None else read[1].get("import")
+    units = table.get("units") if isinstance(table, dict) else None
+    return units.strip().upper() if isinstance(units, str) and units.strip() else None
+
+
+@dataclass(frozen=True)
+class TrailingPoints:
+    """A mesh's trailing-edge points: the file's unit line and the points in the mesh's unit.
+
+    ``to_file`` multiplies a length in the mesh's unit into the file's unit,
+    so a points file written back keeps the source file's unit line.
+    """
+
+    unit: str
+    points: NDArray[numpy.float64]
+    to_file: float
+
+
+def te_points(obj: str | Path) -> TrailingPoints | None:
+    """Read a mesh's trailing-edge points and convert them to the mesh's unit.
+
+    The points file states its unit on its first line; the mesh's unit is the
+    ``[import] units`` of its boundaries file. When both are stated and differ
+    the points are converted (:func:`pyflightstream._lengths.scale`), as the
+    package converts a points file for a run; when the mesh states none, the
+    points are read in the mesh's unit.
+
+    Raises
+    ------
+    InputArtifactError
+        The points file, or the boundaries file that names it, is refused
+        (:func:`te_file`, :func:`read_te`), or the two units cannot be
+        converted (a unit that names no scale); nothing was written.
+    """
+    file = te_file(obj)
+    if file is None:
+        return None
+    unit, points = read_te(file)
+    target = mesh_unit(obj)
+    if target is None or unit.strip().upper() == target:
+        return TrailingPoints(unit, points, 1.0)
+    into, back = scale(unit.strip().upper(), target), scale(target, unit.strip().upper())
+    if into is None or back is None:
+        raise InputArtifactError(
+            f"{file}: its points are in {unit} and the mesh is in {target} (the [import] units "
+            "of its boundaries file), and one of the two names no length scale, so the points "
+            f"cannot be converted. Give both in one of {', '.join(METRES_PER_UNIT)} and run "
+            "again. Nothing was written.",
+            kind=KIND,
+        )
+    return TrailingPoints(unit, points * into, back)
 
 
 def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
