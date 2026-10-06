@@ -9789,101 +9789,122 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
 ## 0.38.0 refining, coarsening and auditing a panel mesh
 
-The requirements of 0.38.0 (GOAL-045), one box per item of the scope closed on 2026-10-06: S1 to S6 map to FR-424 to FR-429, S7 to NFR-43, and the development guards command to NFR-44. The reference implementation is the proof of concept of 2026-10-06 and its solver comparison on a wing (a level refined by 2 from the coarse mesh equals the native finer level to four significant digits in lift once its faces are written in the native order). Four terms hold for the whole section. A GRID FAMILY is a mesh family whose faces form a structured grid recovered from the connectivity alone (quadrilaterals, or quadrilaterals split into triangles), laid out as a sheet or as a tube whose two ends are each open, a pole fan or a zipper cap. A REMESHED FAMILY is any other family a refinement changes; it holds triangles only. A LEVEL is the new geometry a refinement writes; the source is never modified. The FACTOR of a family multiplies its panel count along each grid direction (2 doubles each, 0.5 halves each). The markers `P0380-<NAME>` are listed in `docs/srs/markers-0380.json`.
+The requirements of 0.38.0 (GOAL-045), one box per item of the scope closed on 2026-10-06: S1 to S6 map to FR-424 to FR-429, S7 to NFR-43, and the development guards command to NFR-44. The markers `P0380-<NAME>` are listed in `docs/srs/markers-0380.json`.
+
+Verification and validation are kept apart. Every box is verified offline by the tier-1 tests it names, on fixtures held under `tests/` (no test reads a path outside the repository). Whether a refined mesh gives the solver the result of a mesh made at that size in the pre-processor is validation: it is the licensed isolated propeller comparison of PFS-2079.07, reported in its own RPT and accepted by the owner, and no box is closed on tier-1 evidence for a statement about the solver. One solver behaviour shapes FR-424 R7: on a licensed build, two meshes holding the same nodes and faces in a different face order gave lift coefficients about 2 per cent apart; the public report of that measurement is owed with PFS-2079.07, and until it is committed the face-order clause rests on that private measurement.
+
+Seven terms hold for the whole section.
+
+- A FAMILY is a named group of faces of the OBJ (a `g` or `o` line), the unit the solver's boundaries list names.
+- A GRID FAMILY is a family whose faces form a structured grid recovered from the connectivity alone: quadrilaterals, or quadrilaterals each split into two triangles, laid out as a sheet, or as a tube whose two ends are each open, closed by a fan of triangles around one pole node, or closed by a zipper of triangles joining the two halves of the end. Its two INDEX DIRECTIONS are called chordwise (around the section) and spanwise (along the stations).
+- A REMESHED FAMILY is a family that is not a grid family, or that the refinement file tells to be remeshed, and whose factor is not 1; its faces in the level are triangles.
+- An UNCHANGED FAMILY is a family the refinement does not change (a family outside `--families`, or a remeshed family at factor 1).
+- The FACTOR of a family multiplies the number of intervals along each index direction of a grid family (2 doubles each, 0.5 halves each) and divides the target edge length of a remeshed family.
+- A LEVEL is the folder of new geometry one refinement writes (FR-424 R3); the source is never modified.
+- The SIZE of a mesh is the diagonal of its bounding box; tolerances stated as a fraction of a size use it. Two faces are NEIGHBOURS when they share an edge; the DIHEDRAL of an edge is the angle between the normals of its two faces.
+
+The numerical thresholds of this section (the ridge angle of FR-424 R6, the edge-length band of R6, the audit margins of FR-426 R4, the periodic tolerances of FR-427 and the band of FR-428 R1) are engineering choices measured against the proof-of-concept levels; each is defined once in the package and read by every module that uses it, and changing one requires a reason recorded in the SRS revision row that changes it.
 
 !!! requirement "FR-424 A panel mesh is refined or coarsened from its OBJ by a factor, into a new geometry <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.01 (0.38.0).
 
-    *Origin: scope GOAL-045 item S1; the proof of concept of 2026-10-06 and its solver comparison. Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`.*
+    *Origin: scope GOAL-045 item S1. Verification: test, the P0380 tests named below.*
 
     Need: A user must obtain a finer or coarser level of a mesh without returning to the pre-processor, keeping what the mesh's author chose: the clustering, the trailing edge, the junctions and the face order the solver reads.
 
-    Requirement: `pyfs-matrix refine MESH [FACTOR] [--mesh-families A,B] [--chordwise F] [--spanwise F] [--config FILE] [--out DIR] [--overwrite]` and `pyflightstream.workspace.refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out=None, overwrite=False)` shall write a level from an OBJ by one function behind both, with the same behaviour and the same refusals.
+    Requirement: The command `pyfs-matrix refine MESH [FACTOR] [--families A,B] [--chordwise F] [--spanwise F] [--config FILE] [--out-dir DIR] [--overwrite]` and the function `pyflightstream.workspace.refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False)` shall write a level from an OBJ file. Both call one function, write the same files and refuse the same inputs with the same message text. The function returns a frozen `RefinedMesh` naming the level folder, each file written, the per-family report of `refine.json` and the audit of FR-426.
 
-    - R1 Every factor is a real number greater than zero; any other value is refused naming the family and the value. A factor of 1 on a grid family returns its nodes and faces unchanged and in place.
-    - R2 The refinement file `<stem>.refine.toml` beside the mesh, or `--config`, holds `[families.<name>]` tables with `factor`, `chordwise`, `spanwise` and `structured` (true, false or absent) and an optional `[refine] tag`; it is read when no FACTOR is given. An unknown key, a family the mesh does not hold, a table with no factor, and `chordwise` or `spanwise` on a remeshed family are refused by name.
-    - R3 The level is the folder `<out>/<stem>_<tag>/` holding `<stem>_<tag>.obj`; the trailing-edge points file rewritten from the new mesh, one mid-point per trailing-edge edge under the source's unit line, when the source has one; `<stem>_<tag>.boundaries.toml`, a copy of the source's that names the new points file; and `<stem>_<tag>.refine.json`, stating per family the method, the layout and the grid or face counts before and after. The tag carries the factors (`R2`, `R0p5`, `R1c1p5s0p7`, `R-<family><factor>-...` when only some families are refined) unless the file states one. `--out` defaults to the folder that holds the source's own folder. An existing level is refused unless `--overwrite`.
-    - R4 A grid family is resampled in its own index space by a cubic spline through its nodes: the trailing edge, the leading edge and the end stations are knots, so the clustering is kept and they do not move; the chordwise and spanwise counts are `max(1, round(f m))` of the source's intervals; each new cell is split into triangles along the diagonal of the source cell it falls in.
-    - R5 A remeshed family is refined towards the source's local edge length divided by its factor by split, collapse, flip and tangential smoothing, every vertex projected back on the source surface; an open boundary, the trailing edge and a ridge whose dihedral exceeds 40 degrees are curves its vertices move along; an interface with a family the refinement does not change keeps its nodes; an interface between two remeshed families is remeshed once and shared.
-    - R6 Faces are written in the source's order pattern: a grid written as one sweep is written in the same sweep, start cell, directions and per-cell face order; any other family in the order of the nearest source face, with the source's vertex rotation.
-    - R7 `structured = true` on a family whose grid is not recovered is refused naming the reason; `false` remeshes it; absent tries the grid and remeshes when it is not recovered, and `refine.json` names the method and the reason.
-    - R8 A remeshed family needs the geometry extra (its spatial index); without it the refinement of that family is refused naming `pip install pyflightstream[geom]`. A grid family and the audit (FR-426) need no extra.
-    - R9 Every file the refinement writes ends its lines with LF (NFR-32); nothing is written into the source's folder.
+    - R1 Factors. Every factor is a finite real number greater than zero. A factor that is not, or that would leave a grid family with no interval in an index direction (a factor below 1/m for m source intervals), is refused naming the family, the direction and the value.
+    - R2 Where the factors come from. FACTOR applies to every selected family; `--chordwise` and `--spanwise` replace it in that index direction of every selected grid family, and are refused for a remeshed family. `--families` selects the families to change (default: every family). When neither FACTOR nor `--chordwise` nor `--spanwise` is given, the factors are read from the refinement file: `--config FILE`, or else `<stem>.refine.toml` beside the mesh; when none of the three is given and no file exists, the command is refused. The refinement file's `[components]`, `[periodic]` and `[refine] tag` tables are read whenever the file exists, whatever the factors' source.
+    - R3 The refinement file. `[families.<name>]` tables hold `factor`, `chordwise`, `spanwise` and `method` (`"grid"`, `"remesh"` or `"auto"`, default `"auto"`). An unknown table or key, a family the mesh does not hold, a table with neither `factor` nor `chordwise` nor `spanwise`, and `chordwise` or `spanwise` on a family whose method is `"remesh"` are refused naming the file, the table and the key, and listing the known keys.
+    - R4 What a level holds. The level is the folder `<out-dir>/<stem>_<tag>/` holding `<stem>_<tag>.obj`; when the source has a trailing-edge points file, that file rewritten from the new mesh (one mid-point per trailing-edge edge, under the source file's unit line); `<stem>_<tag>.boundaries.toml`, the source's boundaries file naming the new points file and the families of FR-425 R4; `<stem>_<tag>.refine.json`; and `<stem>_<tag>.audit.json` (FR-426). `refine.json` states `schema_version` (1 in this release), and per family the method, the reason a grid was or was not recovered, the layout, and the grid or face counts before and after. A key may be added to it without changing `schema_version`; a key is removed or changes type only with a new `schema_version`.
+    - R5 Where a level goes. The tag is the `[refine] tag` of the file, or else the factors: `R2` (factor 2), `R0p5` (0.5), `R1c1p5s0p7` (chordwise 1.5, spanwise 0.7; `p` is the decimal point), and `R-<family><factor>-...` when only some families change. `--out-dir` defaults to the parent of the folder holding the source, so the levels of a study sit beside the source's folder. An existing level folder is refused unless `--overwrite`. The level is written into a temporary folder beside it and renamed once complete, so a refusal or an error leaves no level folder; nothing is written into the source's folder.
+    - R6 A grid family is resampled along its two index directions by a cubic spline through its nodes. The trailing edge, the leading edge (the chordwise node of the station farthest from the trailing edge) and the end stations are spline knots, so the clustering is kept and they do not move. The chordwise and spanwise interval counts are `round(f m)` of the source's m intervals. Each new cell is split into two triangles along the diagonal of the source cell it falls in. At factor 2 on a grid of m by n intervals the level holds 2m by 2n intervals, every knot node is equal to the source's, and every node lies within 1e-3 of the family's size from the source surface.
+    - R7 Face order. A grid family whose source faces form one sweep is written in the same sweep: the same start cell, the same index directions in the same order, and the same order of the faces inside a cell. Any other family is written in the order of the source face whose centroid is nearest to each new face's centroid, each face starting at the vertex position the source's faces start at. At factor 1, a grid family's level nodes and faces equal the source's in coordinates and in order.
+    - R8 A remeshed family is refined towards the source's local edge length divided by its factor, by edge split, edge collapse, edge flip and smoothing along the surface, every node projected back onto the source surface. Open boundaries, the trailing edge and every edge whose dihedral exceeds 40 degrees are curves the nodes on them move along and never leave. Over the level's edges not on a curve, the median ratio of edge length to the source's local length divided by the factor lies between 0.8 and 1.2. An interface with an unchanged family keeps its nodes; an interface between two remeshed families is remeshed once and shared by both.
+    - R9 Method. `method = "grid"` on a family whose grid is not recovered is refused naming the reason; `"remesh"` remeshes it; `"auto"` uses the grid when it is recovered and remeshes otherwise, and `refine.json` names the method and the reason.
+    - R10 Dependencies. Grid families and the audit import neither scipy nor rtree, at module level or deferred. Remeshing needs the geometry extra (its spatial index); without it, a refinement that would remesh a family is refused, before any family is resampled, naming the family and `pip install pyflightstream[geom]`.
+    - R11 Refusals first. Every refusal that depends on the arguments, the refinement file, the family names or the installed extras is raised before any family is resampled and before any file is written; its message names the object, what was refused and what to do, and ends with "Nothing was written."
+    - R12 Determinism. The same source, file and arguments give byte-identical files on one platform; nothing written depends on the clock, a random seed or a hash order.
+    - R13 Text files. Every file the refinement writes is written through the package's one text route and contains no carriage return (NFR-32).
+    - R14 Layering. The refinement lives in a private package of `workspace`; it imports nothing of `run`; `run`'s command layer reaches it only through `refine_mesh` and `audit_mesh` of `pyflightstream.workspace`; the audit imports nothing of the refinement modules, so it judges a level without them.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`, carrying P0380-REFINE (FR-424), with a reversed-order control for R6 and a mutant per refusal.
+    Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`, carrying P0380-REFINE (FR-424), each test naming the clauses it proves. Controls: a writer that sweeps in reverse, transposes the index directions or rotates each face's vertices fails R7; each refusal of R1, R2, R3, R9, R10 and R11 is asserted by its message text and by the absence of any level folder; R10 is run with scipy and rtree made unimportable; R12 compares two runs by digest; R13 reads the bytes.
 
-!!! requirement "FR-425 A grid family drives the families that share its nodes, and dummy families are written as component families <span class='srs-pending'>pending</span>"
+!!! requirement "FR-425 The nodes a grid family shares become the nodes of its neighbours, and dummy families are written as component families <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.02 (0.38.0).
 
-    *Origin: scope GOAL-045 item S2; a blade split into dummy families in the pre-processor, the region frozen before trimming as one family and the trimmed strip or the tip cap as others. Verification: test, `tests/tier1_offline/test_p0380_s2_dummy.py`.*
+    *Origin: scope GOAL-045 item S2. Verification: test, the P0380 tests named below.*
 
-    Need: A user whose grid meets another surface by shared nodes (a blade glued to its spinner, a wing to its fuselage) must refine the grid as a grid and still get one conforming mesh, and must hand the solver the component families, not the dummy ones.
+    Need: A user whose grid meets another surface on shared nodes (a blade glued to its spinner, a wing to its fuselage) must refine the grid as a grid and still get one welded mesh, and must hand the solver the component families, not the dummy families the pre-processor needed to keep a region structured.
 
-    Requirement: A grid family may share nodes with other families; the refinement keeps every shared curve conforming, and the refinement file may group families into the component families of the output.
+    Requirement: The refinement shall write a level in which every node of a curve shared by two families in the source is one node shared by both families in the level, and the refinement file may group families into the families of the output.
 
-    - R1 Grid families are refined first, in the source's family order; a grid family that shares nodes with a grid family refined before it is remeshed, or refused when it states `structured = true`.
-    - R2 A remeshed family that shares a curve with a grid family is rebuilt on the grid's new nodes of that curve before it is remeshed: each new node inserted on the curve at its own position, each source node the grid no longer has removed along the curve; the shared nodes of the level coincide and weld.
-    - R3 A family the refinement does not change, sharing a curve with a grid family whose nodes on it changed, changes only in its faces within two rings of the curve, remeshed at factor 1; every other face and node of it is unchanged; `refine.json` names the band and its face count. When the grid's nodes on the curve did not change, nothing of the neighbour changes.
-    - R4 `[components]` in the refinement file, `NAME = ["A", "B", ...]`, writes the listed families as one family NAME of the output OBJ, its faces those of the members in the source's family order, and the boundaries list of the output names NAME in the members' place. A member the mesh does not hold, a family listed in two components, and a component named after a family that is not one of its members are refused. The table is read also when FACTOR is given.
-    - R5 The level's open boundary loops are the source's: no refinement opens a hole.
+    - R1 Grid families are refined first, in the source's family order. A grid family that shares nodes with a grid family refined before it is remeshed, or refused naming both families when its method is `"grid"`.
+    - R2 A remeshed family that shares a curve with a grid family is first rebuilt on the grid's new nodes of that curve: each new node inserted on the curve at its own position, each source node the grid no longer holds removed along the curve.
+    - R3 An unchanged family that shares a curve with a grid family whose nodes on that curve changed is remeshed at factor 1 in a band of two face layers from the curve (layer one is the faces with an edge or a node on the curve, layer two their neighbours); outside the band its nodes and faces equal the source's in coordinates and in order. `refine.json` names the band and its face count. When the grid's nodes on the curve did not change, nothing of the neighbour changes.
+    - R4 `[components]` in the refinement file, `NAME = ["A", "B", ...]`, writes the listed families as one family NAME of the output OBJ, its faces those of the members in the source's family order, and `<stem>_<tag>.boundaries.toml` names NAME in place of its members. A member the mesh does not hold, a family listed in two components, and a component named after a family that is not one of its members are refused naming the component and the family.
+    - R5 The level's open boundary loops are the source's in number and each closes the same opening: no refinement opens a hole or closes one.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s2_dummy.py`, carrying P0380-DUMMY (FR-425), with the control that a level built without R2 does not weld (more open loops than the source).
+    Verification: test, `tests/tier1_offline/test_p0380_s2_dummy.py`, carrying P0380-DUMMY (FR-425). Controls: a level built without R2 has more open loops than its source; a band of three layers or a changed face outside the band fails R3; each refusal of R1 and R4 is asserted by its message text.
 
 !!! requirement "FR-426 Every level is audited against its source, and any OBJ can be audited <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.03 (0.38.0).
 
-    *Origin: scope GOAL-045 item S3; the panel-mesh practices gathered for the pre-processor and the solver's guide, measured on the proof of concept's levels. Verification: test, `tests/tier1_offline/test_p0380_s3_audit.py`.*
+    *Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, the P0380 tests named below.*
 
     Need: A user must know, before spending a licensed run, whether a level kept the topology, the trailing edge and the panel quality of its source.
 
-    Requirement: Every refinement audits its level against its source and writes the audit beside the level; `pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]` and `pyflightstream.workspace.audit_mesh(mesh, against=None)` audit any OBJ with the same code.
+    Requirement: Every refinement audits its level against its source and writes the audit beside the level. The command `pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]` and the function `pyflightstream.workspace.audit_mesh(mesh, *, against=None)` audit any OBJ with the same code; the function returns a frozen `MeshAudit` (each gate and check with its values and verdict, the reported figures, and `passed`).
 
-    - R1 The audit is written as `<stem>_<tag>.audit.json` and summarised on the console; a gate or a relative check that fails is a WARNING naming the check, the family and both values, and the level is still written.
-    - R2 Gates: G1 no non-manifold edge, duplicate vertex or degenerate face; G2 no orientation conflict between neighbouring faces, and a closed family encloses a positive volume; G3 the open boundary loops of the assembly are the source's; G4 every trailing-edge point lies on a mesh edge and the trailing-edge chains are the source's; G5 families that shared nodes in the source still share them; G6 a factor of 1 on a grid family returns the source's faces in place.
-    - R3 Relative checks, per family and on the assembly: the 95th percentile of the equiangle skewness at most the source's plus 0.05; of the quadrilateral warp at most the larger of the source's and 10 degrees; of the size growth across edges whose dihedral is below 30 degrees at most the larger of the source's and 2.
-    - R4 Reported and never judged: the aspect ratio, the counts beyond the pre-processor's thresholds, the solver's face quality ratio, the faces beyond 50 to 1, the trailing-edge slivers and the faces on the mirror plane.
+    - R1 The audit is written as `<stem>_<tag>.audit.json` (with `schema_version` 1) and summarised on the console. A gate or check that fails is a WARNING naming it, the family and both values; `refine` still writes the level and exits 0. `audit-mesh` exits 0 when every gate and check passes, 1 when one fails (the audit is still written), and 2 when it refuses its input. `--csv FILE` writes one row per family and figure.
+    - R2 Gates. G1 no edge shared by more than two faces, no two nodes at one position within 1e-9 of the size, no face of zero area; G2 no two neighbouring faces of opposite orientation, and a closed family encloses a positive volume; G3 the open boundary loops of the level are the source's (FR-425 R5); G4 every trailing-edge point lies on a mesh edge and the trailing-edge chains are the source's in number; G5 families that shared nodes in the source still share them; G6 at factor 1 a grid family's faces equal the source's (FR-424 R7).
+    - R3 Relative checks, per family and on the whole mesh, each a 95th percentile (linear interpolation between ranks): the equiangle skewness at most the source's plus 0.05; the quadrilateral warp at most the larger of the source's and 10 degrees; the size growth (the area ratio of two neighbours) across edges whose dihedral is below 30 degrees at most the larger of the source's and 2. A check is relative to the source because the source is the author's accepted mesh; a source that fails a practice is reported, not judged.
+    - R4 Reported and never judged: the aspect ratio; the counts beyond the pre-processor's quality thresholds; a face quality ratio read from the solver's documentation (the ratio of a face's inscribed radius to its neighbours', called good below 2; the documentation gives no exact formula, so the package's formula is its own reading); the faces whose aspect ratio exceeds 50, the anisotropy the solver's documentation states it accepts; the triangles of the trailing edge with an aspect ratio above 50; and the faces lying on the plane y = 0. A mesh violating each of these produces its figure in `audit.json` and no warning.
     - R5 Without a source only G1, G2 and G4 are judged and the rest is reported.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s3_audit.py`, carrying P0380-AUDIT (FR-426), each gate with a mesh built to fail it.
+    Verification: test, `tests/tier1_offline/test_p0380_s3_audit.py`, carrying P0380-AUDIT (FR-426). Controls: each gate and each relative check with a mesh built to fail it, asserting the warning, the written level and the exit status; each reported figure with a mesh built to exceed it, asserting no warning.
 
 !!! requirement "FR-427 The two cut faces of a periodic sector are refined node for node <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.04 (0.38.0).
 
-    *Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, `tests/tier1_offline/test_p0380_s4_sector.py`.*
+    *Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, the P0380 tests named below.*
 
     Need: A user refining a periodic sector must get a level whose two cut faces still match node for node, as the source's do.
 
-    Requirement: When the refinement file states `[periodic]` with `axis`, `origin` and `copies`, the refinement finds the source's two cut boundaries (the open chains that the rotation by 360/copies degrees about the axis maps onto each other) and writes a level whose cut boundaries map onto each other node for node.
+    Requirement: When the refinement file states `[periodic]` with `axis` (three numbers, not all zero), `origin` (three numbers, in the OBJ's coordinates) and `copies` (the integer number of sectors in a full turn, at least 2), the refinement finds the source's two cut boundaries (the open chains that the rotation by 360/copies degrees about the axis maps onto each other) and writes a level whose cut boundaries map onto each other node for node.
 
-    - R1 Every node of one cut boundary of the level, rotated by 360/copies degrees about the axis, lies within 1e-9 of the sector's size of a node of the other.
-    - R2 The source's cut boundaries that do not map onto each other within 1e-6 of the sector's size are refused naming the largest distance; a `[periodic]` table that finds no pair is refused.
-    - R3 Without `[periodic]` the cut boundaries are open boundaries as any other (FR-424 R5).
+    - R1 Every node of one cut boundary of the level, rotated by 360/copies degrees about the axis, lies within 1e-9 of the size of a node of the other, and the two boundaries hold the same number of nodes.
+    - R2 Source cut boundaries that do not map onto each other within 1e-6 of the size are refused naming the largest distance; a `[periodic]` table that finds no pair, or whose keys are malformed, is refused naming the key.
+    - R3 Without `[periodic]` the cut boundaries are open boundaries as any other (FR-424 R8).
 
-    Verification: test, `tests/tier1_offline/test_p0380_s4_sector.py`, carrying P0380-SECTOR (FR-427).
+    Verification: test, `tests/tier1_offline/test_p0380_s4_sector.py`, carrying P0380-SECTOR (FR-427). Controls: a source with one cut node moved by 1e-4 of the size is refused with that distance; a level whose cut nodes are shifted by 1e-6 of the size fails R1; a sector with no cut boundaries is refused.
 
 !!! requirement "FR-428 A body is refined with an axial and a circumferential factor <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.05 (0.38.0).
 
-    *Origin: scope GOAL-045 item S5. Verification: test, `tests/tier1_offline/test_p0380_s5_axial.py`.*
+    *Origin: scope GOAL-045 item S5. Verification: test, the P0380 tests named below.*
 
     Need: A user refining a body of revolution (a fuselage, a nacelle, a spinner) must refine along its axis and around it independently.
 
-    Requirement: A remeshed family's table may state `axial`, `circumferential` and `axis` (and `origin`) in place of `factor`; its target edge length along the axis is the source's local length divided by `axial`, around the axis divided by `circumferential`.
+    Requirement: A remeshed family's table may state `axial`, `circumferential` and `axis` (three numbers, not all zero), and optionally `origin` (three numbers, default the family's centroid), in place of `factor`. Its target edge length is the source's local length divided by `axial` along the axis and by `circumferential` around it; a tag carries them as `a<axial>t<circumferential>`.
 
-    - R1 On the level, the mean edge length projected on the axis divided by the source's is `1/axial` within 15 per cent, and the mean projected around the axis `1/circumferential` within 15 per cent, measured over edges not on a curve.
-    - R2 `axial` or `circumferential` without `axis`, or beside `factor`, `chordwise` or `spanwise`, is refused by name.
+    - R1 Over the level's edges not on a curve, the mean of the edge vectors' components along the axis, divided by the source's, is `1/axial` within 15 per cent, and the mean of their components along the circle about the axis (perpendicular to the axis and to the radius) is `1/circumferential` within 15 per cent.
+    - R2 `axial` or `circumferential` without `axis`, beside `factor`, `chordwise` or `spanwise`, or on a grid family, and a malformed `axis` or `origin`, are refused naming the key.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s5_axial.py`, carrying P0380-AXIAL (FR-428).
+    Verification: test, `tests/tier1_offline/test_p0380_s5_axial.py`, carrying P0380-AXIAL (FR-428), on a cylinder at `axial = 2, circumferential = 1` and at `axial = 1, circumferential = 2`; a level refined along the wrong direction fails both.
 
 !!! requirement "FR-429 The thin blade is derived from the Python API as from the command <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.06 (0.38.0).
 
-    *Origin: scope GOAL-045 item S6; in 0.37.0 `derive_thin_blade` lives in a private module, called only by `pyfs-matrix degenerate`. Verification: test, `tests/tier1_offline/test_p0380_s6_degapi.py`.*
+    *Origin: scope GOAL-045 item S6; in 0.37.0 `derive_thin_blade` is defined in a private module and reached only by `pyfs-matrix degenerate`. Verification: test, the P0380 tests named below.*
 
     Need: A script must derive a thin blade with the behaviour and refusals of the command, through a public name.
 
-    Requirement: `pyflightstream.workspace` exports `derive_thin_blade`, its result type and `thin_blade_path`; `pyfs-matrix degenerate` calls the same function; the API reference and the maturity table name them.
+    Requirement: `pyflightstream.workspace` exports `derive_thin_blade`, `ThinBlade` and `thin_blade_path`, with their 0.37.0 signatures.
 
-    - R1 The command and the function write the same files for the same arguments and refuse the same inputs with the same messages.
+    - R1 `pyfs-matrix degenerate` calls the object `pyflightstream.workspace.derive_thin_blade`.
+    - R2 For the same arguments the command and the function write byte-identical files, and for every refusal of `derive_thin_blade` the same message text.
+    - R3 The generated API reference and the maturity table list the three names.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s6_degapi.py`, carrying P0380-DEGAPI (FR-429).
+    Verification: test, `tests/tier1_offline/test_p0380_s6_degapi.py`, carrying P0380-DEGAPI (FR-429): an identity test for R1, a fixture compared by digest and a table of invalid inputs for R2, the generated reference read for R3.

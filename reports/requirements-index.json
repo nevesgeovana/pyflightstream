@@ -3172,7 +3172,7 @@
    "text": "Plan: PFS-2079.01 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S1; the proof of concept of 2026-10-06 and its solver comparison. Verification: test, tests/tier1_offline/test_p0380_s1_refine.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S1. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3180,7 +3180,7 @@
    "text": "Plan: PFS-2079.02 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S2; a blade split into dummy families in the pre-processor, the region frozen before trimming as one family and the trimmed strip or the tip cap as others. Verification: test, tests/tier1_offline/test_p0380_s2_dummy.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S2. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3188,7 +3188,7 @@
    "text": "Plan: PFS-2079.03 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S3; the panel-mesh practices gathered for the pre-processor and the solver's guide, measured on the proof of concept's levels. Verification: test, tests/tier1_offline/test_p0380_s3_audit.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3196,7 +3196,7 @@
    "text": "Plan: PFS-2079.04 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, tests/tier1_offline/test_p0380_s4_sector.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3204,7 +3204,7 @@
    "text": "Plan: PFS-2079.05 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S5. Verification: test, tests/tier1_offline/test_p0380_s5_axial.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S5. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3212,7 +3212,7 @@
    "text": "Plan: PFS-2079.06 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade lives in a private module, called only by pyfs-matrix degenerate. Verification: test, tests/tier1_offline/test_p0380_s6_degapi.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade is defined in a private module and reached only by pyfs-matrix degenerate. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
@@ -3588,15 +3588,15 @@
    "text": "Plan: PFS-2079.09 (0.38.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S7, the 0.37.0 release review (TW F-2). Verification: test, tests/tier1_offline/test_p0380_s7_origin.py.*",
+   "evidence": "*Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   },
   {
    "id": "NFR-44",
-   "text": "Plan: GOAL-045 arm GD (0.38.0).",
+   "text": "Plan: PFS-2079 (0.38.0), GOAL-045 arm GD.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the 0.37.0 release, where four full suites ran for failures the guards show in a minute, and a test hashed a rendered path with the platform's separator and failed only on Linux. Verification: test, tests/tier1_offline/test_p0380_guards.py.*",
+   "evidence": "*Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, the P0380 tests named below.*",
    "verification": "none"
   }
  ]

@@ -1312,26 +1312,27 @@
 
     Evidence: `test_p0370_s9_the_fixture_has_one_definition_in_the_support_module` (the dependency graph: the support module imports no tier-1 test module at any depth, each builder of the fixture is defined there and nowhere in tier 1, no tier-1 module imports the fixture from a test module), `test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace`, `test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_difference`, `test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared`, `test_p0370_s9_with_a_plan_only_the_per_point_reasons_count` and `test_p0370_s9_a_refusal_on_one_side_only_is_a_difference` in `tests/tier1_offline/test_p0370_s9_parity_tests.py`. The fixture is `grouped_plan_fixture` of `tests/support_helpers.py`, with `rotor_workspace`, `rotor_row`, `make_library`, `fixture_codes` and `stage_geometry` moved there from test modules. Mutants killed: the whole-message fallback returning nothing, the `plan.json` branch comparing the whole message, the parsed-message branch comparing the heading, a lazy tier-1 import inside the support module, the fixture imported from a test module again.
 
-!!! requirement "NFR-43 A public requirement states its need, its requirement and its evidence, and narrates no person <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-43 A public requirement attributes no statement to a person <span class='srs-pending'>pending</span>"
     Plan: PFS-2079.09 (0.38.0).
 
-    *Origin: scope GOAL-045 item S7, the 0.37.0 release review (TW F-2). Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`.*
+    *Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, the P0380 tests named below.*
 
-    Requirement: The Origin line of every requirement box of the public SRS names the scope item, the plan node or the evidence that gave the requirement; it quotes no person and recounts no run of a person's work. The words that set a requirement live in the private record of its release.
+    Requirement: The Origin line of every requirement box of the public SRS names the scope item, the plan node, the report or the evidence that gave the requirement. The words that set a requirement live in the private record of its release.
 
-    - R1 No Origin line of the public SRS holds a quotation in a language other than English, or a first-person account.
-    - R2 The boxes of 0.37.0 are rewritten under R1 with their requirement text unchanged.
+    - R1 No Origin line of the public SRS holds a double-quoted span of four or more words, or a first-person pronoun (I, me, my, we, our) outside a code span.
+    - R2 The Origin lines that held one are rewritten under R1; the text of every box outside its Origin line is unchanged, checked by a digest of each box with its Origin line removed, taken before and after.
+    - R3 No line of the public SRS holds a drive-letter path or a user-profile path; names of persons and employers stay under the repository's forbidden-identifier guard.
 
-    Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`, carrying P0380-ORIGIN (NFR-43).
+    Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`, carrying P0380-ORIGIN (NFR-43). Controls: an Origin line holding a quotation in another language, one holding "I asked" and one holding a quoted English sentence each fail R1.
 
-!!! requirement "NFR-44 The cross-cutting guards run alone in minutes, and a hash of rendered text does not depend on the path separator <span class='srs-pending'>pending</span>"
-    Plan: GOAL-045 arm GD (0.38.0).
+!!! requirement "NFR-44 The cross-cutting guards run alone, and a digest of rendered text does not depend on the path separator <span class='srs-pending'>pending</span>"
+    Plan: PFS-2079 (0.38.0), GOAL-045 arm GD.
 
-    *Origin: the 0.37.0 release, where four full suites ran for failures the guards show in a minute, and a test hashed a rendered path with the platform's separator and failed only on Linux. Verification: test, `tests/tier1_offline/test_p0380_guards.py`.*
+    *Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, the P0380 tests named below.*
 
-    Requirement: `python scripts/run_guards.py` runs the cross-cutting guard tests (architecture metrics, private-name coupling, the requirements index, the repository guards, house style, the documented rows, claim currency, the release-ready record, the command-line help) in one process and states each guard's result; every test that pins a digest of text holding a path computes it through one fold of the path separators.
+    Requirement: `python scripts/run_guards.py` runs the guard tests (the tier-1 tests that judge the whole tree: architecture metrics, private-name coupling, the requirements index, the repository and house-style guards, the documented rows and invocations, claim currency, the release-ready record and the SRS consistency), listed once in the script, in one process, and prints each guard file's result.
 
-    - R1 The guards command exits non-zero when any guard fails and names it.
-    - R2 A digest of a rendered script or product that holds a staged path is the same on Windows and on Linux.
+    - R1 The command exits 1 when a guard fails, naming its file, and 2 when a listed guard file is missing; a run on the reference machine takes under 300 seconds.
+    - R2 A test that pins the digest of rendered text holding a path computes it from text in which every backslash of that path is a forward slash, and which holds no absolute path, drive letter or clock reading: the same text with either separator gives one digest.
 
-    Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44).
+    Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44). Controls: a guard forced to fail makes the command exit 1 and print its name; a listed file removed makes it exit 2; the separator fold is called on one text with backslashes and with forward slashes. The Linux half of R2 is the CI run.
