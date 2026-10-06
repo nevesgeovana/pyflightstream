@@ -311,6 +311,11 @@ def _refine_grids(work: _Work) -> None:
                 family=name,
             )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
+        if work.request.elements_of(name) != _config.TRIANGLES:
+            info["elements"] = (
+                f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "
+                "and a grid keeps its cells"
+            )
         interfaces: dict[str, str] = {}
         for other in work.names:
             old = work.fam_v[name] & work.fam_v[other] if other != name else set()
@@ -431,7 +436,7 @@ def _remesh_groups(work: _Work) -> None:
     """Remesh the other families, together where they share nodes (FR-424 R8)."""
     if not work.remesh:
         return
-    from pyflightstream.workspace._refine._remesh import refine_group
+    from pyflightstream.workspace._refine._remesh import element_report, refine_group
 
     groups: list[list[str]] = []
     for name in work.remesh:
@@ -445,13 +450,17 @@ def _remesh_groups(work: _Work) -> None:
         conform = [c for n in ordered for c in work.conform.get(n, [])]
         stretches = [s for s in (_stretch_of(work, n) for n in ordered) if s is not None]
         stretch = stretches[0] if stretches else None
-        done = refine_group(work.mesh, ordered, te, factors, conform=conform, stretch=stretch)
+        modes = {n: work.request.elements_of(work.bands.get(n, n)) for n in ordered}
+        done = refine_group(
+            work.mesh, ordered, te, factors, conform=conform, stretch=stretch, elements=modes
+        )
         for n in ordered:
             entry = work.report.setdefault(n, {"method": "remesh"})
             entry.update(
                 done.info,
                 faces_before=len(work.mesh.families[n]),
                 faces_after=len(done.families.get(n, [])),
+                **element_report(modes[n], done.families.get(n, [])),
             )
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
