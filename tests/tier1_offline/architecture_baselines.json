@@ -1420,7 +1420,7 @@
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
   "script/__init__.py": 1954,
-  "workspace/__init__.py": 2043
+  "workspace/__init__.py": 2021
  },
  "facade_definitions": {
   "fsi/__init__.py": [

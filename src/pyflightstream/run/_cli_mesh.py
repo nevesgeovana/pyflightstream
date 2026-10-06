@@ -1,4 +1,4 @@
-"""The panel-mesh verbs of ``pyfs-matrix`` (0.38.0): ``audit-mesh``.
+"""The panel-mesh verbs of ``pyfs-matrix`` (0.38.0): ``refine`` and ``audit-mesh``.
 
 Pipeline role: the command side of the panel-mesh audit of
 :mod:`pyflightstream.workspace` (FR-426). Each verb's parser names its
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.workspace import MeshAudit, audit_mesh
+from pyflightstream.workspace import MeshAudit, audit_mesh, refine_mesh
 
 #: The exit status of an audit that passed, of one that failed, of a refusal (FR-426 R1).
 EXIT_PASSED, EXIT_FAILED, EXIT_REFUSED = 0, 1, 2
@@ -40,7 +40,8 @@ _AUDIT_DESCRIPTION = (
 
 
 def add_mesh_parsers(subparsers: Any) -> None:
-    """Add the mesh verbs to ``pyfs-matrix``: audit-mesh (FR-426)."""
+    """Add the mesh verbs to ``pyfs-matrix``: refine (FR-424) and audit-mesh (FR-426)."""
+    _add_refine_parser(subparsers)
     audit = subparsers.add_parser(
         "audit-mesh",
         help=(
@@ -107,3 +108,80 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
 def _csv(audit: MeshAudit, csv: str | None) -> list[Path]:
     """Write the figures as CSV when ``--csv`` names a file; return what was written."""
     return [] if csv is None else [audit.write_csv(csv)]
+
+
+_REFINE_DESCRIPTION = (
+    "Refines or coarsens a panel mesh from its OBJ into a new geometry folder "
+    "<out-dir>/<stem>_<tag>/ holding the OBJ, the trailing-edge points file, the boundaries "
+    "file, <stem>_<tag>.refine.json and the audit against the source. FACTOR multiplies the "
+    "intervals of each index direction of a grid family and divides the target edge length of "
+    "a remeshed family; --chordwise and --spanwise replace it in one direction of the grid "
+    "families. Without FACTOR, --chordwise or --spanwise, the factors come from the refinement "
+    "file (--config, or <stem>.refine.toml beside the mesh), whose [components], [periodic] and "
+    "[refine] tag are read whenever it exists. Faces are written in the source's order. The "
+    "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "
+    "no executable."
+)
+
+
+def _add_refine_parser(subparsers: Any) -> None:
+    """Add ``pyfs-matrix refine`` (FR-424)."""
+    refine = subparsers.add_parser(
+        "refine",
+        help="refine or coarsen a panel mesh from its OBJ into a new geometry folder",
+        description=_REFINE_DESCRIPTION,
+    )
+    refine.add_argument("mesh", metavar="MESH", help="the source OBJ")
+    refine.add_argument(
+        "factor",
+        metavar="FACTOR",
+        nargs="?",
+        type=float,
+        help="the factor of every selected family",
+    )
+    refine.add_argument("--families", help="the families to change, comma separated (default: all)")
+    refine.add_argument("--chordwise", type=float, help="the chordwise factor of the grid families")
+    refine.add_argument("--spanwise", type=float, help="the spanwise factor of the grid families")
+    refine.add_argument(
+        "--config", metavar="FILE", help="the refinement file (default: <stem>.refine.toml)"
+    )
+    refine.add_argument(
+        "--out-dir",
+        metavar="DIR",
+        help="where the level folder goes (default: the parent of the source's folder)",
+    )
+    refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
+    refine.set_defaults(mesh_command=run_refine)
+
+
+def run_refine(args: argparse.Namespace) -> int:
+    """Refine one OBJ into a level folder and print what was written (FR-424).
+
+    Exit 0 when the level is written (a failed audit is a warning), 2 when the
+    request is refused; a refusal writes nothing.
+    """
+    families = (
+        None
+        if args.families is None
+        else [n.strip() for n in args.families.split(",") if n.strip()]
+    )
+    try:
+        level = refine_mesh(
+            args.mesh,
+            args.factor,
+            families=families,
+            chordwise=args.chordwise,
+            spanwise=args.spanwise,
+            config=args.config,
+            out_dir=args.out_dir,
+            overwrite=args.overwrite,
+        )
+    except (OSError, PyflightstreamError) as error:
+        print(str(error), file=sys.stderr)
+        return EXIT_REFUSED
+    for name, entry in level.report.items():
+        print(f"{name}: {entry.get('method', 'copied')}")
+    summary = [] if level.audit is None else level.audit.summary()
+    for line in summary + [str(path) for path in level.files]:
+        print(line)
+    return EXIT_PASSED

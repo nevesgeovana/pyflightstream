@@ -119,7 +119,9 @@ derived from a blade mesh and written beside it; since 0.38 its three names,
 :func:`derive_thin_blade`, :class:`ThinBlade` and :func:`thin_blade_path`, are
 offered here.
 
-The 0.38 workspace audits a panel mesh: :func:`audit_mesh` judges an OBJ's
+The 0.38 workspace refines and coarsens a panel mesh from its OBJ:
+:func:`refine_mesh` writes a new geometry folder and returns a
+:class:`RefinedMesh` (FR-424, FR-425). It audits a panel mesh: :func:`audit_mesh` judges an OBJ's
 topology, trailing edge and panel quality, alone or against the source it was
 made from, and returns a :class:`MeshAudit` (FR-426). It lives in the private
 package ``workspace._refine``.
@@ -202,6 +204,7 @@ from pyflightstream.workspace._links import (
 from pyflightstream.workspace._links import _is_reparse as _is_reparse
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
+from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
 from pyflightstream.workspace.inputs import INPUT_KINDS as INPUT_KINDS
@@ -358,6 +361,8 @@ __all__ = [
     # 0.38.0 (FR-426): the audit of a panel mesh, alone or against its source.
     "MeshAudit",
     "audit_mesh",
+    "RefinedMesh",
+    "refine_mesh",
 ]
 # 0.38.0 (FR-429): the thin blade of 0.34 is public. One appended line, because the module
 # sits at the 1000 code lines the size lens allows.

@@ -1080,7 +1080,7 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
 
 #: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
 #: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
-_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh")
+_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 
 
 def _cmd_geometry(args: argparse.Namespace) -> int:
