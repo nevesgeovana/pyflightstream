@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.37.0, MIT licensed}
+\institute[]{pyflightstream 0.38.0, MIT licensed}
 \date{October 2026}
 
 \AtBeginSection[]{
@@ -1339,6 +1339,8 @@ pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh
 pyfs-matrix degenerate   blade.obj --root-offset 0.05 # the thin blade of a blade mesh
+pyfs-matrix audit-mesh   mesh.obj [--against SRC.obj]  # judge a panel mesh, write its audit
+pyfs-matrix refine       mesh.obj 2 [--out-dir DIR]   # refine or coarsen into a new level folder
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
 pyfs-matrix rename       --workspace DIR [--dry-run]  # 0.20.x names to the 0.21.0 point names

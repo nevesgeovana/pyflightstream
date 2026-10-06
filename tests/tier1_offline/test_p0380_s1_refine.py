@@ -404,7 +404,8 @@ def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
         refine_mesh(src, 2.0)
     text = str(caught.value)
     assert text == (
-        f"{first.folder}: the level exists; give --overwrite to replace it. Nothing was written."
+        f"{first.folder}: the level exists; give overwrite=True (--overwrite) to replace it. "
+        "Nothing was written."
     )
     code, _, err = _command(capsys, str(src), "2")
     assert code == 2 and text in err
