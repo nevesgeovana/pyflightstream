@@ -364,7 +364,11 @@ def _arcs(
 
 
 def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
-    """Refuse chordwise or spanwise on a multiblock family (FR-424 R2).
+    """Refuse chordwise or spanwise on a multiblock family, and a factor leaving no interval.
+
+    A factor below 1/m for the m source intervals of any patch side would
+    leave that side no interval (FR-424 R1), so it is refused naming the
+    family, the patch side and the value rather than rounded up to one.
 
     Parameters
     ----------
@@ -378,16 +382,29 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
     Raises
     ------
     InputArtifactError
-        Naming the family; nothing was written.
+        Naming the family (and the patch side); nothing was written.
     """
-    if spec.chordwise is None and spec.spanwise is None:
-        return
-    raise InputArtifactError(
-        f"family {family}: chordwise and spanwise are not defined for {blocks.describe()}, "
-        "whose patches share no index directions. Give its factor alone and run again. "
-        "Nothing was written.",
-        kind=KIND,
+    if spec.chordwise is not None or spec.spanwise is not None:
+        raise InputArtifactError(
+            f"family {family}: chordwise and spanwise are not defined for {blocks.describe()}, "
+            "whose patches share no index directions. Give its factor alone and run again. "
+            "Nothing was written.",
+            kind=KIND,
+        )
+    factor = spec.factor
+    shortest = min(
+        (len(blocks.arcs[arc]) - 1, p, side)
+        for p, sides in enumerate(blocks.sides)
+        for side, (arc, _) in zip(SIDES, sides, strict=True)
     )
+    m, patch, side = shortest
+    if factor * m < 1.0:
+        raise InputArtifactError(
+            f"family {family}: the factor {factor:g} is below 1/{m}: the {side} of patch "
+            f"{patch + 1} has {m} source intervals and would be left with none. Give a factor "
+            f"of at least 1/{m} and run again. Nothing was written.",
+            kind=KIND,
+        )
 
 
 def _count(m: int, factor: float) -> int:

@@ -418,3 +418,33 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, chordwise=2.0, out_dir=tmp_path / "c")
     assert "family M: chordwise and spanwise are not defined" in str(caught.value)
+
+
+@pytest.mark.parametrize("factor", [0.01, 0.24])
+def test_a_factor_that_leaves_a_patch_side_no_interval_is_refused(tmp_path, capsys, factor):
+    """P0380-BLOCKS (FR-424 R1, R11, R16): a factor below 1/m of a patch side is refused.
+
+    The L-shaped sheet's shortest patch side holds 4 source intervals, so a
+    factor below 1/4 would leave it none; it is refused by the function and
+    the command alike, naming the family, the patch side and the value, before
+    any folder is written (not clamped to one interval). Control: exactly 1/4
+    is accepted and leaves that side one interval.
+    """
+    from pyflightstream.run import cli
+
+    sheet = l_sheet()
+    mesh = Composite(sheet.verts, {"M": sheet.faces}, np.zeros((0, 3)), {})
+    src = write_source(tmp_path / "src", "plate", mesh)
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, factor)
+    text = str(caught.value)
+    assert text.startswith(f"family M: the factor {factor:g} is below 1/4: ")
+    assert "patch" in text and "has 4 source intervals" in text, text
+    assert text.endswith("Nothing was written.")
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+    capsys.readouterr()
+    assert cli.main(["refine", str(src), str(factor)]) == 2
+    assert text in capsys.readouterr().err
+    level = refine_mesh(src, 0.25)
+    assert level.report["M"]["layout"] == "multiblock"
+    assert min(min(b["rows"][1], b["columns"][1]) for b in level.report["M"]["blocks"]) == 1
