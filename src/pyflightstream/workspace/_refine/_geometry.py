@@ -65,6 +65,18 @@ PANEL_PRACTICE_COUNTS: tuple[tuple[str, str, bool, float], ...] = (
     ("quad_min_angle_under_45_degrees", "quad_min_angle", False, 45.0),
     ("tri_min_angle_under_30_degrees", "tri_min_angle", False, 30.0),
 )
+#: Quad-dominant remesh: two triangles merge into a quadrilateral only when every interior
+#: angle of it lies in this band. 30 degrees is the smallest angle the pre-processor's practice
+#: accepts in a triangle (tri_min_angle_under_30_degrees), so no corner of a quadrilateral is
+#: sharper than a triangle the practice accepts, and 150 is its supplement. The band
+#: (45, 135), whose limits are those of the quadrilateral practice counts, was measured on a
+#: remeshed plate and left 30 percent of its faces triangles, against 1 percent with this one.
+QUAD_ANGLE_BAND = (30.0, 150.0)
+#: Quad-dominant remesh: a merged quadrilateral's warp (the audit's measure, the larger fold
+#: across either diagonal) is at most this many degrees, the limit counted as
+#: warp_over_10_degrees; the diagonal is the shared edge, so an edge sharper than this is
+#: never merged across.
+QUAD_WARP_DEGREES = 10.0
 #: FR-427 R1: the matched cut nodes of a periodic level lie within this fraction of the size.
 PERIODIC_LEVEL_FRACTION = 1e-9
 #: FR-427 R2: the source's cut boundaries must match within this fraction of the size.
@@ -134,6 +146,42 @@ def boundary_loops(faces: Faces) -> list[list[int]]:
             prev, cur = cur, nxt
         loops.append(loop)
     return loops
+
+
+def quad_shapes(p: Points) -> tuple[Points, Points, NDArray[numpy.bool_]]:
+    """Return the interior angles, the warp and the convexity of quadrilaterals.
+
+    Parameters
+    ----------
+    p : ndarray
+        The corners, quadrilaterals by 4 by 3, in the order the face runs.
+
+    Returns
+    -------
+    tuple of ndarray
+        The angle at each corner in degrees (by 4), the warp in degrees (the
+        larger fold between the two triangles of either diagonal, the audit's
+        measure), and whether every corner turns the way the face's normal
+        (the cross product of its diagonals) says.
+    """
+    edge = numpy.roll(p, -1, axis=1) - p
+    before = numpy.roll(edge, 1, axis=1)
+    length = numpy.linalg.norm(edge, axis=2)
+    cosine = -(edge * before).sum(axis=2) / numpy.maximum(
+        length * numpy.roll(length, 1, axis=1), 1e-300
+    )
+    angle = numpy.degrees(numpy.arccos(numpy.clip(cosine, -1.0, 1.0)))
+    normal = numpy.cross(p[:, 2] - p[:, 0], p[:, 3] - p[:, 1])
+    turn = (numpy.cross(before, edge) * normal[:, None, :]).sum(axis=2)
+    folds = []
+    for d in (0, 1):
+        a, b, c, e = (p[:, (d + k) % 4] for k in range(4))
+        n1, n2 = numpy.cross(b - a, c - a), numpy.cross(c - a, e - a)
+        fold = (n1 * n2).sum(axis=1) / numpy.maximum(
+            numpy.linalg.norm(n1, axis=1) * numpy.linalg.norm(n2, axis=1), 1e-300
+        )
+        folds.append(numpy.degrees(numpy.arccos(numpy.clip(fold, -1.0, 1.0))))
+    return angle, numpy.maximum(folds[0], folds[1]), (turn > 0.0).all(axis=1)
 
 
 def dihedral_degrees(verts: Points, faces: Faces) -> dict[tuple[int, int], float]:
