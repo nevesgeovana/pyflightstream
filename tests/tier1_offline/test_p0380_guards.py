@@ -105,3 +105,23 @@ def test_p0380_guards_a_guard_that_ran_no_test_is_red(tmp_path, monkeypatch, cap
     out = capsys.readouterr().out
     assert "NOT RUN tests/test_empty.py" in out
     assert "guards: RED" in out
+
+
+def test_p0380_guards_run_four_workers(tmp_path, monkeypatch):
+    """P0380-GUARDS (NFR-44 R1): the command runs four pytest workers, never one per CPU.
+
+    One worker per CPU, twenty on the development machine, exhausted its memory
+    beside other test runs (2026-10-06).
+    """
+    guards = _run_guards()
+    seen: list[list[str]] = []
+
+    def record(command, **kwargs):
+        seen.append(list(command))
+        raise SystemExit(0)
+
+    monkeypatch.setattr(guards.subprocess, "run", record)
+    with pytest.raises(SystemExit):
+        guards.main([])
+    command = seen[0]
+    assert command[command.index("-n") + 1] == "4"

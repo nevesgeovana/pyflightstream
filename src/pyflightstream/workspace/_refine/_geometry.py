@@ -1,8 +1,9 @@
 """Thresholds and geometric primitives the refinement and the audit share (FR-424 to FR-428).
 
-THE THRESHOLDS are engineering choices that the proof-of-concept levels met;
-each is defined here once, and changing one requires a reason in the SRS
-revision row that changes it.
+THE THRESHOLDS the SRS names (and the audit reads) are engineering choices that
+the proof-of-concept levels met; each is defined here once, and changing one
+requires a reason in the SRS revision row that changes it. The remesher's own
+tuning constants (split and collapse ratios, passes) live in ``_remesh``.
 
 THE PRIMITIVES need numpy alone, so a grid family and the audit run without
 the geometry extra (FR-424 R10): the nearest-point query bins the points into
@@ -45,9 +46,10 @@ GROWTH_FLOOR = 2.0
 GROWTH_DIHEDRAL_DEGREES = 30.0
 #: FR-426 R3: the percentile every relative check reads (linear interpolation).
 PERCENTILE = 95.0
-#: FR-426 R4: the aspect ratio beyond which a face is counted (the solver's stated anisotropy).
+#: FR-426 R4: the aspect ratio beyond which a face is counted (the anisotropy the solver's
+#: user's manual states it accepts, p. 62, p. 67, p. 70).
 ASPECT_LIMIT = 50.0
-#: FR-426 R4: the face quality ratio called good below this.
+#: FR-426 R4: the face quality ratio called good below this (user's manual, p. 247).
 QUALITY_GOOD = 2.0
 #: FR-426 R4: the pre-processor's panel quality thresholds, counted and never judged:
 #: (figure, measure, counted when above the limit rather than below it, limit).

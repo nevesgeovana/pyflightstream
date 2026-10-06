@@ -8,14 +8,14 @@ Show, on the licensed solver, that a level refined at factor 1 reproduces the na
 
 ## Method
 
-The geometry is a research propeller of six blades without spinner; its shape is withheld. Every blade is a grid family (a tube with zipper caps at both ends), so every level was resampled as a grid (FR-424 R6) and written in the native face order (R7). The levels were made with the 0.38.0 development tree (`pyfs-matrix refine MESH 1`, `0.5`, `2`, default output folder) and audited against the native mesh (FR-426); the factor-1 level's vertex and face lines equal the native file's, line for line. Run type `qsteady_rotor`, wheel, alpha 0, advance ratio 1.70 at the clock speed, Mach 0.1441, the same setup (far-field layers 5), reference and post for every row. The rotor table `P38NN-ROTOR_rotor.csv` of each point gives `CT_ROTOR`, `CP_ROTOR` and `ETA_ROTOR`. Every run converged.
+The geometry is a six-blade propeller without spinner; its shape and operating point are withheld. Every blade is a grid family (a tube with zipper caps at both ends), so every level was resampled as a grid (FR-424 R6) and written in the native face order (R7). The levels were made with the 0.38.0 development tree (`pyfs-matrix refine MESH 1`, `0.5`, `2`, default output folder) and audited against the native mesh (FR-426); the factor-1 level's vertex and face lines equal the native file's, line for line. Run type `qsteady_rotor`, wheel, alpha 0, one operating point in axial flow, the same setup (far-field layers 5), reference and post for every row. The rotor table `P38NN-ROTOR_rotor.csv` of each point gives `CT_ROTOR`, `CP_ROTOR` and `ETA_ROTOR`. Every run converged.
 
-| Level | Run id | Faces | Faces per blade |
+| Level | Simulation | Faces | Faces per blade |
 |---|---|---:|---:|
-| native | `ws/sim_3801/M144RE438AL+000BE+000RPM00473` | 5616 | 936 |
-| R1 (factor 1) | `ws/sim_3802/M144RE438AL+000BE+000RPM00473` | 5616 | 936 |
-| R0p5 (factor 0.5) | `ws/sim_3803/M144RE438AL+000BE+000RPM00473` | 1404 | 234 |
-| R2 (factor 2) | `ws/sim_3804/M144RE438AL+000BE+000RPM00473` | 22032 | 3672 |
+| native | `sim_3801` | 5616 | 936 |
+| R1 (factor 1) | `sim_3802` | 5616 | 936 |
+| R0p5 (factor 0.5) | `sim_3803` | 1404 | 234 |
+| R2 (factor 2) | `sim_3804` | 22032 | 3672 |
 
 ## Results
 
@@ -31,4 +31,4 @@ The factor-1 level reproduces the native level in every printed digit of the thr
 
 ## Limits
 
-One operating point, one propeller, one run type (quasi-steady); the power coefficient's trend needs a finer level, or a native level made at a different size in the pre-processor, to be read as convergence or as a property of the refined family. Absolute coefficients are kept in the private record of the release.
+One operating point, one propeller, one run type (quasi-steady); the power coefficient's trend needs a finer level, or a native level made at a different size in the pre-processor, to be read as convergence or as a property of the refined family. Absolute coefficients, the operating point and the run records are kept in the private record of the release.
