@@ -11,8 +11,8 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a RELEASE tree: the version carries no
-# development suffix and states date-released, which is the pair the
+# released (REV010-015). This is a DEVELOPMENT tree: the version carries
+# .dev1 and no date-released, which is the pair the
 # guard in tests/tier1_offline/test_metadata_currency.py enforces in both directions.
 # The next commit to move the pair is the post-tag one that opens the next
 # development cycle, and it sets them the other way with this sentence; it is written as a statement about the
@@ -70,8 +70,9 @@ license: MIT
 # move, the v0.35.1 release the FIFTY-SIXTH; 0.36.0.dev0 OPENED 0.36.0
 # DEVELOPMENT, the FIFTY-SEVENTH move, the v0.36.0 release the
 # FIFTY-EIGHTH; 0.37.0.dev1 OPENED 0.37.0 DEVELOPMENT, the FIFTY-NINTH
-# move; this release cut sets v0.37.0, the SIXTIETH move, and the
-# paragraph is re-stated with it
+# move, the v0.37.0 release the SIXTIETH; THIS COMMIT OPENS 0.38.0
+# DEVELOPMENT (0.38.0.dev1), the SIXTY-FIRST move, and the paragraph is
+# re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -111,8 +112,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.37.0
-date-released: 2026-10-05
+version: 0.38.0.dev1
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

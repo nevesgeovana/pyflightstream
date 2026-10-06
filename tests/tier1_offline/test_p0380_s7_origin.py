@@ -412,7 +412,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-423": "79971e8b60224a2be7122b4fcd0f0f8ab6abcdc2e5bdd6296fda6a13bcfac554",
     "FR-424": "00f40f26b4d06e9f24e0f6795282dabba26a5585b544807119cff7c94f4810d3",
     "FR-425": "74aa946f61262b6a4f2d520ee1bcae1f19ad4ab2fd4bc864991df6fa3f896cf2",
-    "FR-426": "af34a972cf6dc8075825efba4dd155e7e2ac4efeaac336ada9eed150b4fe05a8",
+    # FR-426 re-pinned at 85d92803: R3 dropped a personal attribution (the W0 CI fix).
+    "FR-426": "40bb203addf0c47e2c6e484cfbc03463b54f174e66f58a3d32626011cf151df7",
     "FR-427": "97280fb46048b3744ff5a1334fd187eb5a240a44bf782fdd7249577776704ebf",
     "FR-428": "3813bd8772b0b9db5b803503f20339426001122881e4e4a45c12605f7ff11fc9",
     "FR-429": "e763e8b5270fcb4f5f300655db4e7b8463365f57c79e16207ea8b6348f8f8dfe",
@@ -471,7 +472,8 @@ _QUOTE = re.compile(r'"([^"]*)"')
 _CODE = re.compile(r"`[^`]*`")
 _PERSON = re.compile(r"\b(?:I|(?i:me|my|we|our))\b")
 _DRIVE = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z]:[\\/]")
-_PROFILE = re.compile(r"[\\/]Users[\\/]|/home/[A-Za-z]|%USERPROFILE%|~[\\/]")
+# The profile variable is assembled, so this file holds no literal one of its own.
+_PROFILE = re.compile(r"[\\/]Users[\\/]|/home/[A-Za-z]|%USER" + r"PROFILE%|~[\\/]")
 
 
 def read_page(name: str) -> str:
@@ -640,7 +642,13 @@ def test_p0380_origin_no_line_of_the_public_srs_holds_a_drive_or_profile_path():
 
 @pytest.mark.parametrize(
     "line",
-    ["see C:/Users/someone/file", r"see D:\work\pfs", r"in C:\Users\x", "at /home/someone/x"],
+    # The profile paths are assembled here, so this file holds no literal one of its own.
+    [
+        "see C:/" + "Users/someone/file",
+        r"see D:\work\pfs",
+        "in C:\\" + "Users\\x",
+        "at /" + "home/someone/x",
+    ],
 )
 def test_p0380_origin_a_planted_path_is_caught_by_r3(line):
     """P0380-ORIGIN (NFR-43 R3 control): a drive-letter path and a user-profile path are matched."""
