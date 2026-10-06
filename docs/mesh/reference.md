@@ -616,9 +616,11 @@ the request is refused. `audit-mesh` exits 0 when every gate and check passes,
 A refusal is printed on standard error, names the object, what was refused and
 what to do, and ends with `Nothing was written.`: every refusal of the
 arguments, the refinement file, the family names and the installed extras comes
-before any family is resampled and before any file is written. A level is
-written into `<folder>.partial` and renamed once complete, so an error leaves
-no level folder behind.
+before any family is resampled and before any file is written, and so does a
+refusal of the boundaries file or of the points file it names, which the audit
+reads. A level is written into `<folder>.partial`, audited there, and renamed
+once complete, so an error leaves no level folder behind; with `--overwrite`
+the existing level is replaced only then, and kept when an error comes first.
 
 ### Where the factors come from
 

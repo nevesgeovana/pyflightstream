@@ -9,8 +9,10 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy
 from numpy.typing import NDArray
@@ -147,6 +149,63 @@ def compact(
                     order[v] = len(order)
     keep = numpy.fromiter(order.keys(), dtype=numpy.int64)
     return verts[keep], {n: [[order[v] for v in f] for f in fs] for n, fs in families.items()}
+
+
+#: The suffix of a mesh's boundaries file, beside it.
+SIDECAR_SUFFIX = ".boundaries.toml"
+#: The suffix of a mesh's trailing-edge points file when its boundaries file names none.
+TE_SUFFIX = ".te.txt"
+
+
+def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
+    """Return a mesh's boundaries file and its tables, or None when it has none.
+
+    Raises
+    ------
+    InputArtifactError
+        The file is not TOML; nothing was written.
+    """
+    sidecar = Path(obj).with_name(Path(obj).stem + SIDECAR_SUFFIX)
+    if not sidecar.is_file():
+        return None
+    try:
+        return sidecar, tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise InputArtifactError(
+            f"{sidecar}: not TOML ({error}). Fix the file and run again. Nothing was written.",
+            kind=KIND,
+        ) from error
+
+
+def te_file(obj: str | Path) -> Path | None:
+    """Return a mesh's trailing-edge points file, or None when it has none.
+
+    It is the file the boundaries file names under ``[trailing_edges] file``,
+    or else ``<stem>.te.txt`` beside the mesh. The refinement and the audit
+    both read it here, so they refuse the same inputs (FR-424 R11).
+
+    Raises
+    ------
+    InputArtifactError
+        The boundaries file is not TOML, or names a points file that does not
+        exist; nothing was written.
+    """
+    read = read_sidecar(obj)
+    named = None
+    if read is not None:
+        table = read[1].get("trailing_edges")
+        named = table.get("file") if isinstance(table, dict) else None
+    if read is not None and isinstance(named, str):
+        file = read[0].parent / named
+        if not file.is_file():
+            raise InputArtifactError(
+                f"{read[0]}: names the trailing-edge file {named}, which does not exist. "
+                "Write the points file or remove the key and run again. Nothing was written.",
+                kind=KIND,
+            )
+        return file
+    default = Path(obj).with_name(Path(obj).stem + TE_SUFFIX)
+    return default if default.is_file() else None
 
 
 def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:

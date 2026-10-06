@@ -23,12 +23,17 @@ The order, from the source to the level folder:
    a factor-1 family or the band of an unchanged neighbour stays frozen;
 6. assemble in the source's family order, weld the shared nodes, put each
    band back into its family in the source's order, group the components
-   (FR-425 R4), and write the level into a temporary folder renamed once
-   complete (FR-424 R4, R5).
+   (FR-425 R4), write the level into a temporary folder, audit it there
+   (FR-426), and rename it once complete; an existing level is replaced only
+   then (FR-424 R4, R5).
+
+Every input the audit refuses (the boundaries file, the trailing-edge points
+file it names) is read in step 1, so a refusal comes before any work (R11).
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -54,9 +59,12 @@ Points = NDArray[numpy.float64]
 #: The suffix of a band family while it is remeshed; it never reaches the level.
 BAND_SUFFIX = "~band"
 #: The trailing-edge points file of a mesh, when its boundaries file names none.
-TE_SUFFIX = ".te.txt"
+TE_SUFFIX = _obj.TE_SUFFIX
 #: The folder a level is written into before it is renamed to its own name (FR-424 R5).
 STAGING_SUFFIX = ".partial"
+#: The name an existing level is moved to while ``overwrite`` replaces it, until the new
+#: level is in place (FR-424 R5): an error before then puts it back.
+PREVIOUS_SUFFIX = ".previous"
 
 
 @dataclass(frozen=True)
@@ -116,17 +124,6 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 # --------------------------------------------------------------------- reading
 
 
-def _te_file(source: Path) -> Path | None:
-    """Return the trailing-edge points file the boundaries file names, else ``<stem>.te.txt``."""
-    side = source.with_name(source.stem + ".boundaries.toml")
-    if side.is_file():
-        match = re.search(r'(?m)^\s*file\s*=\s*"([^"]+)"', side.read_text(encoding="utf-8"))
-        if match and source.with_name(match.group(1)).is_file():
-            return source.with_name(match.group(1))
-    beside = source.with_name(source.stem + TE_SUFFIX)
-    return beside if beside.is_file() else None
-
-
 def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[int]:
     """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
     if not len(points):
@@ -138,7 +135,7 @@ def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> se
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
-    te = _te_file(source)
+    te = _obj.te_file(source)
     unit, points = _obj.read_te(te) if te else ("METER", numpy.zeros((0, 3)))
     scale = mesh.size
     names = list(mesh.families)
@@ -577,7 +574,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     if not side.is_file():
         return None
     text = side.read_text(encoding="utf-8")
-    te = _te_file(work.source)
+    te = _obj.te_file(work.source)
     if te is not None:
         text = text.replace(f'"{te.name}"', f'"{stem}{TE_SUFFIX}"')
     owner = {m: c for c, members in work.request.components.items() for m in members}
@@ -735,23 +732,43 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
     )
     faces = _components(work, faces)
+    merged = {m for members in work.request.components.values() for m in members}
+    unchanged = [
+        n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0) and n not in merged
+    ]
     staging = folder.with_name(folder.name + STAGING_SUFFIX)
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
         written = _write(work, staging, verts, faces, te)
-        if folder.exists():
-            shutil.rmtree(folder)
-        staging.rename(folder)
+        audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
+        _publish(staging, folder)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
-    files = tuple(folder / p.name for p in written)
-    report = json.loads(files[-1].read_text(encoding="utf-8"))["families"]
-    merged = {m for members in work.request.components.values() for m in members}
-    unchanged = [
-        n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0) and n not in merged
-    ]
-    audit = audit_mesh(files[0], against=source, unchanged_grids=unchanged)
-    files = (*files, audit.path)
+    files = tuple(folder / p.name for p in (*written, audit.path))
+    audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
+    report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
     return RefinedMesh(folder=folder, obj=files[0], files=files, report=report, audit=audit)
+
+
+def _publish(staging: Path, folder: Path) -> None:
+    """Rename the complete, audited staging folder to the level (FR-424 R5).
+
+    An existing level is moved aside first and removed only once the new one
+    is in place; if the rename fails, it is put back. A path that is not a
+    folder is never replaced.
+    """
+    previous = folder.with_name(folder.name + PREVIOUS_SUFFIX)
+    shutil.rmtree(previous, ignore_errors=True)
+    if folder.exists() and not folder.is_dir():
+        raise FileExistsError(f"{folder} exists and is not a level folder; it was not replaced")
+    if folder.exists():
+        folder.rename(previous)
+    try:
+        staging.rename(folder)
+    except BaseException:
+        if previous.exists() and not folder.exists():
+            previous.rename(folder)
+        raise
+    shutil.rmtree(previous, ignore_errors=True)

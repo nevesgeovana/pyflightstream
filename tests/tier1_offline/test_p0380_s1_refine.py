@@ -580,6 +580,89 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     assert _left(tmp_path) == ["wing_R0p5", "wing_R2"]
 
 
+@pytest.mark.parametrize(
+    ("sidecar", "said"),
+    [
+        (
+            'boundaries = ["G"]\n[trailing_edges]\nfile = "missing.te.txt"\n',
+            "names the trailing-edge file missing.te.txt, which does not exist",
+        ),
+        ('boundaries = ["G"\n', "not TOML"),
+    ],
+    ids=["missing-points-file", "malformed-sidecar"],
+)
+def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
+    tmp_path, capsys, monkeypatch, sidecar, said
+):
+    """P0380-REFINE (FR-424 R5, R11; FR-426 R2 G4): the inputs the audit reads are checked first.
+
+    A boundaries file naming a points file that does not exist, or that is not
+    TOML, is refused by the function and the command before any family is
+    resampled (the grid's resampling is replaced by one that fails the test if
+    called), and no level folder is published. With ``overwrite`` the level
+    already there is kept byte for byte. Control: the audit refuses the same
+    sidecar with the same reason.
+    """
+    from pyflightstream.workspace import audit_mesh
+    from pyflightstream.workspace._refine import _grid
+
+    src = _source(tmp_path)
+    first = refine_mesh(src, 2.0)
+    kept = _snapshot(first.folder)
+    src.with_name("wing.boundaries.toml").write_bytes(sidecar.encode("utf-8"))
+
+    def never(*args, **kwargs):
+        raise AssertionError("a family was resampled before the refusal")
+
+    monkeypatch.setattr(_grid, "refine_grid", never)
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 2.0, overwrite=True)
+    text = str(caught.value)
+    assert said in text and text.endswith("Nothing was written."), text
+    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first.folder) == kept
+    code, _, err = _command(capsys, str(src), "1")
+    assert code == 2 and said in err and _left(tmp_path) == ["wing_R2"]
+    with pytest.raises(InputArtifactError, match=said):
+        audit_mesh(src)
+
+
+def test_r5_an_audit_that_fails_to_run_publishes_nothing_and_keeps_the_old_level(
+    tmp_path, monkeypatch
+):
+    """P0380-REFINE (FR-424 R4, R5): the level is published only after its audit is written.
+
+    The audit runs inside the staging folder; when it raises (here an error
+    writing audit.json), no level folder is published, no staging folder is
+    left, and with ``overwrite`` the previous level is kept byte for byte.
+    Control: the same call without the error replaces the level and the
+    returned audit names the published folder.
+    """
+    from pyflightstream.workspace._refine import _level
+
+    src = _source(tmp_path)
+    first = refine_mesh(src, 2.0)
+    (first.folder / "planted.txt").write_bytes(b"x")
+    kept = _snapshot(first.folder)
+    real = _level.audit_mesh
+
+    def failing(*args, **kwargs):
+        raise OSError("the audit could not be written")
+
+    monkeypatch.setattr(_level, "audit_mesh", failing)
+    with pytest.raises(OSError, match="the audit could not be written"):
+        refine_mesh(src, 2.0, overwrite=True)
+    assert _left(tmp_path) == ["wing_R2"] and _snapshot(first.folder) == kept
+    with pytest.raises(OSError):
+        refine_mesh(src, 0.5)
+    assert _left(tmp_path) == ["wing_R2"]
+    monkeypatch.setattr(_level, "audit_mesh", real)
+    level = refine_mesh(src, 2.0, overwrite=True)
+    assert not (level.folder / "planted.txt").exists() and _left(tmp_path) == ["wing_R2"]
+    assert level.audit is not None and level.audit.path == level.folder / "wing_R2.audit.json"
+    assert level.audit.mesh == level.obj and level.audit.path.is_file()
+    assert level.files[-1] == level.audit.path
+
+
 # ----------------------------------------------------------------- R7 face order
 
 

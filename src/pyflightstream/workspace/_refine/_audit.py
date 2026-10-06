@@ -24,7 +24,6 @@ its values. The trailing-edge points file of a mesh is the one its
 from __future__ import annotations
 
 import json
-import tomllib
 import warnings
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
@@ -61,7 +60,14 @@ from pyflightstream.workspace._refine._geometry import (
     normals_and_centroids,
     triangles,
 )
-from pyflightstream.workspace._refine._obj import KIND, ObjMesh, edge_midpoints, read_obj, read_te
+from pyflightstream.workspace._refine._obj import (
+    KIND,
+    ObjMesh,
+    edge_midpoints,
+    read_obj,
+    read_te,
+    te_file,
+)
 
 Faces = list[list[int]]
 Value = float | int | str | bool | None
@@ -289,7 +295,7 @@ def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> 
     obj = read_obj(path)
     if components:
         obj = _grouped(obj, components)
-    te = _te_file(path)
+    te = te_file(path)
     points = None if te is None else read_te(te)[1]
     return _measure(obj, points)
 
@@ -313,30 +319,6 @@ def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
     for name, faces in obj.families.items():
         families.setdefault(owner.get(name, name), []).extend(faces)
     return ObjMesh(obj.verts, families, obj.header, obj.family_tag)
-
-
-def _te_file(obj: Path) -> Path | None:
-    """Return the trailing-edge points file of an OBJ, or None when it has none."""
-    sidecar = obj.with_name(obj.stem + ".boundaries.toml")
-    named = None
-    if sidecar.is_file():
-        try:
-            data = tomllib.loads(sidecar.read_text(encoding="utf-8"))
-        except tomllib.TOMLDecodeError as error:
-            raise _refusal(sidecar, f"not TOML ({error})", "Fix the file and run again.") from error
-        table = data.get("trailing_edges")
-        named = table.get("file") if isinstance(table, dict) else None
-    if isinstance(named, str):
-        file = sidecar.parent / named
-        if not file.is_file():
-            raise _refusal(
-                sidecar,
-                f"names the trailing-edge file {named}, which does not exist",
-                "Write the points file or remove the key and run again.",
-            )
-        return file
-    default = obj.with_suffix(".te.txt")
-    return default if default.is_file() else None
 
 
 def _measure(obj: ObjMesh, points: Array | None) -> _Mesh:
