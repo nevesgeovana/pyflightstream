@@ -83,6 +83,8 @@
   \item A steady angle sweep is one job; a flow-variable sweep is one per point.
   \item A point already queued is refused a second submission. Collect it
         first.
+  \item \code{--batch N} or \code{--polar-sweep} puts several polars' points
+        in one job instead (Part~\ref{sec:grouped}).
 \end{itemize}
 \end{block}
 \end{column}
@@ -194,6 +196,136 @@ probe points off the body & \alert{not identical} \\
 \end{itemize}
 \end{column}
 \end{columns}
+\end{frame}
+
+\section{Grouped runs}
+\label{sec:grouped}
+
+\begin{frame}[fragile]{A grouped run: several points, one solver}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix plan matriz.fs --workspace . --batch 4     # decide the split
+pyfs-matrix run  matriz.fs --workspace . --batch 4     # run the receipt's jobs
+pyfs-matrix collect --workspace . --watch              # finish every point
+\end{lstlisting}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{What it is}
+\small A grouped run solves several points of a polar, or several polars,
+in \textbf{one solver instance}, in order.
+\begin{itemize}\small
+  \item \code{--polar-sweep}: one job per polar; \code{--batch N}: N jobs.
+  \item Steady (\code{steady}, \code{qsteady\_rotor}) and unsteady polars
+        join, never in the same job.
+  \item Each acoustic polar is a job of its own.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{The plan decides, the run obeys}
+\small \pyfs{plan} groups the polars by processors, build, kind and user
+actions, and cuts batches of whole polars, the longest as short as it can
+be. It prints one line per job and records the split in \code{plan.json}.
+\end{block}
+\begin{alertblock}{The receipt gates the run}
+\small Another mode, N or selection, no job, or job folders that hold
+files: \pyfs{run} refuses. Plan again.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{What a grouped plan leaves out}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{@{}p{0.40\linewidth}p{0.56\linewidth}@{}}
+\toprule
+\textbf{The polar} & \textbf{Why it stays out} \\
+\midrule
+a LEGACY row & grouped modes run the package's steady and unsteady run types only \\
+a coupled row on \code{steady} or \code{qsteady\_rotor} & its coupling loop starts only after the script ends, and on 26.124 the next point of the job crashed the instance \\
+a steady row stating \code{COLD\_START} false & a warm sweep; a grouped job re-initializes the solver before every point \\
+a \code{RESTART} row & it opens a datapoint's saved simulation \\
+an unsteady row on a build without the action command & the build does not document the unsteady solver action command \\
+a polar whose points do not splice into one instance & for one, a steady point that initializes the solver twice \\
+a polar whose points are all recorded & nothing is left to run \\
+\bottomrule
+\end{tabular}}
+\par\vspace{1mm}
+\begin{takeaway}Named, never refused, in the plan and in \code{plan.json}:
+run those rows point by point. A geometry carrying saved solver actions
+blocks instead: \code{pyfs-matrix inventory <file> --clean}.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{Where a grouped job runs}
+\begin{lstlisting}[style=ftsbase]
+sims/sim_<POL>/FULL-POLAR.txt                       # --polar-sweep: the polar's job
+sims/batch/<matrix>_b<ID>/BATCH-<first>-<last>.txt  # --batch: the batch's job
+sims/sim_<POL>/datapoints/DP-<point>/               # each point's outputs, as always
+\end{lstlisting}
+\begin{itemize}\small
+  \item The batch ID is assigned by the package, never typed. While a batch
+        runs, its simulations live in its folder, and every save and export
+        names an absolute path.
+  \item The job's folder is the working directory of the whole job: a
+        relative \code{SCRIPT} file or a relative path inside a
+        \code{COMMAND\_LINE} action resolves there, and the plan warns,
+        naming the folder.
+  \item The job's clock replaces each point's: the job asks for a walltime of
+        its own (next slide).
+  \item \pyfs{run} does not post. Every point is recorded \code{SUBMITTED},
+        also when the job runs on this machine (Windows, or
+        \code{--local}): one instance, one license, one job at a time.
+  \item \code{--force-rerun}, \code{--force-rerun-all} and \code{--sweep-csv}
+        are refused beside a grouped option.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The walltime of a grouped job}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{The sum of its points}
+\small The \code{WALLTIME} cell (\code{4h}) is the budget of \textbf{one}
+datapoint of its row. A job asks for the sum over its points, capped at the
+profile's \code{max\_walltime} with a warning that suggests a larger N. A
+row whose own cell is above \code{max\_walltime} is refused.
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{\code{BEST}: the package prices it}
+\small The job's estimate times 1.25, plus the setup's
+\code{walltime\_margin\_s}, rounded up to the minute. In a mixed job each
+\code{BEST} row adds its priced estimate to the other rows' cells. An
+unknown \code{BEST} point takes \code{max\_walltime}, with a warning, and
+is refused without one. A plan with neither \code{--batch} nor
+\code{--polar-sweep} refuses \code{BEST}, naming the row.
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}A point the job's clock stopped is \code{WALLTIME\_REACHED}, not
+a failure. To run it again from the start in the next grouped plan,
+\code{pyfs-matrix collect --discard-walltime} marks it
+\code{FAILED\_MARKED}, its outputs kept.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{Collecting a grouped job}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix collect --workspace . --watch
+pyfs-matrix collect --workspace . --discard-walltime   # clock-stopped: run again
+\end{lstlisting}
+\begin{itemize}\small
+  \item \pyfs{collect} reads the job's descriptor, solver log and end files
+        in the job's folder, and completes each point as soon as its files
+        settle, while the job still runs.
+  \item Until a batch ends it \textbf{copies} each finished simulation to
+        \code{sims/} and leaves the batch folder alone; once it ends, it
+        \textbf{moves} them.
+  \item It cuts the job's log into one log per point.
+  \item A point that failed without stopping the instance does not stop the
+        job. The points a stopped job never started are named, and the next
+        grouped run takes them, and every failed point, again.
+  \item \code{--hpc NAME} selects the profile when the workspace holds
+        several, as on \pyfs{plan} and \pyfs{run}.
+\end{itemize}
 \end{frame}
 
 \section{What a run leaves}

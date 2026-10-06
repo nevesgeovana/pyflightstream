@@ -15,7 +15,10 @@
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
 \vspace{-2pt}
-\begin{multicols}{3}
+% Page 1 holds every subcommand and option of pyfs-matrix: four columns at a
+% smaller size keep it to one page (FR-328: the guide is ten pages).
+\fontsize{5.7}{6.35}\selectfont
+\begin{multicols}{4}
 
 \stage{1. PREPARE THE WORKSPACE AND THE MATRIX}
 \sub{inventory <geometry>}{write \texttt{<stem>.boundaries.toml} beside a saved simulation (.fsm, from its mesh block) or an OBJ (from its groups); names the solver actions saved in a .fsm; no executable needed}
@@ -34,6 +37,14 @@
 \begin{flags}
 \item \fl{--against SOURCE} judge against the mesh it was made from (alone: G1, G2, G4 only)
 \item \fl{--csv FILE} also write the figures, one row per family and figure
+\end{flags}
+\sub{refine <MESH> [FACTOR]}{refine or coarsen a panel mesh from its OBJ into a new geometry folder \texttt{<stem>\_<tag>/} (OBJ, trailing-edge points, boundaries, \texttt{refine.json}, audit); FACTOR multiplies every selected family, else the factors come from the refinement file; the source is never modified}
+\begin{flags}
+\item \fl{--families A,B} only these families (default: all)
+\item \fl{--chordwise F}, \fl{--spanwise F} the factor in one index direction of the grid families
+\item \fl{--config FILE} the refinement file (default: \texttt{<stem>.refine.toml} beside the mesh)
+\item \fl{--out-dir DIR} where the level folder goes (default: the parent of the source's folder)
+\item \fl{--overwrite} replace an existing level folder
 \end{flags}
 \sub{upgrade <matrix>}{convert a matrix written under an older layout}
 \begin{flags}
@@ -66,7 +77,7 @@
 \item \fl{--ignore-missing-families [true|false]} default true: a family the mesh lacks is skipped; false refuses the point
 \item \fl{--no-ignore-missing-families} same as \texttt{false}
 \item \fl{--cost} table mesh size, TEs, farfield layers, viscous coupling, steady/unsteady, iterations, CPUs and an EXPECTED wall time fitted on this workspace's runs
-\item \fl{--cost-file NAME} with \fl{--cost}: price the points by \texttt{inputs/costs/NAME.toml}, the machine's own cost model (mesh, steps, CPUs, flags); needed only when several exist
+\item \fl{--cost-file NAME} with \fl{--cost} or a grouped plan: price the points by \texttt{inputs/costs/NAME.toml}, the machine's own cost model (mesh, steps, CPUs, flags); needed only when several exist
 \item \fl{--inflow-fft} for qsteady\_rotor wheel points in a custom inflow: blade-frame harmonics, \(k_{\mathrm{eff}}\), \(n_{\max}\), suggested PASSAGE\_POSITIONS (warns if too few)
 \item \fl{--update-ids} (\fl{--updateIDs}) REWRITE this matrix so no POL repeats one used elsewhere; written before the plan runs
 \item \fl{--accept-unregistered-build} allow an installed build other than the registered one (your responsibility; recorded)
@@ -80,7 +91,6 @@
 \item \fl{--verbose} full warnings (all detail also in \texttt{logs/activity.log})
 \end{flags}
 
-\columnbreak
 \stage{3. RUN}
 \sub{run <matrix>}{run every active point and write the sweep table. Needs a current plan. Linux with a submission profile submits to the cluster; Windows runs locally}
 \begin{flags}
@@ -166,7 +176,6 @@ These queries write nothing, take no lock and never ask the scheduler.
 \item \fl{--workspace}, \fl{--pproc-warnings}, \fl{--verbose}
 \end{flags}
 
-\columnbreak
 \stage{6. SYNC WORKSPACES (E.G. CLUSTER TO WINDOWS)}
 \sub{sync \{runs|post|fsm|all\}}{run on the MAIN workspace; peers in \texttt{inputs/sync-workspaces.toml}; levels cumulative, runs $<$ post $<$ fsm $<$ all. Nothing in main is deleted; \texttt{inputs/} untouched but a declared matrix}
 \begin{flags}
@@ -230,6 +239,7 @@ These queries write nothing, take no lock and never ask the scheduler.
 \end{multicols}
 
 \newpage
+\fontsize{7.1}{8.1}\selectfont
 \begin{tcolorbox}[colback=tool!8,colframe=tool,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{tool} Every other command-line tool} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option \quad \texttt{<tool> <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
 \textbf{The tools:} \texttt{pyfs-workspace} builds the campaign tree and custom free-stream fields; \texttt{pyfs-qa} is the evidence tooling of the command database (probes and physics runs need a licensed machine); \texttt{pyfs-fsi} is the coupling executable the solver calls; \texttt{pyfs-manual} is a maintainer tool (the \texttt{[manual]} extra); the two \texttt{python -m} entries keep an optional workbook (the \texttt{[excel]} extra). \textbf{Safe by default:} the field operations preview until \fl{--apply}; \texttt{pyfs-manual} writes only with \fl{--write}.

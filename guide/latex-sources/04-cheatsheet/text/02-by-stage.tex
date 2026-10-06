@@ -92,27 +92,35 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \hd{Actuator-disc profiles}
 \cmd{pyfs-workspace profile} sections (\fl{--pol}), uni or bp writes \file{inputs/profiles/<STEM>.csv}, a row's \texttt{PROFILE}, scaled to \fl{--thrust} or \fl{--ct}. ELLIPTICAL needs no file.
 
-\columnbreak
+\hd{Mesh levels}
+\begin{cmdblock}{pyfs-matrix refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
+\opt{--families A,B}{only these; \fl{--chordwise F}, \fl{--spanwise F}: one direction of the grid families.}
+\opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{chordwise}, \texttt{spanwise}, \texttt{method}; \texttt{[components]}.}
+\opt{--out-dir DIR}{default: beside the source's folder; \fl{--overwrite} replaces a level.}
+\end{cmdblock}
+\begin{cmdblock}{pyfs-matrix audit-mesh}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}; \fl{--csv FILE}. Exit 0 passed, 1 failed, 2 refused.}
+\end{cmdblock}
+
 \hd{Files}
 \rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-matrix inventory} reads.}
-\wf{<stem>.boundaries.toml}{beside the geometry: its boundary names, the names every reference alias and pproc family cites.}
-\wf{inputs/executables.toml}{the template of the build registry: each build a row may name and its executable.}
+\wf{<stem>.boundaries.toml}{beside the geometry: the boundary names every alias and pproc family cites.}
+\wf{inputs/executables.toml}{the build registry template: each build a row may name, its executable.}
 \wf{inputs/geometries/README.md}{how to lay out the geometries.}
 \wf{inputs/INPUTS.md}{the glossary of every matrix column and input key.}
 \wf{inputs/input_template.md}{an example of every input file.}
-\wf{inputs/pproc/VARIABLES.md}{with \file{WRITING-EQUATIONS.md}: the pproc variables and how to write an equation.}
-\wf{inputs/freestreams/<STEM>}{a custom free-stream field and its provenance record.}
+\wf{inputs/pproc/VARIABLES.md}{with \file{WRITING-EQUATIONS.md}: pproc variables and equations.}
+\wf{inputs/freestreams/<STEM>}{a custom free-stream field and its record.}
 
 \hd{Common errors}
-\err{\cmd{pyfs-workspace init} reports an ambiguous artifact id: two files of \file{geometries/} or \file{profiles/} share one stem (\file{wing.fsm} beside \file{wing.stl}).}{the id is the stem and must be unique: rename or remove the extra file. The tree is still completed.}
-\err{The inventory refuses: the sidecar already exists.}{\fl{--overwrite} rewrites a saved simulation's sidecar. An OBJ's sidecar is never rewritten: edit it by hand or remove it.}
-\err{A field operation printed what it would write and nothing changed.}{that was the preview: run it again with \fl{--apply}.}
-\err{The field file \texttt{<STEM>} already exists.}{choose another \fl{--out}, or replace it and its record with \fl{--overwrite}.}
+\err{\cmd{pyfs-workspace init}: an ambiguous artifact id, two files of \file{geometries/} or \file{profiles/} with one stem (\file{wing.fsm}, \file{wing.stl}).}{the id is the stem: rename or remove one. The tree is still completed.}
+\err{The inventory refuses: the sidecar already exists.}{\fl{--overwrite} rewrites a saved simulation's sidecar; an OBJ's never: edit or remove it.}
+\err{A field operation printed what it would write; nothing changed.}{that was the preview: run it again with \fl{--apply}.}
+\err{The field file \texttt{<STEM>} already exists.}{another \fl{--out}, or \fl{--overwrite} it and its record.}
 \err{\fl{--fluctuation-only} refuses.}{it needs \fl{--last} K: the fluctuation of the last K steps.}
-\err{A bare stem in a GEOMETRY key is refused.}{name the geometry by its file name, extension included (\file{wing_clean.fsm}).}
+\err{A bare stem in a GEOMETRY key is refused.}{name the file, extension included (\file{wing_clean.fsm}).}
 
 \hd{Where to read more}
-The pages \textit{The workspace and the workflow}, \textit{The input library and the solver presets} and \textit{Field operations} of the documentation; guide 1, \textit{Workspaces}.
+Documentation: \textit{The workspace and the workflow}, \textit{The input library and the solver presets}, \textit{Field operations}; guide 1, \textit{Workspaces}.
 \foot
 \end{multicols}
 
@@ -344,6 +352,9 @@ The first plan names what blocks; fix it and plan again until every point is REA
 \hd{The output blocks}
 \textbf{Warnings} go to standard error; everything else to standard output. \textbf{Cases} counts the points ready, blocked and already recorded. \textbf{Blocked points} names each one and why. \textbf{Rotor Mach numbers}: tip and helical Mach per rotor and point. \textbf{Solver setup per case}: model, boundary layer, viscous coupling, aliases. \textbf{Files written}: the receipt and any guide. \file{logs/activity.log} keeps every line.
 
+\hd{A grouped plan: several points, one solver}
+A grouped run solves several points of a polar, or several polars, in ONE solver instance. \fl{--polar-sweep} plans one job per polar; \fl{--batch N} plans N jobs of whole polars, grouped by processors, build, kind (steady or unsteady) and user actions, the longest as short as it can be (at least one job per group, warned). An acoustic polar is a job of its own. The plan prints one line per job (\texttt{batch id sims cpus points estimate walltime source}) and every polar \textit{left out of the grouping} with its reason, and records the split in \file{plan.json}; the run states the same option.
+
 \columnbreak
 \hd{Commands}
 \begin{cmdblock}{pyfs-matrix plan}{<matrix>}{Pre-flight every point; no solver runs. Its alias is \cmd{pyfs-matrix inspect-setups}. The artifact options are on stage 3.}
@@ -357,6 +368,9 @@ The first plan names what blocks; fix it and plan again until every point is REA
 \opt{--recipe CODE=MODULE:FUNCTION}{a LEGACY row's recipe (repeatable).}
 \opt{--point-name TPL}{the naming template; default \texttt{\{polar\}}, which is \texttt{P<sim>-<point name>}; also \texttt{\{point\}} \texttt{\{alpha\}} \texttt{\{beta\}} \texttt{\{mach\}} \texttt{\{advance\_ratio\}} \texttt{\{sim\}} \texttt{\{campaign\}}.}
 \opt{--cost}{table each point's expected cost: mesh size, marked trailing edges, farfield layers, viscous coupling, steady or unsteady, time iterations, processors, and an EXPECTED wall time fitted on this workspace's own runs (\texttt{unknown} without a comparable run).}
+\opt{--cost-file NAME}{price by \file{inputs/costs/NAME.toml} (\fl{--cost}, grouped estimate) when several exist.}
+\opt{--polar-sweep}{one job per polar; \fl{--batch N}: N jobs (left).}
+\opt{--hpc NAME}{\file{inputs/hpc/NAME.toml}, when several exist.}
 \opt{--inflow-fft}{for each \texttt{qsteady\_rotor} wheel point in a custom inflow: the harmonics one blade meets, \texttt{k\_eff}, \texttt{n\_max} and the suggested \texttt{PASSAGE\_POSITIONS}; warns when the row states fewer.}
 \opt{--update-ids}{(also \fl{--updateIDs}) REWRITE this matrix so no POL repeats one used elsewhere in the workspace; written before the plan runs, and kept if the plan then refuses.}
 \opt{--accept-unregistered-build}{allow an installed build other than the registered one; its compatibility is your responsibility and every record says so.}
@@ -364,14 +378,18 @@ The first plan names what blocks; fix it and plan again until every point is REA
 \end{cmdblock}
 
 \hd{Reading the cost table}
-The expected wall time is an extrapolation from this workspace's recorded runs, and the table carries the number of samples behind it. A new workspace reads \texttt{unknown}: run a few points first, then plan again with \fl{--cost}.
+The expected wall time is an extrapolation from this workspace's recorded runs, and the table carries the number of samples behind it. A new workspace reads \texttt{unknown}: run a few points first, then plan again with \fl{--cost}. A cost file, one per machine, replaces that fit; only a synthetic \file{examples/costs/c000.toml} ships.
 
-\columnbreak
+\hd{WALLTIME and BEST in a grouped job}
+A job asks for the sum of its points' \texttt{WALLTIME} cells (each budgets ONE datapoint), capped at the profile's \texttt{max\_walltime} with a warning (a larger N helps); a cell above it is refused. \texttt{BEST} prices the job: estimate times 1.25 plus \texttt{walltime\_margin\_s}, up to the minute; an unknown point takes \texttt{max\_walltime}, warned, or is refused without one. A plan without \fl{--batch} or \fl{--polar-sweep} refuses \texttt{BEST}.
+
 \hd{Files}
 \rd{<matrix>.fs}{from either home (stage 2).}
 \rd{inputs/}{every artifact a row names, and \file{inputs/executables.toml} for each FS\_BUILD.}
+\rd{inputs/costs/c<NNN>.toml}{the machine's cost file.}
+\rd{inputs/hpc/<NAME>.toml}{its \texttt{max\_walltime}.}
 \rd{runs.json}{which points are already recorded.}
-\wf{post/<matrix>/plan.json}{the receipt \cmd{pyfs-matrix run} asks for, pinned to the matrix digest.}
+\wf{post/<matrix>/plan.json}{the receipt \cmd{pyfs-matrix run} asks for, pinned to the matrix digest; grouped: its jobs, polars left out.}
 \wf{logs/activity.log}{every line the plan printed, and the detail \fl{--verbose} adds.}
 \wf{<matrix>.fs}{rewritten only by \fl{--update-ids}, each change printed.}
 
@@ -383,7 +401,8 @@ The expected wall time is an extrapolation from this workspace's recorded runs, 
 \err{A POL repeats one stated in another matrix or earlier in this file.}{\fl{--update-ids} renumbers the repeated rows; a row whose POL already has runs of this matrix is refused rather than moved.}
 \err{The plan warns: helical Mach of 1 or more on some points.}{a warning, not a refusal: check the rotor speed of those points.}
 \err{The plan lists points a \texttt{RESTART} key does not continue.}{\texttt{FINISH\_PENDING} on a CONVERGED run is refused with the reason; use \texttt{ADDITIONAL\_REVS} or \texttt{ADDITIONAL\_ITERS}.}
-\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-matrix inventory} \fl{--clean} (stage 8); the plan never refuses on that account.}
+\err{The plan warns that an unsteady row's geometry carries saved solver actions.}{clean it with \cmd{pyfs-matrix inventory} \fl{--clean} (stage 8); only a grouped plan blocks on it.}
+\err{A polar is \textit{left out of the grouping}.}{named, never refused: LEGACY, \texttt{RESTART}, \texttt{COLD\_START} false and coupled \texttt{steady}/\texttt{qsteady\_rotor} rows; unsteady rows on a build without the action command; polars that do not splice or are recorded. Run them point by point.}
 
 \hd{Where to read more}
 The documentation page \textit{Planning a campaign and what it costs}.
@@ -391,7 +410,7 @@ The documentation page \textit{Planning a campaign and what it costs}.
 \end{multicols}
 
 % =====================================================================
-\stagepage{5}{Run: on this machine or on the cluster}{The run builds every active point's script and executes it: on Windows locally, on Linux with a submission profile by submitting each point to the scheduler. Every point lands in the records with exactly one status.}
+\stagepage{5}{Run: on this machine or on the cluster}{The run builds every active point's script and executes it: on Windows locally, on Linux with a submission profile by submitting each point, or each grouped job, to the scheduler. Every point lands in the records with exactly one status.}
 \begin{multicols}{3}
 \hd{What it is for}
 A run needs a current plan. Each point runs in its own datapoint folder, \file{sims/sim_<POL>/datapoints/DP-<point>/}, where its outputs are filed; a steady row is one job over all its points, run in the simulation folder. A local point is recorded when it ends; a submitted point is recorded \texttt{SUBMITTED} and finished by \cmd{pyfs-matrix collect} (stage 6). There is no separate submit command.
@@ -403,7 +422,7 @@ A run needs a current plan. Each point runs in its own datapoint folder, \file{s
 \node[box,text width=2.8cm] (l) at (0,-1.65) {is this machine Linux?};
 \node[box,text width=2.8cm] (f) at (0,-2.5) {was \fl{--local} given?};
 \node[box,text width=3.0cm,minimum height=2.3cm,fill=ok!12,draw=ok] (loc) at (5.0,-1.65) {runs HERE, in \pth{DP-<point>/}; the executable from \pth{executables.toml} or \fl{--fs-exe}; the record is written when the point ends, and says \pth{forced_local} when \fl{--local} kept it here};
-\node[box,text width=2.8cm,fill=wait!15,draw=wait] (sub) at (0,-3.6) {submitted: one job per point, \pth{submit.yaml} in \pth{DP-<point>/}; status \pth{SUBMITTED}};
+\node[box,text width=2.8cm,fill=wait!15,draw=wait] (sub) at (0,-3.6) {submitted: one job per point, \pth{submit.yaml} in \pth{DP-<point>/}, or per grouped job, in its folder; status \pth{SUBMITTED}};
 \node[box,text width=3.0cm] (col) at (5.0,-3.6) {\cmd{pyfs-matrix collect} ends the record (stage 6)};
 \draw[arr] (r) -- (h);
 \draw[arr] (h) -- node[note,right]{yes} (l);
@@ -422,7 +441,10 @@ pyfs-matrix collect --workspace . --watch\par}
 On Linux with a profile the run submits every point and returns; collect then sweeps until nothing is outstanding. On Windows the same run executes the points here and needs no collect.
 
 \hd{The submission profile}
-One \file{inputs/hpc/h001.toml} per workspace (two are refused): the descriptor and its fields, the submit command, \texttt{[builds]} (the scheduler's name of each build, e.g. \texttt{"26.123" = "26.1"}) and \texttt{[log]} (\texttt{export\_log}, \texttt{native\_log}, \texttt{job\_end\_files}).
+One \file{inputs/hpc/<NAME>.toml} per cluster; one needs no option, several need \fl{--hpc NAME} (else refused rather than guessed): the descriptor and its fields, the submit command, \texttt{[builds]} (the scheduler's name of each build, e.g. \texttt{"26.123" = "26.1"}), \texttt{[log]} (\texttt{export\_log}, \texttt{native\_log}, \texttt{job\_end\_files}) and \texttt{max\_walltime}.
+
+\hd{A grouped run: one solver, many points}
+\fl{--batch N} or \fl{--polar-sweep} runs the jobs of the plan's receipt, refusing one made for another mode, N or selection, one with no job, or one whose job folders hold files: plan again. A polar's job is \file{sims/sim_<POL>/FULL-POLAR.txt}; a batch's is \file{BATCH-<first>-<last>.txt} in \file{sims/batch/<matrix>_b<ID>/}, the ID the package's. The job's clock replaces each point's WALLTIME. Every point is recorded \texttt{SUBMITTED}, also when the job runs here (one instance, one license, one job at a time): collect, then post. Not with \fl{--force-rerun}, \fl{--force-rerun-all} or \fl{--sweep-csv}.
 
 \columnbreak
 \hd{Commands}
@@ -433,6 +455,8 @@ One \file{inputs/hpc/h001.toml} per workspace (two are refused): the descriptor 
 \opt{--sims SIM [SIM ...]}{run only these simulations, space separated (\texttt{2031 2032}); with \fl{--force-rerun-all}, redo only these.}
 \opt{--points POINT [POINT ...]}{with \fl{--sims}: run only these points, by the point name the plan prints; refused beside \fl{--force-rerun-all}.}
 \opt{--local}{run on THIS machine instead of submitting: a Linux workstation, or a smoke test.}
+\opt{--polar-sweep}{run the receipt's jobs, one per polar; \fl{--batch N}: its N jobs (left).}
+\opt{--hpc NAME}{\file{inputs/hpc/NAME.toml}, when several exist.}
 \opt{--progress-every N}{a local unsteady point reports every N steps (default 10; 0 is silent).}
 \opt{--sweep-csv FILE}{the sweep table (default \file{post/<matrix>/campaign_sweep.csv}).}
 \opt{--workflow CODE=NAME}{a legacy script code to a run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor} (repeatable).}
@@ -450,7 +474,7 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \hd{Files}
 \rd{post/<matrix>/plan.json}{must be current: the digest of the matrix it read.}
 \rd{inputs/executables.toml}{each FS\_BUILD to its executable.}
-\rd{inputs/hpc/h001.toml}{the submission profile, when the workspace has one.}
+\rd{inputs/hpc/<NAME>.toml}{the submission profile, when the workspace has one.}
 \wf{sims/sim_<POL>/scripts/}{the generated solver scripts, \file{P<sim>-<point>.txt}.}
 \wf{sims/sim_<POL>/datapoints/DP-<point>/}{the point's outputs, its descriptor when submitted, its wall-clock state.}
 \wf{runs.json}{one record per point or steady job; \file{runs.json.lock} while it is written.}
@@ -464,7 +488,7 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \err{\fl{--sims} names an id, or \fl{--points} a point, the matrix does not carry; or \fl{--points} comes without \fl{--sims}.}{refused before anything runs, naming the ids or points that exist.}
 \err{\fl{--force-rerun} names a point no record carries.}{refused: copy the name or run id the refusal printed.}
 \err{\fl{--force-rerun-all} is refused.}{beside \fl{--resume}, \fl{--force-rerun} or \fl{--points}, for a \fl{--sims} id the matrix does not carry, or when nothing of the selection is recorded.}
-\err{Two profiles in \file{inputs/hpc/}.}{refused rather than guessed: keep the one of this cluster.}
+\err{Several profiles in \file{inputs/hpc/}, no \fl{--hpc}.}{refused rather than guessed: name one.}
 \err{The profile has no \texttt{[builds]} line for a row's build.}{refused before any point is submitted: add the line.}
 \err{A WALLTIME cell written as a bare number is refused by name.}{write it with its unit (stage 2).}
 \err{\fl{--resume} on a simulation a rebuild refused (stage 8).}{never: without a record the resume runs it again. Settle the rebuild first.}
@@ -497,28 +521,27 @@ For every \texttt{SUBMITTED} record, \cmd{pyfs-matrix collect} waits until the d
 \node[note,text width=7.6cm,align=center,anchor=north] at (3.45,-4.85) {undo: \cmd{pyfs-matrix restore} \pth{runs}, the copy archived before the marking; redo: \fl{--force-rerun} archives the record and the point runs again};
 \end{tikzpicture}
 
-\vspace{1pt}
 \hd{What a record carries}
 Which run it was (\texttt{run\_id}, \texttt{point\_name}, \texttt{sweep\_name}), which build ran it, the hashes of the script and the inputs, how the solver was called (\texttt{executor}), where it ran (\texttt{working\_dir}), how it ended (\texttt{status}), how long it took and which files it produced. Nothing is inferred from a folder name afterwards.
 
 \textbf{Read the recorded evidence.}
-\cmd{pyfs-matrix show} \texttt{9101\_1} prints the outcome first, evidence tails, logs, chain, identity and inputs; coupled runs include the FSI record and last exchange row.
-Give a simulation id to list its points and failed cards, or add \fl{--point NAME}.
+\cmd{pyfs-matrix show} \texttt{9101\_1} prints the outcome, evidence tails, logs, chain, identity and inputs (coupled: the FSI record, last exchange row); a simulation id lists its points and failed cards, or add \fl{--point NAME}.
 \cmd{pyfs-matrix log} reads activity oldest first: \fl{--sims IDS}, \fl{--run ID}, \fl{--stage NAME}, \fl{--since 2h} (or an ISO time), \fl{--problems}, \fl{--open}.
 \fl{--post MATRIX} groups saved post warnings by category, family and message shape with a count and example; \fl{--sims IDS} narrows the groups.
 \fl{--storage} reads storage calls as recorded; \fl{--stage} selects their action.
 \cmd{pyfs-matrix trace} \texttt{post/demo/polars/polar.csv} follows the products index to run identities, digests and provenance; \fl{--run ID} prints a run's provenance tree.
 All three accept \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}, and run ids or aliases where a run is named.
 \cmd{pyfs-matrix status} \fl{--additional} prints the additional register without deriving fields.
-These commands read running batch folders and compacted simulations in place, write nothing and never ask the scheduler.
+They read running batch folders and compacted simulations in place, write nothing, never ask the scheduler.
 
-\texttt{COMPLETED\_MAX\_ITER} and \texttt{WALLTIME\_REACHED} are not failures: the numbers up to the cap are real. Every reader that asks whether a status begins with \texttt{FAILED} treats \texttt{FAILED\_MARKED} as a failure. A forced re-run archives the record and the point runs again.
+\texttt{COMPLETED\_MAX\_ITER} and \texttt{WALLTIME\_REACHED} are not failures (the numbers up to the cap are real); a reader asking whether a status begins with \texttt{FAILED} treats \texttt{FAILED\_MARKED} as one. A forced re-run archives the record and runs the point again.
 
 \columnbreak
 \hd{Commands}
 \begin{cmdblock}{pyfs-matrix collect}{}{Collect the outputs of every SUBMITTED record when they land, then post.}
 \opt{--watch}{keep sweeping until nothing is outstanding (default: one sweep).}
-\opt{--discard-walltime}{mark clock-stopped points failed before post; keep outputs. Grouped plans rerun them from the start; default-mode plans need an explicit rerun.}
+\opt{--discard-walltime}{mark each \texttt{WALLTIME\_REACHED} point \texttt{FAILED\_MARKED} before post, outputs kept: the next grouped plan (stage 4) runs it again from the start; a default-mode plan needs a forced re-run (stage 5).}
+\opt{--hpc NAME}{\file{inputs/hpc/NAME.toml}, when several exist.}
 \opt{--watch-interval S}{seconds between sweeps under watch (default 60).}
 \opt{--interval S}{seconds between the two observations that decide settled (default 2).}
 \opt{--rounds N}{stop a watch after N sweeps.}
@@ -542,11 +565,15 @@ Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \columnbreak
 \hd{Files}
 \rd{sims/sim_<POL>/datapoints/DP-<point>/}{the outputs and the solver log a SUBMITTED point waits for.}
-\rd{inputs/hpc/h001.toml}{\texttt{[log] job\_end\_files}: the files a scheduler writes when a job ends.}
+\rd{sims/batch/<matrix>_b<ID>/}{a batch job's folder: its script, descriptor, log, end files and, while it runs, its simulations.}
+\rd{inputs/hpc/<NAME>.toml}{\texttt{[log] job\_end\_files}: the files a scheduler writes when a job ends.}
 \wf{runs.json}{the records: \texttt{run\_id}, \texttt{status}, the build, the hashes of script and inputs, \texttt{working\_dir}, times; \file{runs.json.lock} while written.}
 \rd{inputs/sync-workspaces.toml}{\texttt{main}, each workspace's \texttt{path} and the \texttt{matrices} it owns.}
 \wf{archive/runs-<stamp>.json}{the manifest before a sync rewrites it.}
 \wf{storage_management.json}{one entry per sync source.}
+
+\hd{Collecting a grouped job}
+Collect reads the job's descriptor, log and end files in its folder and completes each point as soon as its files settle, while the job still runs. Until a batch ends it copies each finished simulation to \file{sims/} and leaves the batch folder alone; once it ends, it moves them. It cuts the job's log into one log per point. A point that failed without stopping the instance does not stop the job; the points a stopped job never started are named, and the next grouped run takes them again. A point the job's clock stopped is \texttt{WALLTIME\_REACHED}: see \fl{--discard-walltime}.
 
 \hd{Common errors}
 \err{A job died before its log: the point stays SUBMITTED for ever.}{name the scheduler's end-of-job files in the profile, \texttt{[log] job\_end\_files = ["FTS\{sim\}.o*", ...]}: when they all exist and the log does not, collect records \texttt{FAILED\_EXECUTION} with their last 20 lines.}
@@ -720,7 +747,6 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \begin{cmdblock}{pyfs-workspace archive}{<root> <sim_id>}{Zip one recorded simulation under \file{archive/} and remove its folder.}
 \end{cmdblock}
 
-\columnbreak
 \hd{Files}
 \rd{inputs/management/m<id>.toml}{the storage recipe.}
 \wf{storage_management.json}{every storage call, \texttt{force} and the statuses included.}

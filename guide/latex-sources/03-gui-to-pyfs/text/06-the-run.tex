@@ -34,6 +34,7 @@ Continue an unsteady run where it stopped & row key \code{RESTART}: \code{\{FINI
 Limit one point's wall clock on this machine & setup key \code{timeout\_s}, which pyfs enforces around the solver process & none \\
 Run only the points not run yet & \code{pyfs-matrix run --resume} & none \\
 Redo a point already run & \code{pyfs-matrix run --force-rerun \textless{}point\textgreater{}} & none \\
+Run several points of a polar, or several polars, in one solver session & \code{pyfs-matrix plan --polar-sweep} (one job per polar) or \code{--batch N} (N jobs), then \code{pyfs-matrix run} with the same option, then \code{pyfs-matrix collect}; the plan names each polar it leaves out & 26.124 \\
 Skip or refuse a family the mesh does not carry & \code{--ignore-missing-families} of \code{plan} and \code{run}, which reaches each case as row key \code{IGNORE\_MISSING\_FAMILIES} & none \\
 \bottomrule
 \end{tabularx}}

@@ -44,6 +44,9 @@ pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
         \emph{expected} time.
   \item The time is an extrapolation from this workspace's own runs, and says
         so. No comparable run, no number.
+  \item A machine's cost file, \code{inputs/costs/c<NNN>.toml}, prices it
+        instead; \code{--cost-file NAME} picks one of several
+        (Part~\ref{sec:inputs}).
   \item It warns when the points still to run may not fit on the disk
         (Part~\ref{sec:storage}).
 \end{itemize}
