@@ -410,7 +410,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-421": "ba1c4f8e7835b58af12a554183943b4fca994cab38ffb59f4520ee05a634543f",
     "FR-422": "8a953a709a1a4f552d103b8b9e6f752f4c7f3b8b32ed38caa80711ac6ca7ccb2",
     "FR-423": "79971e8b60224a2be7122b4fcd0f0f8ab6abcdc2e5bdd6296fda6a13bcfac554",
-    "FR-424": "f11d4b1e06b3ac3cfb09238431a293cb2515d28a9c8437cca3c959c46a4d223d",
+    "FR-424": "ba046de9d976089870eb6edb2b86d94074c24129e6dc46d6fa14fe13ad128ee9",
     "FR-425": "a3dc2a22dfef87563c2bd10f65fe4ac4920589590f6ae99d84910e9856c25d8c",
     # Re-pinned at 85d92803: R3 of the next box dropped a personal attribution (the W0 CI fix).
     "FR-426": "5772b72bdff5080e97fe573ce6825003a233eebb710e75bb71ef9fe1f1ff1d4e",

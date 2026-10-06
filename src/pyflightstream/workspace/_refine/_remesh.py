@@ -74,8 +74,8 @@ COLLAPSE_COSINE = 0.2
 FLIP_COSINE = 0.3
 #: Quad-dominant: a pairing grows the matching along alternating paths this many pairs deep.
 AUGMENT_DEPTH = 4
-#: Quad-dominant: the passes of smoothing after the pairing. Measured on a remeshed plate, one
-#: pass to three lowers the median skewness from 0.30 to 0.26, six only to 0.25.
+#: Quad-dominant: the passes of smoothing after the pairing, an engineering choice: on the
+#: development fixtures more passes improved the skewness little (an unrecorded measurement).
 SMOOTH_PASSES = 3
 #: Quad-dominant: a smoothing move is undone when a face's normal keeps less than this cosine.
 SMOOTH_COSINE = 0.9

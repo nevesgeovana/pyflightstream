@@ -68,9 +68,10 @@ PANEL_PRACTICE_COUNTS: tuple[tuple[str, str, bool, float], ...] = (
 #: Quad-dominant remesh: two triangles merge into a quadrilateral only when every interior
 #: angle of it lies in this band. 30 degrees is the smallest angle the pre-processor's practice
 #: accepts in a triangle (tri_min_angle_under_30_degrees), so no corner of a quadrilateral is
-#: sharper than a triangle the practice accepts, and 150 is its supplement. The band
-#: (45, 135), whose limits are those of the quadrilateral practice counts, was measured on a
-#: remeshed plate and left 30 percent of its faces triangles, against 1 percent with this one.
+#: sharper than a triangle the practice accepts, and 150 is its supplement. The narrower band
+#: (45, 135) of the quadrilateral practice counts left far more triangles on the development
+#: fixtures (an unrecorded measurement); the quad share this band gives on a flat plate is
+#: asserted by test_p0380_s1_quaddom.py.
 QUAD_ANGLE_BAND = (30.0, 150.0)
 #: Quad-dominant remesh: a merged quadrilateral's warp (the audit's measure, the larger fold
 #: across either diagonal) is at most this many degrees, the limit counted as
