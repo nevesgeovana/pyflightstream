@@ -124,6 +124,18 @@ _REFINE_DESCRIPTION = (
 )
 
 
+def _number(text: str) -> float | str:
+    """Return a factor as typed: a float when it reads as one, else the text.
+
+    The refusal of a text that is not a number is the function's own, so the
+    command and :func:`refine_mesh` refuse it with the same words (FR-424).
+    """
+    try:
+        return float(text)
+    except ValueError:
+        return text
+
+
 def _add_refine_parser(subparsers: Any) -> None:
     """Add ``pyfs-matrix refine`` (FR-424)."""
     refine = subparsers.add_parser(
@@ -136,12 +148,14 @@ def _add_refine_parser(subparsers: Any) -> None:
         "factor",
         metavar="FACTOR",
         nargs="?",
-        type=float,
+        type=_number,
         help="the factor of every selected family",
     )
     refine.add_argument("--families", help="the families to change, comma separated (default: all)")
-    refine.add_argument("--chordwise", type=float, help="the chordwise factor of the grid families")
-    refine.add_argument("--spanwise", type=float, help="the spanwise factor of the grid families")
+    refine.add_argument(
+        "--chordwise", type=_number, help="the chordwise factor of the grid families"
+    )
+    refine.add_argument("--spanwise", type=_number, help="the spanwise factor of the grid families")
     refine.add_argument(
         "--config", metavar="FILE", help="the refinement file (default: <stem>.refine.toml)"
     )

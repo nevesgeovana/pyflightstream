@@ -4,7 +4,7 @@ THREE KINDS OF RESULT. A GATE (R2) is judged on its own terms: the topology,
 the orientation, the open boundary, the trailing edge, the shared nodes and
 the faces a grid family at factor 1 keeps. A RELATIVE CHECK (R3) compares a
 95th percentile of the level with the source's, because the source is the
-author's accepted mesh. A FIGURE (R4) is reported and never judged. Without a
+accepted mesh. A FIGURE (R4) is reported and never judged. Without a
 source only G1, G2 and G4 are judged and the rest is reported (R5).
 
 HOW IT MEASURES. Every measure is computed once on all the faces of a mesh

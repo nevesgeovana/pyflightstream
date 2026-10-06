@@ -1,7 +1,8 @@
 """P0380-REFINE (FR-424): the structured grid family, recovered and resampled.
 
-Every fixture is built here from an analytic surface whose coordinates are
-cubic polynomials of the grid indices (a cambered, tapered, swept wing with
+Every fixture is built in tests/p0380_mesh_fixtures.py from an analytic
+surface whose coordinates are cubic polynomials of the grid indices (a
+cambered, tapered, swept wing with
 clustering toward the leading edge and the tip, and a cambered thin sheet
 with clustering at both edges). The not-a-knot spline reproduces a cubic
 exactly, so the level's nodes are known in advance: each level node is
@@ -16,7 +17,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -32,147 +32,19 @@ from pyflightstream.workspace._refine._grid import (
     recover_grid,
     refine_grid,
 )
-
-CELL_QUAD = (((0, 0), (0, 1), (1, 1), (1, 0)),)
-CELL_DIAG = {
-    0: (((0, 0), (0, 1), (1, 1)), ((0, 0), (1, 1), (1, 0))),
-    1: (((0, 0), (0, 1), (1, 0)), ((0, 1), (1, 1), (1, 0))),
-}
-
-
-# ------------------------------------------------------------------ fixtures
-
-
-def _wing(u, v):
-    """Return a closed cambered section around u (TE at 0 and 1) on a straight tapered planform."""
-    y = 2.0 * (1.5 * v - 0.5 * v**3) + 0.0 * u
-    chord, xle = 1.0 - 0.2 * y, 0.15 * y
-    x = xle + chord * (2.0 * u - 1.0) ** 2
-    z = chord * (0.4 * u * (1.0 - u) * (1.0 - 2.0 * u) + 0.08 * u * (1.0 - u))
-    return np.stack(np.broadcast_arrays(x, y, z), axis=-1)
-
-
-def _sheet(u, v):
-    """Return a cambered thin sheet from the trailing edge (u = 0) to the leading edge (u = 1)."""
-    y = 2.0 * (1.5 * v - 0.5 * v**3) + 0.0 * u
-    chord, xle = 1.0 - 0.2 * y, 0.15 * y
-    x = xle + chord * (1.0 - (3.0 * u**2 - 2.0 * u**3))
-    z = chord * 0.1 * u * (1.0 - u)
-    return np.stack(np.broadcast_arrays(x, y, z), axis=-1)
-
-
-@dataclass
-class Fixture:
-    """A synthetic grid family, its source faces and what the test knows of its grid."""
-
-    name: str
-    wrap: bool
-    stations: int
-    nodes: int
-    ends: tuple[str, str]
-    diag: dict[int, int] | None  # chordwise cell -> diagonal, None for quadrilaterals
-    verts: np.ndarray = field(default_factory=lambda: np.zeros((0, 3)))
-    faces: list[list[int]] = field(default_factory=list)
-    te: set[int] = field(default_factory=set)
-    place: dict[int, tuple[int, int]] = field(default_factory=dict)  # vertex -> (k, i)
-    pole: int | None = None
-    lateral: int = 0
-
-    @property
-    def le(self) -> int:
-        """Return the leading edge's chordwise index."""
-        return self.nodes // 2 if self.wrap else self.nodes - 1
-
-    def surface(self, s, t):
-        """Return the analytic nodes at chordwise index s and station index t."""
-        u = np.asarray(s, float) / (self.nodes if self.wrap else self.nodes - 1)
-        v = np.asarray(t, float) / (self.stations - 1)
-        return (_wing if self.wrap else _sheet)(u[None, :], v[:, None])
-
-    @property
-    def size(self) -> float:
-        """Return the diagonal of the bounding box."""
-        return float(np.linalg.norm(self.verts.max(axis=0) - self.verts.min(axis=0)))
-
-
-def _cell_faces(gid, k, i, n, diag):
-    """Return the source faces of one lateral cell (k-major, i ascending)."""
-    j = (i + 1) % n
-    corners = {(0, 0): gid[k, i], (0, 1): gid[k, j], (1, 1): gid[k + 1, j], (1, 0): gid[k + 1, i]}
-    template = CELL_QUAD if diag is None else CELL_DIAG[diag[i]]
-    return [[int(corners[o]) for o in face] for face in template]
-
-
-def _caps(fx, gid, rotate):
-    """Return the zipper caps of both ends, each face rotated by `rotate`."""
-    out = []
-    n, h = fx.nodes, fx.le
-    for k in (0, fx.stations - 1):
-        r = [int(x) for x in gid[k]]
-        cap = [[r[0], r[1], r[n - 1]]]
-        cap += [[r[i], r[i + 1], r[n - i - 1], r[n - i]] for i in range(1, h - 1)]
-        cap.append([r[h - 1], r[h], r[h + 1]])
-        cap = [f[::-1] for f in cap] if k == 0 else cap
-        out += [f[rotate:] + f[:rotate] for f in cap]
-    return out
-
-
-def _build(fx: Fixture, *, shuffle_faces=False, cap_rotate=1, seed=3) -> Fixture:
-    """Build the source mesh of a fixture, its vertex numbering shuffled."""
-    k_count, n = fx.stations, fx.nodes
-    pts = fx.surface(np.arange(n), np.arange(k_count)).reshape(-1, 3)
-    gid = np.arange(k_count * n).reshape(k_count, n)
-    faces = []
-    for k in range(k_count - 1):
-        for i in range(n if fx.wrap else n - 1):
-            faces += _cell_faces(gid, k, i, n, fx.diag)
-    fx.lateral = len(faces)
-    if fx.ends[1] == "pole":
-        tip = fx.surface(np.array([fx.le]), np.array([k_count - 1]))[0, 0] * [1, 1, 0]
-        pts = np.vstack([pts, (tip + [0.5 * 0.6, 0.02, 0.0])[None, :]])
-        pole = len(pts) - 1
-        ring = [int(x) for x in gid[-1]]
-        faces += [[pole, ring[i], ring[(i + 1) % n]] for i in range(n)]
-    if "zipper" in fx.ends:
-        faces += _caps(fx, gid, cap_rotate)
-    rng = np.random.default_rng(seed)
-    perm = rng.permutation(len(pts))
-    fx.verts = np.empty_like(pts)
-    fx.verts[perm] = pts
-    fx.faces = [[int(perm[v]) for v in f] for f in faces]
-    if shuffle_faces:
-        fx.faces = [fx.faces[j] for j in rng.permutation(len(fx.faces))]
-    fx.place = {int(perm[gid[k, i]]): (k, i) for k in range(k_count) for i in range(n)}
-    fx.te = {int(perm[gid[k, 0]]) for k in range(k_count)}
-    fx.pole = int(perm[len(pts) - 1]) if fx.ends[1] == "pole" else None
-    return fx
-
-
-NODES = 24  # nodes around a tube section, even for the zipper caps
-MIRRORED = {i: (0 if i < NODES // 2 else 1) for i in range(NODES)}
-
-
-def tube_pole_triangles():
-    """Return a wing tube of split quadrilaterals, mirrored diagonals, open root, pole tip."""
-    return _build(Fixture("tube-pole-triangles", True, 9, NODES, ("open", "pole"), MIRRORED))
-
-
-def tube_pole_quads():
-    """Return a wing tube of quadrilaterals, open root, pole tip."""
-    return _build(Fixture("tube-pole-quads", True, 9, NODES, ("open", "pole"), None))
-
-
-def tube_zipper():
-    """Return a blade tube of quadrilaterals closed by a zipper cap at each end."""
-    return _build(Fixture("tube-zipper", True, 9, NODES, ("zipper", "zipper"), None))
-
-
-def sheet_quads():
-    """Return a thin cambered sheet of quadrilaterals."""
-    return _build(Fixture("sheet", False, 9, 19, ("edge", "edge"), None))
-
-
-FIXTURES = [tube_pole_triangles, tube_pole_quads, tube_zipper, sheet_quads]
+from tests.p0380_mesh_fixtures import (
+    CELL_DIAG,
+    CELL_QUAD,
+    FIXTURES,
+    MIRRORED,
+    NODES,
+    Fixture,
+    build_grid,
+    sheet_quads,
+    tube_pole_quads,
+    tube_pole_triangles,
+    tube_zipper,
+)
 
 
 def _recovered(fx: Fixture) -> Grid:
@@ -386,7 +258,7 @@ def test_each_new_cell_is_split_along_its_source_cells_diagonal():
     got = _diagonals(fx, level, _places(fx, level, 2.0, 2.0)[0])
     assert len(got) == 2 * fx.lateral  # one entry per new cell, two triangles each
     assert all(d == MIRRORED[i // 2] for (_, i), d in got.items())
-    plain = _build(
+    plain = build_grid(
         Fixture(
             "tube-one-diagonal", True, 9, NODES, ("open", "pole"), dict.fromkeys(range(NODES), 0)
         )
@@ -507,7 +379,7 @@ def test_a_source_not_in_one_sweep_takes_the_nearest_source_face_order():
     at the vertex nearest its source face's first vertex. Controls: the level
     reversed, and its faces rotated, fail.
     """
-    fx = _build(
+    fx = build_grid(
         Fixture("tube-shuffled", True, 9, NODES, ("open", "pole"), MIRRORED), shuffle_faces=True
     )
     grid = _recovered(fx)

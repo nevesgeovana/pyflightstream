@@ -1,10 +1,11 @@
 """Tier 1, 0.38.0 S1: the remeshed families of a refinement (FR-424 R8, R10, R12; FR-425 R2).
 
-Every fixture is built here: a sphere, a curved plate with a square hole, a
-cube (its twelve edges are ridges) and a plate cut into two families along
-one curve. Each behaviour is measured against the source, never against the
-remesher's own bookkeeping, and each measurement is also run once on an input
-it must reject, so a check that accepts everything cannot pass.
+Every fixture is built in tests/p0380_mesh_fixtures.py: a sphere, a curved
+plate with a square hole, a cube (its twelve edges are ridges) and a plate cut
+into two families along one curve. Each behaviour is measured against the
+source, never against the remesher's own bookkeeping, and each measurement is
+also run once on an input it must reject, so a check that accepts everything
+cannot pass.
 """
 
 from __future__ import annotations
@@ -37,54 +38,7 @@ from pyflightstream.workspace._refine._remesh import (
     refine_group,
     require_geometry_extra,
 )
-
-# ---- fixtures
-
-
-def _sphere() -> ObjMesh:
-    """Return a unit icosphere as one family ``S``."""
-    ico = trimesh.creation.icosphere(subdivisions=2, radius=1.0)
-    return ObjMesh(numpy.asarray(ico.vertices, dtype=float), {"S": ico.faces.tolist()})
-
-
-def _grid(nx: int, ny: int, width: float = 1.0) -> numpy.ndarray:
-    """Return the nodes of an nx by ny interval grid on a gently curved sheet."""
-    x, y = numpy.meshgrid(numpy.linspace(0.0, width, nx + 1), numpy.linspace(0.0, 1.0, ny + 1))
-    z = 0.15 * numpy.sin(numpy.pi * y)
-    return numpy.column_stack([x.ravel(), y.ravel(), z.ravel()])
-
-
-def _cells(nx: int, keep) -> list[list[int]]:
-    """Return the two triangles of every kept cell, the diagonal alternating."""
-    faces = []
-    for i, j in keep:
-        a, b = j * (nx + 1) + i, j * (nx + 1) + i + 1
-        c, d = a + nx + 1, b + nx + 1
-        faces += [[a, b, d], [a, d, c]] if (i + j) % 2 else [[a, b, c], [b, d, c]]
-    return faces
-
-
-def _holed_plate() -> ObjMesh:
-    """Return a curved 12 by 12 plate with a 4 by 4 square hole as one family ``P``."""
-    keep = [(i, j) for j in range(12) for i in range(12) if not (4 <= i < 8 and 4 <= j < 8)]
-    return ObjMesh(_grid(12, 12), {"P": _cells(12, keep)})
-
-
-def _two_families() -> ObjMesh:
-    """Return a 16 by 8 plate cut at x = 1 into family ``A`` (x < 1) and ``B`` (x > 1)."""
-    nodes = _grid(16, 8, width=2.0)
-    left = [(i, j) for j in range(8) for i in range(8)]
-    right = [(i, j) for j in range(8) for i in range(8, 16)]
-    return ObjMesh(nodes, {"A": _cells(16, left), "B": _cells(16, right)})
-
-
-def _cube() -> ObjMesh:
-    """Return the surface of the cube [-1, 1]^3 as one family ``C``, six faces of 6 by 6."""
-    box = trimesh.creation.box(extents=(2.0, 2.0, 2.0))
-    fine = box.subdivide().subdivide().subdivide()
-    fine.merge_vertices()
-    return ObjMesh(numpy.asarray(fine.vertices, dtype=float), {"C": fine.faces.tolist()})
-
+from tests.p0380_mesh_fixtures import cube, holed_plate, plate_nodes, sphere, two_families
 
 # ---- measurements
 
@@ -148,7 +102,7 @@ def test_the_median_edge_ratio_lies_in_the_band(factor):
     The control measures the same level against the factor it was NOT refined
     with, and the median leaves the band.
     """
-    mesh = _sphere()
+    mesh = sphere()
     result = refine_group(mesh, ["S"], (), factor)
     faces = result.families["S"]
     median = _edge_ratio_median(mesh, "S", result.points, faces, factor)
@@ -162,7 +116,7 @@ def test_the_median_edge_ratio_lies_in_the_band(factor):
 
 def test_every_node_lies_on_the_source_surface_and_faces_keep_the_orientation():
     """P0380-REFINE (FR-424 R8, R7): nodes are projected onto the source, faces face outward."""
-    mesh = _sphere()
+    mesh = sphere()
     result = refine_group(mesh, ["S"], (), 2.0)
     source = trimesh.Trimesh(mesh.verts, numpy.asarray(mesh.families["S"]), process=False)
     _, distance, _ = trimesh.proximity.closest_point(source, result.points)
@@ -181,7 +135,7 @@ def test_open_boundary_nodes_stay_on_the_boundary(factor):
     The control moves one source boundary node inward and the same check
     reports the level's boundary off the moved curve.
     """
-    mesh = _holed_plate()
+    mesh = holed_plate()
     result = refine_group(mesh, ["P"], (), factor)
     faces = result.families["P"]
     loops = boundary_loops(faces)
@@ -206,7 +160,7 @@ def test_a_quadrilateral_family_is_remeshed_into_triangles():
         for j in range(8)
         for i in range(8)
     ]
-    mesh = ObjMesh(_grid(8, 8), {"Q": quads})
+    mesh = ObjMesh(plate_nodes(8, 8), {"Q": quads})
     result = refine_group(mesh, ["Q"], (), 2.0)
     faces = result.families["Q"]
     assert {len(f) for f in faces} == {3}
@@ -225,7 +179,7 @@ def test_ridge_nodes_stay_on_their_ridges():
     a cube edge, every node stays on a cube face, and the eight corners stay.
     The control is a node off the edges, which the same predicate rejects.
     """
-    mesh = _cube()
+    mesh = cube()
     result = refine_group(mesh, ["C"], (), 2.0)
     pts, faces = result.points, result.families["C"]
 
@@ -250,7 +204,7 @@ def test_trailing_edge_edges_are_a_curve_and_reported():
     mid-point lies on that edge, and the source's mid-points are not what is
     returned at factor 2 (the control: the edge was resampled).
     """
-    mesh = _holed_plate()
+    mesh = holed_plate()
     te = [i for i in range(13)]
     result = refine_group(mesh, ["P"], te, 2.0)
     mid = result.trailing_edge
@@ -271,7 +225,7 @@ def test_an_interface_with_an_unchanged_family_keeps_its_nodes():
     The control remeshes A and B together, and the same comparison sees the
     cut's nodes change.
     """
-    mesh = _two_families()
+    mesh = two_families()
     source = _on_line(mesh.verts, mesh.families["A"])
     result = refine_group(mesh, ["A"], (), 2.0)
     kept = _on_line(result.points, result.families["A"])
@@ -283,7 +237,7 @@ def test_an_interface_with_an_unchanged_family_keeps_its_nodes():
 
 def test_an_interface_between_two_remeshed_families_is_remeshed_once_and_shared():
     """P0380-REFINE (FR-424 R8): the cut between two remeshed families is one set of nodes."""
-    mesh = _two_families()
+    mesh = two_families()
     result = refine_group(mesh, ["A", "B"], (), 2.0)
     fa, fb = result.families["A"], result.families["B"]
     common = {v for f in fa for v in f} & {v for f in fb for v in f}
@@ -322,7 +276,7 @@ def test_conform_makes_the_neighbour_share_exactly_the_new_nodes(ys, counts):
     control remeshes B without conforming, and its cut nodes are the
     source's, not the new ones.
     """
-    mesh = _two_families()
+    mesh = two_families()
     new = _resampled_cut(mesh, ys)
     result = refine_group(mesh, ["B"], (), 1.0, conform=[(_cut_ids(mesh), new)])
     got = _on_line(result.points, result.families["B"])
@@ -355,12 +309,12 @@ def test_a_remesh_without_the_extra_is_refused_before_any_work(monkeypatch):
     require_geometry_extra([])
     _block_extra(monkeypatch)
     with pytest.raises(MissingExtraError) as caught:
-        refine_group(_sphere(), ["S"], (), 2.0)
+        refine_group(sphere(), ["S"], (), 2.0)
     text = str(caught.value)
     assert "family S" in text and "pip install pyflightstream[geom]" in text
     assert text.endswith("Nothing was written.")
     with pytest.raises(MissingExtraError, match="Wing, Hub"):
-        refine_group(_sphere(), ["Wing", "Hub"], (), 2.0)
+        refine_group(sphere(), ["Wing", "Hub"], (), 2.0)
     require_geometry_extra([])
 
 
@@ -406,7 +360,7 @@ def test_the_remesh_module_imports_no_geometry_library_at_import():
 
 def test_two_remeshes_of_one_source_are_identical():
     """P0380-REFINE (FR-424 R12): the same source and factor give the same nodes and faces."""
-    mesh = _two_families()
+    mesh = two_families()
     first = refine_group(mesh, ["A", "B"], (), 0.5)
     second = refine_group(mesh, ["A", "B"], (), 0.5)
     assert numpy.array_equal(first.points, second.points)
