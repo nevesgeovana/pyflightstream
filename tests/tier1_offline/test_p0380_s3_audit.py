@@ -506,6 +506,36 @@ def test_the_command_exits_2_on_a_refusal_and_writes_nothing(tmp_path, capsys):
     assert not list(tmp_path.rglob("*.audit.json"))
 
 
+def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, capsys):
+    """P0380-AUDIT (FR-426 R1): a CSV file that cannot be written is refused before any audit.
+
+    The file exists and is read-only, so writing it would fail after the audit
+    was written; the command refuses it first with the standard refusal (the
+    file, the reason, what to do, "Nothing was written."), exits 2 and leaves
+    no audit. Control: the same file made writable again is written and the
+    command exits 0.
+    """
+    import os
+    import stat
+
+    level, src = _pair(tmp_path, Mesh())
+    target = tmp_path / "figures.csv"
+    target.write_text("kept\n", encoding="utf-8")
+    os.chmod(target, stat.S_IREAD)
+    try:
+        if os.access(target, os.W_OK):
+            pytest.skip("this account writes read-only files")
+        code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+        err = capsys.readouterr().err
+        assert code == 2 and f"{target}: --csv names a file that cannot be written" in err
+        assert "and run again. Nothing was written." in err, err
+        assert not list(tmp_path.rglob("*.audit.json")) and target.read_text() == "kept\n"
+    finally:
+        os.chmod(target, stat.S_IREAD | stat.S_IWRITE)
+    code, _ = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(target))
+    assert code == 0 and target.read_text(encoding="utf-8").startswith("family,figure,value")
+
+
 def test_the_command_reaches_the_audit_only_through_the_public_function():
     """P0380-AUDIT (FR-426, FR-424 R14): no module of ``run`` imports the refinement package; the
     mesh verbs import ``audit_mesh`` from ``pyflightstream.workspace``."""

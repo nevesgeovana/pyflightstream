@@ -531,6 +531,27 @@ def test_r5_the_command_writes_the_tagged_level_and_prints_its_files(tmp_path, c
         assert str(path) in out
 
 
+def test_r5_the_refine_help_states_its_exit_status_beside_audit_meshs(capsys):
+    """P0380-REFINE (FR-424; FR-426 R1): ``refine --help`` says a failed audit still exits 0.
+
+    The help states that ``refine`` exits 0 when the level is written, a
+    failed audit being a warning with the audit written, that ``audit-mesh``
+    exits 1 on a failed audit, and that a refusal exits 2. Control: the
+    ``audit-mesh`` help states its own exit status.
+    """
+    help_text = {}
+    for verb in ("refine", "audit-mesh"):
+        capsys.readouterr()
+        with pytest.raises(SystemExit):
+            cli.main([verb, "--help"])
+        help_text[verb] = " ".join(capsys.readouterr().out.split())
+    said = help_text["refine"]
+    assert "Exits 0 when the level is written, even when its audit fails" in said, said
+    assert "audit-mesh exits 1 on the same audit" in said
+    assert "Exits 2 when the request is refused" in said
+    assert "Exits 0 when every gate and check passes, 1 when one fails" in help_text["audit-mesh"]
+
+
 def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
     """P0380-REFINE (FR-424 R5, R11): a second run is refused and leaves the first level alone.
 
