@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 383,
+  "cited_by_a_test": 449,
   "total": 449,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -500,7 +500,7 @@
    "text": "Read with PFS-2062, PFS-2062.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. The CONFORMING half is decided by RPT-063 (0.27.0, OPS-2011.01): each family is scored against the solver's own recorded output or published as not scored. Scored: the body-axis forces, the wind-axis drag and the stability and wind lift of the emitted polar row, against 48 recorded loads exports (tests/tier1_offline/test_goal028_axes_recorded_exports.py), and the body-rate sense against the recorded rate probes (tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py, all three axes since G13 of 0.27.0 gave roll and yaw their own sign; until then they read reversed). Not scored, each waiting for a recorded export that could tell a right sign from a wrong one: the stability- and wind-axis moments and side force, the rotor coefficients, the sectional loads, the unsteady history and the far field. The conventions entry \"Axes and signs of every emitted coefficient\" says the same, per family.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. The CONFORMING half is decided by RPT-063 (0.27.0, OPS-2011.01): each family is scored against the solver's own recorded output or published as not scored. Scored: the body-axis forces, the wind-axis drag and the stability and wind lift of the emitted polar row, against 48 recorded loads exports (tests/tier1_offline/test_goal028_axes_recorded_exports.py), and the body-rate sense against the recorded rate probes (tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py, all three axes since G13 of 0.27.0 gave roll and yaw their own sign; until then they read reversed). Not scored, each waiting for a recorded export that could tell a right sign from a wrong one: the stability- and wind-axis moments and side force, the rotor coefficients, the sectional loads, the unsteady history and the far field. The conventions entry 'Axes and signs of every emitted coefficient' says the same, per family.*",
    "verification": "test"
   },
   {
@@ -636,7 +636,7 @@
    "text": "An [aliases] table of the REFERENCE artifact declares every name a study gives to a set of boundaries. A member may be a mesh family, a boundary name or another alias; the reader resolves to the end and refuses a cycle naming both sides. A member the opened mesh does not carry is ignored, so one reference serves the full aircraft and a cut of it. The setup preset's [aliases] table of 0.14.0 is REFUSED when a row binds it, naming the reference to move it to. This paragraph promised a warning and a 0.17.0 removal until the instruction of 2026-09-10; the refusal is what the package does.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design decisions of 2026-09-09 and 2026-09-10, \"todos os aliases vao para referencia\". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed: the tests those nodes name. SUPERSEDES the [aliases] table of FR-30c, \"Declared inventories are range-checked\", which shipped it in the setup preset one release earlier. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the table, a nested alias, a ring, and the self-reference that is not one) and tests/tier1_offline/test_matrix_run.py::test_the_reference_aliases_reach_the_record; commits f0032d3 and 661dd5d.*",
+   "evidence": "*Origin: the design decisions of 2026-09-09 and 2026-09-10: every alias goes to the reference. Carried by PFS-2035.01 and PFS-2035.13. Evidence owed: the tests those nodes name. SUPERSEDES the [aliases] table of FR-30c, 'Declared inventories are range-checked', which shipped it in the setup preset one release earlier. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the table, a nested alias, a ring, and the self-reference that is not one) and tests/tier1_offline/test_matrix_run.py::test_the_reference_aliases_reach_the_record; commits f0032d3 and 661dd5d.*",
    "verification": "test"
   },
   {
@@ -660,7 +660,7 @@
    "text": "A rotor creates <ALIAS>_SMRP at its hub, static; <ALIAS>_RMRP turning with the motion; and <ALIAS>_RMRP<k> per blade of families_blades, turning with blade k and numbered from the blade1 datum. A family of families_general has no local axis of its own: its local frame IS the rotor's, SMRP when static and RMRP when turning.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design of 2026-09-10, \"<ALIAS>_SMRP para o eixo local estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento\". Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the frames take the radical, the blade frames TURN with the blades, a record naming no rotor keeps the 0.14.0 names, and a blade the mesh lacks gets no frame while the count stays; commits 6288aaf and 927ef8b.*",
+   "evidence": "*Origin: the design of 2026-09-10: <ALIAS>_SMRP names the static local axis and <ALIAS>_RMRP the axis that turns with the motion. Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the frames take the radical, the blade frames TURN with the blades, a record naming no rotor keeps the 0.14.0 names, and a blade the mesh lacks gets no frame while the count stays; commits 6288aaf and 927ef8b.*",
    "verification": "test"
   },
   {
@@ -668,7 +668,7 @@
    "text": "Read with PFS-2066, PFS-2066.02, PFS-2070, PFS-2070.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design of 2026-09-10 and the reference reminder of the same night, \"a razao de avanco vira RPM usando o diametro de cada rotor\". Carried by PFS-2035.05 and PFS-2035.18. Evidence: tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b. AMENDS FR-56, \"The reference artifact states only what rows share, with one length per quantity\", whose single rotor_diameter_m is the advance-ratio length today.*",
+   "evidence": "*Origin: the design of 2026-09-10 and the reference reminder of the same night: the advance ratio becomes RPM using the diameter of each rotor. Carried by PFS-2035.05 and PFS-2035.18. Evidence: tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b. AMENDS FR-56, 'The reference artifact states only what rows share, with one length per quantity', whose single rotor_diameter_m is the advance-ratio length today.*",
    "verification": "test"
   },
   {
@@ -676,7 +676,7 @@
    "text": "CLOCK_MOTION is a cell key, REQUIRED on every row that states a MOTIONS list, and it names a motion the same row states. The time step and the run length are that motion's.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the clock follows the named motion and not the fastest; a row stating a MOTIONS list without the key is refused naming the motions it could choose; the flat pre-0.15.0 form is exempt) and tests/tier1_offline/test_reduce_by_rotor.py. Commit 91a7302 and the decisions commit that made the key required. TWO OF THE REFERENCE DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in GeoversePlan/coordination/decisions/DEC-010.*",
+   "evidence": "*Origin: the design of 2026-09-10: the temporal setup requires the reference motion to be stated. Carried by PFS-2035.07. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the clock follows the named motion and not the fastest; a row stating a MOTIONS list without the key is refused naming the motions it could choose; the flat pre-0.15.0 form is exempt) and tests/tier1_offline/test_reduce_by_rotor.py. Commit 91a7302 and the decisions commit that made the key required. TWO OF THE REFERENCE DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in GeoversePlan/coordination/decisions/DEC-010.*",
    "verification": "test"
   },
   {
@@ -700,7 +700,7 @@
    "text": "Read with PFS-2067, PFS-2067.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design decision of 2026-09-10, \"a linha ganha um jeito de passar comando bruto, mantendo a feature original preservada\". Carried by PFS-2035.10. Evidence: tests/tier1_offline/test_raw_on_the_row.py (the cell states one record and several; a file path survives the record separator; a record stating both forms, neither form, no phase, or a key a raw command does not read is refused; a row stating none carries none; a file becomes one command per line in order; a blank line and a comment are skipped; each line carries the file and its line number; the row's cell line comes after the row's file; a file the workspace does not carry and a file outside the inputs are refused) and test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup of tests/tier1_offline/test_matrix_run.py (the record names each line's source). EXTENDS the preset-level [[raw]] table of FR-31, \"Solver-setup provenance\", to the row.*",
+   "evidence": "*Origin: the design decision of 2026-09-10: a row gains a way to pass a raw command while the original feature stays preserved. Carried by PFS-2035.10. Evidence: tests/tier1_offline/test_raw_on_the_row.py (the cell states one record and several; a file path survives the record separator; a record stating both forms, neither form, no phase, or a key a raw command does not read is refused; a row stating none carries none; a file becomes one command per line in order; a blank line and a comment are skipped; each line carries the file and its line number; the row's cell line comes after the row's file; a file the workspace does not carry and a file outside the inputs are refused) and test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup of tests/tier1_offline/test_matrix_run.py (the record names each line's source). EXTENDS the preset-level [[raw]] table of FR-31, \"Solver-setup provenance\", to the row.*",
    "verification": "test"
   },
   {
@@ -716,7 +716,7 @@
    "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there. Every one of them is implemented. A key that does not define the condition is still refused.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
+   "evidence": "*Origin: the rule of 2026-09-10: a sweep is applied to one variable, and only one, that DEFINES the flight condition. Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
    "verification": "test"
   },
   {
@@ -732,7 +732,7 @@
    "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling is REFUSED with the replacement named, which is what this requirement's own body settles and what the evidence line said the opposite of until 2026-09-10; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "evidence": "*Origin: the design decision of 2026-09-10: the rotate command must also be updated to stay compatible with the motion command. Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling is REFUSED with the replacement named, which is what this requirement's own body settles and what the evidence line said the opposite of until 2026-09-10; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, 'Matrix as first-class interface', whose FAMILIES and AUX_FRAMES keys this replaces.*",
    "verification": "test"
   },
   {
@@ -748,7 +748,7 @@
    "text": "A post-processing artifact names families, and one artifact is meant to serve a wing-body and an isolated rotor: a family the opened mesh does not carry is left out, which is what lets one file cover several geometries. From the emitted script that skip and a MISSPELLED family are the same event. This requirement lets the run say which of the two it is looking at.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design decision of 2026-09-10: a command-line flag --ignore-missing-families the user may pass as false, defaulting to true. Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (forty-two cases over the three layers, and the lane's mutation scoring recorded in GeoversePlan/coordination/projects/pyflightstream/IMPL-0150-DECISIONS_rounds.ledger and REL-0150_rounds.ledger, which name each mutant, its verdict and the one that survives). AMENDS FR-59, \"A reference declares the names a study gives to its boundaries\", whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
+   "evidence": "*Origin: the design decision of 2026-09-10: a command-line flag --ignore-missing-families the user may pass as false, defaulting to true. Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (forty-two cases over the three layers, and the lane's mutation scoring recorded in GeoversePlan/coordination/projects/pyflightstream/IMPL-0150-DECISIONS_rounds.ledger and REL-0150_rounds.ledger, which name each mutant, its verdict and the one that survives). AMENDS FR-59, 'A reference declares the names a study gives to its boundaries', whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
    "verification": "test"
   },
   {
@@ -772,7 +772,7 @@
    "text": "WHAT IT IS FOR. count is a field of [sections] and governs every distribution in the artifact: measured, count = 25 emitted NUM_SECTIONS 25 on both entries of a two-entry artifact and count = 120 emitted 120 on both, and absent, both took the default 50. So a study wanting a hundred stations along a blade and thirty along a wing needs two pproc artifacts and a second PPROC code on the rows that want the other density. That splits a file for a number rather than for a question.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "evidence": "*Origin: the instruction of 2026-09-10: for the surface section, register in the backlog the option to specify by distribution, keeping the general option that exists today. Carried by PFS-2035.23. Evidence: tests/tier1_offline/test_workflows.py.*",
    "verification": "test"
   },
   {
@@ -836,7 +836,7 @@
    "text": "WHAT IT IS FOR. raw names how the data arrived; outputs names what it is. A reader opening a simulation folder wants the second.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the second feedback item of 2026-09-10, \"trocar sims\\sim_<>\\raw por sims\\sim_<>\\outputs\". Carried by PFS-2036.02. Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*",
+   "evidence": "*Origin: the second feedback item of 2026-09-10: the raw folder of a simulation is replaced by its outputs folder. Carried by PFS-2036.02. Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*",
    "verification": "test"
   },
   {
@@ -852,7 +852,7 @@
    "text": "WHAT IT IS FOR. Two conventions sit in one run for one point:",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the fourth feedback item of 2026-09-10, \"nomes arquivos em post\\matriz\\provenance fora do padrao\". Carried by PFS-2036.04. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "evidence": "*Origin: the fourth feedback item of 2026-09-10: file names under the matrix provenance folder of the post do not follow the standard. Carried by PFS-2036.04. Evidence: tests/tier1_offline/test_products_layout.py.*",
    "verification": "test"
   },
   {
@@ -868,7 +868,7 @@
    "text": "WHAT IT IS FOR. Measured in the reference workspace, post/matriz/ holds the polar tables loose at its top level beside sections/, plots/, provenance/ and the campaign manifests. Every other family of file has a directory and the polar tables do not, so the top level reads as a directory and a drawer at once.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the reference sixth feedback item of 2026-09-10, \"crie uma subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais\". Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "evidence": "*Origin: the reference sixth feedback item of 2026-09-10: a polars subfolder for the current per-point CSV and DAT files. Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*",
    "verification": "test"
   },
   {
@@ -876,7 +876,7 @@
    "text": "WHAT IT IS FOR. Knowing what one simulation was and what it produced currently takes the polar table, the campaign sweep table, the matrix row, the setup, the reference and the unsteady plots. Six files, five of them in different shapes.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the seventh feedback item of 2026-09-10, \"crie um super arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre aquela simulacao\", and, asked again the same evening, \"todas as variaveis que definem a condicao de voo precisam obrigatoriamente estar nesse super arquivo\". Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*",
+   "evidence": "*Origin: the seventh feedback item of 2026-09-10: a derived super file, so that the file alone says everything about that simulation, and, asked again the same evening, every variable that defines the flight condition must be in that super file. Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*",
    "verification": "test"
   },
   {
@@ -1060,7 +1060,7 @@
    "text": "An unsteady row states the surface averaged over a window of its march in the pproc, and the products say that the surface is an average and over which window.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: F02 of the 0.25.0 scope and G25 of the 0.28.0 scope. The need, in the requester's words: \"pyfs pode fazer a media com as exportações ja no esquema como sections\". Evidence: tests/tier1_offline/test_f02_time_averaging_refusal.py (the refusal where the solver's own average is not recorded verified) and tests/tier1_offline/test_g25_surface_time_average.py (the window, the average of the per-step exports, every refusal and skip by name).*",
+   "evidence": "*Origin: F02 of the 0.25.0 scope and G25 of the 0.28.0 scope. The need: the package can average the exports already written in the sections scheme. Evidence: tests/tier1_offline/test_f02_time_averaging_refusal.py (the refusal where the solver's own average is not recorded verified) and tests/tier1_offline/test_g25_surface_time_average.py (the window, the average of the per-step exports, every refusal and skip by name).*",
    "verification": "test"
   },
   {
@@ -1068,7 +1068,7 @@
    "text": "A row can export the surface flow as VTK and as CSV, and every Tecplot surface of a campaign point comes from the VTK export.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: F03 of the 0.25.0 scope and G45 of the 0.28.0 scope. The need, in the requester's words: \"tradutor vtk para tecplot (se vtk tiver mais outputs) - usar sempre essa rota para tecplot\". Evidence: tests/tier1_offline/test_surface_exports.py (the two kinds, their default off, the variable list validated against the database) and tests/tier1_offline/test_g45_tecplot_from_vtk.py (the translation, the variable names, the images of a symmetric row).*",
+   "evidence": "*Origin: F03 of the 0.25.0 scope and G45 of the 0.28.0 scope. The need: a translator from VTK to Tecplot (where the VTK has more outputs), always using that route for Tecplot. Evidence: tests/tier1_offline/test_surface_exports.py (the two kinds, their default off, the variable list validated against the database) and tests/tier1_offline/test_g45_tecplot_from_vtk.py (the translation, the variable names, the images of a symmetric row).*",
    "verification": "test"
   },
   {
@@ -1100,7 +1100,7 @@
    "text": "The source of a probe follows the run type. On an unsteady row every [[probes]] entry, drawn lines and cited points_file alike, becomes a fluid plot, and post builds the probes table from the plots history, never from a probe-points export. A steady row keeps the probe points.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: F01 of the 0.25.0 scope. The scope row words the need: \"A fonte da probe segue o tipo de corrida, SEMPRE.\" Evidence: tests/tier1_offline/test_f01_probe_source.py and tests/tier1_offline/test_rel0250_f01_probe_skip.py.*",
+   "evidence": "*Origin: F01 of the 0.25.0 scope. The scope row words the need: the probe source follows the run type, ALWAYS. Evidence: tests/tier1_offline/test_f01_probe_source.py and tests/tier1_offline/test_rel0250_f01_probe_skip.py.*",
    "verification": "test"
   },
   {
@@ -1124,7 +1124,7 @@
    "text": "Every campaign post writes post.log beside products.json, even when clean, and post.log.json beside it.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the same decision as FR-119: \"sempre seja escrito um log do proprio post com warnings se aplicavel.\" Evidence: tests/tier1_offline/test_post_log.py and tests/tier1_offline/test_post_diagnostics.py.*",
+   "evidence": "*Origin: the same decision as FR-119: a log of the post itself is always written, with warnings where applicable. Evidence: tests/tier1_offline/test_post_log.py and tests/tier1_offline/test_post_diagnostics.py.*",
    "verification": "test"
   },
   {
@@ -1132,7 +1132,7 @@
    "text": "After a point's solve, first among its exports, the script saves the solver state as <point file stem>.fsm. The file is collected into the point's datapoint folder and listed in the run record's outputs with its sha256 in outputs_sha256.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G11 of the 0.27.0 scope. The need, in the requester's words: \"isso não tá formalizado\". Evidence: tests/tier1_offline/test_saved_simulation.py (a save in every workflow script of every run type and build, first among the point's exports, one for each point of a steady sweep, collected and hashed, a missing one recorded incomplete, the plan warning for a LEGACY row).*",
+   "evidence": "*Origin: G11 of the 0.27.0 scope. The need: the saved simulation is not formalised. Evidence: tests/tier1_offline/test_saved_simulation.py (a save in every workflow script of every run type and build, first among the point's exports, one for each point of a steady sweep, collected and hashed, a missing one recorded incomplete, the plan warning for a LEGACY row).*",
    "verification": "test"
   },
   {
@@ -1148,7 +1148,7 @@
    "text": "A workspace documents the input files a user writes, generated from the code where the format is the code's.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G08 of the 0.27.0 scope and G47 of the 0.28.0 scope. The need for the second, in the requester's words: \"Criar um md input_template dentro de inputs\". Evidence: tests/tier1_offline/test_goal031_g08_input_glossary.py (a key added with no row fails) and tests/tier1_offline/test_g47_input_template.py (every template read back with the package's own reader).*",
+   "evidence": "*Origin: G08 of the 0.27.0 scope and G47 of the 0.28.0 scope. The need for the second: a markdown input_template is created inside inputs. Evidence: tests/tier1_offline/test_goal031_g08_input_glossary.py (a key added with no row fails) and tests/tier1_offline/test_g47_input_template.py (every template read back with the package's own reader).*",
    "verification": "test"
   },
   {
@@ -1156,7 +1156,7 @@
    "text": "Every table the post writes under post/<matrix>/, the additional post's included, and campaign_sweep.csv, holds its header on the first line and the polar as its first column.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G16 of the 0.27.0 scope. The need, in the requester's words: \"o numero da polar vai em todos os arquivos como um coluna\", and of the rotor table's first line: \"coloca isso como coluna tb\". Evidence: tests/tier1_offline/test_g16_polar_column.py (every table written is read back, including by numpy.genfromtxt).*",
+   "evidence": "*Origin: G16 of the 0.27.0 scope. The need: the polar number goes in every file as a column, and of the rotor table's first line: the same, as a column. Evidence: tests/tier1_offline/test_g16_polar_column.py (every table written is read back, including by numpy.genfromtxt).*",
    "verification": "test"
   },
   {
@@ -1164,7 +1164,7 @@
    "text": "FREESTREAM: <stem> names a velocity field over the YZ plane of the global frame, in m and m/s, converted in no way, in a file of the workspace's inputs/freestreams/.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need, in the requester's words: \"quero ja incluir na 27\" and \"custom freestream (G18) por arquivo de input\". Evidence: tests/tier1_offline/test_g15_custom_freestream.py (the script, both forms, every refusal, and the coverage warning of test_g18_*).*",
+   "evidence": "*Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need: to include it already in 0.27 and a custom freestream (G18) from an input file. Evidence: tests/tier1_offline/test_g15_custom_freestream.py (the script, both forms, every refusal, and the coverage warning of test_g18_*).*",
    "verification": "test"
   },
   {
@@ -1180,7 +1180,7 @@
    "text": "pyflightstream.fsi.sections.blade_properties_from_sections generates a BladeProperties from one closed section contour per station and a material, for a solid homogeneous section, instead of typed numbers.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G41 of the 0.28.0 scope, mandatory. The need, in the requester's words: \"Geralmente blades de tunel de metal sao massiças, entao eu quero essa capacidade no fsi do pyflightstream pq ja destrava muita analise\" and \"Tudo precisa estar escriptado e reproduzivel\". Evidence: tests/tier1_offline/test_g41_section_properties.py (closed forms for rectangles, plates, polygons standing for circles and ellipses, the torsion constant converging, the material database, the round trip and the provenance).*",
+   "evidence": "*Origin: G41 of the 0.28.0 scope, mandatory. The need: metal wind-tunnel blades are usually massive, so this capability is wanted in the FSI of the package because it unlocks much analysis and everything must be scripted and reproducible. Evidence: tests/tier1_offline/test_g41_section_properties.py (closed forms for rectangles, plates, polygons standing for circles and ellipses, the torsion constant converging, the material database, the round trip and the provenance).*",
    "verification": "test"
   },
   {
@@ -1196,7 +1196,7 @@
    "text": "A local run opens with a banner naming the campaign and how many points it runs, numbers each point ((3 of 17), a steady job its range, (1-3 of 17)), and closes with a table of how the points ended, a job's points counted one by one, and the time it took.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G43 of the 0.28.0 scope. The need, in the requester's words: \"vamos deixar o log de execução local mais bonitinho\". Evidence: tests/tier1_offline/test_g43_local_log.py (the banner, the numbering, the summary table, the progress cadence and its refusal).*",
+   "evidence": "*Origin: G43 of the 0.28.0 scope. The need: the local execution log is made nicer. Evidence: tests/tier1_offline/test_g43_local_log.py (the banner, the numbering, the summary table, the progress cadence and its refusal).*",
    "verification": "test"
   },
   {
@@ -1204,7 +1204,7 @@
    "text": "Points in a queue have no outputs yet, so a run that submits any point writes no product and no sweep table.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G43 of the 0.28.0 scope, from a submission of 25 points that printed 270 lines. The need, in the requester's words: \"ta muito poluido o log do run com submissao para o hpc\" and \"se for submissao para linux, o run nao deveria rodar post\". Evidence: tests/tier1_offline/test_goal021_swept_row.py (test_g43_a_run_that_submits_does_not_post) and tests/tier1_offline/test_g43_local_log.py.*",
+   "evidence": "*Origin: G43 of the 0.28.0 scope, from a submission of 25 points that printed 270 lines. The need: the run log of a submission to the HPC is too polluted and for a submission to Linux the run should not run the post. Evidence: tests/tier1_offline/test_goal021_swept_row.py (test_g43_a_run_that_submits_does_not_post) and tests/tier1_offline/test_g43_local_log.py.*",
    "verification": "test"
   },
   {
@@ -1212,7 +1212,7 @@
    "text": "pyfs-matrix run --force-rerun-all [--sims SIM ...] archives every recorded point of the matrix, or of the simulations --sims names, with the archive of --force-rerun, and runs it again, a steady row recorded as one job as one job.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G44 of the 0.28.0 scope. The need, in the requester's words: \"para 28, eu quero um --force-rerun-all\". Evidence: tests/tier1_offline/test_g44_force_rerun_all.py.*",
+   "evidence": "*Origin: G44 of the 0.28.0 scope. The need: a --force-rerun-all option is wanted for 0.28. Evidence: tests/tier1_offline/test_g44_force_rerun_all.py.*",
    "verification": "test"
   },
   {
@@ -1220,7 +1220,7 @@
    "text": "A pproc plot group named like the automatic ROTOR_<ALIAS> group, such as ROTOR_{family} in a rotor's own frame, emits the names the rotor table reads, so the run keeps that group and writes no global-frame history for the rotor, and the post cannot write its table.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: G42 of the 0.28.0 scope, from a submission of 25 rows whose rotor tables were skipped. The decision, in the requester's words: \"nao precisa fazer essa mudança, coloca no plan o aviso\". Evidence: tests/tier1_offline/test_goal028_rotor_plot_group.py (test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name).*",
+   "evidence": "*Origin: G42 of the 0.28.0 scope, from a submission of 25 rows whose rotor tables were skipped. The decision: the change is not needed, the plan carries a warning instead. Evidence: tests/tier1_offline/test_goal028_rotor_plot_group.py (test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name).*",
    "verification": "test"
   },
   {
@@ -1852,7 +1852,7 @@
    "text": "A wing's [[import.ccs.control_surfaces]] states name, v0, v1, u0, u1, hinge_height, angle_deg, slot_gap_pct, and optionally space (PARAMETRIC, the default, or REAL) and axis (Y by default); each becomes NEW_CCS_WING_CONTROL_SURFACE <name> <v0> <v1> <u0> <u1> <hinge_height> <angle_deg> <slot_gap_pct> <space> <axis> after the curve selection and the subdivisions and before the loft, in the order written. The sidecar may name the boundaries the control surfaces add after the wing's own name.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: CCS-2 of the 0.32.0 scope, the helper PFS-2005.05. Need: the control surface of a CCS wing declared from the geometry's sidecar. Licensed round 1 on 26.124 refused the eight-token line the manual's own sample prints (NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0, \"Review command syntax and arguments\", probe C3), while SRC-752 p.303 declares ten parameters. Solution, release 0.32.0: each [[import.ccs.control_surfaces]] table of a wing becomes one line with SPACE and AXIS always written. Trace: tests/tier1_offline/test_p0320_ccs.py, the tests named test_p0320_ccs2_* (P0320-CCS2-CONTROL-SURFACE).*",
+   "evidence": "*Origin: CCS-2 of the 0.32.0 scope, the helper PFS-2005.05. Need: the control surface of a CCS wing declared from the geometry's sidecar. Licensed round 1 on 26.124 refused the eight-token line the manual's own sample prints (NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0, 'Review command syntax and arguments', probe C3), while SRC-752 p.303 declares ten parameters. Solution, release 0.32.0: each [[import.ccs.control_surfaces]] table of a wing becomes one line with SPACE and AXIS always written. Trace: tests/tier1_offline/test_p0320_ccs.py, the tests named test_p0320_ccs2_* (P0320-CCS2-CONTROL-SURFACE).*",
    "verification": "test"
   },
   {
@@ -2508,7 +2508,7 @@
    "text": "Read with PFS-2073, PFS-2073.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section \"The two checks the route's memory asked of this run\", check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence: RPT-128, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5, on a cambered NACA 4412 half wing: on the rigid point the summed cut moments are 1.00825 of the solver's moment about the same line and the summed cut forces 0.99033 of the lift, so xz_moment_verdict is confirmed by R2 (the coupled point 1.00791 and 0.99045); the FSI page's XZ reading cites RPT-128 (R3). RPT-128 records in its front matter a machine-readable xz_moment_verdict of confirmed or refuted with the two ratios; the marker test reads it, recomputes the verdict from the two ratios by R2, and asserts the branch it names, a missing or inconsistent value failing it; the two ratios are the fields xz_moment_ratio and xz_force_ratio. Marker test: tests/tier1_offline/test_p0340_fsi_rpt128.py::test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_fr_340, with ::test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340 as the control of the criterion. R4 does not apply, and nothing stays owed.*",
+   "evidence": "*Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section 'The two checks the route's memory asked of this run', check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence: RPT-128, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5, on a cambered NACA 4412 half wing: on the rigid point the summed cut moments are 1.00825 of the solver's moment about the same line and the summed cut forces 0.99033 of the lift, so xz_moment_verdict is confirmed by R2 (the coupled point 1.00791 and 0.99045); the FSI page's XZ reading cites RPT-128 (R3). RPT-128 records in its front matter a machine-readable xz_moment_verdict of confirmed or refuted with the two ratios; the marker test reads it, recomputes the verdict from the two ratios by R2, and asserts the branch it names, a missing or inconsistent value failing it; the two ratios are the fields xz_moment_ratio and xz_force_ratio. Marker test: tests/tier1_offline/test_p0340_fsi_rpt128.py::test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_fr_340, with ::test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340 as the control of the criterion. R4 does not apply, and nothing stays owed.*",
    "verification": "test"
   },
   {
@@ -2516,7 +2516,7 @@
    "text": "Plan: PFS-2073.04 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: planning item PFS-2073.04 (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Scope GOAL-044 item S6, narrowed by the owner on 2026-10-05 after the 26.125 licensed arms: \"S6 (a), implementa só no qsteady\" (the quasi-steady rotor sector with direct morphing; unsteady_rotor refused with the measured reason). Marker P0370-S6-DIRECT-MORPHING; it replaces P0340-FSI-MODAL, whose report RPT-129 was never run because 26.124 does not recognise the command (RPT-154). Verification: test, tests/tier1_offline/test_p0370_s6_direct_morphing.py (offline: the option, its refusals, the structural program's rows and the unchanged mapped route), and the licensed arms of RPT-155 (tier 3).*",
+   "evidence": "*Origin: planning item PFS-2073.04 (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Scope GOAL-044 item S6, narrowed by the owner on 2026-10-05 after the 26.125 licensed arms: part (a) only, implemented only in qsteady (the quasi-steady rotor sector with direct morphing; unsteady_rotor refused with the measured reason). Marker P0370-S6-DIRECT-MORPHING; it replaces P0340-FSI-MODAL, whose report RPT-129 was never run because 26.124 does not recognise the command (RPT-154). Verification: test, tests/tier1_offline/test_p0370_s6_direct_morphing.py (offline: the option, its refusals, the structural program's rows and the unchanged mapped route), and the licensed arms of RPT-155 (tier 3).*",
    "verification": "test"
   },
   {
@@ -2524,7 +2524,7 @@
    "text": "Read with PFS-2073, PFS-2073.06, PFS-2075, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: planning item PFS-2073.06 of the 0.34.0 scope, \"T1: probe specifications for the four commands that have none, for tier 2\" (GEO-071, section 4.3): tier 2 (the pyfs-qa probe tier defined in docs/tiers.md) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Read at 0.35.0 (GOAL-040): the promotion of R3, applied from the report committed under reports/compat/. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence: the census of R1 and a test that each command of it has a catalog entry; RPT-127, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5: ROTATE_SURFACE, SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS verified, RPT-127's evidence committed as reports/probes/RPT-127_2026-10-02_evidence.yaml, and a test that RPT-127 states the verdict that evidence records, with a planted mismatch as its control. Tests written: tests/tier1_offline/test_p0340_t1_probe_specs.py, tests/tier1_offline/test_rpt127_fr342_tier2.py. The compat report is committed as reports/compat/CMP-26124_2026-10-02_t1-probe.yaml and the three database statuses are promoted from it (pyfs-qa apply-compat; SET_NEW_UNSTEADY_SOLVER_ACTION folded into its multi-line block by hand, as the tool directs), with tests/tier1_offline/test_rpt127_fr342_tier2.py::test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342.*",
+   "evidence": "*Origin: planning item PFS-2073.06 of the 0.34.0 scope, 'T1: probe specifications for the four commands that have none, for tier 2' (GEO-071, section 4.3): tier 2 (the pyfs-qa probe tier defined in docs/tiers.md) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Read at 0.35.0 (GOAL-040): the promotion of R3, applied from the report committed under reports/compat/. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence: the census of R1 and a test that each command of it has a catalog entry; RPT-127, measured after the 0.34.0 release on 26.124 (build 8172026), far field 5: ROTATE_SURFACE, SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS verified, RPT-127's evidence committed as reports/probes/RPT-127_2026-10-02_evidence.yaml, and a test that RPT-127 states the verdict that evidence records, with a planted mismatch as its control. Tests written: tests/tier1_offline/test_p0340_t1_probe_specs.py, tests/tier1_offline/test_rpt127_fr342_tier2.py. The compat report is committed as reports/compat/CMP-26124_2026-10-02_t1-probe.yaml and the three database statuses are promoted from it (pyfs-qa apply-compat; SET_NEW_UNSTEADY_SOLVER_ACTION folded into its multi-line block by hand, as the tool directs), with tests/tier1_offline/test_rpt127_fr342_tier2.py::test_the_database_status_of_each_command_equals_the_recorded_verdict_fr_342.*",
    "verification": "test"
   },
   {
@@ -2564,7 +2564,7 @@
    "text": "Read with GOAL-039, wave 2, package ADPROF at 0.34.0: the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author request of 2026-10-01, \"tools/fts-research/scripts/ad_design.py --> vamos adicionar ao workspace igual fields\", and the placement \"0.34\" of the same day: the actuator-disc profiles a research study wrote by a script of its own become a workspace operation, the way the field operations build a custom free stream (FR-250 and the field operations of 0.31.0). The method is the one the study measured on 26.124 and RPT-137 summarises (the CUSTOM profiles carried 0.95 to 1.04 of the thrust asked; the ELLIPTICAL model, native, about 0.62; a RELAXED disc ignored the profile); the form of the file is RPT-070's. Marker P0340-ADPROF; read at 0.34.0 (GOAL-039, wave 2). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, each R-item verified on its own, every expected number worked out in the test from a synthetic fixture. Evidence: tests/tier1_offline/test_p0340_adprof.py (R1 ::test_p0340_adprof_a_pol_s_written_sections_become_the_profile, ::test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k, ::test_p0340_adprof_pol_finds_its_family_s_table_alone and ::test_p0340_adprof_refusals_name_what_is_wrong; R2 ::test_p0340_adprof_the_uniform_and_betz_prandtl_shapes; R3 ::test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both; R4 ::test_p0340_adprof_the_integral_of_the_written_rows_is_stated; R5 and R7 ::test_p0340_adprof_the_plan_reads_the_written_profile, the file bound by the row's PROFILE, read by the run's profile reader unchanged, every point READY, the RELAXED disc noted by the command and warned about by the plan with a RIGID disc as the control, and R5's refusals of a disc both named and stated and of a disc whose profile_units are not NEWTONS in ::test_p0340_adprof_refusals_name_what_is_wrong; R6 ::test_p0340_adprof_preview_overwrite_and_one_file_per_stem and the foreign-option case of ::test_p0340_adprof_refusals_name_what_is_wrong; R7 ::test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so), the module pyflightstream.workspace.actuator_profiles with its doctests, and the page docs/actuator-profiles.md.*",
+   "evidence": "*Origin: the author request of 2026-10-01, to add the script to the workspace, as the field operations are, and the placement \"0.34\" of the same day: the actuator-disc profiles a research study wrote by a script of its own become a workspace operation, the way the field operations build a custom free stream (FR-250 and the field operations of 0.31.0). The method is the one the study measured on 26.124 and RPT-137 summarises (the CUSTOM profiles carried 0.95 to 1.04 of the thrust asked; the ELLIPTICAL model, native, about 0.62; a RELAXED disc ignored the profile); the form of the file is RPT-070's. Marker P0340-ADPROF; read at 0.34.0 (GOAL-039, wave 2). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, each R-item verified on its own, every expected number worked out in the test from a synthetic fixture. Evidence: tests/tier1_offline/test_p0340_adprof.py (R1 ::test_p0340_adprof_a_pol_s_written_sections_become_the_profile, ::test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k, ::test_p0340_adprof_pol_finds_its_family_s_table_alone and ::test_p0340_adprof_refusals_name_what_is_wrong; R2 ::test_p0340_adprof_the_uniform_and_betz_prandtl_shapes; R3 ::test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both; R4 ::test_p0340_adprof_the_integral_of_the_written_rows_is_stated; R5 and R7 ::test_p0340_adprof_the_plan_reads_the_written_profile, the file bound by the row's PROFILE, read by the run's profile reader unchanged, every point READY, the RELAXED disc noted by the command and warned about by the plan with a RIGID disc as the control, and R5's refusals of a disc both named and stated and of a disc whose profile_units are not NEWTONS in ::test_p0340_adprof_refusals_name_what_is_wrong; R6 ::test_p0340_adprof_preview_overwrite_and_one_file_per_stem and the foreign-option case of ::test_p0340_adprof_refusals_name_what_is_wrong; R7 ::test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so), the module pyflightstream.workspace.actuator_profiles with its doctests, and the page docs/actuator-profiles.md.*",
    "verification": "none"
   },
   {
@@ -2572,7 +2572,7 @@
    "text": "Need: The time a run takes grows with the faces of its mesh, and no product said how many faces a run had, so the cost of a set of runs could not be read against the size of the meshes they solved.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author decision of 2026-10-01 that brings the export of the mesh face count into 0.34.0, in the words \"passa para entrar na 34 exportar o mesh_faces, pode ser no inventory e ele só puxa de lá se o campo existir\" (the inventory states it, and the post takes it only where the field exists); the build first took a field that exists only with the sha256 the run recorded for the file, and at the integration of 2026-10-02 the session decided to follow those words: the field is taken whenever it exists, and where the inventory's mesh_sha256 is not the sha256 the run recorded, the post log warns naming both and never blocks (R3); measured before it, no column of the super file or of the unsteady polar carried the face count, so a run's cost could not be set against the size of its mesh beside NCPUS. Marker P0340-MESH-FACES; read at 0.34.0 (GOAL-039, wave 2, package MESHFACES). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only. Evidence: tests/tier1_offline/test_p0340_mesh_faces.py::test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys_fr_348 (R1 and R2 on a synthetic mesh block, with a block holding a face that is not a triangle and a block that ends after its records as the controls), ::test_the_inventory_command_counts_each_group_of_an_obj_fr_348 (R1 and R2 on an OBJ through pyfs-matrix inventory, an empty group and the faces before the first group included), ::test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348 (R3 and R4 on two recorded campaigns, a super file one and an unsteady rotor one, the same campaign whose run recorded another sha256 as the control: the count in every row as well, a post log warning naming both sha256 that the first post does not write, and every other cell the same), ::test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348 (R4 across the drafts of one campaign), ::test_a_count_whose_file_moved_under_it_is_not_written_fr_348 (R1 and R2: a file whose sha256 differs after the count gives no inventory line, and a count per boundary that does not stand beside the listed boundaries is left out), ::test_the_post_never_counts_and_a_missing_count_is_na_fr_348 (R5: an inventory without mesh_faces beside the very bytes the run recorded, so a post that counted would write 7, and the post writes NA; then the inventory with its count beside a geometry replaced by bytes no face reader can count, so a post that counted would fail or write NA, and the post writes the inventory's 7), ::test_the_parity_names_the_column_whole_and_alone_fr_348 and ::test_the_snapshot_admits_the_column_whole_and_alone_fr_348 (R6, each with its controls: a second change, the column not last, a cell that is not a count, an added line, and a product the requirement does not name), and ::test_the_definitions_page_and_the_glossary_state_the_column_fr_348 (R7); each test was proved by a mutant of the code it covers, made in place and restored.*",
+   "evidence": "*Origin: the author decision of 2026-10-01 that brings the export of the mesh face count into 0.34.0, with the instruction to export it, possibly through the inventory, the post pulling it only if the field exists (the inventory states it, and the post takes it only where the field exists); the build first took a field that exists only with the sha256 the run recorded for the file, and at the integration of 2026-10-02 the session decided to follow that instruction: the field is taken whenever it exists, and where the inventory's mesh_sha256 is not the sha256 the run recorded, the post log warns naming both and never blocks (R3); measured before it, no column of the super file or of the unsteady polar carried the face count, so a run's cost could not be set against the size of its mesh beside NCPUS. Marker P0340-MESH-FACES; read at 0.34.0 (GOAL-039, wave 2, package MESHFACES). Built on 2026-10-02; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only. Evidence: tests/tier1_offline/test_p0340_mesh_faces.py::test_the_inventory_of_a_saved_simulation_states_its_faces_and_each_boundarys_fr_348 (R1 and R2 on a synthetic mesh block, with a block holding a face that is not a triangle and a block that ends after its records as the controls), ::test_the_inventory_command_counts_each_group_of_an_obj_fr_348 (R1 and R2 on an OBJ through pyfs-matrix inventory, an empty group and the faces before the first group included), ::test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348 (R3 and R4 on two recorded campaigns, a super file one and an unsteady rotor one, the same campaign whose run recorded another sha256 as the control: the count in every row as well, a post log warning naming both sha256 that the first post does not write, and every other cell the same), ::test_the_super_file_keeps_the_column_last_when_a_later_row_brings_one_fr_348 (R4 across the drafts of one campaign), ::test_a_count_whose_file_moved_under_it_is_not_written_fr_348 (R1 and R2: a file whose sha256 differs after the count gives no inventory line, and a count per boundary that does not stand beside the listed boundaries is left out), ::test_the_post_never_counts_and_a_missing_count_is_na_fr_348 (R5: an inventory without mesh_faces beside the very bytes the run recorded, so a post that counted would write 7, and the post writes NA; then the inventory with its count beside a geometry replaced by bytes no face reader can count, so a post that counted would fail or write NA, and the post writes the inventory's 7), ::test_the_parity_names_the_column_whole_and_alone_fr_348 and ::test_the_snapshot_admits_the_column_whole_and_alone_fr_348 (R6, each with its controls: a second change, the column not last, a cell that is not a count, an added line, and a product the requirement does not name), and ::test_the_definitions_page_and_the_glossary_state_the_column_fr_348 (R7); each test was proved by a mutant of the code it covers, made in place and restored.*",
    "verification": "none"
   },
   {
@@ -3068,7 +3068,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (\"primeiro ele falava que minha matriz tava em dois lugares, sendo que ela só tava em inputs/matrices\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_matrix_home.py.*",
+   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (a matrix reported in two places while it was only in inputs/matrices), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_matrix_home.py.*",
    "verification": "test"
   },
   {
@@ -3076,7 +3076,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (\"eu apaguei o runs.json sem querer e nao consegui de jeito de nenhum regerar ... ele nao deu esse erro mas só faltou que there is no record\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_rebuild_lost.py.*",
+   "evidence": "*Origin: owner report of 2026-10-03 on 0.35.1 (a runs.json deleted by accident that could not be regenerated, the error not saying there is no record), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_rebuild_lost.py.*",
    "verification": "test"
   },
   {
@@ -3084,7 +3084,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner proposal of 2026-10-03 (\"podia ter um status RAN_MISSING_LOG\") and the rule of 2026-10-05 (\"lembra que o post não recusa quando o status é RAN_MISSING_LOG, ele ainda roda\"), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
+   "evidence": "*Origin: owner proposal of 2026-10-03 (a status RAN_MISSING_LOG could exist) and the rule of 2026-10-05 (the post does not refuse when the status is RAN_MISSING_LOG, it still runs), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
    "verification": "test"
   },
   {
@@ -3092,7 +3092,7 @@
    "text": "Plan: PFS-2078.01 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner request of 2026-10-03 (\"me manda um script python simples que marca converged nas polares que eu quiser\"), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_mark_converged.py.*",
+   "evidence": "*Origin: owner request of 2026-10-03 (a simple Python script that marks converged the polars wanted), delivered as a standalone script, now a command; scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_mark_converged.py.*",
    "verification": "test"
   },
   {
@@ -3100,7 +3100,7 @@
    "text": "Plan: PFS-2078.03 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (\"Hoje existe EXPORT_UNSTEADY_AFTER_REV Criar tambem EXPORT_UNSTEADY_LAST_REV\"), scope GOAL-044 item S3. Verification: test, tests/tier1_offline/test_p0370_s3_last_rev.py.*",
+   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (EXPORT_UNSTEADY_AFTER_REV exists today, also create EXPORT_UNSTEADY_LAST_REV), scope GOAL-044 item S3. Verification: test, tests/tier1_offline/test_p0370_s3_last_rev.py.*",
    "verification": "test"
   },
   {
@@ -3108,7 +3108,7 @@
    "text": "Plan: PFS-2078.04 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (\"Tem alguma receita de free-space que eu posso passar o range de iters que quero apagar? imagine que quero manter as ultimas 12 iters do posproc de uma unsteady\"), scope GOAL-044 item S4. Verification: test, tests/tier1_offline/test_p0370_s4_prune_range.py.*",
+   "evidence": "*Origin: owner note for 0.37 of 2026-10-05 (a free-space recipe that takes the range of iterations to delete, to keep the last 12 iterations of an unsteady post-processing), scope GOAL-044 item S4. Verification: test, tests/tier1_offline/test_p0370_s4_prune_range.py.*",
    "verification": "test"
   },
   {
@@ -3116,7 +3116,7 @@
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner decision of 2026-10-05 (\"no unsteady e unsteady rotor, eu quero ter a opção de indicar que aquelas probes sao unsteady probes ou se sao probes normais. Por default, sempre unsteady probes.\"), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
+   "evidence": "*Origin: owner decision of 2026-10-05 (in unsteady and unsteady rotor runs, an option to state whether the probes are unsteady probes or normal probes, unsteady probes by default), after a run with 5835 fluid plots ran far slower than its reservation (the cause is a hypothesis, not measured); scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_probe_kind.py.*",
    "verification": "test"
   },
   {
@@ -3124,7 +3124,7 @@
    "text": "Plan: PFS-2078.05 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner correction of 2026-10-05 (\"para uma rodada unsteady sem rotor, a solução pode atingir um regime permanente sem qualquer harmonico, como é o caso do WBPN, se forma que a probe na ultima iteração serve para o nosso estudo de qsteady. Entao a função de inflow tem que conseguir gerar o inflow a partir de probes normais tambem de uma corrida usnteady.\"), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
+   "evidence": "*Origin: owner correction of 2026-10-05 (for an unsteady run without a rotor the solution may reach a steady regime with no harmonic, so the probe of the last iteration serves a quasi-steady study; the inflow function must therefore be able to generate the inflow from the normal probes of an unsteady run too), scope GOAL-044 item S5. Verification: test, tests/tier1_offline/test_p0370_s5_normal_inflow.py.*",
    "verification": "test"
   },
   {
@@ -3132,7 +3132,7 @@
    "text": "Plan: PFS-2078.07 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (\"vamos puxar apenas 1 e 2\"); scope GOAL-044 item S7. Verification: test, tests/tier1_offline/test_p0370_s7_codebook.py.*",
+   "evidence": "*Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (only candidates 1 and 2 taken); scope GOAL-044 item S7. Verification: test, tests/tier1_offline/test_p0370_s7_codebook.py.*",
    "verification": "test"
   },
   {
@@ -3140,7 +3140,7 @@
    "text": "Plan: PFS-2078.08 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: GEO-070 candidate \"Declarar cópia de tabelas no frame instalado pelo pproc\", taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, tests/tier1_offline/test_p0370_s8_installed.py.*",
+   "evidence": "*Origin: GEO-070 candidate declaring a copy of tables in the frame installed by the post, taken into 0.37 by the owner on 2026-10-05; scope GOAL-044 item S8. Verification: test, tests/tier1_offline/test_p0370_s8_installed.py.*",
    "verification": "test"
   },
   {
@@ -3148,7 +3148,7 @@
    "text": "Plan: PFS-2078.09 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 (\"As recusas para o usuário não precisam citar o id do RPT.\"); scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_grouped_help.py.*",
+   "evidence": "*Origin: the API-designer findings of the 0.36.0 release (registered as 0.37 R5) and the owner answer of 2026-10-05 (refusals shown to the user need not cite the RPT id); scope GOAL-044 item S9. Verification: test, tests/tier1_offline/test_p0370_s9_grouped_help.py.*",
    "verification": "test"
   },
   {
@@ -3156,7 +3156,7 @@
    "text": "Plan: PFS-2078.02 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner request of 2026-10-03 (\"poder definir o numero de iters/revs a partir do tamanho da esteira do rotor como um multiplo do raio\") and the answer of 2026-10-05 (\"a esteira é medida helicoidal, é o conceito de advance ratio e ja ta embutido para o calculo de numero de iterações para o wake_termination, a questão é ter isso para o numero de iterações simuladas\"); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
+   "evidence": "*Origin: owner request of 2026-10-03 (the iterations or revolutions defined from the length of the rotor wake as a multiple of the radius) and the answer of 2026-10-05 (the wake is measured helically, which is the advance-ratio concept already built into the iteration count for the wake termination; what is wanted is the same for the number of simulated iterations); scope GOAL-044 item S2. Verification: test, tests/tier1_offline/test_p0370_s2_run_wake.py.*",
    "verification": "test"
   },
   {
@@ -3164,7 +3164,7 @@
    "text": "Plan: PFS-2078.10 (0.37.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner request of 2026-10-05 (\"agora faz parte da 37 incluir a build 26.125 no escopo, então roda as probes todas para pegar todos os comandos, testar e ficarem disponiveis para rodar simulações por emit e por workspace\") and its widening the same day (\"inclua todos os comandos novos tambem, quero a 26.125 integralmente absorvida no pyflightstream e no workspace\"); scope GOAL-044 item S10. Verification: test, tests/tier1_offline/test_p0370_s10_build_26125.py and tests/tier1_offline/test_p0370_s10_simcenter_outputs.py; the tier-2 probe campaign of 26.125, run on 2026-10-05 (reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml, R6).*",
+   "evidence": "*Origin: owner request of 2026-10-05 (build 26.125 is now in scope of 0.37, so all the probes run to catch every command, test them and make them available to run simulations through emit and through the workspace) and its widening the same day (include all the new commands too, with 26.125 fully absorbed in the package and in the workspace); scope GOAL-044 item S10. Verification: test, tests/tier1_offline/test_p0370_s10_build_26125.py and tests/tier1_offline/test_p0370_s10_simcenter_outputs.py; the tier-2 probe campaign of 26.125, run on 2026-10-05 (reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml, R6).*",
    "verification": "test"
   },
   {
@@ -3468,7 +3468,7 @@
    "text": "Every comment in a workspace artifact this repository ships or reproduces from is one a person setting up a run needs to set up the run: what a value means, its unit, or why it is what it is when the reason is not recoverable from the number. No comment records what a value used to be called, what an earlier release did, or addresses the reader; history belongs to version control. An open question found inside an artifact moves to where open questions live before its comment is deleted.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: feedback item #0 of 2026-09-02, \"tratar como um teste simples sem comentarios de historico\". Carried by PFS-2029.13. Evidence owed: the checker that node names.*",
+   "evidence": "*Origin: feedback item #0 of 2026-09-02, treat it as a simple test with no comments of history. Carried by PFS-2029.13. Evidence owed: the checker that node names.*",
    "verification": "none"
   },
   {
