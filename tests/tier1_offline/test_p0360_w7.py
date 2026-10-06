@@ -74,9 +74,11 @@ PUBLIC_HOMES = {
     "write_input_guides": "pyflightstream.workspace",
     "trailing_edge_midpoints": "pyflightstream.workspace.trailing_edges",
     "write_trailing_edge_node_file": "pyflightstream.workspace.trailing_edges",
-    # 0.38.0 (FR-426): the audit of a panel mesh.
+    # 0.38.0: the audit of a panel mesh.
     "MeshAudit": "pyflightstream.workspace._refine._audit",
     "audit_mesh": "pyflightstream.workspace._refine._audit",
+    "RefinedMesh": "pyflightstream.workspace._refine._level",
+    "refine_mesh": "pyflightstream.workspace._refine._level",
     "ThinBlade": "pyflightstream.workspace._degenerate",
     "derive_thin_blade": "pyflightstream.workspace._degenerate",
     "thin_blade_path": "pyflightstream.workspace._degenerate",

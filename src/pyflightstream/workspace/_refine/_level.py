@@ -640,10 +640,13 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     folder = root / stem
     if folder.resolve() == source.parent.resolve():
         raise _refuse(
-            str(folder), "the level folder is the source's folder; choose another --out-dir"
+            str(folder),
+            "the level folder is the source's folder; choose another out_dir (CLI: --out-dir)",
         )
     if folder.exists() and not overwrite:
-        raise _refuse(str(folder), "the level exists; give --overwrite to replace it")
+        raise _refuse(
+            str(folder), "the level exists; give overwrite=True (--overwrite) to replace it"
+        )
     return folder
 
 
