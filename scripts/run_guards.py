@@ -36,6 +36,7 @@ GUARDS = (
     f"{TIER1}/test_claim_currency.py",
     f"{TIER1}/test_documented_invocations.py",
     f"{TIER1}/test_documented_rows.py",
+    f"{TIER1}/test_goal028_definitions_page_quotes_no_one.py",
     f"{TIER1}/test_house_style.py",
     f"{TIER1}/test_no_estate_headers.py",
     f"{TIER1}/test_p0320_k1_srs_coverage.py",
