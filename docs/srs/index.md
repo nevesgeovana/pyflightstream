@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.72.0 |
+| Version | 1.74.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -98,6 +98,8 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.74.0 | 2026-10-06 | 0.38.0 additions: smooth tube, multiblock grid recovery, quad-dominant elements; the audit of component levels. |
+| 1.73.0 | 2026-10-06 | The 0.38.0 boxes FR-424 to FR-429, NFR-43 and NFR-44 move to implemented, each with its Evidence paragraph and the test files on its Origin line; the section intro cites RPT-162 as the public report of the licensed comparison. |
 | 1.72.0 | 2026-10-06 | The 0.38.0 requirements (GOAL-045): FR-424 to FR-429, NFR-43 and NFR-44, written before the first package commit, all pending, with their P0380 markers in `docs/srs/markers-0380.json`. |
 | 1.71.0 | 2026-10-05 | The 0.37.0 requirements (GOAL-044): FR-411 to FR-422 and NFR-42, written and reviewed before the first package commit; FR-410 amended by FR-421. |
 | 1.70.0 | 2026-10-03 | The 0.36.0 S1 requirements: FR-409 and conditional FR-410, NFR-33 to NFR-41, all pending with their verification obligations; FR-407 R2 points to its conditional amendment. AD-16 to AD-18 are reconciled to implemented from their tracked modules and shipped evidence; AD-19 to AD-23 specify the five pending structural work packages under AD-15 and NFR-40, with the ARCH-3 downward-edge answer and roadmap mappings. The 0.36.0 marker map is completed and the requirement ranges and generated index are refreshed. |

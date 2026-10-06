@@ -50,6 +50,10 @@ Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [com
 
 [A complete example: a wing OBJ with its trailing edge by file](mesh/example.md#a-complete-example-a-wing-obj-with-its-trailing-edge-by-file).
 
+<a id="refining-or-coarsening-a-mesh"></a>
+
+[Refining or coarsening a mesh](mesh/how-to.md#refining-or-coarsening-a-mesh).
+
 <a id="the-saved-simulation-gui-once-script-everything-after"></a>
 
 [The saved simulation: GUI once, script everything after](mesh/how-to.md#the-saved-simulation-gui-once-script-everything-after).
@@ -73,6 +77,10 @@ Use the [how-to](mesh/how-to.md), [sidecar reference](mesh/reference.md) or [com
 <a id="actions-saved-in-the-geometry-since-0330"></a>
 
 [Actions saved in the geometry](mesh/reference.md#actions-saved-in-the-geometry-since-0330).
+
+<a id="the-refinement-file-and-the-audit"></a>
+
+[The refinement file and the audit](mesh/reference.md#the-refinement-file-and-the-audit).
 
 <a id="mesh-format-policy"></a>
 

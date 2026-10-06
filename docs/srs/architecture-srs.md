@@ -2033,3 +2033,83 @@ v0.36.0 names the three differences the requirements state: the settings table
 and its manifest entries (FR-419), the rotor diameter and quasi-steady clock
 cells of the super content (FR-89), and the left-out reason of a coupled
 steady row (FR-421).
+
+## The 0.38.0 additions and their limits
+
+0.38.0 adds eleven modules, each in the row of its package, and no new row. The
+order of the stack is unchanged: `post` and `qa`, then `run`, then
+`workspace`, then `cases`, then `script` and `results`, then `commands`, then
+`versions`, then the floors; the `fsi` side branch keeps its place.
+`scripts/arch_metrics.py` measures the release tree, and RPT-161 is the
+release's architecture record (293 modules; no import from `workspace` to
+`run`). Ten of the eleven modules are the private package
+`workspace/_refine/`; the eleventh is `run/_cli_mesh.py`.
+
+### The refinement package and its layering
+
+`workspace/_refine/` refines, coarsens and audits a panel mesh from its OBJ
+(FR-424 to FR-428). It is private: its public names are re-exported by
+`pyflightstream.workspace` (`refine_mesh`, `RefinedMesh`, `audit_mesh`,
+`MeshAudit`), and nothing outside the package imports its modules. Its modules,
+from the floor up:
+
+- `_geometry.py` holds every numerical threshold of the section (the ridge
+  angle, the edge-length band, the audit margins and floors, the periodic
+  tolerances, the axial band, the band depth and the `schema_version`), each
+  defined once and read by every module that uses it, and the primitives the
+  others share: edge and face adjacency, boundary loops, dihedral angles, the
+  nearest-face order and a nearest-point index in numpy.
+- `_obj.py` reads and writes the OBJ and the trailing-edge points file through
+  the package's one text route (NFR-32), keeping the source's family order and
+  header.
+- `_audit.py` is the audit (FR-426): gates, relative checks and figures. It
+  imports `_geometry` and `_obj` and nothing of the refinement modules, so it
+  judges a level, or any OBJ, without them.
+- `_config.py` is the refinement request (FR-424 R1 to R3): the factors of the
+  call or of the refinement file, `[components]`, `[periodic]` and the tag.
+  Every refusal it raises comes before any family is touched.
+- `_grid.py` recovers a family's structured grid from the connectivity and
+  resamples it in index space by a cubic spline written in numpy, keeping the
+  source's sweep and face starts (FR-424 R6, R7, R9).
+- `_remesh.py` remeshes the other families with conforming interfaces (FR-424
+  R8, FR-425 R2) and the stretched remesh of a body (FR-428). It alone needs
+  the geometry extra, and every import of trimesh and of the spatial index is
+  deferred to the call that remeshes.
+- `_periodic.py` finds the two cut faces of a sector and matches them node for
+  node in the level (FR-427).
+- `_blocks.py` recovers what `_grid.py` does not: a smooth tube, resampled by a
+  periodic cubic spline, and a multiblock family, cut into four-sided patches
+  along the grid lines through its singular nodes and resampled patch by patch
+  with each shared side resampled once (FR-424 R15, R16). It needs numpy alone,
+  and `_level.py` calls it for a family whose grid `_grid.py` does not recover.
+- `_level.py` writes a level: grids first, then the bands of unchanged
+  neighbours, the cut faces and the remeshed groups, the components, the files
+  and the audit (FR-424, FR-425). It imports `_remesh` deferred, inside the step
+  that remeshes, so a refinement whose families are all grids never loads it.
+
+The rule this keeps, read by
+`test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows`:
+the package imports nothing of `run`; `run` reaches it only through
+`refine_mesh` and `audit_mesh` of `pyflightstream.workspace`; `_audit.py`
+imports none of `_config`, `_grid`, `_remesh`, `_periodic` and `_level`.
+Neither the grid path nor the audit imports scipy or rtree, at module level or
+deferred (FR-424 R10): the spline and the nearest-point search are numpy, so a
+base install refines a mesh whose families are all grids and audits any mesh.
+
+### The two verbs
+
+`run/_cli_mesh.py` registers `pyfs-matrix refine` and `pyfs-matrix
+audit-mesh`. Each parser names its handler as the `mesh_command` default, so
+`run/cli.py` dispatches them with the geometry commands without importing the
+module's handlers by name, and the handlers call the public functions with the
+caller's arguments: the command and a Python caller run the same code and
+refuse with the same text. The module holds the console contract of FR-426 R1
+(exit 0, 1 and 2) and nothing of the geometry. `pyfs-matrix degenerate` calls
+`pyflightstream.workspace.derive_thin_blade`, now public (FR-429), in place of
+its earlier deferred import of the private module.
+
+### What 0.38.0 keeps
+
+No key, script, record or product of 0.37.0 changes. The new verbs need no
+executable, no matrix and no workspace: they read the OBJ they are given and
+write a level folder beside it, never into the source's folder.

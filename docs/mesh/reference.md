@@ -583,6 +583,272 @@ be read is named as unreadable. The plan never refuses on that account: its
 rows, its files and its exit status are those of the same plan without the
 warnings.
 
+## The refinement file and the audit
+
+This section is the reference of `pyfs-matrix refine` and `pyfs-matrix
+audit-mesh` (FR-424 to FR-428); the walk-through is
+[Refining or coarsening a mesh](how-to.md#refining-or-coarsening-a-mesh).
+
+### The two commands
+
+```text
+pyfs-matrix refine MESH [FACTOR] [--families A,B] [--chordwise F] [--spanwise F]
+                   [--config FILE] [--out-dir DIR] [--overwrite]
+pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]
+```
+
+| argument | of | meaning |
+|---|---|---|
+| `MESH` | `refine` | the source OBJ; it and its folder are never modified |
+| `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
+| `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
+| `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family; refused for a remeshed family |
+| `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
+| `--out-dir DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source) |
+| `--overwrite` | `refine` | replace an existing level folder |
+| `OBJ` | `audit-mesh` | the OBJ to audit |
+| `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
+| `--csv FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure |
+
+`refine` exits 0 when the level is written, whatever the audit says, and 2 when
+the request is refused. `audit-mesh` exits 0 when every gate and check passes,
+1 when one fails (the audit is still written) and 2 when its input is refused.
+A refusal is printed on standard error, names the object, what was refused and
+what to do, and ends with `Nothing was written.`: every refusal of the
+arguments, the refinement file, the family names and the installed extras comes
+before any family is resampled and before any file is written. A level is
+written into `<folder>.partial` and renamed once complete, so an error leaves
+no level folder behind.
+
+### Where the factors come from
+
+1. FACTOR applies to every family `--families` selects (default: every family).
+   `--chordwise` and `--spanwise` replace it in that index direction of each
+   selected grid family; given alone, the factor of the other direction is 1.
+2. When the command gives none of FACTOR, `--chordwise` and `--spanwise`, the
+   factors are the `[families.<name>]` tables of the refinement file:
+   `--config FILE`, or else `<stem>.refine.toml` beside the mesh. A family the
+   file does not name is not changed.
+3. With no factor on the command and no file, or a file that states no
+   family, the command is refused.
+
+The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
+are read whenever the file exists, whatever gives the factors.
+
+### The keys of the refinement file
+
+The block below names every key at once; a real file holds the tables its
+own mesh needs, and every family it names must be a family of that mesh.
+
+```toml title="every-key.refine.toml"
+[refine]
+tag = "fine"
+elements = "triangles"
+
+[families.Wing]
+factor = 2
+chordwise = 1.5
+spanwise = 2
+method = "grid"
+
+[families.Tip]
+factor = 2
+method = "remesh"
+elements = "quad-dominant"
+
+[families.Spinner]
+axial = 2
+circumferential = 1
+axis = [1.0, 0.0, 0.0]
+origin = [0.0, 0.0, 0.0]
+
+[components]
+Blade1 = ["Blade1_side", "Blade1_tip"]
+
+[periodic]
+axis = [1.0, 0.0, 0.0]
+origin = [0.0, 0.0, 0.0]
+copies = 6
+```
+
+| table | key | value | meaning |
+|---|---|---|---|
+| `[refine]` | `tag` | text | the level's name, `<stem>_<tag>`, in place of the factors |
+| `[refine]` | `elements` | `"triangles"` (default) or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
+| `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
+| `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
+| `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
+| `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
+| `[families.<name>]` of a body | `axial`, `circumferential` | number above zero | the target edge length divided by `axial` along the axis and by `circumferential` around it; the family is remeshed |
+| `[families.<name>]` of a body | `axis` | three numbers, not all zero | the body's axis; required with `axial` or `circumferential` |
+| `[families.<name>]` of a body | `origin` | three numbers | a point of the axis (default: the family's centroid) |
+| `[components]` | `NAME = [...]` | a non-empty list of family names | the members written as one family `NAME` of the output, their faces in the source's family order |
+| `[periodic]` | `axis` | three numbers, not all zero | the axis of the rotor the sector belongs to |
+| `[periodic]` | `origin` | three numbers, in the OBJ's coordinates | a point of that axis |
+| `[periodic]` | `copies` | an integer of at least 2 | the sectors in a full turn; one cut face maps onto the other by `360/copies` degrees |
+
+Each of these is refused naming the file, the table and the key, and listing
+the known keys: a table or key the list above does not hold, a family the mesh
+does not hold, a family table with neither `factor` nor `chordwise` nor
+`spanwise` (nor `axial` nor `circumferential`), `chordwise` or `spanwise` on a
+family whose method is `"remesh"`, `axial` or `circumferential` without `axis`,
+beside `factor`, `chordwise` or `spanwise`, or with `method = "grid"`, and a
+malformed `axis` or `origin`. In `[components]`, a member the mesh does not
+hold, a family listed in two components, and a component named after a family
+that is not one of its members are refused naming the component and the
+family. A `[periodic]` table whose key is missing or malformed, or that finds
+no pair of cut faces, is refused naming the key.
+
+### The tag of a level
+
+The tag is `[refine] tag` when the file states one. Otherwise it is built from
+the factors, `p` standing for the decimal point:
+
+| refinement | tag |
+|---|---|
+| factor 2 on every family | `R2` |
+| factor 0.5 on every family | `R0p5` |
+| chordwise 1.5 and spanwise 0.7 on every family | `R1c1p5s0p7` |
+| axial 2 and circumferential 1 on every family | `Ra2t1` |
+| factor 2 on `Wing` only | `R-Wing2` |
+| `Wing` at 2 and `Tip` at 1.5 | `R-Wing2-Tip1p5` |
+
+### The files of a level
+
+The level folder is `<out-dir>/<stem>_<tag>/`, and every file in it is written
+through the package's one text route, without a carriage return.
+
+| file | written when | content |
+|---|---|---|
+| `<stem>_<tag>.obj` | always | the level, its families in the source's order (a component in place of its members) |
+| `<stem>_<tag>.te.txt` | the source has a trailing-edge points file | one mid-point per trailing-edge edge of the new mesh, under the source file's unit line |
+| `<stem>_<tag>.boundaries.toml` | the source has a sidecar | the source's sidecar, naming the new points file and each component in place of its members |
+| `<stem>_<tag>.refine.json` | always | what was done to each family |
+| `<stem>_<tag>.audit.json` | always | the audit of the level against its source |
+
+The source's points file is the one its `<stem>.boundaries.toml` names under
+`[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh.
+
+`refine.json` states `schema_version` (1), `source`, `level`, `config` (the
+refinement file read, or null), `specs` (the factors of each family),
+`components`, `faces` (the face count of each family of the output) and, with
+`[periodic]`, `periodic` (the two cut faces, their angle, their node counts and
+the largest distance between matched nodes in the source and in the level).
+Its `families` entry holds, per family:
+
+- a grid: `method` (`"grid"`), `reason` (the layout recovered), `layout`,
+  `ends`, `split`, `grid` (the node counts before and after), `intervals`
+  (chordwise and spanwise, before and after), `faces` (before and after),
+  `order` (`"sweep"` when the source's sweep was kept, `"nearest"` otherwise)
+  and `interfaces` (the nodes of each curve it shares);
+- a smooth tube is a grid whose circumferential direction is a periodic cubic
+  spline, with the seam at the lowest source node index of its first end
+  station and no trailing-edge points; a multiblock family reports `layout`
+  `"multiblock"`, `patches` (their number), `blocks` (each patch's `rows` and
+  `columns` before and after), `arcs` (the patch sides) and `order`
+  (`"nearest"`); `--chordwise` and `--spanwise` are refused on it, and across a
+  patch side the level is continuous, not smooth;
+- a remeshed family: `method` (`"remesh"`), `reason` (why no grid was taken),
+  `elements`, `quads`, `triangles` and `quad_share` (the element mode and its
+  counts; `elements` on a grid says the key was ignored),
+  the families remeshed together, the curve edges kept, the median ratio of
+  edge length to target, the interfaces rebuilt on a grid's nodes, and the
+  face counts before and after;
+- a family the refinement does not change: `method` `"copied"`, or
+  `"unchanged"` with the face count of its two-layer `band` when a grid's
+  nodes on a shared curve changed.
+
+A key may be added to `refine.json` or `audit.json` without changing
+`schema_version`; a key is removed or changes type only with a new one.
+
+### What the audit judges
+
+The audit reads the mesh, and the source when there is one, with numpy alone.
+A GATE is judged on its own terms, a RELATIVE CHECK compares a 95th percentile
+(linear interpolation between ranks) of the mesh with the source's, and a
+FIGURE is reported and never judged.
+
+| gate | fails when |
+|---|---|
+| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
+| G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
+| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes |
+| G4 | a trailing-edge point lies on no mesh edge, or the trailing-edge chains are not the source's in number |
+| G5 | two families that shared nodes in the source share none |
+| G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |
+
+| relative check | fails when the 95th percentile exceeds |
+|---|---|
+| equiangle skewness | the source's plus 0.05 |
+| quadrilateral warp | the larger of the source's and 10 degrees |
+| size growth (the area ratio of two neighbours, across edges whose dihedral is below 30 degrees) | the larger of the source's and 2 |
+
+Each check is made per family and on the whole mesh. A check is relative
+because the source is the accepted mesh: a source that fails a practice is
+reported, not judged. Reported and never judged, per family and on the whole
+mesh: the face, triangle and quadrilateral counts, the aspect ratio (95th
+percentile and largest), the faces beyond the pre-processor's quality
+thresholds (aspect ratio above 8 and above 20, skewness above 0.5, warp above
+10 and above 45 degrees, a quadrilateral angle under 45 degrees, a triangle
+angle under 30 degrees), a face quality ratio (a face's inscribed radius
+against its neighbours', the solver's user's manual calling below 2 good; the
+manual gives no formula, so the package's is its own reading), the faces whose
+aspect ratio exceeds 50, the trailing-edge triangles whose aspect ratio exceeds
+50, and the faces lying on the plane y = 0.
+
+Without `--against` only G1, G2 and G4 are judged and the rest is reported.
+G6 is judged only for a level `refine` wrote, which names its grid families at
+factor 1.
+
+`audit.json` holds `schema_version`, `mesh`, `source`, `passed`, `gates` and
+`checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or
+`not judged`) and `values`) and `figures` (per family and `(whole mesh)`). A
+failed gate or check is also a warning: `audit gate G3 failed on (whole mesh):
+open_loops 2, source_open_loops 1, unmatched_loops 1`.
+
+### The Python API
+
+Each of these is imported from `pyflightstream.workspace`.
+
+| name | what it is |
+|---|---|
+| `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False)` | writes a level and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
+| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares |
+| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)` |
+
+### Limits of the refinement
+
+- **A stretched body warns on skewness.** The relative skewness check warns on
+  every level of a body refined with different `axial` and `circumferential`
+  factors, because a stretched face is skewed against an isotropic source by
+  construction. The level is written; the warning is the stretch asked for.
+- **A grid that mixes cells is remeshed.** A lateral grid that mixes
+  quadrilateral and triangulated cells is remeshed under `method = "auto"` and
+  refused under `method = "grid"` naming the reason; a family of quadrilaterals
+  only is recovered as one grid, a smooth tube or a multiblock.
+- **Quad-dominant levels warn.** The audit's growth and skewness checks read a
+  quadrilateral beside a triangle as a size jump and a paired rhombus as
+  skewed, so a quad-dominant level warns by construction.
+- **A multiblock patch side is continuous, not smooth.** No spline crosses it.
+- **Factor 1.** Under `method = "auto"` a family at factor 1 is copied; a
+  family that states `method = "remesh"` is remeshed at any factor.
+- **A component is audited against its members.** A level written with
+  `[components]` is compared with the union of the members in the source,
+  read from the level's `refine.json`.
+- **A triangulated tip cap is not part of a grid.** A cap is part of a grid only
+  when it is a fan of triangles around one pole node or a zipper. Give any other
+  cap a family of its own in the pre-processor and merge it back with
+  `[components]`, as in
+  [A solid blade kept structured by dummy families](how-to.md#a-solid-blade-kept-structured-by-dummy-families).
+- **A grid that shares nodes with an earlier grid is remeshed.** Grid families
+  are refined in the source's family order; a later grid that shares nodes with
+  an earlier one is remeshed, or refused naming both under `method = "grid"`.
+- **Offline verification, not validation.** The tests verify the geometry of a
+  level offline. Whether a level gives the solver the result of a mesh made at
+  that size in the pre-processor is a licensed comparison, reported for one
+  isolated propeller on 26.124 in RPT-162.
+
 ## Mesh format policy
 
 The library's mesh seam is deliberately narrow: OBJ in and out. READING a

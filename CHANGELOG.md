@@ -7,11 +7,6 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Internal (0.38.0 development)
-
-- mypy recount 2026-10-06: 159 errors in 16 of 292 modules, on `rel/0-38` with every package merged;
-  the ten new modules are clean and none is exempted (RPT-029).
-
 ### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
@@ -77,6 +72,130 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+## [0.38.0] - UNRELEASED
+
+### Added
+
+- `pyfs-matrix refine MESH [FACTOR] [--families A,B] [--chordwise F] [--spanwise F]
+  [--config FILE] [--out-dir DIR] [--overwrite]` refines or coarsens a panel mesh from its
+  OBJ into a new geometry folder, a level, `<out-dir>/<stem>_<tag>/` (by default beside the
+  folder holding the source), and never modifies the source or its folder. FACTOR multiplies
+  the intervals of each index direction of a grid family (2 doubles them, 0.5 halves them)
+  and divides the target edge length of any other family; `--chordwise` and `--spanwise`
+  replace it in one direction of the grid families, and `--families` selects the families to
+  change. A family whose faces form a structured grid (a sheet, or a tube whose ends are open,
+  closed by a pole fan or closed by a zipper) is resampled by a cubic spline that keeps the
+  trailing edge, the leading edge and the end stations, and is written in the source's face
+  order; any other family is remeshed into triangles projected onto the source surface,
+  keeping open boundaries, the trailing edge and ridges as curves. The level holds
+  `<stem>_<tag>.obj`, the trailing-edge points file rewritten from the new mesh, the
+  boundaries file naming it, `<stem>_<tag>.refine.json` (per family the method, the reason,
+  the layout and the counts before and after) and the audit. The tag is `R2`, `R0p5`,
+  `R1c1p5s0p7` or `R-<family><factor>-...`, or the file's `[refine] tag`. Every refusal comes
+  before any file is written and ends with "Nothing was written."; remeshing needs the
+  `geom` extra. From Python: `pyflightstream.workspace.refine_mesh`, which returns a
+  `RefinedMesh` (FR-424).
+- The refinement file, `--config FILE` or `<stem>.refine.toml` beside the mesh, read for the
+  factors when the command gives none: `[families.<name>]` tables with `factor`, `chordwise`,
+  `spanwise` and `method` (`"auto"`, `"grid"` or `"remesh"`), and `[refine] tag`. A family
+  that shares nodes with a refined grid is rebuilt on the grid's new nodes, an unchanged one in
+  a band of two face layers, so the level stays one welded mesh with the source's open
+  boundary loops. `[components]`, `NAME = ["A", "B"]`, writes several families as one family
+  of the output OBJ and names it in the level's boundaries file: the dummy families that keep
+  a region structured in the pre-processor reach the solver as the component (FR-424,
+  FR-425).
+- `pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]` audits any OBJ, alone or
+  against its source, and writes `<stem>.audit.json` beside it: the gates G1 to G6 (topology,
+  orientation, open boundary loops, trailing edge, shared nodes, the faces of a grid at factor
+  1), relative checks of the 95th percentiles of skewness, warp and size growth against the
+  source's, and figures reported and never judged (aspect ratio, the pre-processor's quality
+  counts, the face quality ratio, faces on the plane y = 0). It exits 0 when every gate and
+  check passes, 1 when one fails (the audit is still written) and 2 on a refusal; `--csv`
+  writes one row per family and figure. Every `refine` audits its level against its source
+  the same way and reports a failure as a warning. From Python:
+  `pyflightstream.workspace.audit_mesh`, which returns a `MeshAudit` (FR-426). A level
+  written with `[components]` is audited against the union of each component's members in the
+  source, and a figure within 1e-6 of a limit or a floor meets it.
+- A smooth tube, a tube of quadrilaterals with no trailing edge and no edge sharper than the
+  ridge angle, is a grid family: its seam is the lowest source node index on its first end
+  station, its circumferential direction is a periodic cubic spline, it writes no
+  trailing-edge points, and at factor 1 it is the source (FR-424 R15).
+- A multiblock family, an all-quadrilateral family cut into four-sided patches along the grid
+  lines through its singular nodes, is recovered and resampled patch by patch with each shared
+  side resampled once, so neighbouring patches hold the same nodes; `refine.json` reports the
+  layout `multiblock`, the patches and each patch's rows and columns, and `--chordwise` and
+  `--spanwise` are refused on it, naming it (FR-424 R16).
+- `elements = "quad-dominant"`, in a family table or in `[refine]`, pairs the remeshed
+  triangles of a family into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10
+  degrees), never across a curve, and reports the quads, the triangles and the quad share per
+  family; `"triangles"` stays the default, and the key is ignored on a family that resolves to
+  a grid (FR-424 R17).
+- `[periodic]` in the refinement file, `axis`, `origin` and `copies`, refines a periodic
+  sector so that its two cut faces still match node for node; a source whose cut faces do not
+  match is refused naming the largest distance (FR-427).
+- `axial`, `circumferential`, `axis` and optionally `origin` in a `[families.<name>]` table
+  refine a body (a fuselage, a nacelle, a spinner) along its axis and around it
+  independently; the tag carries them as `a<axial>t<circumferential>` (FR-428).
+- `derive_thin_blade`, `ThinBlade` and `thin_blade_path` are public names of
+  `pyflightstream.workspace`: a script derives the thin blade of `pyfs-matrix degenerate` with
+  the command's files and refusals (FR-429).
+
+### Changed
+
+- **`pyfs-matrix degenerate` calls the public `derive_thin_blade`.** The command calls
+  `pyflightstream.workspace.derive_thin_blade`; its files and its refusals are unchanged, and
+  `pyflightstream.workspace._degenerate` stays importable with the same objects (FR-429).
+- The Origin lines of the SRS that quoted a person or spoke in the first person name the
+  scope item, the plan node or the report instead; no other text of a box changed (NFR-43).
+- The `pyfs-matrix` cheatsheet names `refine` and `audit-mesh` with every option, and is one
+  ten-page guide again (FR-328). The guides explain the grouped run: `plan` and `run` with
+  `--batch N` or `--polar-sweep`, the batch folder and its collect, what a grouped plan leaves
+  out, and `--hpc` among several profiles (FR-410).
+- The mesh how-to and reference pages describe refining a mesh and its refinement file,
+  and the audit's gates, checks and exit status (FR-424, FR-426).
+
+### Known limitations
+
+- The relative skewness check of the audit warns on every level of a body refined with
+  different `axial` and `circumferential` factors: a stretched face is skewed against an
+  isotropic source by construction. The level is written; read the warning as the stretch
+  asked for (FR-428).
+- A lateral grid that mixes quadrilateral and triangulated cells is remeshed under `auto` (a
+  family of quadrilaterals only is recovered as one grid, a smooth tube or a multiblock), and
+  refused under `method = "grid"` naming the reason (FR-424 R9).
+- The audit's growth and skewness checks read a quadrilateral beside a triangle as a size jump
+  and a paired rhombus as skewed, so quad-dominant levels warn by construction (FR-424 R17,
+  FR-426).
+- Across a multiblock patch side the surface is continuous, not smooth: no spline crosses it
+  (FR-424 R16).
+- A triangulated tip cap (any triangulation other than a pole fan or a zipper) is not part of
+  a grid. Give it a family of its own in the pre-processor, refine the blade as a grid, and
+  merge the two with `[components]` (FR-425).
+- Whether a refined level gives the solver the result of a mesh made at that size in the
+  pre-processor is validation, not verified offline: RPT-162 reports one isolated propeller
+  on 26.124, where the level refined at factor 1 reproduces the source level.
+
+### Internal
+
+- mypy recount 2026-10-06: 159 errors in 16 of 293 modules, on `rel/0-38` with every package merged;
+  the eleven new modules are clean and none is exempted (RPT-029).
+- `python scripts/run_guards.py` runs the cross-cutting guard tests in one pytest invocation of
+  four workers and prints each guard file's result: exit 1 when one fails or runs no test, 2
+  when a listed file is missing. A test that pins the digest of rendered text holding a path
+  folds every backslash to a forward slash first, so the digest is the same on Windows and on
+  Linux (NFR-44).
+- The refinement and the audit are the private package `pyflightstream.workspace._refine`;
+  the command layer reaches it only through `refine_mesh` and `audit_mesh`. Grids and the
+  audit need numpy alone; remeshing imports the `geom` extra's spatial index only when a family
+  is remeshed (RPT-161).
+
+### Migration
+
+- Read [Migrating to 0.38.0](docs/migrating-to-0.38.0.md). Nothing is removed, and no input
+  key, command or product of 0.37.0 changes. The release adds two verbs, `pyfs-matrix refine` and `pyfs-matrix audit-mesh`, and
+  seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
+  stays importable.
 
 ## [0.37.0] - 2026-10-05
 
@@ -14418,7 +14537,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...v0.36.0
 [0.35.1]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.0...v0.35.1

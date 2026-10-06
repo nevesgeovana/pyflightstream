@@ -1311,10 +1311,10 @@
 
     Evidence: `test_p0370_s9_the_fixture_has_one_definition_in_the_support_module` (the dependency graph: the support module imports no tier-1 test module at any depth, each builder of the fixture is defined there and nowhere in tier 1, no tier-1 module imports the fixture from a test module), `test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace`, `test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_difference`, `test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared`, `test_p0370_s9_with_a_plan_only_the_per_point_reasons_count` and `test_p0370_s9_a_refusal_on_one_side_only_is_a_difference` in `tests/tier1_offline/test_p0370_s9_parity_tests.py`. The fixture is `grouped_plan_fixture` of `tests/support_helpers.py`, with `rotor_workspace`, `rotor_row`, `make_library`, `fixture_codes` and `stage_geometry` moved there from test modules. Mutants killed: the whole-message fallback returning nothing, the `plan.json` branch comparing the whole message, the parsed-message branch comparing the heading, a lazy tier-1 import inside the support module, the fixture imported from a test module again.
 
-!!! requirement "NFR-43 A public requirement attributes no statement to a person <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-43 A public requirement attributes no statement to a person <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.09 (0.38.0).
 
-    *Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`.*
 
     Requirement: The Origin line of every requirement box of the public SRS names the scope item, the plan node, the report or the evidence that gave the requirement. The words that set a requirement live in the private record of its release.
 
@@ -1324,10 +1324,12 @@
 
     Verification: test, `tests/tier1_offline/test_p0380_s7_origin.py`, carrying P0380-ORIGIN (NFR-43). Controls: an Origin line holding a quotation in another language, one holding "I asked" and one holding a quoted English sentence each fail R1.
 
-!!! requirement "NFR-44 The cross-cutting guards run alone, and a digest of rendered text does not depend on the path separator <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s7_origin.py`, `test_p0380_origin_no_origin_line_quotes_four_words_or_speaks_in_the_first_person` (R1, on both pages), with `test_p0380_origin_a_planted_origin_line_fails_r1`, `test_p0380_origin_a_clean_line_and_a_code_span_pass_r1` and `test_p0380_origin_the_boundary_is_four_words` as controls; `test_p0380_origin_the_boxes_are_all_found_and_each_base_box_is_present` and `test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base` (R2, each box's digest without its Origin line, pinned in the test), with `test_p0380_origin_the_digest_sees_a_changed_body_and_ignores_a_changed_origin` as the control; `test_p0380_origin_no_line_of_the_public_srs_holds_a_drive_or_profile_path` (R3), with `test_p0380_origin_a_planted_path_is_caught_by_r3` and `test_p0380_origin_a_url_and_a_relative_path_are_not_matched_by_r3` as controls.
+
+!!! requirement "NFR-44 The cross-cutting guards run alone, and a digest of rendered text does not depend on the path separator <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079 (0.38.0), GOAL-045 arm GD.
 
-    *Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, the P0380 tests named below.*
+    *Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, `tests/tier1_offline/test_p0380_guards.py`.*
 
     Requirement: `python scripts/run_guards.py` runs the guard tests (the tier-1 tests that judge the whole tree: architecture metrics, private-name coupling, the requirements index, the repository and house-style guards, the documented rows and invocations, claim currency, the release-ready record and the SRS consistency), listed once in the script, in one pytest invocation, and prints each guard file's result.
 
@@ -1335,3 +1337,5 @@
     - R2 A test that pins the digest of rendered text holding a path computes it from text in which every backslash of that path is a forward slash, and which holds no absolute path, drive letter or clock reading: the same text with either separator gives one digest.
 
     Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44). Controls: a guard forced to fail makes the command exit 1 and print its name; a listed file removed makes it exit 2; the separator fold is called on one text with backslashes and with forward slashes. The Linux half of R2 is the CI run.
+
+    Evidence: in `tests/tier1_offline/test_p0380_guards.py`, `test_p0380_guards_every_listed_guard_file_exists`, `test_p0380_guards_a_missing_guard_file_exits_2`, `test_p0380_guards_a_failing_guard_exits_1_and_is_named`, `test_p0380_guards_a_guard_that_ran_no_test_is_red`, `test_p0380_guards_green_only_when_every_guard_ran_and_passed` and `test_p0380_guards_run_four_workers` (R1); `test_p0380_guards_the_fold_gives_one_digest_for_either_separator` and `test_p0380_guards_the_fold_is_needed` (R2). The command ran green in 189 s on the reference machine at the integration of commit 6ae8b06c. The Linux half of R2 is the CI run of the release.

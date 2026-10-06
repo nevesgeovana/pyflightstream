@@ -3171,49 +3171,49 @@
    "id": "FR-424",
    "text": "Plan: PFS-2079.01 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S1. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S1. Verification: test, tests/tier1_offline/test_p0380_s1_refine.py, tests/tier1_offline/test_p0380_s1_grid.py, tests/tier1_offline/test_p0380_s1_remesh.py, tests/tier1_offline/test_p0380_s1_blocks.py and tests/tier1_offline/test_p0380_s1_quaddom.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-425",
    "text": "Plan: PFS-2079.02 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S2. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S2. Verification: test, tests/tier1_offline/test_p0380_s2_dummy.py and tests/tier1_offline/test_p0380_s1_remesh.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-426",
    "text": "Plan: PFS-2079.03 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, tests/tier1_offline/test_p0380_s3_audit.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-427",
    "text": "Plan: PFS-2079.04 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, tests/tier1_offline/test_p0380_s4_sector.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-428",
    "text": "Plan: PFS-2079.05 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S5. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S5. Verification: test, tests/tier1_offline/test_p0380_s5_axial.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-429",
    "text": "Plan: PFS-2079.06 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade is defined in a private module and reached only by pyfs-matrix degenerate. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade is defined in a private module and reached only by pyfs-matrix degenerate. Verification: test, tests/tier1_offline/test_p0380_s6_degapi.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
@@ -3587,17 +3587,17 @@
    "id": "NFR-43",
    "text": "Plan: PFS-2079.09 (0.38.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-045 item S7, the 0.37.0 release review. Verification: test, tests/tier1_offline/test_p0380_s7_origin.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-44",
    "text": "Plan: PFS-2079 (0.38.0), GOAL-045 arm GD.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, the P0380 tests named below.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, tests/tier1_offline/test_p0380_guards.py.*",
+   "verification": "test"
   }
  ]
 }
