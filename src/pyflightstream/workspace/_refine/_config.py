@@ -242,6 +242,20 @@ def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[st
     return out
 
 
+def _keys(kind: str, names: Sequence[str]) -> str:
+    """Return ``unknown key a`` or ``unknown keys a, b`` (empty when there is none)."""
+    if not names:
+        return ""
+    return f"{kind} key{'s' if len(names) > 1 else ''} {', '.join(names)}"
+
+
+def _table(where: str, value: Any, remedy: str) -> dict[str, Any]:
+    """Return a TOML table, refusing a value of another shape (a number, a list, false)."""
+    if not isinstance(value, dict):
+        raise _refuse(where, f"the value {value!r} is not a table; {remedy}")
+    return value
+
+
 def _periodic(path: Path, raw: Any) -> Periodic:
     """Return ``[periodic]`` (FR-427): axis, origin and the number of copies in a turn."""
     where = f"{path} [periodic]"
@@ -250,9 +264,10 @@ def _periodic(path: Path, raw: Any) -> Periodic:
     unknown = sorted(set(raw) - set(PERIODIC_KEYS))
     missing = [k for k in PERIODIC_KEYS if k not in raw]
     if unknown or missing:
-        key = unknown[0] if unknown else missing[0]
+        said = [_keys("unknown", unknown), _keys("missing", missing)]
         raise _refuse(
-            where, f"key {key!r} unknown or missing; the keys are {', '.join(PERIODIC_KEYS)}"
+            where,
+            f"{'; '.join(s for s in said if s)}; the keys are {', '.join(PERIODIC_KEYS)}",
         )
     copies = raw["copies"]
     if isinstance(copies, bool) or not isinstance(copies, int) or copies < 2:
@@ -276,31 +291,48 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
         raise _refuse(
             str(source), f"unknown table [{unknown[0]}]; the tables are {', '.join(TABLES)}"
         )
-    families = data.get("families") or {}
+    families = _table(
+        f"{source} [families]",
+        data.get("families", {}),
+        f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
+    )
     specs: dict[str, FamilySpec] = {}
     elements: dict[str, str] = {}
-    for name, table in families.items():
+    for name, raw in families.items():
         where = f"{source} [families.{name}]"
+        table = _table(
+            where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
+        )
         if name not in names:
             raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
         if "elements" in table:
             elements[name] = elements_mode(where, table["elements"])
         if set(table) != {"elements"}:
             specs[name] = _family_spec(where, table)
-    refine = data.get("refine") or {}
+    refine = _table(
+        f"{source} [refine]",
+        data.get("refine", {}),
+        f"write [refine] with the keys {', '.join(REFINE_KEYS)}",
+    )
     unknown = sorted(set(refine) - set(REFINE_KEYS))
     if unknown:
         raise _refuse(
             f"{source} [refine]",
             f"unknown key {unknown[0]!r}; the known keys are {', '.join(REFINE_KEYS)}",
         )
+    tag = refine.get("tag")
+    if tag is not None and (not isinstance(tag, str) or not tag):
+        raise _refuse(
+            f"{source} [refine] tag",
+            f'{tag!r} is not a text; give the tag as a non-empty string, such as tag = "fine"',
+        )
     default = refine.get("elements", TRIANGLES)
     return {
         "specs": specs,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
-        "tag": refine.get("tag"),
-        "components": _components(source, data.get("components") or {}, names),
+        "tag": tag,
+        "components": _components(source, data.get("components", {}), names),
         "periodic": _periodic(source, data["periodic"]) if "periodic" in data else None,
     }
 

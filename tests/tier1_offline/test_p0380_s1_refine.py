@@ -283,6 +283,68 @@ def test_r3_the_refinement_file_is_refused_naming_file_table_and_key(tmp_path, c
     assert _command(capsys, str(src))[0] == 0 and _left(tmp_path) == ["wing_R2"]
 
 
+@pytest.mark.parametrize(
+    ("toml", "said"),
+    [
+        ("families = 3\n", "[families]: the value 3 is not a table"),
+        ("families = []\n", "[families]: the value [] is not a table"),
+        ("[families]\nG = 3\n", "[families.G]: the value 3 is not a table"),
+        ("refine = 3\n", "[refine]: the value 3 is not a table"),
+        ("refine = false\n", "[refine]: the value False is not a table"),
+        ("components = 0\n", "[components]: the table must map a component name"),
+        ("[refine]\ntag = 3\n", "[refine] tag: 3 is not a text"),
+    ],
+    ids=["families-scalar", "families-empty-list", "family-scalar", "refine-scalar",
+         "refine-false", "components-zero", "tag-number"],
+)  # fmt: skip
+def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsys, toml, said):
+    """P0380-REFINE (FR-424 R3, R11): valid TOML whose table is a scalar, a list or falsey.
+
+    Each is refused by the function and the command alike with the standard
+    refusal (the file, the table, what to write, "Nothing was written."), not
+    a Python exception. The factor is given in the call, so the file is read
+    only for its tables. Control: the file's tables written as tables pass.
+    """
+    src = _source(tmp_path, refine_toml=toml)
+    text = _refused(tmp_path, src, 1.0)
+    assert text.startswith(str(src.with_name("wing.refine.toml"))) and said in text, text
+    code, _, err = _command(capsys, str(src), "1")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    src.with_name("wing.refine.toml").write_bytes(
+        b'[refine]\ntag = "t"\n[families.G]\nfactor = 1\n[components]\nAll = ["G"]\n'
+    )
+    assert _command(capsys, str(src), "1")[0] == 0
+
+
+@pytest.mark.parametrize(
+    ("toml", "said"),
+    [
+        (
+            "[periodic]\naxis = [1, 0, 0]\nspin = 1\n",
+            "unknown key spin; missing keys origin, copies; the keys are axis, origin, copies",
+        ),
+        (
+            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\n",
+            "missing key copies; the keys are axis, origin, copies",
+        ),
+        (
+            "[periodic]\naxis = [1, 0, 0]\norigin = [0, 0, 0]\ncopies = 3\nturns = 1\nspin = 2\n",
+            "unknown keys spin, turns; the keys are axis, origin, copies",
+        ),
+    ],
+    ids=["unknown-and-missing", "missing", "unknown"],
+)
+def test_r3_a_periodic_table_names_its_unknown_and_its_missing_keys(tmp_path, toml, said):
+    """P0380-REFINE (FR-424 R3; FR-427 R2): the refusal names each unknown and each missing key.
+
+    The unknown keys and the missing keys are named separately, not as one
+    "unknown or missing" key.
+    """
+    src = _source(tmp_path, refine_toml=toml)
+    text = _refused(tmp_path, src, 1.0)
+    assert f"{src.with_name('wing.refine.toml')} [periodic]: {said}" in text, text
+
+
 # ---------------------------------------------------------- R4 what a level holds
 
 
