@@ -164,8 +164,7 @@ def _decide(work: _Work) -> None:
     for name in chosen:
         spec = work.request.specs[name]
         if spec.method == "remesh" or spec.axial is not None:
-            work.remesh.append(name)
-            work.report[name] = {"method": "remesh", "reason": "the refinement file states remesh"}
+            _remesh_or_keep(work, name, "the refinement file states remesh")
             continue
         found = _grid.recover_grid(work.mesh.verts, work.mesh.families[name], work.te_of[name])
         if isinstance(found, str):
@@ -174,8 +173,7 @@ def _decide(work: _Work) -> None:
                     f"{work.source} family {name}",
                     f"method is grid and no grid was recovered: {found}",
                 )
-            work.remesh.append(name)
-            work.report[name] = {"method": "remesh", "reason": f"no grid recovered: {found}"}
+            _remesh_or_keep(work, name, f"no grid recovered: {found}")
             continue
         chordwise, spanwise = spec.directions
         _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
@@ -209,9 +207,25 @@ def _grid_after_grid(work: _Work) -> None:
                 f"method is grid and it shares nodes with {first[0]}, refined as a grid first",
             )
         del work.grids[name]
-        work.remesh.append(name)
-        work.report[name] = {"method": "remesh", "reason": f"shares nodes with the grid {first[0]}"}
+        _remesh_or_keep(work, name, f"shares nodes with the grid {first[0]}")
     work.remesh.sort(key=work.names.index)
+
+
+def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
+    """Remesh a family, or keep it unchanged when every factor it is given is 1.
+
+    A remeshed family at factor 1 is an UNCHANGED FAMILY (FR-424): it is
+    copied as the source holds it, and a band of it is remeshed only where a
+    grid beside it changed their shared curve (FR-425 R3). A family the
+    refinement file states ``method = "remesh"`` is remeshed at any factor.
+    """
+    spec = work.request.specs[name]
+    if spec.unchanged and spec.method == "auto":
+        del work.request.specs[name]
+        work.report[name] = {"method": "unchanged", "reason": f"factor 1 ({reason})"}
+        return
+    work.remesh.append(name)
+    work.report[name] = {"method": "remesh", "reason": reason}
 
 
 def _stretch_of(work: _Work, name: str) -> Stretch | None:

@@ -489,3 +489,18 @@ def test_the_command_reaches_the_audit_only_through_the_public_function():
         imported[module.name] = names
     assert not [m for m, names in imported.items() if any("._refine" in n for n in names)]
     assert [m for m, names in imported.items() if "pyflightstream.workspace.audit_mesh" in names]
+
+
+def test_a_check_whose_source_fails_its_practice_is_reported_not_judged(tmp_path):
+    """P0380-AUDIT (FR-426 R3): a source that fails a practice is reported, not judged, so a
+    level equal to a graded source (growth beyond 2) is not failed on growth; the same graded
+    level against the even source is judged and fails (the control)."""
+    level, src = _pair(tmp_path / "same", _graded(), _graded())
+    audit, said = _audit(level, src)
+    growth = _item(audit, "growth", "A")
+    assert growth.values["source_beyond_practice"] is True
+    assert growth.verdict == "not judged", growth.line()
+    assert not any("growth" in w and " A:" in w for w in said)
+    level, src = _pair(tmp_path / "even", _graded())
+    audit, said = _audit(level, src)
+    _assert_fails(audit, said, "growth", "A", "p95 ")

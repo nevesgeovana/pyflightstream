@@ -39,6 +39,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine._geometry import (
     ASPECT_LIMIT,
+    CHECK_TOLERANCE,
     DUPLICATE_FRACTION,
     GROWTH_DIHEDRAL_DEGREES,
     GROWTH_FLOOR,
@@ -687,10 +688,14 @@ def _check(check: str, family: str, value: Value, base: Value) -> AuditItem:
     values: dict[str, Value] = {"p95": value, "source_p95": base, "limit": limit}
     if check != "skewness":
         floor = WARP_FLOOR_DEGREES if check == "warp" else GROWTH_FLOOR
-        values["source_beyond_practice"] = base is not None and float(base) > floor
-    if value is None or limit is None:
+        values["source_beyond_practice"] = base is not None and float(base) > floor * (
+            1.0 + CHECK_TOLERANCE
+        )
+    if value is None or limit is None or values.get("source_beyond_practice"):
+        # R3: a source that fails a practice is reported, not judged.
         return _reported("check", check, family, values)
-    return _item("check", check, family, values, float(value) > limit)
+    failed = float(value) > limit + CHECK_TOLERANCE * abs(limit)
+    return _item("check", check, family, values, failed)
 
 
 def _said(value: Value) -> str:
