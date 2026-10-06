@@ -628,9 +628,15 @@ no level folder behind.
 2. When the command gives none of FACTOR, `--chordwise` and `--spanwise`, the
    factors are the `[families.<name>]` tables of the refinement file:
    `--config FILE`, or else `<stem>.refine.toml` beside the mesh. A family the
-   file does not name is not changed.
-3. With no factor on the command and no file, or a file that states no
-   family, the command is refused.
+   file does not name is not changed. `--families` then selects among the
+   file's tables: an unselected family is not changed, and a selected name the
+   mesh does not hold is refused, as on the FACTOR route.
+3. With no factor on the command and no file, a file that states no family,
+   or a selection the file states no factor for, the command is refused.
+4. A `[families.<name>]` table whose factors are not read (every one when the
+   command gives the factors, an unselected one under `--families`) is a
+   warning naming it, and `refine.json` lists it under
+   `ignored_families_tables`; an `elements` key in it still applies.
 
 The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
 are read whenever the file exists, whatever gives the factors.
@@ -731,7 +737,8 @@ The source's points file is the one its `<stem>.boundaries.toml` names under
 
 `refine.json` states `schema_version` (1), `source`, `level`, `config` (the
 refinement file read, or null), `specs` (the factors of each family),
-`components`, `faces` (the face count of each family of the output) and, with
+`components`, `ignored_families_tables` (the families whose file table was not
+read for its factors), `faces` (the face count of each family of the output) and, with
 `[periodic]`, `periodic` (the two cut faces, their angle, their node counts and
 the largest distance between matched nodes in the source and in the level).
 Its `families` entry holds, per family:

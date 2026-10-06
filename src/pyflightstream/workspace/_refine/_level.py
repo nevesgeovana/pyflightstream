@@ -606,6 +606,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         "config": None if work.request.config is None else work.request.config.name,
         "specs": specs,
         "components": work.request.components,
+        "ignored_families_tables": list(work.request.ignored),
         "families": {
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands
         },

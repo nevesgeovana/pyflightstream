@@ -21,16 +21,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy
 import pytest
 
 import pyflightstream
 import pyflightstream.workspace as workspace
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
 from pyflightstream.workspace._refine._grid import recover_grid
 from tests.p0380_mesh_fixtures import (
+    Composite,
+    body_of_revolution,
     face_coordinates,
     read_mesh,
     sheet_with_strips,
@@ -209,6 +212,80 @@ def test_r2_components_are_read_whatever_gives_the_factors(tmp_path):
     src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
     level = refine_mesh(src, 1.0, families=["G"])
     assert list(read_mesh(level.obj)[1]) == ["Wing"]
+
+
+def _two_tubes(tmp_path: Path, refine_toml: str) -> Path:
+    """Write two disconnected smooth tubes, families A and B, as ``<tmp>/src/tubes.obj``."""
+    body = body_of_revolution()
+    n = len(body.verts)
+    mesh = Composite(
+        numpy.vstack([body.verts, body.verts + [0.0, 4.0, 0.0]]),
+        {"A": body.faces, "B": [[v + n for v in f] for f in body.faces]},
+        numpy.zeros((0, 3)),
+        {},
+    )
+    return write_source(tmp_path / "src", "tubes", mesh, refine_toml=refine_toml)
+
+
+BOTH_TABLES = "[families.A]\nfactor = 2\n[families.B]\nfactor = 2\n"
+
+
+def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R2, R11): ``--families`` selects when the file gives the factors.
+
+    The file states factor 2 for A and B; ``families=["A"]`` changes A alone
+    and B is written as the source holds it. A selected name the mesh does
+    not hold is refused on this route as on the FACTOR route, and so is a
+    selection the file states no factor for. Control: without the selection
+    both tubes are refined.
+    """
+    src = _two_tubes(tmp_path, BOTH_TABLES)
+    text = _refused(tmp_path, src, families=["A", "Z"])
+    assert f"{src}: the mesh holds no family 'Z'; it holds A, B" in text
+    code, _, err = _command(capsys, str(src), "--families", "A,Z")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    src.with_name("tubes.refine.toml").write_bytes(b"[families.A]\nfactor = 2\n")
+    text = _refused(tmp_path, src, families=["B"])
+    assert "states no factor for the selected families B" in text
+    src.with_name("tubes.refine.toml").write_bytes(BOTH_TABLES.encode("utf-8"))
+    sv, sf = read_mesh(src)
+    level = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
+    lv, lf = read_mesh(level.obj)
+    assert len(lf["A"]) == 4 * len(sf["A"])
+    assert face_coordinates(lv, lf["B"]) == face_coordinates(sv, sf["B"])
+    assert level.folder.name == "tubes_R-A2" and level.report["B"] == {"method": "copied"}
+    code, _, _ = _command(capsys, str(src), "--families", "A", "--out-dir", str(tmp_path / "cmd"))
+    assert code == 0
+    assert len(read_mesh(tmp_path / "cmd" / "tubes_R-A2" / "tubes_R-A2.obj")[1]["B"]) == 144
+    both = refine_mesh(src, out_dir=tmp_path / "all")
+    assert both.folder.name == "tubes_R2" and len(read_mesh(both.obj)[1]["B"]) == 576
+
+
+def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
+    """P0380-REFINE (FR-424 R2, R4): a [families.*] table the refinement does not read is said.
+
+    With FACTOR, the file's family tables are not read for their factors
+    (R2), and with ``--families`` on the file's factors an unselected table is
+    not read: each is a warning naming the tables, and ``refine.json`` lists
+    them under ``ignored_families_tables``. Control: the file's factors for
+    every family warn of nothing and record an empty list.
+    """
+    src = _two_tubes(tmp_path, BOTH_TABLES)
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.A\], \[families\.B\]") as seen:
+        called = refine_mesh(src, 1.0, out_dir=tmp_path / "called")
+    assert "FACTOR, --chordwise or --spanwise gives the factors" in str(seen[0].message)
+    assert _json(called.files[2])["ignored_families_tables"] == ["A", "B"]
+    with pytest.warns(PyflightstreamWarning, match=r"\[families\.B\]") as seen:
+        one = refine_mesh(src, families=["A"], out_dir=tmp_path / "one")
+    assert "--families selects A" in str(seen[0].message)
+    assert _json(one.files[2])["ignored_families_tables"] == ["B"]
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        every = refine_mesh(src, out_dir=tmp_path / "every")
+    assert not [w for w in caught if "families." in str(w.message)]
+    assert _json(every.files[2])["ignored_families_tables"] == []
 
 
 def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):

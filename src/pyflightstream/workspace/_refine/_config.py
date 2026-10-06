@@ -5,8 +5,12 @@ when the call gives none, from the refinement file: ``--config FILE`` or
 ``<stem>.refine.toml`` beside the mesh. The file's ``[components]``,
 ``[periodic]``, ``[refine] tag`` and the element modes (``[refine] elements``
 and each family's ``elements``) are read whenever the file exists, whatever
-gives the factors. Every refusal names the file, the table and the key, lists
-the known keys, and is raised before any family is touched.
+gives the factors. ``families`` selects the families to change on either
+route: from the call's factors, or from the file's tables, whose unselected
+tables are then not read. A file table whose factors are not read is a
+warning naming it, and ``refine.json`` lists it. Every refusal names the
+file, the table and the key, lists the known keys, and is raised before any
+family is touched.
 
 THE ELEMENT MODE of a remeshed family is ``"triangles"`` (the default) or
 ``"quad-dominant"`` (its triangles are then paired into quadrilaterals,
@@ -22,12 +26,13 @@ from __future__ import annotations
 
 import math
 import tomllib
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import KIND
 
 #: The methods a family may state (FR-424 R9).
@@ -101,6 +106,10 @@ class RefineRequest:
 
     ``elements`` holds the modes the file states per family, and
     ``default_elements`` the mode of ``[refine] elements`` (else triangles).
+    ``ignored`` names the families whose ``[families.<name>]`` table states
+    factors the refinement does not read: every one when the call gives the
+    factors, and the unselected ones when ``families`` selects from the
+    file's factors.
     """
 
     specs: dict[str, FamilySpec]
@@ -110,6 +119,7 @@ class RefineRequest:
     config: Path | None = None
     elements: dict[str, str] = field(default_factory=dict)
     default_elements: str = TRIANGLES
+    ignored: tuple[str, ...] = ()
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -372,21 +382,31 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             "periodic": None,
         }
     )
+    chosen = list(names) if families is None else list(families)
+    missing = [n for n in chosen if n not in names]
+    if missing:
+        raise _refuse(
+            str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
+        )
+    stated_specs: dict[str, FamilySpec] = stated["specs"]
     if factor is None and chordwise is None and spanwise is None:
-        if not stated["specs"]:
+        if not stated_specs:
             raise _refuse(
                 str(mesh),
                 "no factor was given and no refinement file states one; give FACTOR "
                 f"or write {mesh.stem}.refine.toml beside the mesh",
             )
-        specs = stated["specs"]
-    else:
-        chosen = list(names) if families is None else list(families)
-        missing = [n for n in chosen if n not in names]
-        if missing:
+        specs = {n: s for n, s in stated_specs.items() if n in chosen}
+        if not specs:
             raise _refuse(
-                str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
+                str(file),
+                f"the refinement file states no factor for the selected families "
+                f"{', '.join(chosen)}; add a [families.<name>] table for one of them, "
+                "or give FACTOR",
             )
+        reason = f"--families selects {', '.join(chosen)}"
+        ignored = tuple(n for n in stated_specs if n not in specs)
+    else:
         base = positive(f"{mesh} FACTOR", 1.0 if factor is None else factor)
         specs = {
             n: FamilySpec(
@@ -396,6 +416,16 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
             for n in chosen
         }
+        reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-424 R2)"
+        ignored = tuple(stated_specs)
+    if ignored:
+        tables = ", ".join(f"[families.{n}]" for n in ignored)
+        warnings.warn(
+            f"{file}: the tables {tables} are not read for their factors and methods, because "
+            f"{reason}; an elements key in them still applies.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],
@@ -404,6 +434,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         config=file,
         elements=stated["elements"],
         default_elements=stated["default_elements"],
+        ignored=ignored,
     )
 
 
