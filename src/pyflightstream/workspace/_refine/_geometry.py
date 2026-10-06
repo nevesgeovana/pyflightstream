@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from collections.abc import Sequence
 
 import numpy
 from numpy.typing import NDArray
@@ -258,6 +259,64 @@ class NearestIndex:
         if unsure.any():
             best_d[unsure], best_i[unsure] = self._brute(queries[unsure])
         return best_d, best_i
+
+
+class Stretch:
+    """The affine map that scales along an axis by one factor and across it by another (FR-428).
+
+    A point p goes to ``origin + axial * a + circumferential * r``, where
+    ``a`` is the part of ``p - origin`` along the axis and ``r`` the part
+    perpendicular to it. Remeshing a surface of revolution isotropically in
+    the stretched space, towards target lengths measured in the real space,
+    gives edges ``axial`` times shorter along the axis and ``circumferential``
+    times shorter around it once mapped back. The map is affine, so a point
+    on a stretched triangle maps back onto the same real triangle with the
+    same barycentric coordinates, and a straight segment stays one.
+
+    Parameters
+    ----------
+    axis : sequence of float
+        The direction of the axis, not zero; its length and sign do not matter.
+    origin : sequence of float
+        A point on the axis.
+    axial, circumferential : float
+        The factors along and around the axis, each above zero.
+    """
+
+    def __init__(
+        self,
+        axis: Sequence[float] | Points,
+        origin: Sequence[float] | Points,
+        axial: float,
+        circumferential: float,
+    ) -> None:
+        direction = numpy.asarray(axis, dtype=float).reshape(3)
+        self.axis = direction / float(numpy.linalg.norm(direction))
+        self.origin = numpy.asarray(origin, dtype=float).reshape(3)
+        self.factors = (float(axial), float(circumferential))
+
+    def _scaled(self, points: Points, along: float, across: float) -> Points:
+        d = numpy.asarray(points, dtype=float) - self.origin
+        a = (d @ self.axis)[..., None] * self.axis
+        return self.origin + along * a + across * (d - a)
+
+    def forward(self, points: Points) -> Points:
+        """Return points of the real space mapped into the stretched space."""
+        return self._scaled(points, *self.factors)
+
+    def inverse(self, points: Points) -> Points:
+        """Return points of the stretched space mapped back into the real space."""
+        return self._scaled(points, 1.0 / self.factors[0], 1.0 / self.factors[1])
+
+    def same_linear_part(self, other: Stretch) -> bool:
+        """Return whether two stretches scale the same axis by the same factors.
+
+        The origin only translates the stretched space, and a remesh does not
+        depend on where the mesh sits, so two families stretched alike can be
+        remeshed together whatever their origins.
+        """
+        aligned = abs(float(self.axis @ other.axis)) > 1.0 - 1e-12
+        return aligned and self.factors == other.factors
 
 
 def order_like(pts: Points, new_faces: Faces, verts: Points, faces: Faces) -> Faces:

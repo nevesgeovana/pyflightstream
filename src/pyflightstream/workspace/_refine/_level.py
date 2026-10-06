@@ -12,7 +12,10 @@ The order, from the source to the level folder:
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
    neighbour is rebuilt on them (FR-425 R2), an unchanged one is remeshed at
    factor 1 in a band of two face layers (FR-425 R3);
-5. remesh the other families, together where they touch (FR-424 R8);
+5. remesh the other families, together where they touch (FR-424 R8); a
+   body refined along and around its axis is remeshed in its stretched space
+   (FR-428), together only with bodies stretched alike, and its curve with
+   a factor-1 family or the band of an unchanged neighbour stays frozen;
 6. assemble in the source's family order, weld the shared nodes, put each
    band back into its family in the source's order, group the components
    (FR-425 R4), and write the level into a temporary folder renamed once
@@ -38,7 +41,7 @@ from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace._refine import _config, _geometry, _grid, _obj
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
-from pyflightstream.workspace._refine._geometry import NearestIndex, order_like
+from pyflightstream.workspace._refine._geometry import NearestIndex, Stretch, order_like
 from pyflightstream.workspace._refine._obj import Faces, ObjMesh
 
 Points = NDArray[numpy.float64]
@@ -172,6 +175,7 @@ def _decide(work: _Work) -> None:
         _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
         work.grids[name] = found
     _grid_after_grid(work)
+    _bodies_apart(work)
     for name in work.remesh:
         spec = work.request.specs[name]
         if spec.chordwise is not None or spec.spanwise is not None:
@@ -202,6 +206,64 @@ def _grid_after_grid(work: _Work) -> None:
         work.remesh.append(name)
         work.report[name] = {"method": "remesh", "reason": f"shares nodes with the grid {first[0]}"}
     work.remesh.sort(key=work.names.index)
+
+
+def _stretch_of(work: _Work, name: str) -> Stretch | None:
+    """Return the stretch of a body (FR-428), its origin defaulting to the family's centroid."""
+    spec = work.request.specs.get(name)
+    if spec is None or spec.axis is None:
+        return None
+    centroid = work.mesh.verts[sorted(work.fam_v[name])].mean(axis=0)
+    origin = centroid if spec.origin is None else spec.origin
+    return Stretch(spec.axis, origin, spec.axial or 1.0, spec.circumferential or 1.0)
+
+
+def _stretched_unlike(work: _Work, name: str, other: str) -> bool:
+    """Return whether two families are not stretched alike (FR-428).
+
+    They are not when one is a body and the other not, or when two bodies
+    differ in axis or factors; the origin only translates the space.
+    """
+    mine, theirs = _stretch_of(work, name), _stretch_of(work, other)
+    if mine is None or theirs is None:
+        return (mine is None) != (theirs is None)
+    return not mine.same_linear_part(theirs)
+
+
+def _kept_apart(work: _Work, name: str, other: str) -> bool:
+    """Return whether two families not stretched alike are each remeshed alone (FR-428).
+
+    They are when one of them is unchanged: a remeshed family at factor 1,
+    a body at axial and circumferential 1, or the band of an unchanged
+    neighbour (FR-425 R3). The curve they share keeps its nodes on both
+    sides, as an interface with an unchanged family does (FR-424 R8).
+    """
+    specs = work.request.specs
+    unchanged = specs[name].unchanged or specs[other].unchanged
+    return unchanged and _stretched_unlike(work, name, other)
+
+
+def _bodies_apart(work: _Work) -> None:
+    """Refuse a body remeshed together with a family not stretched alike (FR-428).
+
+    Two remeshed families that share nodes are remeshed together, so their
+    shared curve is remeshed once (FR-424 R8). A stretch applies to the whole
+    group, so a body can join only bodies with the same axis and factors; an
+    unchanged family beside it is remeshed apart (:func:`_kept_apart`), and
+    any other pair is refused naming both families.
+    """
+    for i, name in enumerate(work.remesh):
+        for other in work.remesh[i + 1 :]:
+            if not work.fam_v[name] & work.fam_v[other]:
+                continue
+            if not _stretched_unlike(work, name, other) or _kept_apart(work, name, other):
+                continue
+            raise _refuse(
+                f"{work.source} families {name} and {other}",
+                "they share nodes and are remeshed together, and they are not refined with "
+                "the same axial, circumferential and axis; state the same three on both, "
+                "or leave one of them unchanged",
+            )
 
 
 # ------------------------------------------------------------------- refining
@@ -323,7 +385,7 @@ def _remesh_groups(work: _Work) -> None:
 
     groups: list[list[str]] = []
     for name in work.remesh:
-        hit = [g for g in groups if any(work.fam_v[name] & work.fam_v[m] for m in g)]
+        hit = [g for g in groups if any(_together(work, name, m) for m in g)]
         merged = [name] + [m for g in hit for m in g]
         groups = [g for g in groups if g not in hit] + [merged]
     for group in groups:
@@ -331,7 +393,9 @@ def _remesh_groups(work: _Work) -> None:
         te = set().union(*(work.te_of[n] for n in ordered))
         factors = {n: work.request.specs[n].factor for n in ordered}
         conform = [c for n in ordered for c in work.conform.get(n, [])]
-        done = refine_group(work.mesh, ordered, te, factors, conform=conform)
+        stretches = [s for s in (_stretch_of(work, n) for n in ordered) if s is not None]
+        stretch = stretches[0] if stretches else None
+        done = refine_group(work.mesh, ordered, te, factors, conform=conform, stretch=stretch)
         for n in ordered:
             entry = work.report.setdefault(n, {"method": "remesh"})
             entry.update(
@@ -340,6 +404,15 @@ def _remesh_groups(work: _Work) -> None:
                 faces_after=len(done.families.get(n, [])),
             )
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
+
+
+def _together(work: _Work, name: str, other: str) -> bool:
+    """Return whether two remeshed families are remeshed in one group.
+
+    They are when they share nodes, except a body and an unchanged family
+    (:func:`_kept_apart`): their shared curve keeps its nodes on both sides.
+    """
+    return bool(work.fam_v[name] & work.fam_v[other]) and not _kept_apart(work, name, other)
 
 
 # ------------------------------------------------------------------ assembling
