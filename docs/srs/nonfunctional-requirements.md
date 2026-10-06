@@ -1330,9 +1330,9 @@
 
     *Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, the P0380 tests named below.*
 
-    Requirement: `python scripts/run_guards.py` runs the guard tests (the tier-1 tests that judge the whole tree: architecture metrics, private-name coupling, the requirements index, the repository and house-style guards, the documented rows and invocations, claim currency, the release-ready record and the SRS consistency), listed once in the script, in one process, and prints each guard file's result.
+    Requirement: `python scripts/run_guards.py` runs the guard tests (the tier-1 tests that judge the whole tree: architecture metrics, private-name coupling, the requirements index, the repository and house-style guards, the documented rows and invocations, claim currency, the release-ready record and the SRS consistency), listed once in the script, in one pytest invocation, and prints each guard file's result.
 
-    - R1 The command exits 1 when a guard fails, naming its file, and 2 when a listed guard file is missing; a run on the reference machine takes under 300 seconds.
+    - R1 The command exits 1 when a guard fails, naming its file, and 2 when a listed guard file is missing; a guard file of which no test ran is reported NOT RUN and makes the command exit 1. A run on the reference machine takes under 300 seconds (186 s when the command was introduced).
     - R2 A test that pins the digest of rendered text holding a path computes it from text in which every backslash of that path is a forward slash, and which holds no absolute path, drive letter or clock reading: the same text with either separator gives one digest.
 
     Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44). Controls: a guard forced to fail makes the command exit 1 and print its name; a listed file removed makes it exit 2; the separator fold is called on one text with backslashes and with forward slashes. The Linux half of R2 is the CI run.

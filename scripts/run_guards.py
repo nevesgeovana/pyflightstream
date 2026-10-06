@@ -1,4 +1,4 @@
-"""Run the cross-cutting guards alone, in one process, and say which failed (NFR-44).
+"""Run the cross-cutting guards alone, in one pytest invocation, and say which failed (NFR-44).
 
 Usage:
     python scripts/run_guards.py            run every guard, one line per guard file
@@ -10,8 +10,8 @@ the repository and house-style guards, the documented rows and invocations,
 claim currency, the release-ready record and the SRS consistency. A change that
 breaks one of them breaks it whatever file it touched, so they run after every
 fix commit and at every lane close, and the full suite runs once per wave.
-Exit status: 0 when every guard passed, 1 when any failed, 2 when a guard file
-is missing.
+Exit status: 0 when every guard passed, 1 when any failed or ran no test, 2 when
+a guard file is missing. The run needs pytest-xdist, which the dev extra declares.
 """
 
 from __future__ import annotations
@@ -55,15 +55,25 @@ def missing_guards(root: Path | None = None, guards: tuple[str, ...] | None = No
     return [g for g in (GUARDS if guards is None else guards) if not (root / g).is_file()]
 
 
-def _outcomes(junit: Path) -> dict[str, list[str]]:
-    failed: dict[str, list[str]] = {}
+def _outcomes(junit: Path, guards: tuple[str, ...]) -> dict[str, list[str] | None]:
+    """Map each guard file to the names of its failed tests; None when none of its tests ran.
+
+    A test case belongs to a guard when its dotted class name is the guard's
+    module or starts with it (a test class inside the module).
+    """
+    modules = {g: g[: -len(".py")].replace("/", ".") for g in guards}
+    result: dict[str, list[str] | None] = dict.fromkeys(guards)
     for case in ET.parse(junit).getroot().iter("testcase"):
-        name = (case.get("classname") or "").replace(".", "/") + ".py"
+        classname = case.get("classname") or ""
         bad = case.find("failure") is not None or case.find("error") is not None
-        failed.setdefault(name, [])
-        if bad:
-            failed[name].append(case.get("name") or "")
-    return failed
+        for guard, module in modules.items():
+            if classname == module or classname.startswith(module + "."):
+                names = result[guard] if result[guard] is not None else []
+                if bad:
+                    names.append(case.get("name") or "")
+                result[guard] = names
+                break
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -96,17 +106,16 @@ def main(argv: list[str] | None = None) -> int:
             *GUARDS,
         ]
         status = subprocess.run(command, cwd=ROOT, env=dict(os.environ), check=False).returncode
-        outcomes = _outcomes(junit) if junit.is_file() else {}
+        outcomes = _outcomes(junit, GUARDS) if junit.is_file() else dict.fromkeys(GUARDS)
     print()
     for guard in GUARDS:
-        names = next(
-            (v for k, v in outcomes.items() if guard.endswith(k.split("tests/", 1)[-1])), None
-        )
+        names = outcomes[guard]
         state = "PASS" if names == [] else ("FAIL" if names else "NOT RUN")
         detail = f" ({len(names)}: {', '.join(names[:3])})" if names else ""
         print(f"{state:7s} {guard}{detail}")
-    print(f"guards: {'green' if status == 0 else 'RED'} in {time.monotonic() - started:.0f} s")
-    return 0 if status == 0 else 1
+    green = status == 0 and all(v == [] for v in outcomes.values())
+    print(f"guards: {'green' if green else 'RED'} in {time.monotonic() - started:.0f} s")
+    return 0 if green else 1
 
 
 if __name__ == "__main__":
