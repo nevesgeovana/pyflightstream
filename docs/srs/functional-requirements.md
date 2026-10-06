@@ -9756,7 +9756,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
 The requirements of 0.38.0 (GOAL-045), one box per item of the scope closed on 2026-10-06: S1 to S6 map to FR-424 to FR-429, S7 to NFR-43, and the development guards command to NFR-44. The markers `P0380-<NAME>` are listed in `docs/srs/markers-0380.json`.
 
-Verification and validation are kept apart. Every box is verified offline by the tier-1 tests it names, on fixtures held under `tests/` (no test reads a path outside the repository). Whether a refined mesh gives the solver the result of a mesh made at that size in the pre-processor is validation: it is the licensed isolated propeller comparison of PFS-2079.07, reported in its own RPT and accepted by the owner, and no box is closed on tier-1 evidence for a statement about the solver. One solver behaviour shapes FR-424 R7: on a licensed build, two meshes holding the same nodes and faces in a different face order gave lift coefficients about 2 per cent apart; the public report of that measurement is owed with PFS-2079.07, and until it is committed the face-order clause rests on that private measurement.
+Verification and validation are kept apart. Every box is verified offline by the tier-1 tests it names, on fixtures held under `tests/` (no test reads a path outside the repository). Whether a refined mesh gives the solver the result of a mesh made at that size in the pre-processor is validation: it is the licensed isolated propeller comparison of PFS-2079.07, reported in its own RPT and accepted by the owner, and no box is closed on tier-1 evidence for a statement about the solver. One solver behaviour shapes FR-424 R7: on a licensed build, two meshes holding the same nodes and faces in a different face order gave lift coefficients about 2 per cent apart; that measurement is private. The public report of PFS-2079.07 is RPT-162 (`reports/RPT-162_isolated-propeller-refine-levels-on-26124_2026-10-06.md`, FlightStream 26.124): a level refined at factor 1, whose files equal the source's and keep its face order, reproduces the source level's rotor coefficients; the face-order clause still rests on the private measurement of a changed order.
 
 Seven terms hold for the whole section.
 
@@ -9770,10 +9770,10 @@ Seven terms hold for the whole section.
 
 The numerical thresholds of this section (the ridge angle and the edge-length band of FR-424 R8, the distance of R6, the audit margins of FR-426 R4, the periodic tolerances of FR-427 and the band of FR-428 R1) are engineering choices that the proof-of-concept levels met (a private measurement; no public report states it); each is defined once in the package and read by every module that uses it, and changing one requires a reason recorded in the SRS revision row that changes it.
 
-!!! requirement "FR-424 A panel mesh is refined or coarsened from its OBJ by a factor, into a new geometry <span class='srs-pending'>pending</span>"
+!!! requirement "FR-424 A panel mesh is refined or coarsened from its OBJ by a factor, into a new geometry <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.01 (0.38.0).
 
-    *Origin: scope GOAL-045 item S1. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S1. Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`, `tests/tier1_offline/test_p0380_s1_grid.py` and `tests/tier1_offline/test_p0380_s1_remesh.py`.*
 
     Need: A user must obtain a finer or coarser level of a mesh without returning to the pre-processor, keeping what the mesh's author chose: the clustering, the trailing edge, the junctions and the face order the solver reads.
 
@@ -9796,10 +9796,12 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
 
     Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`, carrying P0380-REFINE (FR-424), each test naming the clauses it proves. Controls: a writer that sweeps in reverse, transposes the index directions or rotates each face's vertices fails R7; each refusal of R1, R2, R3, R9, R10 and R11 is asserted by its message text and by the absence of any level folder; R10 is run with scipy and rtree made unimportable; R12 compares two runs by digest; R13 reads the bytes.
 
-!!! requirement "FR-425 The nodes a grid family shares become the nodes of its neighbours, and dummy families are written as component families <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s1_refine.py`, `test_r1_a_factor_not_above_zero_is_refused_by_both_routes`, `test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes`, `test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes` and `test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value` (R1, R11); `test_r2_factor_applies_and_chordwise_replaces_one_direction`, `test_r2_the_file_gives_the_factors_only_when_the_call_gives_none`, `test_r2_components_are_read_whatever_gives_the_factors`, `test_r2_no_factor_and_no_file_is_refused_by_both_routes` and `test_r2_a_direction_on_a_remeshed_family_is_refused` (R2); `test_r3_the_refinement_file_is_refused_naming_file_table_and_key` (R3); `test_r4_a_level_holds_its_files_and_refine_json_reports_each_family` and `test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes` (R4, R9); `test_r5_the_tag_names_the_level_beside_the_sources_folder`, `test_r5_the_command_writes_the_tagged_level_and_prints_its_files`, `test_r5_an_existing_level_is_refused_unless_overwrite` and `test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder` (R5); `test_r7_factor_one_writes_the_sources_vertex_and_face_lines` (R7); `test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes` (R9); `test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused` (R10, scipy and rtree set to None in `sys.modules`); `test_r12_two_runs_under_different_hash_seeds_write_identical_bytes` (R12, two processes compared by digest); `test_r13_no_written_file_holds_a_carriage_return` (R13, from a source written with CRLF); `test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows` (R14, every import read from the syntax tree, deferred ones included). In `tests/tier1_offline/test_p0380_s1_grid.py`, `test_factor_one_is_the_source_in_coordinates_and_order`, `test_factor_two_is_written_in_the_source_sweep`, `test_the_end_faces_start_on_the_source_role` and `test_a_source_not_in_one_sweep_takes_the_nearest_source_face_order` (R7, with the reversed, transposed and rotated writers as controls); `test_factor_two_doubles_the_intervals_keeps_the_knots_on_the_surface`, `test_each_new_cell_is_split_along_its_source_cells_diagonal`, `test_counts_round_each_direction_and_the_knots_stay`, `test_the_spline_reproduces_a_cubic_and_keeps_its_knots` and `test_the_spline_equals_scipys_not_a_knot_where_scipy_is_installed` (R6); `test_a_factor_below_one_over_m_is_refused` (R1); `test_recovery_reads_the_connectivity_and_names_why_it_fails` (R9); `test_the_grid_runs_with_scipy_and_rtree_unimportable` (R10). In `tests/tier1_offline/test_p0380_s1_remesh.py`, `test_the_median_edge_ratio_lies_in_the_band`, `test_every_node_lies_on_the_source_surface_and_faces_keep_the_orientation`, `test_open_boundary_nodes_stay_on_the_boundary`, `test_a_quadrilateral_family_is_remeshed_into_triangles`, `test_ridge_nodes_stay_on_their_ridges`, `test_trailing_edge_edges_are_a_curve_and_reported`, `test_an_interface_with_an_unchanged_family_keeps_its_nodes` and `test_an_interface_between_two_remeshed_families_is_remeshed_once_and_shared` (R8); `test_a_remesh_without_the_extra_is_refused_before_any_work` and `test_the_remesh_module_imports_no_geometry_library_at_import` (R10, R11); `test_two_remeshes_of_one_source_are_identical` (R12). What a refined level gives the solver is validation, outside this box: RPT-162 reports the licensed comparison of PFS-2079.07.
+
+!!! requirement "FR-425 The nodes a grid family shares become the nodes of its neighbours, and dummy families are written as component families <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.02 (0.38.0).
 
-    *Origin: scope GOAL-045 item S2. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S2. Verification: test, `tests/tier1_offline/test_p0380_s2_dummy.py` and `tests/tier1_offline/test_p0380_s1_remesh.py`.*
 
     Need: A user whose grid meets another surface on shared nodes (a blade glued to its spinner, a wing to its fuselage) must refine the grid as a grid and still get one welded mesh, and must hand the solver the component families, not the dummy families the pre-processor needed to keep a region structured.
 
@@ -9813,10 +9815,12 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
 
     Verification: test, `tests/tier1_offline/test_p0380_s2_dummy.py`, carrying P0380-DUMMY (FR-425). Controls: a level built without R2 has more open loops than its source; a band of three layers or a changed face outside the band fails R3; each refusal of R1 and R4 is asserted by its message text.
 
-!!! requirement "FR-426 Every level is audited against its source, and any OBJ can be audited <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s2_dummy.py`, `test_r1_a_second_grid_sharing_nodes_is_remeshed_under_auto` and `test_r1_method_grid_on_the_second_grid_is_refused_naming_both` (R1); `test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes` (R2, R5); `test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band` and `test_r3_when_the_grids_curve_nodes_do_not_change_nothing_of_the_neighbour_changes` (R3, with a face outside the band rotated and a band of three layers as controls); `test_r4_a_component_writes_its_members_as_one_family_in_the_sources_order` and `test_r4_a_bad_component_is_refused_naming_the_component_and_the_family` (R4); `test_r5_the_levels_open_loops_are_the_sources` (R5). In `tests/tier1_offline/test_p0380_s1_remesh.py`, `test_conform_makes_the_neighbour_share_exactly_the_new_nodes` (R2). In `tests/tier1_offline/test_p0380_s1_refine.py`, `test_r2_components_are_read_whatever_gives_the_factors` (R4 with FACTOR given).
+
+!!! requirement "FR-426 Every level is audited against its source, and any OBJ can be audited <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.03 (0.38.0).
 
-    *Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S3; the panel-mesh practices of the pre-processor's and the solver's documentation, measured on the proof-of-concept levels. Verification: test, `tests/tier1_offline/test_p0380_s3_audit.py`.*
 
     Need: A user must know, before spending a licensed run, whether a level kept the topology, the trailing edge and the panel quality of its source.
 
@@ -9830,10 +9834,12 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
 
     Verification: test, `tests/tier1_offline/test_p0380_s3_audit.py`, carrying P0380-AUDIT (FR-426). Controls: each gate and each relative check with a mesh built to fail it, asserting the warning, the written level and the exit status; each reported figure with a mesh built to exceed it, asserting no warning.
 
-!!! requirement "FR-427 The two cut faces of a periodic sector are refined node for node <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s3_audit.py`, `test_a_level_equal_to_its_source_passes_every_gate_and_check` (the control: the source against itself passes with no warning); `test_g1_fails_on_each_of_its_three_defects`, `test_g2_fails_on_a_flipped_face_and_on_an_inward_closed_family`, `test_g3_fails_on_a_new_hole_and_on_a_hole_moved_elsewhere`, `test_g4_fails_on_a_point_off_every_edge_and_on_a_split_chain`, `test_g4_reads_the_points_file_the_sidecar_names_and_refuses_a_missing_one`, `test_g5_fails_when_two_families_no_longer_share_their_nodes` and `test_g6_fails_when_a_factor_one_grid_family_moves_or_reorders` (R2, each gate on a mesh built to fail it); `test_each_relative_check_fails_on_a_mesh_built_to_fail_it`, `test_the_relative_limits_are_the_margin_and_the_floors_of_r3` and `test_size_growth_across_a_corner_is_not_a_size_jump` (R3); `test_each_reported_figure_exceeded_gives_its_figure_and_no_warning` (R4); `test_without_a_source_only_g1_g2_and_g4_are_judged` (R5); `test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv`, `test_the_command_exits_1_when_a_gate_fails_and_still_writes_the_audit` and `test_the_command_exits_2_on_a_refusal_and_writes_nothing` (R1); `test_the_command_reaches_the_audit_only_through_the_public_function` (FR-424 R14).
+
+!!! requirement "FR-427 The two cut faces of a periodic sector are refined node for node <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.04 (0.38.0).
 
-    *Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S4; the pre-processor imprints one cut face of a sector onto the other node for node. Verification: test, `tests/tier1_offline/test_p0380_s4_sector.py`.*
 
     Need: A user refining a periodic sector must get a level whose two cut faces still match node for node, as the source's do.
 
@@ -9845,10 +9851,12 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
 
     Verification: test, `tests/tier1_offline/test_p0380_s4_sector.py`, carrying P0380-SECTOR (FR-427). Controls: a source with one cut node moved by 1e-4 of the size is refused with that distance; a level whose cut nodes are shifted by 1e-6 of the size fails R1; a sector with no cut boundaries is refused.
 
-!!! requirement "FR-428 A body is refined with an axial and a circumferential factor <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s4_sector.py`, `test_a_remeshed_sector_keeps_its_cuts_node_for_node`, `test_a_grid_sector_keeps_its_cuts_node_for_node`, `test_a_grid_master_rebuilds_the_remeshed_slave_on_its_nodes` and `test_a_level_whose_cuts_do_not_match_is_refused_before_writing` (R1, with cut nodes shifted by 1e-6 of the size as the control); `test_the_source_cut_pair_is_found_with_its_sense`, `test_a_source_whose_cut_node_moved_is_refused_naming_the_distance` and `test_a_mesh_without_cut_boundaries_is_refused` (R2); `test_without_periodic_the_cuts_are_free` (R3).
+
+!!! requirement "FR-428 A body is refined with an axial and a circumferential factor <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.05 (0.38.0).
 
-    *Origin: scope GOAL-045 item S5. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S5. Verification: test, `tests/tier1_offline/test_p0380_s5_axial.py`.*
 
     Need: A user refining a body of revolution (a fuselage, a nacelle, a spinner) must refine along its axis and around it independently.
 
@@ -9859,10 +9867,12 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
 
     Verification: test, `tests/tier1_offline/test_p0380_s5_axial.py`, carrying P0380-AXIAL (FR-428), on a cylinder at `axial = 2, circumferential = 1` and at `axial = 1, circumferential = 2`; a level refined along the wrong direction fails both.
 
-!!! requirement "FR-429 The thin blade is derived from the Python API as from the command <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0380_s5_axial.py`, `test_r1_edges_shrink_by_their_own_factor_along_and_around_the_axis` and `test_r1_every_node_lies_on_the_source_surface` (R1, on a cylinder at both factor pairs, with the swapped factors as the control); `test_r2_each_refusal_reaches_the_user_through_refine_mesh` (R2); `test_the_tag_and_the_report_name_the_axial_and_circumferential_factors` (the tag); `test_a_corner_of_a_curve_is_judged_in_the_real_space`, `test_an_unchanged_neighbour_keeps_the_shared_ring_exactly`, `test_a_body_sharing_a_curve_with_an_isotropic_remeshed_family_is_refused` and `test_a_body_beside_a_factor_one_family_is_remeshed_apart` (a body among the curves and interfaces of FR-424 R8). The relative skewness check of FR-426 R3 warns on such a level, because a stretched face is skewed against an isotropic source by construction; the level is written and the warning is the audit's.
+
+!!! requirement "FR-429 The thin blade is derived from the Python API as from the command <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.06 (0.38.0).
 
-    *Origin: scope GOAL-045 item S6; in 0.37.0 `derive_thin_blade` is defined in a private module and reached only by `pyfs-matrix degenerate`. Verification: test, the P0380 tests named below.*
+    *Origin: scope GOAL-045 item S6; in 0.37.0 `derive_thin_blade` is defined in a private module and reached only by `pyfs-matrix degenerate`. Verification: test, `tests/tier1_offline/test_p0380_s6_degapi.py`.*
 
     Need: A script must derive a thin blade with the behaviour and refusals of the command, through a public name.
 
@@ -9873,3 +9883,5 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
     - R3 The generated API reference and the maturity table list the three names.
 
     Verification: test, `tests/tier1_offline/test_p0380_s6_degapi.py`, carrying P0380-DEGAPI (FR-429): an identity test for R1, a fixture compared by digest and a table of invalid inputs for R2, the generated reference read for R3.
+
+    Evidence: in `tests/tier1_offline/test_p0380_s6_degapi.py`, `test_the_command_and_the_package_share_one_function_and_the_old_path_still_serves` (R1, the object identity, and `pyflightstream.workspace._degenerate` still importable); `test_the_command_and_the_function_write_the_same_bytes` and `test_every_refusal_has_the_same_text_from_the_command_and_the_function` (R2); `test_the_generated_reference_lists_the_three_names` (R3, the page `scripts/gen_api_reference.py` writes for `pyflightstream.workspace`, whose maturity row is stable).

@@ -105,6 +105,222 @@ The groups ARE read for the SURFACE NAMES from the file's own text
 (G30, RPT-078: `IMPORT` makes one boundary per group holding a face, in file
 order).
 
+## Refining or coarsening a mesh
+
+`pyfs-matrix refine` writes a finer or a coarser LEVEL of a panel mesh from its
+OBJ, without returning to the pre-processor, and keeps what the mesh's author
+chose: the clustering, the trailing edge, the junctions between surfaces and
+the face order the solver reads. The source is never modified. The command
+needs no executable, no matrix and no workspace.
+
+In the examples below `W1.obj` holds two families, a wing grid `Wing` and a
+triangulated tip `Tip`.
+
+```text
+pyfs-matrix refine inputs/geometries/W1/W1.obj 2
+```
+
+This writes the level folder `inputs/geometries/W1_R2/`:
+
+```text
+inputs/geometries/W1_R2/
+    W1_R2.obj               the refined mesh
+    W1_R2.te.txt            the trailing-edge points, rewritten from the new mesh
+    W1_R2.boundaries.toml   the source's sidecar, naming the new points file
+    W1_R2.refine.json       what was done to each family
+    W1_R2.audit.json        the audit of the level against its source
+```
+
+The console names each family with the method it took (`Wing: grid`), prints
+the audit's summary and then every file written. The level is a geometry of its
+own, so a row names it as it names any geometry, `W1_R2.obj` in its `GEOMETRY`
+column, and the sidecar written beside it is the one the run reads.
+
+The level folder goes beside the folder holding the source. For a geometry kept
+in its own folder (`inputs/geometries/W1/W1.obj`) that is the geometry library,
+which is where a row looks. For a geometry in the flat layout
+(`inputs/geometries/W1.obj`) the default would be `inputs/`, outside the
+library, so give the folder: `--out-dir inputs/geometries`. An existing level
+folder is refused unless `--overwrite` is given, and a refused request writes
+nothing.
+
+### Choosing the factors
+
+The FACTOR multiplies the number of intervals of a structured grid along each
+of its two index directions (2 doubles them, 0.5 halves them) and divides the
+target edge length of any other family. A study of three levels is three
+commands:
+
+```text
+pyfs-matrix refine inputs/geometries/W1/W1.obj 0.5
+pyfs-matrix refine inputs/geometries/W1/W1.obj 1
+pyfs-matrix refine inputs/geometries/W1/W1.obj 2
+```
+
+They write `W1_R0p5`, `W1_R1` and `W1_R2` (`p` is the decimal point). The
+level at factor 1 is the control of the study: its OBJ holds the source's
+vertex and face lines, in the source's order.
+
+`--families A,B` changes only the named families and leaves the others as
+they are. `--chordwise F` and `--spanwise F` replace the factor in one index
+direction of the selected grid families (around the section and along the
+stations); they are refused for a family that is remeshed, so here they go with
+`--families Wing`:
+
+```text
+pyfs-matrix refine inputs/geometries/W1/W1.obj 2 --families Wing
+pyfs-matrix refine inputs/geometries/W1/W1.obj --chordwise 1.5 --spanwise 0.7 --families Wing
+```
+
+The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
+families are all grids takes `--chordwise 1.5 --spanwise 0.7` alone, tagged
+`R1c1p5s0p7`.
+
+### Which families stay grids
+
+Each family of the OBJ (each `g` or `o` group) is handled on its own. A family
+whose faces form a structured grid, read from the connectivity alone, is
+resampled along its two index directions by a cubic spline through its nodes:
+quadrilaterals, or quadrilaterals each split into two triangles, laid out as a
+sheet, or as a tube whose ends are open, closed by a fan of triangles around one
+pole node, or closed by a zipper of triangles. The trailing edge, the leading
+edge and the end stations are knots of the spline, so the clustering is kept
+and they do not move, and the level is written in the source's face order.
+
+Any other family is remeshed: refined towards the source's local edge length
+divided by its factor, into triangles whose nodes lie on the source surface.
+Open boundaries, the trailing edge and every edge whose dihedral exceeds 40
+degrees are curves the nodes move along and never leave. Remeshing needs the geometry extra,
+`pip install pyflightstream[geom]`; a mesh whose families are all grids refines
+without it. `W1_R2.refine.json` names, per family, the method taken and the
+reason a grid was or was not recovered.
+
+When two families meet, they keep meeting on shared nodes. A family that shares
+a curve with a refined grid is rebuilt on the grid's new nodes; a family the
+refinement does not change is remeshed only in a band of two face layers along
+that curve, and is otherwise the source's face for face.
+
+### A solid blade kept structured by dummy families
+
+A blade whose tip is closed by a triangulated cap is not one grid: a cap is part
+of a grid only when it is a pole fan or a zipper. The pre-processor route is to
+split the blade into DUMMY FAMILIES, each region a family of its own, for
+example `Blade1_side` (the lateral grid) and `Blade1_tip` (the cap). The
+refinement then resamples the side as a grid and remeshes the cap on its
+new nodes (with the geometry extra), and `[components]` writes the two as the one family the solver must see,
+`Blade1`:
+
+```toml title="inputs/geometries/B1/B1.refine.toml"
+[refine]
+tag = "R2"
+
+[families.Blade1_side]
+factor = 2
+method = "grid"
+
+[families.Blade1_tip]
+factor = 2
+
+[components]
+Blade1 = ["Blade1_side", "Blade1_tip"]
+```
+
+```text
+pyfs-matrix refine inputs/geometries/B1/B1.obj
+```
+
+With no factor on the command line the factors come from `B1.refine.toml`
+beside the mesh (or from `--config FILE`). `B1_R2.obj` holds one family
+`Blade1`, the side's faces then the cap's, and `B1_R2.boundaries.toml` names
+`Blade1` in place of its members. `method = "grid"` makes the refinement refuse
+the side, naming why, if its grid is not recovered, rather than remesh it. The
+`[components]` and `[refine] tag` of a file beside the mesh are read whatever
+gives the factors, so `pyfs-matrix refine inputs/geometries/B1/B1.obj 2`
+merges the families too.
+
+### A body, and a periodic sector
+
+A body of revolution (a fuselage, a nacelle, a spinner) can be refined along its
+axis and around it independently. Its table states `axial`, `circumferential`
+and `axis` in place of `factor`:
+
+```toml title="inputs/geometries/S1/S1.refine.toml"
+[families.Spinner]
+axial = 2
+circumferential = 1
+axis = [1.0, 0.0, 0.0]
+```
+
+When `Spinner` is the mesh's only family the level is `S1_Ra2t1`; beside
+other families it is `S1_R-Spinnera2t1`. Remeshing a body needs the geometry
+extra. A periodic sector, one blade of a rotor cut by two planes
+through its axis, keeps its two cut faces matched node for node when the file
+states the rotation that maps one onto the other:
+
+```toml title="inputs/geometries/P1/P1.refine.toml"
+[families.Blade1]
+factor = 2
+
+[periodic]
+axis = [1.0, 0.0, 0.0]
+origin = [0.0, 0.0, 0.0]
+copies = 6
+```
+
+### Checking a level before a run
+
+Every refinement audits its level against its source and writes
+`<stem>_<tag>.audit.json`. A gate or check that fails is a WARNING naming it,
+the family and both values; the level is still written and `refine` exits 0, so
+read the summary before spending a licensed run:
+
+```text
+audit of W1_R2.obj against W1.obj
+G1 pass on (whole mesh): edges_of_more_than_two_faces 0, node_pairs_at_one_position 0, faces_of_zero_area 0
+G2 pass on (whole mesh): neighbours_of_opposite_orientation 0
+G3 pass on (whole mesh): open_loops 1, source_open_loops 1, unmatched_loops 0
+G4 pass on (whole mesh): points 16, points_on_edges 16, chains 1, source_chains 1
+G5 pass on Wing and Tip: shared_nodes 37, source_shared_nodes 19
+G6 not judged on (whole mesh): grid_families_at_factor_1 0
+relative checks: 8 pass, 0 fail, 1 not judged
+every gate and check passed
+```
+
+`pyfs-matrix audit-mesh` runs the same audit on any OBJ, alone or against the
+mesh it was made from, and its exit status is the verdict: 0 when every gate
+and check passes, 1 when one fails, 2 when the input is refused.
+
+```text
+pyfs-matrix audit-mesh inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --csv W1_R2_audit.csv
+```
+
+### From Python
+
+`refine_mesh` and `audit_mesh` of `pyflightstream.workspace` are the functions
+the two commands call, with the same files and the same refusals:
+
+<!-- skip: next -->
+```python
+from pyflightstream.workspace import audit_mesh, refine_mesh
+
+level = refine_mesh("inputs/geometries/W1/W1.obj", 2)
+print(level.folder.name)  # W1_R2
+for name, family in level.report.items():
+    print(name, family["method"])
+if not level.audit.passed:
+    for item in level.audit.failures:
+        print(item.line())
+
+audit = audit_mesh("inputs/geometries/W1_R2/W1_R2.obj", against="inputs/geometries/W1/W1.obj")
+print(audit.passed, audit.path.name)  # True W1_R2.audit.json
+```
+
+That block is skipped by the executable-examples run because it names a mesh
+this repository does not commit; the names it imports are resolved by
+`tests/tier1_offline/test_mesh_inputs_page.py`. The refinement file, every key,
+the files of a level and the audit's gates are in the
+[reference](reference.md#the-refinement-file-and-the-audit).
+
 ## The saved simulation: GUI once, script everything after
 
 ### The gap this route closes
