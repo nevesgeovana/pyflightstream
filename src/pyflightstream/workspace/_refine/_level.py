@@ -1,6 +1,10 @@
 """Write a level: the orchestration behind ``pyfs-matrix refine`` and ``refine_mesh``.
 
-FR-424 and FR-425.
+FR-424, FR-425 and FR-427. With ``[periodic]``, the source's cut boundaries
+are found, and refused when they do not match, before any work; the remeshed
+sides of the cuts are rebuilt on matching nodes like the neighbours of step
+4; and the level's cuts are matched and measured after assembly
+(:mod:`._periodic`).
 
 The order, from the source to the level folder:
 
@@ -35,7 +39,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._refine import _config, _geometry, _grid, _obj
+from pyflightstream.workspace._refine import _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
 from pyflightstream.workspace._refine._geometry import NearestIndex, order_like
@@ -97,6 +101,8 @@ class _Work:
     parts: dict[str, tuple[Points, dict[str, Faces], Points]] = field(default_factory=dict)
     conform: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
     bands: dict[str, str] = field(default_factory=dict)
+    cuts: list[_periodic.CutPair] = field(default_factory=list)
+    periodic: dict[str, Any] | None = None
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -315,6 +321,27 @@ def _band(faces: Faces, seed: set[int], layers: int) -> set[int]:
     return selected
 
 
+def _cut_factor(spec: FamilySpec) -> float:
+    """Return the factor a remeshed family's cut is resampled by (the finer of axial and around)."""
+    if spec.axial is None and spec.circumferential is None:
+        return spec.factor
+    return max(spec.axial or 1.0, spec.circumferential or 1.0)
+
+
+def _conform_cuts(work: _Work) -> None:
+    """Rebuild the remeshed sides of a periodic sector's cuts on matching nodes (FR-427)."""
+    planned = _periodic.plan_conform(
+        work.mesh.verts,
+        work.mesh.families,
+        work.cuts,
+        work.request.periodic,
+        remeshed={n: _cut_factor(work.request.specs[n]) for n in work.remesh},
+        grids={n: (pts, fams[n]) for n, (pts, fams, _) in work.parts.items() if n in work.grids},
+    )
+    for name, entries in planned.items():
+        work.conform.setdefault(name, []).extend(entries)
+
+
 def _remesh_groups(work: _Work) -> None:
     """Remesh the other families, together where they share nodes (FR-424 R8)."""
     if not work.remesh:
@@ -463,6 +490,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         for n, s in work.request.specs.items()
         if n not in work.bands
     }
+    periodic = {} if work.periodic is None else {"periodic": work.periodic}
     return {
         "schema_version": _geometry.SCHEMA_VERSION,
         "source": work.source.name,
@@ -474,6 +502,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands
         },
         "faces": dict(counts),
+        **periodic,
     }
 
 
@@ -580,11 +609,19 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
+    where = f"{source} [periodic]"
+    work.cuts = _periodic.find_cuts(
+        obj.verts, obj.families, request.periodic, size=work.scale, where=where
+    )
     _decide(work)
     _refine_grids(work)
     _bands(work)
+    _conform_cuts(work)
     _remesh_groups(work)
     verts, faces, te = _assemble(work)
+    verts, work.periodic = _periodic.match_level(
+        verts, faces, work.cuts, request.periodic, source=obj.verts, size=work.scale, where=where
+    )
     faces = _components(work, faces)
     staging = folder.with_name(folder.name + STAGING_SUFFIX)
     shutil.rmtree(staging, ignore_errors=True)

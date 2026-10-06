@@ -172,6 +172,26 @@ def close_pairs(points: Points, tolerance: float) -> NDArray[numpy.int64]:
     return pairs[numpy.lexsort((pairs[:, 1], pairs[:, 0]))]
 
 
+def segment_distances(points: Points, a: Points, b: Points) -> tuple[Points, NDArray[numpy.int64]]:
+    """Return the distance from each point to the nearest segment a-b, and that segment's index.
+
+    One pass per segment over every point, so the memory held is that of the
+    points alone; the curves it serves (cut boundaries, interfaces) hold a
+    few hundred segments.
+    """
+    pts = numpy.asarray(points, dtype=float).reshape(-1, 3)
+    best = numpy.full(len(pts), numpy.inf)
+    index = numpy.zeros(len(pts), dtype=numpy.int64)
+    for k, (p, q) in enumerate(zip(numpy.asarray(a), numpy.asarray(b), strict=True)):
+        d = q - p
+        t = numpy.clip((pts - p) @ d / max(float(d @ d), 1e-300), 0.0, 1.0)
+        dist = numpy.linalg.norm(p + t[:, None] * d - pts, axis=1)
+        closer = dist < best
+        best[closer] = dist[closer]
+        index[closer] = k
+    return best, index
+
+
 class NearestIndex:
     """Exact nearest-point queries over a fixed point set (numpy only, no k-d tree).
 
