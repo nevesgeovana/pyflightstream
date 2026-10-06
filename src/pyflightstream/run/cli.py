@@ -126,6 +126,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     RunStatus,
     WorkspaceError,
+    derive_thin_blade,
     post_diagnostics,
     selected_sims,
 )
@@ -1094,8 +1095,6 @@ def _cmd_degenerate(args: argparse.Namespace) -> int:
     standard error. A refusal names the file and the reason on standard error
     and writes nothing.
     """
-    from pyflightstream.workspace._degenerate import derive_thin_blade
-
     try:
         made = derive_thin_blade(
             args.geometry,
