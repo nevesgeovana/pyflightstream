@@ -30,6 +30,11 @@
 \item \fl{--boundary NAME} the blade's boundary, for a file that also holds a spinner or a nacelle
 \item \fl{--overwrite} rewrite an existing output
 \end{flags}
+\sub{audit-mesh <OBJ>}{audit a panel mesh (topology, trailing edge, panel quality) and write \texttt{<stem>.audit.json} beside it; exits 0 pass, 1 a gate or check failed, 2 refused}
+\begin{flags}
+\item \fl{--against SOURCE} judge against the mesh it was made from (alone: G1, G2, G4 only)
+\item \fl{--csv FILE} also write the figures, one row per family and figure
+\end{flags}
 \sub{upgrade <matrix>}{convert a matrix written under an older layout}
 \begin{flags}
 \item \fl{--in-place} rewrite the file (default: print to stdout)

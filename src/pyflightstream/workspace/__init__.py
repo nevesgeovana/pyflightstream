@@ -115,7 +115,16 @@ by name over both homes, which every command that takes a matrix reads;
 preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
 and boundary conditions and the plan warning that asks for it. A private
 module carries a 0.34 feature: ``workspace._degenerate``, the thin blade
-derived from a blade mesh and written beside it.
+derived from a blade mesh and written beside it; since 0.38 its three names,
+:func:`derive_thin_blade`, :class:`ThinBlade` and :func:`thin_blade_path`, are
+offered here.
+
+The 0.38 workspace refines and coarsens a panel mesh from its OBJ:
+:func:`refine_mesh` writes a new geometry folder and returns a
+:class:`RefinedMesh` (FR-424, FR-425). It audits a panel mesh: :func:`audit_mesh` judges an OBJ's
+topology, trailing edge and panel quality, alone or against the source it was
+made from, and returns a :class:`MeshAudit` (FR-426). It lives in the private
+package ``workspace._refine``.
 """
 
 from __future__ import annotations
@@ -171,6 +180,7 @@ from pyflightstream.script._surface_averaging import (
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace import manifest as _manifest
+from pyflightstream.workspace._degenerate import ThinBlade, derive_thin_blade, thin_blade_path
 from pyflightstream.workspace._layout import MATRIX_FOLDERS as MATRIX_FOLDERS
 from pyflightstream.workspace._layout import REFERENCE_POINTS_FILE as REFERENCE_POINTS_FILE
 from pyflightstream.workspace._layout import STEM_REGISTERED_KINDS as STEM_REGISTERED_KINDS
@@ -184,8 +194,17 @@ from pyflightstream.workspace._layout import find_matrix as find_matrix
 from pyflightstream.workspace._layout import matrix_by_stem as matrix_by_stem
 from pyflightstream.workspace._layout import matrix_files as matrix_files
 from pyflightstream.workspace._layout import point_kind as point_kind
-from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
+from pyflightstream.workspace._links import (
+    _is_link,
+    _make_dir_link,
+    _remove_link,
+    _remove_sim_tree,
+    _sim_files,
+)
 from pyflightstream.workspace._links import _is_reparse as _is_reparse
+from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
+from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
+from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
 from pyflightstream.workspace.inputs import INPUT_KINDS as INPUT_KINDS
@@ -339,7 +358,15 @@ __all__ = [
     "write_input_guides",
     "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
+    # 0.38.0 (FR-426): the audit of a panel mesh, alone or against its source.
+    "MeshAudit",
+    "audit_mesh",
+    "RefinedMesh",
+    "refine_mesh",
 ]
+# 0.38.0 (FR-429): the thin blade of 0.34 is public. One appended line, because the module
+# sits at the 1000 code lines the size lens allows.
+__all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
 
 
 def collection_name(declared: str | Path) -> str:
@@ -543,15 +570,13 @@ def selected_sims(
     command may select from (one matrix's for the post), and ``scope`` says
     which in the refusal, for example ``"of matrix 'matriz'"``.
     """
-    named = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
-    if not named:
+    if not (named := list(dict.fromkeys(str(s).strip() for s in sims if str(s).strip()))):
         raise WorkspaceError(
             "sims (CLI: --sims) names no simulation; give the ids comma separated, for "
             "example --sims 2006,2007"
         )
     recorded = sorted({record.sim_id for record in records})
-    unknown = [sim for sim in named if sim not in recorded]
-    if unknown:
+    if unknown := [sim for sim in named if sim not in recorded]:
         raise WorkspaceError(
             f"sims (CLI: --sims) names simulation(s) {', '.join(unknown)}, which hold no "
             f"record {scope}; the simulations recorded {scope} are "
@@ -619,32 +644,6 @@ def _same_file(one: Path, other: Path) -> bool:
         return os.path.samefile(one, other)
     except OSError:
         return False
-
-
-def _sim_files(sim: Path) -> list[Path]:
-    """Every file under a simulation folder, never crossing a link."""
-    found: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(sim):
-        here = Path(dirpath)
-        dirnames[:] = sorted(name for name in dirnames if not _is_link(here / name))
-        found.extend(here / name for name in sorted(filenames))
-    return found
-
-
-def _remove_sim_tree(sim: Path) -> None:
-    """Remove a simulation folder, unlinking every link inside it first.
-
-    The estate's own incident is the reason this is not a bare rmtree: a
-    scan that crossed sixteen junctions reported 13.8 GB inside a 6.4 GB
-    tree, and a removal that crossed one would have deleted the survivor.
-    """
-    for dirpath, dirnames, _ in os.walk(sim):
-        here = Path(dirpath)
-        for name in list(dirnames):
-            if _is_link(here / name):
-                _remove_link(here / name)
-                dirnames.remove(name)
-    shutil.rmtree(sim)
 
 
 def _sha256(path: Path) -> str:

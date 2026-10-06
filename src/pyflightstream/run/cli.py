@@ -126,6 +126,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     RunStatus,
     WorkspaceError,
+    derive_thin_blade,
     post_diagnostics,
     selected_sims,
 )
@@ -1077,12 +1078,15 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
     return 0
 
 
-#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330).
-_GEOMETRY_COMMANDS = ("inventory", "degenerate")
+#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
+#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
+_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 
 
 def _cmd_geometry(args: argparse.Namespace) -> int:
     """Run the geometry command ``args`` names."""
+    if (mesh_command := getattr(args, "mesh_command", None)) is not None:
+        return int(mesh_command(args))
     return _cmd_degenerate(args) if args.subcommand == "degenerate" else _cmd_inventory(args)
 
 
@@ -1094,8 +1098,6 @@ def _cmd_degenerate(args: argparse.Namespace) -> int:
     standard error. A refusal names the file and the reason on standard error
     and writes nothing.
     """
-    from pyflightstream.workspace._degenerate import derive_thin_blade
-
     try:
         made = derive_thin_blade(
             args.geometry,

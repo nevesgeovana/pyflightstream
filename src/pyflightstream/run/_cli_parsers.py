@@ -26,6 +26,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import SIMS_IDS_HELP
+from pyflightstream.run._cli_mesh import add_mesh_parsers
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
@@ -246,6 +247,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_degenerate_parsers(subparsers)
     _add_query_parsers(subparsers)
     add_mark_converged_parser(subparsers)  # 0.37.0, FR-414
+    add_mesh_parsers(subparsers)  # 0.38.0, FR-426
     return parser
 
 

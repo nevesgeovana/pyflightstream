@@ -352,6 +352,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "per_point"): SWITCH,
     ("pyfs-matrix", "json"): SWITCH,
     ("pyfs-matrix", "csv"): SWITCH,
+    # 0.38.0 (FR-426): `audit-mesh` audits the OBJ it is given against the source it
+    # names, and `--csv FILE` is where this one audit's figures are written.
+    ("pyfs-matrix", "mesh"): SUBJECT,
+    ("pyfs-matrix", "against"): SUBJECT,
+    ("pyfs-matrix", "csv_file"): OUTPUT,
     ("pyfs-matrix", "kind"): SUBJECT,
     ("pyfs-matrix", "stamp"): SUBJECT,
     ("pyfs-matrix", "out"): OUTPUT,
@@ -605,6 +610,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
     ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
     ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
+    ("pyfs-matrix", "mesh"): frozenset({"audit-mesh"}),
+    ("pyfs-matrix", "against"): frozenset({"audit-mesh"}),
+    ("pyfs-matrix", "csv_file"): frozenset({"audit-mesh"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),
