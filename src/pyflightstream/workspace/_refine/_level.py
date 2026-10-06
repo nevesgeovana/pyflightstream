@@ -9,8 +9,9 @@ sides of the cuts are rebuilt on matching nodes like the neighbours of step
 The order, from the source to the level folder:
 
 1. read the mesh, the request (:mod:`._config`) and the trailing-edge points;
-2. recover the grid of every family asked to change and decide its method,
-   refusing before any work (FR-424 R9 to R11);
+2. recover the grid of every family asked to change (a sheet, a tube, or a
+   multiblock grid of quadrilaterals, :mod:`._blocks`) and decide its
+   method, refusing before any work (FR-424 R9 to R11);
 3. refine the grid families first, in the source's family order; a grid that
    shares nodes with a grid refined before it is remeshed (FR-425 R1);
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
@@ -42,7 +43,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._refine import _config, _geometry, _grid, _obj, _periodic
+from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
 from pyflightstream.workspace._refine._geometry import NearestIndex, Stretch, order_like
@@ -98,7 +99,7 @@ class _Work:
     fam_v: dict[str, set[int]]
     te_of: dict[str, set[int]]
     scale: float
-    grids: dict[str, _grid.Grid] = field(default_factory=dict)
+    grids: dict[str, _grid.Grid | _blocks.Blocks] = field(default_factory=dict)
     remesh: list[str] = field(default_factory=list)
     report: dict[str, dict[str, Any]] = field(default_factory=dict)
     parts: dict[str, tuple[Points, dict[str, Faces], Points]] = field(default_factory=dict)
@@ -164,21 +165,22 @@ def _decide(work: _Work) -> None:
     for name in chosen:
         spec = work.request.specs[name]
         if spec.method == "remesh" or spec.axial is not None:
-            work.remesh.append(name)
-            work.report[name] = {"method": "remesh", "reason": "the refinement file states remesh"}
+            _remesh_or_keep(work, name, "the refinement file states remesh")
             continue
-        found = _grid.recover_grid(work.mesh.verts, work.mesh.families[name], work.te_of[name])
+        found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
         if isinstance(found, str):
             if spec.method == "grid":
                 raise _refuse(
                     f"{work.source} family {name}",
                     f"method is grid and no grid was recovered: {found}",
                 )
-            work.remesh.append(name)
-            work.report[name] = {"method": "remesh", "reason": f"no grid recovered: {found}"}
+            _remesh_or_keep(work, name, f"no grid recovered: {found}")
             continue
-        chordwise, spanwise = spec.directions
-        _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
+        if isinstance(found, _blocks.Blocks):
+            _blocks.check_factor(found, name, spec)
+        else:
+            chordwise, spanwise = spec.directions
+            _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
         work.grids[name] = found
     _grid_after_grid(work)
     _bodies_apart(work)
@@ -209,9 +211,25 @@ def _grid_after_grid(work: _Work) -> None:
                 f"method is grid and it shares nodes with {first[0]}, refined as a grid first",
             )
         del work.grids[name]
-        work.remesh.append(name)
-        work.report[name] = {"method": "remesh", "reason": f"shares nodes with the grid {first[0]}"}
+        _remesh_or_keep(work, name, f"shares nodes with the grid {first[0]}")
     work.remesh.sort(key=work.names.index)
+
+
+def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
+    """Remesh a family, or keep it unchanged when every factor it is given is 1.
+
+    A remeshed family at factor 1 is an UNCHANGED FAMILY (FR-424): it is
+    copied as the source holds it, and a band of it is remeshed only where a
+    grid beside it changed their shared curve (FR-425 R3). A family the
+    refinement file states ``method = "remesh"`` is remeshed at any factor.
+    """
+    spec = work.request.specs[name]
+    if spec.unchanged and spec.method == "auto":
+        del work.request.specs[name]
+        work.report[name] = {"method": "unchanged", "reason": f"factor 1 ({reason})"}
+        return
+    work.remesh.append(name)
+    work.report[name] = {"method": "remesh", "reason": reason}
 
 
 def _stretch_of(work: _Work, name: str) -> Stretch | None:
@@ -279,14 +297,19 @@ def _refine_grids(work: _Work) -> None:
     """Refine every grid family and record what its neighbours must take (FR-425 R2, R3)."""
     for name, grid in work.grids.items():
         chordwise, spanwise = work.request.specs[name].directions
-        level = _grid.refine_grid(
-            work.mesh.verts,
-            work.mesh.families[name],
-            grid,
-            chordwise=chordwise,
-            spanwise=spanwise,
-            family=name,
-        )
+        if isinstance(grid, _blocks.Blocks):
+            level = _blocks.refine_blocks(
+                work.mesh.verts, work.mesh.families[name], grid, factor=chordwise
+            )
+        else:
+            level = _grid.refine_grid(
+                work.mesh.verts,
+                work.mesh.families[name],
+                grid,
+                chordwise=chordwise,
+                spanwise=spanwise,
+                family=name,
+            )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
         interfaces: dict[str, str] = {}
         for other in work.names:

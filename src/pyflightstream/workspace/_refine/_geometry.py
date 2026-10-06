@@ -42,6 +42,9 @@ SKEWNESS_MARGIN = 0.05
 WARP_FLOOR_DEGREES = 10.0
 #: FR-426 R3: the 95th percentile of the size growth may reach this ratio.
 GROWTH_FLOOR = 2.0
+#: FR-426 R3: a figure within this fraction of a limit or a floor meets it; the written
+#: coordinates carry nine decimals, so a level equal to its source differs by rounding.
+CHECK_TOLERANCE = 1e-6
 #: FR-426 R3: size growth is measured across edges whose dihedral is below this.
 GROWTH_DIHEDRAL_DEGREES = 30.0
 #: FR-426 R3: the percentile every relative check reads (linear interpolation).

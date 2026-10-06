@@ -315,3 +315,26 @@ def test_r5_the_levels_open_loops_are_the_sources(tmp_path, factor):
     boundary = set().union(*got)
     inner = next(i for i, f in enumerate(faces) if not boundary & set(f))
     assert open_loop_count(faces[:inner] + faces[inner + 1 :]) == len(source) + 1
+
+
+def test_r4_the_audit_compares_a_component_with_the_union_of_its_members(tmp_path):
+    """P0380-DUMMY (FR-425 R4, FR-426 R3): a level written with ``Wing = ["G", "T"]`` at factor
+    1 is audited against the source's G and T measured as one family, so no relative check
+    of Wing fails and its source figure is the union's. Control: with the components removed
+    from the level's refine.json the audit compares Wing with nothing of that name in the
+    source and reports it not judged."""
+    import json
+
+    from pyflightstream.workspace import audit_mesh
+
+    src = _source(tmp_path, refine_toml='[components]\nWing = ["G", "T"]\n')
+    level = refine_mesh(src, 1.0)
+    wing = [i for i in level.audit.checks if i.family == "Wing"]
+    assert wing and all(i.verdict != "fail" for i in wing), [i.line() for i in wing]
+    assert any(i.verdict == "pass" for i in wing)
+    record = level.folder / f"{level.folder.name}.refine.json"
+    data = json.loads(record.read_text(encoding="utf-8"))
+    data["components"] = {}
+    record.write_text(json.dumps(data), encoding="utf-8")
+    alone = audit_mesh(level.obj, against=src)
+    assert {i.verdict for i in alone.checks if i.family == "Wing"} == {"not judged"}

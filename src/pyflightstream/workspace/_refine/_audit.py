@@ -23,6 +23,7 @@ its values. The trailing-edge points file of a mesh is the one its
 
 from __future__ import annotations
 
+import json
 import tomllib
 import warnings
 from collections import Counter
@@ -39,6 +40,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine._geometry import (
     ASPECT_LIMIT,
+    CHECK_TOLERANCE,
     DUPLICATE_FRACTION,
     GROWTH_DIHEDRAL_DEGREES,
     GROWTH_FLOOR,
@@ -248,7 +250,8 @@ def audit_mesh(
         file named and missing or malformed; nothing is written.
     """
     level = _read(Path(mesh))
-    source = None if against is None else _read(Path(against))
+    components = _components_of(Path(mesh))
+    source = None if against is None else _read(Path(against), components)
     gates = _gates(level, source, tuple(unchanged_grids))
     figures = dict(_all_figures(level))
     checks = tuple(_checks(figures, None if source is None else dict(_all_figures(source))))
@@ -274,14 +277,42 @@ def _refusal(subject: Path, reason: str, remedy: str) -> InputArtifactError:
     return InputArtifactError(f"{subject}: {reason}. {remedy} Nothing was written.", kind=KIND)
 
 
-def _read(path: Path) -> _Mesh:
-    """Read an OBJ and its trailing-edge points and measure them."""
+def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> _Mesh:
+    """Read an OBJ and its trailing-edge points and measure them.
+
+    With ``components``, the families each component lists are measured as
+    that one family, so a level whose families were grouped into components
+    (FR-425 R4) is compared with the union of its members in the source.
+    """
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")
     obj = read_obj(path)
+    if components:
+        obj = _grouped(obj, components)
     te = _te_file(path)
     points = None if te is None else read_te(te)[1]
     return _measure(obj, points)
+
+
+def _components_of(level: Path) -> dict[str, list[str]]:
+    """Return the components a refinement recorded in the level's ``refine.json``, if any."""
+    record = level.with_name(level.stem + ".refine.json")
+    if not record.is_file():
+        return {}
+    try:
+        found = json.loads(record.read_text(encoding="utf-8")).get("components") or {}
+    except (json.JSONDecodeError, AttributeError):
+        return {}
+    return {str(c): [str(m) for m in members] for c, members in dict(found).items()}
+
+
+def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
+    """Return the mesh with each component's member families merged, in the source's order."""
+    owner = {m: c for c, members in components.items() for m in members}
+    families: dict[str, list[list[int]]] = {}
+    for name, faces in obj.families.items():
+        families.setdefault(owner.get(name, name), []).extend(faces)
+    return ObjMesh(obj.verts, families, obj.header, obj.family_tag)
 
 
 def _te_file(obj: Path) -> Path | None:
@@ -687,10 +718,14 @@ def _check(check: str, family: str, value: Value, base: Value) -> AuditItem:
     values: dict[str, Value] = {"p95": value, "source_p95": base, "limit": limit}
     if check != "skewness":
         floor = WARP_FLOOR_DEGREES if check == "warp" else GROWTH_FLOOR
-        values["source_beyond_practice"] = base is not None and float(base) > floor
-    if value is None or limit is None:
+        values["source_beyond_practice"] = base is not None and float(base) > floor * (
+            1.0 + CHECK_TOLERANCE
+        )
+    if value is None or limit is None or values.get("source_beyond_practice"):
+        # R3: a source that fails a practice is reported, not judged.
         return _reported("check", check, family, values)
-    return _item("check", check, family, values, float(value) > limit)
+    failed = float(value) > limit + CHECK_TOLERANCE * abs(limit)
+    return _item("check", check, family, values, failed)
 
 
 def _said(value: Value) -> str:

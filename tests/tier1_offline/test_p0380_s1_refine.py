@@ -648,3 +648,21 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
         "pyflightstream.run",
     )
     assert _reaching(command, (REFINE,)) == [f"{REFINE}._level", f"{REFINE}._level.refine_mesh"]
+
+
+def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):
+    """P0380-REFINE (FR-424, UNCHANGED FAMILY): a family that is not a grid, at factor 1, is a
+    remeshed family at factor 1 and is copied as the source holds it: the level writes the
+    strip T face for face and refine.json reports it unchanged. Control: at factor 1.5 the
+    same strip is remeshed and its faces change."""
+    pytest.importorskip("trimesh")
+    src = _source(tmp_path, WITH_T)
+    verts, fams = read_mesh(src)
+    level = refine_mesh(src, 1.0)
+    assert level.report["T"]["method"] == "unchanged", level.report["T"]
+    lv, lf = read_mesh(level.obj)
+    assert face_coordinates(lv, lf["T"]) == face_coordinates(verts, fams["T"])
+    other = refine_mesh(src, 1.5, families=["T"])
+    assert other.report["T"]["method"] == "remesh"
+    ov, of = read_mesh(other.obj)
+    assert face_coordinates(ov, of["T"]) != face_coordinates(verts, fams["T"])
