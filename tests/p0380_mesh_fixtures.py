@@ -166,6 +166,58 @@ def sheet_quads():
 FIXTURES = [tube_pole_triangles, tube_pole_quads, tube_zipper, sheet_quads]
 
 
+@dataclass
+class Body:
+    """A body of revolution about the x axis: quadrilaterals, no trailing edge, shuffled."""
+
+    verts: np.ndarray
+    faces: list[list[int]]
+    stations: int
+    nodes: int
+    pole: int | None
+
+    @staticmethod
+    def radius(x):
+        """Return the body's radius at the axial position x."""
+        return 0.5 + 0.2 * np.sin(0.5 * np.pi * np.asarray(x, float))
+
+    @property
+    def size(self) -> float:
+        """Return the diagonal of the bounding box."""
+        return float(np.linalg.norm(self.verts.max(axis=0) - self.verts.min(axis=0)))
+
+
+def body_of_revolution(stations=7, nodes=24, *, pole=False, seed=11) -> Body:
+    """Return a smooth closed tube about the x axis, open at both ends or closed by a pole fan.
+
+    The sections are circles of ``nodes`` equally spaced nodes, the stations
+    clustered toward both ends; the faces are written station by station and
+    the numbering is shuffled.
+    """
+    t = np.linspace(0.0, 1.0, stations)
+    x = 2.0 * (3.0 * t**2 - 2.0 * t**3)
+    theta = 2.0 * np.pi * np.arange(nodes) / nodes + 0.1
+    r = Body.radius(x)[:, None]
+    pts = np.stack(
+        np.broadcast_arrays(x[:, None], r * np.cos(theta), r * np.sin(theta)), axis=-1
+    ).reshape(-1, 3)
+    gid = np.arange(stations * nodes).reshape(stations, nodes)
+    faces = []
+    for k in range(stations - 1):
+        for i in range(nodes):
+            j = (i + 1) % nodes
+            faces.append([int(gid[k, i]), int(gid[k, j]), int(gid[k + 1, j]), int(gid[k + 1, i])])
+    if pole:
+        pts = np.vstack([pts, [[float(x[-1]) + 0.6, 0.0, 0.0]]])
+        ring = [int(v) for v in gid[-1]]
+        faces += [[ring[i], ring[(i + 1) % nodes], len(pts) - 1] for i in range(nodes)]
+    perm = np.random.default_rng(seed).permutation(len(pts))
+    verts = np.empty_like(pts)
+    verts[perm] = pts
+    faces = [[int(perm[v]) for v in f] for f in faces]
+    return Body(verts, faces, stations, nodes, int(perm[len(pts) - 1]) if pole else None)
+
+
 # ------------------------------------------------------- unstructured families
 
 
