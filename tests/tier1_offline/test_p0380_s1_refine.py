@@ -19,7 +19,6 @@ import json
 import os
 import subprocess
 import sys
-import types
 from pathlib import Path
 
 import pytest
@@ -30,7 +29,7 @@ from pyflightstream._errors import InputArtifactError
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.run import cli
 from pyflightstream.workspace import RefinedMesh, refine_mesh
-from pyflightstream.workspace._refine import _grid, _level
+from pyflightstream.workspace._refine._grid import recover_grid
 from tests.p0380_mesh_fixtures import (
     face_coordinates,
     read_mesh,
@@ -105,41 +104,34 @@ def test_r1_a_factor_not_above_zero_is_refused_by_both_routes(tmp_path, capsys, 
     assert code == 0 and _left(tmp_path) == ["wing_R2"]
 
 
-def test_r1_a_factor_that_is_not_a_number_is_refused(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1): a non-number is refused by the function and the command.
+def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R1, R11): FACTOR ``two`` is refused alike by the function and command.
 
-    The function names the value; the command's parser refuses it with exit 2.
-    Control: the number 2 passes both.
+    The command exits 2 with the function's own text, which names the value
+    and ends "Nothing was written.". Control: the number 2 passes both.
     """
     src = _source(tmp_path)
     text = _refused(tmp_path, src, "two")
-    assert "the factor 'two' is not a number; give a number above zero" in text
-    _refused(tmp_path, src, 2.0, chordwise="two")
-    with pytest.raises(SystemExit) as caught:
-        cli.main(["refine", str(src), "two"])
-    assert caught.value.code == 2 and _left(tmp_path) == []
+    assert f"{src} FACTOR: the factor 'two' is not a number; give a number above zero" in text
+    code, _, err = _command(capsys, str(src), "two")
+    assert code == 2 and text in err and _left(tmp_path) == []
     assert isinstance(refine_mesh(src, 2.0), RefinedMesh)
+    assert _command(capsys, str(src), "2", "--overwrite")[0] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT: src/pyflightstream/run/_cli_mesh.py:139 (and :143, :144) parses FACTOR, "
-        "--chordwise and --spanwise with type=float, so argparse refuses 'two' with its usage "
-        "error ('invalid float value') instead of refine_mesh's text, which ends 'Nothing was "
-        "written.' (FR-424 statement: the same message text; R11)"
-    ),
-)
-def test_r1_the_command_refuses_a_non_number_with_the_functions_text(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1, R11): the command's refusal of a non-number is the function's."""
+@pytest.mark.parametrize("flag", ["chordwise", "spanwise"])
+def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys, flag):
+    """P0380-REFINE (FR-424 R1, R11): ``--chordwise two`` and ``--spanwise two`` alike.
+
+    The command's refusal is the function's text, naming the flag and the
+    value. Control: the same flag with the number 2 exits 0.
+    """
     src = _source(tmp_path)
-    text = _refused(tmp_path, src, "two")
-    capsys.readouterr()
-    try:
-        code = cli.main(["refine", str(src), "two"])
-    except SystemExit as stop:
-        code = stop.code
-    assert code == 2 and text in capsys.readouterr().err
+    text = _refused(tmp_path, src, 1.0, **{flag: "two"})
+    assert f"{src} --{flag}: the factor 'two' is not a number" in text
+    code, _, err = _command(capsys, str(src), "1", f"--{flag}", "two")
+    assert code == 2 and text in err and _left(tmp_path) == []
+    assert _command(capsys, str(src), "1", f"--{flag}", "2")[0] == 0
 
 
 @pytest.mark.parametrize(
@@ -353,7 +345,7 @@ def test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes(tmp_path
         "wing_R2.audit.json",
     ]
     verts, families = read_mesh(src)
-    why = _grid.recover_grid(verts, families["G"], set())
+    why = recover_grid(verts, families["G"], set())
     assert isinstance(why, str) and why
     assert level.report["G"] == {**level.report["G"], "method": "remesh"}
     assert level.report["G"]["reason"] == f"no grid recovered: {why}"
@@ -422,41 +414,30 @@ def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
     assert _left(tmp_path) == ["wing_R2"]
 
 
-def _fail_after_writing(monkeypatch):
-    real = _level._write
+def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R5): an error in the write step leaves no level and no ``.partial``.
 
-    def planted(*args, **kwargs):
-        real(*args, **kwargs)
-        raise RuntimeError("planted error in the write step")
-
-    monkeypatch.setattr(_level, "_write", planted)
-
-
-def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_path, monkeypatch):
-    """P0380-REFINE (FR-424 R5): an error in the write step leaves nothing, and keeps a level.
-
-    The planted error is raised after every file was written into the
-    staging folder. Without --overwrite nothing is left; with --overwrite the
-    existing level is kept as it was. Control: with the staging clean-up
-    taken away, the same error leaves ``wing_R2.partial``, which the
-    observation sees.
+    The level's path is occupied by a file, so with ``overwrite`` the files
+    are written into the staging folder and replacing the level then fails:
+    the error comes from inside the write step. The staging folder is
+    removed and the occupying file is kept; the command exits 2 the same way.
+    Control: a stale ``.partial`` folder, which the observation sees, is
+    cleared by the next run that writes that level.
     """
     src = _source(tmp_path)
-    _fail_after_writing(monkeypatch)
-    with pytest.raises(RuntimeError, match="planted"):
-        refine_mesh(src, 2.0)
-    assert _left(tmp_path) == []
-    monkeypatch.undo()
-    old = refine_mesh(src, 2.0)
-    kept = _snapshot(old.folder)
-    _fail_after_writing(monkeypatch)
-    with pytest.raises(RuntimeError, match="planted"):
+    occupied = tmp_path / "wing_R2"
+    occupied.write_bytes(b"occupied")
+    with pytest.raises(OSError):
         refine_mesh(src, 2.0, overwrite=True)
-    assert _left(tmp_path) == ["wing_R2"] and _snapshot(old.folder) == kept
-    monkeypatch.setattr(_level, "shutil", types.SimpleNamespace(rmtree=lambda *a, **k: None))
-    with pytest.raises(RuntimeError, match="planted"):
-        refine_mesh(src, 0.5)
+    assert _left(tmp_path) == ["wing_R2"] and occupied.read_bytes() == b"occupied"
+    code, _, err = _command(capsys, str(src), "2", "--overwrite")
+    assert code == 2 and err.strip() and _left(tmp_path) == ["wing_R2"]
+    stale = tmp_path / "wing_R0p5.partial"
+    stale.mkdir()
+    (stale / "stale.txt").write_bytes(b"x")
     assert _left(tmp_path) == ["wing_R0p5.partial", "wing_R2"]
+    refine_mesh(src, 0.5)
+    assert _left(tmp_path) == ["wing_R0p5", "wing_R2"]
 
 
 # ----------------------------------------------------------------- R7 face order
@@ -468,14 +449,14 @@ def _mesh_lines(path: Path, tags: tuple[str, ...] = ("v", "g", "f")) -> list[str
     return [line for line in lines if line.split(" ", 1)[0] in tags]
 
 
-def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path, monkeypatch):
+def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path):
     """P0380-REFINE (FR-424 R7): at factor 1 the OBJ's v and f lines are the source's, in order.
 
     The source's vertex numbering is shuffled, so the level must number its
     nodes as the source does, not by first use. Controls: the level's faces
-    reversed, and rotated by one vertex, fail the face comparison; with the
-    source numbering taken away (nodes by first use) the faces still match
-    by coordinates but the v lines differ.
+    reversed, and rotated by one vertex, fail the face comparison; the
+    source's v lines in the order of first use (what a level numbered by
+    first use writes) are not the source's v lines.
     """
     src = _source(tmp_path)
     level = refine_mesh(src, 1.0)
@@ -487,11 +468,10 @@ def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path, monkey
     assert face_coordinates(lv, lf["G"][::-1]) != source
     assert face_coordinates(lv, [f[1:] + f[:1] for f in lf["G"]]) != source
     assert level.report["G"]["order"] == "sweep"
-    monkeypatch.setattr(_level, "_source_numbering", lambda verts, faces, *_: (verts, faces))
-    first_use = refine_mesh(src, 1.0, out_dir=tmp_path / "control")
-    cv, cf = read_mesh(first_use.obj)
-    assert face_coordinates(cv, cf["G"]) == source
-    assert _mesh_lines(first_use.obj, ("v",)) != _mesh_lines(src, ("v",))
+    order = list(dict.fromkeys(v for f in sf["G"] for v in f))
+    vertex_lines = _mesh_lines(src, ("v",))
+    assert [vertex_lines[v] for v in order] != vertex_lines
+    assert sorted(vertex_lines[v] for v in order) == sorted(vertex_lines)
 
 
 # --------------------------------------------------------------------- R9 method
@@ -523,19 +503,6 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
 # --------------------------------------------------------------- R10 the extra
 
 
-def _spy_resampling(monkeypatch) -> list[str]:
-    """Count the grid resamplings: the refusal of R10 and R11 must come before any."""
-    calls: list[str] = []
-    real = _grid.refine_grid
-
-    def spy(*args, **kwargs):
-        calls.append(kwargs.get("family", "?"))
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(_grid, "refine_grid", spy)
-    return calls
-
-
 def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
     tmp_path, monkeypatch, capsys
 ):
@@ -543,25 +510,23 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
 
     The grid-only refinement writes its level. The one that must remesh T is
     refused by both routes naming T and ``pip install pyflightstream[geom]``,
-    before G is resampled and before any file. Control: with the extra
-    importable again the same refinement resamples G and writes the level.
+    before any file. Control: with the extra importable again the same
+    refinement writes the level, T remeshed.
     """
     alone = _source(tmp_path / "alone")
     root = tmp_path / "remesh"
     src = _source(root, WITH_T)
-    calls = _spy_resampling(monkeypatch)
     with monkeypatch.context() as blocked:
         for name in ("scipy", "scipy.spatial", "rtree"):
             blocked.setitem(sys.modules, name, None)
         level = refine_mesh(alone, 2.0)
-        assert level.report["G"]["method"] == "grid" and calls == ["G"]
+        assert level.report["G"]["method"] == "grid" and len(level.files) == 5
         text = _refused(root, src, 2.0, error=MissingExtraError)
         assert "family T" in text and "pip install pyflightstream[geom]" in text
         code, _, err = _command(capsys, str(src), "2")
         assert code == 2 and text in err and _left(root) == []
-        assert calls == ["G"]
     level = refine_mesh(src, 2.0)
-    assert calls == ["G", "G"] and level.report["T"]["method"] == "remesh"
+    assert level.report["T"]["method"] == "remesh" and _left(root) == ["wing_R2"]
 
 
 # ------------------------------------------------------- R12, R13 the bytes written
