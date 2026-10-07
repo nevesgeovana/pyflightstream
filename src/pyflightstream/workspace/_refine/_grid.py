@@ -807,21 +807,44 @@ def refine_grid(
     points = sampled.nodes.reshape(-1, 3)
     if grid.pole is not None:
         points = numpy.vstack([points, verts[grid.pole][None, :]])
-    built = _lateral_faces(sampled, grid) + _end_faces(sampled, grid, len(points) - 1)
-    built = orient_like(points, built, verts, faces)
-    swept = _emit_like(grid, faces, sampled, built, (points, verts))
-    ordered = swept if swept is not None else order_like(points, built, verts, faces)
-    if grid.wrap:
-        new = _EndFrame.of(
-            sampled.idx, sampled.new_le, len(points) - 1 if grid.pole is not None else None
-        )
-        old = _EndFrame.of(grid.ids, grid.i_le, grid.pole)
-        ordered = _align_end_rotation(ordered, new, old, faces)
+    copied = _identity_copy(grid, faces, sampled, verts[grid.ids], len(points) - 1)
+    if copied is not None:
+        ordered, swept_order = copied, _source_sweep(grid, faces) is not None
+    else:
+        built = _lateral_faces(sampled, grid) + _end_faces(sampled, grid, len(points) - 1)
+        built = orient_like(points, built, verts, faces)
+        swept = _emit_like(grid, faces, sampled, built, (points, verts))
+        ordered = swept if swept is not None else order_like(points, built, verts, faces)
+        swept_order = swept is not None
+        if grid.wrap:
+            new = _EndFrame.of(
+                sampled.idx, sampled.new_le, len(points) - 1 if grid.pole is not None else None
+            )
+            old = _EndFrame.of(grid.ids, grid.i_le, grid.pole)
+            ordered = _align_end_rotation(ordered, new, old, faces, (points, verts))
     te = 0.5 * (sampled.nodes[:-1, 0] + sampled.nodes[1:, 0])
     if grid.smooth:
         te = numpy.zeros((0, 3))
-    report = _report(grid, sampled, len(faces), len(ordered), swept is not None)
+    report = _report(grid, sampled, len(faces), len(ordered), swept_order)
     return GridLevel(points, ordered, te, report)
+
+
+def _identity_copy(
+    grid: Grid, faces: Faces, sampled: _Sampled, source: Points, pole_index: int
+) -> Faces | None:
+    """Return the source's faces on the new nodes when the resampling kept every node (R7).
+
+    At factor 1 in both directions the new node ``(k, i)`` is the source's
+    node ``(k, i)``, so each source face is written as it is: in its order,
+    with its winding and its own start vertex, cap faces included. Return
+    None when the resampling moved, added or removed a node.
+    """
+    if not numpy.array_equal(sampled.nodes, source):
+        return None
+    new_of = {int(v): int(w) for v, w in zip(grid.ids.ravel(), sampled.idx.ravel(), strict=True)}
+    if grid.pole is not None:
+        new_of[int(grid.pole)] = pole_index
+    return [[new_of[v] for v in f] for f in faces]
 
 
 def _report(
@@ -1046,19 +1069,36 @@ def _cap_role(p: int, h: int, quad: bool, up: list[int], lo: list[int]) -> str:
 
 
 def _align_end_rotation(
-    new_faces: Faces, new: _EndFrame, old: _EndFrame, old_faces: Faces
+    new_faces: Faces,
+    new: _EndFrame,
+    old: _EndFrame,
+    old_faces: Faces,
+    geometry: tuple[Points, Points],
 ) -> Faces:
-    """Start every new end face on the vertex role the source's end faces start on."""
-    first: dict[tuple[int, str], Counter[str]] = {}
+    """Start every new end face on the vertex role its nearest source end face starts on (R7).
+
+    The source end face is the one of the same end and kind (fan triangle,
+    trailing-edge or leading-edge cap triangle, cap quadrilateral) whose
+    centroid is nearest to the new face's, so each face follows its own
+    source face and never the most common start of its kind.
+    """
+    points, verts = geometry
+    found: dict[tuple[int, str], tuple[list[str], list[Points]]] = {}
     for f in old_faces:
         r = old.roles(f)
         if r:
-            first.setdefault((r[0], r[1]), Counter())[r[2][0]] += 1
-    want = {key: c.most_common(1)[0][0] for key, c in first.items()}
+            roles, centroids = found.setdefault((r[0], r[1]), ([], []))
+            roles.append(r[2][0])
+            centroids.append(verts[f].mean(axis=0))
+    near = {key: (roles, numpy.asarray(c)) for key, (roles, c) in found.items()}
     out: Faces = []
     for f in new_faces:
         r = new.roles(f)
-        role = want.get((r[0], r[1])) if r else None
+        source = near.get((r[0], r[1])) if r else None
+        role = None
+        if source is not None:
+            gap = numpy.linalg.norm(source[1] - points[f].mean(axis=0), axis=1)
+            role = source[0][int(numpy.argmin(gap))]
         if r and role in r[2]:
             s = r[2].index(role)
             f = f[s:] + f[:s]

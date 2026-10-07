@@ -8,12 +8,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.run import cli
 from pyflightstream.workspace import refine_mesh
-from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
+from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
+from tests.p0380_mesh_fixtures import (
+    Fixture,
+    sheet_with_strips,
+    tube_pole_quads,
+    tube_zipper,
+    write_source,
+)
 
 
 def _source(folder: Path, stem: str = "wing", refine_toml: str | None = None) -> Path:
@@ -151,3 +159,79 @@ def test_ind01_a_tag_that_is_not_one_folder_name_is_refused(tmp_path, tag):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
     src.with_suffix(".refine.toml").write_bytes(b'[refine]\ntag = "fine"\n')
     assert refine_mesh(src, 2.0).folder == tmp_path / "wing_fine"
+
+
+# --------------------------------------------- IND-02 each cap face's own start
+
+
+def _recovered(fx: Fixture) -> Grid:
+    grid = recover_grid(fx.verts, fx.faces, fx.te)
+    assert isinstance(grid, Grid), grid
+    return grid
+
+
+def _same_faces(points, faces, fx: Fixture) -> bool:
+    """Return whether the level's faces are the source's, in order and vertex for vertex."""
+    return len(faces) == len(fx.faces) and all(
+        np.array_equal(points[f], fx.verts[g]) for f, g in zip(faces, fx.faces, strict=True)
+    )
+
+
+def _rotated(face: list[int], by: int = 1) -> list[int]:
+    return face[by:] + face[:by]
+
+
+def test_ind02_a_fan_triangle_rotated_alone_keeps_its_start_at_factor_one():
+    """P0380-REFINE (FR-424 R7, IND-02): at factor 1 one rotated fan triangle keeps its own start.
+
+    The tube's fan triangles start at the pole, except one that starts at a
+    ring node. The level at factor 1 equals the source face for face and
+    vertex for vertex. Control: the source unchanged passes the same check.
+    """
+    fx = tube_pole_quads()
+    plain = refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=1.0, spanwise=1.0)
+    assert _same_faces(plain.points, plain.faces, fx)
+    fan = fx.lateral + 5
+    assert fx.faces[fan][0] == fx.pole
+    fx.faces[fan] = _rotated(fx.faces[fan])
+    level = refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=1.0, spanwise=1.0)
+    assert _same_faces(level.points, level.faces, fx)
+
+
+def test_ind02_mixed_cap_rotations_interleaved_with_lateral_faces_are_kept_at_factor_one():
+    """P0380-REFINE (FR-424 R7, IND-02): zipper caps of mixed starts, in among the lateral faces.
+
+    One cap quad and one cap triangle start one vertex later than the other
+    cap faces, and one cap face is moved between two lateral cells. At
+    factor 1 every face, cap faces included, is the source's in order and
+    starts at the source face's start vertex.
+    """
+    fx = tube_zipper()
+    caps = list(range(fx.lateral, len(fx.faces)))
+    quad = next(p for p in caps if len(fx.faces[p]) == 4)
+    tri = next(p for p in caps if len(fx.faces[p]) == 3)
+    fx.faces[quad] = _rotated(fx.faces[quad])
+    fx.faces[tri] = _rotated(fx.faces[tri], 2)
+    moved = fx.faces.pop(caps[-1])
+    fx.faces.insert(fx.lateral // 2, moved)
+    level = refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=1.0, spanwise=1.0)
+    assert _same_faces(level.points, level.faces, fx)
+
+
+def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source_triangle():
+    """P0380-REFINE (FR-424 R7, IND-02): a cap face starts as its nearest source face does.
+
+    The first 8 of the 24 fan triangles start at a ring node and the other 16
+    at the pole. At factor 2 the 48 new fan triangles follow the source
+    triangle nearest to each: about a third start at a ring node, where a
+    majority rule would start all 48 at the pole.
+    """
+    fx = tube_pole_quads()
+    for p in range(fx.lateral, fx.lateral + 8):
+        fx.faces[p] = _rotated(fx.faces[p])
+    level = refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=2.0, spanwise=2.0)
+    pole = len(level.points) - 1
+    fans = [f for f in level.faces if pole in f]
+    assert len(fans) == 48
+    ring_first = sum(f[0] != pole for f in fans)
+    assert 14 <= ring_first <= 18, ring_first
