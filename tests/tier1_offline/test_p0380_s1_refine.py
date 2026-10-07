@@ -583,8 +583,9 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     are written into the staging folder and replacing the level then fails:
     the error comes from inside the write step. The staging folder is
     removed and the occupying file is kept; the command exits 2 the same way.
-    Control: a stale ``.partial`` folder, which the observation sees, is
-    cleared by the next run that writes that level.
+    Control: a ``.partial`` folder the run did not create, which the
+    observation sees, is kept by the next run that writes that level, whose
+    own staging folder is gone (IND-01).
     """
     src = _source(tmp_path)
     occupied = tmp_path / "wing_R2"
@@ -599,7 +600,8 @@ def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_pat
     (stale / "stale.txt").write_bytes(b"x")
     assert _left(tmp_path) == ["wing_R0p5.partial", "wing_R2"]
     refine_mesh(src, 0.5)
-    assert _left(tmp_path) == ["wing_R0p5", "wing_R2"]
+    assert _left(tmp_path) == ["wing_R0p5", "wing_R0p5.partial", "wing_R2"]
+    assert (stale / "stale.txt").read_bytes() == b"x"
 
 
 def _resampled_while(call) -> list[str]:

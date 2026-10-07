@@ -39,6 +39,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -62,10 +63,12 @@ Points = NDArray[numpy.float64]
 BAND_SUFFIX = "~band"
 #: The trailing-edge points file of a mesh, when its boundaries file names none.
 TE_SUFFIX = _obj.TE_SUFFIX
-#: The folder a level is written into before it is renamed to its own name (FR-424 R5).
+#: The prefix of the folder a level is written into before it is renamed to its own name
+#: (FR-424 R5); a unique name the run creates and alone removes, ``<level>.partial-<random>``.
 STAGING_SUFFIX = ".partial"
-#: The name an existing level is moved to while ``overwrite`` replaces it, until the new
-#: level is in place (FR-424 R5): an error before then puts it back.
+#: The name, inside the run's own staging folder, an existing level is moved to while
+#: ``overwrite`` replaces it, until the new level is in place (FR-424 R5): an error before
+#: then puts it back.
 PREVIOUS_SUFFIX = ".previous"
 
 
@@ -730,7 +733,7 @@ def _write(
     work: _Work, folder: Path, verts: Points, faces: dict[str, Faces], te: Points
 ) -> list[Path]:
     """Write the level's files into ``folder`` and return them, the OBJ first."""
-    stem = folder.name.removesuffix(STAGING_SUFFIX)
+    stem = folder.name
     mesh = ObjMesh(
         verts, faces, list(work.mesh.header), work.mesh.family_tag, _source_text(work, verts)
     )
@@ -752,13 +755,29 @@ def _write(
 
 
 def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool) -> Path:
-    """Return the level folder, refusing an existing one unless ``overwrite`` (FR-424 R5)."""
+    """Return the level folder, refusing an existing one unless ``overwrite`` (FR-424 R5).
+
+    The level folder is never the source's folder, one holding it, or one
+    inside it, so neither ``overwrite`` nor the write reaches the source.
+    """
     root = Path(out_dir) if out_dir is not None else source.parent.parent
     folder = root / stem
-    if folder.resolve() == source.parent.resolve():
+    level, home = folder.resolve(), source.parent.resolve()
+    if level == home:
         raise _refuse(
             str(folder),
             "the level folder is the source's folder; choose another out_dir (CLI: --out-dir)",
+        )
+    if home.is_relative_to(level):
+        raise _refuse(
+            str(folder),
+            "the level folder holds the source's folder; choose another out_dir (CLI: --out-dir)",
+        )
+    if level.is_relative_to(home):
+        raise _refuse(
+            str(folder),
+            "the level folder lies inside the source's folder; choose an out_dir outside it "
+            "(CLI: --out-dir)",
         )
     if folder.exists() and not overwrite:
         raise _refuse(
@@ -851,16 +870,17 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     faces = _components(work, faces)
     work.unchanged = _unchanged_grids(work, list(faces))
     unchanged = work.unchanged
-    staging = folder.with_name(folder.name + STAGING_SUFFIX)
-    shutil.rmtree(staging, ignore_errors=True)
-    staging.mkdir(parents=True)
+    folder.parent.mkdir(parents=True, exist_ok=True)
+    # The run's own folder: created here under a unique name, and the only one it removes.
+    owned = Path(tempfile.mkdtemp(prefix=f"{folder.name}{STAGING_SUFFIX}-", dir=folder.parent))
     try:
+        staging = owned / folder.name
+        staging.mkdir()
         written = _write(work, staging, verts, faces, te)
         audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
-        _publish(staging, folder)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+        _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}")
+    finally:
+        shutil.rmtree(owned, ignore_errors=True)
     files = tuple(folder / p.name for p in (*written, audit.path))
     audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
     report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
@@ -884,15 +904,14 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
     ]
 
 
-def _publish(staging: Path, folder: Path) -> None:
+def _publish(staging: Path, folder: Path, previous: Path) -> None:
     """Rename the complete, audited staging folder to the level (FR-424 R5).
 
-    An existing level is moved aside first and removed only once the new one
-    is in place; if the rename fails, it is put back. A path that is not a
-    folder is never replaced.
+    An existing level is moved aside to ``previous``, a path inside the run's
+    own staging folder that the caller removes once the new level is in
+    place; if the rename fails, the old level is put back. A path that is not
+    a folder is never replaced.
     """
-    previous = folder.with_name(folder.name + PREVIOUS_SUFFIX)
-    shutil.rmtree(previous, ignore_errors=True)
     if folder.exists() and not folder.is_dir():
         raise FileExistsError(f"{folder} exists and is not a level folder; it was not replaced")
     if folder.exists():
@@ -903,4 +922,3 @@ def _publish(staging: Path, folder: Path) -> None:
         if previous.exists() and not folder.exists():
             previous.rename(folder)
         raise
-    shutil.rmtree(previous, ignore_errors=True)

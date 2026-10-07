@@ -336,6 +336,13 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
             f"{source} [refine] tag",
             f'{tag!r} is not a text; give the tag as a non-empty string, such as tag = "fine"',
         )
+    if tag is not None and (tag in (".", "..") or any(c in tag for c in "/\\:")):
+        raise _refuse(
+            f"{source} [refine] tag",
+            f"{tag!r} is not one folder name (no /, \\, : and not . or ..); the level folder "
+            "is <stem>_<tag> beside the source's folder, so give a name such as "
+            'tag = "fine"',
+        )
     default = refine.get("elements", TRIANGLES)
     return {
         "specs": specs,
