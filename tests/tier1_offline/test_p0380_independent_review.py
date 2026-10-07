@@ -982,7 +982,7 @@ def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rul
 
 
 def test_ind08_triangles_that_are_not_the_cells_are_no_grid():
-    """P0380-REFINE (FR-424 GRID FAMILY, R9, IND-08): the cells are checked, not assumed.
+    """P0380-REFINE (FR-424 GRID FAMILY, R9, IND-08): triangles across two cells are no grid.
 
     In the sheet split along a-c, the side shared by two neighbouring cells
     is flipped into the diagonal of the two triangles beside it: the nodes,
@@ -1001,3 +1001,90 @@ def test_ind08_triangles_that_are_not_the_cells_are_no_grid():
     faces[first], faces[second] = [a, b, f], [a, f, c]
     found = recover_grid(mesh.verts, faces, te)
     assert isinstance(found, str) and found, found
+
+
+# ------------------------------------------- IND-10 a pole fan at each end
+
+
+def _volume(verts: np.ndarray, faces: list[list[int]]) -> float:
+    """Return the signed volume the faces enclose, each face fanned from its first vertex."""
+    total = 0.0
+    for f in faces:
+        for j in range(1, len(f) - 1):
+            a, b, c = verts[f[0]], verts[f[j]], verts[f[j + 1]]
+            total += float(np.dot(a, np.cross(b, c))) / 6.0
+    return total
+
+
+def _tube_with_poles(root: bool, tip: bool, split: bool = False) -> tuple[Composite, Fixture]:
+    """Return the wing tube ``W``, each end open or closed by a fan around a pole, and its grid.
+
+    The lateral grid is ``tube_pole_triangles``' (split) or
+    ``tube_pole_quads``' with its trailing edge; the tip fan is the
+    fixture's own, and the root fan is wound like it, around a pole set
+    0.05 of the span inboard of the root section's centre.
+    """
+    from tests.p0380_mesh_fixtures import Fixture as Fx
+    from tests.p0380_mesh_fixtures import build_grid, tube_pole_triangles
+
+    if tip:
+        fx = tube_pole_triangles() if split else tube_pole_quads()
+    else:
+        fx = build_grid(Fx("tube-open", True, 9, 24, ("open", "open"), None))
+    at = {place: v for v, place in fx.place.items()}
+    n = fx.nodes
+    verts, faces = fx.verts, [list(f) for f in fx.faces]
+    if root:
+        ring = [at[(0, i)] for i in range(n)]
+        centre = verts[ring].mean(axis=0) - [0.0, 0.05, 0.0]
+        verts = np.vstack([verts, centre[None, :]])
+        pole = len(verts) - 1
+        faces += [[pole, ring[(i + 1) % n], ring[i]] for i in range(n)]
+    if root and tip and _volume(verts, faces) < 0:
+        faces = [f[::-1] for f in faces]  # a closed body encloses a positive volume (G2)
+    column = [at[(k, 0)] for k in range(fx.stations)]
+    te = 0.5 * (verts[column[:-1]] + verts[column[1:]])
+    return Composite(verts, {"W": faces}, te, {}), fx
+
+
+@pytest.mark.parametrize(
+    ("root", "tip", "split"),
+    [(False, True, False), (True, False, False), (True, True, False), (True, True, True)],
+    ids=["open-pole", "pole-open", "pole-pole", "pole-pole-split"],
+)
+def test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid(tmp_path, root, tip, split):
+    """P0380-REFINE (FR-424 GRID FAMILY, R6, R7, IND-10): either end, or both, may be a pole fan.
+
+    The wing tube of 9 stations by 24 chordwise nodes is closed by a fan of
+    triangles around a pole at the root, at the tip, or at both, its lateral
+    cells quadrilaterals or split into triangles. The grid is recovered with
+    its 9 stations (the poles apart), and through ``refine_mesh`` under
+    ``auto``: at factor 1 the level is the source's faces in order and its
+    audit passes with G6 judged; at factor 2 the intervals double (24 by 8
+    to 48 by 16), each pole closes its end with 48 triangles and the audit
+    passes (every face oriented like its neighbours, the volume positive).
+    Control: the open root and pole tip of ``tube_pole_quads``.
+    """
+    import json
+
+    from tests.p0380_mesh_fixtures import read_mesh
+
+    mesh, fx = _tube_with_poles(root, tip, split)
+    te = {v for v, (k, i) in fx.place.items() if i == 0}
+    grid = recover_grid(mesh.verts, mesh.families["W"], te)
+    assert isinstance(grid, Grid), grid
+    assert grid.layout == "tube" and grid.ids.shape == (9, 24)
+    assert sorted(grid.ends) == sorted(["pole" if root else "open", "pole" if tip else "open"])
+    src = write_source(tmp_path / "src", "wing", mesh)
+    one = refine_mesh(src, 1.0)
+    assert one.report["W"]["method"] == "grid", one.report["W"]
+    record = json.loads(one.folder.joinpath("wing_R1.refine.json").read_text(encoding="utf-8"))
+    assert one.audit.passed and record["unchanged_grids"] == ["W"]
+    assert read_mesh(one.obj)[1]["W"] == mesh.families["W"]
+    two = refine_mesh(src, 2.0)
+    report = two.report["W"]
+    assert report["method"] == "grid" and two.audit.passed, report
+    assert report["intervals"] == {"chordwise": [24, 48], "spanwise": [8, 16]}
+    cells = 48 * 16 * (2 if split else 1)
+    poles = int(root) + int(tip)
+    assert report["faces"] == [len(mesh.families["W"]), cells + 48 * poles]

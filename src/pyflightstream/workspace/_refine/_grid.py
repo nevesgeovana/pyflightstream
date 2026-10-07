@@ -4,7 +4,7 @@ A GRID FAMILY is recovered from the connectivity alone, never from the vertex
 order of the file: quadrilaterals, or quadrilaterals each split into two
 triangles, laid out as a SHEET (an open grid with four corners) or as a TUBE
 (closed chordwise) whose two ends are each OPEN (a boundary loop), closed by
-a POLE fan (triangles around one node, the far end) or closed by a ZIPPER cap
+a POLE fan (triangles around one node) or closed by a ZIPPER cap
 (a strip pairing the upper node i with the lower node n - i, a triangle at
 each end of the strip). The trailing edge is the grid line through the
 family's trailing-edge vertices; it is chordwise index 0. A SMOOTH TUBE (a
@@ -49,6 +49,7 @@ level's faces equal the source's in coordinates and in order.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections import Counter, defaultdict, deque
 from collections.abc import Collection, Iterable, Mapping
@@ -102,6 +103,9 @@ class Grid:
     smooth : bool
         A tube without trailing edge: column 0 is the seam, ``i_le`` is 0 and
         the chordwise direction is resampled by the periodic spline.
+    root_pole : int or None
+        The pole vertex of a fan closing station 0, when a fan closes both
+        ends; a single fan is always the far end's.
     """
 
     layout: str
@@ -111,6 +115,12 @@ class Grid:
     i_le: int
     cell_diag: NDArray[numpy.int64] | None
     smooth: bool = False
+    root_pole: int | None = None
+
+    @property
+    def poles(self) -> tuple[int | None, int | None]:
+        """Return the pole of each end (station 0, station K - 1), None where there is none."""
+        return self.root_pole, self.pole
 
     @property
     def wrap(self) -> bool:
@@ -138,7 +148,8 @@ class GridLevel:
     Attributes
     ----------
     points : numpy.ndarray
-        The new nodes, shape (P, 3); a pole, when there is one, is last.
+        The new nodes, shape (P, 3); the far end's pole, then station 0's,
+        when there are, are last.
     faces : list of list of int
         The new faces as indices into ``points``, in the order of R7.
     te_midpoints : numpy.ndarray
@@ -320,12 +331,13 @@ def _recover(verts: Points, faces: Faces, te: frozenset[int]) -> Grid:
     The layout is first read from the boundary: four corners, each in one
     face, make a sheet, and a boundary without corners a tube. A family of
     triangles that reading misses is then tried as a sheet of split
-    quadrilaterals, its corners read from its cells.
+    quadrilaterals, its corners read from its cells, and a family with no
+    boundary as a tube closed by a pole fan at each end.
     """
     try:
         return _from_boundary(verts, faces, te)
     except _NotAGridError:
-        grid = _split_sheet(verts, faces, te)
+        grid = _split_sheet(verts, faces, te) or _two_poles(verts, faces, te)
         if grid is None:
             raise
         return grid
@@ -490,6 +502,52 @@ def _loops(lmap: Mapping[Edge, list[int]]) -> list[list[int]]:
             loops.append(_chain_order(_component(v, badj), badj)[0])
             seen.update(loops[-1])
     return loops
+
+
+def _two_poles(verts: Points, faces: Faces, te: frozenset[int]) -> Grid | None:
+    """Return the grid of a tube closed by a fan of triangles around a pole at each end.
+
+    Such a family has no boundary, so the boundary gives no layout. A
+    candidate root pole lies only in triangles, as many as divide the
+    family's nodes less the two poles; candidates are tried by that count,
+    largest first, then from the one whose ring centre is nearest the
+    origin (the end a tube's layering starts from). Without the candidate's
+    fan the family is a tube open at that ring and closed by a pole at the
+    far end, and the fan is the triangles of that ring around the
+    candidate; the first candidate for which both hold is the root pole.
+    None when there is a boundary or no candidate holds.
+    """
+    if any(len(fs) != 2 for fs in edge_faces(faces).values()):
+        return None
+    vface = _vertex_faces(faces)
+    nodes = len(vface)
+
+    def centre(v: int) -> float:
+        ring = {u for k in vface[v] for u in faces[k] if u != v}
+        return float(numpy.linalg.norm(verts[sorted(ring)].mean(axis=0)))
+
+    candidates = sorted(
+        (
+            v
+            for v, fs in vface.items()
+            if len(fs) >= 3 and (nodes - 2) % len(fs) == 0 and all(len(faces[k]) == 3 for k in fs)
+        ),
+        key=lambda v: (-len(vface[v]), centre(v), v),
+    )
+    for root in candidates:
+        fan = set(vface[root])
+        try:
+            grid = _from_boundary(verts, [f for k, f in enumerate(faces) if k not in fan], te)
+        except _NotAGridError:
+            continue
+        n = grid.ids.shape[1]
+        ring = [int(v) for v in grid.ids[0]]
+        want = Counter(frozenset((root, ring[i], ring[(i + 1) % n])) for i in range(n))
+        if grid.ends[1] != "pole" or want != Counter(frozenset(faces[k]) for k in fan):
+            continue
+        # the rest of the family is covered by the grid and the fan by the root pole
+        return dataclasses.replace(grid, ends=("pole", "pole"), root_pole=root)
+    return None
 
 
 def _sides(perimeter: int, nodes: int) -> tuple[int, int] | None:
@@ -695,12 +753,13 @@ def _cell_diagonals(
 def _check_covers(grid: Grid, faces: Faces) -> None:
     """Refuse a grid that leaves a vertex or a face of the family out."""
     used = {v for f in faces for v in f}
-    held = set(grid.ids.ravel().tolist()) | ({grid.pole} if grid.pole is not None else set())
+    poles = {p for p in grid.poles if p is not None}
+    held = set(grid.ids.ravel().tolist()) | poles
     if used != held:
         raise _NotAGridError(f"{len(used - held)} vertices outside the grid")
     k, n = grid.ids.shape
     cells = (k - 1) * grid.intervals[0] * (1 if grid.cell_diag is None else 2)
-    expected = cells + (n if grid.pole is not None else 0) + grid.i_le * grid.ends.count("zipper")
+    expected = cells + n * len(poles) + grid.i_le * grid.ends.count("zipper")
     if expected != len(faces):
         raise _NotAGridError(f"{len(faces)} faces where the grid has {expected}")
 
@@ -884,14 +943,20 @@ def _zipper_cap(ring: list[int], h: int) -> Faces:
     return cap
 
 
-def _end_faces(sampled: _Sampled, grid: Grid, pole_index: int) -> Faces:
-    """Return the pole fan and the zipper caps of the new grid's ends."""
+def _end_faces(sampled: _Sampled, grid: Grid, poles: tuple[int | None, int | None]) -> Faces:
+    """Return the pole fans and the zipper caps of the new grid's ends.
+
+    ``poles`` holds the new index of each end's pole (station 0, the far
+    end), None where the end has none.
+    """
     out: Faces = []
-    for end, k in zip(grid.ends, (0, sampled.idx.shape[0] - 1), strict=True):
+    for end, k, pole in zip(grid.ends, (0, sampled.idx.shape[0] - 1), poles, strict=True):
         ring = [int(v) for v in sampled.idx[k]]
         nc = len(ring)
-        if end == "pole":
-            out += [[ring[i], ring[(i + 1) % nc], pole_index] for i in range(nc)]
+        if end == "pole" and pole is not None:
+            fan = [[ring[i], ring[(i + 1) % nc], pole] for i in range(nc)]
+            # station 0 runs ring[i] -> ring[i+1] in its lateral faces, so its fan runs back
+            out += [f[::-1] for f in fan] if k == 0 else fan
         elif end == "zipper":
             cap = _zipper_cap(ring, sampled.new_le)
             # station 0 runs ring[i] -> ring[i+1] in its lateral faces, so its cap runs back
@@ -937,22 +1002,25 @@ def refine_grid(
     verts = numpy.asarray(verts, dtype=float)
     sampled = _resample(verts[grid.ids], grid, chordwise, spanwise)
     points = sampled.nodes.reshape(-1, 3)
-    if grid.pole is not None:
-        points = numpy.vstack([points, verts[grid.pole][None, :]])
-    copied = _identity_copy(grid, faces, sampled, verts[grid.ids], len(points) - 1)
+    new_poles: list[int | None] = [None, None]
+    for end in (1, 0):
+        pole = grid.poles[end]
+        if pole is not None:
+            points = numpy.vstack([points, verts[pole][None, :]])
+            new_poles[end] = len(points) - 1
+    poles = (new_poles[0], new_poles[1])
+    copied = _identity_copy(grid, faces, sampled, verts[grid.ids], poles)
     if copied is not None:
         ordered, swept_order = copied, _source_sweep(grid, faces) is not None
     else:
-        built = _lateral_faces(sampled, grid) + _end_faces(sampled, grid, len(points) - 1)
+        built = _lateral_faces(sampled, grid) + _end_faces(sampled, grid, poles)
         built = orient_like(points, built, verts, faces)
         swept = _emit_like(grid, faces, sampled, built, (points, verts))
         ordered = swept if swept is not None else order_like(points, built, verts, faces)
         swept_order = swept is not None
         if grid.wrap:
-            new = _EndFrame.of(
-                sampled.idx, sampled.new_le, len(points) - 1 if grid.pole is not None else None
-            )
-            old = _EndFrame.of(grid.ids, grid.i_le, grid.pole)
+            new = _EndFrame.of(sampled.idx, sampled.new_le, poles)
+            old = _EndFrame.of(grid.ids, grid.i_le, grid.poles)
             ordered = _align_end_rotation(ordered, new, old, faces, (points, verts))
     te = 0.5 * (sampled.nodes[:-1, 0] + sampled.nodes[1:, 0])
     if grid.smooth:
@@ -962,7 +1030,11 @@ def refine_grid(
 
 
 def _identity_copy(
-    grid: Grid, faces: Faces, sampled: _Sampled, source: Points, pole_index: int
+    grid: Grid,
+    faces: Faces,
+    sampled: _Sampled,
+    source: Points,
+    poles: tuple[int | None, int | None],
 ) -> Faces | None:
     """Return the source's faces on the new nodes when the resampling kept every node (R7).
 
@@ -974,8 +1046,9 @@ def _identity_copy(
     if not numpy.array_equal(sampled.nodes, source):
         return None
     new_of = {int(v): int(w) for v, w in zip(grid.ids.ravel(), sampled.idx.ravel(), strict=True)}
-    if grid.pole is not None:
-        new_of[int(grid.pole)] = pole_index
+    for old, new in zip(grid.poles, poles, strict=True):
+        if old is not None and new is not None:
+            new_of[int(old)] = new
     return [[new_of[v] for v in f] for f in faces]
 
 
@@ -1143,19 +1216,22 @@ class _EndFrame:
     vmap: dict[int, tuple[int, int]]
     h: int
     nc: int
-    pole: int | None
+    poles: tuple[int, ...]
 
     @classmethod
-    def of(cls, ids: NDArray[numpy.int64], h: int, pole: int | None) -> _EndFrame:
-        """Return the frame of a grid's first and last stations."""
+    def of(
+        cls, ids: NDArray[numpy.int64], h: int, poles: tuple[int | None, int | None]
+    ) -> _EndFrame:
+        """Return the frame of a grid's first and last stations and its poles."""
         rings = {0: ids[0], 1: ids[-1]}
         vmap = {int(v): (e, p) for e, r in rings.items() for p, v in enumerate(r)}
-        return cls(vmap, h, ids.shape[1], pole)
+        return cls(vmap, h, ids.shape[1], tuple(int(p) for p in poles if p is not None))
 
     def roles(self, face: list[int]) -> tuple[int, str, list[str]] | None:
         """Return (end, kind, role of each vertex) of an end face, or None for a lateral face."""
-        if self.pole is not None and self.pole in face:
-            return self._fan(face)
+        pole = next((p for p in self.poles if p in face), None)
+        if pole is not None:
+            return self._fan(face, pole)
         m = [self.vmap.get(v) for v in face]
         located = [x for x in m if x is not None]
         if len(located) != len(face) or len({e for e, _ in located}) != 1:
@@ -1168,15 +1244,15 @@ class _EndFrame:
         lo = sorted((p for p in pos if p > self.h), reverse=True)
         return located[0][0], kind, [_cap_role(p, self.h, kind == "quad", up, lo) for p in pos]
 
-    def _fan(self, face: list[int]) -> tuple[int, str, list[str]] | None:
+    def _fan(self, face: list[int], pole: int) -> tuple[int, str, list[str]] | None:
         """Return the roles of a fan triangle: the pole, then the ring nodes in ring order."""
-        ring = [self.vmap.get(v) for v in face if v != self.pole]
+        ring = [self.vmap.get(v) for v in face if v != pole]
         located = [x for x in ring if x is not None]
         if len(located) != 2 or located[0][0] != located[1][0]:
             return None
         (e, p), (_, q) = located
         r0 = p if (p + 1) % self.nc == q else q
-        roles = ["P" if v == self.pole else ("R0" if self.vmap[v][1] == r0 else "R1") for v in face]
+        roles = ["P" if v == pole else ("R0" if self.vmap[v][1] == r0 else "R1") for v in face]
         return e, "fan", roles
 
 
