@@ -886,7 +886,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         staging.mkdir()
         written = _write(work, staging, verts, faces, te)
         audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
-        _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}")
+        _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}", overwrite)
     finally:
         _release(owned, folder)
     files = tuple(folder / p.name for p in (*written, audit.path))
@@ -934,14 +934,22 @@ def _release(owned: Path, folder: Path) -> None:
     shutil.rmtree(owned, ignore_errors=True)
 
 
-def _publish(staging: Path, folder: Path, previous: Path) -> None:
+def _publish(staging: Path, folder: Path, previous: Path, overwrite: bool) -> None:
     """Rename the complete, audited staging folder to the level (FR-424 R5).
 
     An existing level is moved aside to ``previous``, a path inside the run's
     own staging folder that the caller removes once the new level is in
     place; if the rename fails, the old level is put back. A path that is not
-    a folder is never replaced.
+    a folder is never replaced. Without ``overwrite``, a level that appeared
+    after :func:`_place` checked is refused as there, and the caller removes
+    only the run's own folder.
     """
+    if not overwrite and (folder.exists() or folder.is_symlink()):
+        raise _refuse(
+            str(folder),
+            "the level appeared while the run wrote it, and was kept; give overwrite=True "
+            "(--overwrite) to replace it",
+        )
     if folder.exists() and not folder.is_dir():
         raise FileExistsError(f"{folder} exists and is not a level folder; it was not replaced")
     if folder.exists():

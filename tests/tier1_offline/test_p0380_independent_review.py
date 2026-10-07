@@ -724,3 +724,44 @@ def test_ind01_a_level_folder_outside_out_dir_is_refused(tmp_path):
         with pytest.raises(InputArtifactError, match="not a folder directly inside"):
             _place(src, "wing_R-A/../../victim1", levels, overwrite)
     assert _place(src, "wing_R-A1", levels, False) == levels / "wing_R-A1"
+
+
+# ------------------------------------- IND2-03 a level that appears meanwhile
+
+
+def _level_appears_during_the_audit(monkeypatch, folder: Path) -> None:
+    """Make another writer create ``folder``, holding a file, while the run audits its level."""
+    import pyflightstream.workspace._refine._level as level_module
+
+    real = level_module.audit_mesh
+
+    def audit(*args, **kwargs):
+        _sentinel(folder)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(level_module, "audit_mesh", audit)
+
+
+def test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced(tmp_path, monkeypatch):
+    """P0380-REFINE (FR-424 R5, IND2-03): without overwrite, a level made meanwhile is kept.
+
+    The level folder does not exist when the run starts, and another writer
+    creates it, holding a file, while the run audits its staged level. The
+    publish refuses, naming the folder and ``overwrite``: the folder is kept
+    byte for byte and the run leaves no folder of its own. Control: the same
+    race with ``overwrite`` replaces it with the level.
+    """
+    src = _source(tmp_path / "src")
+    folder = tmp_path / "wing_R2"
+    _level_appears_during_the_audit(monkeypatch, folder)
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 2.0)
+    text = str(caught.value)
+    assert text.startswith(f"{folder}: the level appeared while the run wrote it"), text
+    assert "overwrite=True (--overwrite)" in text
+    assert _tree(folder) == {"keep.txt": b"not the refinement's"}
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src", "wing_R2"]
+    shutil.rmtree(folder)
+    level = refine_mesh(src, 2.0, overwrite=True)
+    assert level.obj.is_file() and not (folder / "keep.txt").exists()
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src", "wing_R2"]
