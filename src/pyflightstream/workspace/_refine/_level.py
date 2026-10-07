@@ -758,12 +758,19 @@ def _write(
 def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool) -> Path:
     """Return the level folder, refusing an existing one unless ``overwrite`` (FR-424 R5).
 
-    The level folder is never the source's folder, one holding it, or one
-    inside it, so neither ``overwrite`` nor the write reaches the source.
+    The level folder is a folder directly inside ``out_dir``, whatever gave
+    its name, and never the source's folder, one holding it, or one inside
+    it, so neither ``overwrite`` nor the write reaches anything else.
     """
     root = Path(out_dir) if out_dir is not None else source.parent.parent
     folder = root / stem
     level, home = folder.resolve(), source.parent.resolve()
+    if Path(stem).name != stem or level.parent != root.resolve():
+        raise _refuse(
+            str(folder),
+            f"the level folder is not a folder directly inside out_dir {root}; give the level "
+            'one folder name as [refine] tag = "fine" in the refinement file (--config)',
+        )
     if level == home:
         raise _refuse(
             str(folder),
@@ -851,7 +858,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         spanwise=spanwise,
         config=config,
     )
-    stem = f"{source.stem}_{_config.level_tag(request, list(obj.families))}"
+    stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
     work.sidecar = _boundaries_text(work, stem)

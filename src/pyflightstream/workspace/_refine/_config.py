@@ -131,6 +131,29 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
     return InputArtifactError(f"{where}: {reason}. Nothing was written.", kind=KIND)
 
 
+#: The characters a level's folder name never holds (FR-424 R5): the path separators,
+#: the drive colon and the characters Windows reserves in a file name.
+UNSAFE_CHARACTERS = '/\\:<>"|?*'
+
+
+def folder_name_problem(name: str) -> str | None:
+    """Return why ``name`` is not one portable folder name, or None when it is (FR-424 R5).
+
+    A name holding a path separator, a drive colon, a character Windows
+    reserves, a control character or ``..``, a name that is ``.``, and a name
+    ending with a dot or a space (which Windows drops, naming another folder)
+    are not one.
+    """
+    bad = sorted({c for c in name if c in UNSAFE_CHARACTERS or ord(c) < 32})
+    if bad:
+        return f"holds {' '.join(repr(c) for c in bad)}"
+    if name == "." or ".." in name:
+        return "is . or holds .."
+    if name != name.rstrip(". "):
+        return "ends with a dot or a space"
+    return None
+
+
 def positive(where: str, value: Any) -> float:
     """Return a factor as a float, refusing anything but a finite number above zero (R1)."""
     if isinstance(value, bool) or not isinstance(value, int | float):
@@ -336,12 +359,13 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
             f"{source} [refine] tag",
             f'{tag!r} is not a text; give the tag as a non-empty string, such as tag = "fine"',
         )
-    if tag is not None and (tag in (".", "..") or any(c in tag for c in "/\\:")):
+    problem = None if tag is None else folder_name_problem(tag)
+    if problem is not None:
         raise _refuse(
             f"{source} [refine] tag",
-            f"{tag!r} is not one folder name (no /, \\, : and not . or ..); the level folder "
-            "is <stem>_<tag> beside the source's folder, so give a name such as "
-            'tag = "fine"',
+            f'{tag!r} {problem}, so it is not one folder name (no / \\ : < > " | ? *, no .., '
+            "not ending with a dot or a space); the level folder is <stem>_<tag> beside the "
+            'source\'s folder, so give a name such as tag = "fine"',
         )
     default = refine.get("elements", TRIANGLES)
     return {
@@ -461,11 +485,26 @@ def spec_tag(spec: FamilySpec) -> str:
     return tag
 
 
-def level_tag(request: RefineRequest, names: Sequence[str]) -> str:
-    """Return the level's tag: the file's, else ``R<factors>``, else ``R-<family><factors>-...``."""
+def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
+    """Return the level's tag: the file's, else ``R<factors>``, else ``R-<family><factors>-...``.
+
+    A tag built from family names is one folder name (FR-424 R5): a family
+    whose name would put a path separator, ``..``, a drive or a reserved
+    character into it is refused naming the family, before any work (R11).
+    """
     if request.tag:
         return str(request.tag)
     tags = {n: spec_tag(s) for n, s in request.specs.items()}
     if set(request.specs) == set(names) and len(set(tags.values())) == 1:
         return "R" + next(iter(tags.values()))
-    return "R-" + "-".join(f"{n}{tags[n]}" for n in names if n in request.specs)
+    tag = "R-" + "-".join(f"{n}{tags[n]}" for n in names if n in request.specs)
+    for name in (n for n in names if n in request.specs):
+        problem = folder_name_problem(f"R-{name}{tags[name]}")
+        if problem is not None:
+            raise _refuse(
+                where,
+                f"the family {name!r} {problem}, so the level's tag {tag!r} would not be one "
+                "folder name; rename the family, or give the level its name in the refinement "
+                'file (--config) as [refine] tag = "fine"',
+            )
+    return tag

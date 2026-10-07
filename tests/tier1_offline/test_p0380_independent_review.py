@@ -644,3 +644,83 @@ def test_ind09_statements_separated_by_tabs_are_read_whole(tmp_path):
     first = refine_mesh(spaced, 1.0, out_dir=tmp_path / "la")
     second = refine_mesh(tabbed, 1.0, out_dir=tmp_path / "lb")
     assert first.obj.read_bytes() == second.obj.read_bytes()
+
+
+# ------------------------------- IND-01 (second part) and IND2-02 family tags
+
+
+UNSAFE_FAMILIES = ["A/../../victim", "A\\..\\..\\victim", "A..B", "C:victim", "A<B", "A|B", "A?B"]
+
+
+@pytest.mark.parametrize("overwrite", [False, True])
+@pytest.mark.parametrize("family", UNSAFE_FAMILIES)
+def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
+    tmp_path, capsys, family, overwrite
+):
+    """P0380-REFINE (FR-424 R5, R11, IND-01, IND2-02): a family name never leaves out_dir.
+
+    The family whose name holds a path separator, ``..``, a drive colon or a
+    reserved character is the only one refined, so its name would enter the
+    level's tag ``R-<family><factor>``. ``study/victim1``, where the path
+    ``study/levels/wing_R-A/../../victim1`` resolves, holds an unrelated
+    file. Both routes refuse before any work, naming the family, with and
+    without ``overwrite``; every file under the study is kept byte for byte.
+    Control: the same mesh with the family named ``A`` writes
+    ``study/levels/wing_R-A1``.
+    """
+    mesh = sheet_with_strips([("B", "quad", [0.1, 0.1])], grid=family)
+    src = write_source(tmp_path / "study" / "src", "wing", mesh, boundaries=False)
+    _sentinel(tmp_path / "study" / "victim1")
+    levels = tmp_path / "study" / "levels"
+    before = _tree(tmp_path / "study")
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 1.0, families=[family], out_dir=levels, overwrite=overwrite)
+    text = str(caught.value)
+    assert f"the family {family!r}" in text and "one folder name" in text, text
+    assert text.endswith("Nothing was written.")
+    argv = ["refine", str(src), "1", "--families", family, "--out-dir", str(levels)]
+    capsys.readouterr()
+    assert cli.main(argv + (["--overwrite"] if overwrite else [])) == 2
+    assert text in capsys.readouterr().err
+    assert _tree(tmp_path / "study") == before and not levels.exists()
+    plain = sheet_with_strips([("B", "quad", [0.1, 0.1])], grid="A")
+    src = write_source(tmp_path / "plain", "wing", plain)
+    assert refine_mesh(src, 1.0, families=["A"], out_dir=levels).folder == levels / "wing_R-A1"
+
+
+@pytest.mark.parametrize("tag", ["a<b", "a|b", "a?b", "a*b", "fine.", "fine ", "a..b"])
+def test_ind01_a_tag_holding_a_reserved_character_is_refused(tmp_path, tag):
+    """P0380-REFINE (FR-424 R3, R5, IND2-02): ``[refine] tag`` is one portable folder name.
+
+    A tag holding a character Windows reserves, ``..``, or ending with a dot
+    or a space (which Windows drops, naming another folder) is refused naming
+    the file, the table and the key, before any work. Control: ``fine``.
+    """
+    src = _source(tmp_path / "src", refine_toml=f'[refine]\ntag = "{tag}"\n')
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 2.0)
+    text = str(caught.value)
+    assert f"{src.with_suffix('.refine.toml')} [refine] tag" in text
+    assert "one folder name" in text and text.endswith("Nothing was written.")
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+    src.with_suffix(".refine.toml").write_bytes(b'[refine]\ntag = "fine"\n')
+    assert refine_mesh(src, 2.0).folder == tmp_path / "wing_fine"
+
+
+def test_ind01_a_level_folder_outside_out_dir_is_refused(tmp_path):
+    """P0380-REFINE (FR-424 R5, IND-01): the level is always a direct child of out_dir.
+
+    Whatever produced the level's name, ``_place`` refuses a folder whose
+    resolved parent is not the resolved ``out_dir``, with and without
+    ``overwrite``, so an unrelated folder there is never replaced. Control:
+    a plain name is placed under ``out_dir``.
+    """
+    from pyflightstream.workspace._refine._level import _place
+
+    src = _source(tmp_path / "study" / "src")
+    _sentinel(tmp_path / "study" / "victim1")
+    levels = tmp_path / "study" / "levels"
+    for overwrite in (False, True):
+        with pytest.raises(InputArtifactError, match="not a folder directly inside"):
+            _place(src, "wing_R-A/../../victim1", levels, overwrite)
+    assert _place(src, "wing_R-A1", levels, False) == levels / "wing_R-A1"
