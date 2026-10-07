@@ -769,7 +769,8 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
         raise _refuse(
             str(folder),
             f"the level folder is not a folder directly inside out_dir {root}; give the level "
-            'one folder name as [refine] tag = "fine" in the refinement file (--config)',
+            'one folder name as [refine] tag = "fine" in the refinement file '
+            "config (CLI: --config)",
         )
     if level == home:
         raise _refuse(

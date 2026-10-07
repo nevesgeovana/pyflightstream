@@ -505,6 +505,6 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
                 where,
                 f"the family {name!r} {problem}, so the level's tag {tag!r} would not be one "
                 "folder name; rename the family, or give the level its name in the refinement "
-                'file (--config) as [refine] tag = "fine"',
+                'file config (CLI: --config) as [refine] tag = "fine"',
             )
     return tag
