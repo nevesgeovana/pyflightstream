@@ -834,3 +834,34 @@ def test_ind11_the_audit_json_never_overwrites_a_file_the_audit_reads(tmp_path, 
     plain, plain_src = _csv_case(tmp_path / "control")
     assert audit_mesh(plain, against=plain_src).passed
     assert plain.with_name("wing.audit.json").is_file()
+
+
+# ------------------------------- IND2-01 --csv never names the level's record
+
+
+@pytest.mark.parametrize("target", ["level/wing.refine.json", "level/../level/wing.refine.json"])
+def test_ind2_01_csv_naming_the_levels_refine_json_is_refused(tmp_path, capsys, target):
+    """P0380-AUDIT (FR-426 R1, IND2-01): ``--csv`` never truncates the record the audit reads.
+
+    The audited level holds ``<stem>.refine.json``, which the audit reads
+    for its components and unchanged grids. ``--csv`` naming it, directly or
+    spelled otherwise, is refused before the audit: exit 2, the refusal names
+    the record, and every file is kept byte for byte. Control: a CSV
+    elsewhere is written and the command exits 0.
+    """
+    level, src = _csv_case(tmp_path)
+    level.with_name("wing.refine.json").write_bytes(b'{"schema_version": 1, "families": {}}\n')
+    before = _tree(tmp_path)
+    csv = tmp_path / target
+    capsys.readouterr()
+    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--csv", str(csv)])
+    err = capsys.readouterr().err
+    assert code == 2, err
+    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --csv names ")]
+    assert len(said) == 1 and "refinement record" in said[0], err
+    assert said[0].endswith("Nothing was written.")
+    assert _tree(tmp_path) == before
+    code = cli.main(
+        ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
+    )
+    assert code == 0 and (tmp_path / "f.csv").is_file()

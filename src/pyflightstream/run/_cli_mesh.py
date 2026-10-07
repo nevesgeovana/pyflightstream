@@ -142,14 +142,17 @@ def _csv_collision(csv: str | None, mesh: str, against: str | None) -> str | Non
     """Return the refusal of a ``--csv`` file the command reads or writes, before anything is.
 
     The CSV must not be the audited OBJ, the source of ``--against``, a
-    boundaries or trailing-edge points file either is read with, or the
-    audit JSON written beside the OBJ (FR-426 R1), under any spelling.
+    boundaries or trailing-edge points file either is read with, the OBJ's
+    ``<stem>.refine.json`` (its refinement record, which the audit reads), or
+    the audit JSON written beside the OBJ (FR-426 R1), under any spelling.
     """
     if csv is None:
         return None
     target = Path(csv)
     audit = Path(mesh).with_name(f"{Path(mesh).stem}.audit.json")
+    record = Path(mesh).with_name(f"{Path(mesh).stem}.refine.json")
     taken = [(f"mesh {what}", path) for what, path in _read_by_the_audit(mesh)]
+    taken.append(("mesh its refinement record", record))
     taken += [(f"--against source {what}", path) for what, path in _read_by_the_audit(against)]
     taken.append(("the audit JSON the command writes", audit))
     for what, path in taken:
