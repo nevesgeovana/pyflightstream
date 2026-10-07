@@ -474,3 +474,82 @@ def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, 
         ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
     )
     assert code == 0 and (tmp_path / "f.csv").is_file()
+
+
+# ------------------------------------------ IND-07 when the audit warns, said
+
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+def _known_limitations() -> str:
+    """Return the Known limitations of the CHANGELOG's 0.38.0 entry."""
+    text = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    entry = text[text.index("## [0.38.0]") :]
+    entry = entry[: entry.index("## [", 5)]
+    return entry[entry.index("### Known limitations") :]
+
+
+def test_ind07_the_limitations_say_when_the_audit_warns_and_never_by_construction():
+    """P0380-AUDIT (FR-426 R3, FR-428, IND-07): a warning comes from a figure above its limit.
+
+    The 0.38.0 Known limitations, the mesh how-to and reference, and the
+    FR-428 evidence no longer say that a stretched body or a quad-dominant
+    level warns by construction or on every level; the limitations state the
+    limits of FR-426 R3 and ask the reader to read the reported values.
+    """
+    pages = {
+        "CHANGELOG.md": _known_limitations(),
+        "docs/mesh/how-to.md": (REPO / "docs/mesh/how-to.md").read_text(encoding="utf-8"),
+        "docs/mesh/reference.md": (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8"),
+        "docs/srs/functional-requirements.md": (
+            REPO / "docs/srs/functional-requirements.md"
+        ).read_text(encoding="utf-8"),
+    }
+    for name, text in pages.items():
+        flat = " ".join(text.split())
+        for claim in ("warns by construction", "warns on every level", "by construction; the"):
+            assert claim not in flat, (name, claim)
+    limits = " ".join(pages["CHANGELOG.md"].split())
+    assert "the source's plus 0.05" in limits and "read the reported values" in limits
+
+
+def test_ind07_a_paired_square_mesh_passes_the_relative_checks(tmp_path):
+    """P0380-AUDIT (FR-426 R3, IND-07): quad-dominant is not a warning by construction.
+
+    Two right triangles per square of a planar grid, paired into the square
+    quadrilaterals, lower the skewness (0.25 to 0) and keep every area ratio
+    at 1: the audit against the triangulated source passes every gate and
+    check with no warning. Control: the same quads with one square moved off
+    the plane fail the warp check.
+    """
+    import warnings
+
+    nodes = [f"v {x} {y} 0" for y in range(3) for x in range(3)]
+
+    def at(x: int, y: int) -> int:
+        return 3 * y + x + 1
+
+    squares = [
+        (at(x, y), at(x + 1, y), at(x + 1, y + 1), at(x, y + 1)) for y in range(2) for x in range(2)
+    ]
+    tris = [f"f {a} {b} {c}" for a, b, c, d in squares] + [
+        f"f {a} {c} {d}" for a, b, c, d in squares
+    ]
+    quads = [f"f {a} {b} {c} {d}" for a, b, c, d in squares]
+    (tmp_path / "src").mkdir()
+    (tmp_path / "lvl").mkdir()
+    source = tmp_path / "src" / "plate.obj"
+    level = tmp_path / "lvl" / "plate.obj"
+    source.write_bytes(_lines([*nodes, "g S", *tris]))
+    level.write_bytes(_lines([*nodes, "g S", *quads]))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        audit = audit_mesh(level, against=source)
+    assert audit.passed
+    nodes[at(2, 2) - 1] = "v 2 2 0.5"
+    level.write_bytes(_lines([*nodes, "g S", *quads]))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        bent = audit_mesh(level, against=source)
+    assert any(i.name == "warp" and not i.passed for i in bent.checks)

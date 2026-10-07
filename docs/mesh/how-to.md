@@ -244,9 +244,10 @@ nodes are smoothed along the surface. `refine.json` reports per family the
 elements, the quads, the triangles and the quad share. An unknown value, and
 `elements` on a table that states `method = "grid"`, are refused; on a family
 that `"auto"` resolves to a grid the key is ignored and `refine.json` says so.
-The audit's size growth and skewness checks read a quadrilateral beside a
-triangle as a size jump and a paired rhombus as skewed, so a quad-dominant
-level warns by construction; the level is written.
+Pairing can raise the audit's size growth and skewness figures, since a
+quadrilateral beside a triangle reads as a size jump and a paired rhombus as
+skewed; the audit warns only when a figure exceeds its limit, and the level
+is written. Read the reported values in the audit.
 
 ### Factor 1
 

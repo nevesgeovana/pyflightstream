@@ -837,17 +837,21 @@ Each of these is imported from `pyflightstream.workspace`.
 
 ### Limits of the refinement
 
-- **A stretched body warns on skewness.** The relative skewness check warns on
-  every level of a body refined with different `axial` and `circumferential`
-  factors, because a stretched face is skewed against an isotropic source by
-  construction. The level is written; the warning is the stretch asked for.
+- **A stretched body can warn on skewness.** A body refined with different
+  `axial` and `circumferential` factors stretches its faces, and the relative
+  skewness check warns when the level's 95th percentile exceeds the source's
+  plus 0.05, as it did on the tested cylinder at axial 2 with circumferential
+  1 and the reverse. The level is written; read the reported values before
+  taking the warning for the stretch asked for.
 - **A grid that mixes cells is remeshed.** A lateral grid that mixes
   quadrilateral and triangulated cells is remeshed under `method = "auto"` and
   refused under `method = "grid"` naming the reason; a family of quadrilaterals
   only is recovered as one grid, a smooth tube or a multiblock.
-- **Quad-dominant levels warn.** The audit's growth and skewness checks read a
-  quadrilateral beside a triangle as a size jump and a paired rhombus as
-  skewed, so a quad-dominant level warns by construction.
+- **Quad-dominant levels can warn.** The audit's growth and skewness checks
+  read a quadrilateral beside a triangle as a size jump and a paired rhombus
+  as skewed, so pairing can raise both figures; the tested two-family plate
+  at factor 2 warned on both. A warning comes only from a figure above its
+  limit; read the reported values.
 - **A multiblock patch side is continuous, not smooth.** No spline crosses it.
 - **Factor 1.** Under `method = "auto"` a family at factor 1 is copied; a
   family that states `method = "remesh"` is remeshed at any factor.

@@ -160,16 +160,22 @@ FlightStream versions.
 
 ### Known limitations
 
-- The relative skewness check of the audit warns on every level of a body refined with
-  different `axial` and `circumferential` factors: a stretched face is skewed against an
-  isotropic source by construction. The level is written; read the warning as the stretch
-  asked for (FR-428).
+- The audit's relative checks warn only when a level's 95th percentile exceeds its limit:
+  the skewness above the source's plus 0.05, the warp and the size growth above the larger
+  of the source's and 10 degrees or 2 (FR-426 R3). A body refined with different `axial` and
+  `circumferential` factors stretches its faces and can exceed the skewness limit: on the
+  tested cylinder, axial 2 with circumferential 1 and the reverse both warned (95th
+  percentile 0.42 and 0.49 against the source's 0.017, limit 0.067). The level is written;
+  read the reported values before taking a warning for the stretch asked for (FR-428).
 - A lateral grid that mixes quadrilateral and triangulated cells is remeshed under `auto` (a
   family of quadrilaterals only is recovered as one grid, a smooth tube or a multiblock), and
   refused under `method = "grid"` naming the reason (FR-424 R9).
-- The audit's growth and skewness checks read a quadrilateral beside a triangle as a size jump
-  and a paired rhombus as skewed, so quad-dominant levels warn by construction (FR-424 R17,
-  FR-426).
+- Pairing remeshed triangles into quadrilaterals can raise the audit's growth and skewness
+  figures, a quadrilateral beside a triangle reading as a size jump and a paired rhombus as
+  skewed: the tested two-family plate remeshed quad-dominant at factor 2 warned on both
+  (skewness 0.47 to 0.50 against a limit of 0.35, growth 2.2 to 2.7 against a limit of 2).
+  A quad-dominant level warns only when its figures exceed the limits; read the reported
+  values (FR-424 R17, FR-426 R3).
 - Across a multiblock patch side the surface is continuous, not smooth: no spline crosses it
   (FR-424 R16).
 - A triangulated tip cap (any triangulation other than a pole fan or a zipper) is not part of
