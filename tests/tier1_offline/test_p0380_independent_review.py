@@ -606,3 +606,41 @@ def test_ind01_a_level_that_cannot_be_put_back_is_kept_and_named(tmp_path, monke
         refine_mesh(src, 2.0, overwrite=True)
     kept = [p for p in tmp_path.iterdir() if p.name.startswith("wing_R2.partial-")]
     assert len(kept) == 1 and _tree(kept[0] / "wing_R2.previous") == old
+
+
+# ------------------------------------------- IND-09 any whitespace separates
+
+
+def _tabbed(text: str) -> str:
+    """Return the OBJ text with the keyword of every other v, f and g line ended by a tab."""
+    out = []
+    for number, line in enumerate(text.splitlines()):
+        keyword, _, rest = line.partition(" ")
+        if keyword in ("v", "f", "g") and number % 2:
+            line = f"{keyword}\t{rest}" if number % 4 == 1 else f"{keyword} \t {rest}"
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def test_ind09_statements_separated_by_tabs_are_read_whole(tmp_path):
+    """P0380-REFINE and P0380-AUDIT (FR-424 R4, R7, FR-426 R1, IND-09): a tab separates too.
+
+    The fixture's OBJ is written again with every other ``v``, ``f`` and
+    ``g`` line's keyword followed by a tab, or by spaces and a tab. The mesh
+    read holds every vertex, face and family of the space-separated one, the
+    audit gives the same figures, and the factor-1 level is the same bytes.
+    Control: the space-separated source itself.
+    """
+    from pyflightstream.workspace._refine._obj import read_obj
+
+    spaced = _source(tmp_path / "a")
+    tabbed = _source(tmp_path / "b")
+    tabbed.write_bytes(_tabbed(spaced.read_text(encoding="utf-8")).encode("utf-8"))
+    assert "\t" in tabbed.read_text(encoding="utf-8")
+    one, two = read_obj(spaced), read_obj(tabbed)
+    assert np.array_equal(one.verts, two.verts) and one.families == two.families
+    assert one.vertex_text == two.vertex_text
+    assert audit_mesh(tabbed).as_json()["figures"] == audit_mesh(spaced).as_json()["figures"]
+    first = refine_mesh(spaced, 1.0, out_dir=tmp_path / "la")
+    second = refine_mesh(tabbed, 1.0, out_dir=tmp_path / "lb")
+    assert first.obj.read_bytes() == second.obj.read_bytes()

@@ -109,8 +109,12 @@ def read_obj(path: str | Path) -> ObjMesh:
 def _statement(
     where: str, s: str, verts: list[tuple[float, float, float]], mesh: ObjMesh, current: str
 ) -> str:
-    """Read one ``v``, ``f``, ``g`` or ``o`` statement into the mesh; return the current family."""
-    tag, _, rest = s.partition(" ")
+    """Read one ``v``, ``f``, ``g`` or ``o`` statement into the mesh; return the current family.
+
+    The keyword is separated from its arguments by any whitespace, a tab included.
+    """
+    tag, *more = s.split(None, 1)
+    rest = more[0] if more else ""
     if tag == "v":
         words = rest.split()
         if len(words) < 3:
