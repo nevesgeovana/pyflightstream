@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli
 from pyflightstream.workspace import audit_mesh, refine_mesh
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
@@ -553,3 +553,56 @@ def test_ind07_a_paired_square_mesh_passes_the_relative_checks(tmp_path):
         warnings.simplefilter("ignore")
         bent = audit_mesh(level, against=source)
     assert any(i.name == "warp" and not i.passed for i in bent.checks)
+
+
+def _failing_renames(monkeypatch, fail_put_back):
+    """Make the publish rename fail, and with ``fail_put_back`` the put-back too."""
+    real = Path.rename
+
+    def rename(self, target):
+        target = Path(target)
+        moving_staging = self.parent.name.startswith("wing_R2.partial-") and self.name == "wing_R2"
+        putting_back = self.name.endswith(".previous") and target.name == "wing_R2"
+        if moving_staging or (fail_put_back and putting_back):
+            raise OSError("simulated rename failure")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "rename", rename)
+
+
+def test_ind01_a_failed_publish_puts_the_previous_level_back(tmp_path, monkeypatch):
+    """P0380-REFINE (FR-424 R5, IND-01): the old level survives a publish that fails.
+
+    An existing level is set aside, the rename of the new one fails, and the
+    old level is back at its path byte for byte, with no folder of the run
+    left. Control: without the failure the level is replaced.
+    """
+    src = _source(tmp_path / "src")
+    refine_mesh(src, 2.0)
+    (tmp_path / "wing_R2" / "planted.txt").write_bytes(b"old")
+    old = _tree(tmp_path / "wing_R2")
+    _failing_renames(monkeypatch, fail_put_back=False)
+    with pytest.raises(OSError):
+        refine_mesh(src, 2.0, overwrite=True)
+    assert _tree(tmp_path / "wing_R2") == old
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src", "wing_R2"]
+    monkeypatch.undo()
+    refine_mesh(src, 2.0, overwrite=True)
+    assert not (tmp_path / "wing_R2" / "planted.txt").exists()
+
+
+def test_ind01_a_level_that_cannot_be_put_back_is_kept_and_named(tmp_path, monkeypatch):
+    """P0380-REFINE (FR-424 R5, IND-01): when the old level cannot be put back, it is not removed.
+
+    Both the publish and the put-back fail: the run's folder is kept with the
+    old level inside it, byte for byte, and a warning names where it is.
+    """
+    src = _source(tmp_path / "src")
+    refine_mesh(src, 2.0)
+    (tmp_path / "wing_R2" / "planted.txt").write_bytes(b"old")
+    old = _tree(tmp_path / "wing_R2")
+    _failing_renames(monkeypatch, fail_put_back=True)
+    with pytest.warns(PyflightstreamWarning, match="put back"), pytest.raises(OSError):
+        refine_mesh(src, 2.0, overwrite=True)
+    kept = [p for p in tmp_path.iterdir() if p.name.startswith("wing_R2.partial-")]
+    assert len(kept) == 1 and _tree(kept[0] / "wing_R2.previous") == old

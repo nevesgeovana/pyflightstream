@@ -41,6 +41,7 @@ import re
 import shutil
 import tempfile
 import tomllib
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,7 +51,7 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
@@ -880,7 +881,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         audit = audit_mesh(written[0], against=source, unchanged_grids=unchanged)
         _publish(staging, folder, owned / f"{folder.name}{PREVIOUS_SUFFIX}")
     finally:
-        shutil.rmtree(owned, ignore_errors=True)
+        _release(owned, folder)
     files = tuple(folder / p.name for p in (*written, audit.path))
     audit = dataclasses.replace(audit, mesh=files[0], path=files[-1])
     report = json.loads(files[-2].read_text(encoding="utf-8"))["families"]
@@ -902,6 +903,28 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
         if (n in components and all(m in ones for m in components[n]))
         or (n not in components and n in ones)
     ]
+
+
+def _release(owned: Path, folder: Path) -> None:
+    """Remove the run's own folder, never with an old level still inside it (FR-424 R5).
+
+    When a publish failed and the old level is still set aside in the run's
+    folder, it is put back first; when that also fails, the run's folder is
+    kept, holding the old level, and a warning names it.
+    """
+    previous = owned / f"{folder.name}{PREVIOUS_SUFFIX}"
+    if previous.exists() and not folder.exists():
+        try:
+            previous.rename(folder)
+        except OSError:
+            warnings.warn(
+                f"{folder}: the level was not replaced and the previous level could not be "
+                f"put back; it is kept in {previous}. Move it back to {folder}.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+            return
+    shutil.rmtree(owned, ignore_errors=True)
 
 
 def _publish(staging: Path, folder: Path, previous: Path) -> None:
