@@ -412,11 +412,11 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-423": "79971e8b60224a2be7122b4fcd0f0f8ab6abcdc2e5bdd6296fda6a13bcfac554",
     # Re-pinned on lane/indfix: R1 states the tube section counts (IND-03), the evidence cites
     # the independent review tests.
-    "FR-424": "261e957edf30f3e79f495232130df24e2cd4cab5e569025f957e7e951ae3157e",
+    "FR-424": "850f755ade4d29ce09882feb07b629b4577ef205f8332bb63595a00e12bc3c48",
     "FR-425": "a3dc2a22dfef87563c2bd10f65fe4ac4920589590f6ae99d84910e9856c25d8c",
     # Re-pinned at 85d92803: R3 of the next box dropped a personal attribution (the W0 CI fix).
     # Re-pinned on lane/indfix: R1 refuses a --csv naming an input or the audit (IND-06).
-    "FR-426": "60724c1bc84005b2dc8efc6bf82e5e9404a6a04a8e04ca39abc0cc5f6f462685",
+    "FR-426": "9596e259363c5dcbaaaf73e0c8c2993b92c363293ff5b3b92e014257b0bb1fb1",
     "FR-427": "36a84eacf0dacabd2ee8e7dc5dec1cc4b39f3444e48208d3798c7670817df4c9",
     # Re-pinned on lane/indfix: the evidence says when the skewness check warns (IND-07).
     "FR-428": "1d2df316ee2b79929b8f92b2a06c4ab8a804ec440676fc4b3fbd55aa26ddae35",
