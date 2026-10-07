@@ -7,10 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
 - **The archive row of v0.38.0 is owed** until Zenodo mints its version DOI
   from the GitHub release. Cite the concept DOI in `CITATION.cff` meanwhile.
-
-### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
   decision of 2026-10-02 they are made on the released package and
