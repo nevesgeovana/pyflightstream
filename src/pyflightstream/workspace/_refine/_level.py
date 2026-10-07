@@ -776,8 +776,8 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     if level.is_relative_to(home):
         raise _refuse(
             str(folder),
-            "the level folder lies inside the source's folder; choose an out_dir outside it "
-            "(CLI: --out-dir)",
+            "the level folder lies inside the source's folder; choose an out_dir "
+            "(CLI: --out-dir) outside the source's folder",
         )
     if folder.exists() and not overwrite:
         raise _refuse(
