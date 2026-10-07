@@ -368,3 +368,37 @@ def test_ind04_a_malformed_obj_is_refused_naming_file_and_line(tmp_path, capsys,
         assert message.startswith(f"{src}: line {line} is {said}"), message
         assert message.endswith("Nothing was written.")
     _both_commands_refuse(capsys, src, f"{src}: line {line} is {said}")
+
+
+@pytest.mark.parametrize(
+    ("rows", "row", "said"),
+    [
+        (["1,2", "3,4", "5,6"], 2, "2 number(s)"),
+        (["1,2"], 2, "2 number(s)"),
+        (["1,2,3,4", "5,6,7,8"], 2, "4 number(s)"),
+        (["0.5,0,0", "1,2"], 3, "2 number(s)"),
+        (["0.5,0,0", "1,2,nan"], 3, "a number that is not finite"),
+        (["0.5,0,0", "1,x,0"], 3, "a word that is not a number"),
+    ],
+    ids=["two-columns", "one-short-row", "four-columns", "ragged", "nan", "word"],
+)
+def test_ind05_each_trailing_edge_row_holds_three_numbers(tmp_path, capsys, rows, row, said):
+    """P0380-REFINE and P0380-AUDIT (FR-424 R11, FR-426 R2 G4, IND-05): x,y,z on every row.
+
+    A points file whose rows hold two or four numbers, or a word, or a number
+    that is not finite, is refused naming the file and the row before any
+    work, by the function and both commands, and is never reshaped into other
+    points. Control: the fixture's own points file is accepted.
+    """
+    src = _source(tmp_path / "src")
+    te = src.with_name("wing.te.txt")
+    assert audit_mesh(src).passed
+    src.with_suffix(".audit.json").unlink()
+    te.write_bytes(_lines(["METER", *rows]))
+    for call in (lambda: refine_mesh(src, 2.0), lambda: audit_mesh(src)):
+        with pytest.raises(InputArtifactError) as caught:
+            call()
+        message = str(caught.value)
+        assert message.startswith(f"{te}: line {row} ") and said in message, message
+        assert message.endswith("Nothing was written.")
+    _both_commands_refuse(capsys, src, f"{te}: line {row} ")

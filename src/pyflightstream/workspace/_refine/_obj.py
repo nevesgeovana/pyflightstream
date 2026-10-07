@@ -317,16 +317,37 @@ def te_points(obj: str | Path) -> TrailingPoints | None:
 
 
 def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
-    """Read a trailing-edge points file: a unit line, then one ``x,y,z`` row per point."""
+    """Read a trailing-edge points file: a unit line, then one ``x,y,z`` row per point.
+
+    Every row holds exactly three finite numbers; any other row is refused
+    naming the file and its line, so no row is ever read as part of another
+    point.
+    """
     source = Path(path)
-    rows = [r.strip() for r in source.read_text(encoding="utf-8").splitlines() if r.strip()]
+    lines = source.read_text(encoding="utf-8").splitlines()
+    rows = [(n, r.strip()) for n, r in enumerate(lines, start=1) if r.strip()]
     if not rows:
         raise _refuse(source, "the trailing-edge points file is empty")
-    try:
-        pts = numpy.array([[float(x) for x in r.split(",")] for r in rows[1:]], dtype=float)
-    except ValueError as error:
-        raise _refuse(source, f"a trailing-edge row is not three numbers ({error})") from error
-    return rows[0], pts.reshape(-1, 3)
+    points = [_te_row(source, number, row) for number, row in rows[1:]]
+    return rows[0][1], numpy.array(points, dtype=float).reshape(-1, 3)
+
+
+def _te_row(source: Path, number: int, row: str) -> list[float]:
+    """Return one trailing-edge row as its three coordinates, refusing any other row."""
+    words = [w.strip() for w in row.split(",")]
+    said = None
+    if len(words) != 3:
+        said = f"holds {len(words)} number(s)"
+    else:
+        try:
+            values = [float(w) for w in words]
+        except ValueError:
+            said = "holds a word that is not a number"
+        else:
+            if all(math.isfinite(v) for v in values):
+                return values
+            said = "holds a number that is not finite"
+    raise _refuse(source, f"line {number} {row!r} {said}; a trailing-edge row is x,y,z")
 
 
 def write_te(path: str | Path, unit: str, midpoints: NDArray[numpy.float64]) -> Path:
