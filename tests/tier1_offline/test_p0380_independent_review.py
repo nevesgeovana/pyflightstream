@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -707,53 +708,66 @@ def test_ind01_a_tag_holding_a_reserved_character_is_refused(tmp_path, tag):
     assert refine_mesh(src, 2.0).folder == tmp_path / "wing_fine"
 
 
-def test_ind01_a_level_folder_outside_out_dir_is_refused(tmp_path):
-    """P0380-REFINE (FR-424 R5, IND-01): the level is always a direct child of out_dir.
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_ind01_a_level_path_resolving_outside_out_dir_is_refused(tmp_path, overwrite):
+    """P0380-REFINE (FR-424 R5, R11, IND-01): the level is a folder directly inside out_dir.
 
-    Whatever produced the level's name, ``_place`` refuses a folder whose
-    resolved parent is not the resolved ``out_dir``, with and without
-    ``overwrite``, so an unrelated folder there is never replaced. Control:
-    a plain name is placed under ``out_dir``.
+    ``study/levels/wing_R2`` is a directory junction to the unrelated
+    ``study/victim``, so the level path resolves outside ``out_dir``. The
+    refinement is refused before any work, naming ``out_dir``, with and
+    without ``overwrite``; the junction and the folder it reaches are kept
+    byte for byte. Control: a level beside it is written. Windows only (a
+    junction needs no privilege there).
     """
-    from pyflightstream.workspace._refine._level import _place
-
+    winapi = pytest.importorskip("_winapi")
     src = _source(tmp_path / "study" / "src")
-    _sentinel(tmp_path / "study" / "victim1")
+    victim = _sentinel(tmp_path / "study" / "victim")
     levels = tmp_path / "study" / "levels"
-    for overwrite in (False, True):
-        with pytest.raises(InputArtifactError, match="not a folder directly inside"):
-            _place(src, "wing_R-A/../../victim1", levels, overwrite)
-    assert _place(src, "wing_R-A1", levels, False) == levels / "wing_R-A1"
+    levels.mkdir()
+    winapi.CreateJunction(str(tmp_path / "study" / "victim"), str(levels / "wing_R2"))
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, 2.0, out_dir=levels, overwrite=overwrite)
+    text = str(caught.value)
+    assert f"is not a folder directly inside out_dir {levels}" in text, text
+    assert text.endswith("Nothing was written.")
+    assert (levels / "wing_R2").is_junction()
+    assert _tree(tmp_path / "study" / "victim") == victim
+    assert sorted(p.name for p in levels.iterdir()) == ["wing_R2"]
+    assert refine_mesh(src, 1.0, out_dir=levels).folder == levels / "wing_R1"
 
 
 # ------------------------------------- IND2-03 a level that appears meanwhile
 
 
-def _level_appears_during_the_audit(monkeypatch, folder: Path) -> None:
-    """Make another writer create ``folder``, holding a file, while the run audits its level."""
-    import pyflightstream.workspace._refine._level as level_module
+def _level_appears_once_the_run_is_under_way(monkeypatch, folder: Path) -> None:
+    """Make another writer create ``folder``, holding a file, once the run makes its own folder.
 
-    real = level_module.audit_mesh
+    The run makes its own staging folder after it checked that the level did
+    not exist and before it resamples, writes and audits the level.
+    """
+    real = tempfile.mkdtemp
 
-    def audit(*args, **kwargs):
-        _sentinel(folder)
-        return real(*args, **kwargs)
+    def mkdtemp(*args, **kwargs):
+        made = real(*args, **kwargs)
+        if Path(made).name.startswith(f"{folder.name}.partial-"):
+            _sentinel(folder)
+        return made
 
-    monkeypatch.setattr(level_module, "audit_mesh", audit)
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp)
 
 
 def test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced(tmp_path, monkeypatch):
     """P0380-REFINE (FR-424 R5, IND2-03): without overwrite, a level made meanwhile is kept.
 
     The level folder does not exist when the run starts, and another writer
-    creates it, holding a file, while the run audits its staged level. The
-    publish refuses, naming the folder and ``overwrite``: the folder is kept
-    byte for byte and the run leaves no folder of its own. Control: the same
-    race with ``overwrite`` replaces it with the level.
+    creates it, holding a file, while the run writes and audits its staged
+    level. The publish refuses, naming the folder and ``overwrite``: the
+    folder is kept byte for byte and the run leaves no folder of its own.
+    Control: the same race with ``overwrite`` replaces it with the level.
     """
     src = _source(tmp_path / "src")
     folder = tmp_path / "wing_R2"
-    _level_appears_during_the_audit(monkeypatch, folder)
+    _level_appears_once_the_run_is_under_way(monkeypatch, folder)
     with pytest.raises(InputArtifactError) as caught:
         refine_mesh(src, 2.0)
     text = str(caught.value)
