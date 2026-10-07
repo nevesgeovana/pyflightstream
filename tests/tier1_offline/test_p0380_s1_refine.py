@@ -1181,7 +1181,7 @@ def _threshold_literals(text: str, values: set[float]) -> list[tuple[int, float]
 
 
 def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
-    """P0380-REFINE (section thresholds rule): a shared threshold is defined once, in _geometry.
+    """P0380-REFINE (FR-424, thresholds rule): a shared threshold is defined once, in _geometry.
 
     No module of the refinement package but ``_geometry`` spells the value of
     a shared fraction as a literal; the remesher's own tuning constants are
