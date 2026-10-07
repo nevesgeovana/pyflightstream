@@ -1,7 +1,8 @@
 """P0380-REFINE and P0380-AUDIT (FR-424, FR-426): the findings of the independent pre-tag review.
 
-Each test reproduces one finding (IND-01 to IND-06) on a synthetic source
-(tests/p0380_mesh_fixtures.py) and asserts the requirement it broke.
+Each test reproduces one finding of the two readings (IND-01 to IND-11 and
+IND2-01 to IND2-03) on a synthetic source (tests/p0380_mesh_fixtures.py)
+and asserts the requirement it broke.
 """
 
 from __future__ import annotations
@@ -952,7 +953,7 @@ def test_ind08_a_sheet_of_split_quadrilaterals_is_recovered_as_its_grid(rule):
 
 @pytest.mark.parametrize("rule", ["a-c", "checkerboard"])
 def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rule):
-    """P0380-REFINE (FR-424 R2, R6, R7, IND-08): the split sheet keeps its grid behaviour.
+    """P0380-REFINE (FR-424 R2, R6, R7, IND-08): the split sheet keeps its grid behavior.
 
     Through ``refine_mesh`` under ``auto``: at factor 1 the level is the
     source's faces in order and its audit passes with G6 judged; at factor 2
@@ -984,7 +985,7 @@ def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rul
 def test_ind08_triangles_that_are_not_the_cells_are_no_grid():
     """P0380-REFINE (FR-424 GRID FAMILY, R9, IND-08): triangles across two cells are no grid.
 
-    In the sheet split along a-c, the side shared by two neighbouring cells
+    In the sheet split along a-c, the side shared by two neighboring cells
     is flipped into the diagonal of the two triangles beside it: the nodes,
     the boundary and the face count are the sheet's, but two triangles span
     two cells. No grid is recovered and the reason is named. Control: the
@@ -1022,7 +1023,7 @@ def _tube_with_poles(root: bool, tip: bool, split: bool = False) -> tuple[Compos
     The lateral grid is ``tube_pole_triangles``' (split) or
     ``tube_pole_quads``' with its trailing edge; the tip fan is the
     fixture's own, and the root fan is wound like it, around a pole set
-    0.05 of the span inboard of the root section's centre.
+    0.05 of the span inboard of the root section's center.
     """
     from tests.p0380_mesh_fixtures import Fixture as Fx
     from tests.p0380_mesh_fixtures import build_grid, tube_pole_triangles
@@ -1036,8 +1037,8 @@ def _tube_with_poles(root: bool, tip: bool, split: bool = False) -> tuple[Compos
     verts, faces = fx.verts, [list(f) for f in fx.faces]
     if root:
         ring = [at[(0, i)] for i in range(n)]
-        centre = verts[ring].mean(axis=0) - [0.0, 0.05, 0.0]
-        verts = np.vstack([verts, centre[None, :]])
+        center = verts[ring].mean(axis=0) - [0.0, 0.05, 0.0]
+        verts = np.vstack([verts, center[None, :]])
         pole = len(verts) - 1
         faces += [[pole, ring[(i + 1) % n], ring[i]] for i in range(n)]
     if root and tip and _volume(verts, faces) < 0:
@@ -1062,7 +1063,7 @@ def test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid(tmp_path, root,
     ``auto``: at factor 1 the level is the source's faces in order and its
     audit passes with G6 judged; at factor 2 the intervals double (24 by 8
     to 48 by 16), each pole closes its end with 48 triangles and the audit
-    passes (every face oriented like its neighbours, the volume positive).
+    passes (every face oriented like its neighbors, the volume positive).
     Control: the open root and pole tip of ``tube_pole_quads``.
     """
     import json
