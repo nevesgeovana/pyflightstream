@@ -311,8 +311,10 @@ def test_a_factor_below_one_over_m_is_refused(direction):
 
     Exactly 1/m is accepted and leaves one interval (the control); zero,
     negative, infinite and not-a-number factors are refused the same way.
+    The chordwise case runs on the sheet, since one interval around a tube
+    leaves a section its caps cannot close (IND-03, refused on its own).
     """
-    fx = tube_pole_quads()
+    fx = tube_pole_quads() if direction == "spanwise" else sheet_quads()
     grid = _recovered(fx)
     m = dict(zip(("chordwise", "spanwise"), grid.intervals, strict=True))[direction]
     factors = {"chordwise": 1.0, "spanwise": 1.0}

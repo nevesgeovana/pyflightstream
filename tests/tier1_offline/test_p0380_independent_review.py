@@ -16,7 +16,9 @@ from pyflightstream.run import cli
 from pyflightstream.workspace import refine_mesh
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
 from tests.p0380_mesh_fixtures import (
+    Composite,
     Fixture,
+    body_of_revolution,
     sheet_with_strips,
     tube_pole_quads,
     tube_zipper,
@@ -235,3 +237,71 @@ def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source
     assert len(fans) == 48
     ring_first = sum(f[0] != pole for f in fans)
     assert 14 <= ring_first <= 18, ring_first
+
+
+# ------------------------------------- IND-03 counts a tube's caps can carry
+
+
+@pytest.mark.parametrize(
+    ("make", "factor", "said"),
+    [
+        (tube_zipper, 1 / 24, "1 interval(s) on each half"),
+        (tube_zipper, 0.05, "1 interval(s) on each half"),
+        (tube_zipper, 0.1, "1 interval(s) on each half"),
+        (tube_pole_quads, 1 / 24, "2 node(s) around"),
+        (tube_pole_quads, 0.07, "2 node(s) around"),
+    ],
+    ids=["zipper-1/m", "zipper-0.05", "zipper-0.1", "pole-1/m", "pole-0.07"],
+)
+def test_ind03_a_coarsening_the_caps_cannot_carry_is_refused(make, factor, said):
+    """P0380-REFINE (FR-424 R1, R11, IND-03): too few nodes around a tube is refused, not a crash.
+
+    The factor passes the 1/m limit of 24 intervals, but leaves a zipper
+    section one interval per half (its end caps need two) or a pole tube two
+    nodes around (a section needs three). The refusal names the family, the
+    direction and the value and ends "Nothing was written.".
+    """
+    fx = make()
+    with pytest.raises(InputArtifactError) as caught:
+        refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=factor, spanwise=1.0, family="B")
+    text = str(caught.value)
+    assert text.startswith(f"family B: the chordwise factor is {factor:g}, ")
+    assert said in text and text.endswith("Nothing was written.")
+
+
+@pytest.mark.parametrize(
+    ("make", "factor", "nodes"),
+    [(tube_zipper, 2 / 12, 4), (tube_pole_quads, 3 / 24, 4)],
+    ids=["zipper-2/half", "pole-3/n"],
+)
+def test_ind03_the_smallest_accepted_coarsening_builds_valid_caps(make, factor, nodes):
+    """P0380-REFINE (FR-424 R1, IND-03): just above the limit the tube is coarsened.
+
+    Control of the refusal: the smallest factor the message asks for builds
+    the section's nodes and closes the ends with faces of distinct nodes.
+    """
+    fx = make()
+    level = refine_grid(fx.verts, fx.faces, _recovered(fx), chordwise=factor, spanwise=1.0)
+    assert level.report["grid"].endswith(f"x{nodes}")
+    assert all(len(set(f)) == len(f) for f in level.faces)
+
+
+def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_path, capsys):
+    """P0380-REFINE (FR-424 R1, R11, IND-03): a smooth tube keeps three nodes around.
+
+    The body has 24 nodes around; chordwise 2/24 leaves two, which
+    ``refine_mesh`` and ``pyfs-matrix refine`` refuse before any work with the
+    same text. Control: 3/24 writes the level.
+    """
+    body = body_of_revolution(pole=True)
+    mesh = Composite(body.verts, {"S": body.faces}, np.zeros((0, 3)), {})
+    src = write_source(tmp_path / "src", "body", mesh)
+    with pytest.raises(InputArtifactError) as caught:
+        refine_mesh(src, chordwise=2 / 24)
+    text = str(caught.value)
+    assert "family S: the chordwise factor is 0.0833333, " in text
+    assert "2 node(s) around" in text and text.endswith("Nothing was written.")
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["src"]
+    code = cli.main(["refine", str(src), "--chordwise", str(2 / 24)])
+    assert code == 2 and text in capsys.readouterr().err
+    assert refine_mesh(src, chordwise=3 / 24).obj.is_file()

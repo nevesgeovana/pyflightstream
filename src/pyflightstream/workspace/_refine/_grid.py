@@ -614,6 +614,11 @@ def _count(m: int, factor: float) -> int:
 def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float) -> None:
     """Refuse a factor that is not finite and positive, or that leaves no interval (R1).
 
+    On a tube the chordwise factor is also refused when the section it
+    leaves cannot close: fewer than three nodes around, or fewer than two
+    intervals on each half of a zipper-capped section, which its end caps
+    need. Every refusal comes before any family is resampled (R11).
+
     Parameters
     ----------
     grid : Grid
@@ -643,6 +648,31 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
             f"at least 1/{m} and run again. Nothing was written.",
             kind=KIND,
         )
+    if grid.wrap:
+        _check_section(grid, family, chordwise)
+
+
+def _check_section(grid: Grid, family: str, chordwise: float) -> None:
+    """Refuse a chordwise factor whose section a tube's caps cannot carry (R1, R11)."""
+    s, new_le = _chordwise_params(grid, chordwise)
+    if "zipper" in grid.ends and new_le < 2:
+        half = grid.i_le
+        reason = (
+            f"leaves {new_le} interval(s) on each half of the zipper-capped section of "
+            f"{half} per half, below the 2 its end caps need"
+        )
+        least = f"2/{half}"
+    elif len(s) < 3:
+        n = grid.intervals[0]
+        reason = f"leaves {len(s)} node(s) around the tube's section of {n}, below 3"
+        least = f"3/{n}"
+    else:
+        return
+    raise InputArtifactError(
+        f"family {family}: the chordwise factor is {chordwise:g}, which {reason}. Give a "
+        f"chordwise factor of at least {least} and run again. Nothing was written.",
+        kind=KIND,
+    )
 
 
 def curve_changes(grid: Grid, edges: Iterable[Edge], *, chordwise: float, spanwise: float) -> bool:
