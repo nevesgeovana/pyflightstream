@@ -13,7 +13,7 @@ import pytest
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.run import cli
-from pyflightstream.workspace import refine_mesh
+from pyflightstream.workspace import audit_mesh, refine_mesh
 from pyflightstream.workspace._refine._grid import Grid, recover_grid, refine_grid
 from tests.p0380_mesh_fixtures import (
     Composite,
@@ -305,3 +305,66 @@ def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_p
     code = cli.main(["refine", str(src), "--chordwise", str(2 / 24)])
     assert code == 2 and text in capsys.readouterr().err
     assert refine_mesh(src, chordwise=3 / 24).obj.is_file()
+
+
+# ------------------------------------------ IND-04 and IND-05 malformed inputs
+
+
+def _both_commands_refuse(capsys, src: Path, said: str) -> None:
+    """Assert ``refine`` and ``audit-mesh`` exit 2 printing ``said``, writing nothing."""
+    before = _tree(src.parent.parent)
+    for argv in (["refine", str(src), "2"], ["audit-mesh", str(src)]):
+        capsys.readouterr()
+        assert cli.main(argv) == 2, argv
+        err = capsys.readouterr().err
+        assert said in err and "Nothing was written." in err, err
+    assert _tree(src.parent.parent) == before
+
+
+TRIANGLE = ["v 0 0 0", "v 1 0 0", "v 0 1 0", "g S", "f 1 2 3"]
+
+
+def _lines(lines: list[str]) -> bytes:
+    """Return the lines as a text file's bytes, each ended by a line feed."""
+    return "".join(f"{line}\n" for line in lines).encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    ("line", "text", "said"),
+    [
+        (1, "v bad 0 0", "a vertex whose coordinate 'bad' is not a number"),
+        (2, "v 1 0 0x", "a vertex whose coordinate '0x' is not a number"),
+        (1, "v nan 0 0", "a vertex whose coordinate 'nan' is not finite"),
+        (3, "v 0 inf 0", "a vertex whose coordinate 'inf' is not finite"),
+        (2, "v 1e999 0 0", "a vertex whose coordinate '1e999' is not finite"),
+        (5, "f 1 2 x", "a face whose vertex index 'x' is not an integer"),
+        (5, "f 1 2.0 3", "a face whose vertex index '2.0' is not an integer"),
+        (5, "f 1 2 9", "a face with fewer than three vertices or a missing vertex"),
+    ],
+    ids=["word", "trailing-text", "nan", "inf", "overflow", "word-index", "float-index", "range"],
+)
+def test_ind04_a_malformed_obj_is_refused_naming_file_and_line(tmp_path, capsys, line, text, said):
+    """P0380-REFINE and P0380-AUDIT (FR-424 R11, FR-426 R1, IND-04): a bad OBJ line is a refusal.
+
+    A coordinate that is not a number or not finite, and a face index that is
+    not an integer or names no vertex, is refused as InputArtifactError
+    naming the file and the line, ending "Nothing was written."; the function
+    and both commands refuse it (exit 2) and nothing is written. Control:
+    the well-formed triangle is audited.
+    """
+    folder = tmp_path / "src"
+    folder.mkdir()
+    src = folder / "tri.obj"
+    src.write_bytes(_lines(TRIANGLE))
+    assert audit_mesh(src).passed
+    src.with_suffix(".audit.json").unlink()
+    lines = list(TRIANGLE)
+    lines[line - 1] = text
+    src.write_bytes(_lines(lines))
+    for call in (lambda: refine_mesh(src, 2.0), lambda: audit_mesh(src)):
+        with pytest.raises(InputArtifactError) as caught:
+            call()
+        message = str(caught.value)
+        assert message.startswith(f"{src}: line {line} is {said}"), message
+        assert message.endswith("Nothing was written.")
+    _both_commands_refuse(capsys, src, f"{src}: line {line} is {said}")

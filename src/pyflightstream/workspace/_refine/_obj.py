@@ -9,6 +9,7 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
+import math
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,8 +82,10 @@ def read_obj(path: str | Path) -> ObjMesh:
     """Read an OBJ: ``v`` and ``f`` lines, ``g`` or ``o`` families, header comments.
 
     Texture and normal indices of a face (``f 1/2/3``) are dropped; a negative
-    index counts back from the last vertex read. A face with fewer than three
-    vertices, or naming a vertex that does not exist, is refused.
+    index counts back from the last vertex read. A vertex coordinate that is
+    not a finite number, a face index that is not an integer, and a face with
+    fewer than three vertices or naming a vertex that does not exist, are
+    refused naming the file and the line.
     """
     source = Path(path)
     mesh = ObjMesh(numpy.zeros((0, 3)), {})
@@ -112,9 +115,10 @@ def _statement(
         words = rest.split()
         if len(words) < 3:
             raise _refuse_at(where, "a vertex with fewer than three numbers")
-        verts.append((float(words[0]), float(words[1]), float(words[2])))
+        x, y, z = (_coordinate(where, word) for word in words[:3])
+        verts.append((x, y, z))
     elif tag == "f":
-        idx = [int(tok.split("/")[0]) for tok in rest.split()]
+        idx = [_index(where, tok.split("/")[0]) for tok in rest.split()]
         face = [i - 1 if i > 0 else len(verts) + i for i in idx]
         if len(face) < 3 or any(not 0 <= v < len(verts) for v in face):
             raise _refuse_at(where, "a face with fewer than three vertices or a missing vertex")
@@ -123,6 +127,25 @@ def _statement(
         mesh.family_tag = tag
         return rest.strip() or DEFAULT_FAMILY
     return current
+
+
+def _coordinate(where: str, word: str) -> float:
+    """Return a vertex coordinate, refusing a word that is not a finite number."""
+    try:
+        value = float(word)
+    except ValueError:
+        raise _refuse_at(where, f"a vertex whose coordinate {word!r} is not a number") from None
+    if not math.isfinite(value):
+        raise _refuse_at(where, f"a vertex whose coordinate {word!r} is not finite")
+    return value
+
+
+def _index(where: str, word: str) -> int:
+    """Return a face's vertex index, refusing a word that is not an integer."""
+    try:
+        return int(word)
+    except ValueError:
+        raise _refuse_at(where, f"a face whose vertex index {word!r} is not an integer") from None
 
 
 def coordinates(point: NDArray[numpy.float64]) -> str:
