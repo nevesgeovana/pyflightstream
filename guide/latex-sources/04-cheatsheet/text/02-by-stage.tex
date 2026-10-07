@@ -95,7 +95,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \hd{Mesh levels}
 \begin{cmdblock}{pyfs-matrix refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
 \opt{--families A,B}{only these; \fl{--chordwise F}, \fl{--spanwise F}: one direction of the grid families.}
-\opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{chordwise}, \texttt{spanwise}, \texttt{method}; \texttt{[components]}.}
+\opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{chordwise}, \texttt{spanwise}, \texttt{method}, \texttt{elements}, \texttt{axial}, \texttt{circumferential}, \texttt{axis}, \texttt{origin}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[periodic]}.}
 \opt{--out-dir DIR}{default: beside the source's folder; \fl{--overwrite} replaces a level.}
 \end{cmdblock}
 \begin{cmdblock}{pyfs-matrix audit-mesh}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}; \fl{--csv FILE}. Exit 0 passed, 1 failed, 2 refused.}

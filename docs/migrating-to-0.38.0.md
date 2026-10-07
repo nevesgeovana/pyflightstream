@@ -2,10 +2,10 @@
 
 > Frozen record: not edited after its release.
 
-A workspace using 0.37.0 needs no changes. The refinement file gains one new
-optional key, `elements` (`"triangles"`, the default, or `"quad-dominant"`), in a
-family table and in `[refine]`; nothing has to be changed to keep the output of a
-file that does not state it. Nothing is removed, no key, command
+A workspace using 0.37.0 needs no changes. The refinement file is new in 0.38.0
+(below); among its keys, `elements` (`"triangles"`, the default, or
+`"quad-dominant"`) chooses the faces of a remeshed family, in a family table or
+in `[refine]`. Nothing is removed, no key, command
 or product of 0.37.0 changes, and a matrix, setup or pproc renders the same
 scripts and writes the same records as in 0.37.0. The release adds two
 `pyfs-matrix` verbs that work on a panel mesh outside any matrix, `refine`
@@ -90,5 +90,6 @@ The keys below belong to the refinement file, a file of its own read only by
 | `method = "auto"`, `"grid"` or `"remesh"` | `[families.<name>]` | whether the family is resampled as a grid or remeshed | FR-424 |
 | `axial`, `circumferential`, `axis`, `origin` | `[families.<name>]` of a body | the factors along and around an axis | FR-428 |
 | `tag` | `[refine]` | the level's name in place of the factors | FR-424 |
+| `elements = "triangles"` or `"quad-dominant"` | `[families.<name>]`, `[refine]` | the faces of a remeshed family: triangles, or triangles paired into quadrilaterals | FR-424 R17 |
 | `NAME = ["A", "B", ...]` | `[components]` | several families written as one family of the output | FR-425 |
 | `axis`, `origin`, `copies` | `[periodic]` | the two cut faces of a sector matched node for node | FR-427 |
