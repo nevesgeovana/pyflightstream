@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- **The archive row of v0.38.0 is owed** until Zenodo mints its version DOI
+  from the GitHub release. Cite the concept DOI in `CITATION.cff` meanwhile.
+
 ### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
@@ -73,7 +76,7 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
-## [0.38.0] - UNRELEASED
+## [0.38.0] - 2026-10-06
 
 ### Added
 
