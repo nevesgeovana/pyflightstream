@@ -879,3 +879,125 @@ def test_ind2_01_csv_naming_the_levels_refine_json_is_refused(tmp_path, capsys, 
         ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
     )
     assert code == 0 and (tmp_path / "f.csv").is_file()
+
+
+# ------------------------------------- IND-08 a sheet of split quadrilaterals
+
+
+def _split(quad: list[int], diagonal: int) -> list[list[int]]:
+    """Return a quadrilateral ``a b c d`` as two triangles sharing a-c (0) or b-d (1)."""
+    a, b, c, d = quad
+    return [[a, b, c], [a, c, d]] if diagonal == 0 else [[a, b, d], [b, c, d]]
+
+
+SPLITS = {
+    "a-c": lambda k, i: 0,
+    "b-d": lambda k, i: 1,
+    "checkerboard": lambda k, i: (k + i) % 2,
+    "halves": lambda k, i: int(2 * i >= 18),
+}
+
+
+def _split_sheet(rule: str) -> tuple[Composite, Fixture]:
+    """Return the cambered sheet ``G`` with every quadrilateral split by ``rule``, and its grid.
+
+    Each cell keeps its place and its trailing-edge points; the rule gives
+    the diagonal of the cell at station k and chordwise cell i.
+    """
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    fx = sheet_quads()
+    mesh = sheet_with_strips(())
+    faces = []
+    for quad in mesh.families["G"]:
+        k, i = (min(fx.place[v][j] for v in quad) for j in (0, 1))
+        faces += _split(quad, SPLITS[rule](k, i))
+    mesh.families["G"] = faces
+    return mesh, fx
+
+
+def _cell_triangles(grid: Grid) -> list[frozenset[int]]:
+    """Return the two triangles of each cell of a split sheet, as the grid states them."""
+    out = []
+    for (k, i), diagonal in np.ndenumerate(grid.cell_diag):
+        a, b = int(grid.ids[k, i]), int(grid.ids[k, i + 1])
+        c, d = int(grid.ids[k + 1, i + 1]), int(grid.ids[k + 1, i])
+        out += [frozenset(t) for t in _split([a, b, c, d], int(diagonal))]
+    return out
+
+
+@pytest.mark.parametrize("rule", sorted(SPLITS))
+def test_ind08_a_sheet_of_split_quadrilaterals_is_recovered_as_its_grid(rule):
+    """P0380-REFINE (FR-424 GRID FAMILY, R6, R9, IND-08): corners come from the cells.
+
+    Every quadrilateral of the 9 by 19 sheet is split into two triangles,
+    along one diagonal, the other, a checkerboard of both, or one per half,
+    so two or more of the sheet's corners lie in two triangles. The grid is
+    recovered with the unsplit sheet's stations and chordwise nodes (the
+    trailing edge at chordwise index 0), and the two triangles it states for
+    each cell are the family's faces. Control: the unsplit sheet.
+    """
+    mesh, fx = _split_sheet(rule)
+    te = {v for v, (k, i) in fx.place.items() if i == 0}
+    grid = recover_grid(mesh.verts, mesh.families["G"], te)
+    assert isinstance(grid, Grid), grid
+    quads = recover_grid(fx.verts, fx.faces, fx.te)
+    assert isinstance(quads, Grid) and quads.cell_diag is None
+    assert grid.layout == "sheet" and grid.ends == ("edge", "edge")
+    assert np.array_equal(grid.ids, quads.ids) and grid.cell_diag is not None
+    assert sorted(map(sorted, _cell_triangles(grid))) == sorted(
+        sorted(f) for f in mesh.families["G"]
+    )
+
+
+@pytest.mark.parametrize("rule", ["a-c", "checkerboard"])
+def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rule):
+    """P0380-REFINE (FR-424 R2, R6, R7, IND-08): the split sheet keeps its grid behaviour.
+
+    Through ``refine_mesh`` under ``auto``: at factor 1 the level is the
+    source's faces in order and its audit passes with G6 judged; at factor 2
+    the grid's intervals double in both directions (18 by 8 to 36 by 16,
+    each cell two triangles); and ``chordwise`` alone doubles one direction.
+    Each is reported as a grid of triangles.
+    """
+    import json
+
+    from tests.p0380_mesh_fixtures import read_mesh
+
+    mesh, _ = _split_sheet(rule)
+    src = write_source(tmp_path / "src", "wing", mesh)
+    one = refine_mesh(src, 1.0)
+    report = one.report["G"]
+    assert report["method"] == "grid" and report["split"] == "triangles", report
+    record = json.loads(one.folder.joinpath("wing_R1.refine.json").read_text(encoding="utf-8"))
+    assert one.audit.passed and record["unchanged_grids"] == ["G"]
+    assert read_mesh(one.obj)[1]["G"] == mesh.families["G"]
+    two = refine_mesh(src, 2.0).report["G"]
+    assert two["method"] == "grid", two
+    assert two["intervals"] == {"chordwise": [18, 36], "spanwise": [8, 16]}
+    assert two["faces"] == [2 * 18 * 8, 2 * 36 * 16]
+    chord = refine_mesh(src, chordwise=2.0).report["G"]
+    assert chord["method"] == "grid"
+    assert chord["intervals"] == {"chordwise": [18, 36], "spanwise": [8, 8]}
+
+
+def test_ind08_triangles_that_are_not_the_cells_are_no_grid():
+    """P0380-REFINE (FR-424 GRID FAMILY, R9, IND-08): the cells are checked, not assumed.
+
+    In the sheet split along a-c, the side shared by two neighbouring cells
+    is flipped into the diagonal of the two triangles beside it: the nodes,
+    the boundary and the face count are the sheet's, but two triangles span
+    two cells. No grid is recovered and the reason is named. Control: the
+    unflipped sheet is a grid.
+    """
+    mesh, fx = _split_sheet("a-c")
+    te = {v for v, (k, i) in fx.place.items() if i == 0}
+    assert isinstance(recover_grid(mesh.verts, mesh.families["G"], te), Grid)
+    at = {place: v for v, place in fx.place.items()}
+    a, b, c, f = at[(3, 5)], at[(3, 6)], at[(4, 6)], at[(4, 7)]
+    faces = [list(t) for t in mesh.families["G"]]
+    first = faces.index([a, b, c])
+    second = next(j for j, t in enumerate(faces) if set(t) == {b, f, c})
+    faces[first], faces[second] = [a, b, f], [a, f, c]
+    found = recover_grid(mesh.verts, faces, te)
+    assert isinstance(found, str) and found, found

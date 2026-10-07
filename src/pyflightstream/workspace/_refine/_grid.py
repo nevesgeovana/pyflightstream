@@ -299,24 +299,61 @@ def recover_grid(verts: Points, faces: Faces, te_vertices: Collection[int]) -> G
         return str(reason)
 
 
+@dataclass(frozen=True, eq=False)
+class _Part:
+    """A family's faces, its lateral faces (zipper caps removed), their edges and cap nodes."""
+
+    faces: Faces
+    lmap: Mapping[Edge, list[int]]
+    cap_verts: set[int]
+    lateral: Faces | None = None
+
+    @property
+    def side(self) -> Faces:
+        """Return the lateral faces."""
+        return self.faces if self.lateral is None else self.lateral
+
+
 def _recover(verts: Points, faces: Faces, te: frozenset[int]) -> Grid:
-    """Return the grid of a family or raise the reason it has none."""
+    """Return the grid of a family or raise the reason it has none.
+
+    The layout is first read from the boundary: four corners, each in one
+    face, make a sheet, and a boundary without corners a tube. A family of
+    triangles that reading misses is then tried as a sheet of split
+    quadrilaterals, its corners read from its cells.
+    """
+    try:
+        return _from_boundary(verts, faces, te)
+    except _NotAGridError:
+        grid = _split_sheet(verts, faces, te)
+        if grid is None:
+            raise
+        return grid
+
+
+def _from_boundary(verts: Points, faces: Faces, te: frozenset[int]) -> Grid:
+    """Return the grid whose layout the boundary's corners and loops give."""
     removed, cap_verts = _zipper_caps(faces)
     lateral = [f for k, f in enumerate(faces) if k not in removed]
     lmap = edge_faces(lateral)
-    adj = _adjacency(lmap)
     layout, seed = _layout_and_seed(verts, lateral, lmap)
-    smooth = layout == "tube" and not te and _without_ridge(verts, faces)
+    return _grid_of(verts, te, _Part(faces, lmap, cap_verts, lateral), layout, seed)
+
+
+def _grid_of(verts: Points, te: frozenset[int], part: _Part, layout: str, seed: list[int]) -> Grid:
+    """Return the grid layered from the seed chain, or raise the reason it is none."""
+    adj = _adjacency(part.lmap)
+    smooth = layout == "tube" and not te and _without_ridge(verts, part.faces)
     rows, pole = _rows(verts, seed, adj, layout == "tube", te, smooth=smooth)
     ids = numpy.array(rows, dtype=numpy.int64)
     if layout == "sheet":
         ids = _sheet_trailing_edge_first(ids, te)
         ends, i_le = ("edge", "edge"), ids.shape[1] - 1
     else:
-        ends, i_le = _tube_ends(verts, ids, pole, cap_verts, te, smooth=smooth)
-    diag = _cell_diagonals(ids, lateral, lmap, layout == "tube", pole)
+        ends, i_le = _tube_ends(verts, ids, pole, part.cap_verts, te, smooth=smooth)
+    diag = _cell_diagonals(ids, part.side, part.lmap, layout == "tube", pole)
     grid = Grid(layout, ids, ends, pole, i_le, diag, smooth)
-    _check_covers(grid, faces)
+    _check_covers(grid, part.faces)
     return grid
 
 
@@ -431,15 +468,9 @@ def _layout_and_seed(
     verts: Points, lateral: Faces, lmap: Mapping[Edge, list[int]]
 ) -> tuple[str, list[int]]:
     """Return the layout and the boundary chain the layering starts from."""
-    badj = _adjacency(e for e, fs in lmap.items() if len(fs) == 1)
+    loops = _loops(lmap)
     count = Counter(v for f in lateral for v in f)
-    corners = sorted(v for v in badj if count[v] == 1)
-    loops: list[list[int]] = []
-    seen: set[int] = set()
-    for v in sorted(badj):
-        if v not in seen:
-            loops.append(_chain_order(_component(v, badj), badj)[0])
-            seen.update(loops[-1])
+    corners = sorted(v for loop in loops for v in loop if count[v] == 1)
     if len(corners) == 4 and len(loops) == 1:
         at = sorted(loops[0].index(c) for c in corners)
         return "sheet", loops[0][at[0] : at[1] + 1]
@@ -447,6 +478,77 @@ def _layout_and_seed(
         norms = [float(numpy.linalg.norm(verts[loop].mean(axis=0))) for loop in loops]
         return "tube", loops[int(numpy.argmin(norms))]
     raise _NotAGridError(f"{len(loops)} boundary loops and {len(corners)} corners")
+
+
+def _loops(lmap: Mapping[Edge, list[int]]) -> list[list[int]]:
+    """Return the boundary loops, each in order along its edges, from its lowest vertex."""
+    badj = _adjacency(e for e, fs in lmap.items() if len(fs) == 1)
+    loops: list[list[int]] = []
+    seen: set[int] = set()
+    for v in sorted(badj):
+        if v not in seen:
+            loops.append(_chain_order(_component(v, badj), badj)[0])
+            seen.update(loops[-1])
+    return loops
+
+
+def _sides(perimeter: int, nodes: int) -> tuple[int, int] | None:
+    """Return the interval counts m <= n of a sheet with this boundary and node count.
+
+    A sheet of m by n intervals has 2 (m + n) boundary nodes and
+    (m + 1)(n + 1) nodes; None when no such pair of whole numbers exists.
+    """
+    if perimeter % 2:
+        return None
+    s = perimeter // 2
+    disc = s * s - 4 * (nodes - s - 1)
+    root = math.isqrt(disc) if disc >= 0 else -1
+    if root < 0 or root * root != disc or (s - root) % 2 or s - root < 2:
+        return None
+    return (s - root) // 2, (s + root) // 2
+
+
+def _split_sheet(verts: Points, faces: Faces, te: frozenset[int]) -> Grid | None:
+    """Return the grid of a sheet of split quadrilaterals, its corners read from the cells.
+
+    A corner of such a sheet lies in one triangle or in two, and so may a
+    node of its sides, so a single face does not mark the corners. The
+    boundary loop's P nodes and the family's V nodes give the sides,
+    m + n = P / 2 and (m + 1)(n + 1) = V; every placement of the corners at
+    the loop positions p, p + m, p + m + n and p + 2m + n that holds each
+    node lying in one triangle, and no node lying in more than two, is a
+    candidate. A candidate is the grid when the stations layered from one of
+    its sides are chains of equal length, each aligned node for node with
+    the one before along an edge, and the grid holds every node and every
+    face (the checks of any sheet). None when no candidate is; two different
+    grids are refused as ambiguous.
+    """
+    if not faces or any(len(f) != 3 for f in faces):
+        return None
+    lmap = edge_faces(faces)
+    loops = _loops(lmap)
+    count = Counter(v for f in faces for v in f)
+    sides = _sides(len(loops[0]), len(count)) if len(loops) == 1 else None
+    if sides is None:
+        return None
+    loop, (m, n), size = loops[0], sides, len(loops[0])
+    single = {v for v in loop if count[v] == 1}
+    part = _Part(faces, lmap, set())
+    tried: set[frozenset[int]] = set()
+    found: list[Grid] = []
+    for p in range(size):
+        corners = frozenset(loop[(p + q) % size] for q in (0, m, m + n, 2 * m + n))
+        if corners in tried or not single <= corners or any(count[c] > 2 for c in corners):
+            continue
+        tried.add(corners)
+        try:
+            grid = _grid_of(verts, te, part, "sheet", [loop[(p + q) % size] for q in range(m + 1)])
+        except _NotAGridError:
+            continue
+        found.append(grid)
+    if len(found) > 1:
+        raise _NotAGridError(f"{len(found)} sheets of split quadrilaterals fit its cells")
+    return found[0] if found else None
 
 
 def _layers(seed: list[int], adj: Mapping[int, set[int]]) -> list[list[int]]:
