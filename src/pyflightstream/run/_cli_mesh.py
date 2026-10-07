@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace import MeshAudit, audit_mesh, refine_mesh
 
@@ -87,8 +88,7 @@ def _refused_csv(csv: str | None) -> str | None:
         )
     existed = target.exists()
     try:
-        with target.open("a", encoding="utf-8"):
-            pass
+        _textio.append_text(target, "")
     except OSError as error:
         return (
             f"{target}: --csv names a file that cannot be written ({_reason(error)}). "
