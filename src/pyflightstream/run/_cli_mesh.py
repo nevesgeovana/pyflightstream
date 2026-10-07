@@ -17,7 +17,9 @@ still written, and each failure is a warning held to the end of the command),
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +102,65 @@ def _refused_csv(csv: str | None) -> str | None:
     return None
 
 
+def _read_by_the_audit(obj: str | None) -> list[tuple[str, Path]]:
+    """Return the files the audit of ``obj`` reads, each with what it is.
+
+    The OBJ, its boundaries file, the trailing-edge points file the boundaries
+    file names, and ``<stem>.te.txt``. A boundaries file that cannot be read
+    names no points file here; the audit refuses it on its own.
+    """
+    if obj is None:
+        return []
+    mesh = Path(obj)
+    sidecar = mesh.with_name(f"{mesh.stem}.boundaries.toml")
+    files = [
+        ("the OBJ", mesh),
+        ("its boundaries file", sidecar),
+        ("its trailing-edge points file", mesh.with_name(f"{mesh.stem}.te.txt")),
+    ]
+    try:
+        table = tomllib.loads(sidecar.read_text(encoding="utf-8")).get("trailing_edges")
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        table = None
+    named = table.get("file") if isinstance(table, dict) else None
+    if isinstance(named, str):
+        files.append(("its trailing-edge points file", sidecar.parent / named))
+    return files
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """Return whether two paths name one file: one spelling, or one file on disk."""
+    try:
+        if a.exists() and b.exists():
+            return os.path.samefile(a, b)
+        return os.path.normcase(a.resolve()) == os.path.normcase(b.resolve())
+    except OSError:
+        return False
+
+
+def _csv_collision(csv: str | None, mesh: str, against: str | None) -> str | None:
+    """Return the refusal of a ``--csv`` file the command reads or writes, before anything is.
+
+    The CSV must not be the audited OBJ, the source of ``--against``, a
+    boundaries or trailing-edge points file either is read with, or the
+    audit JSON written beside the OBJ (FR-426 R1), under any spelling.
+    """
+    if csv is None:
+        return None
+    target = Path(csv)
+    audit = Path(mesh).with_name(f"{Path(mesh).stem}.audit.json")
+    taken = [(f"mesh {what}", path) for what, path in _read_by_the_audit(mesh)]
+    taken += [(f"--against source {what}", path) for what, path in _read_by_the_audit(against)]
+    taken.append(("the audit JSON the command writes", audit))
+    for what, path in taken:
+        if _same_file(target, path):
+            return (
+                f"{target}: --csv names {what}, {path}, which audit-mesh reads or writes. "
+                "Name another file and run again. Nothing was written."
+            )
+    return None
+
+
 def _reason(error: OSError) -> str:
     """Return what the system said of a failed file operation, without the path it repeats."""
     return str(error.strerror or error)
@@ -113,7 +174,10 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
     system included, is printed in the standard shape (the object, the
     reason, what to do), ending "Nothing was written." only when that holds.
     """
-    if (refused := _refused_csv(args.csv_file)) is not None:
+    refused = _csv_collision(args.csv_file, args.mesh, args.against)
+    if refused is None:
+        refused = _refused_csv(args.csv_file)
+    if refused is not None:
         print(refused, file=sys.stderr)
         return EXIT_REFUSED
     try:

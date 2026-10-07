@@ -6,6 +6,8 @@ Each test reproduces one finding (IND-01 to IND-06) on a synthetic source
 
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -402,3 +404,73 @@ def test_ind05_each_trailing_edge_row_holds_three_numbers(tmp_path, capsys, rows
         assert message.startswith(f"{te}: line {row} ") and said in message, message
         assert message.endswith("Nothing was written.")
     _both_commands_refuse(capsys, src, f"{te}: line {row} ")
+
+
+# --------------------------------------------- IND-06 --csv names no input
+
+
+def _csv_case(tmp_path: Path) -> tuple[Path, Path]:
+    """Return a mesh and a copy of it as its source, each with its points and boundaries."""
+    src = _source(tmp_path / "src")
+    shutil.copytree(src.parent, tmp_path / "level")
+    level = tmp_path / "level" / "wing.obj"
+    (tmp_path / "level" / "wing.boundaries.toml").write_bytes(
+        _lines(['boundaries = ["G"]', "[trailing_edges]", 'file = "pts.txt"'])
+    )
+    (tmp_path / "level" / "wing.te.txt").rename(tmp_path / "level" / "pts.txt")
+    return level, src
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "level/wing.obj",
+        "level/wing.audit.json",
+        "level/wing.boundaries.toml",
+        "level/pts.txt",
+        "src/wing.obj",
+        "src/wing.te.txt",
+        "src/wing.boundaries.toml",
+        "level/../level/wing.obj",
+        "link.obj",
+    ],
+    ids=[
+        "mesh",
+        "audit-json",
+        "mesh-boundaries",
+        "named-points",
+        "against",
+        "against-points",
+        "against-boundaries",
+        "spelled-otherwise",
+        "hard-link",
+    ],
+)
+def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, capsys, target):
+    """P0380-AUDIT (FR-426 R1, IND-06): ``--csv`` never overwrites an input or the audit JSON.
+
+    The mesh, the source given by ``--against``, their boundaries and points
+    files, the audit JSON, a path spelled otherwise and a hard link to the
+    mesh are each refused before the audit runs: exit 2, the refusal names
+    the file, and every file is kept byte for byte with no audit written.
+    Control: a CSV elsewhere is written and the command exits 0.
+    """
+    level, src = _csv_case(tmp_path)
+    if target == "link.obj":
+        try:
+            os.link(level, tmp_path / "link.obj")
+        except OSError:
+            pytest.skip("hard links are not available here")
+    before = _tree(tmp_path)
+    csv = tmp_path / target
+    capsys.readouterr()
+    code = cli.main(["audit-mesh", str(level), "--against", str(src), "--csv", str(csv)])
+    err = capsys.readouterr().err
+    assert code == 2, err
+    said = [line for line in err.splitlines() if line.startswith(f"{csv}: --csv names ")]
+    assert len(said) == 1 and said[0].endswith("Nothing was written."), err
+    assert _tree(tmp_path) == before
+    code = cli.main(
+        ["audit-mesh", str(level), "--against", str(src), "--csv", str(tmp_path / "f.csv")]
+    )
+    assert code == 0 and (tmp_path / "f.csv").is_file()
