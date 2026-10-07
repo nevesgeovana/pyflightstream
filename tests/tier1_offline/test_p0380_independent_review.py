@@ -765,3 +765,72 @@ def test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced(tmp_path, m
     level = refine_mesh(src, 2.0, overwrite=True)
     assert level.obj.is_file() and not (folder / "keep.txt").exists()
     assert sorted(p.name for p in tmp_path.iterdir()) == ["src", "wing_R2"]
+
+
+# ------------------------------------- IND-11 the audit JSON is never an input
+
+
+def _link(target: Path, existing: Path) -> None:
+    """Make ``target`` a hard link to ``existing``, or skip where links are not available."""
+    try:
+        os.link(existing, target)
+    except OSError:
+        pytest.skip("hard links are not available here")
+
+
+def _json_over_an_input(case: str, level: Path, src: Path) -> tuple[Path, Path]:
+    """Arrange the audit JSON of ``level`` to be a file the audit reads; return it and against."""
+    json_path = level.with_name("wing.audit.json")
+    if case == "against":
+        shutil.copyfile(src, json_path)
+        return json_path, json_path
+    if case == "named-points":
+        (level.parent / "pts.txt").rename(json_path)
+        (level.parent / "wing.boundaries.toml").write_bytes(
+            _lines(['boundaries = ["G"]', "[trailing_edges]", 'file = "wing.audit.json"'])
+        )
+        return json_path, src
+    linked = {
+        "mesh-link": level,
+        "record-link": level.with_name("wing.refine.json"),
+        "against-link": src,
+        "against-points-link": src.with_name("wing.te.txt"),
+    }[case]
+    if case == "record-link":
+        linked.write_bytes(b'{"schema_version": 1, "families": {}}\n')
+    _link(json_path, linked)
+    return linked, src
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["against", "named-points", "mesh-link", "record-link", "against-link", "against-points-link"],
+)
+def test_ind11_the_audit_json_never_overwrites_a_file_the_audit_reads(tmp_path, capsys, case):
+    """P0380-AUDIT (FR-426 R1, IND-11): ``<stem>.audit.json`` is refused when it is an input.
+
+    The audit JSON beside the level is, by its own path or as a hard link,
+    the source of ``against``, the points file the level's boundaries file
+    names, the level's OBJ, its ``refine.json``, the source's OBJ or the
+    source's points file. The function and the command refuse before
+    writing, naming both paths and ending "Nothing was written."; every file
+    is kept byte for byte. Control: the same level with no such collision
+    writes its audit and passes.
+    """
+    level, src = _csv_case(tmp_path)
+    taken, against = _json_over_an_input(case, level, src)
+    json_path = level.with_name("wing.audit.json")
+    before = _tree(tmp_path)
+    with pytest.raises(InputArtifactError) as caught:
+        audit_mesh(level, against=against)
+    text = str(caught.value)
+    assert text.startswith(f"{json_path}: the audit JSON would be written over "), text
+    assert str(taken) in text and text.endswith("Nothing was written.")
+    assert _tree(tmp_path) == before
+    capsys.readouterr()
+    assert cli.main(["audit-mesh", str(level), "--against", str(against)]) == 2
+    assert text in capsys.readouterr().err
+    assert _tree(tmp_path) == before
+    plain, plain_src = _csv_case(tmp_path / "control")
+    assert audit_mesh(plain, against=plain_src).passed
+    assert plain.with_name("wing.audit.json").is_file()

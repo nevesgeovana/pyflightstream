@@ -26,6 +26,7 @@ before they are matched to the mesh's edges.
 from __future__ import annotations
 
 import json
+import os
 import warnings
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
@@ -66,9 +67,11 @@ from pyflightstream.workspace._refine._geometry import (
 )
 from pyflightstream.workspace._refine._obj import (
     KIND,
+    SIDECAR_SUFFIX,
     ObjMesh,
     edge_midpoints,
     read_obj,
+    te_file,
     te_points,
 )
 
@@ -82,6 +85,8 @@ WHOLE_MESH = "(whole mesh)"
 PASS, FAIL, NOT_JUDGED = "pass", "fail", "not judged"
 #: The suffix of the audit written beside the mesh.
 AUDIT_SUFFIX = ".audit.json"
+#: The suffix of a level's refinement record, beside it, which the audit reads.
+RECORD_SUFFIX = ".refine.json"
 #: The relative checks of R3: the name and the figure each compares.
 CHECKS = (("skewness", "skewness_p95"), ("warp", "warp_p95"), ("growth", "growth_p95"))
 _TINY = 1e-300
@@ -266,11 +271,12 @@ def audit_mesh(
     record = _record_of(Path(mesh))
     components = _components_of(record)
     source = None if against is None else _read(Path(against), components)
+    target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
+    _refuse_an_input_as_target(target, Path(mesh), None if against is None else Path(against))
     grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
     gates = _gates(level, source, grids)
     figures = dict(_all_figures(level))
     checks = tuple(_checks(figures, None if source is None else dict(_all_figures(source))))
-    target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
     audit = MeshAudit(
         mesh=Path(mesh),
         source=None if against is None else Path(against),
@@ -292,6 +298,54 @@ def _refusal(subject: Path, reason: str, remedy: str) -> InputArtifactError:
     return InputArtifactError(f"{subject}: {reason}. {remedy} Nothing was written.", kind=KIND)
 
 
+def _inputs(mesh: Path, against: Path | None) -> list[tuple[str, Path]]:
+    """Return the files the audit of ``mesh`` reads, each with what it is (FR-426 R1).
+
+    The OBJ, its boundaries file, its trailing-edge points file and its
+    ``refine.json``; with ``against``, the source, its boundaries file and
+    its points file. Call it once both meshes were read, so their boundaries
+    files are known to be readable.
+    """
+    files = [
+        ("the OBJ", mesh),
+        ("its boundaries file", mesh.with_name(mesh.stem + SIDECAR_SUFFIX)),
+        ("its refinement record", mesh.with_name(mesh.stem + RECORD_SUFFIX)),
+    ]
+    points = te_file(mesh)
+    if points is not None:
+        files.append(("its trailing-edge points file", points))
+    if against is not None:
+        files += [
+            ("the source", against),
+            ("the source's boundaries file", against.with_name(against.stem + SIDECAR_SUFFIX)),
+        ]
+        points = te_file(against)
+        if points is not None:
+            files.append(("the source's trailing-edge points file", points))
+    return files
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """Return whether two paths name one file: one spelling, or one file on disk."""
+    try:
+        if a.exists() and b.exists():
+            return os.path.samefile(a, b)
+        return os.path.normcase(a.resolve()) == os.path.normcase(b.resolve())
+    except OSError:
+        return False
+
+
+def _refuse_an_input_as_target(target: Path, mesh: Path, against: Path | None) -> None:
+    """Refuse an audit JSON that is a file the audit reads, before anything is written (R1)."""
+    for what, path in _inputs(mesh, against):
+        if _same_file(target, path):
+            raise _refusal(
+                target,
+                f"the audit JSON would be written over {what}, {path}, which the audit reads",
+                "Rename or move the mesh, or the file it would overwrite, and run again.",
+            )
+
+
 def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> _Mesh:
     """Read an OBJ and its trailing-edge points and measure them.
 
@@ -311,7 +365,7 @@ def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> 
 
 def _record_of(level: Path) -> dict[str, Any]:
     """Return the level's ``refine.json`` (an empty record when there is none or it is not JSON)."""
-    path = level.with_name(level.stem + ".refine.json")
+    path = level.with_name(level.stem + RECORD_SUFFIX)
     if not path.is_file():
         return {}
     try:
