@@ -1089,3 +1089,50 @@ def test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid(tmp_path, root,
     cells = 48 * 16 * (2 if split else 1)
     poles = int(root) + int(tip)
     assert report["faces"] == [len(mesh.families["W"]), cells + 48 * poles]
+
+
+def test_ind3_01_an_unstructured_closed_triangulation_is_refused_at_once():
+    """P0380-REFINE (FR-424 R6, IND3-01): a closed irregular triangulation offers no pole pair.
+
+    The convex hull of 2402 random points on a sphere is a closed family of
+    triangles whose nodes share a handful of fan sizes, so no node can be the
+    pole of a two-pole tube: grid recovery refuses it in well under a second
+    (before the fix it tried every node as a pole, for minutes). Control: a
+    UV sphere, whose two poles are the only nodes of their fan size, is
+    still recovered as a grid.
+    """
+    import time
+
+    import numpy
+
+    spatial = pytest.importorskip("scipy.spatial")
+    from pyflightstream.workspace._refine._grid import recover_grid
+
+    rng = numpy.random.default_rng(3)
+    points = rng.normal(size=(2402, 3))
+    points /= numpy.linalg.norm(points, axis=1)[:, None]
+    faces = [[int(i) for i in s] for s in spatial.ConvexHull(points).simplices]
+    started = time.perf_counter()
+    found = recover_grid(points, faces, ())
+    assert isinstance(found, str) and time.perf_counter() - started < 10.0
+    n, m = 12, 24
+    verts = [(0.0, 0.0, 1.0)]
+    for i in range(1, n):
+        th = numpy.pi * i / n
+        verts += [
+            (
+                numpy.sin(th) * numpy.cos(2 * numpy.pi * j / m),
+                numpy.sin(th) * numpy.sin(2 * numpy.pi * j / m),
+                numpy.cos(th),
+            )
+            for j in range(m)
+        ]
+    verts.append((0.0, 0.0, -1.0))
+    node = lambda i, j: 1 + (i - 1) * m + j % m  # noqa: E731
+    uv = [[0, node(1, j), node(1, j + 1)] for j in range(m)]
+    for i in range(1, n - 1):
+        for j in range(m):
+            a, b, c, d = node(i, j), node(i, j + 1), node(i + 1, j + 1), node(i + 1, j)
+            uv += [[a, d, c], [a, c, b]]
+    uv += [[len(verts) - 1, node(n - 1, j + 1), node(n - 1, j)] for j in range(m)]
+    assert not isinstance(recover_grid(numpy.array(verts), uv, ()), str)

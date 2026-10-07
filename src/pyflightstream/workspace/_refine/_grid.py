@@ -511,7 +511,11 @@ def _two_poles(verts: Points, faces: Faces, te: frozenset[int]) -> Grid | None:
     candidate root pole lies only in triangles, as many as divide the
     family's nodes less the two poles; candidates are tried by that count,
     largest first, then from the one whose ring center is nearest the
-    origin (the end a tube's layering starts from). Without the candidate's
+    origin (the end a tube's layering starts from). The two poles of such a
+    tube are the only nodes with their fan size, so a size that more than two
+    nodes share names no pole: an unstructured closed triangulation, whose
+    nodes share a handful of sizes, offers no candidate and is refused at once
+    (IND3-01). Without the candidate's
     fan the family is a tube open at that ring and closed by a pole at the
     far end, and the fan is the triangles of that ring around the
     candidate; the first candidate for which both hold is the root pole.
@@ -521,6 +525,7 @@ def _two_poles(verts: Points, faces: Faces, te: frozenset[int]) -> Grid | None:
         return None
     vface = _vertex_faces(faces)
     nodes = len(vface)
+    sizes = Counter(len(fs) for fs in vface.values())
 
     def center(v: int) -> float:
         ring = {u for k in vface[v] for u in faces[k] if u != v}
@@ -530,7 +535,10 @@ def _two_poles(verts: Points, faces: Faces, te: frozenset[int]) -> Grid | None:
         (
             v
             for v, fs in vface.items()
-            if len(fs) >= 3 and (nodes - 2) % len(fs) == 0 and all(len(faces[k]) == 3 for k in fs)
+            if len(fs) >= 3
+            and sizes[len(fs)] <= 2
+            and (nodes - 2) % len(fs) == 0
+            and all(len(faces[k]) == 3 for k in fs)
         ),
         key=lambda v: (-len(vface[v]), center(v), v),
     )
