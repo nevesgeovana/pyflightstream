@@ -38,6 +38,14 @@ and the end stations sit at integer parameters, where the spline returns the
 source node itself. Each new cell is split along the diagonal of the source
 cell its midpoint falls in.
 
+A KEPT END ROW (REF-FIRSTROW, 0.39 development) keeps the spanwise width of the
+row of cells between an end station and the station next to it: that inner
+station's parameter stays the source's integer, so the row is refined
+chordwise only and the spanwise factor applies to the stations between the
+kept rows. The orchestrator asks for it on the end that meets another
+component, where the row's width sets how far the last wake filament shed by
+the trailing edge is from that component.
+
 Face order (R7): when the source's lateral faces form one sweep (each cell's
 faces consecutive, the cells in row or column order from one start cell),
 the level is written in that sweep, each cell's faces following the source
@@ -780,7 +788,33 @@ def _count(m: int, factor: float) -> int:
     return max(1, round(m * factor))
 
 
-def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float) -> None:
+def _spanwise_params(
+    k: int, factor: float, keep: tuple[bool, bool] = (False, False)
+) -> NDArray[numpy.float64]:
+    """Return the new spanwise parameters of a grid of ``k`` stations (REF-FIRSTROW).
+
+    Without a kept row the ``k - 1`` source intervals are resampled by the
+    factor. A kept end row (station 0, station ``k - 1``) keeps its source
+    width: the parameter of its inner station is the source's (1, or
+    ``k - 2``), so the row is refined chordwise only, and the factor applies
+    to the intervals between the kept rows.
+    """
+    lo = 1 if keep[0] else 0
+    hi = k - 2 if keep[1] else k - 1
+    inner = numpy.linspace(lo, hi, _count(hi - lo, factor) + 1)
+    head = [0.0] if keep[0] else []
+    tail = [float(k - 1)] if keep[1] else []
+    return numpy.concatenate([numpy.asarray(head), inner, numpy.asarray(tail)])
+
+
+def check_factors(
+    grid: Grid,
+    family: str,
+    *,
+    chordwise: float,
+    spanwise: float,
+    keep: tuple[bool, bool] = (False, False),
+) -> None:
     """Refuse a factor that is not finite and positive, or that leaves no interval (R1).
 
     On a tube the chordwise factor is also refused when the section it
@@ -796,14 +830,27 @@ def check_factors(grid: Grid, family: str, *, chordwise: float, spanwise: float)
         The family's name, for the message.
     chordwise, spanwise : float
         The factor of each index direction.
+    keep : tuple of bool
+        Whether the end row at station 0 and at the far station keeps its
+        spanwise width (REF-FIRSTROW); the spanwise factor then applies to
+        the intervals between the kept rows, and at least one must remain.
 
     Raises
     ------
     InputArtifactError
         Naming the family, the direction and the value; nothing was written.
     """
+    chord_m, span_m = grid.intervals
+    span_m -= sum(keep)
+    if span_m < 1:
+        raise InputArtifactError(
+            f"family {family}: keep_first_row keeps the end rows of a grid of "
+            f"{grid.intervals[1]} spanwise interval(s), leaving none to refine. Refine it "
+            "without keep_first_row and run again. Nothing was written.",
+            kind=KIND,
+        )
     for direction, value, m in zip(
-        ("chordwise", "spanwise"), (chordwise, spanwise), grid.intervals, strict=True
+        ("chordwise", "spanwise"), (chordwise, spanwise), (chord_m, span_m), strict=True
     ):
         number = isinstance(value, (int, float)) and not isinstance(value, bool)
         if not (number and math.isfinite(value) and value > 0):
@@ -844,7 +891,14 @@ def _check_section(grid: Grid, family: str, chordwise: float) -> None:
     )
 
 
-def curve_changes(grid: Grid, edges: Iterable[Edge], *, chordwise: float, spanwise: float) -> bool:
+def curve_changes(
+    grid: Grid,
+    edges: Iterable[Edge],
+    *,
+    chordwise: float,
+    spanwise: float,
+    keep: tuple[bool, bool] = (False, False),
+) -> bool:
     """Return whether resampling would change the nodes of a curve of the grid's boundary.
 
     Read from the counts alone, before any family is resampled (FR-424
@@ -856,7 +910,7 @@ def curve_changes(grid: Grid, edges: Iterable[Edge], *, chordwise: float, spanwi
     """
     k, n = grid.ids.shape
     s, _ = _chordwise_params(grid, chordwise)
-    t = numpy.linspace(0, k - 1, _count(k - 1, spanwise) + 1)
+    t = _spanwise_params(k, spanwise, keep)
     chord = not (len(s) == n and numpy.array_equal(s, numpy.arange(n)))
     span = not (len(t) == k and numpy.array_equal(t, numpy.arange(k)))
     place = {int(v): (r, c) for (r, c), v in numpy.ndenumerate(grid.ids)}
@@ -902,7 +956,13 @@ def _chordwise_params(grid: Grid, factor: float) -> tuple[NDArray[numpy.float64]
     return numpy.concatenate([upper, lower]), n1
 
 
-def _resample(source: Points, grid: Grid, chordwise: float, spanwise: float) -> _Sampled:
+def _resample(
+    source: Points,
+    grid: Grid,
+    chordwise: float,
+    spanwise: float,
+    keep: tuple[bool, bool] = (False, False),
+) -> _Sampled:
     """Resample the source nodes (K, n, 3) along both index directions."""
     k, n = grid.ids.shape
     s, new_le = _chordwise_params(grid, chordwise)
@@ -911,7 +971,7 @@ def _resample(source: Points, grid: Grid, chordwise: float, spanwise: float) -> 
     else:
         chain = numpy.concatenate([source, source[:, :1]], axis=1) if grid.wrap else source
         across = not_a_knot(chain.transpose(1, 0, 2), s).transpose(1, 0, 2)
-    t = numpy.linspace(0, k - 1, _count(k - 1, spanwise) + 1)
+    t = _spanwise_params(k, spanwise, keep)
     nodes = not_a_knot(across, t)
     old_k = numpy.minimum(numpy.floor(0.5 * (t[:-1] + t[1:])).astype(numpy.int64), k - 2)
     ends = numpy.append(s, n) if grid.wrap else s
@@ -980,6 +1040,7 @@ def refine_grid(
     chordwise: float,
     spanwise: float,
     family: str = "family",
+    keep: tuple[bool, bool] = (False, False),
 ) -> GridLevel:
     """Resample a grid family by its chordwise and spanwise factors (FR-424 R6, R7).
 
@@ -995,6 +1056,9 @@ def refine_grid(
         The factor of each index direction.
     family : str
         The family's name, for a refusal.
+    keep : tuple of bool
+        The end rows (station 0, the far station) that keep their spanwise
+        width and are refined chordwise only (REF-FIRSTROW).
 
     Returns
     -------
@@ -1006,9 +1070,9 @@ def refine_grid(
     InputArtifactError
         The refusal of :func:`check_factors`.
     """
-    check_factors(grid, family, chordwise=chordwise, spanwise=spanwise)
+    check_factors(grid, family, chordwise=chordwise, spanwise=spanwise, keep=keep)
     verts = numpy.asarray(verts, dtype=float)
-    sampled = _resample(verts[grid.ids], grid, chordwise, spanwise)
+    sampled = _resample(verts[grid.ids], grid, chordwise, spanwise, keep)
     points = sampled.nodes.reshape(-1, 3)
     new_poles: list[int | None] = [None, None]
     for end in (1, 0):
@@ -1034,6 +1098,10 @@ def refine_grid(
     if grid.smooth:
         te = numpy.zeros((0, 3))
     report = _report(grid, sampled, len(faces), len(ordered), swept_order)
+    if any(keep):
+        report["kept_rows"] = [
+            name for name, kept in zip(("station 0", "far station"), keep, strict=True) if kept
+        ]
     return GridLevel(points, ordered, te, report)
 
 

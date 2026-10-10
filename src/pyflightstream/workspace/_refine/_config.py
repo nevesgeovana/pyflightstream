@@ -54,6 +54,7 @@ FAMILY_KEYS = (
     "axis",
     "origin",
     "elements",
+    "keep_first_row",
 )
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
@@ -65,7 +66,12 @@ TABLES = ("refine", "families", "components", "periodic")
 
 @dataclass(frozen=True)
 class FamilySpec:
-    """How one family is refined: its factors, its method and, for a body, its axis."""
+    """How one family is refined: its factors, its method and, for a body, its axis.
+
+    ``keep_first_row`` (REF-FIRSTROW, 0.39 development) asks a grid with a
+    trailing edge to keep the spanwise width of its end row at the interface
+    with another component, refining that row chordwise only.
+    """
 
     factor: float = 1.0
     chordwise: float | None = None
@@ -75,6 +81,7 @@ class FamilySpec:
     circumferential: float | None = None
     axis: tuple[float, float, float] | None = None
     origin: tuple[float, float, float] | None = None
+    keep_first_row: bool = False
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -198,8 +205,21 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         raise _refuse(
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
-    table = {k: v for k, v in table.items() if k != "elements"}
+    keep = table.get("keep_first_row", False)
+    if not isinstance(keep, bool):
+        raise _refuse(f"{where} keep_first_row", f"{keep!r} is not true or false")
+    if keep and method == "remesh":
+        raise _refuse(
+            f"{where} keep_first_row",
+            "keep_first_row applies to a grid family with a trailing edge; this one is remeshed",
+        )
+    table = {k: v for k, v in table.items() if k not in ("elements", "keep_first_row")}
     body = [k for k in ("axial", "circumferential") if k in table]
+    if body and keep:
+        raise _refuse(
+            f"{where} keep_first_row",
+            "keep_first_row applies to a grid family; axial and circumferential remesh a body",
+        )
     if body:
         return _body_spec(where, table, method)
     if not any(k in table for k in ("factor", "chordwise", "spanwise")):
@@ -215,6 +235,7 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         chordwise=_optional(where, table, "chordwise"),
         spanwise=_optional(where, table, "spanwise"),
         method=method,
+        keep_first_row=keep,
     )
 
 

@@ -124,6 +124,8 @@ class _Work:
     periodic: dict[str, Any] | None = None
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
+    # REF-FIRSTROW: per grid, whether station 0 and the far station keep their row's width
+    keep_rows: dict[str, tuple[bool, bool]] = field(default_factory=dict)
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -176,6 +178,11 @@ def _decide(work: _Work) -> None:
             continue
         found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
         if isinstance(found, str):
+            if spec.keep_first_row:
+                raise _refuse(
+                    f"{work.source} family {name} keep_first_row",
+                    f"keep_first_row applies to a grid and no grid was recovered: {found}",
+                )
             if spec.method == "grid":
                 raise _refuse(
                     f"{work.source} family {name}",
@@ -184,12 +191,28 @@ def _decide(work: _Work) -> None:
             _remesh_or_keep(work, name, f"no grid recovered: {found}")
             continue
         if isinstance(found, _blocks.Blocks):
+            if spec.keep_first_row:
+                raise _refuse(
+                    f"{work.source} family {name} keep_first_row",
+                    "keep_first_row applies to a single grid with a trailing edge; this family "
+                    "is a multiblock grid",
+                )
             _blocks.check_factor(found, name, spec)
         else:
             chordwise, spanwise = spec.directions
-            _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise)
+            keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)
+            _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise, keep=keep)
+            if any(keep):
+                work.keep_rows[name] = keep
         work.grids[name] = found
     _grid_after_grid(work)
+    for name in work.keep_rows:
+        if name not in work.grids:
+            raise _refuse(
+                f"{work.source} family {name} keep_first_row",
+                "keep_first_row applies to a grid; this family shares nodes with a grid refined "
+                "first and is remeshed",
+            )
     _bodies_apart(work)
     for name in work.remesh:
         spec = work.request.specs[name]
@@ -203,6 +226,41 @@ def _decide(work: _Work) -> None:
         from pyflightstream.workspace._refine._remesh import require_geometry_extra
 
         require_geometry_extra([*work.remesh, *bands])
+
+
+def _component_of(work: _Work, name: str) -> str:
+    """Return a family's component: its ``[components]`` entry, else its name to the first ``_``."""
+    for component, members in work.request.components.items():
+        if name in members:
+            return component
+    return name.split("_", 1)[0]
+
+
+def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
+    """Return which end rows of a grid keep their width under ``keep_first_row`` (REF-FIRSTROW).
+
+    An end row is kept when its end station shares at least two nodes (an
+    edge) with a family of another component: there the row's spanwise width
+    sets the distance of the last wake filament shed by the trailing edge
+    from that component. The grid must carry a trailing edge, and at least
+    one end must meet another component; each refusal comes before any work.
+    """
+    where = f"{work.source} family {name} keep_first_row"
+    if grid.smooth or not work.te_of[name]:
+        raise _refuse(where, "keep_first_row applies to a grid with a trailing edge; it has none")
+    mine = _component_of(work, name)
+    others = [o for o in work.names if o != name and _component_of(work, o) != mine]
+    ends: list[bool] = []
+    for row in (grid.ids[0], grid.ids[-1]):
+        nodes = {int(v) for v in row}
+        ends.append(any(len(nodes & work.fam_v[o]) >= 2 for o in others))
+    if not any(ends):
+        raise _refuse(
+            where,
+            f"neither end station of the grid shares an edge with a family of another component "
+            f"than {mine!r}, so there is no interface row to keep",
+        )
+    return ends[0], ends[1]
 
 
 def _planned_bands(work: _Work) -> list[str]:
@@ -229,7 +287,13 @@ def _planned_bands(work: _Work) -> list[str]:
             if isinstance(grid, _blocks.Blocks):
                 changes = _blocks.nodes_change(grid, chordwise)
             else:
-                changes = _grid.curve_changes(grid, edges, chordwise=chordwise, spanwise=spanwise)
+                changes = _grid.curve_changes(
+                    grid,
+                    edges,
+                    chordwise=chordwise,
+                    spanwise=spanwise,
+                    keep=work.keep_rows.get(grid_name, (False, False)),
+                )
             if changes:
                 planned.append(name)
                 break
@@ -348,6 +412,7 @@ def _refine_grids(work: _Work) -> None:
                 chordwise=chordwise,
                 spanwise=spanwise,
                 family=name,
+                keep=work.keep_rows.get(name, (False, False)),
             )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
         if work.request.elements_of(name) != _config.TRIANGLES:

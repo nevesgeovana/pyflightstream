@@ -7,6 +7,19 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added (0.39 development)
+
+- **`keep_first_row` in a refinement file's family table** (REF-FIRSTROW, first
+  implementation). A grid with a trailing edge keeps the spanwise width of its
+  end row at the interface with another component and refines that row
+  chordwise only; the spanwise factor applies to the other rows. That row's
+  width sets how far the last wake filament shed by the trailing edge is from
+  the adjacent component, so a mesh study no longer moves it with the panel
+  size. Refused, before any work, on a remeshed or multiblock family, a grid
+  without a trailing edge, or a grid with no end at another component.
+  `refine.json` names the kept rows. Owed before release: the requirement and
+  its SRS box, a command-line form, the how-to page and a licensed comparison.
+
 ### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By
