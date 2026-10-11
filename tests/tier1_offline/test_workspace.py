@@ -151,7 +151,7 @@ def test_the_manifest_record_refuses_an_unknown_field():
         make_record(provenance_note="not a field of this model")
 
 
-def test_the_terminal_status_set_is_exactly_the_ten_it_declares():
+def test_the_terminal_status_set_is_exactly_the_eleven_it_declares():
     """FR-46: a tenth status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
@@ -177,6 +177,11 @@ def test_the_terminal_status_set_is_exactly_the_ten_it_declares():
     RAN_MISSING_LOG is a run whose outputs are all present and whose declared
     solver log is absent, collected and posted with what the log would have
     said named as unavailable.
+
+    The eleventh, 0.39.0 (FR-434), is a requirement the owner amended into the
+    set and NOT a failure: MAX_ITER_REACHED is a steady point whose evidence
+    shows its counter at the requested iteration limit without the residual
+    settling.
     """
     assert {status.value for status in RunStatus} == {
         "CONVERGED",
@@ -189,6 +194,7 @@ def test_the_terminal_status_set_is_exactly_the_ten_it_declares():
         "SUBMITTED",
         "FAILED_MARKED",
         "RAN_MISSING_LOG",
+        "MAX_ITER_REACHED",
     }
 
 

@@ -123,6 +123,9 @@ class Assessment:
         the worst status, the largest final residual, and the iterations of
         clocking 0, the solve its loads export is of. None on every other
         point.
+    iterations_requested : int, optional
+        The iteration limit the run requested (FR-434); set only for a
+        ``MAX_ITER_REACHED`` point, whose ``iterations`` is the counter reached.
     warnings : list of str, optional
         What the judgment could not use and did without, for the point's
         record's ``warnings`` (0.31.0): a quasi-steady point whose record
@@ -145,6 +148,7 @@ class Assessment:
     time_steps: int | None = None
     clocking_verdicts: list[dict[str, object]] | None = None
     warnings: list[str] | None = None
+    iterations_requested: int | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -840,16 +844,49 @@ def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
                 **job.stamp,
             )
         judged = _judge_final_residuals(history, job.report.convergence_limit)
+        status = judged.status
         if judged.note:
             job.stamp["residual_note"] = judged.note
+        if status is RunStatus.COMPLETED_MAX_ITER and _at_the_limit(job, final.iteration):
+            status = RunStatus.MAX_ITER_REACHED
+            job.stamp["residual_note"] = _limit_note(
+                judged.note, job.report.requested_iterations, final.iteration
+            )
+            job.stamp["iterations_requested"] = job.report.requested_iterations
         return Assessment(
-            status=judged.status,
+            status=status,
             iterations=final.iteration,
             residual=judged.residual,
             error=judged.error,
             **job.stamp,
         )
     return None
+
+
+def _at_the_limit(job: _LoadsJudgment, counter: int | None) -> bool:
+    """Say whether a STEADY point's evidence shows its counter AT the requested limit (FR-434).
+
+    The counter is the one the evidence states (the log's last iteration, else
+    the loads footer's); it must equal the iteration limit the run requested.
+    An unsteady point never is (its time loop always reaches its prescribed
+    end), a forced-iterations run never is (its threshold is off), and a
+    counter that is absent or short of the limit is not inferred.
+    """
+    requested = job.report.requested_iterations
+    if job.report.forced_iterations:
+        # Forced iterations switch the convergence threshold off: the loop runs its whole
+        # budget by design, so reaching it is not a stop that failed to settle (0.38.0 kept).
+        return False
+    return job.mode == "steady" and counter is not None and requested > 0 and counter == requested
+
+
+def _limit_note(note: object, requested: int, reached: int) -> str:
+    """Return the ``residual_note`` of a MAX_ITER_REACHED point: the limit and the count."""
+    said = (
+        f"the solver stopped at the requested iteration limit ({requested}) without the "
+        f"residual settling below the convergence limit; iterations reached: {reached}"
+    )
+    return f"{note}; {said}" if note else said
 
 
 def _judge_assessment_iterations(job: _LoadsJudgment) -> Assessment:
@@ -1170,6 +1207,8 @@ _STATUS_SEVERITY: tuple[RunStatus, ...] = (
     RunStatus.CONVERGED,
     RunStatus.SUBMITTED,
     RunStatus.COMPLETED_MAX_ITER,
+    # FR-434: ended at its requested iteration limit, unsettled; not a failure.
+    RunStatus.MAX_ITER_REACHED,
     RunStatus.WALLTIME_REACHED,
     # FR-413: the outputs are present and the log is not; no verdict either way.
     RunStatus.RAN_MISSING_LOG,

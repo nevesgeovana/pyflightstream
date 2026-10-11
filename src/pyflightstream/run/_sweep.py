@@ -707,16 +707,19 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
             ),
         )
         job.collected_all.extend(collected)
-        job.ran.append(
-            {
-                "tag": tag,
-                "point": dict(point),
-                "status": str(status),
-                "outputs": list(collected),
-                "iterations": assessment.iterations,
-                "residual": assessment.residual,
-            }
-        )
+        ran_entry: dict[str, object] = {
+            "tag": tag,
+            "point": dict(point),
+            "status": str(status),
+            "outputs": list(collected),
+            "iterations": assessment.iterations,
+            "residual": assessment.residual,
+        }
+        if status == RunStatus.MAX_ITER_REACHED:
+            # FR-434 R1/R4: the limit and the note, so the record and the post WARNING state them.
+            ran_entry["iterations_requested"] = assessment.iterations_requested
+            ran_entry["residual_note"] = assessment.residual_note
+        job.ran.append(ran_entry)
         if str(status).startswith("FAILED"):
             job.error_lines.append(f"{tag}: {error or status}")
         # THE WORST, BY A STATED ORDER, and it was the LAST failing point

@@ -110,7 +110,11 @@ DEFAULT_MATRIX = "matriz_physics.fs"
 _CASE_ID = re.compile(r"^(PHY-\d{2})(?:_|$)")
 
 #: A point the run finished and judged from its loads table.
-_TERMINAL_OK = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER)
+_TERMINAL_OK = (
+    RunStatus.CONVERGED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.MAX_ITER_REACHED,
+)
 
 
 def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:

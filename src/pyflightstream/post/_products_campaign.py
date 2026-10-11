@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 _ADMITTED_WHEN_CHECKING = (
     RunStatus.CONVERGED,
     RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.MAX_ITER_REACHED,
     RunStatus.RAN_MISSING_LOG,
 )
 
@@ -215,6 +216,17 @@ def _record_has_frozen_failure(
     if point_record.status is RunStatus.RAN_MISSING_LOG:
         warn(
             missing_log_warning(point_record.run_id, check_frozen=check_frozen),
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+    elif point_record.status is RunStatus.MAX_ITER_REACHED:
+        # FR-434 R4: an ended run that is not a failure; its products are written
+        # and its one WARNING names the point and the limit the run stopped at.
+        warn(
+            f"point={point_record.run_id} product=all: the recorded status is "
+            f"{RunStatus.MAX_ITER_REACHED.value}: "
+            f"{point_record.residual_note or 'the solver stopped at its requested iteration limit'}"
+            "; every product is written from its outputs, which are not a settled solution.",
             PyflightstreamWarning,
             stacklevel=4,
         )

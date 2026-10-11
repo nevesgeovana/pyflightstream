@@ -312,6 +312,9 @@ def test_every_run_status_is_deliberately_classified_as_failed_or_not():
     assert set(RunStatus) - _EXCLUDED_STATUSES == {
         RunStatus.CONVERGED,
         RunStatus.COMPLETED_MAX_ITER,
+        # FR-434 (0.39.0): a steady run that ran to its requested limit spent real time
+        # to its answer, like COMPLETED_MAX_ITER, and is not a failure.
+        RunStatus.MAX_ITER_REACHED,
     }, "a new RunStatus arrived; decide whether its wall time is time to an answer"
 
 

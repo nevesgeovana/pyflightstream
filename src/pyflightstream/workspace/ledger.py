@@ -140,6 +140,7 @@ _PRODUCTS_FILE = "products.json"
 _CONCLUDED = (
     RunStatus.CONVERGED,
     RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.MAX_ITER_REACHED,
     RunStatus.WALLTIME_REACHED,
     RunStatus.RAN_MISSING_LOG,
 )
@@ -180,7 +181,7 @@ def status_text(counts: Mapping[str, int]) -> str:
 
     One word when every datapoint shares it. Otherwise each word with its count,
     in the order of FR-379 R3: the concluded words (CONVERGED,
-    COMPLETED_MAX_ITER, WALLTIME_REACHED, RAN_MISSING_LOG), then the failed ones
+    COMPLETED_MAX_ITER, MAX_ITER_REACHED, WALLTIME_REACHED, RAN_MISSING_LOG), then the failed ones
     (``FAILED_*``),
     then SUBMITTED, then :data:`PLANNED`; a word no group names comes last.
 

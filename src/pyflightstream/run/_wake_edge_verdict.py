@@ -25,6 +25,7 @@ from pyflightstream.results import (
     parse_residual_solves,
 )
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace._missing_log import script_log_names
 
 __all__ = [
     "ACTUATOR_PROFILE_REFUSALS",
@@ -215,43 +216,6 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
 #: EXPORT_KINDS): the name EXPORT_LOG writes, the name `collect` copies a
 #: scheduler's log to, and the name a local run writes the printed output under.
 _LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
-
-#: The commands that write the solver log to a file: the verb of the ``log``
-#: kind of EXPORT_KINDS, which is where the package states which command writes
-#: which export (EXPORT_LOG; the command database marks no other as writing it).
-_LOG_VERBS = frozenset(verb for kind, _, verb, _ in EXPORT_KINDS if kind == "log")
-
-
-def script_log_names(script_text: str | None) -> list[str]:
-    """Return the name of every file a script tells the solver to write its log to.
-
-    EXPORT_LOG is ``param_lines``: the command alone on its line and the file on
-    the next. The name is the file's own, without its folder, since that is how
-    a collected output is matched to it: the script names the file where the
-    job runs, and the collected entry names it where it was filed. Either
-    separator is read, so a script written for a cluster is read here too.
-
-    Parameters
-    ----------
-    script_text : str or None
-        The script as rendered, or as it stands on disk.
-
-    Returns
-    -------
-    list of str
-        Each name once, in the order the script writes them; empty for no script.
-    """
-    if not script_text:
-        return []
-    lines = script_text.splitlines()
-    names: list[str] = []
-    for line, following in zip(lines, lines[1:], strict=False):
-        if line.strip() in _LOG_VERBS and following.strip():
-            name = PureWindowsPath(following.strip()).name
-            if name not in names:
-                names.append(name)
-    return names
-
 
 #: The file the solver writes its own log to in its working folder, whatever the
 #: script exports: a log by its name wherever it is collected.
