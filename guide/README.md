@@ -25,7 +25,8 @@ papers behind every physical explanation it gives.
 `pyflightstream_user_guide.tex` is the guide to the Python library: versions
 and the evidence-backed command database, the script builder and its helpers,
 recipes in Python, reading results, and the command-line tools. It is built
-with `scripts/build-guide.ps1` and its PDF is not tracked.
+with `scripts/build-guide.ps1`, and its PDF, `pyflightstream_user_guide.pdf`,
+is published here beside its source.
 
 ## Building the guides
 
@@ -35,6 +36,14 @@ two-digit argument builds one guide. It needs `pdflatex` (MiKTeX or TeX Live)
 with beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore.
 The build refuses a source with an em or en dash, and prints the number of
 overfull boxes per guide, which must be zero.
+
+The cheatsheet and the user guide are published with their build logs beside
+them, `pyfts-guide-04-cheatsheet.log` and `pyflightstream_user_guide.log`:
+each is the log of the build that made the PDF, with the building machine's
+folders written as `<texmf>`, `<texmf-data>` and `<repo>` and trailing blanks
+removed. Neither holds an error line or an overfull box, and each PDF names
+the version it was built for in its metadata (NFR-46,
+`tests/tier1_offline/test_p0390_pdfs.py`).
 
 ## The cheatsheet, guide 4
 

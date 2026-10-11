@@ -1,6 +1,7 @@
-# Builds the beamer user guide pdf locally. The pdf never enters Git
-# (repository guard rejects tracked pdf files); only the .tex source
-# is committed.
+# Builds the beamer user guide pdf, guide/pyflightstream_user_guide.pdf,
+# beside its source. The release publishes that pdf with its build log
+# (NFR-46); the repository guards admit it and no other pdf outside the
+# guide decks.
 param(
     [string]$TexFile = "guide\pyflightstream_user_guide.tex"
 )

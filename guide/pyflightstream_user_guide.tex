@@ -5,9 +5,11 @@
 % step by step recipes for every supported simulation type.
 % Geovana Neves
 % Note: no em dashes or en dashes are used anywhere in this document.
-% The built pdf never enters Git (repository guard); build locally
-% with scripts/build-guide.ps1.
+% Built with scripts/build-guide.ps1; the release publishes the PDF
+% beside this source, guide/pyflightstream_user_guide.pdf, with its log.
 % =====================================================================
+% No absolute path of the building machine in the PDF, as in the decks.
+\ifdefined\pdfsuppressptexinfo \pdfsuppressptexinfo=-1 \fi
 \usetheme{Madrid}
 \usecolortheme{default}
 \usepackage[T1]{fontenc}
@@ -72,11 +74,16 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.38.0, MIT licensed}
+\institute[]{pyflightstream 0.39.0, MIT licensed}
 \date{October 2026}
+% The PDF's metadata names the version the guides are written for, from the
+% one file every guide reads; a tier-1 test holds it and the cover to the
+% version pyproject.toml declares.
+\input{latex-sources/shared/info.tex}
+\hypersetup{pdfsubject={\pkgname{} \pkgversion{} user guide},pdfkeywords={\pkgname{} \pkgversion}}
 
 \AtBeginSection[]{
-  \begin{frame}{Section outline}
+  \begin{frame}[allowframebreaks]{Section outline}
     \tiny
     \tableofcontents[currentsection,hideothersubsections]
   \end{frame}
@@ -169,9 +176,8 @@ pyflightstream.help("26.120")   # scoped to one FlightStream version
 \section{The Mental Model}
 % =====================================================================
 
-\begin{frame}[fragile]{Versions: the YY.XXX canonical scheme}
-  \begin{columns}[T]
-    \column{0.55\textwidth}
+\begin{frame}{Versions: the YY.XXX canonical scheme}
+  \small
     \begin{itemize}
       \item Vendor names ("26.1", "26.12") do not sort: neither string nor float comparison orders them correctly.
       \item A vendor name can also name more than one build: 26.120, 26.121, 26.122, 26.123, 26.124 and 26.125 all ship as "26.12", and since 2026-08-04 so do 26.100 and 26.101 as "26.1". Resolution refuses such a name and lists the candidates, rather than returning one of them. Note what that means for a script you wrote earlier: a vendor name is unique only until the vendor ships the next build under it, so pass the canonical identifier.
@@ -179,6 +185,11 @@ pyflightstream.help("26.120")   # scoped to one FlightStream version
       \item The ordered list in the database metadata is the only ordering authority, and it orders by RELEASE. Versions are never removed, and never removed is not the same as always appended: the 25 series was obtained after every 26 build and registered in front of all of them on 2026-08-09.
       \item Each build also carries the vendor BUILD NUMBER its solver prints, the only value that tells apart two builds sharing a release name. The generated "Which build do I have" page maps them.
     \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Versions: resolving a name}
+  \begin{columns}[T]
+    \column{0.55\textwidth}
 \begin{lstlisting}
 from pyflightstream.versions import resolve, known_versions
 v = resolve("26.120")       # canonical
@@ -194,6 +205,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
 \end{lstlisting}
     \column{0.42\textwidth}
     \begin{center}
+    \resizebox{!}{0.78\textheight}{%
     \begin{tikzpicture}[node distance=4.5mm]
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm] (z0) {25.000 (alias 25.0)};
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of z0] (z1) {25.100 (alias 25.1)};
@@ -218,7 +230,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
       \draw[-{Stealth},thick,accentteal] (g) -- (h);
       \node[below=3mm of h,text width=36mm,font=\tiny,align=center]
         {one vendor name, "26.12", names every build below 26.101; resolution refuses it and lists them};
-    \end{tikzpicture}
+    \end{tikzpicture}}
     \end{center}
   \end{columns}
 \end{frame}
@@ -233,7 +245,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
     \end{itemize}
     \column{0.46\textwidth}
     \small
-    \begin{tabular}{@{}ll@{}}
+    \begin{tabular}{@{}lp{4.1cm}@{}}
       \toprule
       Status & Meaning \\
       \midrule
@@ -278,7 +290,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
 
 \begin{frame}{Three tiers of quality assurance behind the statuses}
   \small
-  \begin{tabular}{@{}lllp{4.2cm}@{}}
+  \begin{tabular}{@{}lp{3.8cm}p{2.2cm}p{5.3cm}@{}}
     \toprule
     Tier & What it checks & Where it runs & Evidence artifact \\
     \midrule
@@ -312,7 +324,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
   \begin{columns}[T]
     \column{0.5\textwidth}
     \begin{center}
-    \begin{tikzpicture}[node distance=3.2mm,
+    \begin{tikzpicture}[node distance=2.2mm,
       lay/.style={draw=deepblue,thick,rounded corners,fill=softgray,minimum width=46mm,minimum height=7mm,align=center,font=\small}]
       \node[lay] (qa) {\textbf{post / qa}: physics matrix, drift, probes};
       \node[lay,below=of qa] (run) {\textbf{run}: executor, campaign loop};
@@ -430,7 +442,7 @@ script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
   \end{block}
 \end{frame}
 
-\begin{frame}[fragile]{The errors are the teachers (2): version refusals}
+\begin{frame}[fragile,allowframebreaks]{The errors are the teachers (2): version refusals}
 \begin{lstlisting}[style=txt]
 >>> Script(version="25.0").emit("CAD_CREATE_BOX")
 CommandNotInVersionError: CAD_CREATE_BOX has no recorded evidence
@@ -500,7 +512,7 @@ if not result.failed:
   \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Fluid state and free stream}
+\begin{frame}[fragile,allowframebreaks]{Fluid state and free stream}
 \begin{lstlisting}
 from pyflightstream.script import helpers
 
@@ -518,11 +530,11 @@ helpers.free_stream(script, "ROTATION",  # hover / rotor frames
     The altitude form carries the sharper trap. 25.000 takes AIR\_ALTITUDE with a bare value and reads it in FEET; every later build takes a units token, which this helper defaults to METERS. Same call, factor of 3.28. So on 25.000 it REQUIRES \code{altitude\_units="FEET"} and refuses silence, that being the one omission which would change the physics without changing how the script looks.
   \end{block}
   \begin{alertblock}{Why explicit properties}
-    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) is recorded broken on 26.100, 26.101 and 26.120: the probe passed 5000 with a METERS token and the expected 0.736 kg/m$^3$ was not observed, with no error. ONE of the three has a reading behind it, 26.120, where 1.056 kg/m$^3$ was seen twice, the 5000 ft standard state and 43\% high. On the other two the probe recorded only the absence; the 1.056 sentence appears in all three reports because it is the probe spec's own expectation, and it appears in 26.121's PASSING row too. So the units-ignored reading is a hypothesis with one measurement, registered as PLN-20260810-2000, and this page does not state it as three. The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too. The 2026-08-11 run on 26.122 passes as well (\code{CMP-26122\_2026-08-11\_full}), so the altitude form is measured to work on both hotfix builds and to fail on the three base releases it has been probed on. Three variables separate the 26.120 and 26.121 runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On the base releases, use FLUID\_PROPERTIES.
+    \small The altitude form (AIR\_ALTITUDE, SRC-003 p.328) is recorded broken on 26.100, 26.101 and 26.120: the probe passed 5000 with a METERS token and the expected 0.736 kg/m$^3$ was not observed, with no error. ONE of the three has a reading behind it, 26.120, where 1.056 kg/m$^3$ was seen twice, the 5000 ft standard state and 43\% high. On the other two the probe recorded only the absence; the 1.056 sentence appears in all three reports because it is the probe spec's own expectation, and it appears in 26.121's PASSING row too. So the units-ignored reading is a hypothesis with one measurement, registered as PLN-20260810-2000, and this page does not state it as three. The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too. The 2026-08-11 run on 26.122 passes as well (\code{CMP-26122\_2026-08-11\_full}), so the altitude form is measured to work on both hotfix builds and to fail on the three base releases it has been probed on. Three variables separate the 26.120 and 26.121 runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On the base releases, use FLUID\_PROPERTIES.
   \end{alertblock}
 \end{frame}
 
-\begin{frame}[fragile]{Solver settings and initialization}
+\begin{frame}[fragile,allowframebreaks]{Solver settings and initialization}
 \begin{lstlisting}
 helpers.initialize_solver(script,
     solver_model="INCOMPRESSIBLE",   # or PRANDTL_GLAUERT, ...
@@ -558,7 +570,7 @@ helpers.export_results(script,
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Probe management}
+\begin{frame}[fragile,allowframebreaks]{Probe management}
 \begin{lstlisting}
 helpers.probe_points(script, [(0.5, 0.0, 0.1),
                               (0.5, 0.5, 0.1)])   # simulation length units
@@ -701,7 +713,7 @@ helpers.sweep(script,
 % ---------------------------------------------------------------
 \subsection{Recipe 3: half model with mirror symmetry}
 
-\begin{frame}[fragile]{Recipe 3: half model with MIRROR symmetry}
+\begin{frame}[fragile,allowframebreaks]{Recipe 3: half model with MIRROR symmetry}
   \textbf{Prerequisites:} a true half geometry with an open root section lying in the symmetry plane. A face on the symmetry plane duplicates itself into coincident faces (SRC-003 p.386, paraphrased).
   \begin{enumerate}
     \item Import the half mesh; same skeleton as recipe 1.
@@ -773,7 +785,7 @@ disc = helpers.actuator_disc(script, "prop1",
 % ---------------------------------------------------------------
 \subsection{Recipe 5: unsteady with resolved rotating blades}
 
-\begin{frame}[fragile]{Recipe 5: unsteady rotary motion (1/2)}
+\begin{frame}[fragile,allowframebreaks]{Recipe 5: unsteady rotary motion (1/2)}
   \textbf{Concept:} the blade-resolved alternative to the actuator disc (SRC-003 p.234): the blade geometry physically rotates through unsteady time stepping. Costlier, richer.
   \begin{enumerate}
     \item Import the full geometry including blades. Their names come with the mesh, and naming them is preferred to counting them: a position is right for one file's boundary order and means another surface in a file that orders them differently.
@@ -801,7 +813,7 @@ helpers.unsteady_solver(script, time_iterations=72,
 \end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]{Recipe 5: unsteady rotary motion (2/2)}
+\begin{frame}[fragile,allowframebreaks]{Recipe 5: unsteady rotary motion (2/2)}
   \begin{enumerate}
     \setcounter{enumi}{3}
     \item For rotor-dominated velocity scales, normalize with the tip speed instead of the free stream (SRC-003 p.201):
@@ -852,7 +864,7 @@ helpers.export_probes(script, "probes_out.txt", update=True)
 % ---------------------------------------------------------------
 \subsection{Recipe 7: batch campaigns}
 
-\begin{frame}[fragile]{Recipe 7: campaigns (1/3), declare what to run}
+\begin{frame}[fragile,allowframebreaks]{Recipe 7: campaigns (1/3), declare what to run}
   \textbf{Concept:} a campaign is data (TOML), a recipe is code (a function), the loop welds them with full provenance.
 \begin{lstlisting}[style=txt]
 [campaign]
@@ -932,7 +944,8 @@ records = run_campaign(campaign,
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{The flight condition: one cell, and where its keys may live}
+\begin{frame}[fragile,allowframebreaks]{The flight condition: one cell, and where its keys may live}
+  \small
   \begin{itemize}
     \item From v0.9.0 a row states its whole flow condition in one \code{FLIGHT\_CONDITION} cell. \textbf{It is a set of CONSTRAINTS on one flow state, and the keys you give decide which quantity gets solved for.} It is not a record with optional fields.
   \end{itemize}
@@ -944,7 +957,7 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
     \item The first states a Mach and a Reynolds number and no temperature, so the state is sea level and \textbf{the density moves} to meet the Reynolds number. The second states a speed at an altitude, so it is an atmosphere point and \textbf{the Reynolds number comes out} of it.
   \end{itemize}
   \begin{center}
-  \begin{tabular}{lll}
+  \begin{tabular}{llp{5.6cm}}
     \textbf{Key} & \textbf{Unit} & \textbf{What it constrains} \\
     \hline
     \code{MACH} & dimensionless & velocity, via the speed of sound at the state's own temperature \\
@@ -970,7 +983,7 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
+\begin{frame}[fragile,allowframebreaks]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
     \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with a \code{SWEEP\_TYPE} column of \code{AL} and \code{BE} codes)? \textbf{First upgrade the file.} The layout has broken four times and a matrix written under any earlier one is recognised by its header and refused rather than misread. v0.9.0 replaced the \code{RE} and \code{MACH} columns with one mandatory \code{FLIGHT\_CONDITION} cell; v0.15.0 removed \code{SWEEP\_TYPE} itself, because that cell now says which variable varies by carrying the word \code{sweep} where its value would be, so \code{AL} becomes \code{ALPHA:sweep}. The one row the converter will not do for you is one that varies BOTH angles: that is one row per sideslip, each needing a \code{POL} of its own, and it is refused by name.
   \end{itemize}
@@ -999,7 +1012,7 @@ text = convert_matrix("matrix.fs", name="wing2026",
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Recipe 7 addendum: migrating a loose script builder}
+\begin{frame}[fragile,allowframebreaks]{Recipe 7 addendum: migrating a loose script builder}
   \textbf{The other half of coming from a driver script:} the campaign loop calls the \code{ScriptRecipe} protocol, \code{build(case, script) -> None}. A builder with the old signature is refused by \code{resolve\_recipe}, so \code{pyfs-matrix plan} blocks every point of the case before anything runs, naming the signature it found.
 \begin{lstlisting}
 # before: the loose form an old driver called directly
@@ -1117,7 +1130,7 @@ J  = V/(|n|D)       CT = T/(rho n^2 D^4)   CQ = Q/(rho n^2 D^5)
 CP = 2 pi CQ sign(n)   ETA = J CT / CP     ETAW = J CTW / CP
 \end{lstlisting}
   \begin{itemize}
-    \item \code{n} is signed revolutions per SECOND: its magnitude sets \code{J}, its rotation sign multiplies \code{CP}, and \code{CQ} keeps the torque sign about the fixed rotor axis. \code{CTW} is the rotor's force projected on the free stream, against it, over \code{rho n^2 D^4}. \code{ETAW} equals \code{ETA} when the shaft lies along the stream.
+    \item \code{n} is signed revolutions per SECOND: its magnitude sets \code{J}, its rotation sign multiplies \code{CP}, and \code{CQ} keeps the torque sign about the fixed rotor axis. \code{CTW} is the rotor's force projected on the free stream, against it, over \code{rho n\textasciicircum{}2 D\textasciicircum{}4}. \code{ETAW} equals \code{ETA} when the shaft lies along the stream.
     \item Every column carries the rotor's ALIAS, because these make physical sense for ONE rotor and not for several summed: the diameters and speeds that normalise them are different numbers.
     \item \code{ETA} and \code{ETAW} read \code{NA} on a static point, where both are 0/0. A figure of merit is the static measure and you define it.
     \item The table names its alias in its \code{ROTOR} column, right after \code{POL}, on every row, so a script that has already loaded the file still knows which rotor and which polar it holds. From 0.23.0 to 0.26.x the alias stood alone on the first line, before the header; since 0.27.0 the first line of every table is its header and its first column the polar.
@@ -1188,7 +1201,7 @@ rename_group_products(root, {1: "PUSHER"})
   \end{columns}
 \end{frame}
 
-\begin{frame}{Hotfix inheritance}
+\begin{frame}[allowframebreaks]{Hotfix inheritance}
   \begin{itemize}
     \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
     \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, and the 2026-08-11 run on 26.122 found the altitude form working there too (\code{CMP-26122\_2026-08-11\_full}), and the 2026-08-17 run on 26.123 found it working there too, so the hotfixes it has been probed on are the builds it is measured to work on and the three base releases it has been probed on are the builds it is measured to fail on. The matrix carries the list; a tally written here has gone stale on every registration.
@@ -1204,23 +1217,51 @@ rename_group_products(root, {1: "PUSHER"})
 \section{Real Solver Pitfalls, Evidence Backed}
 % =====================================================================
 
-\begin{frame}{Pitfalls found by the probe suite (Tier 2)}
-  \small
-  \begin{tabular}{@{}p{5.4cm}p{1.2cm}p{6.0cm}@{}}
+\begin{frame}[allowframebreaks]{Pitfalls found by the probe suite (Tier 2)}
+  \footnotesize
+  \begin{tabular}{@{}p{6.0cm}p{1.6cm}p{4.8cm}@{}}
     \toprule
     Finding & Builds & Practical rule \\
     \midrule
     AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to a hotfix build where the same probe passes; the compatibility matrix names which \\
     SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123, 26.124, 26.125 & use probe lattices for off-body data \\
+    \bottomrule
+  \end{tabular}
+
+  \begin{tabular}{@{}p{6.0cm}p{1.6cm}p{4.8cm}@{}}
+    \toprule
+    Finding & Builds & Practical rule \\
+    \midrule
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\
     SOLVER\_TIME\_AVERAGING hangs the solver before it marches & 26.124 & never emitted since 0.28.0: the pproc's \code{[time\_averaging]} makes the package average the per-step surface exports itself, the average the solver computes on 26.122 (RPT-079) \\
+    \bottomrule
+  \end{tabular}
+
+  \begin{tabular}{@{}p{6.0cm}p{1.6cm}p{4.8cm}@{}}
+    \toprule
+    Finding & Builds & Practical rule \\
+    \midrule
     EXPORT\_BL\_VELOCITY\_PROFILE holds an unattended script & 26.124 & the boundary-layer thicknesses come from the VTK surface; the profile needs a person at the machine (RPT-075) \\
     NEW\_CCS\_FUSELAGE\_RELAXED\_TE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
     NEW\_CCS\_REVOLVE\_RELAXED\_TE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
+    \bottomrule
+  \end{tabular}
+
+  \begin{tabular}{@{}p{6.0cm}p{1.6cm}p{4.8cm}@{}}
+    \toprule
+    Finding & Builds & Practical rule \\
+    \midrule
     NEW\_CCS\_WING\_FLAP\_COVE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
     NEW\_CCS\_WING\_MORPHING\_SURFACE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
     EXPORT\_REVOLVE\_CCS\_FILE aborts the script & 26.124 & the CCS mesh recipe that needs it stops at it; leave it out of a script until a re-probe clears it, and the builder refuses it meanwhile (RPT-126) \\
+    \bottomrule
+  \end{tabular}
+
+  \begin{tabular}{@{}p{6.0cm}p{1.6cm}p{4.8cm}@{}}
+    \toprule
+    Finding & Builds & Practical rule \\
+    \midrule
     EXPORT\_FUSELAGE\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
     EXPORT\_WING\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
     CREATE\_FREE\_SURFACE\_TFI\_MESH aborts the script & 26.125 & the documented call raised a modal error naming a perimeter curve with no virtual curves assigned; what the free surface needs first is not measured, so leave it out of a script, and the builder refuses it meanwhile \\
@@ -1320,7 +1361,7 @@ rename_group_products(root, {1: "PUSHER"})
   \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Cheat sheet: the five command-line tools}
+\begin{frame}[fragile,allowframebreaks]{Cheat sheet: the five command-line tools}
 \begin{lstlisting}[style=txt]
 pyfs-qa probe            --fs-version ... --fs-exe ...   # Tier 2 probes
 pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
@@ -1340,7 +1381,7 @@ pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh
 pyfs-matrix degenerate   blade.obj --root-offset 0.05 # the thin blade of a blade mesh
 pyfs-matrix audit-mesh   mesh.obj [--against SRC.obj]  # judge a panel mesh, write its audit
-pyfs-matrix refine       mesh.obj 2 [--out-dir DIR]   # refine or coarsen into a new level folder
+pyfs-matrix refine       mesh.obj 2 [--out DIR]       # refine or coarsen into a new level folder
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
 pyfs-matrix rename       --workspace DIR [--dry-run]  # 0.20.x names to the 0.21.0 point names

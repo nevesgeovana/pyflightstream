@@ -26,19 +26,23 @@ site/
 # drift_runs*/, fsi_runs/) moved under runs/ the same day.
 runs/
 
-# LaTeX build artifacts of the beamer guide; its built pdf never
-# enters Git, only guide/*.tex is committed.
+# LaTeX build artifacts of the guides.
 guide/*.pdf
-# The nine guides, 01 to 09, are the one exception to the pdf rule, by the
+# The nine guides, 01 to 09, are the exception to the pdf rule, by the
 # owner's decision: their compiled PDFs and the figures they include are
-# tracked beside their sources. The repository guards (pre-commit, the CI
-# guard job and tests/tier1_offline/test_house_style.py) admit these two
+# tracked beside their sources; so is the user guide's PDF, which the
+# release publishes (NFR-46). The repository guards (pre-commit, the CI
+# guard job and tests/tier1_offline/test_house_style.py) admit these
 # patterns and no other pdf, guide/ included; the decks' build/ folder stays
 # ignored.
 !guide/pyfts-guide-0[1-9]-*.pdf
+!guide/pyflightstream_user_guide.pdf
 !guide/latex-sources/0[1-9]-*/figures/*.pdf
 guide/*.aux
 guide/*.log
+# The build logs of the two PDFs the release publishes, beside them (NFR-46).
+!guide/pyfts-guide-04-cheatsheet.log
+!guide/pyflightstream_user_guide.log
 guide/*.nav
 guide/*.out
 guide/*.snm
