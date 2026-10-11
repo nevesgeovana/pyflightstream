@@ -79,6 +79,7 @@ __all__ = [
     "held_by_the_study",
     "ignores_missing_families",
     "judge_a_name_the_model_lacks",
+    "names_a_row_can_cite",
     "names_no_boundary_answers",
     "note_the_families_a_row_lacks",
     "noting_the_families_rows_lack",
@@ -87,6 +88,7 @@ __all__ = [
     "saying_the_families_each_row_skips",
     "saying_the_study_skips",
     "selects_nothing",
+    "skips_a_name_the_model_lacks",
     "study_vocabulary",
 ]
 
@@ -396,12 +398,32 @@ _StudyNoted = dict[tuple[str, str, str], tuple[list[StudySkip], list[str]]]
 _STUDY_PLAN: ContextVar[_StudyNoted | None] = ContextVar("pyflightstream_study_plan", default=None)
 
 
+def names_a_row_can_cite(case: SimCase) -> dict[str, list[str]]:
+    """Return the reference's aliases with each rotor block's own name added to them.
+
+    A rotor's name is an alias for its own families (FR-60, FR-65), so a
+    reference block ``PUSHER`` stands for its ``families_general`` and
+    ``families_blades``. The reference's ``[aliases]`` table takes precedence,
+    so a study that gives one of these names a meaning of its own keeps it.
+    One map for every reader: the pproc expansions, the study vocabulary
+    (FR-435 R2) and the classification of a cited name (FR-435 R4, R13).
+    """
+    return {
+        **{
+            name: [*block.families_general, *block.families_blades]
+            for name, block in case.rotors.items()
+        },
+        **case.aliases,
+    }
+
+
 def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
     """Return the names a row's study holds, or None where its reference declares none.
 
     FR-435 R2: the reference's ``[study] surfaces``, then the names of its
-    aliases (a rotor block's own name among them) and every member of each, so
-    an alias followed to the end is in it too. Each once, case folded.
+    aliases (a rotor block's own name among them, :func:`names_a_row_can_cite`)
+    and every member of each, so an alias followed to the end is in it too.
+    Each once, case folded.
 
     Examples
     --------
@@ -419,9 +441,10 @@ def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
     surfaces = None if reference is None else reference.study_surfaces
     if surfaces is None:
         return None
-    members = [str(member) for listed in case.aliases.values() for member in listed]
+    names = names_a_row_can_cite(case)
+    members = [str(member) for listed in names.values() for member in listed]
     held: dict[str, str] = {}
-    for name in (*surfaces, *case.aliases, *members):
+    for name in (*surfaces, *names, *members):
         held.setdefault(name.casefold(), name)
     return tuple(held.values())
 
@@ -568,6 +591,61 @@ def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str)
     if collected is not None and skip not in collected:
         collected.append(skip)
     return True
+
+
+def skips_a_name_the_model_lacks(
+    case: SimCase, kind: str, key: str, token: str, inventory: Sequence[str]
+) -> bool:
+    """Classify one name a key of FR-435 R1 cites, against the model as it opened (R4, R13).
+
+    The one classification every covered key routes through. A name that
+    selects some boundary of ``inventory`` through the row's names
+    (:func:`names_a_row_can_cite`), and the words that name no set (``all``,
+    ``each``, ``each_blade``), are not judged: the caller reads them as 0.38.0
+    did. Every other name is judged by :func:`judge_a_name_the_model_lacks`.
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case.
+    kind : str
+        :data:`SETUP_ARTIFACT` or :data:`PPROC_ARTIFACT`, the artifact citing it.
+    key : str
+        The key citing it, as :class:`StudySkip` spells it.
+    token : str
+        The name as the artifact writes it.
+    inventory : sequence of str
+        The boundary labels of the row's model in inventory order, as the
+        geometry OPENED them: before ``delete_surfaces`` removed any, so a
+        name the setup itself removed is not a name the model lacks.
+
+    Returns
+    -------
+    bool
+        True when the name is skipped; False when the caller reads it as on
+        0.38.0.
+
+    Raises
+    ------
+    CampaignConfigError
+        As :func:`judge_a_name_the_model_lacks` does.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
+    >>> from pyflightstream.cases._skipped_families import skips_a_name_the_model_lacks
+    >>> case = SimCase(
+    ...     sim_id="1", aircraft="A", recipe="steady", sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     reference=ReferenceData(area=1.0, length=1.0, study_surfaces=("Wing", "Sting")),
+    ... )
+    >>> def skips(name):
+    ...     return skips_a_name_the_model_lacks(case, "setup", "k", name, ["Wing"])
+    >>> [skips(name) for name in ("Sting", "each", "Wing")]
+    [True, False, False]
+    """
+    if not selects_nothing(token, inventory, names_a_row_can_cite(case)):
+        return False
+    return judge_a_name_the_model_lacks(case, kind, key, token)
 
 
 def _a_misspelling(

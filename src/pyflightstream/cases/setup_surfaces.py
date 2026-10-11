@@ -37,12 +37,14 @@ row that creates no rotor motion, is a silent no-op otherwise.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from weakref import WeakKeyDictionary
 
 from pyflightstream.cases import CampaignConfigError, select_group_members
 from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
-    judge_a_name_the_model_lacks,
+    names_a_row_can_cite,
     selects_nothing,
+    skips_a_name_the_model_lacks,
     study_vocabulary,
 )
 from pyflightstream.script.helpers import WAKE_STABILIZATION_COMMAND
@@ -57,7 +59,7 @@ __all__ = [
     "emit_setup_surfaces",
     "emit_wake_stabilization",
     "refuse_setup_keys_that_reached_nothing",
-    "removed_by_delete_surfaces",
+    "the_model_inventory",
 ]
 
 #: The setup key naming the surfaces to remove.
@@ -67,6 +69,13 @@ DELETE_SURFACES_KEY = "delete_surfaces"
 WAKE_STABILIZATION_KEY = "slipstream_wake_stabilization"
 
 _DELETE = "DELETE_SURFACES"
+
+#: THE BOUNDARY LIST EACH SCRIPT'S GEOMETRY OPENED WITH, kept where
+#: ``delete_surfaces`` removed some of it (FR-435 R4): every later key of
+#: FR-435 R1 asks whether the MODEL carries a name, and a surface the setup
+#: itself removed is one the model carries. Weakly keyed, so a script that is
+#: dropped takes its entry with it.
+_OPENED: WeakKeyDictionary[Script, tuple[str, ...]] = WeakKeyDictionary()
 
 
 def emit_setup_surfaces(script: Script, case: SimCase) -> None:
@@ -111,7 +120,9 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
     doomed: set[int] = set()
     for token in stated:
         found = select_group_members([token], ordered, case.aliases)
-        if not found and _skipped(case, token):
+        if not found and skips_a_name_the_model_lacks(
+            case, SETUP_ARTIFACT, DELETE_SURFACES_KEY, token, ordered
+        ):
             continue
         if not found:
             raise CampaignConfigError(
@@ -130,6 +141,7 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
             f"which removes every surface of the {len(inventory)} the geometry carries. A "
             "mesh with no surface cannot be solved; keep at least one."
         )
+    _OPENED[script] = tuple(ordered)
     for index in sorted(doomed, reverse=True):
         script.emit(_DELETE, index)
     survivors = tuple(name for position, name in enumerate(inventory, 1) if position not in doomed)
@@ -228,18 +240,6 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
         )
 
 
-def _skipped(case: SimCase, token: str) -> bool:
-    """Whether a name the model lacks is one the row's study holds, skipped (FR-435 R4).
-
-    False where the reference declares no vocabulary, so the caller refuses
-    the name as 0.38.0 did (R3); a name the study does not hold, and every
-    name of a run that asked for the refusal, raise here (R6, R10).
-    """
-    if study_vocabulary(case) is None:
-        return False
-    return judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, DELETE_SURFACES_KEY, token)
-
-
 def _every_name_skipped(script: Script, case: SimCase) -> bool:
     """Whether the geometry was opened and every name it was asked to remove was skipped.
 
@@ -250,21 +250,34 @@ def _every_name_skipped(script: Script, case: SimCase) -> bool:
     if not labels or study_vocabulary(case) is None:
         return False
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
+    names = names_a_row_can_cite(case)
     return all(
-        selects_nothing(token, ordered, case.aliases) for token in case.solver.delete_surfaces or ()
+        selects_nothing(token, ordered, names) for token in case.solver.delete_surfaces or ()
     )
 
 
-def removed_by_delete_surfaces(script: Script, case: SimCase, name: str) -> bool:
-    """Whether the row's ``delete_surfaces`` emitted a removal that took the surface ``name`` names.
+def the_model_inventory(script: Script) -> list[str]:
+    """Return the boundary labels of the row's model as its geometry opened them.
 
-    FR-435 R4: a later key judged against the boundary list AFTER the
-    deletion would call a name the setup itself removed a name the model
-    lacks. The name is read against the list as the geometry opened it only
-    through the removal the row's own tokens select.
+    FR-435 R4: every key of R1 after ``delete_surfaces`` asks whether the
+    MODEL carries a name, and a key judged against the list AFTER the removal
+    would call a name the setup itself removed a name the model lacks (a
+    model carrying a Sting, removing it, and citing it in a group). The
+    emission still resolves against the list after the removal; only the
+    classification reads this one. Empty where no inventory was declared.
+
+    Parameters
+    ----------
+    script : Script
+        The script being built for the point.
+
+    Returns
+    -------
+    list of str
+        The labels in inventory order, before any removal.
     """
-    stated = case.solver.delete_surfaces
-    lines = script.render().splitlines()
-    if not stated or not any(line.startswith(_DELETE + " ") for line in lines):
-        return False
-    return any(bool(select_group_members([token], [name], case.aliases)) for token in stated)
+    opened = _OPENED.get(script)
+    if opened is not None:
+        return list(opened)
+    labels = script.entities.labels("boundaries")
+    return [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]

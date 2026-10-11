@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import warnings
 from pathlib import Path
 
@@ -812,3 +813,165 @@ def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
     extract("Tail")
     with pytest.raises(CampaignConfigError, match="Tial"):
         extract("Tial")
+
+
+# --- W3 review fixes: the model as it opened, the rotor names, the words, the flag ---
+
+SUPPORT_ALIAS = 'support = ["Sting"]\n'
+
+
+@pytest.mark.parametrize("member", ["Sting", "support"])
+def test_a_group_citing_a_surface_the_setup_deleted_is_not_judged(tmp_path, member):
+    """P0390-R02 (FR-435 R4, R12) a [groups] member the setup removed: no line, no skip, no refusal.
+
+    The wing-body-tail model carries the Sting and the setup removes it; a
+    group citing it, by name or through an alias, is classified against the
+    boundary list as the geometry opened it, so the model does not lack it. Under
+    ``--ignore-missing-families false`` it is not refused either.
+    """
+    pproc = PPROC + f'SUPPORT = "{member}"\n'
+    workspace, path = study(
+        tmp_path,
+        reference=REFERENCE + SUPPORT_ALIAS + STUDY,
+        pproc=pproc,
+        models=(WING_BODY_TAIL,),
+    )
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2002": {PlanStatus.READY}}
+    assert fr435_warnings(said) == []
+    plan, _ = planned(workspace, path, ignore_missing_families=False)
+    assert status_of(plan) == {"2002": {PlanStatus.READY}}
+    ran(workspace, path)
+    points = [point for record in workspace.read_manifest() for point in record.as_points()]
+    assert [point.skipped_names for point in points] == [None, None]
+
+
+ROTOR = (
+    '[rotors.PUSHER]\nalias = "PUSHER"\naxis = "Z"\ndiameter_m = 1.0\n'
+    'families_general = ["Spinner"]\nfamilies_blades = ["Prop1", "Prop2"]\n'
+)
+WING_BODY_PROP = ("2004", "wbp.fsm", ["Wing", "Body", "Base", "Spinner", "Prop1", "Prop2"])
+
+
+def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
+    """P0390-R02 (FR-435 R2, R4) a rotor block's own name: held by the study, selects its families.
+
+    The study declares the wing-body surfaces alone; the reference's rotor
+    block PUSHER names the propeller's families. ``analysis_families`` citing
+    PUSHER is read as on 0.38.0 on the model carrying the propeller (it
+    selects its families) and is skipped and said on the wing-body model,
+    never refused as a misspelling; so is a blade family the rotor declares,
+    cited by a group, and each family of the integration group the binder adds
+    for the rotor (item 15).
+    """
+    study_table = '[study]\nsurfaces = ["Wing", "Body", "Base"]\n'
+    pproc = 'base_regions = ["Base"]\n[groups]\nTOTAL = "all"\nP2 = "Prop2"\n'
+    workspace, path = study(
+        tmp_path,
+        reference=REFERENCE + study_table + ROTOR,
+        setup='iterations = 500\nanalysis_families = ["Wing", "Body", "PUSHER"]\n',
+        pproc=pproc,
+        models=(WING_BODY, WING_BODY_PROP),
+    )
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2001": {PlanStatus.READY}, "2004": {PlanStatus.READY}}
+    lines = fr435_warnings(said)
+    said_skips = {
+        (match.group(1), match.group(2))
+        for line in lines
+        for match in [re.search(r": (\S+) cites '(\w+)', which the study", line)]
+        if match
+    }
+    assert said_skips == {
+        ("analysis_families", "PUSHER"),
+        ("groups.P2", "Prop2"),
+        ("groups.PUSHER", "Spinner"),
+        ("groups.PUSHER", "Prop1"),
+        ("groups.PUSHER", "Prop2"),
+    }, lines
+    assert all("row '2001'" in line and "'2004'" not in line for line in lines), lines
+
+
+@pytest.mark.parametrize(
+    ("setup", "pproc", "v0380"),
+    [
+        (
+            SETUP.replace('delete_surfaces = ["Sting"]', 'delete_surfaces = ["Sting", "each"]'),
+            PPROC,
+            "states delete_surfaces with 'each', and the inventory declares no surface",
+        ),
+        (
+            without(SETUP, 'delete_surfaces = ["Sting"]\n'),
+            PPROC.replace('base_regions = ["Base", "TailBase"]', 'base_regions = ["Base", "each"]'),
+            "states BASE_REGIONS with 'each', and the mesh block of",
+        ),
+    ],
+)
+def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setup, pproc, v0380):
+    """P0390-R02 (FR-435 R4) ``each`` in delete_surfaces or base_regions keeps its 0.38.0 reading.
+
+    The study never skips, refuses or says ``all``, ``each`` or
+    ``each_blade``: the word is read as 0.38.0 reads it (here its refusal as a
+    name no surface carries), on both rows and at either flag, and is never
+    called a misspelling of the study's vocabulary.
+    """
+    workspace, path = study(tmp_path, setup=setup, pproc=pproc)
+    for options in ({}, {"ignore_missing_families": False}):
+        plan, said = planned(workspace, path, **options)
+        assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.BLOCKED}}
+        rows = ("2002",) if options else ("2001", "2002")
+        for row in rows:
+            error = error_of(plan, row)
+            assert v0380 in error, error
+            assert "cites 'each'" not in error and "(FR-435)" not in error, error
+        assert not [line for line in fr435_warnings(said) if "'each'" in line]
+
+
+@pytest.mark.parametrize(
+    ("setup", "pproc", "key", "name", "v0380"),
+    [
+        (
+            SETUP,
+            PPROC,
+            "delete_surfaces",
+            "Sting",
+            "states delete_surfaces with 'Sting', and the inventory declares no surface",
+        ),
+        (
+            without(SETUP, 'delete_surfaces = ["Sting"]\n'),
+            'base_regions = ["Base", "TailBase"]\n[groups]\nTOTAL = "all"\n',
+            "base_regions",
+            "TailBase",
+            "states BASE_REGIONS with 'TailBase', and the mesh block of wb.fsm",
+        ),
+        (
+            "iterations = 500\n" + CREATE_TAIL_BASE,
+            '[groups]\nTOTAL = "all"\n',
+            "base_region_operations[1]",
+            "TailBase",
+            "TailBase",
+        ),
+    ],
+)
+def test_the_flag_refuses_every_key_without_a_study(tmp_path, setup, pproc, key, name, v0380):
+    """P0390-R02 (FR-435 R10, R3) no [study]: the flag refuses delete_surfaces and the base keys.
+
+    ``--ignore-missing-families false`` names the key the artifact writes (the
+    pproc's ``base_regions``, not the row's ``BASE_REGIONS``), the name and the
+    flag on a reference declaring no vocabulary; at the default flag the row
+    keeps its 0.38.0 refusal, which names no flag.
+    """
+    workspace, path = study(tmp_path, reference=REFERENCE, setup=setup, pproc=pproc)
+    plan, said = planned(workspace, path, ignore_missing_families=False)
+    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
+    error = error_of(plan, "2001")
+    assert f"cites {name!r} under {key}" in error, error
+    assert "ignore_missing_families (CLI: --ignore-missing-families) was given as false" in error
+    assert "BASE_REGIONS" not in error
+    assert fr435_warnings(said) == []
+    plan, said = planned(workspace, path)
+    assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
+    error = error_of(plan, "2001")
+    assert v0380 in error, error
+    assert "ignore_missing_families" not in error and "(FR-435)" not in error, error
+    assert fr435_warnings(said) == []

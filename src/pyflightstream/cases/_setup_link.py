@@ -46,10 +46,9 @@ from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
 from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
-    judge_a_name_the_model_lacks,
-    selects_nothing,
+    skips_a_name_the_model_lacks,
 )
-from pyflightstream.cases.setup_surfaces import removed_by_delete_surfaces
+from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import Script, helpers
 
 __all__ = [
@@ -150,15 +149,15 @@ def _judge_a_family_the_model_lacks(
 ) -> None:
     """Skip or refuse one family the opened inventory does not resolve (FR-435 R4, R6, R10).
 
-    Only a name that selects nothing on the model is judged; a name a family
-    or an alias of the model still answers is left out as on 0.38.0.
+    Only a name that selects nothing on the model as its geometry opened it
+    (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`) is
+    judged; a name a family or an alias of the model still answers, or one the
+    setup's ``delete_surfaces`` removed, is left out as on 0.38.0.
     """
-    if removed_by_delete_surfaces(script, case, name):
-        return
-    labels = script.entities.labels("boundaries")
-    ordered = [label for label, _ in sorted(labels.items(), key=lambda item: item[1])]
-    if labels and selects_nothing(name, ordered, case.aliases):
-        judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, preset_key, name)
+    if script.entities.labels("boundaries"):
+        skips_a_name_the_model_lacks(
+            case, SETUP_ARTIFACT, preset_key, name, the_model_inventory(script)
+        )
 
 
 def vorticity_indices(case: SimCase, script: Script) -> list[int] | None:

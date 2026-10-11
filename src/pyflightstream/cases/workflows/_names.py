@@ -38,10 +38,10 @@ from pyflightstream.cases import (
 from pyflightstream.cases._skipped_families import (
     PPROC_ARTIFACT,
     ignores_missing_families,
-    judge_a_name_the_model_lacks,
     names_no_boundary_answers,
-    selects_nothing,
+    skips_a_name_the_model_lacks,
 )
+from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import (
     Script,
     ScriptReferenceError,
@@ -210,16 +210,22 @@ def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> N
     does not hold is refused (R6), and every one is refused on a run that asked
     for the refusal (R10). A position, ``all`` and a member the model answers
     are not judged; with no vocabulary and no refusal asked for, nothing is said.
+    A member is judged against the model as its geometry OPENED it
+    (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`): a
+    surface the setup's ``delete_surfaces`` removed is one the model carries,
+    and the group leaves it out at post as on 0.38.0.
     """
     pproc = case.pproc
     labels = script.entities.labels("boundaries")
     if pproc is None or not labels:
         return
-    ordered = _inventory(script)
+    ordered = the_model_inventory(script)
     for group, members in pproc.groups.items():
         for member in members:
-            if isinstance(member, str) and selects_nothing(member, ordered, case.aliases):
-                judge_a_name_the_model_lacks(case, PPROC_ARTIFACT, f"groups.{group}", member)
+            if isinstance(member, str):
+                skips_a_name_the_model_lacks(
+                    case, PPROC_ARTIFACT, f"groups.{group}", member, ordered
+                )
 
 
 def _inventory_source(case: SimCase) -> str:
