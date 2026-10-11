@@ -190,7 +190,10 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
     lv, lf = read_mesh(level.obj)
     got = face_coordinates(lv, lf["T"])
     assert _kept_in_order(got, outside)
-    assert level.report["T"] == {"method": "unchanged", "band": count, "faces": 180}
+    # FR-432 R3 (0.39.0): the band beside a refined grid may also record shared_edge_target_m
+    entry = dict(level.report["T"])
+    entry.pop("shared_edge_target_m", None)
+    assert entry == {"method": "unchanged", "band": count, "faces": 180}
     sv, sf = read_mesh(src)
     assert face_coordinates(lv, lf["U"]) == face_coordinates(sv, sf["U"])
     assert len(lf["T"]) > len(sf["T"])

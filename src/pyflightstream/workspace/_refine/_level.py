@@ -748,6 +748,9 @@ def _remesh_groups(work: _Work) -> None:
             entry.update(work.rebuilt.get(n, {}))
             if n in at_curve and n not in work.bands:  # FR-432 R3, under the rebuilt family
                 entry["shared_edge_target_m"] = at_curve[n]
+        for n in ordered:
+            if n in work.bands and n in at_curve:  # FR-432 R3, under the band's family
+                work.report[work.bands[n]]["shared_edge_target_m"] = at_curve[n]
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
 

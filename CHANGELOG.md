@@ -135,7 +135,7 @@ FlightStream versions.
   target over two face layers, so the edges crossing from that curve no longer stretch to
   several times the new shared edges and no face falls under the zero-area threshold of
   gate G1. `refine.json` records `shared_edge_target_m` (minimum, mean and maximum) under
-  each rebuilt family; a family that shares no curve with a refined side is unchanged.
+  each rebuilt family and under the band of an unchanged neighbour; a family that shares no curve with a refined side is unchanged.
 
 ### Known limitations
 
