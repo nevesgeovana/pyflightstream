@@ -783,6 +783,9 @@ def test_every_allowlisted_destination_covers_the_subcommands_it_says():
     the subcommand, so nothing in the key says where the exemption applies.
     This is what says it, and it is generated from the parsers rather than
     written by hand, so it cannot drift into agreeing with itself.
+    The pins of ``--verbose`` and ``--log-level`` name the same subcommands, so
+    a command that takes ``--verbose`` without ``--log-level`` fails here
+    (FR-436 R6).
     """
     live: dict[tuple[str, str], set[str]] = {}
     for script, module_name in _console_scripts().items():

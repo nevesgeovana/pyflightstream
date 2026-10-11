@@ -91,6 +91,9 @@ LEFTOVERS = {
     ("test_cli_options_registry.py", "FR-398"): "Citation explains an option allowlist entry; "
     "this module checks registry membership and "
     "defaults, not the cited feature behaviour.",
+    ("test_cli_options_registry.py", "FR-430"): "Citation explains an option allowlist entry; "
+    "this module checks registry membership and "
+    "defaults, not the cited feature behaviour.",
     ("test_cli_options_registry.py", "FR-82"): "Citation explains an option allowlist entry; this "
     "module checks registry membership and defaults, "
     "not the cited feature behaviour.",

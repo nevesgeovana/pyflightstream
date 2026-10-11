@@ -609,7 +609,12 @@ def test_p0380_origin_the_boxes_are_all_found_and_each_base_box_is_present():
 
 
 def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base():
-    """P0380-ORIGIN (NFR-43 R2): the digest of each box without its Origin line equals the base."""
+    """P0380-ORIGIN (NFR-43 R2): the digest of each box without its Origin line equals the base.
+
+    A pin moves only with the requirement that amends its box: FR-46 follows its
+    0.39.0 amendment by FR-434 (MAX_ITER_REACHED joins the closed set) and FR-341
+    its amendment by NFR-45 R37-10 (the hash is of the separator-folded render).
+    """
     changed = []
     for page in PAGES:
         for ident, lines in boxes(read_page(page)).items():

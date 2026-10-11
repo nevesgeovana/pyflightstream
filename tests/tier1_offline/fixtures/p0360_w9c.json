@@ -62,7 +62,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -322,7 +323,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -580,7 +582,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -836,7 +839,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -1088,7 +1092,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -1350,7 +1355,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -1706,7 +1712,8 @@
         "frames": [],
         "rotors": {},
         "actuators": {},
-        "points": {}
+        "points": {},
+        "study": null
       },
       "r004": {
         "area_m2": 12.0,
@@ -1725,7 +1732,8 @@
         "frames": [],
         "rotors": {},
         "actuators": {},
-        "points": {}
+        "points": {},
+        "study": null
       }
     },
     "setups": {
@@ -1881,7 +1889,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -2133,7 +2142,8 @@
               0.0
             ],
             "rotor_position_m": null,
-            "body_axes": {}
+            "body_axes": {},
+            "study_surfaces": null
           },
           "solver": {
             "simulation_length_unit": null,
@@ -2400,7 +2410,8 @@
         "frames": [],
         "rotors": {},
         "actuators": {},
-        "points": {}
+        "points": {},
+        "study": null
       }
     },
     "setups": {
@@ -2478,7 +2489,8 @@
     "builds": {
       "26.120": {
         "fs_exe": "FlightStream.exe",
-        "fs_version": null
+        "fs_version": null,
+        "accept_unregistered_build": false
       }
     },
     "row_builds": [

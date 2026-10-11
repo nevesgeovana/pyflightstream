@@ -948,6 +948,8 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
     With the exemption withdrawn the decks' own pdfs are refused too, so the
     admission comes from the exemption; with the suffix replaced by one no
     file carries, the leak passes, so the refusal comes from the suffix.
+    The user guide's PDF the release publishes is admitted at its one path and
+    refused at its near spellings (NFR-46).
     """
     leak = "docs/manual_26.124.pdf"
     assert _pdf_offenses([leak]) == [leak]

@@ -269,8 +269,10 @@ def test_goal020_collect_sweeps_a_workspace_with_nothing_submitted(tmp_path):
 def test_goal020_collect_mints_no_ninth_status():
     """0.17.0 spent a value on SUBMITTED; the answer to that question is not a ninth.
 
-    The set grows only by a requirement: FAILED_MARKED (0.33.0) and RAN_MISSING_LOG
-    (FR-413, the owner's, whose expectation this test now carries).
+    The set grows only by a requirement: FAILED_MARKED (0.33.0), RAN_MISSING_LOG
+    (FR-413, the owner's, whose expectation this test now carries) and
+    MAX_ITER_REACHED (FR-434, amending FR-46: a steady point stopped at its
+    requested iteration limit without settling).
     """
     assert {member.name for member in RunStatus} == CLOSED_SET
 
