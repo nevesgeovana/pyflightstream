@@ -12,7 +12,7 @@ import pytest
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
 COMMA_FORM = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
-WORDS = "or as words: 2006 2007"
+WORDS = "as separate words (2006 2007)"
 REASON = "read by hand"
 
 
@@ -92,7 +92,10 @@ def test_one_quoted_value_of_words_reads_as_separate_ids(tmp_path, capsys):
     code, lines = quoted
     assert code == 0 and any("sim 7001" in line for line in lines), quoted
     assert any("sim 7002" in line for line in lines), quoted
-    assert any("sim 7003" in line for line in mixed[1]), mixed
+    # P0390-REV37 (NFR-45 R2, R37-08): the mixed form exits 0 and keeps all three ids.
+    assert mixed[0] == 0, mixed
+    for sim in ("7001", "7002", "7003"):
+        assert any(f"sim {sim}" in line for line in mixed[1]), mixed
 
 
 def _verdicts(result):

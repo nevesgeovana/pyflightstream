@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 
-def _is_reparse(path: Path) -> bool:
+def is_reparse(path: Path) -> bool:
     """Say whether ``path`` is a symbolic link or a Windows junction (never followed)."""
     try:
         info = path.lstat()

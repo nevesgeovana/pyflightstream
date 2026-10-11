@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from pyflightstream.workspace._links import _is_reparse
+from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz, PprocArtifact
 from pyflightstream.workspace.manifest import WorkspaceError
 
@@ -70,7 +70,7 @@ def matrix_files(root: str | Path) -> list[Path]:
         if not folder.is_dir():
             continue
         found.extend(
-            path for path in sorted(folder.glob("*.fs")) if path.is_file() and not _is_reparse(path)
+            path for path in sorted(folder.glob("*.fs")) if path.is_file() and not is_reparse(path)
         )
     return found
 

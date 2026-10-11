@@ -352,6 +352,17 @@ def _table_region(text: str, header_anchor: str, *, what: str) -> tuple[str, lis
     )
 
 
+def _first_difference(printed: tuple[str, ...], layout: tuple[str, ...]) -> str:
+    """Name the first column where ``printed`` departs from ``layout``."""
+    for index, (expected, found) in enumerate(zip(layout, printed, strict=False)):
+        if expected != found:
+            return f"column {index + 1} expected {expected!r}, found {found!r}"
+    return (
+        f"the columns agree as far as they go, and the header has {len(printed)} "
+        f"where {len(layout)} are expected"
+    )
+
+
 def _pinned_columns(header: str, *expected: tuple[str, ...], what: str) -> tuple[str, ...]:
     """Refuse a header that is not a pinned column layout of this export, naming each."""
     printed = tuple(cell.strip() for cell in header.split(",") if cell.strip())
@@ -359,10 +370,18 @@ def _pinned_columns(header: str, *expected: tuple[str, ...], what: str) -> tuple
     if printed not in expected:
         layouts = " or ".join(str(list(layout)) for layout in expected)
         reads = "the layout" if len(expected) == 1 else f"one of {len(expected)} layouts,"
+        if len(expected) == 1:
+            differs = f"The first difference: {_first_difference(printed, expected[0])}"
+        else:
+            differs = "Against each, " + "; ".join(
+                f"layout {number}: {_first_difference(printed, layout)}"
+                for number, layout in enumerate(expected, start=1)
+            )
         raise MalformedOutputError(
             f"the {what} header names {list(printed)}, and this package reads {reads} "
-            f"{layouts}. The columns of this export are fixed by the solver rather "
-            "than chosen by the run, so a header that has moved means the build reordered, "
+            f"{layouts}. {differs}. The columns of this export are fixed by "
+            "the solver rather than chosen by the run, so a header that has moved means the build "
+            "reordered, "
             "renamed or added a column; reading it by position would carry one physical "
             "quantity under another one's label, which no value downstream would look "
             "wrong for. Pin the new layout against an observed export of that build"

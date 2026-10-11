@@ -21,7 +21,7 @@ from pydantic import ValidationError
 
 from pyflightstream.workspace import RunRecord, WorkspaceError
 from pyflightstream.workspace._effective import _points_of
-from pyflightstream.workspace._script_comparison import _compare_scripts, _drift
+from pyflightstream.workspace._script_comparison import compare_scripts, drift
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -273,7 +273,7 @@ def _script_diff(
                 "detail": "unavailable: no script matching the recorded digest",
             }
         ]
-    compared = _compare_scripts(b, a, ledger.root)
+    compared = compare_scripts(b, a, ledger.root)
     if compared.same:
         return []
     inputs = sorted(
@@ -285,6 +285,6 @@ def _script_diff(
             "field": "script_comparison",
             "a": path_a,
             "b": path_b,
-            "detail": _drift(compared, ledger.root / "inputs", inputs, limit=None),
+            "detail": drift(compared, ledger.root / "inputs", inputs, limit=None),
         }
     ]

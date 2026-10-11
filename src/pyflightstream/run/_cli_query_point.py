@@ -52,7 +52,7 @@ def _add_parsers(subparsers: Any) -> None:
     source = log.add_mutually_exclusive_group()
     source.add_argument("--post", metavar="MATRIX", help="group a matrix's saved post warnings")
     source.add_argument("--storage", action="store_true", help="list the recorded storage calls")
-    log.add_argument("--sims", help="only these simulation ids, comma separated")
+    log.add_argument("--sims", help="only these simulation ids, comma or blank separated")
     log.add_argument("--run", help="only events naming this run id or alias")
     log.add_argument("--stage", help="only this recorded stage (storage: command)")
     log.add_argument("--since", help="events since an ISO time or duration, e.g. 2h, 7d")

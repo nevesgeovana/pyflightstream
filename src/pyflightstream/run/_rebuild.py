@@ -34,9 +34,7 @@ from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
 from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
-    _compare_scripts,
     _copy_inputs,
-    _drift,
     _Known,
     _known_runs,
     _matrices,
@@ -46,10 +44,12 @@ from pyflightstream.run._rebuild_evidence import (
     _read_rows,
     _shadow_home,
     _sim_of,
-    _slashes,
     _snapshot,
     collect_without_writing,
+    compare_scripts,
     descriptor_folder,
+    drift,
+    slashes,
 )
 from pyflightstream.run._rebuild_grouped import (
     batch_label,
@@ -461,7 +461,7 @@ def _rebuild_one(
     )
     # FR-412: a batch point's script names its batch folder; read the rendering there.
     label = batch_label(executed, sim)
-    comparison = _compare_scripts(rendered_at_home(rendered, shadow, sim, label), executed, shadow)
+    comparison = compare_scripts(rendered_at_home(rendered, shadow, sim, label), executed, shadow)
     known = context.known.get(sim)
     ran_on = known.package_version if known else None
     if ran_on and ran_on != context.version:
@@ -475,7 +475,7 @@ def _rebuild_one(
         return
     inputs_used = _row_inputs(shadow / matrix.name, sim) or _row_inputs(matrix, sim)
     if not comparison.same:
-        detail = _drift(comparison, shadow / "inputs", inputs_used)
+        detail = drift(comparison, shadow / "inputs", inputs_used)
         origin = (
             f" with the inputs of {context.origin} laid over the workspace's"
             if context.origin
@@ -644,7 +644,7 @@ def _finalise(
     base, shadow = context.base, context.shadow
     sim_dir: Path = facts.get("sim_dir") or base / "sims" / f"sim_{sim}"
     run_root = facts.get("run_root") or str(base)
-    record = _substitute(record, [(str(shadow), run_root), (shadow.as_posix(), _slashes(run_root))])
+    record = _substitute(record, [(str(shadow), run_root), (shadow.as_posix(), slashes(run_root))])
     reconstructed = ["started_at", "finished_at"]
     work_dir: Path = facts["work_dir"]
     script = sim_dir / record["script_path"]
