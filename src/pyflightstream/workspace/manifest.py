@@ -784,7 +784,8 @@ class RunRecord(BaseModel):
     def _omit_unrecorded_keys(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         """Write none of the keys a reader older than their release may not know, where unstated.
 
-        ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``.
+        ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
+        FR-435's ``skipped_names``.
 
         R03 and G01 of 0.27.0, and M1 and the L1 fixes of 0.30.0.
 
@@ -797,7 +798,7 @@ class RunRecord(BaseModel):
         """
         keys = (
             "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by"
-            " iterations_requested"
+            " iterations_requested skipped_names"
         ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
@@ -875,6 +876,12 @@ class RunRecord(BaseModel):
     #: are the worst of them. Written only where recorded, so every other
     #: record, and MANIFEST_SCHEMA, is unchanged.
     clocking_verdicts: list[dict[str, Any]] | None = None
+    #: FR-435 R11: the names this point's row skipped, one ``{artifact, key,
+    #: name}`` per name a key of its setup or pproc cites that its study holds
+    #: and its model lacks, in the order the build skipped them. Written only
+    #: where the row skipped one, so every other record keeps its content and
+    #: identity, and MANIFEST_SCHEMA does not move.
+    skipped_names: list[dict[str, str]] | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

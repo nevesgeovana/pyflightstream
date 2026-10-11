@@ -470,11 +470,10 @@ plots = true
 
 
 _REFERENCE_EXAMPLE = """\
-# A reference artifact: what a row's REF column names by id; the id begins
-# with r, so this file is r001. The lengths the coefficients are divided by,
-# the moment point, the frames, your names for groups of boundaries, and one
-# block per rotor, actuator disc and named point. Lengths are in metres, in
-# the geometry's own frame.
+# A reference artifact: what a row's REF column names by id; the id begins with r, so this
+# file is r001. The lengths the coefficients are divided by, the moment point, the frames, your
+# names for groups of boundaries, the study's surfaces, and one block per rotor, actuator disc
+# and named point. Lengths are in metres, in the geometry's own frame.
 
 area_m2 = 8.0                     # S_ref, m^2
 chord_m = 1.0                     # c_ref, m
@@ -498,6 +497,9 @@ yaw = "Z"
 airframe = ["Wing", "Body", "Base"]
 lifting = ["Wing"]
 
+[study]                           # every surface the models of the study carry
+surfaces = ["Wing", "Body", "Base"]  # a name one mesh lacks is skipped; any other, refused
+
 # The recorded rotor; its position is the one field a builder reads.
 [rotor]
 radius_m = 0.6                    # optional; half of rotor_diameter_m when stated
@@ -511,9 +513,8 @@ x_m = -0.5
 y_m = 0.0
 z_m = 0.0
 
-# Custom coordinate systems, in the order written: origin in metres, two axis
-# directions, the third their right-handed cross product. A row's AXIS and a
-# pproc entry's frame cite them by name.
+# Custom coordinate systems, in the order written: origin in metres, two axis directions,
+# the third their right-handed cross product. A row's AXIS and a pproc entry's frame cite them.
 [[frames]]
 name = "DISC_HUB"
 origin = [0.4, 3.0, 0.0]
@@ -554,9 +555,8 @@ profile_units = "NEWTONS"         # @PROFILE_UNITS@
 thrust_units = "NEWTONS"          # ACTUATOR_THRUST: NEWTONS, POUNDS or COEFFICIENT
 wake_type = "RIGID"               # explicit wake model; RELAXED is the other choice
 
-# A named point: a top-level table with any other kind (rotor or airframe).
-# It is read and kept; a row that names a point finds it in
-# inputs/reference_points.toml.
+# A named point: a top-level table with any other kind (rotor or airframe). It is read and
+# kept; a row that names a point finds it in inputs/reference_points.toml.
 [ARP]
 kind = "airframe"
 x_m = 0.25

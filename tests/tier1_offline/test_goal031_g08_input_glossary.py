@@ -77,6 +77,7 @@ from pyflightstream.workspace.inputs import (
     PointXyz,
     ReferenceArtifact,
     RotorReference,
+    StudyVocabulary,
 )
 from pyflightstream.workspace.matrix import (
     _FLIGHT_CONDITION_TABLE,
@@ -173,6 +174,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ),
         ("reference", "`[moment_point]`"): _fields(PointXyz),
         ("reference", "`[body_axes]`"): {axis for _rate, axis in RATE_VARIABLES},
+        # FR-435 R2 (0.39.0): the study's vocabulary, a requirement that adds the table.
+        ("reference", "`[study]`"): _fields(StudyVocabulary),
         ("reference", "`[rotor]`"): _fields(RotorReference),
         ("reference", "`[rotor.position]`"): _fields(PointXyz),
         ("reference", "`[[frames]]`"): _fields(FrameSpec),

@@ -45,6 +45,7 @@ from ._geometry import (
     _declare_inventory,
 )
 from ._names import (
+    _judge_the_group_members_the_model_lacks,
     _refuse_a_pproc_the_geometry_shares_no_name_with,
 )
 from ._pproc import (
@@ -434,6 +435,7 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     if shadow.boundary_inventory is not None:
         _declare_inventory(case, script, shadow.boundary_inventory)
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
+    _judge_the_group_members_the_model_lacks(case, script)
     _pproc_sections(case, script, frames)
     moment_frame = frames.get("MRP")
     _analysis(case, script, moment_frame if isinstance(moment_frame, int) else None)

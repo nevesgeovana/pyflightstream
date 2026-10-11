@@ -44,6 +44,12 @@ from collections.abc import Sequence
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import CampaignConfigError, SimCase, SolverSettings
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
+from pyflightstream.cases._skipped_families import (
+    SETUP_ARTIFACT,
+    judge_a_name_the_model_lacks,
+    selects_nothing,
+)
+from pyflightstream.cases.setup_surfaces import removed_by_delete_surfaces
 from pyflightstream.script import Script, helpers
 
 __all__ = [
@@ -75,7 +81,11 @@ def family_indices(
     PFS-2030.03.03. A family the geometry does not carry is left out, as the
     reference driver filtered the preset's list to the configuration it opened;
     a list that resolves to nothing is refused, because an empty selection would
-    be read by the solver as the default and the preset asked for something else.
+    be read by the solver as the default and the preset asked for something else
+    (FR-435 R7, whatever the study holds). A name that selects nothing on the
+    model is judged by the row's study first (FR-435): skipped and said where the
+    study holds it, refused where it does not, and refused where the run asked
+    for the refusal (``--ignore-missing-families false``, R10).
 
     ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
     for `vorticity_drag_families` alone and generalised when
@@ -117,6 +127,7 @@ def family_indices(
             chosen.append(script.resolve_boundary(name, context=keyword))
         except PyflightstreamError:
             absent.append(name)
+            _judge_a_family_the_model_lacks(case, script, name, preset_key)
     if not chosen:
         raise CampaignConfigError(
             # THE PRESET'S OWN SPELLING, not the helper keyword. This named
@@ -132,6 +143,22 @@ def family_indices(
             f"families the geometry carries, or drop {preset_key} so {dropped}."
         )
     return sorted(chosen)
+
+
+def _judge_a_family_the_model_lacks(
+    case: SimCase, script: Script, name: str, preset_key: str
+) -> None:
+    """Skip or refuse one family the opened inventory does not resolve (FR-435 R4, R6, R10).
+
+    Only a name that selects nothing on the model is judged; a name a family
+    or an alias of the model still answers is left out as on 0.38.0.
+    """
+    if removed_by_delete_surfaces(script, case, name):
+        return
+    labels = script.entities.labels("boundaries")
+    ordered = [label for label, _ in sorted(labels.items(), key=lambda item: item[1])]
+    if labels and selects_nothing(name, ordered, case.aliases):
+        judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, preset_key, name)
 
 
 def vorticity_indices(case: SimCase, script: Script) -> list[int] | None:

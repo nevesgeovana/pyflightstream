@@ -38,7 +38,11 @@ from pyflightstream.cases import (
     point_name,
     resolve_recipe,
 )
-from pyflightstream.cases._skipped_families import noting_the_families_rows_lack
+from pyflightstream.cases._skipped_families import (
+    noting_the_families_rows_lack,
+    noting_the_study_skips,
+    saying_the_study_skips,
+)
 from pyflightstream.cases.qsteady import summarise as summarise_validity
 from pyflightstream.cases.qsteady import (
     summarise_inflow_harmonics,
@@ -976,6 +980,7 @@ def plan_receipt_error(
 
 
 @noting_the_families_rows_lack()  # FR-320: each family a row lacks, said once
+@noting_the_study_skips()  # FR-435: each name a study holds and a row's model lacks, said once
 def plan_campaign(
     campaign: Campaign,
     workspace: CampaignWorkspace,
@@ -1091,6 +1096,10 @@ def plan_campaign(
         A rotor point whose wake may not reach the length it asks, or whose
         wake end plane is the solver's default or sits before it (FR-325,
         :func:`_warn_on_short_wakes`); the plan is what it would be without it.
+    PyflightstreamWarning
+        Once per artifact, key and name, a name a row's setup or pproc cites
+        that its reference's study holds and its model lacks, naming every
+        such row (FR-435 R9); the plan status is what it would be without it.
     """
     canonical = resolve(campaign.fs_version).canonical
     # Before the first folder is allocated, for the reason run_campaign
@@ -1112,7 +1121,8 @@ def plan_campaign(
         if case_error is None:
             # `resolve_recipe` returns the imported function as a plain Callable; it
             # is a ScriptRecipe, whose named parameters a Callable type cannot state.
-            recipe = (
+            # FR-435 R9: the build notes what the row's model lacks and its study holds.
+            recipe = saying_the_study_skips(
                 recipes[case.recipe]
                 if recipes and case.recipe in recipes
                 else cast(ScriptRecipe, resolve_recipe(case.recipe))

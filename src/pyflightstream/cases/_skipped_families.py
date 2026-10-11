@@ -30,6 +30,20 @@ answers through its family ``Blade`` and is not refused.
 :func:`declared_names_the_geometry_lacks` is the warning's: a NUMBERED name the
 geometry does not carry by that name is missing even where its family answers,
 because the entry declared that blade and the row cuts another or none.
+
+FR-435 WIDENS THE SKIP TO THE SETUP AND THE PPROC KEYS, for a study. A setup,
+a pproc and a reference written once for every model of one aircraft cite
+names one model lacks: the wing-body row of a study whose wing-body-tail
+carries a sting and a tail. Where the row's REFERENCE declares the study's
+vocabulary (``[study] surfaces``, with its aliases and their members,
+:func:`study_vocabulary`), a name a key of FR-435 R1 cites that selects
+nothing on the row's model is skipped when the vocabulary holds it and refused
+as a misspelling when it does not (:func:`judge_a_name_the_model_lacks`). Each
+skip is noted for the build (:func:`collecting_the_study_skips`), so the run
+records it on the point (``skipped_names``), and a plan says it once per
+artifact, key and name, naming every row that lacks it
+(:func:`saying_the_study_skips`, :func:`noting_the_study_skips`). A reference
+declaring no vocabulary keeps the 0.38.0 reading of every name.
 """
 
 from __future__ import annotations
@@ -37,21 +51,43 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from functools import wraps
 from inspect import signature
-from typing import Any, TypeVar, cast
+from pathlib import PurePath
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import family_of, names_of
-from pyflightstream.cases import alias_members_missing, select_families
+from pyflightstream.cases import (
+    CampaignConfigError,
+    alias_members_missing,
+    select_families,
+    select_group_members,
+)
+
+if TYPE_CHECKING:
+    from pyflightstream.cases import SimCase
 
 __all__ = [
+    "PPROC_ARTIFACT",
+    "SETUP_ARTIFACT",
     "WORDS_THAT_NAME_NO_SET",
+    "StudySkip",
+    "collecting_the_study_skips",
     "declared_names_the_geometry_lacks",
+    "held_by_the_study",
+    "ignores_missing_families",
+    "judge_a_name_the_model_lacks",
     "names_no_boundary_answers",
     "note_the_families_a_row_lacks",
     "noting_the_families_rows_lack",
+    "noting_the_study_skips",
+    "refuses_a_name_the_model_lacks",
     "saying_the_families_each_row_skips",
+    "saying_the_study_skips",
+    "selects_nothing",
+    "study_vocabulary",
 ]
 
 #: The words a families entry may write that name no set of their own, so
@@ -312,4 +348,337 @@ def _the_warning(artifact: str, name: str, entries: Sequence[str], rows: Sequenc
         "a family the geometry does not carry is skipped, which is how one artifact serves "
         "several geometries, and a misspelled family name is skipped the same way. Correct "
         "the name if every row should carry it (FR-320)."
+    )
+
+
+# --- FR-435: the names a study holds and a row's model lacks ------------------
+
+#: The two kinds of artifact whose keys FR-435 R1 covers, as a skip names them.
+SETUP_ARTIFACT = "setup"
+PPROC_ARTIFACT = "pproc"
+
+
+@dataclass(frozen=True)
+class StudySkip:
+    """One name a key cites, that the row's model lacks and its study holds (FR-435 R4).
+
+    Attributes
+    ----------
+    artifact : str
+        The id of the artifact citing it, ``s001`` or ``p001``.
+    key : str
+        The key citing it: ``groups.<GROUP>`` for a ``[groups]`` member and
+        ``base_region_operations[<position from 1>]`` for an entry of that list.
+    name : str
+        The name as the artifact writes it.
+    said : str
+        The artifact as a message names it, with its file.
+    reference : str
+        The reference whose vocabulary holds the name, as a message names it.
+    """
+
+    artifact: str
+    key: str
+    name: str
+    said: str
+    reference: str
+
+    def record(self) -> dict[str, str]:
+        """Return the entry a point's run record carries for this skip (FR-435 R11)."""
+        return {"artifact": self.artifact, "key": self.key, "name": self.name}
+
+
+#: The skips of the build under way, None outside one.
+_BUILD: ContextVar[list[StudySkip] | None] = ContextVar("pyflightstream_study_build", default=None)
+#: What one plan has noted: each (artifact, key, name) to the skips it made (one per
+#: reference holding the name) and the rows that made them, in the order first met.
+_StudyNoted = dict[tuple[str, str, str], tuple[list[StudySkip], list[str]]]
+_STUDY_PLAN: ContextVar[_StudyNoted | None] = ContextVar("pyflightstream_study_plan", default=None)
+
+
+def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
+    """Return the names a row's study holds, or None where its reference declares none.
+
+    FR-435 R2: the reference's ``[study] surfaces``, then the names of its
+    aliases (a rotor block's own name among them) and every member of each, so
+    an alias followed to the end is in it too. Each once, case folded.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
+    >>> from pyflightstream.cases._skipped_families import study_vocabulary
+    >>> case = SimCase(
+    ...     sim_id="1", aircraft="A", recipe="steady", sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     reference=ReferenceData(area=1.0, length=1.0, study_surfaces=("Wing", "Sting")),
+    ...     aliases={"tail": ["HTail", "VTail"]},
+    ... )
+    >>> study_vocabulary(case)
+    ('Wing', 'Sting', 'tail', 'HTail', 'VTail')
+    """
+    reference = case.reference
+    surfaces = None if reference is None else reference.study_surfaces
+    if surfaces is None:
+        return None
+    members = [str(member) for listed in case.aliases.values() for member in listed]
+    held: dict[str, str] = {}
+    for name in (*surfaces, *case.aliases, *members):
+        held.setdefault(name.casefold(), name)
+    return tuple(held.values())
+
+
+def held_by_the_study(token: str, vocabulary: Sequence[str]) -> bool:
+    """Whether a study's vocabulary holds one cited name (FR-435 R2).
+
+    Held when the name equals one of the vocabulary's, case folded, or is a
+    FAMILY word (the label without its trailing number) one of them answers,
+    the reading of FR-320 R2.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases._skipped_families import held_by_the_study
+    >>> [held_by_the_study(name, ["Blade1", "Sting"]) for name in ("sting", "Blade", "Stinng")]
+    [True, True, False]
+    """
+    word = token.strip().casefold()
+    if any(name.casefold() == word for name in vocabulary):
+        return True
+    return family_of(token) == word and bool(names_of(token, vocabulary))
+
+
+def selects_nothing(
+    token: str, inventory: Sequence[str], aliases: Mapping[str, Sequence[str]]
+) -> bool:
+    """Whether one cited name selects no boundary of a model (FR-435 R4).
+
+    No boundary has the name, case folded, no family the model carries answers
+    it, and, for an alias, no member resolves: the reading every
+    boundary-citing cell uses (:func:`pyflightstream.cases.select_group_members`).
+    The words that name no set (``all``, ``each``, ``each_blade``) never do.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases._skipped_families import selects_nothing
+    >>> [selects_nothing(name, ["Wing", "Body"], {"tail": ["HTail"]}) for name in ("tail", "wing")]
+    [True, False]
+    """
+    if token.strip().casefold() in WORDS_THAT_NAME_NO_SET:
+        return False
+    return not select_group_members([token], list(inventory), aliases)
+
+
+def ignores_missing_families(case: SimCase) -> bool:
+    """Whether a family the mesh lacks is skipped (the default) or refuses (FR-73).
+
+    The one reader of ``IGNORE_MISSING_FAMILIES``, a per-invocation choice the
+    command line writes onto the case's variables. Absent or blank, it is
+    TRUE, which is what every row written before the flag means.
+    """
+    # Deferred: the workflows package imports this module while it loads, and
+    # the variable's name and its reader live in its vocabulary, their one home.
+    from pyflightstream.cases.workflows._vocabulary import (
+        IGNORE_MISSING_FAMILIES_VARIABLE,
+        read_a_choice,
+    )
+
+    stated = str(case.variables.get(IGNORE_MISSING_FAMILIES_VARIABLE) or "").strip()
+    if not stated:
+        return True
+    try:
+        return read_a_choice(
+            stated, context=f"case {case.sim_id!r}: {IGNORE_MISSING_FAMILIES_VARIABLE}"
+        )
+    except ValueError as error:
+        raise CampaignConfigError(str(error)) from None
+
+
+def refuses_a_name_the_model_lacks(case: SimCase) -> bool:
+    """Whether the run asked for the refusal rather than the skip (FR-73, FR-435 R10)."""
+    return not ignores_missing_families(case)
+
+
+def _artifact(case: SimCase, kind: str) -> tuple[str, str]:
+    """Return one of a row's artifacts as (its id, the words a message names it with)."""
+    if kind == PPROC_ARTIFACT:
+        code = str(case.pproc_id or "").strip()
+        folder = "pproc"
+    else:
+        code = str(case.variables.get("matrix_set") or "").strip()
+        folder = "setups"
+    if not code:
+        return kind, f"the row's {kind} artifact"
+    return code, f"the {kind} artifact {code!r} (inputs/{folder}/{code}.toml)"
+
+
+def _reference(case: SimCase) -> str:
+    """Name a row's reference artifact for a message, with its file where the id is known."""
+    code = str(case.variables.get("matrix_ref") or "").strip()
+    if not code:
+        return "the row's reference"
+    return f"the reference artifact {code!r} (inputs/references/{code}.toml)"
+
+
+def _model(case: SimCase) -> str:
+    """Name a row and the geometry it opens, for a message."""
+    return f"row {case.sim_id!r} ({PurePath(str(case.geometry)).name})"
+
+
+def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str) -> bool:
+    """Skip one cited name the row's model lacks, or refuse it (FR-435 R4, R6, R10).
+
+    Called for a token of a key of FR-435 R1 that selects nothing on the row's
+    model (:func:`selects_nothing`). In order: a name the row's study does not
+    hold is a misspelling and is refused at either value of
+    ``--ignore-missing-families`` (R6); a run that asked for the refusal
+    refuses it, whether or not the reference declares a vocabulary (R10); a
+    name the study holds is skipped and noted for the build (R4, R9, R11).
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case.
+    kind : str
+        :data:`SETUP_ARTIFACT` or :data:`PPROC_ARTIFACT`, the artifact citing it.
+    key : str
+        The key citing it, as :class:`StudySkip` spells it.
+    token : str
+        The name as the artifact writes it.
+
+    Returns
+    -------
+    bool
+        True when the name is skipped; False when the reference declares no
+        vocabulary and the run did not ask for the refusal, so the caller reads
+        the name as 0.38.0 did (R3).
+
+    Raises
+    ------
+    CampaignConfigError
+        The study does not hold the name, or the run asked for the refusal.
+    """
+    vocabulary = study_vocabulary(case)
+    code, said = _artifact(case, kind)
+    if vocabulary is not None and not held_by_the_study(token, vocabulary):
+        raise CampaignConfigError(_a_misspelling(case, said, key, token, vocabulary))
+    if refuses_a_name_the_model_lacks(case):
+        raise CampaignConfigError(_the_refusal_asked_for(case, said, key, token))
+    if vocabulary is None:
+        return False
+    skip = StudySkip(code, key, token, said, _reference(case))
+    collected = _BUILD.get()
+    if collected is not None and skip not in collected:
+        collected.append(skip)
+    return True
+
+
+def _a_misspelling(
+    case: SimCase, said: str, key: str, token: str, vocabulary: Sequence[str]
+) -> str:
+    """Word the refusal of a name neither the model nor the study carries (FR-435 R6)."""
+    return (
+        f"case {case.sim_id!r}: {said} cites {token!r} under {key}, and neither the "
+        f"geometry of {_model(case)} nor the study vocabulary of {_reference(case)} "
+        f"holds it; the vocabulary holds {', '.join(repr(name) for name in vocabulary)}. "
+        "Correct the name, or add it to the reference's [study] surfaces if a model of "
+        "the study carries it (FR-435)."
+    )
+
+
+def _the_refusal_asked_for(case: SimCase, said: str, key: str, token: str) -> str:
+    """Word the refusal a run asked for instead of the skip (FR-435 R10, FR-73)."""
+    return (
+        f"case {case.sim_id!r}: {said} cites {token!r} under {key}, and the geometry of "
+        f"{_model(case)} carries no boundary, family or alias member of that name. This "
+        "run was asked for the refusal rather than the skip: ignore_missing_families "
+        "(CLI: --ignore-missing-families) was given as false, so a name the model does "
+        "not carry is an error here and not the difference between two models of one "
+        "study (FR-435)."
+    )
+
+
+@contextmanager
+def collecting_the_study_skips() -> Iterator[list[StudySkip]]:
+    """Collect the skips of one build, in the order made (FR-435 R11).
+
+    The list the block yields is filled while the block runs and is complete
+    when it ends; a nested block collects into its own list.
+    """
+    collected: list[StudySkip] = []
+    token = _BUILD.set(collected)
+    try:
+        yield collected
+    finally:
+        _BUILD.reset(token)
+
+
+def saying_the_study_skips[Recipe: Callable[..., Any]](recipe: Recipe) -> Recipe:
+    """Wrap a recipe so a plan notes what each row's build skipped (FR-435 R9).
+
+    The skips of a build that RETURNS are noted for its row inside
+    :func:`noting_the_study_skips`; a build that refuses notes nothing, so a
+    row refused under R5 to R8 or R10 is not also warned about. Outside a
+    plan the recipe runs as it would alone.
+    """
+
+    @wraps(recipe)
+    def building(case: SimCase, script: Any) -> Any:
+        with collecting_the_study_skips() as skips:
+            built = recipe(case, script)
+        noted = _STUDY_PLAN.get()
+        if noted is not None:
+            for skip in skips:
+                held, rows = noted.setdefault((skip.artifact, skip.key, skip.name), ([], []))
+                if skip not in held:
+                    held.append(skip)
+                if case.sim_id not in rows:
+                    rows.append(case.sim_id)
+        return built
+
+    return cast(Recipe, building)
+
+
+@contextmanager
+def noting_the_study_skips() -> Iterator[None]:
+    """Collect every row's skips while a campaign is planned, then warn once per name.
+
+    On leaving the block normally, one :class:`PyflightstreamWarning` is raised
+    per artifact, key and name, in the order first noted, naming every row
+    whose model lacks it (FR-435 R9). It changes no plan status. A block left
+    by an exception warns nothing.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        Naming the artifact and its file, the key, the name, the reference
+        whose vocabulary holds it, and the rows.
+    """
+    noted: _StudyNoted = {}
+    token = _STUDY_PLAN.set(noted)
+    try:
+        yield
+    finally:
+        _STUDY_PLAN.reset(token)
+    for held, rows in noted.values():
+        warn(_the_study_warning(held, rows), PyflightstreamWarning, stacklevel=_THE_PLANS_CALLER)
+
+
+def _the_study_warning(held: Sequence[StudySkip], rows: Sequence[str]) -> str:
+    """Word the one warning for one name of one artifact's key (FR-435 R9).
+
+    ``held`` is the skip once per reference whose vocabulary holds the name;
+    the warning names every one of them.
+    """
+    skip = held[0]
+    references = " and ".join(dict.fromkeys(item.reference for item in held))
+    lacking = (
+        f"the geometry of row {rows[0]!r} does not carry it"
+        if len(rows) == 1
+        else f"the geometries of {len(rows)} rows do not carry it: "
+        + ", ".join(repr(row) for row in rows)
+    )
+    return (
+        f"{skip.said}: {skip.key} cites {skip.name!r}, which the study vocabulary of "
+        f"{references} holds, and {lacking}. "
+        f"{'That row leaves' if len(rows) == 1 else 'Those rows leave'} it out of the key: "
+        "a name the study holds and a model lacks is skipped, which is how one file serves "
+        "every model of a study, and a name the study does not hold is refused (FR-435)."
     )

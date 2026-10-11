@@ -517,6 +517,8 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[products]`": [f.get("products", {}) for f in data],
         "`[moment_point]`": [f.get("moment_point", {}) for f in data],
         "`[body_axes]`": [f.get("body_axes", {}) for f in data],
+        # FR-435 R2 (0.39.0): the study's vocabulary, a requirement that adds the table.
+        "`[study]`": [f.get("study", {}) for f in data],
         "`[rotor]`": [f.get("rotor", {}) for f in data],
         "`[rotor.position]`": [f.get("rotor", {}).get("position", {}) for f in data],
         "`[[frames]]`": [e for f in data for e in f.get("frames", [])],

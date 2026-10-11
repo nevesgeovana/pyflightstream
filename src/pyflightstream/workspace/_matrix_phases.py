@@ -1431,6 +1431,8 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
                 )
             ),
             body_axes=dict(reference.body_axes),
+            # FR-435 R2: the study's surfaces, None where the reference states no [study].
+            study_surfaces=None if reference.study is None else reference.study.surfaces,
         ),
         # FR-316: THE ROW'S SETUP KEYS, over its preset, for this row only: the
         # solver, and where the row states any, the keys and the variables left.
