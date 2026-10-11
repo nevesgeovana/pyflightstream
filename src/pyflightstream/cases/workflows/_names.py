@@ -36,7 +36,11 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.cases._skipped_families import (
+    PPROC_ARTIFACT,
+    ignores_missing_families,
+    judge_a_name_the_model_lacks,
     names_no_boundary_answers,
+    selects_nothing,
 )
 from pyflightstream.script import (
     Script,
@@ -45,14 +49,11 @@ from pyflightstream.script import (
 
 from ._rows import (
     _the_names_a_rotor_answers_to,
-    _variable,
 )
 from ._vocabulary import (
     GEOMETRY_VARIABLE,
-    IGNORE_MISSING_FAMILIES_VARIABLE,
     MOVING_BOUNDARIES_VARIABLE,
     Frames,
-    read_a_choice,
 )
 
 #: The spelling of a pproc group in a boundary-citing cell: ``g`` and the
@@ -198,6 +199,29 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     )
 
 
+def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> None:
+    """Judge each ``[groups]`` member that selects nothing on the row's model (FR-435).
+
+    Called after :func:`_refuse_a_pproc_the_geometry_shares_no_name_with`, so a
+    pproc none of whose groups selects a boundary keeps that refusal and its
+    text (R8). Of the rest, a member the row's study holds is skipped and said
+    (R4: it is left out of its group at post, and a group none of whose members
+    selects anything writes no polar row, both as on 0.38.0), one the study
+    does not hold is refused (R6), and every one is refused on a run that asked
+    for the refusal (R10). A position, ``all`` and a member the model answers
+    are not judged; with no vocabulary and no refusal asked for, nothing is said.
+    """
+    pproc = case.pproc
+    labels = script.entities.labels("boundaries")
+    if pproc is None or not labels:
+        return
+    ordered = _inventory(script)
+    for group, members in pproc.groups.items():
+        for member in members:
+            if isinstance(member, str) and selects_nothing(member, ordered, case.aliases):
+                judge_a_name_the_model_lacks(case, PPROC_ARTIFACT, f"groups.{group}", member)
+
+
 def _inventory_source(case: SimCase) -> str:
     """Say where this case's boundary inventory was read from, for a message."""
     file_name = PurePath(str(case.geometry)).name
@@ -322,29 +346,6 @@ def _inventory(script: Script) -> list[str]:
     return [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
 
 
-def _ignore_missing_families(case: SimCase) -> bool:
-    """Whether a family the mesh lacks is skipped (the default) or refuses.
-
-    A PER-INVOCATION CHOICE and not a property of the row: the same matrix
-    planned across a wing and a rotor wants the skip, and planned against
-    the one geometry that should carry everything wants the refusal. The
-    command line writes it onto the case's variables, so this layer reads a
-    variable like any other and does not learn that a command line exists.
-
-    Absent, it is TRUE, which is what every row written before this flag
-    means and what PFS-2035.01 states.
-    """
-    stated = _variable(case, IGNORE_MISSING_FAMILIES_VARIABLE)
-    if stated is None:
-        return True
-    try:
-        return read_a_choice(
-            stated, context=f"case {case.sim_id!r}: {IGNORE_MISSING_FAMILIES_VARIABLE}"
-        )
-    except ValueError as error:
-        raise CampaignConfigError(str(error)) from None
-
-
 def _refuse_what_the_geometry_does_not_carry(
     case: SimCase,
     selection: str | Sequence[str],
@@ -430,7 +431,7 @@ def _selected_families(
     """
     names = _the_names_a_rotor_answers_to(case)
     expanded = select_families(selection, inventory, is_blade, aliases=names)
-    if not _ignore_missing_families(case):
+    if not ignores_missing_families(case):
         _refuse_what_the_geometry_does_not_carry(
             case, selection, inventory, names, expanded, what, is_blade
         )

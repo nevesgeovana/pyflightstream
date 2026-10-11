@@ -33,6 +33,7 @@ from pyflightstream.cases import (
     point_name,
     sweep_name,
 )
+from pyflightstream.cases._skipped_families import collecting_the_study_skips
 from pyflightstream.cases.workflows import (
     build_steady_sweep,
     rotor_machs,
@@ -334,7 +335,10 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
     # shares, so the node file its one script imports is named there.
     job.script.working_dir = str(job.sim_dir)
     try:
-        build_steady_sweep([pc for _, _, pc in job.point_cases], job.script, cold=job.cold)
+        with collecting_the_study_skips() as skipped:
+            build_steady_sweep([pc for _, _, pc in job.point_cases], job.script, cold=job.cold)
+        # FR-435 R11: the names the row skipped, once each; recorded only where there is one.
+        job.base["skipped_names"] = [skip.record() for skip in skipped] or None
         # G02: the switch is the row's, so the first point's case states it.
         _refuse_an_import_count_nothing_logs(job.point_cases[0][2], job.script, job.executor)
     except Exception as exc:  # a build failure is the job's failure

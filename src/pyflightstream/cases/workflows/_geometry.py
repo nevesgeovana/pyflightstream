@@ -35,6 +35,7 @@ from pyflightstream._lengths import (
 )
 from pyflightstream.cases import (
     EVERY_SURFACE,
+    BaseRegionOperation,
     CampaignConfigError,
     MeshOperation,
     RawMeshConditions,
@@ -46,6 +47,13 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases._ccs import (
     CCS_FORMATS,
+)
+from pyflightstream.cases._skipped_families import (
+    PPROC_ARTIFACT,
+    SETUP_ARTIFACT,
+    judge_a_name_the_model_lacks,
+    selects_nothing,
+    study_vocabulary,
 )
 from pyflightstream.cases.ccs_wing import (
     emit_ccs_geometry,
@@ -64,6 +72,8 @@ from ._conventions import (
     command_accepted_on,
 )
 from ._names import (
+    _inventory,
+    _judge_the_group_members_the_model_lacks,
     _refuse_a_pproc_the_geometry_shares_no_name_with,
     _refuse_name_absent_from_inventory,
     _refuse_name_without_inventory,
@@ -258,6 +268,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     # plots and sections where each builder resolves them.
     _setup_surfaces.emit_setup_surfaces(script, case)
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
+    _judge_the_group_members_the_model_lacks(case, script)
     _detect_base_regions(case, script)
 
 
@@ -999,10 +1010,16 @@ def _base_region_families(case: SimCase) -> list[str]:
     return []
 
 
-def _base_region_operations(case: SimCase, script: Script) -> None:
-    """Apply explicit base indices in order; deletion may renumber later selections."""
-    settings = case.solver
-    for action in settings.base_region_operations or ():
+def _base_region_operations(
+    case: SimCase, script: Script, skipped_regions: Sequence[str] = ()
+) -> None:
+    """Apply explicit base indices in order; deletion may renumber later selections.
+
+    An entry whose ``boundary`` the row's study holds and the model lacks is
+    not emitted (FR-435 R4), and a skip that renumbers the base regions an
+    indexed entry counts is refused (R5).
+    """
+    for action in _the_operations_the_model_reaches(case, script, skipped_regions):
         if action.operation == "create":
             assert action.boundary is not None and action.model is not None
             boundary = script.resolve_boundary(action.boundary, context="base-region create")
@@ -1057,6 +1074,77 @@ def _base_region_operations(case: SimCase, script: Script) -> None:
             script.emit(command, index)
 
 
+def _the_operations_the_model_reaches(
+    case: SimCase, script: Script, skipped_regions: Sequence[str]
+) -> list[BaseRegionOperation]:
+    """Return the base-region operations this model reaches, refusing a renumbering skip.
+
+    FR-435 R4: an entry whose ``boundary`` names a surface the row's model
+    lacks and its study holds is left out. R5: a skip in ``base_regions``
+    (``skipped_regions``), or of a ``create`` entry, renumbers every base
+    region after it, so it is refused where an entry addresses a region by an
+    index other than ``all``. With no vocabulary every entry is kept and a
+    name the model lacks is refused where it is resolved, as on 0.38.0.
+    """
+    operations = list(case.solver.base_region_operations or ())
+    renumbering = [("base_regions", name) for name in skipped_regions]
+    labels = script.entities.labels("boundaries")
+    if not operations or not labels or study_vocabulary(case) is None:
+        _refuse_a_renumbering_skip(case, renumbering)
+        return operations
+    ordered = _inventory(script)
+    kept: list[BaseRegionOperation] = []
+    for position, action in enumerate(operations, 1):
+        key, boundary = f"base_region_operations[{position}]", action.boundary
+        if (
+            isinstance(boundary, str)
+            and selects_nothing(boundary, ordered, case.aliases)
+            and judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, key, boundary)
+        ):
+            if action.operation == "create":
+                renumbering.append((key, boundary))
+            continue
+        kept.append(action)
+    _refuse_a_renumbering_skip(case, renumbering)
+    return kept
+
+
+def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]) -> None:
+    """Refuse a skip that renumbers the base regions an indexed entry counts (FR-435 R5)."""
+    indexed = next(
+        (
+            (position, action.index)
+            for position, action in enumerate(case.solver.base_region_operations or (), 1)
+            if action.index is not None and action.index != "all"
+        ),
+        None,
+    )
+    if not skipped or indexed is None:
+        return
+    key, name = skipped[0]
+    position, index = indexed
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: {key} cites {name!r}, which the geometry "
+        f"{PurePath(str(case.geometry)).name} does not carry and the row's study skips, and "
+        f"the setup's base_region_operations[{position}] addresses a base region by index "
+        f"{index}. A skipped base region renumbers every region after it, so that entry "
+        "would act on another region than the one it was written for. Address the entry "
+        "with index = 'all', or give this model a setup of its own (FR-435)."
+    )
+
+
+def _a_base_region_the_study_skips(case: SimCase, name: str) -> bool:
+    """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-435 R4).
+
+    A row's own ``BASE_REGIONS`` and a reference declaring no vocabulary keep
+    the 0.38.0 refusal (R1, R3); the study refuses a name it does not hold and
+    a run that asked for the refusal refuses every one (R6, R10).
+    """
+    if _variable(case, BASE_REGIONS_VARIABLE) is not None or study_vocabulary(case) is None:
+        return False
+    return judge_a_name_the_model_lacks(case, PPROC_ARTIFACT, "base_regions", name)
+
+
 def _base_region_detection_angle(case: SimCase, script: Script) -> None:
     angle = case.solver.base_region_bending_angle_deg
     if angle is not None:
@@ -1092,16 +1180,20 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         _base_region_detection_angle(case, script)
     labels = script.entities.labels("boundaries")
     indices: list[int] = []
+    skipped: list[str] = []
     for family in families:
         if not labels:
             _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
         found = _resolve_token(case, family, labels)
+        if not found and _a_base_region_the_study_skips(case, family):
+            skipped.append(family)
+            continue
         if not found:
             _refuse_name_absent_from_inventory(case, BASE_REGIONS_VARIABLE, family, labels)
         indices.extend(index for index in found if index not in indices)
     for index in sorted(indices):
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
-    _base_region_operations(case, script)
+    _base_region_operations(case, script, skipped)
 
 
 def _declare_boundaries(

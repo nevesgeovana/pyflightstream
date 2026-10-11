@@ -1,0 +1,5 @@
+{
+  "provenance": "FR-435 R12, P0390-R02: the SHA-256 of the script the wing-body-tail row (POL 2002, wbt.fsm) of the synthetic study of tests/tier1_offline/test_p0390_r02.py writes when run offline, from the reference without [study], the workspace root replaced by <ROOT> and every backslash folded to a slash. Rendered on the tree before FR-435 (d1082220, which differs from v0.38.0 only in the mesh refinement package and the SRS).",
+  "rendered_on": "d1082220",
+  "sha256": "703ea8ea9988c3019216c5d7506ea75e074b63dfdf8d3ba6d9718a5af02760c7"
+}

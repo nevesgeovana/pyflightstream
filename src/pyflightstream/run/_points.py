@@ -38,6 +38,7 @@ from pyflightstream.cases import (
     point_name,
     sweep_name,
 )
+from pyflightstream.cases._skipped_families import collecting_the_study_skips
 from pyflightstream.cases.acoustics import (
     acoustic_section_leftovers,
     acoustic_section_outputs,
@@ -619,7 +620,10 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
     )
     job.script.working_dir = str(job.work_dir)
     try:
-        job.recipe(job.point_case, job.script)
+        with collecting_the_study_skips() as skipped:
+            job.recipe(job.point_case, job.script)
+        # FR-435 R11: the names the build skipped, recorded only where it skipped one.
+        job.base["skipped_names"] = [skip.record() for skip in skipped] or None
         # G02: before the solver starts, and knowing the machine this time.
         _refuse_an_import_count_nothing_logs(job.point_case, job.script, job.executor)
     except Exception as exc:  # recipes are user code; any failure is a build failure

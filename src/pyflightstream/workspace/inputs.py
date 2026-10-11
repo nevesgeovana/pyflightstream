@@ -244,6 +244,7 @@ __all__ = [
     "RAW_TABLE",
     "ROTOR_FACT_KEYS",
     "SIDECAR_SUFFIXES",
+    "STUDY_TABLE",
     "TRAILING_EDGES_TABLE",
     "TRAILING_EDGE_DETECT_KEYS",
     "WAKE_TERMINATION_TABLE",
@@ -260,6 +261,7 @@ __all__ = [
     "RegisteredBuild",
     "RotorReference",
     "SetupArtifact",
+    "StudyVocabulary",
     "available_ids",
     "clean_saved_actions",
     "descriptor_name_refusal",
@@ -510,6 +512,30 @@ def strip_rotor_facts(inputs_dir: Path) -> dict[str, list[str]]:
     return removed
 
 
+#: The top-level table of a reference that declares the study's vocabulary (FR-435 R2).
+STUDY_TABLE = "study"
+
+
+class StudyVocabulary(BaseModel):
+    """The surfaces of a study, ``[study] surfaces`` of a reference artifact (FR-435 R2).
+
+    One setup, one pproc and one reference may serve every model of a study
+    only if a name one model lacks can be told from a misspelling. The table
+    is where the study says which names it uses: with the reference's aliases
+    and their members it is the vocabulary a cited name is judged against.
+
+    Attributes
+    ----------
+    surfaces : tuple of str
+        The boundary names or family words the models of the study carry,
+        at least one.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    surfaces: tuple[str, ...] = Field(min_length=1)
+
+
 class ReferenceArtifact(BaseModel):
     """Reference data of one configuration (``inputs/references/<id>.toml``).
 
@@ -613,6 +639,12 @@ class ReferenceArtifact(BaseModel):
     #: is how a user writes one; which of the two files owns a named
     #: point is the open question of 2026-09-10 and is not answered here.
     points: dict[str, PointXyz] = Field(default_factory=dict)
+    #: THE STUDY'S VOCABULARY (FR-435 R2): the top-level ``[study]`` table that
+    #: states no ``kind`` and one key, ``surfaces``. A setup or pproc name the
+    #: vocabulary holds and a row's model lacks is skipped and said at plan; a
+    #: name it does not hold is refused there. None for a reference declaring
+    #: none, which keeps the 0.38.0 reading of every name a row cites.
+    study: StudyVocabulary | None = None
 
     @model_validator(mode="after")
     def _one_rotor_length(self) -> ReferenceArtifact:
@@ -940,7 +972,44 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
     if not path.is_file():
         raise _miss("reference", artifact_id, directory)
     data = load_toml(path, "reference")
+    _refuse_a_study_table_of_another_shape(data, path)
     return _validate(ReferenceArtifact, _split_reference_tables(data, path), path, "reference")
+
+
+def _refuse_a_study_table_of_another_shape(data: Mapping[str, Any], path: Path) -> None:
+    """Refuse a ``[study]`` table that states anything but a list of names (FR-435 R2).
+
+    A table named ``study`` that states a ``kind`` is a block like any other
+    and is left to the reader, as it was before the vocabulary existed.
+
+    Raises
+    ------
+    InputArtifactError
+        The table states a key other than ``surfaces``, or ``surfaces`` is
+        missing, empty, or not a list of non-blank strings; the message names
+        the reference file and the table.
+    """
+    table = data.get(STUDY_TABLE)
+    if not isinstance(table, dict) or "kind" in table:
+        return
+    others = sorted(str(key) for key in table if key != "surfaces")
+    surfaces = table.get("surfaces")
+    names = isinstance(surfaces, list) and all(
+        isinstance(name, str) and name.strip() for name in surfaces
+    )
+    if not others and names and surfaces:
+        return
+    what = (
+        f"the key {', '.join(others)}, which it does not read"
+        if others
+        else f"surfaces = {surfaces!r}, which is not a non-empty list of names"
+    )
+    raise InputArtifactError(
+        f"the reference artifact {path} declares [{STUDY_TABLE}] with {what}. The table "
+        "states one key, surfaces, the boundary names or family words the models of the "
+        'study carry, for example surfaces = ["Wing", "Body", "Base"] (FR-435).',
+        kind="reference",
+    )
 
 
 #: The keys only a rotor block carries. A top-level table stating one of

@@ -18,7 +18,10 @@ Two setup keys reach the solver here, each through a short hook in
     ``DELETE_SURFACES 3`` on a four-surface mesh (Body, Base, Blade1,
     Blade2) left Body, Base, Blade2, and only Blade2 moved, to index 3.
     A family is removed from its last member so no index shifts under
-    the next command.
+    the next command. Where the row's reference declares the study's
+    vocabulary (FR-435), a name the study holds and the row's model lacks
+    is skipped and said, and a list every name of which is skipped emits
+    no removal.
 
 ``slipstream_wake_stabilization``
     A toggle emitted as ``SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION`` for
@@ -36,6 +39,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyflightstream.cases import CampaignConfigError, select_group_members
+from pyflightstream.cases._skipped_families import (
+    SETUP_ARTIFACT,
+    judge_a_name_the_model_lacks,
+    selects_nothing,
+    study_vocabulary,
+)
 from pyflightstream.script.helpers import WAKE_STABILIZATION_COMMAND
 
 if TYPE_CHECKING:
@@ -48,6 +57,7 @@ __all__ = [
     "emit_setup_surfaces",
     "emit_wake_stabilization",
     "refuse_setup_keys_that_reached_nothing",
+    "removed_by_delete_surfaces",
 ]
 
 #: The setup key naming the surfaces to remove.
@@ -78,8 +88,8 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
     ------
     CampaignConfigError
         If the list is empty, the geometry declares no boundary names,
-        a name resolves to no surface of the inventory, or the removal
-        would leave no surface.
+        a name resolves to no surface of the inventory and the row's study
+        does not skip it (FR-435), or the removal would leave no surface.
     """
     stated = case.solver.delete_surfaces
     if stated is None:
@@ -101,6 +111,8 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
     doomed: set[int] = set()
     for token in stated:
         found = select_group_members([token], ordered, case.aliases)
+        if not found and _skipped(case, token):
+            continue
         if not found:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {DELETE_SURFACES_KEY} with {token!r}, and the "
@@ -109,6 +121,9 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
                 "family name (the label without its trailing number)."
             )
         doomed.update(labels[name] for name in found)
+    if not doomed:
+        # FR-435 R4: every name is one the study holds and this model lacks.
+        return
     if len(doomed) >= len(inventory):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {DELETE_SURFACES_KEY} with {', '.join(stated)}, "
@@ -194,8 +209,10 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
     if solver.delete_surfaces is None and solver.slipstream_wake_stabilization is None:
         return
     lines = script.render().splitlines()
-    if solver.delete_surfaces is not None and not any(
-        line.startswith(_DELETE + " ") for line in lines
+    if (
+        solver.delete_surfaces is not None
+        and not any(line.startswith(_DELETE + " ") for line in lines)
+        and not _every_name_skipped(script, case)
     ):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {DELETE_SURFACES_KEY}, and the row opens no "
@@ -209,3 +226,45 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
             f"case {case.sim_id!r} states {WAKE_STABILIZATION_KEY}, and the row creates no "
             "rotor motion for it to apply to. Use it on a rotor row, or remove the key."
         )
+
+
+def _skipped(case: SimCase, token: str) -> bool:
+    """Whether a name the model lacks is one the row's study holds, skipped (FR-435 R4).
+
+    False where the reference declares no vocabulary, so the caller refuses
+    the name as 0.38.0 did (R3); a name the study does not hold, and every
+    name of a run that asked for the refusal, raise here (R6, R10).
+    """
+    if study_vocabulary(case) is None:
+        return False
+    return judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, DELETE_SURFACES_KEY, token)
+
+
+def _every_name_skipped(script: Script, case: SimCase) -> bool:
+    """Whether the geometry was opened and every name it was asked to remove was skipped.
+
+    FR-435 R4: a list every name of which the study holds and the model lacks
+    emits no ``DELETE_SURFACES``, and that is not a key that reached nothing.
+    """
+    labels = script.entities.labels("boundaries")
+    if not labels or study_vocabulary(case) is None:
+        return False
+    ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
+    return all(
+        selects_nothing(token, ordered, case.aliases) for token in case.solver.delete_surfaces or ()
+    )
+
+
+def removed_by_delete_surfaces(script: Script, case: SimCase, name: str) -> bool:
+    """Whether the row's ``delete_surfaces`` emitted a removal that took the surface ``name`` names.
+
+    FR-435 R4: a later key judged against the boundary list AFTER the
+    deletion would call a name the setup itself removed a name the model
+    lacks. The name is read against the list as the geometry opened it only
+    through the removal the row's own tokens select.
+    """
+    stated = case.solver.delete_surfaces
+    lines = script.render().splitlines()
+    if not stated or not any(line.startswith(_DELETE + " ") for line in lines):
+        return False
+    return any(bool(select_group_members([token], [name], case.aliases)) for token in stated)
