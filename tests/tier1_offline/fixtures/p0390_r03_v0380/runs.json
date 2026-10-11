@@ -1,0 +1,819 @@
+[
+  {
+    "run_id": "camp/sim_7002/V0300RE120AL+000",
+    "sim_id": "7002",
+    "point": {
+      "alpha": 0.0
+    },
+    "point_name": "V0300RE120AL+000",
+    "sweep_name": "V0300RE120AL+sweep",
+    "fs_version_requested": "26.120",
+    "fs_version_reported": "26.1",
+    "fs_build": "7012026",
+    "fs_version_source": "campaign_default",
+    "velocity_requested_m_s": 30.0,
+    "flight_condition": {
+      "TASmps": 30.0,
+      "REmi": 1.2
+    },
+    "flight_condition_defaults": {},
+    "flight_condition_defaults_from": "",
+    "matrix_stem": "polars",
+    "density_kg_m3": 0.47714603360935287,
+    "temperature_k": 288.15,
+    "viscosity_pa_s": 1.7892976260350732e-05,
+    "density_source": "solved-from-reynolds",
+    "reference_length_m": 1.5,
+    "package_version": "<V>",
+    "package_commit": "<V>",
+    "package_dirty": "<V>",
+    "submitted_by": "<WHO>",
+    "manifest_schema": "pyfs-manifest/3",
+    "fs_exe": "<PYTHON>",
+    "fs_exe_sha256": "<SHA>",
+    "argv": [
+      "<PYTHON>",
+      "-c",
+      "<STUB>",
+      "<ROOT>/sims/sim_7002/scripts/P7002-V0300RE120AL+000.txt"
+    ],
+    "cwd": "<ROOT>/sims/sim_7002/datapoints/DP-V0300RE120AL+000",
+    "timeout_s": null,
+    "recipe": "steady",
+    "stopped_at": null,
+    "continues": null,
+    "walltime_s": null,
+    "walltime_margin_s": null,
+    "march_strategy": null,
+    "submission": null,
+    "job_id": null,
+    "points_ran": [],
+    "pproc": "p001",
+    "point_name_template": "{polar}",
+    "description": "STEADY",
+    "mach": 0.08815906555980654,
+    "reference": {
+      "SREF": 11.5,
+      "CREF": 1.5,
+      "BREF": 8.0,
+      "XMOM": 0.0,
+      "YMOM": 0.0,
+      "ZMOM": 0.0
+    },
+    "campaign_name_from": "directory",
+    "inventory_source": null,
+    "staged_as": null,
+    "staged_as_reason": null,
+    "motions": [],
+    "reductions": null,
+    "recipe_sha256": "<SHA>",
+    "script_path": "scripts/P7002-V0300RE120AL+000.txt",
+    "script_sha256": "<SHA>",
+    "inputs_sha256": {},
+    "raw_flag": false,
+    "accept_unregistered_build": true,
+    "outputs_sha256": {
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm": "<SHA>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt": "<SHA>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt": "<SHA>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt": "<SHA>"
+    },
+    "waived_commands": [],
+    "executor": {
+      "class_name": "BuildSolver",
+      "argv": [
+        "<PYTHON>",
+        "-c",
+        "<STUB>",
+        "<ROOT>/sims/sim_7002/scripts/P7002-V0300RE120AL+000.txt"
+      ]
+    },
+    "started_at": "<TIME>",
+    "finished_at": "<TIME>",
+    "export_window": null,
+    "surface_time_averaging": null,
+    "surface_average_window": null,
+    "surface_translations": null,
+    "raw_commands": [],
+    "aliases": {},
+    "conditions": [
+      {
+        "axis": "alpha",
+        "requested": 0.0,
+        "reported": 0.0,
+        "deviation": 0.0,
+        "tolerance": 0.0005,
+        "unit": "deg",
+        "within": true
+      },
+      {
+        "axis": "velocity",
+        "requested": 30.0,
+        "reported": 30.0,
+        "deviation": 0.0,
+        "tolerance": 0.0005,
+        "unit": "m/s",
+        "within": true
+      }
+    ],
+    "log_file_used": null,
+    "residual_note": null,
+    "solver_run_time_s": null,
+    "solver_initialization_s": null,
+    "time_steps": null,
+    "solver_setup": {
+      "fs_version": "26.120",
+      "flags": {
+        "SET_SOLVER_CONVERGENCE_ITERATIONS": {
+          "command": "SET_SOLVER_CONVERGENCE_ITERATIONS",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_MINIMUM_CP": {
+          "command": "SOLVER_MINIMUM_CP",
+          "family": "advanced_settings",
+          "provenance": "default",
+          "value": -100,
+          "emitted": true,
+          "evidence": "library default -100 (design decision of 2026-07-22; physics references re-validated under it, 30 of 30 metrics bit-identical, report PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default -20 (SRC-003 p.221)"
+        },
+        "REYNOLDS_AVERAGED_DRAG_FORCES": {
+          "command": "REYNOLDS_AVERAGED_DRAG_FORCES",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY": {
+          "command": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_FARFIELD_LAYERS": {
+          "command": "SOLVER_SET_FARFIELD_LAYERS",
+          "family": "advanced_settings",
+          "provenance": "default",
+          "value": 3,
+          "emitted": false,
+          "evidence": "SRC-003 p.344"
+        },
+        "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA": {
+          "command": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_WAKE_TERMINATION_TIME_STEPS": {
+          "command": "SET_WAKE_TERMINATION_TIME_STEPS",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_WAKE_ON_WAKE_INDUCTION": {
+          "command": "SET_WAKE_ON_WAKE_INDUCTION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "ADDITIONAL_WAKE_RELAXATION_ITERATION": {
+          "command": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "AEROELASTIC_RBF_TYPE": {
+          "command": "AEROELASTIC_RBF_TYPE",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "LAMINAR_SEPARATION": {
+          "command": "LAMINAR_SEPARATION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "KUTTA_JOUKOWSKI_LIFT_FORCES": {
+          "command": "KUTTA_JOUKOWSKI_LIFT_FORCES",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "PRINT_ROTOR_INDUCED_VELOCITIES": {
+          "command": "PRINT_ROTOR_INDUCED_VELOCITIES",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_ADAPTIVE_FIELD_GRID_REFINEMENT": {
+          "command": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "ROTOR_INDUCED_VELOCITY_BLENDING": {
+          "command": "ROTOR_INDUCED_VELOCITY_BLENDING",
+          "family": "advanced_settings",
+          "provenance": "default",
+          "value": 0.25,
+          "emitted": false,
+          "evidence": "SRC-003 p.345"
+        },
+        "SET_WAKE_NUMERICAL_RELAXATION": {
+          "command": "SET_WAKE_NUMERICAL_RELAXATION",
+          "family": "advanced_settings",
+          "provenance": "default",
+          "value": 0.15,
+          "emitted": false,
+          "evidence": "SRC-003 p.346"
+        },
+        "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH": {
+          "command": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
+          "family": "advanced_settings",
+          "provenance": "default",
+          "value": 100.0,
+          "emitted": false,
+          "evidence": "SRC-003 p.346"
+        },
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION": {
+          "command": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_WAKE_DECAY_CONSTANT": {
+          "command": "SET_WAKE_DECAY_CONSTANT",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_WAKE_RELAXATION": {
+          "command": "SET_WAKE_RELAXATION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_WAKE_STREAMWISE_AGGLOMERATION": {
+          "command": "SET_WAKE_STREAMWISE_AGGLOMERATION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER": {
+          "command": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_VORTEX_RING_NORMALIZATION": {
+          "command": "SOLVER_VORTEX_RING_NORMALIZATION",
+          "family": "advanced_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_AOA": {
+          "command": "SOLVER_SET_AOA",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 0.0,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_SIDESLIP": {
+          "command": "SOLVER_SET_SIDESLIP",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 0.0,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_VELOCITY": {
+          "command": "SOLVER_SET_VELOCITY",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 30.0,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_MACH_NUMBER": {
+          "command": "SOLVER_SET_MACH_NUMBER",
+          "family": "runtime_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_ITERATIONS": {
+          "command": "SOLVER_SET_ITERATIONS",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 500,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_CONVERGENCE": {
+          "command": "SOLVER_SET_CONVERGENCE",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 1e-05,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_FORCED_ITERATIONS": {
+          "command": "SOLVER_SET_FORCED_ITERATIONS",
+          "family": "runtime_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_REF_VELOCITY": {
+          "command": "SOLVER_SET_REF_VELOCITY",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 30.0,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_REF_MACH_NUMBER": {
+          "command": "SOLVER_SET_REF_MACH_NUMBER",
+          "family": "runtime_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_SET_REF_AREA": {
+          "command": "SOLVER_SET_REF_AREA",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 11.5,
+          "emitted": true,
+          "evidence": null
+        },
+        "SOLVER_SET_REF_LENGTH": {
+          "command": "SOLVER_SET_REF_LENGTH",
+          "family": "runtime_settings",
+          "provenance": "explicit",
+          "value": 1.5,
+          "emitted": true,
+          "evidence": null
+        },
+        "SET_MAX_PARALLEL_THREADS": {
+          "command": "SET_MAX_PARALLEL_THREADS",
+          "family": "runtime_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_SOLVER_STEADY": {
+          "command": "SET_SOLVER_STEADY",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_SOLVER_UNSTEADY": {
+          "command": "SET_SOLVER_UNSTEADY",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_BOUNDARY_LAYER_TYPE": {
+          "command": "SET_BOUNDARY_LAYER_TYPE",
+          "family": "solver_settings",
+          "provenance": "default",
+          "value": "TRANSITIONAL",
+          "emitted": false,
+          "evidence": "SRC-003 p.203"
+        },
+        "SET_SOLVER_VISCOUS_COUPLING": {
+          "command": "SET_SOLVER_VISCOUS_COUPLING",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_VISCOUS_EXCLUDED_BOUNDARIES": {
+          "command": "SET_VISCOUS_EXCLUDED_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_VISCOUS_EXCLUDED_BOUNDARIES": {
+          "command": "DELETE_VISCOUS_EXCLUDED_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "CREATE_BULK_SEPARATION": {
+          "command": "CREATE_BULK_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "CREATE_AIRFOIL_SEPARATION": {
+          "command": "CREATE_AIRFOIL_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "CREATE_AXIAL_VORTEX_SEPARATION": {
+          "command": "CREATE_AXIAL_VORTEX_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "CREATE_CYLINDRICAL_BULK_SEPARATION": {
+          "command": "CREATE_CYLINDRICAL_BULK_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "CREATE_STRATFORD_BULK_SEPARATION": {
+          "command": "CREATE_STRATFORD_BULK_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_SEPARATION": {
+          "command": "DELETE_SEPARATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_AXIAL_SEPARATION_BOUNDARIES": {
+          "command": "SET_AXIAL_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_AXIAL_SEPARATION_BOUNDARIES": {
+          "command": "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_VALAREZO_SEPARATION_BOUNDARIES": {
+          "command": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_VALAREZO_CRITERION_BOUNDARIES": {
+          "command": "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_VALAREZO_SEPARATION_BOUNDARIES": {
+          "command": "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_CROSSFLOW_SEPARATION_BOUNDARIES": {
+          "command": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES": {
+          "command": "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_CROSSFLOW_SEPARATION_DIAMETER": {
+          "command": "SET_CROSSFLOW_SEPARATION_DIAMETER",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC": {
+          "command": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_SURFACE_ROUGHNESS": {
+          "command": "SET_SURFACE_ROUGHNESS",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_THIN_BOUNDARIES": {
+          "command": "SET_THIN_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DELETE_THIN_BOUNDARIES": {
+          "command": "DELETE_THIN_BOUNDARIES",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SOLVER_STABILIZATION": {
+          "command": "SOLVER_STABILIZATION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "DISABLE_SOLVER_REF_VELOCITY": {
+          "command": "DISABLE_SOLVER_REF_VELOCITY",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_SOLVER_MODEL": {
+          "command": "SET_SOLVER_MODEL",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "VALAREZO_CRITERION": {
+          "command": "VALAREZO_CRITERION",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_CROSSFLOW_SEPARATION_CP": {
+          "command": "SET_CROSSFLOW_SEPARATION_CP",
+          "family": "solver_settings",
+          "provenance": "unknown",
+          "value": null,
+          "emitted": false,
+          "evidence": null
+        },
+        "SET_VORTICITY_DRAG_BOUNDARIES": {
+          "command": "SET_VORTICITY_DRAG_BOUNDARIES",
+          "family": "solver_analysis",
+          "provenance": "default",
+          "value": [],
+          "emitted": false,
+          "evidence": "the script emits no selection, so it places no boundary on the vorticity CDi list; boundaries outside that list use the solver's surface pressure integration (SRC-003 p.202). A simulation file opened by the script may carry a selection of its own"
+        }
+      }
+    },
+    "status": "CONVERGED",
+    "iterations": 312,
+    "residual": null,
+    "wall_time_s": <S>,
+    "outputs": [
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt"
+    ],
+    "probe_points_file": null,
+    "probe_field_layout": null,
+    "surface_probe_layout": null,
+    "frame_motions": {
+      "1": {
+        "frame_index": 1,
+        "frame_name": "REFERENCE",
+        "state": "known",
+        "reason": null,
+        "origin_native": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "x_axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y_axis": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z_axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "length_unit": null,
+        "solver_version": "26.120",
+        "trajectory": {
+          "kind": "fixed",
+          "center_native": null,
+          "axis_reference": null,
+          "omega_rad_s": null,
+          "emitted_rpm": null,
+          "dt_s": null,
+          "step_time_origin": null,
+          "start_time_s": 0.0
+        },
+        "attached_boundaries": [],
+        "motion_index": null,
+        "command_provenance": [
+          {
+            "name": "CREATE_NEW_COORDINATE_SYSTEM",
+            "args": {},
+            "line": 1
+          },
+          {
+            "name": "EDIT_COORDINATE_SYSTEM",
+            "args": {
+              "frame": 2,
+              "name": "MRP",
+              "origin_x": 0.0,
+              "origin_y": 0.0,
+              "origin_z": 0.0,
+              "vector_x_x": 1.0,
+              "vector_x_y": 0.0,
+              "vector_x_z": 0.0,
+              "vector_y_x": 0.0,
+              "vector_y_y": 1.0,
+              "vector_y_z": 0.0,
+              "vector_z_x": 0.0,
+              "vector_z_y": 0.0,
+              "vector_z_z": 1.0
+            },
+            "line": 2
+          }
+        ],
+        "proof": {
+          "geometry": {
+            "basis": "explicit emitted frame commands"
+          },
+          "timing": null
+        }
+      },
+      "2": {
+        "frame_index": 2,
+        "frame_name": "MRP",
+        "state": "known",
+        "reason": null,
+        "origin_native": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "x_axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y_axis": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "z_axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "length_unit": null,
+        "solver_version": "26.120",
+        "trajectory": {
+          "kind": "fixed",
+          "center_native": null,
+          "axis_reference": null,
+          "omega_rad_s": null,
+          "emitted_rpm": null,
+          "dt_s": null,
+          "step_time_origin": null,
+          "start_time_s": 0.0
+        },
+        "attached_boundaries": [],
+        "motion_index": null,
+        "command_provenance": [
+          {
+            "name": "CREATE_NEW_COORDINATE_SYSTEM",
+            "args": {},
+            "line": 1
+          },
+          {
+            "name": "EDIT_COORDINATE_SYSTEM",
+            "args": {
+              "frame": 2,
+              "name": "MRP",
+              "origin_x": 0.0,
+              "origin_y": 0.0,
+              "origin_z": 0.0,
+              "vector_x_x": 1.0,
+              "vector_x_y": 0.0,
+              "vector_x_z": 0.0,
+              "vector_y_x": 0.0,
+              "vector_y_y": 1.0,
+              "vector_y_z": 0.0,
+              "vector_z_x": 0.0,
+              "vector_z_y": 0.0,
+              "vector_z_z": 1.0
+            },
+            "line": 2
+          }
+        ],
+        "proof": {
+          "geometry": {
+            "basis": "explicit emitted frame commands"
+          },
+          "timing": null
+        }
+      }
+    },
+    "custom_field_coverage": null,
+    "freestream_units": null,
+    "sections_layout": [],
+    "error": null,
+    "action_program": null,
+    "action_script": null,
+    "action_count": null,
+    "warnings": []
+  }
+]

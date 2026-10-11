@@ -226,6 +226,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # Python's full format and every per-point line; presentation only, and the
     # activity log holds the full detail either way.
     ("pyfs-matrix", "verbose"): SWITCH,
+    # 0.39.0 (FR-436 R6): the console level of this invocation, quiet, normal or
+    # verbose; presentation only, and the activity log is full at every level.
+    ("pyfs-matrix", "log_level"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
     ("pyfs-matrix", "dry_run"): SWITCH,
@@ -487,6 +490,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # 0.31.0 (P0310-CONSOLE-BLOCKS): plan, and its alias inspect-setups, take --verbose too,
     # which is what shows the [continuation] lines on the console.
     ("pyfs-matrix", "verbose"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
+    # 0.39.0 (FR-436 R6): every command that takes --verbose takes --log-level.
+    ("pyfs-matrix", "log_level"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),

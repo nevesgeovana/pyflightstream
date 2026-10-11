@@ -807,11 +807,11 @@ _EXECUTABLES_EXAMPLE = """\
 """
 
 _LOCAL_EXECUTABLES_EXAMPLE = """\
-# This machine's paths for the builds executables.toml declares, read over it.
-# Keep this file out of version control. A bare path keeps the version the
-# registry declares; a table replaces the entry. A build the registry does not
-# declare is refused.
+# This machine's paths for the builds executables.toml declares, read over it; keep it
+# unversioned. A bare path keeps the declared version, a table replaces the entry and,
+# here only, may accept an installed build not registered. An undeclared build is refused.
 "26.124" = "C:/path/to/this/machine/FlightStream.exe"
+"26.120" = { path = "C:/path/to/FlightStream.exe", accept_unregistered_build = true }
 """
 
 

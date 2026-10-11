@@ -1,0 +1,33 @@
+exit 0
+--- stdout
+<ROOT>/post/polars/polars/P7002-V0300RE120AL+000_g01.csv
+<ROOT>/post/polars/settings/polars_settings.csv
+<ROOT>/post/polars/settings/polars_settings.codebook.json
+<ROOT>/post/polars/polars/SUPER-7002-V0300RE120AL+sweep_g01.csv
+4 product(s) written under <ROOT>/post/polars
+--- stderr
+pyfs-matrix post
+  purpose: rebuild the post-processed CSV products from the manifest, with no solver
+  workspace: <ROOT>
+  live log: logs/post-<STAMP>.log
+
+[post] started: <ROOT>
+[post: simulations] 0/1, 0%, <CLOCK> elapsed, sim_7002
+[post: simulations] done: 1/1, <CLOCK>
+[post] finished
+[post] 1/1, 100%, <CLOCK> elapsed, post/polars
+[post] done: 1/1, <CLOCK>
+
+#################################################################################
+#                                                                               #
+#                                          .-"-.               .-"-.            #
+# Let now COALA do its magic              / .-. /   _.---._   / .-. /           #
+#                                        | (   ) |.'       '.| (   ) |          #
+#                                         / '-' /  o       o  / '-' /           #
+#                                          '-._|      ___      |_.-'            #
+#                                               /    (___)    /                 #
+# geoversegoddess sees you                       '.    V    .'                  #
+#                                                  '-.___.-'                    #
+#                                                                               #
+#################################################################################
+

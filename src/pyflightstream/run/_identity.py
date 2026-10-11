@@ -17,10 +17,11 @@ import shutil
 import subprocess
 import tempfile
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pyflightstream
 import pyflightstream._textio as _textio
@@ -49,7 +50,16 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunRecord,
     WorkspaceError,
+    resolve_build,
 )
+from pyflightstream.workspace._settings_file import (
+    ENTRY_ACCEPTANCE_SOURCE,
+    entry_acceptance_allowed,
+    invocation_sources,
+)
+
+if TYPE_CHECKING:
+    from pyflightstream.workspace.matrix import ResolvedMatrix
 
 
 def _file_digest(path: str | Path) -> str | None:
@@ -393,6 +403,7 @@ def check_solver_identity(
     *,
     timeout_s: float = 60.0,
     accept_unregistered_build: bool = False,
+    accepted_by: str | None = None,
 ) -> None:
     """Refuse before the campaign runs if the wrong solver build is configured.
 
@@ -434,6 +445,11 @@ def check_solver_identity(
     accept_unregistered_build : bool, keyword-only
         With True, an installed build other than the registered one is
         warned about and accepted instead of refused. Default False.
+    accepted_by : str, keyword-only, optional
+        The file that stated the acceptance (FR-436 R7): ``pyfs.toml``,
+        ``pyfs.local.toml`` or ``executables.local.toml`` (a build entry of
+        ``inputs/executables.local.toml``), which the warning names; None
+        where the command line typed it. Default None.
 
     Raises
     ------
@@ -537,9 +553,7 @@ def check_solver_identity(
             warnings.warn(
                 f"the executable is FlightStream build #{installed} and the campaign "
                 f"declares {version.canonical}, registered as build #{version.build}. "
-                f"Running anyway, because {ACCEPT_UNREGISTERED_BUILD_FLAG} was given: "
-                "whether this build computes what the registered one does is yours to "
-                "know, and every record of this run says the flag was used.",
+                f"Running anyway, because {_acceptance_reason(accepted_by)}",
                 VersionMismatchWarning,
                 stacklevel=2,
             )
@@ -554,6 +568,94 @@ def check_solver_identity(
             f"{ACCEPT_UNREGISTERED_BUILD_FLAG} (accept_unregistered_build=True): its "
             "compatibility is then your responsibility, and the records say so."
         )
+
+
+def _acceptance_reason(accepted_by: str | None) -> str:
+    """Say why an installed build other than the registered one runs, naming who stated it."""
+    if accepted_by is None:
+        return (
+            f"{ACCEPT_UNREGISTERED_BUILD_FLAG} was given: whether this build computes what "
+            "the registered one does is yours to know, and every record of this run says the "
+            "flag was used."
+        )
+    return (
+        f"{accepted_by} sets accept_unregistered_build: whether this build computes what the "
+        "registered one does is yours to know, and every record of this run says so and "
+        f"names {accepted_by}."
+    )
+
+
+def acceptance_of(
+    key: str, accept_unregistered_build: bool, accepted_builds: Collection[str]
+) -> tuple[bool, str | None]:
+    """Return whether one installation's build is accepted, and the file that said so.
+
+    FR-436 R7: the acceptance is stated by the command line, by a workspace
+    settings file, or by the build's own entry in
+    ``inputs/executables.local.toml``; either route accepts, and the entry
+    accepts its own build only.
+
+    Parameters
+    ----------
+    key : str
+        The installation, as the identity check groups cases: a build id, or
+        the empty string for the campaign's own installation.
+    accept_unregistered_build : bool
+        The acceptance of the whole invocation, typed or taken from a file.
+    accepted_builds : collection of str
+        The installations whose own entry accepts their build.
+
+    Returns
+    -------
+    tuple of bool and (str or None)
+        Whether the build is accepted, and the file that stated it: None
+        where the command line did, or where nothing accepts.
+    """
+    if accept_unregistered_build:
+        return True, invocation_sources().get("accept_unregistered_build")
+    if key in accepted_builds:
+        return True, ENTRY_ACCEPTANCE_SOURCE
+    return False, None
+
+
+def entry_accepted_builds(
+    resolved: ResolvedMatrix,
+    workspace: CampaignWorkspace,
+    default: str | None,
+    fs_exe: str | Path | None,
+) -> frozenset[str]:
+    """Return the installations whose own build entry accepts their installed build (FR-436 R7).
+
+    Read off the registry entries the bound matrix resolved; the campaign's own
+    installation, the key ``""``, is the entry of the default version, asked
+    only where a row names no build. An explicit executable override names no
+    entry, so it accepts nothing, and a command line that typed
+    ``--no-accept-unregistered-build`` lets no entry accept.
+
+    Parameters
+    ----------
+    resolved : pyflightstream.workspace.matrix.ResolvedMatrix
+        The bound matrix.
+    workspace : CampaignWorkspace
+        The campaign workspace, whose registry holds the default's entry.
+    default : str or None
+        The campaign default version, the build id a silent row falls back to.
+    fs_exe : str or Path or None
+        The explicit executable override, when one was given.
+
+    Returns
+    -------
+    frozenset of str
+        The accepted installations, keyed as :func:`acceptance_of` reads them.
+    """
+    if fs_exe is not None or not entry_acceptance_allowed():
+        return frozenset()
+    keys = {build for build, entry in resolved.builds.items() if entry.accept_unregistered_build}
+    fallback = (default or "").strip()
+    if fallback and any(build is None for build in resolved.row_builds):
+        if resolve_build(workspace.inputs_dir, fallback).accept_unregistered_build:
+            keys.add("")
+    return frozenset(keys)
 
 
 def _case_build(
@@ -639,6 +741,7 @@ def _check_scheduled_builds(
     scheduled: list[tuple[SimCase, SolverBuild | None]],
     *,
     accept_unregistered_build: bool = False,
+    accepted_builds: Collection[str] = (),
 ) -> None:
     """Confirm every installation that still has work, before any of it runs.
 
@@ -671,6 +774,10 @@ def _check_scheduled_builds(
     accept_unregistered_build : bool, keyword-only
         With True, an installed build other than the registered one is
         warned about and accepted instead of refused. Default False.
+    accepted_builds : collection of str, keyword-only
+        The installations whose own entry of ``inputs/executables.local.toml``
+        accepts their build (FR-436 R7), keyed as the cases are grouped; each
+        accepts that build only. Default empty.
 
     Raises
     ------
@@ -705,12 +812,14 @@ def _check_scheduled_builds(
         if getattr(case_executor, "descriptor_path", "missing") != "missing":
             continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
+        accepted, accepted_by = acceptance_of(key, accept_unregistered_build, accepted_builds)
         try:
             check_solver_identity(
                 case_executor,
                 resolve(case_version),
                 workdir,
-                accept_unregistered_build=accept_unregistered_build,
+                accept_unregistered_build=accepted,
+                accepted_by=accepted_by,
             )
         except ExecutorConfigurationError as error:
             failures.append(

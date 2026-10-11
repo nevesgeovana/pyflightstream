@@ -1,0 +1,37 @@
+exit 0
+--- stdout
+pyfs-matrix plan
+  matrix: polars.fs
+  campaign: camp
+  FlightStream build: 26.120
+
+Cases
+  points: 1 ready, 0 blocked, 0 already recorded
+  solver installations: 1
+    the campaign's own installation: 1 case(s) (7002)
+
+Point aliases
+  7002_1  POL 7002 V0300RE120AL+000
+
+Solver setup per case
+  POL 7002 (FlightStream 26.120, setup s002)
+    settings: solver_model=None, boundary_layer=None, viscous_coupling=None
+    aliases: none
+
+Files written
+  plan: <ROOT>/post/polars/plan.json
+--- stderr
+
+#################################################################################
+#                                                                               #
+#                                           ________________                    #
+# Saved. No floppy was harmed              | |  ________  | |                   #
+#                                          | | |        | | |                   #
+#                                          | | |  pyfs  | | |                   #
+#                                          | |  --------  | |                   #
+#                                          |    ______      |                   #
+# geoversegoddess sees you                 |   | |    |     |                   #
+#                                          |___|_|____|_____|                   #
+#                                                                               #
+#################################################################################
+

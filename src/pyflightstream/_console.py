@@ -36,6 +36,11 @@ _Subparsers = argparse._SubParsersAction
 #: word longer than the room left (a long path) is kept whole on its own line.
 WIDTH = 90
 
+#: The console levels of a command (FR-436 R6), least to most: ``quiet`` says the
+#: errors, the final summary line and the signature; ``normal`` is the console of
+#: 0.38.0; ``verbose`` is its ``--verbose``. The activity log is full at every level.
+CONSOLE_LEVELS = ("quiet", "normal", "verbose")
+
 #: What a console warning starts with; its continuation lines align with the
 #: text after it.
 WARNING_PREFIX = "[warning] "

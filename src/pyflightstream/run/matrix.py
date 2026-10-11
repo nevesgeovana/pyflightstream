@@ -100,6 +100,7 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
+from pyflightstream.run._identity import entry_accepted_builds
 from pyflightstream.run._ids import narrow_to_selection
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
@@ -141,10 +142,7 @@ def _cluster_executor(
     profile = resolve_hpc_profile(workspace.inputs_dir)
     if profile is None:
         return None
-    return SubmittingExecutor(
-        profile,
-        values={"fs_build": resolved.campaign.fs_version or ""},
-    )
+    return SubmittingExecutor(profile, values={"fs_build": resolved.campaign.fs_version or ""})
 
 
 def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> None:
@@ -791,6 +789,8 @@ def plan_matrix(
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
         inflow_fft=inflow_fft,
+        # FR-436 R7: a build entry of this machine's overlay accepting its own build.
+        accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
     )
     _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
     _warn_when_a_helical_mach_may_reach_one(resolved, plan)
@@ -1357,6 +1357,8 @@ def run_matrix(
         name_from=name_from,
         accept_unregistered_build=accept_unregistered_build,
         sweep_csv=sweep_csv,
+        # FR-436 R7: a build entry of this machine's overlay accepting its own build.
+        accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
     )
 
 

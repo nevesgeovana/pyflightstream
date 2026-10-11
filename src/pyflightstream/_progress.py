@@ -115,7 +115,16 @@ class _Console:
 class _Terminal:
     """The console of one command-line invocation: its verbosity, its root, its console."""
 
-    __slots__ = ("console", "redrawn", "root", "verbose")
+    __slots__ = (
+        "chatter",
+        "console",
+        "held_err",
+        "held_out",
+        "quiet",
+        "redrawn",
+        "root",
+        "verbose",
+    )
 
     def __init__(self, verbose: bool) -> None:
         self.verbose = verbose
@@ -123,6 +132,14 @@ class _Terminal:
         self.console: _Console | None = None
         #: The width of the progress line a terminal shows now, to clear before any other line.
         self.redrawn = 0
+        #: The ``quiet`` console level (FR-436 R6): what the console would show is
+        #: held, and only the errors and the final summary line are said at the end.
+        self.quiet = False
+        #: How deep the console is in its own chatter (the opening block, a stage
+        #: or progress line, a warning), which a quiet console never says again.
+        self.chatter = 0
+        self.held_out: list[str] = []
+        self.held_err: list[str] = []
 
 
 #: Set by a console script for the length of one invocation, and by nothing
@@ -131,7 +148,7 @@ _TERMINAL: ContextVar[_Terminal | None] = ContextVar("pyfs_terminal", default=No
 
 
 @contextmanager
-def command_terminal(*, verbose: bool) -> Iterator[None]:
+def command_terminal(*, verbose: bool) -> Iterator[_Terminal]:
     """Mark the console output of one command-line invocation.
 
     Inside it, a path under the workspace root is printed relative to that
@@ -139,12 +156,92 @@ def command_terminal(*, verbose: bool) -> Iterator[None]:
     ``[<stage>] started:`` line, and without ``verbose`` a site that repeats one
     warning per item may say it once with a count (:func:`terse_terminal`).
     The records and the activity log keep absolute paths and every item.
+    Yields the invocation's console, which :func:`release_quiet` reads once
+    the command has ended.
     """
-    token = _TERMINAL.set(_Terminal(verbose))
+    terminal = _Terminal(verbose)
+    token = _TERMINAL.set(terminal)
+    try:
+        yield terminal
+    finally:
+        _TERMINAL.reset(token)
+
+
+def set_console_level(level: str) -> None:
+    """Set the console level of the running command (FR-436 R6).
+
+    ``verbose`` is the console of ``--verbose``; ``normal`` the default one;
+    ``quiet`` holds everything the console would show and, once the command
+    has ended, says only its errors and its final summary line
+    (:func:`release_quiet`). The activity log and the live log are written as
+    at every other level. Outside a console command it does nothing.
+
+    Parameters
+    ----------
+    level : str
+        One of :data:`pyflightstream._console.CONSOLE_LEVELS`.
+    """
+    terminal = _TERMINAL.get()
+    if terminal is None:
+        return
+    terminal.verbose = level == "verbose"
+    terminal.quiet = level == "quiet"
+    if terminal.quiet:
+        warnings.showwarning = _chattering(warnings.showwarning)
+
+
+def _chattering(show: Callable[..., None]) -> Callable[..., None]:
+    """Return ``show`` marked as the console's own chatter, which a quiet console holds."""
+
+    def shown(*args: Any, **kwargs: Any) -> None:
+        with _chatter():
+            show(*args, **kwargs)
+
+    return shown
+
+
+@contextmanager
+def _chatter() -> Iterator[None]:
+    """Mark what is said inside as the console's own lines, not the command's errors."""
+    terminal = _TERMINAL.get()
+    if terminal is None:
+        yield
+        return
+    terminal.chatter += 1
     try:
         yield
     finally:
-        _TERMINAL.reset(token)
+        terminal.chatter -= 1
+
+
+def release_quiet(terminal: _Terminal | None, *, failed: bool) -> None:
+    """Say what a quiet console held: the errors of a failed command, then its final line.
+
+    The errors are everything the command wrote on standard error apart from
+    the console's own chatter (its opening block, its stage and progress
+    lines, its warnings), said only when the command failed; the final
+    summary line is the last line it wrote on standard output. Nothing at a
+    level other than ``quiet``. The signature follows, as at every level.
+
+    Parameters
+    ----------
+    terminal : _Terminal or None
+        The console :func:`command_terminal` yielded.
+    failed : bool
+        Whether the command ended on an error or a non-zero exit.
+    """
+    if terminal is None or not terminal.quiet:
+        return
+    errors = "".join(terminal.held_err) if failed else ""
+    final = [line for line in "".join(terminal.held_out).splitlines() if line.strip()][-1:]
+    try:
+        if errors:
+            sys.stderr.write(errors)
+            sys.stderr.flush()
+        for line in final:
+            print(line, file=sys.stdout, flush=True)
+    except (OSError, ValueError, AttributeError):
+        return
 
 
 def terse_terminal() -> bool:
@@ -233,7 +330,8 @@ def say_line(text: str) -> None:
     dropped, and the stage's own result or exception stands.
     """
     try:
-        print(text, file=sys.stderr, flush=True)
+        with _chatter():
+            print(text, file=sys.stderr, flush=True)
     except (OSError, ValueError):
         pass
 
@@ -603,7 +701,7 @@ def _raw_err(terminal: _Terminal) -> IO[str] | None:
 def _redraw(terminal: _Terminal, text: str) -> None:
     """Draw ``text`` over the progress line a terminal shows now; it goes to no log."""
     stream = _raw_err(terminal)
-    if stream is None:
+    if stream is None or terminal.quiet:
         return
     width = max(shutil.get_terminal_size(fallback=(100, 24)).columns - 1, 20)
     shown = text[:width]
@@ -633,15 +731,23 @@ class _ConsoleStream:
 
     Each write clears a progress line a terminal shows, says the opening block
     first where it is still owed, then goes to the stream it wraps and to the
-    live log. Every other attribute is the wrapped stream's.
+    live log. Every other attribute is the wrapped stream's. On a ``quiet``
+    console (FR-436 R6) a write still reaches the live log and is held instead
+    of said: all of standard output, and of standard error what is not the
+    console's own chatter (:func:`release_quiet` says it at the end).
     """
 
-    def __init__(self, raw: IO[str], terminal: _Terminal, console: _Console) -> None:
+    def __init__(
+        self, raw: IO[str], terminal: _Terminal, console: _Console, *, out: bool = False
+    ) -> None:
         self._raw = raw
         self._terminal = terminal
         self._console = console
+        self._out = out
 
     def write(self, text: str) -> int:
+        if self._terminal.quiet:
+            return _hold(self._terminal, self._console, text, out=self._out)
         if text:
             _before_a_line(self._terminal, self._console, text)
         written = self._raw.write(text)
@@ -656,10 +762,28 @@ class _ConsoleStream:
         return getattr(self._raw, name)
 
 
+def _hold(terminal: _Terminal, console: _Console, text: str, *, out: bool) -> int:
+    """Keep one write of a quiet console: in the live log, and held unless it is chatter."""
+    if text:
+        _before_a_line(terminal, console, text)
+    if console.log is not None:
+        console.log.write(text)
+    if out:
+        terminal.held_out.append(text)
+    elif not terminal.chatter:
+        terminal.held_err.append(text)
+    return len(text)
+
+
 def _before_a_line(terminal: _Terminal, console: _Console, text: str) -> None:
     _clear_redraw(terminal)
     pending, console.pending = console.pending, None
     if pending is None or text.startswith(console.title):
+        return
+    if terminal.quiet:
+        # A quiet console says no opening block; its live log keeps it.
+        if console.log is not None:
+            console.log.write(pending)
         return
     try:
         console.raw_err.write(pending)
@@ -697,6 +821,12 @@ def _live_log(root: Path, command: str, title: str) -> tuple[_LiveLog | None, st
     return None, "not written (every name of this second is taken)"
 
 
+def _say_opening(opening: str) -> None:
+    """Print a command's opening block on stderr, as the console's own chatter."""
+    with _chatter():
+        print(opening, end="", file=sys.stderr, flush=True)
+
+
 def print_held_warnings(held: list[warnings.WarningMessage]) -> None:
     """Print held warnings as one titled block on stderr, a blank line before and after.
 
@@ -705,13 +835,14 @@ def print_held_warnings(held: list[warnings.WarningMessage]) -> None:
     """
     if not held:
         return
-    print(f"\n{warnings_title(len(held))}", file=sys.stderr, flush=True)
-    release_warnings(held)
-    if not terse_terminal() or not issubclass(held[-1].category, PyflightstreamWarning):
-        # Python's own format (under --verbose, or a third party's warning)
-        # ends without the blank line the short form adds.
-        print(file=sys.stderr)
-    sys.stderr.flush()
+    with _chatter():
+        print(f"\n{warnings_title(len(held))}", file=sys.stderr, flush=True)
+        release_warnings(held)
+        if not terse_terminal() or not issubclass(held[-1].category, PyflightstreamWarning):
+            # Python's own format (under --verbose, or a third party's warning)
+            # ends without the blank line the short form adds.
+            print(file=sys.stderr)
+        sys.stderr.flush()
 
 
 @contextmanager
@@ -754,7 +885,7 @@ def command_console(
     streams = (sys.stdout, sys.stderr)
     terminal.console = console
     if sys.stdout is not None:
-        sys.stdout = _ConsoleStream(sys.stdout, terminal, console)  # type: ignore[assignment]
+        sys.stdout = _ConsoleStream(sys.stdout, terminal, console, out=True)  # type: ignore[assignment]
     sys.stderr = _ConsoleStream(sys.stderr, terminal, console)  # type: ignore[assignment]
     started = _clock()
     ended = "finished"
@@ -763,7 +894,7 @@ def command_console(
         if header:
             console.pending = opening
         else:
-            print(opening, end="", file=sys.stderr, flush=True)
+            _say_opening(opening)
         with ExitStack() as stack:
             if hold:
                 held = stack.enter_context(held_warnings())

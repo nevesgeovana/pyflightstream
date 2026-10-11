@@ -130,18 +130,20 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 159 errors in 16 files (checked 293 source files)
->     Success: no issues found in 293 source files
+>     Found 159 errors in 16 files (checked 294 source files)
+>     Success: no issues found in 294 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-06: 159 errors in 16 of 293 modules.**
+**mypy recount 2026-10-10: 159 errors in 16 of 294 modules.**
 
 The quoted top block and the sentence above are the 2026-10-06 run recorded
-in the dated section at the end. The module total is the 293 of `rel/0-38` (292 on the tree of the earlier recount of this date)
-after the 0.38.0 work packages, with 159 errors in sixteen dirty modules.
+in the dated section at the end. The module total is the 294 of the 0.39.0 lane of FR-436,
+whose one new module, `workspace/_settings_file.py`, is clean, with 159 errors in sixteen
+dirty modules. The 293 were the tracked package on `rel/0-38` (292 on the tree of the earlier
+recount of 2026-10-06) after the 0.38.0 work packages.
 The 282 were the tracked package on `rel/0-37` after the 0.37.0 work packages.
 The 269 were the tracked package on `rel/0-36` after the wave-1 cuts and MM.
 The earlier 236 were the tracked package on `rel/0-34` with the wave-2
@@ -462,7 +464,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 159 errors in 16 files (checked 293 source files)
+    Found 159 errors in 16 files (checked 294 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1267,3 +1269,7 @@ run's.
 ## Re-count of 2026-10-06 (0.38.0)
 
 `python scripts/mypy_recount.py` on 2026-10-06, on `rel/0-38` with every 0.38.0 package merged (the refinement, the audit, the periodic sector and the body factors), python 3.12.0: 159 errors in 16 of 293 modules on 74 distinct source lines; the shipped configuration is green over all 293 (`Success: no issues found in 293 source files`). The package grew by eleven modules (292 on the tree of the earlier recount of this date), each clean and none exempted: `workspace/_refine/_blocks.py`, `run/_cli_mesh.py`, `workspace/_refine/__init__.py`, `_audit.py`, `_config.py`, `_geometry.py`, `_grid.py`, `_level.py`, `_obj.py`, `_periodic.py` and `_remesh.py`. The dirty set and its 159 errors are unchanged.
+
+## Re-count of 2026-10-10 (0.39.0, the lane of FR-436)
+
+`python scripts/mypy_recount.py` on 2026-10-10, on the 0.39.0 lane branch of FR-436 (the workspace settings files) with its work uncommitted, python 3.12.0: 159 errors in 16 of 294 modules on 74 distinct source lines; the shipped configuration is green over all 294 (`Success: no issues found in 294 source files`). The package grew by one module, `workspace/_settings_file.py`, clean and not exempted; mypy counted it before git tracked it, which is the one difference the script reported between its 294 and the index's 293. The dirty set and its 159 errors are unchanged.

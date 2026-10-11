@@ -1,0 +1,47 @@
+exit 0
+--- stdout
+sweep table: <ROOT>/post/polars/campaign_sweep.csv
+--- stderr
+pyfs-matrix run
+  purpose: run every active point of the matrix and write the sweep table
+  workspace: <ROOT>
+
+[run] started: <ROOT>
+[solver] started: <TEMP>/pyfs-preflight-<TMP>
+[solver] finished
+             _______
+                |
+   --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V> campaign camp, 1 point(s) to run
+[preparation] started: .
+[preparation] finished
+  -> camp/sim_7002/V0300RE120AL+000  [steady]  building and running  (1 of 1)
+[solver] started: sims/sim_7002/datapoints/DP-V0300RE120AL+000
+[solver] finished
+[export] started: .
+[export] finished
+     camp/sim_7002/V0300RE120AL+000  CONVERGED
+  +-----------+--------+
+  | status    | points |
+  +-----------+--------+
+  | CONVERGED |      1 |
+  +-----------+--------+
+  1 point(s) in <CLOCK>
+row 7002: all 1 executed
+[post] started: .
+[post: simulations] 0/1, 0%, <CLOCK> elapsed, sim_7002
+[post: simulations] done: 1/1, <CLOCK>
+[post] finished
+[run] finished; outcomes={'CONVERGED': 1}
+
+#################################################################################
+#                                                                               #
+#                                              .-"""-.                          #
+# Spacewalk complete. Data aboard             /  ___  /                         #
+#                                            |  / _ /  |                        #
+#                                            | | (_) | |                        #
+#                                             / '---' /                         #
+# geoversegoddess sees you                   .-'-----'-.                        #
+#                                           /  [=] [=]  /                       #
+#                                                                               #
+#################################################################################
+

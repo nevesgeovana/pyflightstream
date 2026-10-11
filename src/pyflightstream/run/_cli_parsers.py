@@ -8,6 +8,11 @@ and long, the commands are the logic. The storage and records subcommands
 (``space-in-use``, ``free-space``, ``delete-sims``, ``sync``, ``restore``,
 ``rebuild``, ``mark-failed``) are added by their own builders, and every
 command that reads a manifest takes ``--runs NAME`` from one list.
+
+Since 0.39.0 (FR-436) :mod:`pyflightstream.run.cli` parses through ``parsed``
+of :mod:`pyflightstream.workspace._settings_file`, re-exported here: an option
+the command line does not state takes its default from ``pyfs.local.toml``,
+else ``pyfs.toml``, else the package.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ import sys
 from collections.abc import Sequence
 from typing import Any
 
+from pyflightstream._console import CONSOLE_LEVELS
 from pyflightstream.cases.workflows import (
     read_a_choice,
     workflow_names,
@@ -31,6 +37,7 @@ from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
+from pyflightstream.workspace._settings_file import parsed as parsed
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
@@ -171,6 +178,46 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
         "a flag: a family the opened mesh does not carry REFUSES the point "
         "instead of being left out. Stating both is refused",
     )
+
+
+def _add_console_arguments(parser: argparse.ArgumentParser, verbose_help: str) -> None:
+    """Add ``--verbose`` and ``--log-level`` (FR-436 R6), one choice of the console level."""
+    console = parser.add_mutually_exclusive_group()
+    console.add_argument("--verbose", action="store_true", help=verbose_help)
+    console.add_argument(
+        "--log-level",
+        dest="log_level",
+        choices=CONSOLE_LEVELS,
+        default=None,
+        help="how much the console says: quiet (the errors, the final summary line and the "
+        "signature), normal (the default) or verbose (as --verbose); logs/activity.log keeps "
+        "the full detail at every level. Default: [log] console of pyfs.local.toml or "
+        "pyfs.toml, else normal",
+    )
+
+
+def _add_switch(
+    parser: argparse.ArgumentParser, flag: str, help_text: str, *, no_help: str = ""
+) -> None:
+    """Add a settable switch and its ``--no-`` form, one choice of it (FR-436 R5)."""
+    name = flag.removeprefix("--").replace("-", "_")
+    switch = parser.add_mutually_exclusive_group()
+    switch.add_argument(flag, dest=name, action="store_true", help=help_text)
+    switch.add_argument(
+        f"--no-{flag.removeprefix('--')}",
+        dest=name,
+        action="store_false",
+        default=False,
+        help=no_help
+        or f"the opposite of {flag} for this command, whatever pyfs.toml or pyfs.local.toml states",
+    )
+
+
+#: The help of ``--no-accept-unregistered-build``, the one negation two routes answer to.
+_NO_ACCEPT_HELP = (
+    "refuse an installed build other than the registered one for this command, whatever "
+    "pyfs.toml, pyfs.local.toml or a build entry of inputs/executables.local.toml states"
+)
 
 
 def _add_common_arguments(parser: argparse.ArgumentParser, *, hpc: bool = False) -> None:
@@ -742,22 +789,12 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "already has runs of this matrix is refused rather than moved. THE RENUMBERING IS "
         "WRITTEN BEFORE THE PLAN RUNS and stays written if the plan then refuses",
     )
-    plan.add_argument(
-        "--accept-unregistered-build",
-        dest="accept_unregistered_build",
-        action="store_true",
-        help="run on an installed FlightStream build other than the one registered for the "
-        "version a row names, instead of refusing it: its compatibility is then YOUR "
-        "responsibility, the run warns, and every record says the flag was used and carries "
-        "the build the solver printed. `plan` launches no solver and records the flag in "
-        "plan.json, so it rehearses the same command line `run` executes",
-    )
+    _add_switch(plan, "--accept-unregistered-build", _ACCEPT_HELP, no_help=_NO_ACCEPT_HELP)
     _add_selection_arguments(plan)
     _add_grouping_arguments(plan)
-    plan.add_argument(
-        "--verbose",
-        action="store_true",
-        help="print every warning in Python's full format (file, line and source) and the "
+    _add_console_arguments(
+        plan,
+        "print every warning in Python's full format (file, line and source) and the "
         "started and finished lines of the stages printed only on request, such as "
         "[continuation]; logs/activity.log holds them either way (0.31.0)",
     )
@@ -863,10 +900,10 @@ def _add_run_option_parsers(subparsers: Any) -> None:
         "workspace keeps its own; the run writes that one file and never a second copy "
         "of it under another name)",
     )
-    run.add_argument(
+    _add_switch(
+        run,
         "--local",
-        action="store_true",
-        help="run every point on THIS machine instead of submitting it. Linux is the "
+        "run every point on THIS machine instead of submitting it. Linux is the "
         "cluster (FR-99): a workspace carrying a submission profile submits from Linux "
         "and runs locally on Windows, with no cell to remember. This flag keeps a Linux "
         "run local, for a workstation or a smoke test on the machine itself; the "
@@ -874,16 +911,17 @@ def _add_run_option_parsers(subparsers: Any) -> None:
         "inputs/executables.toml, or --fs-exe) and every record's executor entry says "
         "forced_local. It changes nothing on a machine that would not have submitted",
     )
-    run.add_argument(
-        "--accept-unregistered-build",
-        dest="accept_unregistered_build",
-        action="store_true",
-        help="run on an installed FlightStream build other than the one registered for the "
-        "version a row names, instead of refusing it: its compatibility is then YOUR "
-        "responsibility, the run warns, and every record says the flag was used and carries "
-        "the build the solver printed. `plan` launches no solver and records the flag in "
-        "plan.json, so it rehearses the same command line `run` executes",
-    )
+    _add_switch(run, "--accept-unregistered-build", _ACCEPT_HELP, no_help=_NO_ACCEPT_HELP)
+
+
+#: The help of ``--accept-unregistered-build``, which ``plan`` and ``run`` share.
+_ACCEPT_HELP = (
+    "run on an installed FlightStream build other than the one registered for the "
+    "version a row names, instead of refusing it: its compatibility is then YOUR "
+    "responsibility, the run warns, and every record says the flag was used and carries "
+    "the build the solver printed. `plan` launches no solver and records the flag in "
+    "plan.json, so it rehearses the same command line `run` executes"
+)
 
 
 def _add_collect_parsers(subparsers: Any) -> None:
@@ -909,16 +947,7 @@ def _add_collect_parsers(subparsers: Any) -> None:
         default=".",
         help="managed campaign root carrying runs.json (default: the current directory)",
     )
-    collect.add_argument(
-        "--check-frozen",
-        action="store_true",
-        help=(
-            "REFUSE instead of WARN for averages touched by a frozen solve or "
-            "an unread native-log block. By default computable products are written "
-            "and post.log warns. Both modes write post.log and post.log.json with the "
-            "point, product, step and remedy; refusals are also named in products.json"
-        ),
-    )
+    _add_switch(collect, "--check-frozen", _CHECK_FROZEN_HELP)
     collect.add_argument(
         "--watch",
         action="store_true",
@@ -968,6 +997,15 @@ def _add_collect_parsers(subparsers: Any) -> None:
     )
 
 
+#: The help of ``--check-frozen``, which ``collect`` and ``post`` share.
+_CHECK_FROZEN_HELP = (
+    "REFUSE instead of WARN for averages touched by a frozen solve or "
+    "an unread native-log block. By default computable products are written "
+    "and post.log warns. Both modes write post.log and post.log.json with the "
+    "point, product, step and remedy; refusals are also named in products.json"
+)
+
+
 def _add_post_parsers(subparsers: Any) -> None:
     """Add the post subcommand."""
     post = subparsers.add_parser(
@@ -1008,10 +1046,10 @@ def _add_post_parsers(subparsers: Any) -> None:
         default=None,
         help="with --additional-pproc: the explicit executable override, as for `run`",
     )
-    post.add_argument(
+    _add_switch(
+        post,
         "--local",
-        action="store_true",
-        help="with --additional-pproc: reopen the saved simulations on THIS machine, as "
+        "with --additional-pproc: reopen the saved simulations on THIS machine, as "
         "`run --local` runs there; the submitting half of the additional post is not built, "
         "so a workspace that submits from here is refused without it",
     )
@@ -1023,16 +1061,7 @@ def _add_post_parsers(subparsers: Any) -> None:
         help="with --additional-pproc: a LEGACY row's recipe code (repeatable), so a matrix "
         "mixing LEGACY rows with rows naming a run type binds as it did for `run`",
     )
-    post.add_argument(
-        "--check-frozen",
-        action="store_true",
-        help=(
-            "REFUSE instead of WARN for averages touched by a frozen solve or "
-            "an unread native-log block. By default computable products are written "
-            "and post.log warns. Both modes write post.log and post.log.json with the "
-            "point, product, step and remedy; refusals are also named in products.json"
-        ),
-    )
+    _add_switch(post, "--check-frozen", _CHECK_FROZEN_HELP)
     post.add_argument(
         "matrix",
         nargs="?",
@@ -1088,13 +1117,10 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
     )
     run, collect = subparsers.choices["run"], subparsers.choices["collect"]
     for command_parser in (run, post, collect):
-        command_parser.add_argument(
-            "--pproc-warnings", action="store_true", help="print grouped post-processing warnings"
-        )
-        command_parser.add_argument(
-            "--verbose",
-            action="store_true",
-            help="print every warning in Python's full format (file, line and source) and "
+        _add_switch(command_parser, "--pproc-warnings", "print grouped post-processing warnings")
+        _add_console_arguments(
+            command_parser,
+            "print every warning in Python's full format (file, line and source) and "
             "one line per item where a repeated warning is otherwise counted in one line, "
             "and the [continuation] started and finished lines (0.31.0); "
             "logs/activity.log holds the full detail either way",

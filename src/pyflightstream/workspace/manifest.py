@@ -747,6 +747,14 @@ class RunRecord(BaseModel):
     #: registered one (--accept-unregistered-build), so its compatibility was the
     #: user's responsibility; the build the solver printed is `fs_build`.
     accept_unregistered_build: bool = False
+    #: 0.39.0 (FR-436 R7, R8): each value the invocation took from a workspace
+    #: settings file, and the file it came from (``pyfs.toml``, ``pyfs.local.toml``),
+    #: with the acceptance of the build under ``accept_unregistered_build`` where a
+    #: file, or the build's entry of ``inputs/executables.local.toml``, stated it.
+    #: ABSENT where None, as ``inventory`` is: a value typed or left at the
+    #: package default is recorded as before, so a workspace without the files
+    #: writes the records of 0.38.0.
+    settings_sources: dict[str, str] | None = None
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     waived_commands: list[BrokenCommandRecord] = Field(default_factory=list)
 
@@ -772,9 +780,10 @@ class RunRecord(BaseModel):
     def _omit_unrecorded_keys(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         """Write none of the keys a reader older than their release may not know, where unstated.
 
-        ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``.
+        ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
+        and FR-436's ``settings_sources``.
 
-        R03 and G01 of 0.27.0, and M1 and the L1 fixes of 0.30.0.
+        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, and R8 of FR-436 (0.39.0).
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
@@ -784,8 +793,9 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         keys = (
-            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by".split()
-        )
+            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by "
+            "settings_sources"
+        ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
     #: How the solver was called (PFS-2012.04), None where no solver ran

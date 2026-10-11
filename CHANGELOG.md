@@ -7,6 +7,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Internal (0.39 development)
+
+- mypy recount 2026-10-10: 159 errors in 16 of 294 modules, on the 0.39.0 lane of FR-436;
+  the one new module, `workspace/_settings_file.py`, is clean and not exempted (RPT-029).
+
 ### Added (0.39 development)
 
 - **`keep_first_row` in a refinement file's family table** (REF-FIRSTROW, first

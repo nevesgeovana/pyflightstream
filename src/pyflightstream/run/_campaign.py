@@ -15,7 +15,7 @@ from __future__ import annotations
 import random
 import time
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -75,6 +75,7 @@ from pyflightstream.run._executors import (
 from pyflightstream.run._identity import (
     _case_build,
     _check_scheduled_builds,
+    acceptance_of,
 )
 from pyflightstream.run._ids import (
     CampaignErrors,
@@ -108,6 +109,10 @@ from pyflightstream.workspace import (
     WorkspaceError,
     planned_points_without_record,
     post_stages,
+)
+from pyflightstream.workspace._settings_file import (
+    TYPED_ACCEPTANCE_SOURCE,
+    invocation_sources,
 )
 from pyflightstream.workspace.naming import (
     PointName,
@@ -300,6 +305,7 @@ class _CampaignState:
     quiet: bool
     accept_unregistered_build: bool
     sweep_csv: str | Path | None
+    accepted_builds: Collection[str] = ()
     case_builds: list[SolverBuild | None] = field(init=False)
     manifest: dict[str, RunRecord] = field(init=False)
     recorded: set[str] = field(init=False)
@@ -359,6 +365,7 @@ def run_campaign(
     quiet: bool = False,
     accept_unregistered_build: bool = False,
     sweep_csv: str | Path | None = None,
+    accepted_builds: Collection[str] = (),
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -485,6 +492,11 @@ def run_campaign(
         ``post/<matrix stem>/`` under :data:`SWEEP_TABLE_NAME`. ONE table is
         written either way: a chosen path replaces the default one, so the
         command line's ``--sweep-csv`` never leaves a second copy.
+    accepted_builds : collection of str
+        The installations whose own entry of ``inputs/executables.local.toml``
+        accepts their installed build (FR-436 R7), a build id or ``""`` for
+        the campaign's own; each accepts that build only, warns as the flag
+        does, and its records say so and name the file. Default empty.
 
     Returns
     -------
@@ -531,6 +543,7 @@ def run_campaign(
         quiet=quiet,
         accept_unregistered_build=accept_unregistered_build,
         sweep_csv=sweep_csv,
+        accepted_builds=accepted_builds,
     )
     _resolve_campaign_schedule(state)
     _preflight_campaign_schedule(state)
@@ -875,6 +888,7 @@ def _preflight_campaign_schedule(state: _CampaignState) -> None:
             state.executor,
             [(case, build) for case, build, _ in state.scheduled],
             accept_unregistered_build=state.accept_unregistered_build,
+            accepted_builds=state.accepted_builds,
         )
     if state.unmatched:
         raise WorkspaceError(
@@ -983,6 +997,31 @@ def _start_campaign_sweep(state: _CampaignState) -> None:
     # other preparation failure, and never an escape from the loop.
 
 
+def _with_the_acceptance(state: _CampaignState, record: RunRecord) -> RunRecord:
+    """Return ``record`` stating the acceptance of its build and what the files gave it.
+
+    The acceptance is recorded as since 0.21.0; since 0.39.0 (FR-436 R7, R8)
+    it may come from a workspace settings file or from the build's own entry of
+    ``inputs/executables.local.toml``, and ``settings_sources`` then names that
+    file (``executables.local.toml`` for the entry), with every other value
+    this invocation took from a file. An acceptance typed is named ``typed``
+    only beside another value taken from a file; a value typed, or left at
+    the package default, adds nothing otherwise.
+    """
+    accepted, source = acceptance_of(
+        state.case.fs_build or "", state.accept_unregistered_build, state.accepted_builds
+    )
+    sources = invocation_sources()
+    if source is not None:
+        sources["accept_unregistered_build"] = source
+    elif accepted and sources:
+        sources["accept_unregistered_build"] = TYPED_ACCEPTANCE_SOURCE
+    update: dict[str, object] = {"settings_sources": sources} if sources else {}
+    if accepted:
+        update["accept_unregistered_build"] = True
+    return record.model_copy(update=update) if update else record
+
+
 def _execute_campaign_sweep(state: _CampaignState, *, cold: bool) -> None:
     """Execute campaign sweep."""
     progress = _PointProgress()
@@ -1018,8 +1057,7 @@ def _execute_campaign_sweep(state: _CampaignState, *, cold: bool) -> None:
         + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
         quiet=state.quiet,
     )
-    if state.accept_unregistered_build:
-        record = record.model_copy(update={"accept_unregistered_build": True})
+    record = _with_the_acceptance(state, record)
     state.workspace.append_record(record)
     state.recorded.add(record.run_id)
     state.records.append(record)
@@ -1201,8 +1239,7 @@ def _execute_campaign_point(state: _CampaignState) -> None:
         + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
         quiet=state.quiet,
     )
-    if state.accept_unregistered_build:
-        record = record.model_copy(update={"accept_unregistered_build": True})
+    record = _with_the_acceptance(state, record)
     state.workspace.append_record(record)
     state.recorded.add(record.run_id)
     state.records.append(record)
