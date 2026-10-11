@@ -185,6 +185,13 @@ CANONICAL_FORMS = {
         "canonical form as the manifest checksum above. It selects which script "
         "to compare and writes nothing."
     ),
+    "workspace/_refine/_config.py": (
+        "the UTF-8 bytes of the canonical selection text of a refinement: one "
+        "line per selected family, 'name key=value ...' with the keys sorted and "
+        "only the non-default ones written, lines in family order (FR-433). The "
+        "first 8 hexadecimal characters name a level folder whose automatic tag "
+        "is too long; the text itself is written to refine.json as tag_selection."
+    ),
 }
 
 __all__ = [
