@@ -4,7 +4,10 @@ The target edge length at a point is the source's local edge length there
 divided by the family's factor, so the source's distribution of sizes is kept
 and only scaled. Passes of edge split, edge collapse, edge flip and tangential
 smoothing change the panel count and never the shape: every node is projected
-back onto the source surface.
+back onto the source surface. A family at factor 1 beside a refined side
+takes instead, at the nodes of the curve they share, the length of the new
+shared edges there, and returns to its own target over
+:data:`SHARED_LAYERS` face layers (FR-432 R1, R2).
 
 CURVES are the edges whose nodes move only along the source curve they lie
 on and are split and collapsed along it, never flipped: open boundaries, the
@@ -50,6 +53,7 @@ from pyflightstream.workspace._refine._geometry import (
     QUAD_WARP_DEGREES,
     RIDGE_DEGREES,
     Faces,
+    NearestIndex,
     Points,
     Stretch,
     dihedral_degrees,
@@ -81,6 +85,9 @@ SMOOTH_PASSES = 3
 SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
+#: The face layers over which the target of a family at factor 1 beside a refined side returns
+#: from the length of their new shared edges to the family's own (FR-432 R2).
+SHARED_LAYERS = 2
 #: What the geometry extra supplies to a remesh, for the refusal of FR-424 R10.
 SPATIAL_INDEX = "scipy and rtree, the spatial index the projection onto the source surface searches"
 #: The modules whose absence refuses a remesh (FR-424 R10).
@@ -973,6 +980,93 @@ def _targets(group: _Group, factors: Mapping[str, float]) -> Points:
     return total / numpy.maximum(count, 1) / factor
 
 
+def _spacing(points: Points) -> Points:
+    """Return the length of the new shared edges at each node of a refined side's curve.
+
+    A node's edges on the curve join it to its nearest node and to the
+    nearest node on the other side of it, and its spacing is their mean
+    length; a node with no node on the other side (the end of an open curve)
+    has one edge (FR-432 R1).
+    """
+    out = numpy.zeros(len(points))
+    for i, p in enumerate(points):
+        rel = points - p
+        dist = numpy.linalg.norm(rel, axis=1)
+        dist[i] = numpy.inf
+        j = int(numpy.argmin(dist))
+        other = (rel @ rel[j]) < 0.0
+        out[i] = 0.5 * (dist[j] + float(dist[other].min())) if other.any() else dist[j]
+    return out
+
+
+def _shared_targets(
+    group: _Group, factors: Mapping[str, float], shared: Sequence[tuple[list[int], Points]]
+) -> tuple[Points, dict[str, dict[str, float]]]:
+    """Return the targets of :func:`_targets` with FR-432 applied, and the target at each curve.
+
+    A node of a family at factor 1 on a curve it shares with a refined side
+    (``shared``: its local vertices and the side's new nodes there) takes the
+    length of the new shared edges at the new node nearest it (R1). A node
+    ``d`` face layers from that curve, ``d`` below :data:`SHARED_LAYERS`,
+    takes ``s + (own - s) * d / SHARED_LAYERS``, ``s`` the mean of what its
+    neighbours one layer nearer took, and a node farther keeps its own target,
+    so the target varies between the two values with no step (R2). A node a
+    face at another factor uses keeps its own target, and a group with no
+    shared curve keeps the targets of 0.38.0 (R4).
+
+    Returns
+    -------
+    tuple
+        The target per node, and per family the least and the greatest
+        target taken on its shared curves (R3), empty when none was.
+    """
+    base = _targets(group, factors)
+    held = numpy.zeros(len(group.verts), dtype=bool)
+    for f, label in zip(group.faces, group.labels, strict=True):
+        if factors[label] != 1.0:
+            held[f] = True
+    taken: dict[int, float] = {}
+    for ids, points in shared:
+        if len(points) < 2 or not ids:
+            continue
+        spacing = _spacing(points)
+        _, nearest = NearestIndex(points).query(group.verts[ids])
+        for v, k in zip(ids, nearest.tolist(), strict=True):
+            if not held[v]:
+                taken[v] = float(spacing[k])
+    if not taken:
+        return base, {}
+    targets = base.copy()
+    for v, s in taken.items():
+        targets[v] = s
+    reached, ring = dict(taken), set(taken)
+    for d in range(1, SHARED_LAYERS):
+        found: dict[int, list[float]] = defaultdict(list)
+        for f in group.faces:
+            hit = [reached[v] for v in f if v in ring]
+            for v in f if hit else ():
+                if v not in reached and not held[v]:
+                    found[v] += hit
+        for v, values in found.items():
+            s = sum(values) / len(values)
+            reached[v] = s
+            targets[v] = s + (base[v] - s) * d / SHARED_LAYERS
+        ring = set(found)
+    at_curve: dict[str, dict[int, float]] = defaultdict(dict)
+    for f, label in zip(group.faces, group.labels, strict=True):
+        at_curve[label].update({v: taken[v] for v in f if v in taken})
+    record = {
+        n: {
+            "min": round(min(nodes.values()), 12),
+            "mean": round(sum(nodes.values()) / len(nodes), 12),
+            "max": round(max(nodes.values()), 12),
+        }
+        for n, nodes in at_curve.items()
+        if nodes
+    }
+    return targets, record
+
+
 def _edge_kind(
     edge: Edge, fs: list[int], group: _Group, held: tuple[set[int], set[int]]
 ) -> str | None:
@@ -1029,6 +1123,7 @@ def refine_group(
     conform: Sequence[tuple[Iterable[int], Points]] = (),
     stretch: Stretch | None = None,
     elements: str | Mapping[str, str] = TRIANGLES,
+    shared: Sequence[tuple[Iterable[int], Points]] = (),
 ) -> Remeshed:
     """Remesh a group of families together (FR-424 R8, FR-425 R2, FR-428).
 
@@ -1067,6 +1162,12 @@ def refine_group(
         paired into quadrilaterals by :meth:`Remesher.pair_quads` and its free
         nodes smoothed :data:`SMOOTH_PASSES` times by
         :meth:`Remesher.smooth_quads`).
+    shared : sequence of (iterable of int, ndarray), optional
+        The entries of ``conform`` whose grid is a refined side: a family of
+        the group at factor 1 takes, along and near each, the length of the
+        new shared edges (FR-432, :func:`_shared_targets`), and
+        ``info["shared_edge_target_m"]`` records it per family. Ignored with
+        a stretch, whose targets are measured in its own space (FR-428).
 
     Returns
     -------
@@ -1086,7 +1187,12 @@ def refine_group(
     fixed = {local[v] for n in others for v in mesh.family_vertices(n).tolist() if v in local}
     te = {local[v] for v in te_vertices if v in local}
     curve, frozen = _curves(group, fixed, te)
-    patch = Patch(group.verts, group.faces, group.labels, _targets(group, factors), curve)
+    near = [
+        ([local[v] for v in old if v in local], numpy.asarray(new, dtype=float).reshape(-1, 3))
+        for old, new in (shared if stretch is None else ())
+    ]
+    targets, at_curve = _shared_targets(group, factors, near)
+    patch = Patch(group.verts, group.faces, group.labels, targets, curve)
     patch.fixed, patch.frozen, patch.stretch = fixed, frozen, stretch
     remesher = Remesher(patch)
     conformed = [
@@ -1112,6 +1218,8 @@ def refine_group(
     }
     if conformed:
         info["conformed_interfaces"] = conformed
+    if at_curve:
+        info["shared_edge_target_m"] = at_curve
     if stretch is not None:
         info["stretched"] = {
             "axis": [round(float(x), 12) for x in stretch.axis],
