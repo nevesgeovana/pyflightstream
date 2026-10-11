@@ -12,6 +12,12 @@ it is given and writes beside it. Its exit status is the console contract of
 FR-426 R1: 0 when every gate and check passes, 1 when one fails (the audit is
 still written, and each failure is a warning held to the end of the command),
 2 when the input is refused, with the refusal on standard error.
+
+The written file is named by ``--out`` on both verbs, as on their sibling
+commands (``rebuild --out``, ``pyfs-workspace ... --out``): ``refine --out
+DIR`` and ``audit-mesh --out FILE``. The names of 0.38.0, ``--out-dir`` and
+``--csv``, are kept as deprecated aliases (NFR-45 R2): each gives the
+identical result and warns once that it is deprecated.
 """
 
 from __future__ import annotations
@@ -19,12 +25,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import tomllib
 from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.workspace import MeshAudit, audit_mesh, refine_mesh
 
 #: The exit status of an audit that passed, of one that failed, of a refusal (FR-426 R1).
@@ -63,16 +68,49 @@ def add_mesh_parsers(subparsers: Any) -> None:
         ),
     )
     audit.add_argument(
+        "--out",
+        metavar="FILE",
+        help="also write the figures as CSV, one row per family and figure",
+    )
+    audit.add_argument(
         "--csv",
         dest="csv_file",
         metavar="FILE",
-        help="also write the figures as CSV, one row per family and figure",
+        help="deprecated alias of --out (0.39.0), with the identical result",
     )
     audit.set_defaults(mesh_command=run_audit_mesh)
 
 
-def _refused_csv(csv: str | None) -> str | None:
-    """Return the refusal of a ``--csv`` file that cannot be written, before anything is.
+def _chosen(
+    args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str]
+) -> tuple[str | None, str, str | None]:
+    """Return an option's value, the flag that gave it, and a refusal (NFR-45 R2).
+
+    ``new`` and ``old`` are each ``(flag, dest)``: the option's name and its
+    deprecated alias. The alias gives the identical value and warns once
+    that it is deprecated; both together are refused, naming both.
+    """
+    value, alias = getattr(args, new[1]), getattr(args, old[1])
+    if alias is None:
+        return value, new[0], None
+    if value is not None:
+        return (
+            None,
+            new[0],
+            f"{old[0]} {alias} and {new[0]} {value}: {old[0]} is a deprecated alias of "
+            f"{new[0]}. Give {new[0]} alone and run again. Nothing was written.",
+        )
+    warn(
+        f"{old[0]} is deprecated since 0.39.0 and will be removed; it is an alias of "
+        f"{new[0]}, which gives the identical result: write {new[0]} {alias}.",
+        PyflightstreamWarning,
+        stacklevel=2,
+    )
+    return alias, old[0], None
+
+
+def _refused_csv(csv: str | None, flag: str = "--out") -> str | None:
+    """Return the refusal of a CSV file (``--out``) that cannot be written, before anything is.
 
     A folder that does not exist, a path that is a folder, and a file that
     cannot be opened for writing are refused before the audit runs, so a
@@ -85,7 +123,7 @@ def _refused_csv(csv: str | None) -> str | None:
     target = Path(csv)
     if target.is_dir() or not target.parent.is_dir():
         return (
-            f"{target}: --csv names a folder, or a file in a folder that does not exist. "
+            f"{target}: {flag} names a folder, or a file in a folder that does not exist. "
             "Name a file in an existing folder and run again. Nothing was written."
         )
     existed = target.exists()
@@ -93,39 +131,13 @@ def _refused_csv(csv: str | None) -> str | None:
         _textio.append_text(target, "")
     except OSError as error:
         return (
-            f"{target}: --csv names a file that cannot be written ({_reason(error)}). "
+            f"{target}: {flag} names a file that cannot be written ({_reason(error)}). "
             "Close it or make it writable, or name another file, and run again. "
             "Nothing was written."
         )
     if not existed:
         target.unlink(missing_ok=True)
     return None
-
-
-def _read_by_the_audit(obj: str | None) -> list[tuple[str, Path]]:
-    """Return the files the audit of ``obj`` reads, each with what it is.
-
-    The OBJ, its boundaries file, the trailing-edge points file the boundaries
-    file names, and ``<stem>.te.txt``. A boundaries file that cannot be read
-    names no points file here; the audit refuses it on its own.
-    """
-    if obj is None:
-        return []
-    mesh = Path(obj)
-    sidecar = mesh.with_name(f"{mesh.stem}.boundaries.toml")
-    files = [
-        ("the OBJ", mesh),
-        ("its boundaries file", sidecar),
-        ("its trailing-edge points file", mesh.with_name(f"{mesh.stem}.te.txt")),
-    ]
-    try:
-        table = tomllib.loads(sidecar.read_text(encoding="utf-8")).get("trailing_edges")
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
-        table = None
-    named = table.get("file") if isinstance(table, dict) else None
-    if isinstance(named, str):
-        files.append(("its trailing-edge points file", sidecar.parent / named))
-    return files
 
 
 def _same_file(a: Path, b: Path) -> bool:
@@ -138,8 +150,19 @@ def _same_file(a: Path, b: Path) -> bool:
         return False
 
 
-def _csv_collision(csv: str | None, mesh: str, against: str | None) -> str | None:
-    """Return the refusal of a ``--csv`` file the command reads or writes, before anything is.
+def _read_by_the_audit(obj: str | None) -> list[tuple[str, Path]]:
+    """Return the files the audit of ``obj`` reads, each with what it is.
+
+    The audit's own list (:meth:`MeshAudit.files_read`), which reads the
+    boundaries file through the refinement's one reader of it.
+    """
+    return [] if obj is None else MeshAudit.files_read(obj)
+
+
+def _csv_collision(
+    csv: str | None, mesh: str, against: str | None, flag: str = "--out"
+) -> str | None:
+    """Return the refusal of a CSV file (``--out``) the command reads or writes, before any is.
 
     The CSV must not be the audited OBJ, the source of ``--against``, a
     boundaries or trailing-edge points file either is read with, the OBJ's
@@ -158,7 +181,7 @@ def _csv_collision(csv: str | None, mesh: str, against: str | None) -> str | Non
     for what, path in taken:
         if _same_file(target, path):
             return (
-                f"{target}: --csv names {what}, {path}, which audit-mesh reads or writes. "
+                f"{target}: {flag} names {what}, {path}, which audit-mesh reads or writes. "
                 "Name another file and run again. Nothing was written."
             )
     return None
@@ -173,13 +196,16 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
     """Audit one OBJ, alone or against its source, and write its audit beside it (FR-426).
 
     The summary goes to standard output, then the audit written and the CSV
-    of ``--csv``, one path per line. Every refusal, an error of the file
-    system included, is printed in the standard shape (the object, the
-    reason, what to do), ending "Nothing was written." only when that holds.
+    of ``--out`` (or its deprecated alias ``--csv``), one path per line.
+    Every refusal, an error of the file system included, is printed in the
+    standard shape (the object, the reason, what to do), ending "Nothing was
+    written." only when that holds.
     """
-    refused = _csv_collision(args.csv_file, args.mesh, args.against)
+    csv_file, flag, refused = _chosen(args, ("--out", "out"), ("--csv", "csv_file"))
     if refused is None:
-        refused = _refused_csv(args.csv_file)
+        refused = _csv_collision(csv_file, args.mesh, args.against, flag)
+    if refused is None:
+        refused = _refused_csv(csv_file, flag)
     if refused is not None:
         print(refused, file=sys.stderr)
         return EXIT_REFUSED
@@ -196,10 +222,10 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
         )
         return EXIT_REFUSED
     try:
-        written = [audit.path] + _csv(audit, args.csv_file)
+        written = [audit.path] + _csv(audit, csv_file)
     except OSError as error:
         print(
-            f"{args.csv_file}: the CSV could not be written ({_reason(error)}). Close it or "
+            f"{csv_file}: the CSV could not be written ({_reason(error)}). Close it or "
             f"name another file and run again. The audit {audit.path} was written.",
             file=sys.stderr,
         )
@@ -210,19 +236,21 @@ def run_audit_mesh(args: argparse.Namespace) -> int:
 
 
 def _csv(audit: MeshAudit, csv: str | None) -> list[Path]:
-    """Write the figures as CSV when ``--csv`` names a file; return what was written."""
+    """Write the figures as CSV when ``--out`` names a file; return what was written."""
     return [] if csv is None else [audit.write_csv(csv)]
 
 
 _REFINE_DESCRIPTION = (
     "Refines or coarsens a panel mesh from its OBJ into a new geometry folder "
-    "<out-dir>/<stem>_<tag>/ holding the OBJ, the trailing-edge points file, the boundaries "
+    "<out>/<stem>_<tag>/ holding the OBJ, the trailing-edge points file, the boundaries "
     "file, <stem>_<tag>.refine.json and the audit against the source. FACTOR multiplies the "
     "intervals of each index direction of a grid family and divides the target edge length of "
     "a remeshed family; --chordwise and --spanwise replace it in one direction of the grid "
     "families. Without FACTOR, --chordwise or --spanwise, the factors come from the refinement "
     "file (--config, or <stem>.refine.toml beside the mesh), whose [components], [periodic], "
     "[refine] tag and elements (triangles or quad-dominant) are read whenever it exists. "
+    "--keep-first-row names grid families with a trailing edge whose row of panels at each end "
+    "meeting another component keeps its spanwise width and is refined chordwise only. "
     "Faces are written in the source's order. The "
     "source and its folder are never modified. Remeshing a family needs the geom extra. Needs "
     "no executable. Exits 0 when the level is written, even when its audit fails: each failed "
@@ -267,9 +295,22 @@ def _add_refine_parser(subparsers: Any) -> None:
         "--config", metavar="FILE", help="the refinement file (default: <stem>.refine.toml)"
     )
     refine.add_argument(
-        "--out-dir",
+        "--keep-first-row",
+        metavar="FAMILY[,FAMILY...]",
+        help=(
+            "grid families with a trailing edge that keep the spanwise width of their row of "
+            "panels at another component, comma separated"
+        ),
+    )
+    refine.add_argument(
+        "--out",
         metavar="DIR",
         help="where the level folder goes (default: the parent of the source's folder)",
+    )
+    refine.add_argument(
+        "--out-dir",
+        metavar="DIR",
+        help="deprecated alias of --out (0.39.0), with the identical result",
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
     refine.set_defaults(mesh_command=run_refine)
@@ -281,21 +322,21 @@ def run_refine(args: argparse.Namespace) -> int:
     Exit 0 when the level is written (a failed audit is a warning), 2 when the
     request is refused; a refusal writes nothing.
     """
-    families = (
-        None
-        if args.families is None
-        else [n.strip() for n in args.families.split(",") if n.strip()]
-    )
+    out_dir, _, refused = _chosen(args, ("--out", "out"), ("--out-dir", "out_dir"))
+    if refused is not None:
+        print(refused, file=sys.stderr)
+        return EXIT_REFUSED
     try:
         level = refine_mesh(
             args.mesh,
             args.factor,
-            families=families,
+            families=_names(args.families),
             chordwise=args.chordwise,
             spanwise=args.spanwise,
             config=args.config,
-            out_dir=args.out_dir,
+            out_dir=out_dir,
             overwrite=args.overwrite,
+            keep_first_row=_names(args.keep_first_row),
         )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
@@ -306,3 +347,8 @@ def run_refine(args: argparse.Namespace) -> int:
     for line in summary + [str(path) for path in level.files]:
         print(line)
     return EXIT_PASSED
+
+
+def _names(text: str | None) -> list[str] | None:
+    """Return the family names of a comma separated option, as ``--families`` takes them."""
+    return None if text is None else [n.strip() for n in text.split(",") if n.strip()]

@@ -22,6 +22,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._lengths import METRES_PER_UNIT, scale
+from pyflightstream.workspace.sidecars import TRAILING_EDGES_TABLE, read_raw_mesh_conditions
 
 Faces = list[list[int]]
 
@@ -229,6 +230,70 @@ def read_sidecar(obj: str | Path) -> tuple[Path, dict[str, Any]] | None:
         ) from error
 
 
+@dataclass(frozen=True)
+class TrailingRoute:
+    """What a mesh's boundaries file states of its trailing edge, ``[trailing_edges]``.
+
+    ``file`` is the points file it names, beside it, whether or not that
+    file exists; ``detect`` is whether it routes the trailing edge to
+    detection (``detect = "auto"`` or a ``detect`` table), and ``surfaces``
+    the surfaces it names for detection, empty for every surface.
+    ``sidecar`` is the boundaries file and ``named`` the points file's name
+    as it is written there.
+    """
+
+    file: Path | None = None
+    sidecar: Path | None = None
+    named: str | None = None
+    detect: bool = False
+    surfaces: tuple[str, ...] = ()
+
+    def detects(self, family: str) -> bool:
+        """Return whether the boundaries file routes the family's trailing edge to detection."""
+        return self.detect and (not self.surfaces or family in self.surfaces)
+
+
+def te_route(obj: str | Path) -> TrailingRoute:
+    """Return what a mesh's boundaries file states of its trailing edge (FR-424 R11, NFR-45 R3).
+
+    The refinement's one reader of the boundaries file's
+    ``[trailing_edges]``: the refinement and the audit read it here, and
+    the mesh command no longer reads the table. A table that routes the
+    trailing edge to detection is read by the workflow's own reader,
+    :func:`pyflightstream.workspace.sidecars.read_raw_mesh_conditions`, so a
+    ``detect`` the workflow refuses is refused here with the same words. A
+    mesh without a boundaries file, or whose file has no such table, states
+    nothing.
+
+    Raises
+    ------
+    InputArtifactError
+        The boundaries file is not TOML, or its ``[trailing_edges]`` routes
+        the trailing edge to detection in a shape the workflow refuses;
+        nothing was written.
+    """
+    read = read_sidecar(obj)
+    table = None if read is None else read[1].get(TRAILING_EDGES_TABLE)
+    if read is None or not isinstance(table, dict):
+        return TrailingRoute()
+    named = table.get("file")
+    surfaces: tuple[str, ...] = ()
+    if "detect" in table:
+        try:
+            conditions = read_raw_mesh_conditions(read[0])
+        except InputArtifactError as error:
+            raise InputArtifactError(f"{error} Nothing was written.", kind=KIND) from error
+        marking = None if conditions is None else conditions.trailing_edges
+        surfaces = () if marking is None else marking.detect_surfaces
+    return TrailingRoute(
+        file=read[0].parent / named if isinstance(named, str) else None,
+        sidecar=read[0],
+        named=named if isinstance(named, str) else None,
+        detect="detect" in table,
+        surfaces=surfaces,
+    )
+
+
 def te_file(obj: str | Path) -> Path | None:
     """Return a mesh's trailing-edge points file, or None when it has none.
 
@@ -242,20 +307,16 @@ def te_file(obj: str | Path) -> Path | None:
         The boundaries file is not TOML, or names a points file that does not
         exist; nothing was written.
     """
-    read = read_sidecar(obj)
-    named = None
-    if read is not None:
-        table = read[1].get("trailing_edges")
-        named = table.get("file") if isinstance(table, dict) else None
-    if read is not None and isinstance(named, str):
-        file = read[0].parent / named
-        if not file.is_file():
+    route = te_route(obj)
+    if route.file is not None:
+        if not route.file.is_file():
             raise InputArtifactError(
-                f"{read[0]}: names the trailing-edge file {named}, which does not exist. "
-                "Write the points file or remove the key and run again. Nothing was written.",
+                f"{route.sidecar}: names the trailing-edge file {route.named}, which does not "
+                "exist. Write the points file or remove the key and run again. Nothing was "
+                "written.",
                 kind=KIND,
             )
-        return file
+        return route.file
     default = Path(obj).with_name(Path(obj).stem + TE_SUFFIX)
     return default if default.is_file() else None
 

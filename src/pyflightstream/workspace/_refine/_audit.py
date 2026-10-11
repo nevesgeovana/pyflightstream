@@ -68,11 +68,13 @@ from pyflightstream.workspace._refine._geometry import (
 from pyflightstream.workspace._refine._obj import (
     KIND,
     SIDECAR_SUFFIX,
+    TE_SUFFIX,
     ObjMesh,
     edge_midpoints,
     read_obj,
     te_file,
     te_points,
+    te_route,
 )
 
 Faces = list[list[int]]
@@ -191,8 +193,49 @@ class MeshAudit:
         lines.append("every gate and check passed" if self.passed else "the audit FAILED")
         return lines
 
+    @staticmethod
+    def files_read(mesh: str | os.PathLike[str]) -> list[tuple[str, Path]]:
+        """Return the files an audit of ``mesh`` reads, each with what it is (FR-426 R1).
+
+        The OBJ, its boundaries file, ``<stem>.te.txt`` and the trailing-edge
+        points file the boundaries file names, read through the one reader
+        of the boundaries file the refinement and the audit use, so a command
+        that must not write over an input names the same files. A boundaries
+        file that cannot be read names no points file here; the audit refuses
+        it on its own.
+
+        Parameters
+        ----------
+        mesh : path-like
+            The OBJ an audit would read.
+
+        Returns
+        -------
+        list of (str, pathlib.Path)
+            What each file is, and its path; a file may not exist.
+
+        Examples
+        --------
+        >>> from pyflightstream.workspace import MeshAudit
+        >>> [what for what, _ in MeshAudit.files_read("W1/W1.obj")][:2]
+        ['the OBJ', 'its boundaries file']
+        """
+        obj = Path(mesh)
+        files = [
+            ("the OBJ", obj),
+            ("its boundaries file", obj.with_name(obj.stem + SIDECAR_SUFFIX)),
+            ("its trailing-edge points file", obj.with_name(obj.stem + TE_SUFFIX)),
+        ]
+        try:
+            named = te_route(obj).file
+        except (InputArtifactError, OSError):
+            named = None
+        if named is not None:
+            files.append(("its trailing-edge points file", named))
+        return files
+
     def write_csv(self, path: str | Path) -> Path:
-        """Write one row per family and figure (``--csv``) and return the path."""
+        """Write one row per family and figure (``--out``, alias ``--csv``) and return the path."""
         target = Path(path)
         rows = (
             [family, figure, "" if value is None else str(value)]
