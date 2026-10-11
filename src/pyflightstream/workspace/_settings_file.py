@@ -250,7 +250,7 @@ def _checked(path: Path) -> dict[str, dict[str, object]]:
 
 
 def _check_schema(value: object, path: Path) -> None:
-    if isinstance(value, bool) or value != _SCHEMA_VERSION:
+    if not isinstance(value, int) or isinstance(value, bool) or value != _SCHEMA_VERSION:
         raise InputArtifactError(
             f"{path} states schema_version = {value!r}, and this package reads "
             f"schema_version = {_SCHEMA_VERSION}. Nothing ran."
