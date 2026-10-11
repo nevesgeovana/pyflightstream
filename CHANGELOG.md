@@ -94,9 +94,16 @@ FlightStream versions.
   (NFR-45 R2): for each known layout, the first differing column with its position, the
   expected name and the name found, or the counts when the header is a prefix. The
   `mark-converged` help names the single quoted value and the mixed shape.
+- **`refine` and `audit-mesh` refuse a `[trailing_edges] detect` the workflow refuses**
+  (NFR-45 R3). Both read `detect` through the workflow's reader, so a shape it refuses (a
+  word other than `"auto"`, a key it does not read, an empty surface list, `file` and
+  `detect` together) is refused before any work in the same words, ending
+  `Nothing was written.`; 0.38.0 ignored such a shape in the mesh verbs.
 - **The user guide and the cheatsheet are built from the release sources** (NFR-46). The
   user guide compiles to its end, guide 04 compiles to the page count its source states
-  with no overfull box, and each PDF names the release it was built from.
+  with no overfull box, and each PDF names the release it was built from. The user guide
+  PDF is published beside its source, `guide/pyflightstream_user_guide.pdf`, and each of
+  the two PDFs has its build log beside it.
 - The mesh how-to and reference pages, the status pages, the reference artifact page and a
   new page on the workspace settings files describe the changes above (FR-430 to FR-436,
   NFR-45).

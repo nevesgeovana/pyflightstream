@@ -98,6 +98,17 @@ PITFALL_TABLE = re.compile(
     re.DOTALL,
 )
 
+
+def _pitfall_body(text: str) -> str | None:
+    """Every row of the pitfall table, or None when no table has its header row.
+
+    The table is set as several tables of one header (NFR-46: a slide breaks
+    between tables, never inside one), so the rows of all of them are read.
+    """
+    bodies = PITFALL_TABLE.findall(text)
+    return "\\\\".join(bodies) if bodies else None
+
+
 #: A FlightStream command name as the guide escapes it for LaTeX.
 COMMAND_IN_TEX = re.compile(r"\b[A-Z][A-Z0-9]*(?:\\_[A-Z0-9]+)+\b")
 
@@ -391,7 +402,7 @@ def test_every_pinned_refusal_matches_what_the_library_says():
 
 
 def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
-    body = PITFALL_TABLE.search(guide_text())
+    body = _pitfall_body(guide_text())
     assert body is not None, (
         "the pitfall table's header row was not found, so this guard checked "
         "no rows. If the table was restructured, update PITFALL_TABLE; a guard "
@@ -403,7 +414,7 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         for entry in registry.commands.values()
         if any(record.status is Status.BROKEN for record in entry.versions.values())
     )
-    rows = [row for row in body.group(1).split(r"\\") if row.strip()]
+    rows = [row for row in body.split(r"\\") if row.strip()]
     # EQUAL, not a floor. `>= 3` was satisfied at exactly 3 while the row
     # this guard was written for had been deleted, which the QA pass
     # demonstrated. One row per broken command, no more and no fewer.
@@ -483,7 +494,7 @@ def test_every_broken_command_has_a_pitfall_row():
     went on listing three findings. A reader consulting the pitfalls page
     concluded the command was fine.
     """
-    body = PITFALL_TABLE.search(guide_text())
+    body = _pitfall_body(guide_text())
     assert body is not None, "the pitfall table's header row was not found"
 
     # The FINDING cell only, never the whole row. Reading all three
@@ -493,7 +504,7 @@ def test_every_broken_command_has_a_pitfall_row():
     # advice column names the command you should use INSTEAD, so it is
     # the one column that must not count as coverage.
     listed = set()
-    for row in body.group(1).split(r"\\"):
+    for row in body.split(r"\\"):
         if not row.strip():
             continue
         finding = row.split("&")[0]

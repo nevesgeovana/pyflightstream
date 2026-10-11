@@ -610,7 +610,7 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
-| `--out FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure; `--csv FILE` is a deprecated alias |
+| `--out FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure; `--csv FILE` is a deprecated alias. Refused when it names a file the audit reads: the OBJ, its boundaries file, its `<stem>.te.txt` or the points file the boundaries file names (`MeshAudit.files_read`) |
 
 `refine` exits 0 when the level is written, whatever the audit says, and 2 when
 the request is refused. `audit-mesh` exits 0 when every gate and check passes,
@@ -620,7 +620,10 @@ what to do, and ends with `Nothing was written.`: every refusal of the
 arguments, the refinement file, the family names and the installed extras comes
 before any family is resampled and before any file is written, and so does a
 refusal of the boundaries file or of the points file it names, which the audit
-reads. A level is written into `<folder>.partial`, audited there, and renamed
+reads. Both commands read `[trailing_edges] detect` through the reader the
+workflow uses, so a shape the workflow refuses (a word other than `"auto"`, a
+key it does not read, an empty surface list, `file` and `detect` together) is
+refused here too, in the same words, before any work. A level is written into `<folder>.partial`, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
 
@@ -695,7 +698,7 @@ copies = 6
 | `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
-| `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows ([The row kept at an interface](#the-row-kept-at-an-interface)) |
+| `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows. `--keep-first-row` on the command and the `keep_first_row` keyword of `refine_mesh` ask the same; when FACTOR, `--chordwise` or `--spanwise` give the factors the table is not read, this key included ([The row kept at an interface](#the-row-kept-at-an-interface)) |
 | `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
 | `[families.<name>]` of a body | `axial`, `circumferential` | number above zero | the target edge length divided by `axial` along the axis and by `circumferential` around it; the family is remeshed |
 | `[families.<name>]` of a body | `axis` | three numbers, not all zero | the body's axis; required with `axial` or `circumferential` |
@@ -845,7 +848,11 @@ edge to keep the spanwise width of its row of panels at another component.
 - **Trailing edge.** The one listed in the trailing-edge points file, else,
   when the boundaries file routes the trailing edge to detection, the edges
   the package detects on the source; `refine.json` states which under
-  `trailing_edge`.
+  `trailing_edge` (`"points file"` or `"detected"`). Detection takes the edges
+  of the family sharper than the ridge angle (40 degrees) that form the grid
+  line from station 0 to the far station at the aft chordwise extreme (aft is
+  +x in the frame of x aft, y starboard, z up), so a sharp leading edge or a
+  crease is not taken; two sharp extremes level in x are refused.
 - **Record.** The family's entry of `refine.json` holds `kept_rows`, the kept
   end stations; the key is absent when the option is not asked. The family's
   part of the tag carries `k`.
@@ -922,7 +929,7 @@ Each of these is imported from `pyflightstream.workspace`.
 | `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False, keep_first_row=None)` | writes a level; `keep_first_row` names the families that keep their first row (`None` or an empty sequence asks nothing) and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
-| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)` |
+| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
 | `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-matrix degenerate` (FR-429): derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
 
 ### Limits of the refinement

@@ -52,4 +52,7 @@ tests/tier3_licensed/goldens/** text eol=lf
 guide/**/*.pdf binary
 guide/latex-sources/** text eol=lf
 guide/latex-sources/**/*.pdf binary
+# The build logs published beside the two release PDFs (NFR-46) are LF on
+# every machine, so the bytes a receipt digests are the bytes checked out.
+guide/*.log text eol=lf
 tests/tier1_offline/fixtures/products_snapshot/** text eol=lf

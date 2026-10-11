@@ -847,7 +847,8 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 # NFR-03 keeps the manual out of the repository. The owner then admitted the
 # guide DECKS and, since 0.34.0, the cheatsheet: nine guides, 01 to 09, the
 # cheatsheet being guide 04, each compiled PDF beside its LaTeX source, and the
-# figure PDFs those sources include (FR-329). Nothing else, not any
+# figure PDFs those sources include (FR-329); since 0.39.0 also the user
+# guide's PDF, which the release publishes (NFR-46). Nothing else, not any
 # pdf under guide/: the exemption names the guide files
 # and the figures folder of a deck. Three
 # mechanisms state the rule and must agree: the forbid-pdf hook (`files` with
@@ -859,7 +860,8 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 # `Guide/` folder is not the guide), and the pdf suffix is case-insensitive in
 # all three (a `.PDF` manual is a pdf).
 PDF_ALLOWED = re.compile(
-    r"^guide/(pyfts-guide-0[1-9]-[a-z0-9-]+|latex-sources/0[1-9]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
+    r"^guide/(pyfts-guide-0[1-9]-[a-z0-9-]+|pyflightstream_user_guide"
+    r"|latex-sources/0[1-9]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
 )
 
 #: The suffix that makes a tracked file a pdf, compared case-insensitively.
@@ -885,6 +887,8 @@ PDF_RULE_SAMPLES = (
     "guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.pdf",
     "guide/pyflightstream_user_guide.tex",
     "guide/pyflightstream_user_guide.pdf",
+    "guide/pyflightstream_user_guide_old.pdf",
+    "x/guide/pyflightstream_user_guide.pdf",
     "guide/pyfts-guide-10-extra.pdf",
     "guide/fts-guide-01-workspaces.pdf",
     "guide/latex-sources/08-fsi/notes.pdf",
@@ -931,8 +935,9 @@ def test_no_pdf_is_tracked_outside_the_guide():
         + "\n".join(offenders)
         + "\n\nA licensed manual arrives as a pdf and never enters the repository "
         "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the nine compiled guides "
-        "(the cheatsheet is guide 04), guide/pyfts-guide-0N-*.pdf, and the figures their "
-        "sources include, guide/latex-sources/0N-*/figures/*.pdf, are tracked as pdf."
+        "(the cheatsheet is guide 04), guide/pyfts-guide-0N-*.pdf, the figures their "
+        "sources include, guide/latex-sources/0N-*/figures/*.pdf, and the user guide, "
+        "guide/pyflightstream_user_guide.pdf, are tracked as pdf."
     )
 
 
@@ -953,7 +958,8 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
             "docs/guide/deck.pdf",
             "guides/deck.pdf",
             "Guide/x.pdf",
-            "guide/pyflightstream_user_guide.pdf",
+            "guide/pyflightstream_user_guide_old.pdf",
+            "x/guide/pyflightstream_user_guide.pdf",
             "guide/pyfts-guide-10-extra.pdf",
             "guide/fts-guide-01-workspaces.pdf",
             "guide/latex-sources/08-fsi/notes.pdf",
@@ -971,12 +977,13 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
         "guide/latex-sources/08-fsi/figures/sub/deep.pdf",
         "guide/latex-sources/08-fsi/notes.pdf",
         "guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.pdf",
-        "guide/pyflightstream_user_guide.pdf",
+        "guide/pyflightstream_user_guide_old.pdf",
         "guide/pyfts-cheatsheet-other.pdf",
         "guide/pyfts-guide-10-extra.pdf",
         "guides/deck.pdf",
         "reports/Manual.PDF",
         "vendor/guide/latex-sources/01-a/figures/manual.pdf",
+        "x/guide/pyflightstream_user_guide.pdf",
         "x/guide/pyfts-guide-02-workspaces.pdf",
     ]
     admitted = [
@@ -984,12 +991,13 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
         "guide/pyfts-guide-02-workspaces.pdf",
         "guide/latex-sources/02-workspaces/figures/qsteady_k_vs_J.pdf",
         "guide/pyfts-guide-04-cheatsheet.pdf",
+        "guide/pyflightstream_user_guide.pdf",
         "README.md",
     ]
     assert _pdf_offenses(admitted) == []
     # Control 1: withdraw the exemption and the decks' pdfs are refused.
     monkeypatch.setitem(globals(), "PDF_ALLOWED", re.compile(r"(?!)"))
-    assert _pdf_offenses(admitted) == sorted(admitted[:4]), (
+    assert _pdf_offenses(admitted) == sorted(admitted[:5]), (
         "with the exemption withdrawn the decks' pdfs still pass, so their "
         "admission above was not coming from the exemption"
     )

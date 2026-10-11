@@ -96,15 +96,18 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \begin{cmdblock}{pyfs-matrix refine}{<MESH> [FACTOR]}{A level in a new geometry folder \file{<stem>_<tag>/} (OBJ, trailing-edge points, boundaries, \file{refine.json}, audit); the source is never modified. FACTOR multiplies every selected family.}
 \opt{--families A,B}{only these; \fl{--chordwise F}, \fl{--spanwise F}: one direction of the grid families.}
 \opt{--config FILE}{default \file{<stem>.refine.toml}: \texttt{[families.<name>]} \texttt{factor}, \texttt{chordwise}, \texttt{spanwise}, \texttt{method}, \texttt{elements}, \texttt{axial}, \texttt{circumferential}, \texttt{axis}, \texttt{origin}; \texttt{[refine]} \texttt{tag}, \texttt{elements}; \texttt{[components]}; \texttt{[periodic]}.}
-\opt{--out-dir DIR}{default: beside the source's folder; \fl{--overwrite} replaces a level.}
+\opt{--keep-first-row FAM[,FAM...]}{these grid families keep their row at another component, as the \texttt{keep\_first\_row} key does.}
+\opt{--out DIR}{default: beside the source's folder (\fl{--out-dir DIR}, deprecated, warns); \fl{--overwrite} replaces a level.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix audit-mesh}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}; \fl{--csv FILE}. Exit 0 passed, 1 failed, 2 refused.}
+\begin{cmdblock}{pyfs-matrix audit-mesh}{<OBJ>}{Writes \file{<stem>.audit.json}: G1, G2, G4 alone, G1 to G6 and relative checks with \fl{--against SOURCE}. Exit 0 passed, 1 failed, 2 refused.}
+\opt{--out FILE}{also the figures as CSV, never a file the audit reads (\fl{--csv FILE}, deprecated).}
 \end{cmdblock}
 
 \hd{Files}
 \rd{inputs/geometries/}{the saved simulation or mesh \cmd{pyfs-matrix inventory} reads.}
 \wf{<stem>.boundaries.toml}{beside the geometry: the boundary names every alias and pproc family cites.}
 \wf{inputs/executables.toml}{the build registry template: each build a row may name, its executable.}
+\rd{pyfs.toml}{with \file{pyfs.local.toml} (this machine's, read over it): \texttt{[defaults]} of the options, \texttt{[log] console}; a typed option wins. \texttt{accept\_unregistered\_build = true} on an \file{inputs/executables.local.toml} entry accepts that build only.}
 \wf{inputs/geometries/README.md}{how to lay out the geometries.}
 \wf{inputs/INPUTS.md}{the glossary of every matrix column and input key.}
 \wf{inputs/input_template.md}{an example of every input file.}
@@ -114,7 +117,6 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \hd{Common errors}
 \err{\cmd{pyfs-workspace init}: an ambiguous artifact id, two files of \file{geometries/} or \file{profiles/} with one stem (\file{wing.fsm}, \file{wing.stl}).}{the id is the stem: rename or remove one. The tree is still completed.}
 \err{The inventory refuses: the sidecar already exists.}{\fl{--overwrite} rewrites a saved simulation's sidecar; an OBJ's never: edit or remove it.}
-\err{A field operation printed what it would write; nothing changed.}{that was the preview: run it again with \fl{--apply}.}
 \err{The field file \texttt{<STEM>} already exists.}{another \fl{--out}, or \fl{--overwrite} it and its record.}
 \err{\fl{--fluctuation-only} refuses.}{it needs \fl{--last} K: the fluctuation of the last K steps.}
 \err{A bare stem in a GEOMETRY key is refused.}{name the file, extension included (\file{wing_clean.fsm}).}
@@ -256,7 +258,7 @@ A study is many runs that share almost everything. What they share lives in thes
 \end{tikzpicture}
 
 \hd{The reference \textmd{\texttt{r\#\#\#}}}
-\texttt{area\_m2}, \texttt{chord\_m}, \texttt{span\_m} and \texttt{[moment\_point]} are what every coefficient is divided by and taken about. \texttt{[aliases]} names sets of boundaries once (\texttt{airframe = ["Body", "Base"]}); a member the opened mesh lacks is left out, so one reference serves several geometries. A block with \texttt{kind = "rotor"} is a rotor: hub, \texttt{axis}, \texttt{rpm\_sign}, \texttt{diameter\_m}, its blade families; a row then names the rotor and nothing else about it.
+\texttt{area\_m2}, \texttt{chord\_m}, \texttt{span\_m} and \texttt{[moment\_point]} are what every coefficient is divided by and taken about. \texttt{[aliases]} names sets of boundaries once (\texttt{airframe = ["Body", "Base"]}); a member the opened mesh lacks is left out, so one reference serves several geometries. \texttt{[study]} with \texttt{surfaces = ["Wing", "Body", "Sting"]} lists every surface of a study once: a setup or pproc name that a row's mesh lacks is then skipped (and said once in the plan) where the study holds it, and refused as a misspelling where it does not, so one setup, one pproc and one reference serve every model. A block with \texttt{kind = "rotor"} is a rotor: hub, \texttt{axis}, \texttt{rpm\_sign}, \texttt{diameter\_m}, its blade families; a row then names the rotor and nothing else about it.
 
 \hd{A rotor block of the reference}
 {\ttfamily\scriptsize\obeylines\obeyspaces%
@@ -314,7 +316,7 @@ These options of \cmd{pyfs-matrix plan} concern the artifacts; the rest of the p
 \err{An unsteady row states no averaging window.}{every unsteady row must state one: \texttt{LAST\_REVS\_AVG} in revolutions, or \texttt{LAST\_ITERS\_AVG} in time iterations.}
 
 \hd{Where to read more}
-Guide 3, \textit{References}; guide 4, \textit{Solver setup}; guide 5, \textit{Post-processing definitions}; the documentation pages \textit{The reference artifact} and \textit{The post-processing artifact and its products}.
+Guide 5, \textit{References}; guide 6, \textit{Solver setup}; guide 7, \textit{Post-processing definitions}; the documentation pages \textit{The reference artifact} and \textit{The post-processing artifact and its products}.
 \foot
 \end{multicols}
 
