@@ -130,20 +130,21 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 159 errors in 16 files (checked 294 source files)
->     Success: no issues found in 294 source files
+>     Found 159 errors in 16 files (checked 296 source files)
+>     Success: no issues found in 296 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-10: 159 errors in 16 of 294 modules.**
+**mypy recount 2026-10-11: 159 errors in 16 of 296 modules.**
 
-The quoted top block and the sentence above are the 2026-10-06 run recorded
-in the dated section at the end. The module total is the 294 of the 0.39.0 lane of FR-436,
-whose one new module, `workspace/_settings_file.py`, is clean, with 159 errors in sixteen
-dirty modules. The 293 were the tracked package on `rel/0-38` (292 on the tree of the earlier
-recount of 2026-10-06) after the 0.38.0 work packages.
+The quoted top block and the sentence above are the 2026-10-11 run recorded
+in the dated section at the end. The module total is the 296 of the 0.39.0 tree, whose three
+new modules (`workspace/_settings_file.py`, `workspace/_refine/_remesh_group.py`,
+`workspace/_refine/_remesh_pairs.py`) are clean, with 159 errors in sixteen dirty modules.
+The 294 were the tracked package on the 0.39.0 lane of FR-436 (293 on `rel/0-38` after the
+0.38.0 work packages, 292 on the tree of the earlier recount of 2026-10-06).
 The 282 were the tracked package on `rel/0-37` after the 0.37.0 work packages.
 The 269 were the tracked package on `rel/0-36` after the wave-1 cuts and MM.
 The earlier 236 were the tracked package on `rel/0-34` with the wave-2
@@ -464,7 +465,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 159 errors in 16 files (checked 294 source files)
+    Found 159 errors in 16 files (checked 296 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1273,3 +1274,7 @@ run's.
 ## Re-count of 2026-10-10 (0.39.0, the lane of FR-436)
 
 `python scripts/mypy_recount.py` on 2026-10-10, on the 0.39.0 lane branch of FR-436 (the workspace settings files) with its work uncommitted, python 3.12.0: 159 errors in 16 of 294 modules on 74 distinct source lines; the shipped configuration is green over all 294 (`Success: no issues found in 294 source files`). The package grew by one module, `workspace/_settings_file.py`, clean and not exempted; mypy counted it before git tracked it, which is the one difference the script reported between its 294 and the index's 293. The dirty set and its 159 errors are unchanged.
+
+## Re-count of 2026-10-11 (0.39.0)
+
+`python scripts/mypy_recount.py` on 2026-10-11, on the 0.39.0 integration tree (clean, so the numbers reproduce from HEAD), python 3.12.0: 159 errors in 16 of 296 modules; the shipped configuration is green over all 296 (`Success: no issues found in 296 source files`). The package grew by three modules since the recount of 2026-10-10, `workspace/_refine/_remesh_group.py`, `workspace/_refine/_remesh_pairs.py` and the `workspace/_settings_file.py` that the earlier recount counted before git tracked it; none is exempted and each is clean. The dirty set and its 159 errors are unchanged.
