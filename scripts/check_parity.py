@@ -631,6 +631,31 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
         "retained outside the tree; SHA-256 "
         "6b84ee2e873ec608296e3ad1a66dcc9503a9245c41a69b483b875b50564e5b70)",
     ),
+    (
+        "*/post.log",
+        r"(?m)^pyflightstream \d+\.\d+\.\d+(?:\.dev\d+)? post",
+        "pyflightstream <VERSION> post",
+        "the package version the run was posted with (post/products.py header line), which "
+        "differs between any two releases by construction (measured 2026-10-11, 0.38.0 "
+        "against 0.39.0: the only post difference)",
+    ),
+    (
+        "*/post.log.json",
+        r'"version": "\d+\.\d+\.\d+(?:\.dev\d+)?"',
+        '"version": "<VERSION>"',
+        "the package version the run was posted with (the header key of the machine-readable "
+        "log), which differs between any two releases by construction (measured 2026-10-11, "
+        "0.38.0 against 0.39.0: the only post difference)",
+    ),
+    (
+        "*/products.json",
+        r'"(superfile|sections)_report": "reports/(superfile|sections)-\d{4}\.json"',
+        r'"\1_report": "reports/\2-<VERSION>.json"',
+        "the package version the run was posted with, as the four-digit release tag in the "
+        "report names (post/superfile.py release_tag), which differs between any two "
+        "releases by construction (measured 2026-10-11, 0.38.0 against 0.39.0: the only "
+        "post difference)",
+    ),
 ]
 
 #: The one difference of NFR-32, named whole: a text file of 0.33.0 holds CR before LF where

@@ -96,3 +96,42 @@ def test_pfs2014_the_writer_format_with_crlf_is_rewritten():
     crlf = [_group(s).replace(b"\n", b"\r\n") for s in (one, two)]
     assert crlf[0] != crlf[1]
     assert norm(name, crlf[0]) == norm(name, crlf[1])
+
+
+def test_p0390_parity_the_package_version_stamp_of_a_post_is_not_a_difference():
+    """P0390-PARITY (release parity): outputs differing only by the version stamp compare equal."""
+    norm = _load().normalize
+    log = "pyflightstream {v} post\ntime=2026-10-11T01:02:03+00:00\n"
+    assert norm("m/post.log", log.format(v="0.38.0").encode()) == norm(
+        "m/post.log", log.format(v="0.39.0").encode()
+    )
+    js = '{{\n  "version": "{v}",\n  "workspace": "w"\n}}'
+    assert norm("m/post.log.json", js.format(v="0.38.0").encode()) == norm(
+        "m/post.log.json", js.format(v="0.39.0").encode()
+    )
+    pj = (
+        '{{"superfile_report": "reports/superfile-{t}.json", '
+        '"sections_report": "reports/sections-{t}.json"}}'
+    )
+    assert norm("m/products.json", pj.format(t="0380").encode()) == norm(
+        "m/products.json", pj.format(t="0390").encode()
+    )
+    out = norm("m/products.json", pj.format(t="0390").encode())
+    assert b'"superfile_report": "reports/superfile-<VERSION>.json"' in out
+    assert b'"sections_report": "reports/sections-<VERSION>.json"' in out
+
+
+def test_p0390_parity_a_number_elsewhere_beside_the_version_stamp_still_differs():
+    """P0390-PARITY (release parity): the rule hides the stamp only, not a neighbouring change."""
+    norm = _load().normalize
+    one = b"pyflightstream 0.38.0 post\n"
+    assert norm("m/post.log", one) != norm("m/post.log", b"pyflightstream 0.39.0 post extra\n")
+    assert norm("m/post.log", b"pyflightstream 0.39.0 post 1\n") != norm(
+        "m/post.log", b"pyflightstream 0.39.0 post 2\n"
+    )
+    a = b'{"version": "0.38.0", "n": 1}'
+    assert norm("m/post.log.json", a) != norm("m/post.log.json", b'{"version": "0.38.0", "n": 2}')
+    p = b'"superfile_report": "reports/superfile-0380.json"'
+    assert norm("m/products.json", p) != norm(
+        "m/products.json", b'"superfile_report": "reports/superfile-0380.json.x"'
+    )
