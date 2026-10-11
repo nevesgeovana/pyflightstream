@@ -32,8 +32,10 @@ import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.workspace import refine_mesh
-from pyflightstream.workspace._refine import _obj, _remesh
-from pyflightstream.workspace._refine._geometry import ZERO_AREA_FRACTION
+from pyflightstream.workspace._refine._geometry import SHARED_LAYERS, ZERO_AREA_FRACTION
+from pyflightstream.workspace._refine._obj import read_obj
+from pyflightstream.workspace._refine._remesh import refine_group
+from pyflightstream.workspace._refine._remesh_group import shared_targets
 from tests.p0380_mesh_fixtures import (
     Composite,
     face_coordinates,
@@ -102,67 +104,169 @@ def _polyline_spacing(points: np.ndarray) -> np.ndarray:
     return out
 
 
-@pytest.fixture(scope="module")
-def cap(tmp_path_factory):
-    """Return the cap's group, its local curve ids and the refined tip row (midpoints inserted)."""
-    mesh = sheet_with_cap()
-    tip = mesh.rows["G"][-1]
-    obj = _obj.read_obj(write_source(tmp_path_factory.mktemp("cap"), "wing", mesh))
-    group = _remesh._group(obj, ["C"])
-    local = {v: i for i, v in enumerate(group.ids)}
-    old = obj.verts[tip]
-    new = np.empty((2 * len(old) - 1, 3))
-    new[0::2] = old
-    new[1::2] = 0.5 * (old[:-1] + old[1:])
-    return group, [local[v] for v in tip], new
+def _own(points: np.ndarray, faces) -> np.ndarray:
+    """Return each node's own target at factor 1: the mean length of its incident edges."""
+    total, count = np.zeros(len(points)), np.zeros(len(points))
+    for a, b in _edges(faces):
+        total[[a, b]] += float(np.linalg.norm(points[a] - points[b]))
+        count[[a, b]] += 1
+    return total / np.maximum(count, 1)
 
 
-def test_p0390_zeroarea_target_at_the_curve_is_the_shared_spacing(cap):
-    """P0390-ZEROAREA (FR-432 R1) a node on the shared curve takes the new shared edges' length."""
-    group, ids, new = cap
-    targets, record = _remesh._shared_targets(group, {"C": 1.0}, [(ids, new)])
-    expected = _polyline_spacing(new)[0::2]
-    own = _remesh._targets(group, {"C": 1.0})[ids]
-    assert np.all(own > 1.5 * expected), "the fixture must make the 0.38.0 target differ"
-    np.testing.assert_allclose(targets[ids], expected, rtol=1e-12)
-    assert record == {
-        "C": {
-            "min": round(expected.min(), 12),
-            "mean": round(float(expected.mean()), 12),
-            "max": round(expected.max(), 12),
-        }
+def _midpoints_inserted(points: np.ndarray) -> np.ndarray:
+    """Return an ordered polyline with the mid-point of each segment inserted (a refined side)."""
+    new = np.empty((2 * len(points) - 1, 3))
+    new[0::2] = points
+    new[1::2] = 0.5 * (points[:-1] + points[1:])
+    return new
+
+
+#: The refined side's curve of the strip below, and the source's nodes of the rows above it.
+CURVE_X = (0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0)
+ROW_X = (0.0, 1.0, 3.0, 7.0)
+
+
+def _refined_strip():
+    """Return a strip whose bottom row is the curve of a refined side, and its rows and chain.
+
+    Rows 1 to 3 hold the nodes ``ROW_X`` at y 1, 2 and 3. Row 1 is joined to
+    the curve by fans and the rows above by split cells, so a node of row j is
+    j face layers from the curve.
+    """
+    xs = [CURVE_X, ROW_X, ROW_X, ROW_X]
+    rows, pts = [], []
+    for y, row in enumerate(xs):
+        rows.append(list(range(len(pts), len(pts) + len(row))))
+        pts += [(x, float(y), 0.0) for x in row]
+    curve, first = rows[0], rows[1]
+    under = [CURVE_X.index(x) for x in ROW_X]
+    faces = []
+    for i in range(len(ROW_X) - 1):
+        a, b = first[i], first[i + 1]
+        faces += [[curve[k], curve[k + 1], a] for k in range(under[i], under[i + 1])]
+        faces.append([curve[under[i + 1]], b, a])
+    for lo, hi in zip(rows[1:-1], rows[2:], strict=True):
+        for i in range(len(ROW_X) - 1):
+            faces += [[lo[i], lo[i + 1], hi[i + 1]], [lo[i], hi[i + 1], hi[i]]]
+    chain = {(curve[k], curve[k + 1]) for k in range(len(CURVE_X) - 1)}
+    return np.array(pts, dtype=float), faces, rows, chain
+
+
+def test_p0390_zeroarea_targets_at_the_curve_and_its_layers_follow_r1_and_r2():
+    """P0390-ZEROAREA (FR-432 R1, R2, R3) every curve node, then the layers, exactly.
+
+    The curve's nodes are spaced 0.5, 0.5, 1, 1, 2 and 2, so each takes the
+    mean of its one or two incident shared edges (R1), an inserted node as any
+    other. A node one face layer away takes the target of the curve node
+    nearest it, found here from the coordinates, half way to its own (R2,
+    ``SHARED_LAYERS`` 2); the node at x 1 takes 0.75 from the curve node
+    below it, not an average of the curve nodes its faces touch. Nodes two
+    layers away and farther keep their own target (not returned). The record
+    is the least, the mean and the greatest curve target.
+    """
+    assert SHARED_LAYERS == 2
+    points, faces, rows, chain = _refined_strip()
+    own = _own(points, faces)
+    targets, record = shared_targets(
+        points, faces, ["C"] * len(faces), own=own, held=set(), chains=[chain]
+    )
+    r1 = [0.5, 0.5, 0.75, 1.0, 1.5, 2.0, 2.0]
+    assert [targets[v] for v in rows[0]] == r1
+    curve = points[rows[0]]
+    for v in rows[1]:
+        s = r1[int(np.argmin(np.linalg.norm(curve - points[v], axis=1)))]
+        assert targets[v] == s + (own[v] - s) / 2, v
+    assert targets[rows[1][1]] == 0.75 + (own[rows[1][1]] - 0.75) / 2
+    assert set(targets) == set(rows[0]) | set(rows[1])
+    mean = round(sum(r1) / len(r1), 12)
+    assert record == {"C": {"min": 0.5, "mean": mean, "max": 2.0}}
+
+
+def test_p0390_zeroarea_the_curve_spacing_reads_the_shared_edges_not_proximity():
+    """P0390-ZEROAREA (FR-432 R1) a bent curve: each node averages the shared edges it ends.
+
+    The curve runs (0, 0), (1, 0), (1, 1), (0, 0.1): its last node is 0.1
+    from its first, which is no edge of it, so a spacing read from the
+    nearest nodes would give both 0.1. Each node takes the mean of the curve
+    edges it ends. Control: the two ends are indeed that close.
+    """
+    curve = np.array([(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 0.1, 0.0)])
+    apex = np.array([(0.5, -0.5, 0.0), (1.5, 0.5, 0.0), (0.5, 1.2, 0.0)])
+    points = np.vstack([curve, apex])
+    faces = [[k, k + 1, 4 + k] for k in range(3)]
+    chain = {(0, 1), (1, 2), (2, 3)}
+    targets, _ = shared_targets(
+        points, faces, ["C"] * 3, own=_own(points, faces), held=set(), chains=[chain]
+    )
+    last = float(np.linalg.norm(curve[3] - curve[2]))
+    assert [targets[v] for v in range(4)] == [1.0, 1.0, (1.0 + last) / 2, last]
+    assert float(np.linalg.norm(curve[3] - curve[0])) == pytest.approx(0.1)
+
+
+def test_p0390_zeroarea_no_shared_curve_sets_no_target():
+    """P0390-ZEROAREA (FR-432 R4) with no shared curve no target changes and nothing is recorded."""
+    points, faces, _, _ = _refined_strip()
+    own = _own(points, faces)
+    assert shared_targets(points, faces, ["C"] * len(faces), own=own, held=set(), chains=[]) == (
+        {},
+        {},
+    )
+
+
+def _spacing_record(spacing: np.ndarray) -> dict:
+    return {
+        "min": round(float(spacing.min()), 12),
+        "mean": round(float(spacing.mean()), 12),
+        "max": round(float(spacing.max()), 12),
     }
 
 
-def test_p0390_zeroarea_target_returns_to_its_own_over_two_layers(cap):
-    """P0390-ZEROAREA (FR-432 R2) the target is graded over two face layers, with no step."""
-    assert _remesh.SHARED_LAYERS == 2
-    group, ids, new = cap
-    targets, _ = _remesh._shared_targets(group, {"C": 1.0}, [(ids, new)])
-    own = _remesh._targets(group, {"C": 1.0})
-    at = dict(zip(ids, _polyline_spacing(new)[0::2], strict=True))
-    near: dict[int, list[float]] = {}
-    for f in group.faces:
-        hit = [at[v] for v in f if v in at]
-        for v in f if hit else ():
-            if v not in at:
-                near.setdefault(v, []).extend(hit)
-    assert near, "the fixture has a first layer"
-    for v, values in near.items():
-        s = sum(values) / len(values)
-        assert min(s, own[v]) <= targets[v] <= max(s, own[v])
-        assert targets[v] == pytest.approx(s + 0.5 * (own[v] - s), rel=1e-12)
-    farther = [v for v in range(len(group.verts)) if v not in at and v not in near]
-    assert farther, "the fixture has nodes two layers away"
-    np.testing.assert_array_equal(targets[farther], own[farther])
+def test_p0390_zeroarea_inserted_curve_nodes_are_recorded_with_their_spacing(tmp_path):
+    """P0390-ZEROAREA (FR-432 R1, R3) a refined side's inserted nodes take and record their spacing.
+
+    The cap C is remeshed at factor 1 beside G's tip row refined with a
+    mid-point inserted in each segment (the row's spacing is nonuniform).
+    The targets are set once the interface holds the new nodes, so the
+    record is over every new curve node, the inserted ones included: the
+    least, mean and greatest of the mean incident new shared edge. Measured
+    first: C's own targets at the curve are over 1.5 times the new spacing.
+    """
+    mesh = sheet_with_cap()
+    tip = mesh.rows["G"][-1]
+    obj = read_obj(write_source(tmp_path, "wing", mesh))
+    new = _midpoints_inserted(obj.verts[tip])
+    spacing = _polyline_spacing(new)
+    own = _own(mesh.verts, mesh.families["C"])[tip]
+    assert np.all(own > 1.5 * spacing[0::2]), "the fixture must make the 0.38.0 target differ"
+    done = refine_group(obj, ["C"], (), {"C": 1.0}, conform=[(tip, new)], shared=[(tip, new)])
+    assert done.info["shared_edge_target_m"] == {"C": _spacing_record(spacing)}
 
 
-def test_p0390_zeroarea_no_shared_curve_keeps_the_targets_of_0380(cap):
-    """P0390-ZEROAREA (FR-432 R4) with no shared curve the targets are those of 0.38.0, exactly."""
-    group, _, _ = cap
-    targets, record = _remesh._shared_targets(group, {"C": 1.0}, [])
-    np.testing.assert_array_equal(targets, _remesh._targets(group, {"C": 1.0}))
-    assert record == {}
+def test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing(tmp_path):
+    """P0390-ZEROAREA (FR-432 R5) a cap refined alone at 2 takes the spacing its grid keeps.
+
+    G is not selected, so it keeps its tip row; C, refined at factor 2,
+    takes at that curve the mean of the kept shared edges incident to each
+    node, recorded under C, and its level passes G1 with no face of zero
+    area. Control: C's own target at the curve, half its incident edges, is
+    not the kept spacing.
+    """
+    mesh = sheet_with_cap()
+    tip = mesh.rows["G"][-1]
+    obj = read_obj(write_source(tmp_path / "unit", "wing", mesh))
+    spacing = _polyline_spacing(obj.verts[tip])
+    own = _own(mesh.verts, mesh.families["C"])[tip] / 2.0
+    assert not np.allclose(own, spacing)
+    done = refine_group(obj, ["C"], (), {"C": 2.0})
+    assert done.info["shared_edge_target_m"] == {"C": _spacing_record(spacing)}
+    src = _source(tmp_path, "alone", mesh)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        level = refine_mesh(src, 2, families=["C"], out_dir=tmp_path / "o")
+    entry = _record(level)["families"]["C"]
+    assert entry["shared_edge_target_m"] == _spacing_record(spacing)
+    gate = next(item for item in level.audit.gates if item.name == "G1")
+    assert gate.values["faces_of_zero_area"] == 0 and gate.verdict == "pass"
 
 
 @pytest.mark.parametrize("how", ["stated", "rebuilt", "band"])
@@ -207,7 +311,7 @@ def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
         taken = entry["shared_edge_target_m"]
         assert taken["min"] == pytest.approx(min(means), rel=1e-6)
         assert taken["max"] == pytest.approx(max(means), rel=1e-6)
-        assert taken["min"] <= taken["mean"] <= taken["max"]
+        assert taken["mean"] == pytest.approx(sum(means) / len(means), rel=1e-9)
     gate = next(item for item in level.audit.gates if item.name == "G1")
     assert gate.verdict == "pass"
     assert gate.values["faces_of_zero_area"] == 0

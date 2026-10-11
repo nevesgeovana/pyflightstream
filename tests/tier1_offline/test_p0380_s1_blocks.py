@@ -429,6 +429,8 @@ def test_a_factor_that_leaves_a_patch_side_no_interval_is_refused(tmp_path, caps
     the command alike, naming the family, the patch side and the value, before
     any folder is written (not clamped to one interval). Control: exactly 1/4
     is accepted and leaves that side one interval.
+
+    Release review of 0.38.0: proves the fix of RV-08.
     """
     from pyflightstream.run import cli
 

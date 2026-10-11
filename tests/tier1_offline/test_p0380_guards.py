@@ -116,6 +116,8 @@ def test_p0380_guards_a_guard_whose_tests_were_all_skipped_is_not_run(
     worker is launched): a passing guard, a guard whose one test is skipped,
     and a guard with one passing and one skipped test. Control: the mixed
     guard is PASS, so only the wholly skipped one turns the command red.
+
+    Release review of 0.38.0: proves the fix of RV-12.
     """
     import types
 

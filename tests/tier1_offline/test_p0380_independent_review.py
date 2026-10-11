@@ -231,6 +231,12 @@ def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source
     at the pole. At factor 2 the 48 new fan triangles follow the source
     triangle nearest to each: about a third start at a ring node, where a
     majority rule would start all 48 at the pole.
+
+    PUSH-IND-QA-5: the count is exact, derived here from the fixture by the
+    rule (the source fan triangle whose centroid is nearest the new one's),
+    and each new triangle starts on the vertex role that source triangle
+    starts on (the pole's place in the face, the faces being oriented alike);
+    a rule that changes one triangle's start fails.
     """
     fx = tube_pole_quads()
     for p in range(fx.lateral, fx.lateral + 8):
@@ -239,8 +245,16 @@ def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source
     pole = len(level.points) - 1
     fans = [f for f in level.faces if pole in f]
     assert len(fans) == 48
+    sources = [f for f in fx.faces if fx.pole in f]
+    centroids = np.array([fx.verts[f].mean(axis=0) for f in sources])
+    nearest = [
+        sources[int(np.argmin(np.linalg.norm(centroids - level.points[f].mean(axis=0), axis=1)))]
+        for f in fans
+    ]
+    assert [f.index(pole) for f in fans] == [s.index(fx.pole) for s in nearest]
+    expected = sum(s[0] != fx.pole for s in nearest)
     ring_first = sum(f[0] != pole for f in fans)
-    assert 14 <= ring_first <= 18, ring_first
+    assert ring_first == expected == 16, ring_first
 
 
 # ------------------------------------- IND-03 counts a tube's caps can carry

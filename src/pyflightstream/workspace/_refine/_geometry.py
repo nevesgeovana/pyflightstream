@@ -3,7 +3,11 @@
 THE THRESHOLDS the SRS names (and the audit reads) are engineering choices that
 the proof-of-concept levels met; each is defined here once, and changing one
 requires a reason in the SRS revision row that changes it. The remesher's own
-tuning constants (split and collapse ratios, passes) live in ``_remesh``.
+tuning constants, which no requirement states, live beside the code that reads
+them: ``_remesh.PASSES``, ``_remesh.SPLIT_RATIO``, ``_remesh.COLLAPSE_RATIO``,
+``_remesh.COLLAPSE_COSINE``, ``_remesh.FLIP_COSINE``, ``_remesh.SMOOTH_PASSES``,
+``_remesh.SMOOTH_COSINE``, ``_remesh.CONFORM_FRACTION`` and
+``_remesh_pairs.AUGMENT_DEPTH``.
 
 THE PRIMITIVES need numpy alone, so a grid family and the audit run without
 the geometry extra (FR-424 R10): the nearest-point query bins the points into
@@ -96,6 +100,9 @@ ON_CURVE_FRACTION = 0.25
 OPENING_FRACTION = 0.25
 #: FR-425 R3: the band of an unchanged neighbour is this many face layers deep.
 BAND_LAYERS = 2
+#: FR-432 R2: the face layers over which the target of a family at factor 1 beside a refined
+#: side returns from the length of their new shared edges to the family's own.
+SHARED_LAYERS = 2
 #: The schema version of refine.json and audit.json (FR-424 R4, FR-426 R1).
 SCHEMA_VERSION = 1
 
