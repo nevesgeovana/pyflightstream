@@ -116,6 +116,7 @@ nav:
       - Running:
           - Planning a campaign and what it costs: workflow-plan-and-cost.md
           - Builds, local runs and clusters: workflow-builds-and-hpc.md
+          - The workspace settings files: workspace-settings.md
           - What a run cost: solver-cost.md
           - Continuation and recovery: continuation-recovery.md
           - Storage and sync: storage-and-sync.md
@@ -226,6 +227,7 @@ nav:
           # One section, newest first, so a release adds a line here.
           - Upgrade index: upgrading.md
           - Release notes: release-notes.md
+          - Migrating to 0.39.0: migrating-to-0.39.0.md
           - Migrating to 0.38.0: migrating-to-0.38.0.md
           - Migrating to 0.37.0: migrating-to-0.37.0.md
           - Migrating to 0.36.0: migrating-to-0.36.0.md

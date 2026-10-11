@@ -7,18 +7,167 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Added (0.39 development)
+### Added
 
-- **`keep_first_row` in a refinement file's family table** (REF-FIRSTROW, first
-  implementation). A grid with a trailing edge keeps the spanwise width of its
-  end row at the interface with another component and refines that row
-  chordwise only; the spanwise factor applies to the other rows. That row's
-  width sets how far the last wake filament shed by the trailing edge is from
-  the adjacent component, so a mesh study no longer moves it with the panel
-  size. Refused, before any work, on a remeshed or multiblock family, a grid
-  without a trailing edge, or a grid with no end at another component.
-  `refine.json` names the kept rows. Owed before release: the requirement and
-  its SRS box, a command-line form, the how-to page and a licensed comparison.
+- **A grid can keep the spanwise width of its row of panels at another component**
+  (FR-430). A grid family with a trailing edge asked to keep its first row refines the row
+  between each end station that meets another component and the station next to it
+  chordwise only, so the row's spanwise width and the mid-point of its trailing-edge edge are
+  the source's at every factor; every other row is refined chordwise and spanwise as before.
+  Three routes ask it and give the same level: `keep_first_row = true` in the family's
+  `[families.<name>]` table of the refinement file, `pyfs-matrix refine --keep-first-row
+  FAMILY[,FAMILY...]`, and `refine_mesh(..., keep_first_row=["Wing", "Tail"])`. An end
+  station is an interface when an edge of it is shared with a family of another component.
+  The trailing edge is the one listed in the points file, else the detected one, and the
+  family's entry of `refine.json` states which (`trailing_edge`, `"points file"` or
+  `"detected"`) and the kept end stations (`kept_rows`). Refused before any work, ending
+  "Nothing was written.": a remeshed, axial or circumferential, multiblock or unrecovered
+  grid, a grid without a trailing edge or with no end at another component, a grid
+  remeshed because it shares nodes with a grid refined first, kept rows that leave no
+  spanwise interval, and a family the mesh does not hold or the selection leaves out.
+- **`MAX_ITER_REACHED`, a terminal status for a steady point stopped at its requested
+  iteration limit without settling** (FR-434, amending FR-46). It is recorded when the
+  iteration counter of the point's evidence (the solver log, else the loads footer) equals
+  the requested limit and the residual history of the solver log shows the final residual
+  above the convergence limit. It is not a failure: the post writes every product of the
+  point with one WARNING in `post.log` naming the point and the limit, `run --resume` does
+  not run it again, `status` counts it apart from the converged points, and the cost
+  estimate, `delete-sims` and the grouped collect read it as an ended run. The record keeps
+  `iterations` for the counter reached and gains `iterations_requested`, written only for
+  this status. A point that lacks either piece of evidence, and an unsteady point, keep
+  `COMPLETED_MAX_ITER`.
+- **A reference can declare the surfaces of a study, so one setup, pproc and reference
+  serve every model of it** (FR-435, amending FR-275 and FR-73). A top-level `[study]` table
+  of the reference artifact with one key, `surfaces`, declares the study's vocabulary. On a
+  row citing such a reference, a name the vocabulary holds and the row's model does not
+  carry is skipped, key by key, in the setup's `delete_surfaces`, `analysis_families`,
+  `vorticity_drag_families`, `axial_separation_families` and `base_region_operations`
+  boundaries and in the pproc's `base_regions` and `[groups]` members; the plan says each
+  skip once per artifact, key and name as a WARNING naming every row concerned, and the run
+  record of each point lists them in `skipped_names`. A name neither the vocabulary nor the
+  model holds is a misspelling, and the row is BLOCKED naming the artifact, the key, the
+  name and the vocabulary. A reference without `[study]` reads as before.
+- **`pyfs.toml` and `pyfs.local.toml`, the workspace's defaults of the command options**
+  (FR-436). `pyfs.toml` at the workspace root, meant to be versioned, and
+  `pyfs.local.toml` beside it, this machine's overlay read over it key by key, hold an
+  optional `schema_version = 1`, a `[defaults]` table (`fs_version`, `hpc`, `cost_file`,
+  `runs`, `accept_unregistered_build`, `fs_exe`, `point_name`, `recipe`, `workflow`,
+  `ignore_missing_families`, `check_frozen`, `progress_every`, `local`) and a `[log]` table
+  (`console`, `pproc_warnings`). An option typed on the command line wins over
+  `pyfs.local.toml`, which wins over `pyfs.toml`, which wins over the package default. A key
+  that acts on one invocation, a key no command takes, `workspace`, another table, a value of
+  the wrong type and invalid TOML are each refused before any work, naming the key and the
+  file. `plan.json` and every run record name each value taken from a file and its source in
+  `settings_sources`. `pyfs-workspace` reads the same files and takes the console level only.
+- **The acceptance of an unregistered build by a file** (FR-436 R7).
+  `accept_unregistered_build` in `[defaults]` accepts the installed build for the
+  workspace, and `accept_unregistered_build = true` on a table entry of
+  `inputs/executables.local.toml` accepts that entry's build only; the key is refused in
+  `inputs/executables.toml`. The run warns as `--accept-unregistered-build` does, and the
+  plan and the records name the source of the acceptance.
+- **`--log-level quiet|normal|verbose` and the `--no-` form of every boolean a file can set**
+  (FR-436 R5, R6). Every command that takes `--verbose` takes `--log-level`; `quiet` shows
+  the errors, the final summary line and the package signature, and `logs/activity.log`
+  keeps its full detail at every level. `--no-accept-unregistered-build`,
+  `--no-check-frozen`, `--no-local` and `--no-pproc-warnings` set the option to false for
+  one command whatever the files state; an option typed with its `--no-` form, and
+  `--verbose` with another `--log-level`, are refused by the parser.
+- **`pyfs-matrix refine --out DIR` and `pyfs-matrix audit-mesh --out FILE`** (NFR-45 R2),
+  the option name their sibling commands use (`rebuild --out`, `pyfs-workspace ... --out`):
+  the folder the level goes to, and the CSV of the audit's figures.
+
+### Changed
+
+- **A quoted `--sims` holding several ids is several ids** (NFR-45 R2). The commands that
+  read `--sims` as one value (`mark-failed`, `rebuild`, `delete-sims`, `post`, `collect`,
+  `status`, `log`) read a blank or a tab between ids as a comma: `--sims "2006 2007"` is
+  the two ids 2006 and 2007, where it was the single id `20062007`. Every form accepted
+  before (`2006,2007`, `[2006,2007]`, `2006, 2007`) reads the same ids.
+- **A long automatic level tag is a summary and a short hash** (FR-433). A tag built from
+  the selection keeps its form while it is at most 32 characters; a longer one becomes
+  `R-<n>fam-<hash>`, the number of selected families and the first 8 hexadecimal
+  characters of the SHA-256 of the canonical selection, so a selection of many families
+  writes a folder name that fits on Windows instead of failing after its work.
+  `refine.json` lists the selected families under `tag_selection` for such a tag. A
+  family that keeps its first row writes `k` in its part of a short tag (FR-430 R8).
+- **The refusal of a sweeper export with an unknown header names the column that differs**
+  (NFR-45 R2): for each known layout, the first differing column with its position, the
+  expected name and the name found, or the counts when the header is a prefix. The
+  `mark-converged` help names the single quoted value and the mixed shape.
+- **The user guide and the cheatsheet are built from the release sources** (NFR-46). The
+  user guide compiles to its end, guide 04 compiles to the page count its source states
+  with no overfull box, and each PDF names the release it was built from.
+- The mesh how-to and reference pages, the status pages, the reference artifact page and a
+  new page on the workspace settings files describe the changes above (FR-430 to FR-436,
+  NFR-45).
+
+### Deprecated
+
+- `pyfs-matrix refine --out-dir DIR` and `pyfs-matrix audit-mesh --csv FILE` (NFR-45 R2).
+  Each is a deprecated alias of `--out` on its command, gives the identical result and
+  warns once that it is deprecated; an alias given together with `--out` is refused, naming
+  both.
+
+### Fixed
+
+- **A point submitted without a recorded list of its solver logs is still
+  `RAN_MISSING_LOG` when its log is gone** (FR-413 R8). When a record carries no
+  `submission["declared_logs"]`, the names of its solver logs are read from the job's own
+  script on disk, so collect, the grouped collect and rebuild decide such a point as
+  `RAN_MISSING_LOG` instead of waiting on it. A recorded list, an empty one included,
+  stays authoritative and is never extended by the script's names.
+- **A neighbour family the band covers whole is rebuilt whole at factor 1** (FR-431). When
+  the band of two face layers beside a refined grid holds every face of an unchanged
+  neighbour, the refinement wrote no level and stopped on an internal error; it now rebuilds
+  that family whole at factor 1, as if stated `factor = 1`, `method = "remesh"`, warns once
+  naming the family and its face count, and records in `refine.json` `"method":
+  "rebuilt_whole"`, `"reason": "band_covers_family"`, `"band"` and `"faces"`.
+- **A family rebuilt at factor 1 beside a refined side takes the spacing of the shared
+  edge** (FR-432). The target size of the rebuilt family along the shared curve is the mean
+  length of the new shared edges at each node, interpolated back to the family's own
+  target over two face layers, so the edges crossing from that curve no longer stretch to
+  several times the new shared edges and no face falls under the zero-area threshold of
+  gate G1. `refine.json` records `shared_edge_target_m` (minimum, mean and maximum) under
+  each rebuilt family; a family that shares no curve with a refined side is unchanged.
+
+### Known limitations
+
+- `MAX_ITER_REACHED` needs both the counter at the requested limit and a readable residual
+  history: a point with no solver log, a run whose iterations are forced with no residual
+  threshold, and a point whose evidence states no counter keep `COMPLETED_MAX_ITER`. A
+  manifest holding the new status is refused by a 0.38.0 reader (FR-434 R2, R5).
+- Keeping the first row holds a geometric invariant, the interface row's width and the
+  place of its trailing-edge edge; it does not claim that a study holding it isolates the
+  discretisation from every other effect of refinement (FR-430). The levels are verified
+  offline on synthetic meshes; their confirmation on a real multi-component panel mesh is a
+  release receipt outside the offline suite.
+- The 8-character digest of a summary tag tells selections apart; it is not a guarantee
+  against collision (FR-433 R3).
+
+### Internal
+
+- The registered findings of the 0.37.0 and 0.38.0 reviews are fixed, each with a test or
+  a named page, or closed with a justification in the release's rigor register (NFR-45).
+  The help of the simulation ids lives beside the one reader of `--sims`; the boundaries
+  file's `[trailing_edges]` table has one reader; no private name crosses the package
+  boundary of `pyflightstream.workspace`.
+- PUSH-W12-QA-3: the history of the four FR-424 R7 cherry-picks that share one commit
+  message is kept as published; a published branch is not rewritten, and the register
+  records the justification (NFR-45 R5).
+- R37-11: the search for the original 26.125 probe-campaign exports behind the two
+  fixtures of tests/tier1_offline/fixtures/s10_26125 found none on the development machine
+  (the working projects folders and the estate's local work folder were searched by file
+  name and by the campaign name), so the fixtures are not compared with the originals byte
+  for byte; their recorded source hashes in PROVENANCE.md stand as the only link (NFR-45
+  R5).
+
+### Migration
+
+- Read [Migrating to 0.39.0](docs/migrating-to-0.39.0.md). Nothing is removed. A
+  workspace without `pyfs.toml`, `pyfs.local.toml` and a `[study]` table reads its inputs
+  as before; the changed readings are the new status `MAX_ITER_REACHED`, which a 0.38.0
+  reader refuses, a quoted `--sims` of several ids, and the summary tag of a long
+  selection. `--out-dir` and `--csv` of the mesh verbs are deprecated aliases of `--out`.
 
 ### Owed
 

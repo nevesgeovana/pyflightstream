@@ -23,6 +23,14 @@ is complete (FR-382). Recorded words are printed as recorded (FR-384).
 log is absent, is counted among the runs that ended and apart from
 `CONVERGED`; `show` prints its `residual_note`, which names what the absent log
 would have carried.
+`MAX_ITER_REACHED` (FR-434), a steady point stopped at the iteration limit its
+run requested without its residual settling, is likewise an ended run that is
+not a failure, counted apart from `CONVERGED`; `show` prints the limit and the
+iterations reached, from its `residual_note`, and its record carries
+`iterations` and `iterations_requested`. `COMPLETED_MAX_ITER` stays the status
+of an unsteady run that ended its time loop and of a steady point whose
+evidence does not show both the counter at the limit and the unsettled
+residual.
 `status --additional` lists the additional runs register with its recorded
 fields and no derived one (FR-393).
 

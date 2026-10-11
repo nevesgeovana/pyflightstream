@@ -140,7 +140,7 @@ The level folder goes beside the folder holding the source. For a geometry kept
 in its own folder (`inputs/geometries/W1/W1.obj`) that is the geometry library,
 which is where a row looks. For a geometry in the flat layout
 (`inputs/geometries/W1.obj`) the default would be `inputs/`, outside the
-library, so give the folder: `--out-dir inputs/geometries`. An existing level
+library, so give the folder: `--out inputs/geometries`. An existing level
 folder is refused unless `--overwrite` is given, and a refused request writes
 nothing.
 
@@ -176,6 +176,12 @@ The first writes `W1_R-Wing2`, the second `W1_R-Wing1c1p5s0p7`. A mesh whose
 families are all grids takes `--chordwise 1.5 --spanwise 0.7` alone, tagged
 `R1c1p5s0p7`.
 
+A tag built from a long selection, more than 32 characters, is shortened to
+`R-<n>fam-<hash>`: the number of selected families and a hash of the
+selection, so `W1_R-12fam-<hash>` for twelve families. The selected families
+are then listed under `tag_selection` in the level's `refine.json`. To choose
+the name yourself, state `[refine] tag` in the refinement file.
+
 ### Which families stay grids
 
 Each family of the OBJ (each `g` or `o` group) is handled on its own. A family
@@ -198,7 +204,14 @@ reason a grid was or was not recovered.
 When two families meet, they keep meeting on shared nodes. A family that shares
 a curve with a refined grid is rebuilt on the grid's new nodes; a family the
 refinement does not change is remeshed only in a band of two face layers along
-that curve, and is otherwise the source's face for face.
+that curve, and is otherwise the source's face for face. When that band would
+hold every face of the family (a cap two face layers deep, say), the family is
+rebuilt whole at factor 1 instead, as if its table stated `factor = 1` and
+`method = "remesh"`; one warning names it and its face count, and
+`refine.json` records it as `rebuilt_whole`. A family rebuilt at factor 1
+beside a refined grid takes, along the shared curve, the spacing of the grid's
+new nodes there, graded back to its own size over two face layers, so no face
+of the rebuilt family is squeezed at the shared curve.
 
 ### Tubes and multiblock families
 
@@ -323,6 +336,54 @@ origin = [0.0, 0.0, 0.0]
 copies = 6
 ```
 
+### Keeping the row at an interface
+
+On a lifting surface that meets another component (a wing at its fuselage, a
+blade at its hub), the row of panels at that interface sets where the last
+wake filament shed by the trailing edge lies relative to the adjacent
+component. A refinement study changes the width of that row with every level;
+`keep_first_row` keeps it. The row between each end station that meets
+another component and the station next to it is refined chordwise only, and
+keeps the source's spanwise width at every factor, the mid-point of its
+trailing-edge edge included; every other row is refined chordwise and
+spanwise as before.
+
+In the refinement file the option is stated per family:
+
+```toml title="inputs/geometries/WB/WB.refine.toml"
+[families.Wing]
+spanwise = 2
+keep_first_row = true
+```
+
+On the command line, `--keep-first-row` names the families, comma separated
+as `--families` takes them, and in Python `refine_mesh` takes the same names;
+the three routes give the same level:
+
+```text
+pyfs-matrix refine inputs/geometries/WB/WB.obj --spanwise 2 --keep-first-row Wing,Tail
+```
+
+<!-- skip: next -->
+```python
+from pyflightstream.workspace import refine_mesh
+
+level = refine_mesh("inputs/geometries/WB/WB.obj", spanwise=2.0, keep_first_row=["Wing", "Tail"])
+print(level.report["Wing"]["kept_rows"])  # ['station 0']
+```
+
+An end station is an interface when an edge of it is shared with a family of
+another component, the `[components]` entry that lists the family, else its
+name up to the first `_`. The trailing edge is the one the points file lists,
+else, when the boundaries file routes the trailing edge to detection, the
+detected one. The family's entry of `refine.json` names the kept end stations
+under `kept_rows` (`"station 0"`, `"far station"`) and the source of the
+trailing edge under `trailing_edge` (`"points file"` or `"detected"`), and its
+part of the tag carries `k`. The option is for a grid family with a trailing
+edge and an end at another component; every other case is refused before
+any work, as listed in the
+[reference](reference.md#the-row-kept-at-an-interface).
+
 ### Checking a level before a run
 
 Every refinement audits its level against its source and writes
@@ -353,7 +414,7 @@ mesh it was made from, and its exit status is the verdict: 0 when every gate
 and check passes, 1 when one fails, 2 when the input is refused.
 
 ```text
-pyfs-matrix audit-mesh inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --csv W1_R2_audit.csv
+pyfs-matrix audit-mesh inputs/geometries/W1_R2/W1_R2.obj --against inputs/geometries/W1/W1.obj --out W1_R2_audit.csv
 ```
 
 ### From Python

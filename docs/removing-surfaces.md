@@ -25,7 +25,9 @@ Blade1 and Blade2; the saved simulation then listed Body, Base and Blade2.
 A family is removed from its last member first, so no index shifts under the
 next command. These are refused, each naming the key and the inventory:
 
-- a name that resolves to no surface of the geometry;
+- a name that resolves to no surface of the geometry, unless the row's
+  reference declares it among the study's surfaces, where it is skipped and
+  said ([One setup for every model of a study](workflow-reference-artifact.md#one-setup-for-every-model-of-a-study));
 - an empty list;
 - a removal that would leave no surface;
 - a row that opens no geometry, or a geometry that declares no boundary names.

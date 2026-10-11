@@ -133,3 +133,12 @@ a review pass said so. The residual is the name: `COMPLETED_MAX_ITER`
 still reads as a success on first meeting, and renaming it is a
 manifest-visible break with no functional gain, so the package explains
 the name where a user meets it instead.
+
+FR-434 amends FR-46 by a requirement, which is how the set stays closed:
+the set gains a seventh value, `MAX_ITER_REACHED`, for a steady point whose
+evidence shows the iteration counter at the limit its run requested and a
+residual that did not settle. It is not a failure, and every reader treats
+it as `COMPLETED_MAX_ITER` is treated. `COMPLETED_MAX_ITER` keeps its name
+and stays the status of an unsteady run that ended its time loop and of a
+steady point whose evidence does not show both; the member set pinned in
+`tests/tier1_offline/test_workspace.py` gained the value in the same change.
