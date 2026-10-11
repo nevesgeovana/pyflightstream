@@ -44,6 +44,7 @@ from pyflightstream.cases import (
     RotorBlock,
     SimCase,
 )
+from pyflightstream.cases._skipped_families import names_a_row_can_cite
 from pyflightstream.script import (
     Script,
     ScriptReferenceError,
@@ -1111,15 +1112,11 @@ def _the_names_a_rotor_answers_to(case: SimCase) -> dict[str, list[str]]:
     selected NOTHING and warned that the geometry carries no family of it.
 
     The reference table takes precedence, so a study that gives one of these
-    names a meaning of its own keeps it.
+    names a meaning of its own keeps it. The map is built in the cases layer
+    (:func:`pyflightstream.cases._skipped_families.names_a_row_can_cite`), so
+    the study vocabulary of FR-435 reads the same names.
     """
-    return {
-        **{
-            name: [*block.families_general, *block.families_blades]
-            for name, block in case.rotors.items()
-        },
-        **case.aliases,
-    }
+    return names_a_row_can_cite(case)
 
 
 def _point_from_metres(

@@ -51,9 +51,7 @@ from pyflightstream.cases._ccs import (
 from pyflightstream.cases._skipped_families import (
     PPROC_ARTIFACT,
     SETUP_ARTIFACT,
-    judge_a_name_the_model_lacks,
-    selects_nothing,
-    study_vocabulary,
+    skips_a_name_the_model_lacks,
 )
 from pyflightstream.cases.ccs_wing import (
     emit_ccs_geometry,
@@ -72,7 +70,6 @@ from ._conventions import (
     command_accepted_on,
 )
 from ._names import (
-    _inventory,
     _judge_the_group_members_the_model_lacks,
     _refuse_a_pproc_the_geometry_shares_no_name_with,
     _refuse_name_absent_from_inventory,
@@ -1084,22 +1081,22 @@ def _the_operations_the_model_reaches(
     (``skipped_regions``), or of a ``create`` entry, renumbers every base
     region after it, so it is refused where an entry addresses a region by an
     index other than ``all``. With no vocabulary every entry is kept and a
-    name the model lacks is refused where it is resolved, as on 0.38.0.
+    name the model lacks is refused where it is resolved, as on 0.38.0, unless
+    the run asked for the refusal (R10). A ``boundary`` is classified against
+    the model as its geometry opened it, before ``delete_surfaces``.
     """
     operations = list(case.solver.base_region_operations or ())
     renumbering = [("base_regions", name) for name in skipped_regions]
     labels = script.entities.labels("boundaries")
-    if not operations or not labels or study_vocabulary(case) is None:
+    if not operations or not labels:
         _refuse_a_renumbering_skip(case, renumbering)
         return operations
-    ordered = _inventory(script)
+    ordered = _setup_surfaces.the_model_inventory(script)
     kept: list[BaseRegionOperation] = []
     for position, action in enumerate(operations, 1):
         key, boundary = f"base_region_operations[{position}]", action.boundary
-        if (
-            isinstance(boundary, str)
-            and selects_nothing(boundary, ordered, case.aliases)
-            and judge_a_name_the_model_lacks(case, SETUP_ARTIFACT, key, boundary)
+        if isinstance(boundary, str) and skips_a_name_the_model_lacks(
+            case, SETUP_ARTIFACT, key, boundary, ordered
         ):
             if action.operation == "create":
                 renumbering.append((key, boundary))
@@ -1133,16 +1130,21 @@ def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]
     )
 
 
-def _a_base_region_the_study_skips(case: SimCase, name: str) -> bool:
+def _a_base_region_the_study_skips(case: SimCase, script: Script, name: str) -> bool:
     """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-435 R4).
 
-    A row's own ``BASE_REGIONS`` and a reference declaring no vocabulary keep
-    the 0.38.0 refusal (R1, R3); the study refuses a name it does not hold and
-    a run that asked for the refusal refuses every one (R6, R10).
+    A row's own ``BASE_REGIONS`` keeps the 0.38.0 refusal (R1), and so does a
+    reference declaring no vocabulary at the default flag (R3); the study
+    refuses a name it does not hold, and a run that asked for the refusal
+    refuses every one under the pproc key, with or without a vocabulary (R6,
+    R10). The words that name no set and a surface the setup removed are not
+    judged (R4).
     """
-    if _variable(case, BASE_REGIONS_VARIABLE) is not None or study_vocabulary(case) is None:
+    if _variable(case, BASE_REGIONS_VARIABLE) is not None:
         return False
-    return judge_a_name_the_model_lacks(case, PPROC_ARTIFACT, "base_regions", name)
+    return skips_a_name_the_model_lacks(
+        case, PPROC_ARTIFACT, "base_regions", name, _setup_surfaces.the_model_inventory(script)
+    )
 
 
 def _base_region_detection_angle(case: SimCase, script: Script) -> None:
@@ -1185,7 +1187,7 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         if not labels:
             _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
         found = _resolve_token(case, family, labels)
-        if not found and _a_base_region_the_study_skips(case, family):
+        if not found and _a_base_region_the_study_skips(case, script, family):
             skipped.append(family)
             continue
         if not found:
