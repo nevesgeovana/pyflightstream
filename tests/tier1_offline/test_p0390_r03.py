@@ -32,7 +32,7 @@ import pyflightstream._cli as _cli
 import pyflightstream.workspace as workspace_package
 from pyflightstream.results import VersionMismatchWarning
 from pyflightstream.run import LocalExecutor
-from pyflightstream.run._cli_parsers import _build_parser
+from pyflightstream.run.cli import _build_parser
 from pyflightstream.run.cli import main as matrix_main
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._settings_file import (
