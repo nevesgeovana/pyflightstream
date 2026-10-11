@@ -12,7 +12,7 @@
 {"duration_s": <S>, "outcomes": {}}
 <TIME> [progress] message:              _______
 <TIME> [progress] message:                 |
-<TIME> [progress] message:    --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V> campaign camp, 1 point(s) to run
+<TIME> [progress] message:    --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V>: campaign camp, 1 point(s) to run
 <TIME> [preparation] started: <ROOT>
 <TIME> [preparation] finished: 
 {"duration_s": <S>, "outcomes": {}}

@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pyflightstream._console import blocks, table, wrap
-from pyflightstream._progress import print_held_warnings
+from pyflightstream._progress import print_held_warnings, quiet_keeps
 from pyflightstream.run import (
     CampaignPlan,
     format_cost_table,
@@ -234,6 +234,27 @@ def _print_plan(
     if rest:
         # After the warnings the blank line is already out.
         print(rest if held else f"\n{rest}", flush=True)
+    # FR-436 R6: a quiet console says the blocked points, the plan's errors, and the count.
+    if plan.blocked:
+        quiet_keeps(blocks([_blocked_block(plan)]), error=True)
+    quiet_keeps(_points_line(plan))
+
+
+def _points_line(plan: CampaignPlan) -> str:
+    """Return the plan's summary: how many points are ready, blocked and already recorded."""
+    return (
+        f"points: {len(plan.ready)} ready, {len(plan.blocked)} blocked, "
+        f"{len(plan.already_recorded)} already recorded"
+    )
+
+
+def _blocked_block(plan: CampaignPlan) -> tuple[str, list[str]]:
+    """Return the titled block of the blocked points: each run id, then what blocks it."""
+    blocked: list[str] = []
+    for entry in plan.blocked:
+        blocked.append(f"  {entry.run_id}")
+        blocked.extend(wrap(str(entry.error), first="    "))
+    return f"Blocked points ({len(plan.blocked)})", blocked
 
 
 def _alias_block(plan: CampaignPlan, rows: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -254,10 +275,7 @@ def _plan_blocks(
     """Return every block of a plan after its header and its warnings, titled, in order."""
     from pyflightstream.workspace.setup_inspection import setup_inspection_block
 
-    cases = [
-        f"  points: {len(plan.ready)} ready, {len(plan.blocked)} blocked, "
-        f"{len(plan.already_recorded)} already recorded"
-    ]
+    cases = [f"  {_points_line(plan)}"]
     if plan.build_groups:
         cases.append(f"  solver installations: {len(plan.build_groups)}")
         for key, sims in plan.build_groups.items():
@@ -280,10 +298,6 @@ def _plan_blocks(
     raw = [entry for entry in plan.points if entry.raw]
     if raw:
         cases.append(f"  {len(raw)} point(s) use the raw() escape hatch")
-    blocked: list[str] = []
-    for entry in plan.blocked:
-        blocked.append(f"  {entry.run_id}")
-        blocked.extend(wrap(str(entry.error), first="    "))
     validity: list[str] = []
     for entry in plan.points:
         if not entry.qsteady_validity:
@@ -311,7 +325,7 @@ def _plan_blocks(
     return [
         ("Cases", cases),
         ("Point aliases", _alias_block(plan, rows)),
-        (f"Blocked points ({len(plan.blocked)})", blocked),
+        _blocked_block(plan),
         ("Continuations (RESTART)", continuation_block(plan.points)),
         ("Rotor Mach numbers", _rotor_mach_block(plan)),
         ("Quasi-steady validity per point", validity),

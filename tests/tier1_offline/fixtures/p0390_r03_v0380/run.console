@@ -11,7 +11,7 @@ pyfs-matrix run
 [solver] finished
              _______
                 |
-   --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V> campaign camp, 1 point(s) to run
+   --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V>: campaign camp, 1 point(s) to run
 [preparation] started: .
 [preparation] finished
   -> camp/sim_7002/V0300RE120AL+000  [steady]  building and running  (1 of 1)

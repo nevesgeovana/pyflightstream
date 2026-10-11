@@ -636,12 +636,6 @@
    "statements": 23,
    "positional": 1
   },
-  "run/_cli_print.py:_plan_blocks": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 31,
-   "positional": 1
-  },
   "run/_cli_print.py:_print_free_space_paths": {
    "complexity": 15,
    "branches": 17,

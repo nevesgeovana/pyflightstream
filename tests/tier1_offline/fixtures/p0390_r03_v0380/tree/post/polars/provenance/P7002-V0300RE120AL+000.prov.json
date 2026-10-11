@@ -1,0 +1,141 @@
+{
+ "prefix": {
+  "prov": "http://www.w3.org/ns/prov#",
+  "xsd": "http://www.w3.org/2001/XMLSchema#",
+  "pyfs": "urn:pyflightstream:"
+ },
+ "entity": {
+  "pyfs:script/scripts/P7002-V0300RE120AL+000.txt": {
+   "prov:type": "pyfs:Script",
+   "pyfs:name": "scripts/P7002-V0300RE120AL+000.txt",
+   "pyfs:sha256": "<SHA:sims/sim_7002/scripts/P7002-V0300RE120AL+000.txt>",
+   "pyfs:raw": false,
+   "pyfs:recipe": "steady",
+   "pyfs:recipe_sha256": "4591d177ecea352a1dfff34019442f9cb2254e3d29d9aa4cdd9d8f2721b0d861"
+  },
+  "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm": {
+   "prov:type": "pyfs:Output",
+   "pyfs:name": "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm",
+   "pyfs:sha256": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>",
+   "pyfs:sha256_from": "file"
+  },
+  "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt": {
+   "prov:type": "pyfs:Output",
+   "pyfs:name": "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt",
+   "pyfs:sha256": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt>",
+   "pyfs:sha256_from": "file"
+  },
+  "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt": {
+   "prov:type": "pyfs:Output",
+   "pyfs:name": "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt",
+   "pyfs:sha256": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>",
+   "pyfs:sha256_from": "file"
+  },
+  "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt": {
+   "prov:type": "pyfs:Output",
+   "pyfs:name": "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt",
+   "pyfs:sha256": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>",
+   "pyfs:sha256_from": "file"
+  }
+ },
+ "activity": {
+  "pyfs:run/camp/sim_7002/V0300RE120AL+000": {
+   "prov:type": "pyfs:SolverRun",
+   "prov:startTime": "<TIME>",
+   "prov:endTime": "<TIME>",
+   "pyfs:run_id": "camp/sim_7002/V0300RE120AL+000",
+   "pyfs:sim_id": "7002",
+   "pyfs:status": "CONVERGED",
+   "pyfs:wall_time_s": <S>,
+   "pyfs:iterations": 312,
+   "pyfs:executor": "BuildSolver",
+   "pyfs:argv": [
+    "<PYTHON>",
+    "-c",
+    "<STUB>",
+    "<ROOT>/sims/sim_7002/scripts/P7002-V0300RE120AL+000.txt"
+   ],
+   "pyfs:cwd": "<ROOT>/sims/sim_7002/datapoints/DP-V0300RE120AL+000"
+  }
+ },
+ "agent": {
+  "pyfs:package/pyflightstream/<V>": {
+   "prov:type": "prov:SoftwareAgent",
+   "pyfs:name": "pyflightstream",
+   "pyfs:version": "<V>"
+  },
+  "pyfs:operator/<WHO>": {
+   "prov:type": "prov:Person",
+   "pyfs:submitted_by": "<WHO>"
+  },
+  "pyfs:solver/FlightStream/26.120": {
+   "prov:type": "prov:SoftwareAgent",
+   "pyfs:name": "FlightStream",
+   "pyfs:version_requested": "26.120",
+   "pyfs:version_reported": "26.1",
+   "pyfs:build": "7012026",
+   "pyfs:executable": "<PYTHON>",
+   "pyfs:executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb"
+  }
+ },
+ "used": {
+  "_:used1": {
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000",
+   "prov:entity": "pyfs:script/scripts/P7002-V0300RE120AL+000.txt"
+  }
+ },
+ "wasAssociatedWith": {
+  "_:associated1": {
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000",
+   "prov:agent": "pyfs:package/pyflightstream/<V>"
+  },
+  "_:associated2": {
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000",
+   "prov:agent": "pyfs:operator/<WHO>"
+  },
+  "_:associated3": {
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000",
+   "prov:agent": "pyfs:solver/FlightStream/26.120"
+  }
+ },
+ "wasAttributedTo": {
+  "_:attributed1": {
+   "prov:entity": "pyfs:script/scripts/P7002-V0300RE120AL+000.txt",
+   "prov:agent": "pyfs:package/pyflightstream/<V>"
+  },
+  "_:attributed2": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm",
+   "prov:agent": "pyfs:solver/FlightStream/26.120"
+  },
+  "_:attributed3": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt",
+   "prov:agent": "pyfs:solver/FlightStream/26.120"
+  },
+  "_:attributed4": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt",
+   "prov:agent": "pyfs:solver/FlightStream/26.120"
+  },
+  "_:attributed5": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt",
+   "prov:agent": "pyfs:solver/FlightStream/26.120"
+  }
+ },
+ "wasGeneratedBy": {
+  "_:generated1": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm",
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000"
+  },
+  "_:generated2": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt",
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000"
+  },
+  "_:generated3": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt",
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000"
+  },
+  "_:generated4": {
+   "prov:entity": "pyfs:output/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt",
+   "prov:activity": "pyfs:run/camp/sim_7002/V0300RE120AL+000"
+  }
+ }
+}

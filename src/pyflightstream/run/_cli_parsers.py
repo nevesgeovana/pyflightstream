@@ -9,10 +9,12 @@ and long, the commands are the logic. The storage and records subcommands
 ``rebuild``, ``mark-failed``) are added by their own builders, and every
 command that reads a manifest takes ``--runs NAME`` from one list.
 
-Since 0.39.0 (FR-436) :mod:`pyflightstream.run.cli` parses through ``parsed``
-of :mod:`pyflightstream.workspace._settings_file`, re-exported here: an option
-the command line does not state takes its default from ``pyfs.local.toml``,
-else ``pyfs.toml``, else the package.
+Since 0.39.0 (FR-436) :mod:`pyflightstream.run.cli` parses through
+:func:`parsed`: an option the command line does not state takes its default
+from ``pyfs.local.toml``, else ``pyfs.toml``, else the package. The parse is
+this family's (R11); the parser adaptation it runs inside is the command-line
+side of :mod:`pyflightstream.workspace.cli`, and the schema, the precedence and
+the provenance are :mod:`pyflightstream.workspace._settings_file`'s.
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
-from pyflightstream.workspace._settings_file import parsed as parsed
+from pyflightstream.workspace.cli import take_settings, withhold_defaults
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP
@@ -258,6 +260,19 @@ class _InvokedParser(argparse.ArgumentParser):
         parsed = super().parse_args(args, namespace)
         parsed.invoked_argv = list(sys.argv[1:] if args is None else args)
         return parsed
+
+
+def parsed(parser: argparse.ArgumentParser, argv: Sequence[str] | None) -> argparse.Namespace:
+    """Parse a ``pyfs-matrix`` command line, taking what it does not state from the files (FR-436).
+
+    An option typed wins over ``pyfs.local.toml``, which wins over ``pyfs.toml``,
+    which wins over the package default; a file the reader refuses stops the
+    command, exit 2, before anything is written.
+    """
+    with withhold_defaults(parser, argv) as held:
+        args = parser.parse_args(argv)
+    take_settings(parser, args, held)
+    return args
 
 
 def resume_hint(argv: Sequence[str]) -> str:

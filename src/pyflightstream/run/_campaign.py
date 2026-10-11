@@ -33,6 +33,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream._progress import (
+    quiet_keeps,
     record_activity,
     terminal_glob,
     terminal_path,
@@ -1140,6 +1141,8 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
             status=RunStatus.FAILED_SCRIPT,
             error=str(error),
         )
+        # Every run record states the acceptance and its sources (FR-436 R8).
+        refused = _with_the_acceptance(state, refused)
         state.workspace.append_record(refused)
         state.recorded.add(refused.run_id)
         state.records.append(refused)
@@ -1398,6 +1401,9 @@ def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) 
         _say(f"  | {status:<{width}} | {count:>6} |", quiet=quiet)
     _say(rule, quiet=quiet)
     _say(f"  {len(outcomes)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
+    # FR-436 R6: the table in one line is what a quiet console says of a run.
+    ended = ", ".join(f"{status} {count}" for status, count in sorted(counts.items()))
+    quiet_keeps(f"{len(outcomes)} point(s) in {_clock(elapsed_s)}: {ended}")
 
 
 @dataclass(frozen=True)

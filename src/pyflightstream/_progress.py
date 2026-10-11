@@ -119,10 +119,11 @@ class _Terminal:
         "chatter",
         "console",
         "held_err",
-        "held_out",
+        "kept_errors",
         "quiet",
         "redrawn",
         "root",
+        "summary",
         "verbose",
     )
 
@@ -138,8 +139,12 @@ class _Terminal:
         #: How deep the console is in its own chatter (the opening block, a stage
         #: or progress line, a warning), which a quiet console never says again.
         self.chatter = 0
-        self.held_out: list[str] = []
+        #: What the command wrote on stderr, apart from the chatter.
         self.held_err: list[str] = []
+        #: The errors the command stated wherever it printed them (:func:`quiet_keeps`).
+        self.kept_errors: list[str] = []
+        #: The final summary the command stated last (:func:`quiet_keeps`).
+        self.summary: str | None = None
 
 
 #: Set by a console script for the length of one invocation, and by nothing
@@ -172,8 +177,8 @@ def set_console_level(level: str) -> None:
 
     ``verbose`` is the console of ``--verbose``; ``normal`` the default one;
     ``quiet`` holds everything the console would show and, once the command
-    has ended, says only its errors and its final summary line
-    (:func:`release_quiet`). The activity log and the live log are written as
+    has ended, says only its errors and the final summary line it stated
+    (:func:`quiet_keeps`, :func:`release_quiet`). The activity log and the live log are written as
     at every other level. Outside a console command it does nothing.
 
     Parameters
@@ -214,14 +219,57 @@ def _chatter() -> Iterator[None]:
         terminal.chatter -= 1
 
 
-def release_quiet(terminal: _Terminal | None, *, failed: bool) -> None:
-    """Say what a quiet console held: the errors of a failed command, then its final line.
+def quiet_keeps(text: str, *, error: bool = False) -> None:
+    """State a command's final summary, or one of its errors, for a quiet console (FR-436 R6).
 
-    The errors are everything the command wrote on standard error apart from
-    the console's own chatter (its opening block, its stage and progress
-    lines, its warnings), said only when the command failed; the final
-    summary line is the last line it wrote on standard output. Nothing at a
-    level other than ``quiet``. The signature follows, as at every level.
+    A ``quiet`` console says, once the command has ended, the errors and the
+    final summary line a command states here, whatever stream the command
+    printed them on: a plan prints its blocked points on standard output, and
+    they are its errors. The summary stated last is the one said. At every
+    other level, and outside a console command, it does nothing: the command
+    prints its lines as it always did.
+
+    Parameters
+    ----------
+    text : str
+        The summary line, or the error as the command printed it.
+    error : bool, optional
+        True for an error, which a quiet console says whether or not the
+        command failed; False (the default) for the final summary line.
+    """
+    terminal = _TERMINAL.get()
+    if terminal is None or not terminal.quiet:
+        return
+    if error:
+        terminal.kept_errors.append(text.rstrip("\n") + "\n")
+    else:
+        terminal.summary = text.rstrip("\n")
+
+
+def say_summary(text: str) -> None:
+    """Print a command's final summary line on standard output, stated for a quiet console.
+
+    The same line :func:`print` writes, at every level; a ``quiet`` console
+    says it once the command has ended (FR-436 R6, :func:`quiet_keeps`).
+
+    Parameters
+    ----------
+    text : str
+        The summary line.
+    """
+    print(text)
+    quiet_keeps(text)
+
+
+def release_quiet(terminal: _Terminal | None, *, failed: bool) -> None:
+    """Say what a quiet console held: the errors of the command, then its final summary line.
+
+    The errors are those the command stated (:func:`quiet_keeps`) and, when
+    the command failed, everything it wrote on standard error apart from the
+    console's own chatter (its opening block, its stage and progress lines,
+    its warnings); the final summary line is the one the command stated last,
+    and a command that stated none has no summary to say. Nothing at a level
+    other than ``quiet``. The signature follows, as at every level.
 
     Parameters
     ----------
@@ -232,14 +280,13 @@ def release_quiet(terminal: _Terminal | None, *, failed: bool) -> None:
     """
     if terminal is None or not terminal.quiet:
         return
-    errors = "".join(terminal.held_err) if failed else ""
-    final = [line for line in "".join(terminal.held_out).splitlines() if line.strip()][-1:]
+    errors = "".join(terminal.kept_errors) + ("".join(terminal.held_err) if failed else "")
     try:
         if errors:
             sys.stderr.write(errors)
             sys.stderr.flush()
-        for line in final:
-            print(line, file=sys.stdout, flush=True)
+        if terminal.summary is not None:
+            print(terminal.summary, file=sys.stdout, flush=True)
     except (OSError, ValueError, AttributeError):
         return
 
@@ -732,9 +779,10 @@ class _ConsoleStream:
     Each write clears a progress line a terminal shows, says the opening block
     first where it is still owed, then goes to the stream it wraps and to the
     live log. Every other attribute is the wrapped stream's. On a ``quiet``
-    console (FR-436 R6) a write still reaches the live log and is held instead
-    of said: all of standard output, and of standard error what is not the
-    console's own chatter (:func:`release_quiet` says it at the end).
+    console (FR-436 R6) a write still reaches the live log and is not said:
+    of standard error what is not the console's own chatter is held, for
+    :func:`release_quiet` to say if the command fails; standard output is
+    said only through what the command states with :func:`quiet_keeps`.
     """
 
     def __init__(
@@ -763,14 +811,12 @@ class _ConsoleStream:
 
 
 def _hold(terminal: _Terminal, console: _Console, text: str, *, out: bool) -> int:
-    """Keep one write of a quiet console: in the live log, and held unless it is chatter."""
+    """Keep one write of a quiet console: in the live log, and stderr held unless it is chatter."""
     if text:
         _before_a_line(terminal, console, text)
     if console.log is not None:
         console.log.write(text)
-    if out:
-        terminal.held_out.append(text)
-    elif not terminal.chatter:
+    if not out and not terminal.chatter:
         terminal.held_err.append(text)
     return len(text)
 

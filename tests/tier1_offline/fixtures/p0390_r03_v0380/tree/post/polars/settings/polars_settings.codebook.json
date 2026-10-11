@@ -1,0 +1,140 @@
+{
+  "codebook_version": 1,
+  "tidy_columns": [
+    "codebook_version",
+    "run_index",
+    "flag_id",
+    "provenance_code",
+    "emitted",
+    "value_kind",
+    "value_num",
+    "value_code",
+    "value_count"
+  ],
+  "flag_ids": {
+    "SET_SOLVER_STEADY": 1,
+    "SET_SOLVER_UNSTEADY": 2,
+    "SOLVER_SET_AOA": 3,
+    "SOLVER_SET_SIDESLIP": 4,
+    "SOLVER_SET_VELOCITY": 5,
+    "SOLVER_SET_MACH_NUMBER": 6,
+    "SOLVER_SET_REF_VELOCITY": 7,
+    "SOLVER_SET_REF_MACH_NUMBER": 8,
+    "SOLVER_SET_REF_AREA": 9,
+    "SOLVER_SET_REF_LENGTH": 10,
+    "SOLVER_SET_ITERATIONS": 11,
+    "SOLVER_SET_CONVERGENCE": 12,
+    "SET_MAX_PARALLEL_THREADS": 13,
+    "SOLVER_SET_FORCED_ITERATIONS": 14,
+    "SET_BOUNDARY_LAYER_TYPE": 15,
+    "SET_SOLVER_VISCOUS_COUPLING": 16,
+    "SET_VISCOUS_EXCLUDED_BOUNDARIES": 17,
+    "DELETE_VISCOUS_EXCLUDED_BOUNDARIES": 18,
+    "SET_SURFACE_ROUGHNESS": 19,
+    "SET_THIN_BOUNDARIES": 20,
+    "DELETE_THIN_BOUNDARIES": 21,
+    "CREATE_BULK_SEPARATION": 22,
+    "KUTTA_JOUKOWSKI_LIFT_FORCES": 23,
+    "PRINT_ROTOR_INDUCED_VELOCITIES": 24,
+    "SET_ADAPTIVE_FIELD_GRID_REFINEMENT": 25,
+    "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION": 26,
+    "ROTOR_INDUCED_VELOCITY_BLENDING": 27,
+    "SET_WAKE_NUMERICAL_RELAXATION": 28,
+    "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH": 29,
+    "SET_WAKE_DECAY_CONSTANT": 30,
+    "SOLVER_STABILIZATION": 31,
+    "DISABLE_SOLVER_REF_VELOCITY": 32,
+    "SET_SOLVER_MODEL": 33,
+    "VALAREZO_CRITERION": 34,
+    "SET_CROSSFLOW_SEPARATION_CP": 35,
+    "SET_WAKE_RELAXATION": 36,
+    "SET_WAKE_STREAMWISE_AGGLOMERATION": 37,
+    "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER": 38,
+    "SOLVER_VORTEX_RING_NORMALIZATION": 39,
+    "DELETE_SEPARATION": 40,
+    "CREATE_AIRFOIL_SEPARATION": 41,
+    "CREATE_AXIAL_VORTEX_SEPARATION": 42,
+    "CREATE_CYLINDRICAL_BULK_SEPARATION": 43,
+    "CREATE_STRATFORD_BULK_SEPARATION": 44,
+    "SET_AXIAL_SEPARATION_BOUNDARIES": 45,
+    "DELETE_AXIAL_SEPARATION_BOUNDARIES": 46,
+    "SET_VALAREZO_SEPARATION_BOUNDARIES": 47,
+    "DELETE_VALAREZO_SEPARATION_BOUNDARIES": 48,
+    "DELETE_VALAREZO_CRITERION_BOUNDARIES": 49,
+    "SET_CROSSFLOW_SEPARATION_BOUNDARIES": 50,
+    "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES": 51,
+    "SET_CROSSFLOW_SEPARATION_DIAMETER": 52,
+    "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC": 53,
+    "LAMINAR_SEPARATION": 54,
+    "SET_SOLVER_CONVERGENCE_ITERATIONS": 55,
+    "SOLVER_MINIMUM_CP": 56,
+    "REYNOLDS_AVERAGED_DRAG_FORCES": 57,
+    "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY": 58,
+    "SOLVER_SET_FARFIELD_LAYERS": 59,
+    "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA": 60,
+    "SET_WAKE_TERMINATION_TIME_STEPS": 61,
+    "SET_WAKE_ON_WAKE_INDUCTION": 62,
+    "ADDITIONAL_WAKE_RELAXATION_ITERATION": 63,
+    "AEROELASTIC_RBF_TYPE": 64,
+    "SET_VORTICITY_DRAG_BOUNDARIES": 65
+  },
+  "provenance_codes": {
+    "explicit": 1,
+    "default": 2,
+    "unknown": 3
+  },
+  "value_kinds": {
+    "bool": 1,
+    "int": 2,
+    "float": 3,
+    "enumerated": 4,
+    "list": 5,
+    "mapping": 6
+  },
+  "enumerations": {
+    "SET_BOUNDARY_LAYER_TYPE": [
+      "LAMINAR",
+      "TRANSITIONAL",
+      "TURBULENT"
+    ],
+    "SET_SOLVER_MODEL": [
+      "INCOMPRESSIBLE",
+      "SUBSONIC",
+      "TRANSONIC",
+      "LOW_ORDER_SUPERSONIC"
+    ],
+    "AEROELASTIC_RBF_TYPE": [
+      "WENDLAND_C2",
+      "GAUSSIAN",
+      "THIN_PLATE_SPLINE",
+      "MULTI_QUADRATIC",
+      "INV_MULTI_QUADRATIC"
+    ],
+    "SET_VISCOUS_EXCLUDED_BOUNDARIES": [
+      "all"
+    ],
+    "SET_THIN_BOUNDARIES": [
+      "all"
+    ],
+    "SET_AXIAL_SEPARATION_BOUNDARIES": [
+      "all"
+    ],
+    "SET_VALAREZO_SEPARATION_BOUNDARIES": [
+      "all"
+    ],
+    "SET_CROSSFLOW_SEPARATION_BOUNDARIES": [
+      "all"
+    ],
+    "SET_VORTICITY_DRAG_BOUNDARIES": [
+      "all"
+    ],
+    "DELETE_SEPARATION": [
+      "all"
+    ]
+  },
+  "lossy_kinds": [
+    "list",
+    "mapping"
+  ],
+  "lossy_note": "this form is LOSSY: a list-valued flag contributes its LENGTH and a mapping its entry COUNT, and nothing else; the full settings record beside the data file carries the values this form drops, which is why this form is optional and never the only copy"
+}

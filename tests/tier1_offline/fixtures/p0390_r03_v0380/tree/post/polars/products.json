@@ -1,0 +1,40 @@
+{
+ "products": {
+  "polars/P7002-V0300RE120AL+000_g01.csv": {
+   "sim_id": "7002",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7002/V0300RE120AL+000"
+   ]
+  },
+  "settings/polars_settings.csv": {
+   "kind": "settings_codebook",
+   "runs": [
+    "camp/sim_7002/V0300RE120AL+000"
+   ]
+  },
+  "settings/polars_settings.codebook.json": {
+   "kind": "settings_codebook",
+   "runs": [
+    "camp/sim_7002/V0300RE120AL+000"
+   ]
+  },
+  "polars/SUPER-7002-V0300RE120AL+sweep_g01.csv": {
+   "sim_id": "7002",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7002/V0300RE120AL+000"
+   ],
+   "group": "1",
+   "rows": 1
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<V>.json",
+ "skipped": {},
+ "provenance": {
+  "camp/sim_7002/V0300RE120AL+000": "provenance/P7002-V0300RE120AL+000.prov.json"
+ },
+ "complete": true
+}
