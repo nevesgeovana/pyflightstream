@@ -56,6 +56,14 @@ from ._vocabulary import (
     Frames,
 )
 
+# kept importable at its 0.38.0 path (release parity)
+from ._vocabulary import (
+    IGNORE_MISSING_FAMILIES_VARIABLE as IGNORE_MISSING_FAMILIES_VARIABLE,
+)
+from ._vocabulary import (
+    read_a_choice as read_a_choice,
+)
+
 #: The spelling of a pproc group in a boundary-citing cell: ``g`` and the
 #: group's number, which is the ``[groups]`` key and the ``_g<number>``
 #: of the polar table written per group. A bare number is a POSITION and

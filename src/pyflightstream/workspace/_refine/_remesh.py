@@ -65,6 +65,20 @@ from pyflightstream.workspace._refine._geometry import (
 from pyflightstream.workspace._refine._geometry import (
     SHARED_LAYERS as SHARED_LAYERS,
 )
+
+# kept importable at its 0.38.0 path (release parity)
+from pyflightstream.workspace._refine._geometry import (
+    dihedral_degrees as dihedral_degrees,
+)
+from pyflightstream.workspace._refine._geometry import (
+    edge_faces as edge_faces,
+)
+from pyflightstream.workspace._refine._geometry import (
+    order_like as order_like,
+)
+from pyflightstream.workspace._refine._geometry import (
+    orient_like as orient_like,
+)
 from pyflightstream.workspace._refine._obj import ObjMesh
 from pyflightstream.workspace._refine._remesh_group import (
     BOUNDARY as BOUNDARY,

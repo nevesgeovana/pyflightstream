@@ -31,6 +31,9 @@ from typing import Any
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.workspace import JOB_TAG
 
+# kept importable at its 0.38.0 path (release parity)
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP as SIMS_IDS_HELP
+
 #: What joins the simulation id and the index: ``2006_3``.
 ALIAS_JOINER = "_"
 
