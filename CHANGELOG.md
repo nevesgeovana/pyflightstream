@@ -146,8 +146,9 @@ FlightStream versions.
 
 ### Internal
 
-- mypy recount 2026-10-10: 159 errors in 16 of 294 modules; the one new module of FR-436,
-  `workspace/_settings_file.py`, is clean and not exempted (RPT-029).
+- mypy recount 2026-10-11: 159 errors in 16 of 296 modules; the three new modules of 0.39.0,
+  `workspace/_settings_file.py` and the two `workspace/_refine/_remesh_*` modules, are clean and not
+  exempted (RPT-029).
 - The registered findings of the 0.37.0 and 0.38.0 reviews are fixed, each with a test or
   a named page, or closed with a justification in the release's rigor register (NFR-45).
   The help of the simulation ids lives beside the one reader of `--sims`; the boundaries
