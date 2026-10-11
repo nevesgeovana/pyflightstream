@@ -305,13 +305,13 @@ def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
     means = [sum(x) / len(x) for x in per_node.values()]
     entry = _record(level)["families"]["C"]
     if how == "band":
-        assert set(entry) == {"method", "band", "faces"}, "FR-425 R3's record is unchanged"
+        assert entry["method"] == "unchanged" and {"band", "faces"} <= set(entry)
     else:
         assert entry["method"] == ("remesh" if how == "stated" else "rebuilt_whole")
-        taken = entry["shared_edge_target_m"]
-        assert taken["min"] == pytest.approx(min(means), rel=1e-6)
-        assert taken["max"] == pytest.approx(max(means), rel=1e-6)
-        assert taken["mean"] == pytest.approx(sum(means) / len(means), rel=1e-9)
+    taken = entry["shared_edge_target_m"]
+    assert taken["min"] == pytest.approx(min(means), rel=1e-6)
+    assert taken["max"] == pytest.approx(max(means), rel=1e-6)
+    assert taken["mean"] == pytest.approx(sum(means) / len(means), rel=1e-9)
     gate = next(item for item in level.audit.gates if item.name == "G1")
     assert gate.verdict == "pass"
     assert gate.values["faces_of_zero_area"] == 0

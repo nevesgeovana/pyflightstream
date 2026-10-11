@@ -813,7 +813,7 @@ Its `families` entry holds, per family:
   table stated `factor = 1` and `method = "remesh"`, with one warning naming it;
 - a family the refinement does not change: `method` `"copied"`, or
   `"unchanged"` with the face count of its two-layer `band` when a grid's
-  nodes on a shared curve changed.
+  nodes on a shared curve changed, and `shared_edge_target_m` as above.
 
 A key may be added to `refine.json` or `audit.json` without changing
 `schema_version`; a key is removed or changes type only with a new one.
