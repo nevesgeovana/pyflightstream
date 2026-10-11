@@ -204,7 +204,7 @@ FlightStream versions.
   naming the family and its face count, and records in `refine.json` `"method":
   "rebuilt_whole"`, `"reason": "band_covers_family"`, `"band"` and `"faces"`.
 - **A family rebuilt at factor 1 beside a refined side takes the spacing of the shared
-  edge** (FR-432). The target size of the rebuilt family along the shared curve is the mean
+  edge** (FR-432, RPT-164). The target size of the rebuilt family along the shared curve is the mean
   length of the new shared edges at each node, interpolated back to the family's own
   target over two face layers, so the edges crossing from that curve no longer stretch to
   several times the new shared edges and no face falls under the zero-area threshold of

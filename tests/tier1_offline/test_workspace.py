@@ -152,7 +152,7 @@ def test_the_manifest_record_refuses_an_unknown_field():
 
 
 def test_the_terminal_status_set_is_exactly_the_eleven_it_declares():
-    """FR-46: a tenth status cannot be introduced silently.
+    """FR-46: an eleventh status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
     is what every other test does and none of it notices an addition.

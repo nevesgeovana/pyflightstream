@@ -160,7 +160,8 @@ class RunStatus(enum.StrEnum):
     #: an unsteady run that ended its time loop keeps, and which a steady point
     #: whose evidence does not show the counter at the limit keeps too: this
     #: value needs that evidence and is never inferred. The record states the
-    #: requested limit and the iterations reached in ``residual_note``. Every
+    #: requested limit in ``iterations_requested`` beside the ``iterations``
+    #: reached, and ``residual_note`` words both. Every
     #: reader that treats COMPLETED_MAX_ITER as an ended run that is not a
     #: failure treats this value the same. A manifest holding it is refused by
     #: a 0.38.0 reader, which the migration note states.

@@ -81,7 +81,7 @@ command. Every boolean a file can set has a `--no-` form on each command that
 takes the option, which sets it to false for that command whatever the files
 say: `--no-accept-unregistered-build`, `--no-check-frozen`, `--no-local`,
 `--no-pproc-warnings` and `--no-ignore-missing-families`. Typing an option and
-its `--no-` form on one command is refused by the parser.
+its `--no-` form on one command is refused by the parser; the pair `--no-ignore-missing-families` and `--ignore-missing-families WORD` is the exception: the command, not the parser, refuses it (exit 2, naming both options).
 
 ## The console level
 

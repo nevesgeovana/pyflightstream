@@ -70,7 +70,10 @@ def add_mesh_parsers(subparsers: Any) -> None:
     audit.add_argument(
         "--out",
         metavar="FILE",
-        help="also write the figures as CSV, one row per family and figure",
+        help=(
+            "write the figures as CSV, one row per family and figure; "
+            "the audit JSON is always written beside the OBJ"
+        ),
     )
     audit.add_argument(
         "--csv",
