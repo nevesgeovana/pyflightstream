@@ -89,6 +89,8 @@
 \item \fl{--batch N} plan the simulations as N solver jobs; steady or unsteady polars, never both in a job; not with \fl{--polar-sweep}
 \item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--verbose} full warnings (all detail also in \texttt{logs/activity.log})
+\item \fl{--log-level LEVEL} console quiet, normal or verbose (default: \texttt{pyfs.toml} [log] console)
+\item \fl{--no-accept-unregistered-build} refuse it, whatever \texttt{pyfs.toml} or a build entry says
 \end{flags}
 
 \stage{3. RUN}
@@ -109,6 +111,8 @@
 \item \fl{--workspace}, \fl{--name}, \fl{--fs-version}, \fl{--fs-exe}, \fl{--recipe}, \fl{--point-name}, \fl{--ignore-missing-families}, \fl{--no-ignore-missing-families}, \fl{--accept-unregistered-build}: as in \cmd{plan}
 \item \fl{--pproc-warnings} print grouped post-processing warnings
 \item \fl{--verbose} full warnings and one line per repeated item
+\item \fl{--log-level LEVEL} console quiet, normal or verbose, as in \cmd{plan}
+\item \fl{--no-local}, \fl{--no-accept-unregistered-build}, \fl{--no-pproc-warnings} turn off what \texttt{pyfs.toml} turns on
 \end{flags}
 
 \stage{4. COLLECT (CLUSTER OR INTERRUPTED RUNS)}
@@ -124,6 +128,7 @@
 \item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--check-frozen} REFUSE (not warn) averages touched by a frozen solve or an unread log block
 \item \fl{--workspace}, \fl{--runs NAME}, \fl{--pproc-warnings}, \fl{--verbose}
+\item \fl{--log-level LEVEL}, \fl{--no-check-frozen}, \fl{--no-pproc-warnings}: as in \cmd{run}
 \end{flags}
 Tip: \texttt{nohup pyfs-matrix collect --watch > logs/collect.out 2>\&1 \&}
 \sub{status}{one row per polar: SIM, POLAR, SWEEP, POINTS (recorded/planned), MATRIX, STATUS (one word, or the count of each); a point no record carries reads \texttt{planned}; reads only, writes nothing}
@@ -174,6 +179,7 @@ These queries write nothing, take no lock and never ask the scheduler.
 \item \fl{--archive} keep the replaced products under \fl{archive/} (default: overwrite in place)
 \item \fl{--force-overwrite} DESTROY products instead of archiving (asks; \fl{--yes} answers it)
 \item \fl{--workspace}, \fl{--pproc-warnings}, \fl{--verbose}
+\item \fl{--log-level LEVEL}, \fl{--no-check-frozen}, \fl{--no-local}, \fl{--no-pproc-warnings}: as in \cmd{run}
 \end{flags}
 
 \stage{6. SYNC WORKSPACES (E.G. CLUSTER TO WINDOWS)}

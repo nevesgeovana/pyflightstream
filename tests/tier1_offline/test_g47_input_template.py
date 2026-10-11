@@ -228,10 +228,15 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
     claim(registry, "resolve_build")
     overlay = inputs / LOCAL_EXECUTABLES_FILE
     if overlay.is_file():
-        for build in tomllib.loads(overlay.read_text(encoding="utf-8")):
-            assert resolve_build(inputs, build).fs_exe.as_posix() == str(
-                tomllib.loads(overlay.read_text(encoding="utf-8"))[build]
-            ), f"the overlay's path for {build} is not the one resolve_build returns"
+        for build, entry in tomllib.loads(overlay.read_text(encoding="utf-8")).items():
+            # 0.39.0 (FR-436 R7): a table entry carries its path and may accept its build.
+            stated = entry if isinstance(entry, str) else entry["path"]
+            resolved = resolve_build(inputs, build)
+            assert resolved.fs_exe.as_posix() == stated, (
+                f"the overlay's path for {build} is not the one resolve_build returns"
+            )
+            accepts = isinstance(entry, dict) and entry.get("accept_unregistered_build", False)
+            assert resolved.accept_unregistered_build is accepts
         claim(overlay, "resolve_build")
     for path in sorted((inputs / "hpc").glob("*.toml")):
         profile = read_hpc_profile(path)

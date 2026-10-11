@@ -97,6 +97,11 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
 )
 from pyflightstream.workspace._batches import GroupingReceipt
+from pyflightstream.workspace._settings_file import (
+    ENTRY_ACCEPTANCE_SOURCE,
+    TYPED_ACCEPTANCE_SOURCE,
+    invocation_sources,
+)
 from pyflightstream.workspace.costs import priced_rows
 from pyflightstream.workspace.naming import (
     PointName,
@@ -994,6 +999,7 @@ def plan_campaign(
     accept_unregistered_build: bool = False,
     setup_inspections: Sequence[dict[str, object]] | None = None,
     inflow_fft: bool = False,
+    accepted_builds: Collection[str] = (),
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -1073,6 +1079,12 @@ def plan_campaign(
     inflow_fft : bool
         With True, each quasi-steady wheel point in a custom inflow also
         carries the harmonic content of that inflow. Default False.
+    accepted_builds : collection of str
+        The installations whose own entry of ``inputs/executables.local.toml``
+        accepts their installed build (FR-436 R7), a build id or ``""`` for
+        the campaign's own. ``plan.json`` then states the acceptance, the
+        builds it holds for and its file, as the run's records will. Default
+        empty.
 
     Returns
     -------
@@ -1178,6 +1190,9 @@ def plan_campaign(
             # 0.21.0: plan launches no solver, so the flag changes no check here;
             # it is recorded so the plan rehearses the command line run executes.
             "accept_unregistered_build": accept_unregistered_build,
+            # FR-436 R7, R8: what the workspace files gave this plan, and where
+            # from; nothing where no file gave anything.
+            **_settings_provenance(campaign, accept_unregistered_build, accepted_builds),
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
         if campaign.matrix_stem:
@@ -1193,6 +1208,31 @@ def plan_campaign(
         build_groups=groups,
         setup_inspections=list(setup_inspections or ()),
     )
+
+
+def _settings_provenance(
+    campaign: Campaign, accepted: bool, accepted_builds: Collection[str]
+) -> dict[str, object]:
+    """Return what ``plan.json`` adds where a workspace file stated a value (FR-436 R7, R8).
+
+    ``settings_sources`` names each value this invocation took from ``pyfs.toml``
+    or ``pyfs.local.toml`` and its file; an acceptance stated on a build's own
+    entry makes ``accept_unregistered_build`` true, lists the builds it holds
+    for under ``accepted_builds`` and names ``executables.local.toml``; an
+    acceptance typed is named ``typed`` beside another value taken from a file.
+    Empty where no file stated anything, so such a plan is written as before.
+    """
+    sources = invocation_sources()
+    extra: dict[str, object] = {}
+    if accepted and sources and "accept_unregistered_build" not in sources:
+        sources["accept_unregistered_build"] = TYPED_ACCEPTANCE_SOURCE
+    if accepted_builds and not accepted:
+        extra["accept_unregistered_build"] = True
+        extra["accepted_builds"] = sorted(key or campaign.fs_version for key in accepted_builds)
+        sources["accept_unregistered_build"] = ENTRY_ACCEPTANCE_SOURCE
+    if sources:
+        extra["settings_sources"] = sources
+    return extra
 
 
 def _plan_case_error(

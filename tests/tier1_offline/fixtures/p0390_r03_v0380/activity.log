@@ -1,0 +1,49 @@
+<TIME> [continuation] started: <ROOT>
+{"run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [continuation] finished: 
+{"duration_s": <S>, "outcomes": {}, "run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [continuation] started: <ROOT>
+{"run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [continuation] finished: 
+{"duration_s": <S>, "outcomes": {}, "run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [run] started: <ROOT>
+<TIME> [solver] started: <TEMP>/pyfs-preflight-<TMP>
+<TIME> [solver] finished: 
+{"duration_s": <S>, "outcomes": {}}
+<TIME> [progress] message:              _______
+<TIME> [progress] message:                 |
+<TIME> [progress] message:    --(+)--(+)--(_)--(+)--(+)--   pyflightstream <V> campaign camp, 1 point(s) to run
+<TIME> [preparation] started: <ROOT>
+<TIME> [preparation] finished: 
+{"duration_s": <S>, "outcomes": {}}
+<TIME> [continuation] started: <ROOT>
+{"run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [continuation] finished: 
+{"duration_s": <S>, "outcomes": {}, "run_id": "camp/sim_7002/V0300RE120AL+000"}
+<TIME> [progress] message:   -> camp/sim_7002/V0300RE120AL+000  [steady]  building and running  (1 of 1)
+<TIME> [solver] started: <ROOT>/sims/sim_7002/datapoints/DP-V0300RE120AL+000
+<TIME> [solver] finished: 
+{"duration_s": <S>, "outcomes": {}}
+<TIME> [export] started: <ROOT>
+{"sim_id": "7002", "datapoint": "V0300RE120AL+000"}
+<TIME> [export] finished: 
+{"duration_s": <S>, "outcomes": {}, "sim_id": "7002", "datapoint": "V0300RE120AL+000"}
+<TIME> [progress] message:      camp/sim_7002/V0300RE120AL+000  CONVERGED
+<TIME> [progress] message:   +-----------+--------+
+<TIME> [progress] message:   | status    | points |
+<TIME> [progress] message:   +-----------+--------+
+<TIME> [progress] message:   | CONVERGED |      1 |
+<TIME> [progress] message:   +-----------+--------+
+<TIME> [progress] message:   1 point(s) in <CLOCK>
+<TIME> [progress] message: row 7002: all 1 executed
+<TIME> [post] started: <ROOT>
+<TIME> [post] finished: 
+{"duration_s": <S>, "outcomes": {}}
+<TIME> [run] finished: 
+{"duration_s": <S>, "outcomes": {"CONVERGED": 1}}
+<TIME> [post] started: <ROOT>
+<TIME> [post] finished: 
+{"duration_s": <S>, "outcomes": {}}
+<TIME> [collection] started: <ROOT>
+<TIME> [collection] finished: 
+{"duration_s": <S>, "outcomes": {}}

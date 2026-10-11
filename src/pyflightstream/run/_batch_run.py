@@ -68,6 +68,7 @@ from pyflightstream.run._grouped import (
     read_receipt,
     refuse_grouped_options,
 )
+from pyflightstream.run._identity import entry_accepted_builds
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
 from pyflightstream.run._plan import plan_campaign
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
@@ -656,6 +657,9 @@ def _run_receipt(
             builds=builds,
             name_from=kw.get("name_from"),
             accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
+            accepted_builds=entry_accepted_builds(
+                resolved, workspace, _default_version(kw), kw.get("fs_exe")
+            ),
         )
     except CampaignErrors as error:
         error.records = _launch_all(context, list(error.records), inners)

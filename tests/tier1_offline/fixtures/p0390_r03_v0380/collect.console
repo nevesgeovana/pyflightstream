@@ -1,0 +1,25 @@
+exit 0
+--- stdout
+collected 0, failed 0, outstanding 0, unknown 0
+--- stderr
+pyfs-matrix collect
+  purpose: collect a submitted job's outputs when they land, then post (FR-99)
+  workspace: <ROOT>
+  live log: logs/collect-<STAMP>.log
+
+[collection] started: <ROOT>
+[collection] finished
+
+#################################################################################
+#                                                                               #
+#                                               .-"""""""-.                     #
+# Smooth run. Shades on                       .'           '.                   #
+#                                            /  ___     ___  /                  #
+#                                           |==(___)===(___)==|                 #
+#                                           |                 |                 #
+#                                            /   '._____.'   /                  #
+# geoversegoddess sees you                    '.           .'                   #
+#                                               '-._____.-'                     #
+#                                                                               #
+#################################################################################
+

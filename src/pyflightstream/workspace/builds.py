@@ -47,7 +47,16 @@ LOCAL_EXECUTABLES_FILE = "executables.local.toml"
 #: rather than ignored: a silently dropped ``verison`` leaves a registry
 #: that looks correct and a run emitted under the campaign default, and
 #: the two look identical from the manifest (PFS-2009.05).
-EXECUTABLE_ENTRY_KEYS = ("path", "version")
+#:
+#: ``accept_unregistered_build`` is the third since 0.39.0 (FR-436 R7), and
+#: it is read in this machine's overlay ONLY: there it accepts the installed
+#: build of that entry, the one this machine has, while in the committed
+#: registry it would carry one machine's acceptance to every machine, so it is
+#: refused there naming the key and the file.
+EXECUTABLE_ENTRY_KEYS = ("path", "version", "accept_unregistered_build")
+
+#: The entry key that accepts an installed build other than the registered one.
+_ACCEPT_KEY = EXECUTABLE_ENTRY_KEYS[2]
 
 
 @dataclass(frozen=True)
@@ -72,10 +81,17 @@ class RegisteredBuild:
         is the rule :class:`pyflightstream.run.SolverBuild` exists to
         state: a build id is a key of this registry, and which command
         database a build carries is a fact only its owner knows.
+    accept_unregistered_build : bool
+        The entry of this machine's overlay accepts the build installed at
+        ``fs_exe`` even where it is not the one registered for its version
+        (FR-436 R7); the run warns and every record says so, naming
+        ``inputs/executables.local.toml``. False by default, and for every
+        entry of the committed registry, which may not state it.
     """
 
     fs_exe: Path
     fs_version: str | None
+    accept_unregistered_build: bool = False
 
 
 def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -> None:
@@ -172,8 +188,9 @@ def resolve_build(
         lists the registered build ids and the override mode); an entry
         that is neither a path string nor a table; a table with no
         ``path``; a table carrying a key outside
-        :data:`EXECUTABLE_ENTRY_KEYS`; or a declared version the version
-        registry does not carry.
+        :data:`EXECUTABLE_ENTRY_KEYS`; ``accept_unregistered_build`` stated
+        in the committed registry, or as anything but true or false (FR-436
+        R7); or a declared version the version registry does not carry.
 
     Examples
     --------
@@ -194,6 +211,7 @@ def resolve_build(
             "executable is always explicit input, never guessed."
         )
     table = load_toml(registry_path, "executables")
+    _refuse_committed_acceptance(table, registry_path)
     overlay_path = registry_path.with_name(LOCAL_EXECUTABLES_FILE)
     #: Which file each build id's entry came from, so a refusal about an
     #: entry names the file the user has to edit (a review of 2026-09-08
@@ -265,9 +283,12 @@ def resolve_build(
             f'"{build_id}" = {{ path = "C:/path/to/FlightStream.exe" }}. The '
             "executable is always explicit input, never guessed."
         )
+    accepted = _entry_acceptance(entry, build_id, registry_path)
     version = entry.get("version")
     if version is None:
-        return RegisteredBuild(fs_exe=Path(path_value), fs_version=None)
+        return RegisteredBuild(
+            fs_exe=Path(path_value), fs_version=None, accept_unregistered_build=accepted
+        )
     if not isinstance(version, str):
         raise InputArtifactError(
             f"the registry entry for build {build_id!r} in {entry_path} declares "
@@ -276,7 +297,47 @@ def resolve_build(
             "TOML float and loses the three-digit form the canonical identifier is."
         )
     _refuse_declared_version(version, build_id, registry_path)
-    return RegisteredBuild(fs_exe=Path(path_value), fs_version=version)
+    return RegisteredBuild(
+        fs_exe=Path(path_value), fs_version=version, accept_unregistered_build=accepted
+    )
+
+
+def _refuse_committed_acceptance(table: dict[str, object], registry_path: Path) -> None:
+    """Refuse ``accept_unregistered_build`` on ANY entry of the committed registry (FR-436 R7).
+
+    Checked on every entry once the registry is read, not only on the build a
+    row resolves: the committed registry is the same file on every machine, and
+    an acceptance there would accept on every machine a build only one of them
+    has installed, so it is refused naming the key and the file whichever build
+    this command asks for.
+    """
+    for build_id, committed in table.items():
+        if isinstance(committed, dict) and _ACCEPT_KEY in committed:
+            raise InputArtifactError(
+                f"the registry entry for build {build_id!r} in {registry_path} carries "
+                f"{_ACCEPT_KEY}, which the committed registry may not state: it would "
+                "accept on every machine a build only one of them has installed. Write it "
+                f"on this build's entry in {registry_path.with_name(LOCAL_EXECUTABLES_FILE)}, "
+                "this machine's overlay, or pass accept_unregistered_build (CLI: "
+                "--accept-unregistered-build)."
+            )
+
+
+def _entry_acceptance(entry: dict[str, object], build_id: str, registry_path: Path) -> bool:
+    """Return whether a build entry of this machine's overlay accepts its installed build (R7).
+
+    The committed registry was already refused any acceptance by
+    :func:`_refuse_committed_acceptance`. A value that is not true or false is
+    refused as well.
+    """
+    value = entry.get(_ACCEPT_KEY, False)
+    if not isinstance(value, bool):
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in "
+            f"{registry_path.with_name(LOCAL_EXECUTABLES_FILE)} states {_ACCEPT_KEY} = "
+            f"{value!r}, and it takes true or false."
+        )
+    return value
 
 
 def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | None = None) -> Path:

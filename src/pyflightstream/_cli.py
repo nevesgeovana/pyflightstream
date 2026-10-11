@@ -26,6 +26,7 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import TextIO
 
+import pyflightstream._progress as _progress
 import pyflightstream._signature as _signature
 from pyflightstream._console import warning_text
 from pyflightstream._errors import PyflightstreamWarning
@@ -34,6 +35,15 @@ from pyflightstream._progress import command_terminal
 _ACTIVE: ContextVar[bool] = ContextVar("pyflightstream_cli_active", default=False)
 _POST_WARNINGS: ContextVar[bool | None] = ContextVar(
     "pyflightstream_cli_post_warnings", default=None
+)
+#: Python's own warning format, held for the length of one invocation so a
+#: console level chosen after the parse can put it back (FR-436 R6).
+_STANDARD_FORMAT: ContextVar[Callable[..., str] | None] = ContextVar(
+    "pyflightstream_cli_standard_format", default=None
+)
+#: What restores each value :func:`for_this_invocation` set, in the order set.
+_SCOPED: ContextVar[list[Callable[[], None]] | None] = ContextVar(
+    "pyflightstream_cli_scoped", default=None
 )
 #: Whether this invocation ran a post (the ``post`` subcommand or the post a
 #: ``collect`` runs); a success that did is signed with the koala.
@@ -56,6 +66,67 @@ def note_post_ran() -> None:
     posted = _POSTED.get()
     if posted is not None:
         posted[0] = True
+
+
+def set_post_warning_policy(enabled: bool) -> None:
+    """Set whether this invocation prints grouped post-processing warnings (FR-436 R5).
+
+    Read from the raw command line before the parse; a workspace settings file
+    or ``--no-pproc-warnings`` decides after it. Outside a console command it
+    does nothing.
+
+    Parameters
+    ----------
+    enabled : bool
+        The resolved choice.
+    """
+    if _ACTIVE.get():
+        _POST_WARNINGS.set(enabled)
+
+
+def set_console_level(level: str) -> None:
+    """Set the console level of this invocation, chosen after the parse (FR-436 R6).
+
+    ``verbose`` prints warnings in Python's full format, the other two levels in
+    the package's short one; :func:`pyflightstream._progress.set_console_level`
+    sets what the console shows. Outside a console command it does nothing.
+
+    Parameters
+    ----------
+    level : str
+        One of :data:`pyflightstream._console.CONSOLE_LEVELS`.
+    """
+    standard = _STANDARD_FORMAT.get()
+    if standard is None:
+        return
+    warnings.formatwarning = standard if level == "verbose" else _short_warnings(standard)
+    _progress.set_console_level(level)
+
+
+def for_this_invocation[T](variable: ContextVar[T], value: T) -> None:
+    """Set ``variable`` for the rest of this console command, restored when it ends.
+
+    Outside a console command the variable is set plainly, as a Python caller
+    would set it.
+
+    Parameters
+    ----------
+    variable : contextvars.ContextVar
+        The variable, owned by the layer that reads it.
+    value : object
+        Its value for this invocation.
+    """
+    token = variable.set(value)
+    scoped = _SCOPED.get()
+    if scoped is not None:
+        scoped.append(lambda: variable.reset(token))
+
+
+def _close_invocation(scoped: list[Callable[[], None]], show: Callable[..., None]) -> None:
+    """Restore what this invocation set: its scoped variables, then the warning printer."""
+    for restore in reversed(scoped):
+        restore()
+    warnings.showwarning = show
 
 
 def _signature_text(outcome: str) -> str:
@@ -137,11 +208,16 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         # Python caller's warnings, before and after, are Python's own (L1).
         verbose = "--verbose" in argv
         standard = warnings.formatwarning
+        format_token = _STANDARD_FORMAT.set(standard)
+        scoped: list[Callable[[], None]] = []
+        scoped_token = _SCOPED.set(scoped)
+        show = warnings.showwarning
         if not verbose:
             warnings.formatwarning = _short_warnings(standard)
         outcome = "failed"
+        terminal = None
         try:
-            with command_terminal(verbose=verbose):
+            with command_terminal(verbose=verbose) as terminal:
                 result = function(*args, **kwargs)
             outcome = "success" if result is None or result == 0 else "failed"
             return result
@@ -160,9 +236,14 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             raise
         finally:
             warnings.formatwarning = standard
+            _close_invocation(scoped, show)
+            _SCOPED.reset(scoped_token)
+            _STANDARD_FORMAT.reset(format_token)
             _POSTED.reset(posted_token)
             _POST_WARNINGS.reset(warning_token)
             _ACTIVE.reset(token)
+            # FR-436 R6: a quiet console says its errors and final line, then the signature.
+            _progress.release_quiet(terminal, failed=outcome in ("failed", "cancelled"))
             if outcome == "success" and posted[0]:
                 outcome = "post"
             _sign(outcome)

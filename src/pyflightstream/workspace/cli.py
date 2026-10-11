@@ -74,6 +74,11 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace import actuator_profiles as _profiles
 from pyflightstream.workspace import fields as _fields
+from pyflightstream.workspace._settings_file import (
+    console_only,
+    declare_invocation,
+    read_workspace_settings,
+)
 
 __all__ = [
     "main",
@@ -414,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+    _take_the_console_level(args)
     # THE CONSOLE CONTRACT (0.32.0, FR-200, FR-201): a titled opening block
     # and the warnings at the end, as every pyfs-matrix command.
     group = getattr(args, f"{args.subcommand}_command", None)
@@ -433,6 +439,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.subcommand == "profile":
             return _cmd_profile(args)
         return _cmd_init(args)
+
+
+def _take_the_console_level(args: argparse.Namespace) -> None:
+    """Read the workspace settings files and take their console level, nothing else (FR-436 R9).
+
+    The files are read and refused as every ``pyfs-matrix`` command reads
+    them, before anything is written; no key of ``[defaults]`` reaches a
+    command of this program.
+    """
+    root = getattr(args, "workspace", None) or getattr(args, "root", None) or "."
+    try:
+        taken = console_only(read_workspace_settings(root))
+    except InputArtifactError as error:
+        print(f"workspace settings refused: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
+    declare_invocation(taken, verbose=taken.console == "verbose")
 
 
 def _cmd_init(args: argparse.Namespace) -> int:

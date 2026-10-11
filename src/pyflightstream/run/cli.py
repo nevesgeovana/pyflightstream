@@ -109,7 +109,7 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
-from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, resume_hint
+from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, parsed, resume_hint
 from pyflightstream.run._cli_print import (
     _print_delete_sims,
     _print_free_space,
@@ -259,7 +259,8 @@ def main(argv: list[str] | None = None) -> int:
         recipe, and the code the chosen subcommand returns otherwise.
     """
     parser = _build_parser()
-    args = parser.parse_args(_storage_flag_form(argv))
+    # FR-436: what the command line does not state, the workspace files may.
+    args = parsed(parser, _storage_flag_form(argv))
     # THE CONSOLE CONTRACT (0.32.0, FR-200 to FR-204): a titled opening block,
     # the warnings at the end, a live log for a long command. `plan` keeps the
     # header and the warnings block of 0.31.0, after its header.
@@ -731,21 +732,18 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 def _cmd_post(args: argparse.Namespace) -> int:
     """Rebuild the products from the manifest alone, after the additional post when asked."""
     from pyflightstream.workspace import post_stages
+    from pyflightstream.workspace._settings_file import typed_value
 
     # FLAGS THAT ONLY MEAN SOMETHING TO THE ADDITIONAL POST ARE REFUSED WITHOUT
     # IT, in the form `--yes` is refused without `--force-overwrite`: accepted and
     # ignored, `post --fs-exe X` would read as though the rebuild ran something.
-    idle = [
+    # Only what the COMMAND LINE typed is judged (FR-436 R2): a value a workspace
+    # settings file gave is left unused by a rebuild that does not take it.
+    if idle := [
         flag
-        for flag, value in (
-            ("--fs-version", args.fs_version),
-            ("--fs-exe", args.fs_exe),
-            ("--local", args.local),
-            ("--recipe", args.recipe),
-        )
-        if value and not args.additional_pproc
-    ]
-    if idle:
+        for flag in ("--fs-version", "--fs-exe", "--local", "--recipe")
+        if typed_value(args, flag) and not args.additional_pproc
+    ]:
         print(
             f"{', '.join(idle)} only mean something to --additional-pproc, which reopens the "
             "saved simulations; the rebuild of the products launches nothing. Add "
@@ -833,7 +831,13 @@ def _cmd_post(args: argparse.Namespace) -> int:
                     sims_of[matrix] = sorted(chosen & held)
             matrices = [matrix for matrix in matrices if matrix in sims_of]
         if getattr(args, "diagnostics", False):
-            if args.additional_pproc or args.force_overwrite or args.yes or args.check_frozen:
+            # A --check-frozen a settings file gave is left unused here (FR-436 R2).
+            if (
+                args.additional_pproc
+                or args.force_overwrite
+                or args.yes
+                or typed_value(args, "--check-frozen")
+            ):
                 print(
                     "--diagnostics cannot be combined with post mutation or frozen checks",
                     file=sys.stderr,
