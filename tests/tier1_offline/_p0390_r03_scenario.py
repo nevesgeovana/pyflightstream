@@ -1,4 +1,4 @@
-"""The synthetic workspace of P0390-R03 (FR-436), and its R10 scenario.
+"""The synthetic workspace of P0390-R03 (the workspace settings files), and its R10 scenario.
 
 Data and functions only, no test: ``test_p0390_r03.py`` builds every workspace
 through :func:`make_workspace`, and the R10 byte comparison runs
@@ -189,6 +189,11 @@ def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
     which differs only because that file names the workspace's own path; it reads
     ``<SHA:path>``, naming that file, whose own bytes are compared on their own.
     """
+    text = text.replace("\r\n", "\n")
+    # The stand-in executable's digest names a machine (NFR-31): it is replaced, not kept.
+    text = re.sub(
+        r'"((?:pyfs:)?(?:fs_exe|executable)_sha256)": "[0-9a-f]{64}"', r'"\1": "<EXE-SHA>"', text
+    )
     for digest, name in (digests or {}).items():
         text = text.replace(digest, f"<SHA:{name}>")
     text = text.replace(pyflightstream.__version__, "<V>")

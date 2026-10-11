@@ -75,7 +75,7 @@
    "pyfs:version_reported": "26.1",
    "pyfs:build": "7012026",
    "pyfs:executable": "<PYTHON>",
-   "pyfs:executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb"
+   "pyfs:executable_sha256": "<EXE-SHA>"
   }
  },
  "used": {

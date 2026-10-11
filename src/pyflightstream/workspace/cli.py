@@ -493,7 +493,7 @@ def _settings_or_refusal(root: str | Path) -> WorkspaceSettings:
 # --- the command line over the settings files (FR-436 R11) --------------------------
 
 
-class Withheld:
+class _Withheld:
     """The marker an option holds after the parse when the command line did not state it.
 
     A repeatable option copies its default before appending to it, so a copy of
@@ -509,7 +509,7 @@ class Withheld:
 
 
 #: The one marker :func:`withhold_defaults` installs.
-WITHHELD = Withheld()
+WITHHELD = _Withheld()
 
 #: The console options, resolved with ``[log]`` rather than with ``[defaults]``.
 _CONSOLE_OPTIONS = ("log_level", "verbose", "pproc_warnings")
