@@ -16,7 +16,9 @@ The order, from the source to the level folder:
    shares nodes with a grid refined before it is remeshed (FR-425 R1);
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
    neighbour is rebuilt on them (FR-425 R2), an unchanged one is remeshed at
-   factor 1 in a band of two face layers (FR-425 R3);
+   factor 1 in a band of two face layers (FR-425 R3), or whole when the band
+   would hold every face of it (FR-431); a family remeshed at factor 1 takes,
+   along and near that curve, the length of the new shared edges (FR-432);
 5. remesh the other families, together where they touch (FR-424 R8); a
    body refined along and around its axis is remeshed in its stretched space
    (FR-428), together only with bodies stretched alike, and its curve with
@@ -51,7 +53,7 @@ import numpy
 from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
@@ -119,6 +121,10 @@ class _Work:
     report: dict[str, dict[str, Any]] = field(default_factory=dict)
     parts: dict[str, tuple[Points, dict[str, Faces], Points]] = field(default_factory=dict)
     conform: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
+    # FR-432: the entries of conform whose grid is a refined side (not a periodic cut's)
+    shared: dict[str, list[tuple[set[int], Points]]] = field(default_factory=dict)
+    # FR-431: the unchanged neighbours a band would have covered whole, and their record
+    rebuilt: dict[str, dict[str, Any]] = field(default_factory=dict)
     bands: dict[str, str] = field(default_factory=dict)
     cuts: list[_periodic.CutPair] = field(default_factory=list)
     periodic: dict[str, Any] | None = None
@@ -429,6 +435,7 @@ def _refine_grids(work: _Work) -> None:
             if new is None or _unchanged_curve(work, old, new):
                 continue
             work.conform.setdefault(other, []).append((old, new))
+            work.shared.setdefault(other, []).append((old, new))
             interfaces[other] = f"{len(old)} -> {len(new)} nodes"
         if interfaces:
             info["interfaces"] = interfaces
@@ -476,11 +483,19 @@ def _unchanged_curve(work: _Work, old: set[int], new: Points) -> bool:
 
 
 def _bands(work: _Work) -> None:
-    """Cut a band of face layers out of each unchanged neighbour whose curve changed (FR-425 R3)."""
+    """Cut a band of face layers out of each unchanged neighbour whose curve changed (FR-425 R3).
+
+    A band that would hold every face of the family leaves no remainder: the
+    family is rebuilt whole at factor 1 instead, as if stated ``factor = 1``,
+    ``method = "remesh"``, with one warning and its record (FR-431).
+    """
     for name in [n for n in work.names if n in work.conform and n not in work.request.specs]:
         seed = set().union(*(old for old, _ in work.conform[name]))
         faces = work.mesh.families[name]
         band = _band(faces, seed, _geometry.BAND_LAYERS)
+        if len(band) == len(faces):
+            _rebuild_whole(work, name, len(band))
+            continue
         bname = name + BAND_SUFFIX
         families: dict[str, Faces] = {}
         for n, fs in work.mesh.families.items():
@@ -497,12 +512,36 @@ def _bands(work: _Work) -> None:
         work.request.specs[bname] = FamilySpec(factor=1.0, method="remesh")
         work.remesh.append(bname)
         work.conform[bname] = work.conform.pop(name)
+        if name in work.shared:
+            work.shared[bname] = work.shared.pop(name)
         work.bands[bname] = name
         work.report[name] = {
             "method": "unchanged",
             "band": len(band),
             "faces": len(work.original[name]),
         }
+
+
+def _rebuild_whole(work: _Work, name: str, band: int) -> None:
+    """Remesh a neighbour the band covers whole at factor 1, warn and record it (FR-431)."""
+    work.request.specs[name] = FamilySpec(factor=1.0, method="remesh")
+    work.remesh.append(name)
+    work.remesh.sort(key=work.names.index)
+    faces = len(work.original[name])
+    work.rebuilt[name] = {
+        "method": "rebuilt_whole",
+        "reason": "band_covers_family",
+        "band": band,
+        "faces": faces,
+    }
+    work.report[name] = dict(work.rebuilt[name])
+    warn(
+        f"{work.source} family {name}: the band of {_geometry.BAND_LAYERS} face layers beside "
+        f"the refined grid covers all {faces} faces of the family, so it was rebuilt whole at "
+        'factor 1, as if stated factor = 1, method = "remesh"',
+        PyflightstreamWarning,
+        stacklevel=2,
+    )
 
 
 def _band(faces: Faces, seed: set[int], layers: int) -> set[int]:
@@ -557,17 +596,30 @@ def _remesh_groups(work: _Work) -> None:
         stretches = [s for s in (_stretch_of(work, n) for n in ordered) if s is not None]
         stretch = stretches[0] if stretches else None
         modes = {n: work.request.elements_of(work.bands.get(n, n)) for n in ordered}
+        shared = [c for n in ordered for c in work.shared.get(n, [])]
         done = refine_group(
-            work.mesh, ordered, te, factors, conform=conform, stretch=stretch, elements=modes
+            work.mesh,
+            ordered,
+            te,
+            factors,
+            conform=conform,
+            stretch=stretch,
+            elements=modes,
+            shared=shared,
         )
+        at_curve = done.info.get("shared_edge_target_m", {})
+        info = {k: v for k, v in done.info.items() if k != "shared_edge_target_m"}
         for n in ordered:
             entry = work.report.setdefault(n, {"method": "remesh"})
             entry.update(
-                done.info,
+                info,
                 faces_before=len(work.mesh.families[n]),
                 faces_after=len(done.families.get(n, [])),
                 **element_report(modes[n], done.families.get(n, [])),
             )
+            entry.update(work.rebuilt.get(n, {}))
+            if n in at_curve and n not in work.bands:  # FR-432 R3, under the rebuilt family
+                entry["shared_edge_target_m"] = at_curve[n]
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
 
@@ -777,7 +829,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
     specs = {
         n: {k: v for k, v in vars(s).items() if v is not None}
         for n, s in work.request.specs.items()
-        if n not in work.bands
+        if n not in work.bands and n not in work.rebuilt
     }
     periodic = {} if work.periodic is None else {"periodic": work.periodic}
     shortened = {} if work.tag_selection is None else {"tag_selection": work.tag_selection}
