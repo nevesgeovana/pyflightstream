@@ -15,21 +15,31 @@ them, run once against an export of the v0.38.0 tree.
 
 from __future__ import annotations
 
+import argparse
+import ast
 import json
 import os
 import random
 import re
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 import pytest
 
 import pyflightstream._cli as _cli
+import pyflightstream.workspace as workspace_package
 from pyflightstream.results import VersionMismatchWarning
 from pyflightstream.run import LocalExecutor
+from pyflightstream.run._cli_parsers import _build_parser
 from pyflightstream.run.cli import main as matrix_main
 from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace._settings_file import (
+    read_workspace_settings,
+    take_defaults,
+    withhold_defaults,
+)
 from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import resolve_hpc_profile, select_hpc_profile
@@ -737,3 +747,526 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path, caps
         pytest.skip(f"captured into {target}")
     for name, text in outputs.items():
         assert text.encode("utf-8") == (V0380 / name).read_bytes(), name
+
+
+# --- every settable key, from each file (R3) ----------------------------------------
+
+EXE = Path(sys.executable).as_posix()
+
+#: Every key of R3: (key as written in the file, TOML value, the line the verbose console
+#: prints for it, a command that takes the option, the table).
+SETTABLE = [
+    ("fs_version", '"26.120"', "fs_version = 26.120", "plan", "defaults"),
+    ("hpc", '"h001"', "hpc = h001", "plan", "defaults"),
+    ("cost_file", '"c001"', "cost_file = c001", "plan", "defaults"),
+    ("runs", '"other.json"', "runs = other.json", "collect", "defaults"),
+    ("accept_unregistered_build", "true", "accept_unregistered_build = true", "plan", "defaults"),
+    ("fs_exe", f'"{EXE}"', f"fs_exe = {EXE}", "plan", "defaults"),
+    ("point_name", '"pt"', "point_name = pt", "plan", "defaults"),
+    ("recipe", '["001=m:f"]', "recipe = 001=m:f", "plan", "defaults"),
+    ("workflow", '["steady"]', "workflow = steady", "plan", "defaults"),
+    ("ignore_missing_families", "false", "ignore_missing_families = false", "plan", "defaults"),
+    ("check_frozen", "true", "check_frozen = true", "collect", "defaults"),
+    ("progress_every", "5", "progress_every = 5", "run", "defaults"),
+    ("local", "true", "local = true", "run", "defaults"),
+    ("console", '"verbose"', "log.console = verbose", "plan", "log"),
+    ("pproc_warnings", "true", "log.pproc_warnings = true", "collect", "log"),
+]
+
+
+@pytest.mark.parametrize("name", ["pyfs.toml", "pyfs.local.toml"])
+@pytest.mark.parametrize(
+    ("key", "value", "line", "command", "table"),
+    SETTABLE,
+    ids=[row[0] for row in SETTABLE],
+)
+def test_p0390_r03_every_settable_key_is_read_from_each_file(
+    tmp_path, capsys, key, value, line, command, table, name
+):
+    """P0390-R03 (FR-436 R1, R2, R3): each key of R3 set in one file alone reaches its command.
+
+    The command that takes the option, in a workspace whose only settings file is the
+    one named, prints the value and that file under verbose; a reader that does not
+    know the key, or one that reads only one of the two files, prints nothing.
+    """
+    root = make_workspace(tmp_path, profiles=True, costs=True)
+    (root / name).write_text(f"[{table}]\n{key} = {value}\n", encoding="utf-8")
+    argv = [command, "--workspace", str(root)]
+    if command in ("plan", "run"):
+        argv.insert(1, "polars.fs")
+    if key != "console":
+        argv += ["--log-level", "verbose"]
+    _code, _out, err = call(capsys, matrix_main, argv)
+    assert f"{line}  ({name})" in err
+    other = "pyfs.local.toml" if name == "pyfs.toml" else "pyfs.toml"
+    assert f"({other})" not in err
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "source"),
+    [
+        ("fs_version", '"26.120"', "pyfs.toml"),
+        ("accept_unregistered_build", "true", "pyfs.local.toml"),
+        ("point_name", '"pt"', "pyfs.toml"),
+    ],
+)
+def test_p0390_r03_a_key_of_each_file_reaches_plan_json(tmp_path, capsys, key, value, source):
+    """P0390-R03 (FR-436 R3, R8): a key set in the named file is recorded in plan.json with it."""
+    root = make_workspace(tmp_path, _row("7002", "26.120"))
+    (root / source).write_text(f"[defaults]\n{key} = {value}\n", encoding="utf-8")
+    code, _out, err = call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
+    assert code == 0, err
+    assert plan_json(root)["settings_sources"] == {key: source}
+
+
+# --- every negation, on each command that takes it (R5) -------------------------------
+
+#: Every boolean a file can set, with the commands taking it and the line a file value prints.
+NEGATIONS = [
+    (command, flag, line)
+    for flag, line, commands in (
+        (
+            "accept-unregistered-build",
+            "accept_unregistered_build = true",
+            ("plan", "inspect-setups", "run"),
+        ),
+        ("local", "local = true", ("run", "post")),
+        ("check-frozen", "check_frozen = true", ("collect", "post")),
+        ("pproc-warnings", "log.pproc_warnings = true", ("run", "collect", "post")),
+        (
+            "ignore-missing-families",
+            "ignore_missing_families = true",
+            ("plan", "inspect-setups", "run"),
+        ),
+    )
+    for command in commands
+]
+
+
+def _negated_argv(root: Path, command: str, *extra: str) -> list[str]:
+    argv = [command, "--workspace", str(root), "--log-level", "verbose", *extra]
+    if command in ("plan", "inspect-setups", "run"):
+        argv.insert(1, "polars.fs")
+    return argv
+
+
+@pytest.mark.parametrize("name", ["pyfs.toml", "pyfs.local.toml"])
+@pytest.mark.parametrize(
+    ("command", "flag", "line"), NEGATIONS, ids=[f"{c}-{f}" for c, f, _ in NEGATIONS]
+)
+def test_p0390_r03_every_negation_resolves_its_switch_to_false(
+    tmp_path, capsys, command, flag, line, name
+):
+    """P0390-R03 (FR-436 R5): --no-<option> beats a true the file states, on each command taking it.
+
+    Without the negation the command takes the switch from the file and says so under
+    verbose; with it the switch is resolved to false and nothing is taken for it. A
+    command that took the file's value over the typed negation prints the line.
+    """
+    root = make_workspace(tmp_path)
+    table, _, key = ("log", "", line.split(" = ")[0].removeprefix("log."))
+    if line.startswith("log."):
+        text = f"[{table}]\n{key} = true\n"
+    else:
+        text = f"[defaults]\n{key} = true\n"
+    (root / name).write_text(text, encoding="utf-8")
+    _code, _out, err = call(capsys, matrix_main, _negated_argv(root, command))
+    assert f"{line}  ({name})" in err
+    _code, _out, err = call(capsys, matrix_main, _negated_argv(root, command, f"--no-{flag}"))
+    assert f"({name})" not in err
+    dest = flag.replace("-", "_")
+    taken = _resolved(root, command, [])
+    negated = _resolved(root, command, [f"--no-{flag}"])
+    if flag == "ignore-missing-families":
+        assert taken.ignore_missing_families is True
+        assert negated.refuse_missing_families is True and negated.ignore_missing_families is None
+    else:
+        assert getattr(taken, dest) is True
+        assert getattr(negated, dest) is False
+
+
+def _resolved(root: Path, command: str, extra: list[str]) -> argparse.Namespace:
+    """The namespace a command line resolves to once the files are overlaid (R5)."""
+    parser = _build_parser()
+    argv = [command, *_positional(command), "--workspace", str(root), *extra]
+    with withhold_defaults(parser, supplied={}) as held:
+        args = parser.parse_args(argv)
+    take_defaults(parser, args, held, read_workspace_settings(root))
+    return args
+
+
+def _subcommands() -> dict[str, argparse.ArgumentParser]:
+    parser = _build_parser()
+    action = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    return dict(action.choices)
+
+
+def test_p0390_r03_the_negations_table_is_every_command_taking_a_switch():
+    """P0390-R03 (FR-436 R5): NEGATIONS lists each command whose parser has the --no- form.
+
+    The commands are read from the parser itself, so a command that gained a settable
+    switch without its negation, or the table missing a command, fails here.
+    """
+    found = set()
+    for command, sub in _subcommands().items():
+        options = {option for action in sub._actions for option in action.option_strings}
+        for flag in (
+            "accept-unregistered-build",
+            "local",
+            "check-frozen",
+            "pproc-warnings",
+            "ignore-missing-families",
+        ):
+            if f"--{flag}" in options:
+                assert f"--no-{flag}" in options, (command, flag)
+                found.add((command, flag))
+    assert found == {(command, flag) for command, flag, _ in NEGATIONS}
+
+
+# --- the parser refusals (R5, R6) -----------------------------------------------------
+
+
+def _positional(command: str) -> list[str]:
+    return ["polars.fs"] if command in ("plan", "inspect-setups", "run") else []
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    ("command", "flag"),
+    sorted({(c, f) for c, f, _ in NEGATIONS if f != "ignore-missing-families"}),
+)
+def test_p0390_r03_a_switch_with_its_negation_is_refused_by_the_parser(
+    tmp_path, capsys, command, flag, reverse
+):
+    """P0390-R03 (FR-436 R5): an option and its --no- form on one command: exit 2, not allowed with.
+
+    Refused by the parser (a mutually exclusive group), in either order, before any
+    work; the workspace tree is unchanged.
+    """
+    root = make_workspace(tmp_path)
+    before = tree(root)
+    pair = [f"--{flag}", f"--no-{flag}"]
+    argv = [command, *_positional(command), "--workspace", str(root)]
+    code, out, err = call(capsys, matrix_main, argv + (pair[::-1] if reverse else pair))
+    assert code == 2
+    assert "not allowed with argument" in err
+    assert out == ""
+    assert tree(root) == before
+
+
+@pytest.mark.parametrize("command", ["plan", "inspect-setups", "run"])
+def test_p0390_r03_the_missing_families_choice_stated_twice_is_refused(tmp_path, capsys, command):
+    """P0390-R03 (FR-436 R5): the negation beside the option is refused."""
+    root = make_workspace(tmp_path)
+    build = ["--fs-version", "26.120"]
+    call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root), *build])
+    before = tree(root)
+    argv = [command, "polars.fs", "--workspace", str(root), *build]
+    argv += ["--no-ignore-missing-families", "--ignore-missing-families", "true"]
+    code, _out, err = call(capsys, matrix_main, argv)
+    assert code == 2
+    assert "--no-ignore-missing-families and --ignore-missing-families were both" in err
+    assert tree(root) == before
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("command", ["plan", "inspect-setups", "run", "collect", "post"])
+def test_p0390_r03_verbose_with_another_level_is_refused_by_the_parser(
+    tmp_path, capsys, command, reverse
+):
+    """P0390-R03 (FR-436 R6): --verbose with --log-level quiet: exit 2, not allowed with."""
+    root = make_workspace(tmp_path)
+    before = tree(root)
+    pair = ["--verbose", "--log-level", "quiet"]
+    tail = pair[::-1] if reverse else pair
+    if reverse:
+        tail = ["--log-level", "quiet", "--verbose"]
+    argv = [command, *_positional(command), "--workspace", str(root), *tail]
+    code, out, err = call(capsys, matrix_main, argv)
+    assert code == 2
+    assert "not allowed with argument" in err
+    assert out == ""
+    assert tree(root) == before
+
+
+def test_p0390_r03_every_command_with_verbose_takes_the_log_level():
+    """P0390-R03 (FR-436 R6): each parser with --verbose has --log-level."""
+    seen = 0
+    for command, sub in _subcommands().items():
+        options = {option: a for a in sub._actions for option in a.option_strings}
+        if "--verbose" in options:
+            seen += 1
+            assert "--log-level" in options, command
+            assert list(options["--log-level"].choices) == ["quiet", "normal", "verbose"]
+    assert seen >= 5
+
+
+@pytest.mark.parametrize("name", ["pyfs.toml", "pyfs.local.toml"])
+@pytest.mark.parametrize("literal", ['"1"', "1.0", "true", "[1]", "{ v = 1 }"])
+def test_p0390_r03_a_schema_version_that_is_not_an_integer_is_refused(
+    tmp_path, capsys, literal, name
+):
+    """P0390-R03 (FR-436 R2, R4): schema_version of another type is refused naming key and file."""
+    root = make_workspace(tmp_path)
+    (root / name).write_text(f"schema_version = {literal}\n", encoding="utf-8")
+    before = tree(root)
+    code, out, err = call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
+    assert code == 2
+    assert "schema_version" in err and str(root / name) in err
+    assert "workspace settings refused" in err and out == ""
+    assert tree(root) == before
+
+
+@pytest.mark.parametrize("name", ["pyfs.toml", "pyfs.local.toml"])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "apply",
+        "yes",
+        "overwrite",
+        "resume",
+        "force_rerun",
+        "force_rerun_all",
+        "discard_walltime",
+        "sims",
+        "points",
+        "no_post",
+        "update_ids",
+        "watch",
+        "rounds",
+        "from_sims",
+    ],
+)
+def test_p0390_r03_every_key_that_acts_on_one_invocation_is_refused(tmp_path, capsys, key, name):
+    """P0390-R03 (FR-436 R4): each act key of R4 in either file: refused naming key and file."""
+    root = make_workspace(tmp_path)
+    (root / name).write_text(f"[defaults]\n{key} = true\n", encoding="utf-8")
+    before = tree(root)
+    code, out, err = call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
+    assert code == 2
+    assert f"'{key}'" in err and str(root / name) in err and "acts on one invocation" in err
+    assert out == ""
+    assert tree(root) == before
+
+
+# --- R7: the acceptance truth table, end to end ------------------------------------
+
+WORKSPACE_FILE = "pyfs.toml"
+LOCAL_FILE = "pyfs.local.toml"
+ENTRY_FILE = "executables.local.toml"
+
+#: (id, pyfs.toml acceptance, pyfs.local.toml acceptance, entry acceptance of the row's
+#: build, typed flag, the rows' builds, accepted?, source of the acceptance). None states
+#: nothing; the matrix rows name 26.120 (entry 26.120) unless the builds say another.
+TRUTH = [
+    ("nothing-stated", None, None, None, None, ("26.120",), False, None),
+    ("all-false", False, False, False, None, ("26.120",), False, None),
+    ("workspace-true", True, None, None, None, ("26.120",), True, WORKSPACE_FILE),
+    ("local-alone-true", None, True, None, None, ("26.120",), True, LOCAL_FILE),
+    ("toml-true-local-false", True, False, None, None, ("26.120",), False, None),
+    ("toml-true-local-false-entry-false", True, False, False, None, ("26.120",), False, None),
+    ("toml-false-local-true", False, True, None, None, ("26.120",), True, LOCAL_FILE),
+    ("entry-true", None, None, True, None, ("26.120",), True, ENTRY_FILE),
+    ("entry-true-other-row", None, None, True, None, ("26.120", "26.124"), False, None),
+    ("both-routes-true", True, None, True, None, ("26.120",), True, WORKSPACE_FILE),
+    ("local-and-entry-true", None, True, True, None, ("26.120",), True, LOCAL_FILE),
+    ("toml-true-local-false-entry-true", True, False, True, None, ("26.120",), True, ENTRY_FILE),
+    (
+        "typed-files-silent",
+        None,
+        None,
+        None,
+        "--accept-unregistered-build",
+        ("26.120",),
+        True,
+        "typed",
+    ),
+    (
+        "typed-files-false",
+        False,
+        False,
+        False,
+        "--accept-unregistered-build",
+        ("26.120",),
+        True,
+        "typed",
+    ),
+    (
+        "typed-over-overlay-false",
+        True,
+        False,
+        None,
+        "--accept-unregistered-build",
+        ("26.120",),
+        True,
+        "typed",
+    ),
+    (
+        "typed-and-routes-true",
+        True,
+        True,
+        True,
+        "--accept-unregistered-build",
+        ("26.120",),
+        True,
+        "typed",
+    ),
+    (
+        "negated-nothing",
+        None,
+        None,
+        None,
+        "--no-accept-unregistered-build",
+        ("26.120",),
+        False,
+        None,
+    ),
+    (
+        "negated-workspace",
+        True,
+        None,
+        None,
+        "--no-accept-unregistered-build",
+        ("26.120",),
+        False,
+        None,
+    ),
+    ("negated-local", None, True, None, "--no-accept-unregistered-build", ("26.120",), False, None),
+    ("negated-entry", None, None, True, "--no-accept-unregistered-build", ("26.120",), False, None),
+    (
+        "negated-all-routes",
+        True,
+        True,
+        True,
+        "--no-accept-unregistered-build",
+        ("26.120",),
+        False,
+        None,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("workspace", "local", "entry", "typed", "builds", "accepted", "source"),
+    [row[1:] for row in TRUTH],
+    ids=[row[0] for row in TRUTH],
+)
+def test_p0390_r03_the_acceptance_truth_table_end_to_end(
+    tmp_path, capsys, workspace, local, entry, typed, builds, accepted, source
+):
+    """P0390-R03 (FR-436 R7, R8): each row of the acceptance table, planned and run end to end.
+
+    The workspace acceptance is pyfs.local.toml over pyfs.toml, key by key (so
+    "pyfs.toml true, pyfs.local.toml false" is refused); the entry acceptance accepts its
+    own build only; the typed flag accepts whatever the files state, its negation
+    refuses whatever they state. Accepted: the run exits 0, warns, and plan.json and the
+    records state the acceptance and its source; refused: "Nothing ran", exit 2, no
+    record, and plan.json states no acceptance. fs_version comes from pyfs.toml in every
+    row, so the "typed" source (recorded beside another value taken from a file) shows.
+    """
+    rows = "".join(_row(str(7002 + 2 * index), build) for index, build in enumerate(builds))
+    root = make_workspace(tmp_path, rows)
+
+    def switch(value: bool | None) -> str:
+        return "" if value is None else f"accept_unregistered_build = {str(value).lower()}\n"
+
+    (root / WORKSPACE_FILE).write_text(
+        f'[defaults]\nfs_version = "26.120"\n{switch(workspace)}', encoding="utf-8"
+    )
+    if local is not None:
+        (root / LOCAL_FILE).write_text(f"[defaults]\n{switch(local)}", encoding="utf-8")
+    if entry is not None:
+        text = f'"26.120" = {{ path = "{EXE}", {switch(entry).strip()} }}\n'
+        (root / "inputs" / "executables.local.toml").write_text(text, encoding="utf-8")
+    extra = [typed] if typed else []
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        code, _out, err = plan_then_run(capsys, root, *extra)
+    warned = [w for w in caught if issubclass(w.category, VersionMismatchWarning)]
+    written = plan_json(root)
+    if accepted:
+        assert code == 0, err
+        assert warned
+        assert written["accept_unregistered_build"] is True
+        assert written["settings_sources"]["accept_unregistered_build"] == source
+        done = records(root)
+        assert done and all(row["accept_unregistered_build"] is True for row in done)
+        assert all(row["settings_sources"]["accept_unregistered_build"] == source for row in done)
+    else:
+        assert code == 2
+        assert "Nothing ran" in err
+        assert records(root) == []
+        if "26.124" in builds:
+            assert written["accepted_builds"] == ["26.120"]
+        else:
+            assert written["accept_unregistered_build"] is False
+        assert "accept_unregistered_build" not in written.get("settings_sources", {}) or (
+            written["settings_sources"]["accept_unregistered_build"] != source
+        )
+
+
+# --- R11: the import graph --------------------------------------------------------------
+
+
+def _imports(path: Path) -> set[str]:
+    """Every module a source file imports, anywhere in it (deferred imports included)."""
+    package = ".".join(path.relative_to(SRC).with_suffix("").parts[:-1])
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                parts = package.split(".")[: len(package.split(".")) - node.level + 1]
+                base = ".".join([*parts, base] if base else parts)
+            found.add(base)
+            found.update(f"{base}.{alias.name}" for alias in node.names)
+    return found
+
+
+SRC = Path(workspace_package.__file__).resolve().parents[2]
+PACKAGE = SRC / "pyflightstream"
+
+
+def test_p0390_r03_no_workspace_module_imports_the_run_layer():
+    """P0390-R03 (FR-436 R11): workspace/ never imports the run layer."""
+    modules = sorted((PACKAGE / "workspace").rglob("*.py"))
+    assert (PACKAGE / "workspace" / "_settings_file.py") in modules
+    for path in modules:
+        for name in _imports(path):
+            assert name != "pyflightstream.run" and not name.startswith("pyflightstream.run."), (
+                path.name,
+                name,
+            )
+
+
+def test_p0390_r03_only_the_two_command_families_import_the_settings_module():
+    """P0390-R03 (FR-436 R11): the schema module is imported by the run layer and workspace/cli.py.
+
+    Both command families take their values from it, and no other module of the
+    workspace layer imports it; the build-entry key is parsed by workspace/builds.py,
+    which does not import it back (the module imports builds).
+    """
+    importers = set()
+    for path in PACKAGE.rglob("*.py"):
+        names = _imports(path)
+        if any(
+            name.endswith("workspace._settings_file")
+            or name.endswith("workspace._settings_file._")
+            or name == "pyflightstream.workspace._settings_file"
+            for name in names
+        ) or (
+            path.parent.name == "workspace"
+            and any(name.endswith("._settings_file") for name in names)
+        ):
+            importers.add(path.relative_to(PACKAGE).as_posix())
+    assert importers, "no importer found"
+    workspace_side = {name for name in importers if name.startswith("workspace/")}
+    assert workspace_side == {"workspace/cli.py"}
+    assert importers - workspace_side
+    assert all(name.startswith("run/") for name in importers - workspace_side)
+    assert "workspace/builds.py" not in importers
+    builds = (PACKAGE / "workspace" / "builds.py").read_text(encoding="utf-8")
+    assert "accept_unregistered_build" in builds
+    assert "pyflightstream.run" not in _imports(PACKAGE / "workspace" / "builds.py")
