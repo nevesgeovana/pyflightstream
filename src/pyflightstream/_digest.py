@@ -187,10 +187,13 @@ CANONICAL_FORMS = {
     ),
     "workspace/_refine/_config.py": (
         "the UTF-8 bytes of the canonical selection text of a refinement: one "
-        "line per selected family, 'name key=value ...' with the keys sorted and "
-        "only the non-default ones written, lines in family order (FR-433). The "
-        "first 8 hexadecimal characters name a level folder whose automatic tag "
-        "is too long; the text itself is written to refine.json as tag_selection."
+        "line per selected family in the source's family order, joined by a "
+        "newline, 'name key=value ...' with the keys sorted, factor always "
+        "written and every other option only when it is not its default, a "
+        "number as the shortest text that reads back to the same float without "
+        "a trailing '.0' (FR-433 R2). The first 8 hexadecimal characters name a "
+        "level folder whose automatic tag is too long; refine.json lists the "
+        "selected families as tag_selection, not the text."
     ),
 }
 

@@ -13,7 +13,9 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
+from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace import refine_mesh
 from pyflightstream.workspace._refine import _config
 from tests.p0380_mesh_fixtures import (
@@ -116,8 +118,11 @@ def test_same_selection_same_tag_and_any_change_another(tmp_path):
     base = _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == _config.level_tag(_request(tmp_path, NAMES), NAMES)
     assert base == f"R-12fam-{_hash(NAMES)}"
-    other = _config.level_tag(_request(tmp_path, NAMES, factor=2.0, over=None), NAMES)
     spec = _request(tmp_path, NAMES).specs[NAMES[5]]
+    elsewhere = _request(tmp_path, NAMES)
+    elsewhere.specs[NAMES[2]] = dataclasses.replace(elsewhere.specs[NAMES[2]], factor=7.0)
+    other = _config.level_tag(elsewhere, NAMES)
+    assert other != base
     changed = _request(tmp_path, NAMES)
     changed.specs[NAMES[5]] = type(spec)(**{**vars(spec), "factor": 5.0})
     assert _config.level_tag(changed, NAMES) not in (base, other)
@@ -144,12 +149,13 @@ def test_folder_name_refusal_only_for_the_built_form(tmp_path):
     request = dataclasses.replace(
         request, specs={bad[0]: request.specs["A"], bad[1]: request.specs["C"]}
     )
-    try:
-        _config.level_tag(request, bad)
-    except Exception as exc:  # noqa: BLE001 (any refusal text is read below)
-        assert "A/B" in str(exc)
-    else:
-        raise AssertionError("a family name with a slash must be refused in a short built tag")
+    with pytest.raises(InputArtifactError) as refused:
+        _config.level_tag(request, bad, "src.obj")
+    assert str(refused.value) == (
+        "src.obj: the family 'A/B' holds '/', so the level's tag 'R-A/B2-C3' would not be one "
+        "folder name; rename the family, or give the level its name in the refinement file "
+        'config (CLI: --config) as [refine] tag = "fine". Nothing was written.'
+    )
     many = [f"Fam/{i:02d}" + "x" * 5 for i in range(12)]
     request = _request(tmp_path, [f"F{i}" for i in range(12)])
     request = dataclasses.replace(
@@ -198,3 +204,64 @@ def test_tag_selection_is_taken_with_the_tag_not_after_the_bands(tmp_path):
         out_dir=tmp_path / "o2",
     )
     assert "tag_selection" not in _record(short)
+
+
+def test_a_uniform_whole_mesh_tag_is_not_refused_for_a_family_name(tmp_path):
+    """P0390-TAGLEN (FR-433 R1, R5): one factor on every family is R<f>, holding no name.
+
+    The 0.38.0 compatibility control: the sole family ``Wing/upper`` at
+    factor 2 gives the tag ``R2``, a folder name, and is not refused, nor
+    is a mesh whose two families, one of them ``Wing/upper``, take factor 2.
+    Two factors on the same families build the tag from the names and are
+    refused naming the family.
+    """
+    request = _request(tmp_path, ["A"])
+    sole = dataclasses.replace(request, specs={"Wing/upper": _config.FamilySpec(factor=2.0)})
+    assert _config.level_tag(sole, ["Wing/upper"]) == "R2"
+    assert _config.tag_selection(sole, ["Wing/upper"]) is None
+    names = ["Wing/upper", "Body"]
+    same = {n: _config.FamilySpec(factor=2.0) for n in names}
+    assert _config.level_tag(dataclasses.replace(request, specs=same), names) == "R2"
+    mixed = dataclasses.replace(request, specs={**same, "Body": _config.FamilySpec(factor=3.0)})
+    with pytest.raises(InputArtifactError, match="the family 'Wing/upper' holds '/'"):
+        _config.level_tag(mixed, names)
+
+
+ALPHA, BETA = "LongFamilyNameAlpha", "LongFamilyNameBeta"
+
+
+def _two(tmp_path: Path, alpha: float, beta: float = 5.0):
+    request = _request(tmp_path, ["A"])
+    specs = {ALPHA: _config.FamilySpec(factor=alpha), BETA: _config.FamilySpec(factor=beta)}
+    return dataclasses.replace(request, specs=specs)
+
+
+@pytest.mark.parametrize(
+    "pair",
+    [
+        ((1.000001, "1.000001"), (1.000002, "1.000002")),
+        ((2.0, "2"), (2.0000000000000004, "2.0000000000000004")),
+        ((0.1 + 0.2, "0.30000000000000004"), (0.3, "0.3")),
+    ],
+    ids=["sixth-digit", "last-bit", "sum"],
+)
+def test_closely_spaced_factors_give_distinct_selections_and_tags(tmp_path, pair):
+    """P0390-TAGLEN (FR-433 R2, R3): a factor is written in full, so close factors differ.
+
+    Two selections whose factors differ past the sixth significant digit
+    give two canonical selections, each holding its factor in the shortest
+    text that reads back to it (a whole factor as ``2``), and two summary
+    tags, each the hash of its own text.
+    """
+    texts, tags = [], []
+    for alpha, written in pair:
+        request = _two(tmp_path, alpha)
+        picked = [ALPHA, BETA]
+        text = _config.canonical_selection(request, picked)
+        assert text == f"{ALPHA} factor={written}\n{BETA} factor=5"
+        assert float(written) == alpha
+        tag = _config.level_tag(request, picked)
+        assert tag == "R-2fam-" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+        texts.append(text)
+        tags.append(tag)
+    assert texts[0] != texts[1] and tags[0] != tags[1]

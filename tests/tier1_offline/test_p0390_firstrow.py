@@ -20,9 +20,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.run import cli
-from pyflightstream.workspace import refine_mesh
+from pyflightstream.workspace import audit_mesh, refine_mesh
 from tests.p0380_mesh_fixtures import (
     Composite,
     holed_plate,
@@ -406,6 +406,69 @@ def test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance(tmp_p
     )
 
 
+@pytest.mark.parametrize(
+    ("units", "line"), [(None, "METER"), ("MILLIMETER", "MILLIMETER")], ids=["unstated", "mm"]
+)
+def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, units, line):
+    """P0390-FIRSTROW (FR-430 R4, R7): a detected kept row's trailing edge is in the points file.
+
+    The wing tube with no trailing-edge points file anywhere in the source,
+    its boundaries file routing the trailing edge to detection, keeps its
+    root row. The level writes ``<stem>.te.txt`` under the mesh's unit (the
+    boundaries file's ``[import] units``, else ``METER``): one mid-point per
+    detected trailing-edge edge, all on x = 1, the kept row's at the
+    source's distance from the interface station (y = 0.2, the source's
+    first edge), the eight edges after it at the refined spacing. The
+    level's boundaries file still routes the trailing edge to detection and
+    names no points file, and its audit passes G4: the record states Wing
+    detected, so the source counts that chain (``source_chains_detected``).
+    Controls: the source holds no points file; the same level audited
+    against the source with no record beside it keeps the verdict of a
+    source without a points file, G4 failed with the values of 0.38.0.
+    """
+    toml = "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
+    src = write_source(tmp_path / "det", "wing", _tube_source(), refine_toml=toml)
+    assert not list(src.parent.glob("*.te.txt"))
+    sidecar = src.with_name("wing.boundaries.toml")
+    extra = "" if units is None else f'\n[import]\nunits = "{units}"\n'
+    sidecar.write_text(sidecar.read_text(encoding="utf-8") + extra + DETECT, encoding="utf-8")
+    level = refine_mesh(src, out_dir=tmp_path / "out")
+    assert level.report["Wing"]["trailing_edge"] == "detected"
+    te = level.folder / f"{level.folder.name}.te.txt"
+    assert te in level.files and te.is_file()
+    rows = te.read_text(encoding="utf-8").splitlines()
+    assert rows[0] == line
+    points = np.array([[float(c) for c in r.split(",")] for r in rows[1:] if r.strip()])
+    assert points[:, 0] == pytest.approx(np.ones(len(points)), abs=1e-9)
+    expected = [0.2] + [0.4 + 0.2 * k + 0.1 for k in range(8)]
+    assert np.sort(points[:, 1]) == pytest.approx(expected, abs=1e-9)
+    routed = level.folder / f"{level.folder.name}.boundaries.toml"
+    text = routed.read_text(encoding="utf-8")
+    assert 'detect = "auto"' in text and "file =" not in text
+    g4 = _g4(level.audit)
+    assert g4.passed and g4.values["chains"] == g4.values["source_chains"] == 1, g4.values
+    assert g4.values["source_chains_detected"] == 1
+    _record_path(level).unlink()
+    with pytest.warns(PyflightstreamWarning, match="G4 failed"):
+        alone = audit_mesh(level.obj, against=src)
+    g4 = _g4(alone)
+    assert not g4.passed, g4.values
+    assert dict(g4.values) == {
+        "points": 9,
+        "points_on_edges": 9,
+        "chains": 1,
+        "source_chains": 0,
+    }
+
+
+def _g4(audit):
+    return next(g for g in audit.gates if g.name == "G4")
+
+
+def _record_path(level) -> Path:
+    return next(p for p in level.files if p.name.endswith(".refine.json"))
+
+
 def _fold_degrees(mesh: Composite, column: int, n: int = 48) -> float:
     """Return the angle between the normals of the two Wing faces at its root edge ``column``."""
     faces = mesh.families["Wing"]
@@ -427,7 +490,9 @@ def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
     detection (``detect = { surfaces = ["Wing"] }``). The level is recovered
     on the trailing edge alone: every trailing-edge mid-point it writes for
     Wing lies on x = 1, none on the leading edge, and the kept root row keeps
-    the source's width. Taking every edge sharper than the ridge angle takes
+    the source's width. G4 passes with two chains on both sides: Body's
+    listed edge, and Wing's line, detected on the source as the record
+    states. Taking every edge sharper than the ridge angle takes
     the leading edge too, recovers the grid from it, and writes the leading
     edge as Wing's trailing edge.
     """
@@ -453,6 +518,9 @@ def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
     assert wing[:, 0] == pytest.approx(np.ones(len(wing)), abs=1e-9)
     y = _stations(*_family(level.obj, "Wing"))
     assert y[1] - y[0] == pytest.approx(0.4, abs=1e-9)
+    g4 = _g4(level.audit)  # the listed Body chain and the detected Wing line, on both sides
+    assert g4.passed and g4.values["chains"] == g4.values["source_chains"] == 2, g4.values
+    assert g4.values["source_chains_detected"] == 1
 
 
 # ---------------------------------------------------------------------- R8
