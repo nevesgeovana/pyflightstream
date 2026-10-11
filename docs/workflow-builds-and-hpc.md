@@ -215,6 +215,16 @@ recorded as that failure. A point missing any other declared output is
 `export_log = false` exports no log from the script, so nothing is declared and
 its collect waits for the scheduler's log as before.
 
+The declared logs are the record's `submission["declared_logs"]`. A record that
+carries no such field, as a point submitted by an older release does not, takes
+the names of its solver logs from the job's own script on disk, the files the
+script tells the solver to write its log to, under whatever name; collect, the
+grouped collect and rebuild then decide the point on those names. The recorded
+field is authoritative whenever it is present, an empty list included: the
+script is read only when the field is absent, and its names are never added to
+a present field. A record with neither the field nor a readable script has no
+declared log, and the rule does not fire (FR-413 R8).
+
 The decision is a reading of files: a job still running, caught in the moment
 between its last export and `EXPORT_LOG`, would read the same way; `collect
 --watch` sees the outputs settle over two observations first, and the log

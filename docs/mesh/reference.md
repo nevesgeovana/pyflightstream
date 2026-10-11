@@ -593,8 +593,9 @@ audit-mesh` (FR-424 to FR-428); the walk-through is
 
 ```text
 pyfs-matrix refine MESH [FACTOR] [--families A,B] [--chordwise F] [--spanwise F]
-                   [--config FILE] [--out-dir DIR] [--overwrite]
-pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]
+                   [--config FILE] [--keep-first-row FAMILY[,FAMILY...]]
+                   [--out DIR] [--overwrite]
+pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 ```
 
 | argument | of | meaning |
@@ -604,11 +605,12 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--csv FILE]
 | `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
 | `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family; refused for a remeshed family |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
-| `--out-dir DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source) |
+| `--keep-first-row FAMILY[,FAMILY...]` | `refine` | the grid families that keep the spanwise width of their row at another component, comma separated ([The row kept at an interface](#the-row-kept-at-an-interface)) |
+| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); `--out-dir DIR` is a deprecated alias |
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
-| `--csv FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure |
+| `--out FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure; `--csv FILE` is a deprecated alias |
 
 `refine` exits 0 when the level is written, whatever the audit says, and 2 when
 the request is refused. `audit-mesh` exits 0 when every gate and check passes,
@@ -621,6 +623,10 @@ refusal of the boundaries file or of the points file it names, which the audit
 reads. A level is written into `<folder>.partial`, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
+
+`--out-dir` and `--csv` are deprecated aliases of `--out` on their command: each
+gives the identical result and warns once that it is deprecated, and an alias
+given together with `--out` is refused, naming both.
 
 ### Where the factors come from
 
@@ -638,7 +644,9 @@ the existing level is replaced only then, and kept when an error comes first.
 4. A `[families.<name>]` table whose factors are not read (every one when the
    command gives the factors, an unselected one under `--families`) is a
    warning naming it, and `refine.json` lists it under
-   `ignored_families_tables`; an `elements` key in it still applies.
+   `ignored_families_tables`; an `elements` key in it still applies, and the
+   warning names `keep_first_row` among what the table no longer states.
+   `--keep-first-row` asks the option on either route.
 
 The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
 are read whenever the file exists, whatever gives the factors.
@@ -658,6 +666,7 @@ factor = 2
 chordwise = 1.5
 spanwise = 2
 method = "grid"
+keep_first_row = true
 
 [families.Tip]
 factor = 2
@@ -686,7 +695,7 @@ copies = 6
 | `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
-| `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | development of 0.39: a grid with a trailing edge keeps the spanwise width of its end row at the interface with another component (an end station sharing an edge with a family of another `[components]` entry, else of another name before the first `_`) and refines that row chordwise only; the spanwise factor applies to the other rows. The row's width sets how far the last wake filament shed by the trailing edge is from that component. Refused on a remeshed or multiblock family, a grid without a trailing edge, or a grid with no such interface; `refine.json` names the kept rows (`kept_rows`) |
+| `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows ([The row kept at an interface](#the-row-kept-at-an-interface)) |
 | `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
 | `[families.<name>]` of a body | `axial`, `circumferential` | number above zero | the target edge length divided by `axial` along the axis and by `circumferential` around it; the family is remeshed |
 | `[families.<name>]` of a body | `axis` | three numbers, not all zero | the body's axis; required with `axial` or `circumferential` |
@@ -710,8 +719,9 @@ no pair of cut faces, is refused naming the key.
 
 ### The tag of a level
 
-The tag is `[refine] tag` when the file states one. Otherwise it is built from
-the factors, `p` standing for the decimal point:
+The tag is `[refine] tag` when the file states one, used as given. Otherwise it
+is built from the factors, `p` standing for the decimal point, and a family
+that keeps its first row adds `k` to its part:
 
 | refinement | tag |
 |---|---|
@@ -721,6 +731,26 @@ the factors, `p` standing for the decimal point:
 | axial 2 and circumferential 1 on every family | `Ra2t1` |
 | factor 2 on `Wing` only | `R-Wing2` |
 | `Wing` at 2 and `Tip` at 1.5 | `R-Wing2-Tip1p5` |
+| a selection whose built tag is longer than 32 characters | `R-<n>fam-<hash>` |
+
+A built tag of at most 32 characters is the tag above. A longer one is
+`R-<n>fam-<hash>`, at most 20 characters for any selection: `<n>` is the number
+of selected families and `<hash>` the first 8 hexadecimal characters of the
+SHA-256 of the canonical selection, encoded as UTF-8. The canonical selection
+holds one line per selected family, in the source's family order, joined by a
+newline: the family's name, then every option its table states that changes
+the level (`factor`, `chordwise`, `spanwise`, `method`, `elements`, `axial`,
+`circumferential`, `keep_first_row`) as `key=value` pairs sorted by key and
+separated by single spaces, for example `Wing factor=2 keep_first_row=true
+spanwise=2`. The same selection gives the same tag on every run and machine,
+and two selections that differ in a family or an option give different
+canonical selections; the 8-character digest tells them apart and is not a
+guarantee against collision. For such a tag `refine.json` lists the selected
+families under `tag_selection`, in the source's order. A short tag tells
+apart a family's factors and its `k` only: two selections that differ only
+in `method` or `elements` share it. A family name that cannot be part of a
+folder name is refused when the tag is built from the names, and not when
+the tag is the summary and the hash.
 
 ### The files of a level
 
@@ -745,6 +775,8 @@ A unit that names no scale (OTHER) is then refused.
 
 `refine.json` states `schema_version` (1), `source`, `level`, `config` (the
 refinement file read, or null), `specs` (the factors of each family),
+`tag_selection` (the selected families, for a tag shortened to the summary and
+the hash),
 `components`, `ignored_families_tables` (the families whose file table was not
 read for its factors), `faces` (the face count of each family of the output) and, with
 `[periodic]`, `periodic` (the two cut faces, their angle, their node counts and
@@ -755,7 +787,10 @@ Its `families` entry holds, per family:
   `ends`, `split`, `grid` (the node counts before and after), `intervals`
   (chordwise and spanwise, before and after), `faces` (before and after),
   `order` (`"sweep"` when the source's sweep was kept, `"nearest"` otherwise)
-  and `interfaces` (the nodes of each curve it shares);
+  and `interfaces` (the nodes of each curve it shares); a grid that keeps its
+  first row adds `kept_rows` (`"station 0"`, `"far station"` or both) and
+  `trailing_edge` (`"points file"` or `"detected"`, where its trailing edge
+  came from);
 - a smooth tube is a grid whose circumferential direction is a periodic cubic
   spline, with the seam at the lowest source node index of its first end
   station and no trailing-edge points; a multiblock family reports `layout`
@@ -768,13 +803,67 @@ Its `families` entry holds, per family:
   counts; `elements` on a grid says the key was ignored),
   the families remeshed together, the curve edges kept, the median ratio of
   edge length to target, the interfaces rebuilt on a grid's nodes, and the
-  face counts before and after;
+  face counts before and after; a family remeshed at factor 1 that shares a
+  curve with a refined side adds `shared_edge_target_m`, the minimum, mean and
+  maximum of its target length at its nodes on that curve, in metres, for
+  example `{"min": 0.0021, "mean": 0.0034, "max": 0.0052}`;
+- a neighbour the two-layer band would cover whole: `method`
+  `"rebuilt_whole"`, `reason` `"band_covers_family"`, `band` and `faces` (both
+  the family's face count in the source), remeshed whole at factor 1 as if its
+  table stated `factor = 1` and `method = "remesh"`, with one warning naming it;
 - a family the refinement does not change: `method` `"copied"`, or
   `"unchanged"` with the face count of its two-layer `band` when a grid's
   nodes on a shared curve changed.
 
 A key may be added to `refine.json` or `audit.json` without changing
 `schema_version`; a key is removed or changes type only with a new one.
+
+### The row kept at an interface
+
+`keep_first_row` (the file key, `--keep-first-row FAMILY[,FAMILY...]` or the
+`keep_first_row` keyword of `refine_mesh`; the three routes resolve to the
+same family set and write the same level) asks a grid family with a trailing
+edge to keep the spanwise width of its row of panels at another component.
+
+- **Interface.** An end station of the grid (station 0, or the far station) is
+  an interface when two consecutive nodes of it, an edge of the source, are
+  nodes of a family of another component. A family's component is the
+  `[components]` entry that lists it, else its name up to the first `_`. Every
+  end station that is an interface keeps its row; an end station that meets
+  only families of its own component, or no family, is refined as before.
+- **Kept row.** The inner station of the row is the source's station, so the
+  row keeps its source width and its trailing-edge node is the source's. The
+  row takes the chordwise factor. The `m` source intervals between the kept
+  rows take `max(1, round(m * spanwise))` intervals, bounded by one station
+  more, when refining and when coarsening; a kept row is never split and
+  never merged with its neighbour. In the level's trailing-edge points file
+  the trailing-edge edge of each kept row has its mid-point where the
+  source's was.
+- **Neighbours.** The band of an unselected neighbour is planned with the
+  kept rows, the level's open boundary loops are the source's, and the level
+  passes the audit as the same refinement without the option does.
+- **Trailing edge.** The one listed in the trailing-edge points file, else,
+  when the boundaries file routes the trailing edge to detection, the edges
+  the package detects on the source; `refine.json` states which under
+  `trailing_edge`.
+- **Record.** The family's entry of `refine.json` holds `kept_rows`, the kept
+  end stations; the key is absent when the option is not asked. The family's
+  part of the tag carries `k`.
+
+Each of these is refused before any work, naming the source, the family and
+`keep_first_row`, and ending with `Nothing was written.` (exit 2 from the
+command): a value that is not `true` or `false`; a family stated with
+`method = "remesh"` or with `axial` or `circumferential`; a family whose grid
+is not recovered; a multiblock grid; a grid without a trailing edge, neither
+listed in the points file nor detected; a grid with no end station at another
+component; a grid remeshed because it shares nodes with a grid refined
+first; a grid whose kept rows leave no spanwise interval to refine; and, in
+the command and the keyword, a family the mesh does not hold or that the
+selection leaves out.
+
+The option holds a geometric invariant, the interface row's width and the
+place of its trailing-edge edge. It does not claim that a study holding it
+isolates the discretisation from every other effect of refinement.
 
 ### What the audit judges
 
@@ -830,7 +919,7 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False)` | writes a level and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False, keep_first_row=None)` | writes a level; `keep_first_row` names the families that keep their first row (`None` or an empty sequence asks nothing) and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
 | `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
 | `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
 | `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)` |

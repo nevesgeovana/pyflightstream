@@ -57,7 +57,7 @@ of each point (FR-96):
 | latest run of the point | `{FINISH_PENDING}` | `{ADDITIONAL_ITERS=n}`, `{ADDITIONAL_REVS=n}` |
 |---|---|---|
 | stopped by its wall clock (`WALLTIME_REACHED`) | continued by the steps the row still owes | continued by n steps or n revolutions |
-| at its iteration cap (`COMPLETED_MAX_ITER`) | refused: nothing records where it stopped | continued |
+| at its iteration cap (`COMPLETED_MAX_ITER`, or `MAX_ITER_REACHED` for a steady point) | refused: nothing records where it stopped | continued |
 | `CONVERGED`, run type `unsteady` or `unsteady_rotor` | not run: nothing is pending | continued |
 | `CONVERGED`, any other run type | not run: nothing to march | not run: nothing to march |
 | a completed continuation of the same request | not run | not run: already continued |

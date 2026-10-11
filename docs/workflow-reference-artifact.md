@@ -1,6 +1,6 @@
 # The reference artifact
 
-What a reference artifact holds beyond the three lengths, and the study's vocabulary it declares.
+What a reference artifact holds beyond the three lengths, the study's vocabulary it declares, and the surfaces of a study of several models.
 
 ## What a reference artifact holds beyond the three lengths
 
@@ -143,3 +143,96 @@ cannot run. The rotor speed and its sign are the ROW's (`RPM`,
 `ADVANCE_RATIO`, `RPM_SIGN`), read through `rotor_speed(case)` rather
 than from the artifact, so a recipe that emits a rotor motion reads the
 row exactly as the built-in `unsteady_rotor` workflow does.
+
+## One setup for every model of a study
+
+A study of several models of one aircraft, a wing-body and a wing-body-tail
+say, cites one setup, one pproc and one reference from the rows of every
+model. The setup and the pproc name the surfaces of the largest model; the
+reference declares them as the STUDY'S SURFACES, in a top-level `[study]`
+table with one key, `surfaces`:
+
+```toml title="inputs/references/r010.toml"
+area_m2 = 10.0
+chord_m = 1.2
+span_m = 8.0
+
+[aliases]
+airframe = ["Wing", "Body", "Base"]
+tail = ["HTail", "VTail", "TailBase"]
+
+[study]
+surfaces = ["Wing", "Body", "Base", "HTail", "VTail", "TailBase", "Sting"]
+```
+
+The study's vocabulary is the `surfaces` list, the names of the reference's
+aliases (a rotor block's own name included) and every alias member, followed
+to the end. A name is in the vocabulary when, case folded, it equals one of
+those, or is a family word (the label without its trailing number) that one
+of them answers.
+
+On a row whose reference declares the vocabulary, each cited name is read
+against the row's model:
+
+| the name | on the row |
+|---|---|
+| selects a boundary of the model (by name case folded, by a family the model carries, or through an alias some member of which resolves) | read as without `[study]` |
+| selects nothing on the model, and the vocabulary holds it | SKIPPED on this row, and said |
+| selects nothing on the model, and the vocabulary does not hold it | a misspelling: the row is BLOCKED at plan |
+
+The keys read this way are the setup's `delete_surfaces`,
+`analysis_families`, `vorticity_drag_families`, `axial_separation_families`
+and the `boundary` of each `base_region_operations` entry, and the pproc's
+`base_regions` and the members of each `[groups]` entry. A skip is key by key:
+`delete_surfaces` does not remove the name, and a list every name of which is
+skipped emits no `DELETE_SURFACES`; the three `*_families` keys leave it out of
+the emitted selection; a `base_region_operations` entry whose `boundary` is
+skipped is not emitted; `base_regions` emits no
+`DETECT_BASE_REGIONS_BY_SURFACE` for it; a `[groups]` member is left out of its
+group. The words `all`, `each` and `each_blade` are never skipped, refused or
+said. Every other input that cites a name keeps its own reading: the pproc's
+`[[sections.distributions]]` and `[[plots.groups]]` entries, the members of
+`[aliases]`, the row cells `ROTATE`, `TRANSLATE`, `MOVING_BOUNDARIES` and a
+row's own `BASE_REGIONS`, the boundaries sidecar and the refinement file.
+
+**Every skip is said, once.** The plan prints one WARNING per artifact, key and
+name, whatever the number of rows and points: it names the artifact (its id
+and file), the key (with the group of a `[groups]` member, or the position of a
+`base_region_operations` entry), the name, the reference whose vocabulary
+holds it, and every row whose model lacks it. A skip changes no plan status.
+Each point's run record lists the skips of its row in `skipped_names`, one
+`{artifact, key, name}` entry per skip in plan order; a point that skipped
+nothing records no such field.
+
+**A misspelling is refused.** A name that selects nothing on the row's model
+and that the vocabulary does not hold BLOCKS the row at plan, at either value
+of `--ignore-missing-families`, with a text naming the artifact, the key, the
+name, the row and its geometry, the reference and the names of its
+vocabulary, and saying to correct the name or to add it to the reference's
+`[study] surfaces`.
+
+Three refusals stay as they are, even where the vocabulary holds every name:
+
+- a `*_families` key every cited name of which selects nothing on the row is
+  refused, because an empty selection is the solver's every-boundary default,
+  a different selection and not a smaller one;
+- a pproc none of whose groups selects a boundary of the row's model is
+  refused;
+- a skip in `base_regions`, or of a `create` entry of
+  `base_region_operations`, on a row whose setup addresses a
+  `base_region_operations` entry by an `index` other than `all`, is refused
+  naming the skipped name and the indexed entry, because the skip renumbers
+  the base regions that index counts.
+
+`--ignore-missing-families false` turns every skip into a refusal of the row,
+naming the key, the name and the flag, on every key above, whether or not the
+reference declares the vocabulary.
+
+A reference without `[study]` declares no vocabulary, and every row citing it
+plans, emits, records and refuses as it does without the table. A row whose
+model carries every name its setup and pproc cite emits the same script with
+or without the table. A `[study]` table stating another key, or a `surfaces`
+that is empty or not a list of names, is refused naming the reference file and
+the table; a top-level table named `study` that states a `kind` is a block, as
+any other table with a `kind`. From Python, the declared surfaces are the
+field `ReferenceArtifact.study`.

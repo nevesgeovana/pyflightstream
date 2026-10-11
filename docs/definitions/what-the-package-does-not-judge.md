@@ -74,6 +74,10 @@ carries exactly one WARNING for it, naming the status and what is unavailable
 (the residual history, the convergence verdict, the frozen-point reading, the
 solver clock and its iteration count), and, with the check, that its freeze
 cannot be read.
+`MAX_ITER_REACHED` (FR-434), a steady point stopped at its requested iteration
+limit without settling, is admitted as `COMPLETED_MAX_ITER` is: every product
+of the point is written, and `post.log` carries one WARNING for it naming the
+point and the limit, because its outputs are not a settled solution.
 An excluded failed status is named under `runs/<run_id>` with the status and
 flag; rebuilding retires its previous products according to the archive choice.
 Averages wholly before a proven freeze keep their products. A freeze affects
