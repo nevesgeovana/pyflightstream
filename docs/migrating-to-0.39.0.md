@@ -186,6 +186,30 @@ outputs are all present and whose log is gone records `RAN_MISSING_LOG`
 where 0.38.0 kept waiting on it. A recorded list, an empty one included,
 stays authoritative.
 
+## A sweeper export with an unknown header (NFR-45 R2)
+
+`mark-converged` still refuses a sweeper export with an unknown header, and the
+refusal now names the column that differs: for each known layout, the first
+differing column with its position, the expected name and the name found, or
+the counts when the header is a prefix. Nothing to change in a file it
+accepted before.
+
+## `refine` and `audit-mesh` read `[trailing_edges] detect` like the workflow (NFR-45 R3)
+
+A `[trailing_edges] detect` shape the workflow refuses (a word other than
+`"auto"`, a key it does not read, an empty surface list, `file` and `detect`
+together) is now refused by `refine` and `audit-mesh` too, before any work and
+in the same words, ending `Nothing was written.`. 0.38.0 ignored such a shape
+in the mesh verbs, so a refinement file that carried one ran there and is
+refused here: correct the table as the message says.
+
+## The guides are built from the release sources (NFR-46)
+
+The user guide is published as `guide/pyflightstream_user_guide.pdf` beside its
+source, and the cheatsheet (guide 04) beside its own; each PDF names the release
+it was built from and has its build log beside it. Nothing changes for a
+workflow; take the guides of the release you installed.
+
 ## New fields
 
 | field | where | written when | requirement |

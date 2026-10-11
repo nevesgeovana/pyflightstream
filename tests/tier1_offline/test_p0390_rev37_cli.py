@@ -32,9 +32,14 @@ def _help(command, tmp_path, capsys):
 
 
 def test_the_sims_help_constant_lives_beside_listed_sims(tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-01): defined in workspace.ledger, not in run._alias."""
+    """P0390-REV37 (NFR-45 R2, R37-01): defined in workspace.ledger, not in run._alias.
+
+    run._alias keeps the name importable at its 0.38.0 path (release parity), but only as the
+    very object ledger defines: a second definition there would be a different object.
+    """
     assert ledger.SIMS_IDS_HELP and "SIMS_IDS_HELP" in ledger.__all__
-    assert not hasattr(_alias, "SIMS_IDS_HELP")
+    assert _alias.SIMS_IDS_HELP is ledger.SIMS_IDS_HELP
+    assert "SIMS_IDS_HELP =" not in Path(_alias.__file__).read_text(encoding="utf-8")
     for command in ("mark-failed", "rebuild", "delete-sims", "mark-converged"):
         assert ledger.SIMS_IDS_HELP in _help(command, tmp_path, capsys), command
 

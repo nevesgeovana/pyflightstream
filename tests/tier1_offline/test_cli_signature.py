@@ -166,7 +166,12 @@ def test_the_post_a_collect_runs_is_signed_with_the_koala(monkeypatch, tmp_path,
     from pyflightstream.run import collect as collect_module
 
     report = types.SimpleNamespace(
-        lines=lambda: [], collected=[], failed=[], outstanding=0, unknown=[]
+        lines=lambda: [],
+        failed_lines=lambda: [],
+        collected=[],
+        failed=[],
+        outstanding=0,
+        unknown=[],
     )
 
     def collected(workspace, *, post_matrix, **_):

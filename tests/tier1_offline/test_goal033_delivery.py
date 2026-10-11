@@ -482,6 +482,31 @@ _MIGRATION_NAMES_0_35_0 = {
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
+    "0.39.0": {
+        "A quoted `--sims` holding several ids is several ids": (
+            '`--sims "2006 2007"`',
+            "20062007",
+            "NFR-45 R2",
+        ),
+        "A long automatic level tag is a summary and a short hash": (
+            "R-<n>fam-<hash>",
+            "tag_selection",
+            "FR-433",
+        ),
+        "The refusal of a sweeper export with an unknown header names the column that differs": (
+            "mark-converged",
+            "unknown header",
+        ),
+        "`refine` and `audit-mesh` refuse a `[trailing_edges] detect` the workflow refuses": (
+            "[trailing_edges] detect",
+            "Nothing was written.",
+            "NFR-45 R3",
+        ),
+        "The user guide and the cheatsheet are built from the release sources": (
+            "pyflightstream_user_guide.pdf",
+            "NFR-46",
+        ),
+    },
     "0.38.0": {
         "`pyfs-matrix degenerate` calls the public `derive_thin_blade`.": (
             "`pyflightstream.workspace._degenerate`",
@@ -582,6 +607,7 @@ _MIGRATION_NAMES_BY_RELEASE = {
 #: The inputs each release's summary refuses, each of which its section and
 #: its migration page must name, and further words its page must carry.
 _REFUSED_BY_RELEASE = {
+    "0.39.0": ("[trailing_edges] detect", "MAX_ITER_REACHED", "--out-dir", "--csv"),
     "0.38.0": ("--overwrite", "geom"),
     "0.37.0": ("older_than_days", "SOLVER_TIME_AVERAGING", "26.124"),
     "0.36.0": ("steady", "qsteady_rotor", "FR-410", "RPT-150"),
@@ -601,6 +627,26 @@ _REFUSED_BY_RELEASE = {
     "0.35.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
+    "0.39.0": (
+        "pyfs.toml",
+        "pyfs.local.toml",
+        "keep_first_row",
+        "[study]",
+        "settings_sources",
+        "iterations_requested",
+        "rebuilt_whole",
+        "shared_edge_target_m",
+        "FR-413",
+        "FR-430",
+        "FR-431",
+        "FR-432",
+        "FR-433",
+        "FR-434",
+        "FR-435",
+        "FR-436",
+        "NFR-45",
+        "NFR-46",
+    ),
     "0.38.0": (
         "needs no changes",
         "pyfs-matrix refine",
