@@ -24,6 +24,7 @@ so.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import math
 import tomllib
@@ -206,22 +207,8 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         raise _refuse(
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
-    keep = table.get("keep_first_row", False)
-    if not isinstance(keep, bool):
-        raise _refuse(f"{where} keep_first_row", f"{keep!r} is not true or false")
-    if keep and method == "remesh":
-        raise _refuse(
-            f"{where} keep_first_row",
-            "keep_first_row applies to a grid family with a trailing edge; this one is remeshed",
-        )
     table = {k: v for k, v in table.items() if k not in ("elements", "keep_first_row")}
-    body = [k for k in ("axial", "circumferential") if k in table]
-    if body and keep:
-        raise _refuse(
-            f"{where} keep_first_row",
-            "keep_first_row applies to a grid family; axial and circumferential remesh a body",
-        )
-    if body:
+    if any(k in table for k in ("axial", "circumferential")):
         return _body_spec(where, table, method)
     if not any(k in table for k in ("factor", "chordwise", "spanwise")):
         raise _refuse(where, "the table states no factor, chordwise or spanwise")
@@ -236,8 +223,37 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         chordwise=_optional(where, table, "chordwise"),
         spanwise=_optional(where, table, "spanwise"),
         method=method,
-        keep_first_row=keep,
     )
+
+
+def _keep_flag(where: str, table: Mapping[str, Any]) -> bool:
+    """Return a table's ``keep_first_row`` (FR-430 R1), refusing a value not true or false (R6)."""
+    keep = table.get("keep_first_row", False)
+    if not isinstance(keep, bool):
+        raise _refuse(where, f"keep_first_row = {keep!r} is not true or false")
+    return keep
+
+
+def with_kept_rows(where: str, spec: FamilySpec) -> FamilySpec:
+    """Return a family's spec asked to keep its interface rows, or refuse it (FR-430 R6).
+
+    ``keep_first_row`` applies to a grid family: a family stated with
+    ``method = "remesh"``, or with ``axial`` or ``circumferential`` (a body
+    remeshed along and around its axis), is refused before any work.
+    """
+    if spec.axial is not None or spec.circumferential is not None:
+        raise _refuse(
+            where,
+            "keep_first_row applies to a grid family with a trailing edge; axial and "
+            "circumferential remesh a body",
+        )
+    if spec.method == "remesh":
+        raise _refuse(
+            where,
+            "keep_first_row applies to a grid family with a trailing edge; this one is remeshed "
+            '(method = "remesh")',
+        )
+    return dataclasses.replace(spec, keep_first_row=True)
 
 
 def _optional(where: str, table: Mapping[str, Any], key: str) -> float | None:
@@ -334,8 +350,38 @@ def _periodic(path: Path, raw: Any) -> Periodic:
     )
 
 
-def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
-    """Read a refinement file against the mesh's family names, refusing what it cannot honour."""
+def _family_tables(
+    source: Path, families: Mapping[str, Any], names: Sequence[str], mesh: str | Path | None
+) -> tuple[dict[str, FamilySpec], dict[str, str], list[str]]:
+    """Return the specs, the element modes and the kept families of ``[families.<name>]``."""
+    specs: dict[str, FamilySpec] = {}
+    elements: dict[str, str] = {}
+    keep: list[str] = []
+    for name, raw in families.items():
+        where = f"{source} [families.{name}]"
+        table = _table(
+            where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
+        )
+        if name not in names:
+            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
+        if "elements" in table:
+            elements[name] = elements_mode(where, table["elements"])
+        named = f"{mesh} family {name} keep_first_row ({where})" if mesh else where
+        if _keep_flag(named, table):
+            keep.append(name)
+        if set(table) != {"elements"}:
+            specs[name] = _family_spec(where, table)
+    return specs, elements, keep
+
+
+def read_refine_file(
+    path: str | Path, names: Sequence[str], mesh: str | Path | None = None
+) -> dict[str, Any]:
+    """Read a refinement file against the mesh's family names, refusing what it cannot honour.
+
+    ``keep`` lists the families whose table states ``keep_first_row = true``
+    (FR-430 R1); a refusal of that key names ``mesh``, the source, as well.
+    """
     source = Path(path)
     try:
         data = tomllib.loads(source.read_text(encoding="utf-8"))
@@ -351,19 +397,7 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
         data.get("families", {}),
         f"write one [families.<name>] table per family, with the keys {', '.join(FAMILY_KEYS)}",
     )
-    specs: dict[str, FamilySpec] = {}
-    elements: dict[str, str] = {}
-    for name, raw in families.items():
-        where = f"{source} [families.{name}]"
-        table = _table(
-            where, raw, f"write [families.{name}] with the keys {', '.join(FAMILY_KEYS)}"
-        )
-        if name not in names:
-            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
-        if "elements" in table:
-            elements[name] = elements_mode(where, table["elements"])
-        if set(table) != {"elements"}:
-            specs[name] = _family_spec(where, table)
+    specs, elements, keep = _family_tables(source, families, names, mesh)
     refine = _table(
         f"{source} [refine]",
         data.get("refine", {}),
@@ -392,6 +426,7 @@ def read_refine_file(path: str | Path, names: Sequence[str]) -> dict[str, Any]:
     default = refine.get("elements", TRIANGLES)
     return {
         "specs": specs,
+        "keep": keep,
         "elements": elements,
         "default_elements": elements_mode(f"{source} [refine]", default),
         "tag": tag,
@@ -420,14 +455,21 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     chordwise: float | None = None,
     spanwise: float | None = None,
     config: str | Path | None = None,
+    keep_first_row: Sequence[str] | None = None,
 ) -> RefineRequest:
-    """Return what the refinement is asked, from the call and the refinement file (FR-424 R2)."""
+    """Return what the refinement is asked, from the call and the refinement file (FR-424 R2).
+
+    ``keep_first_row`` names the families that keep their interface rows
+    (FR-430 R1), with the families whose table states the key when the
+    file's tables give the factors.
+    """
     file = refine_file_of(mesh, config)
     stated = (
-        read_refine_file(file, names)
+        read_refine_file(file, names, mesh)
         if file
         else {
             "specs": {},
+            "keep": [],
             "elements": {},
             "default_elements": TRIANGLES,
             "tag": None,
@@ -459,6 +501,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
         reason = f"--families selects {', '.join(chosen)}"
         ignored = tuple(n for n in stated_specs if n not in specs)
+        asked = [n for n in stated["keep"] if n in specs]
     else:
         base = positive(f"{mesh} FACTOR", 1.0 if factor is None else factor)
         specs = {
@@ -471,14 +514,16 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         }
         reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-424 R2)"
         ignored = tuple(stated_specs)
+        asked = []
     if ignored:
         tables = ", ".join(f"[families.{n}]" for n in ignored)
         warnings.warn(
-            f"{file}: the tables {tables} are not read for their factors and methods, because "
-            f"{reason}; an elements key in them still applies.",
+            f"{file}: the tables {tables} are not read for their factors, methods and "
+            f"keep_first_row, because {reason}; an elements key in them still applies.",
             PyflightstreamWarning,
             stacklevel=3,
         )
+    specs = _kept(mesh, names, specs, [*asked, *(keep_first_row or ())])
     return RefineRequest(
         specs=specs,
         tag=stated["tag"],
@@ -489,6 +534,29 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         default_elements=stated["default_elements"],
         ignored=ignored,
     )
+
+
+def _kept(
+    mesh: Path, names: Sequence[str], specs: dict[str, FamilySpec], asked: Sequence[str]
+) -> dict[str, FamilySpec]:
+    """Return the specs with ``keep_first_row`` set on each family asked (FR-430 R1, R6).
+
+    A family the mesh does not hold, or one the selection leaves out, is
+    refused before any work, naming the source, the family and the option.
+    """
+    out = dict(specs)
+    for name in dict.fromkeys(asked):
+        where = f"{mesh} family {name} keep_first_row"
+        if name not in names:
+            raise _refuse(where, f"the mesh holds no family {name!r}; it holds {', '.join(names)}")
+        if name not in out:
+            raise _refuse(
+                where,
+                f"the selection leaves the family out (it selects {', '.join(out)}); select it "
+                "or ask keep_first_row of a selected family",
+            )
+        out[name] = with_kept_rows(where, out[name])
+    return out
 
 
 def _fmt(value: float) -> str:

@@ -130,8 +130,12 @@ class _Work:
     periodic: dict[str, Any] | None = None
     sidecar: str | None = None  # the level's boundaries file, rewritten before any work
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
-    # REF-FIRSTROW: per grid, whether station 0 and the far station keep their row's width
+    # FR-430: per grid, whether station 0 and the far station keep their row's width
     keep_rows: dict[str, tuple[bool, bool]] = field(default_factory=dict)
+    # FR-430 R7: what the boundaries file states of the trailing edge, and per grid asked
+    # to keep its rows where its trailing edge comes from ("points file" or "detected")
+    te_route: _obj.TrailingRoute = field(default_factory=_obj.TrailingRoute)
+    te_source: dict[str, str] = field(default_factory=dict)
     # FR-433 R4: the selected families of a summary tag, taken with the tag before any work
     tag_selection: list[str] | None = None
 
@@ -170,6 +174,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
         te_of={n: _te_vertices(mesh, n, points, scale) for n in names},
         scale=scale,
+        te_route=_obj.te_route(source),
     )
 
 
@@ -178,41 +183,8 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 
 def _decide(work: _Work) -> None:
     """Recover the grids and choose each family's method, refusing before any work (R9, R10)."""
-    chosen = [n for n in work.names if n in work.request.specs]
-    for name in chosen:
-        spec = work.request.specs[name]
-        if spec.method == "remesh" or spec.axial is not None:
-            _remesh_or_keep(work, name, "the refinement file states remesh")
-            continue
-        found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
-        if isinstance(found, str):
-            if spec.keep_first_row:
-                raise _refuse(
-                    f"{work.source} family {name} keep_first_row",
-                    f"keep_first_row applies to a grid and no grid was recovered: {found}",
-                )
-            if spec.method == "grid":
-                raise _refuse(
-                    f"{work.source} family {name}",
-                    f"method is grid and no grid was recovered: {found}",
-                )
-            _remesh_or_keep(work, name, f"no grid recovered: {found}")
-            continue
-        if isinstance(found, _blocks.Blocks):
-            if spec.keep_first_row:
-                raise _refuse(
-                    f"{work.source} family {name} keep_first_row",
-                    "keep_first_row applies to a single grid with a trailing edge; this family "
-                    "is a multiblock grid",
-                )
-            _blocks.check_factor(found, name, spec)
-        else:
-            chordwise, spanwise = spec.directions
-            keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)
-            _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise, keep=keep)
-            if any(keep):
-                work.keep_rows[name] = keep
-        work.grids[name] = found
+    for name in [n for n in work.names if n in work.request.specs]:
+        _decide_family(work, name)
     _grid_after_grid(work)
     for name in work.keep_rows:
         if name not in work.grids:
@@ -236,6 +208,45 @@ def _decide(work: _Work) -> None:
         require_geometry_extra([*work.remesh, *bands])
 
 
+def _decide_family(work: _Work, name: str) -> None:
+    """Recover one selected family's grid, or choose its remesh, refusing before any work."""
+    spec = work.request.specs[name]
+    if spec.method == "remesh" or spec.axial is not None:
+        _remesh_or_keep(work, name, "the refinement file states remesh")
+        return
+    where = f"{work.source} family {name} keep_first_row"
+    if spec.keep_first_row:
+        _kept_trailing_edge(work, name)
+    found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
+    if isinstance(found, str):
+        if spec.keep_first_row:
+            raise _refuse(
+                where, f"keep_first_row applies to a grid and no grid was recovered: {found}"
+            )
+        if spec.method == "grid":
+            raise _refuse(
+                f"{work.source} family {name}",
+                f"method is grid and no grid was recovered: {found}",
+            )
+        _remesh_or_keep(work, name, f"no grid recovered: {found}")
+        return
+    if isinstance(found, _blocks.Blocks):
+        if spec.keep_first_row:
+            raise _refuse(
+                where,
+                "keep_first_row applies to a single grid with a trailing edge; this family "
+                "is a multiblock grid",
+            )
+        _blocks.check_factor(found, name, spec)
+    else:
+        chordwise, spanwise = spec.directions
+        keep = _first_rows(work, name, found) if spec.keep_first_row else (False, False)
+        _grid.check_factors(found, name, chordwise=chordwise, spanwise=spanwise, keep=keep)
+        if any(keep):
+            work.keep_rows[name] = keep
+    work.grids[name] = found
+
+
 def _component_of(work: _Work, name: str) -> str:
     """Return a family's component: its ``[components]`` entry, else its name to the first ``_``."""
     for component, members in work.request.components.items():
@@ -244,29 +255,139 @@ def _component_of(work: _Work, name: str) -> str:
     return name.split("_", 1)[0]
 
 
-def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
-    """Return which end rows of a grid keep their width under ``keep_first_row`` (REF-FIRSTROW).
+def _kept_trailing_edge(work: _Work, name: str) -> None:
+    """Take the trailing edge of a grid asked to keep its rows, or refuse it (FR-430 R6, R7).
 
-    An end row is kept when its end station shares at least two nodes (an
-    edge) with a family of another component: there the row's spanwise width
-    sets the distance of the last wake filament shed by the trailing edge
-    from that component. The grid must carry a trailing edge, and at least
-    one end must meet another component; each refusal comes before any work.
+    The trailing edge is the one listed in the trailing-edge points file;
+    else, when the boundaries file routes the family's trailing edge to
+    detection, the edges detected on the source by the rule the refinement
+    uses for a source without a points file: an edge of two faces whose
+    dihedral exceeds the ridge angle (FR-424 R8), kept only where those
+    edges form the grid line that runs from station 0 to the far station at
+    the aft chordwise extreme (:func:`_detected_line`), so a sharp leading
+    edge or a crease is not taken for it. Which of the two it is goes to
+    ``refine.json``. A family with neither is refused before any work.
     """
     where = f"{work.source} family {name} keep_first_row"
-    if grid.smooth or not work.te_of[name]:
+    if work.te_of[name]:
+        work.te_source[name] = "points file"
+        return
+    if not work.te_route.detects(name):
+        raise _refuse(
+            where,
+            "keep_first_row applies to a grid with a trailing edge, and the family has none: "
+            "no edge of it is listed in the trailing-edge points file, and the boundaries file "
+            "does not route its trailing edge to detection",
+        )
+    faces = work.mesh.families[name]
+    dihedral = _geometry.dihedral_degrees(work.mesh.verts, faces)
+    sharp = {e for e, degrees in dihedral.items() if degrees > _geometry.RIDGE_DEGREES}
+    line = _detected_line(work.mesh.verts, faces, sharp) if sharp else None
+    if line is None or isinstance(line, str):
+        why = line or (
+            "the detection marks no edge of the family (no edge sharper than "
+            f"{_geometry.RIDGE_DEGREES:g} degrees)"
+        )
+        raise _refuse(
+            where,
+            "keep_first_row applies to a grid with a trailing edge; the boundaries file routes "
+            f"the trailing edge to detection, and {why}. List its trailing edge in the points "
+            "file",
+        )
+    work.te_of[name] = line
+    work.te_source[name] = "detected"
+
+
+def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> set[int] | str:
+    """Return the vertices of the detected trailing edge, or why the sharp edges hold none (R7).
+
+    The grid is recovered on every sharp edge's vertices, and the trailing
+    edge is the grid line whose every spanwise edge, from station 0 to the
+    far station, is sharp, at a chordwise extreme: the first or last line of
+    a sheet, either end of the chord of a tube's middle station. Of two such
+    lines, a sharp leading edge and the trailing edge, the trailing edge is
+    the aft one, aft being +x (the frame is x aft, y starboard, z up). A
+    family no single grid is recovered on gets every sharp edge, and the
+    recovery's own refusal follows.
+    """
+    every = {int(v) for e in sharp for v in e}
+    grid = _grid.recover_grid(verts, faces, every)
+    if isinstance(grid, str):
+        return every
+    ids = grid.ids
+    lines = [
+        c
+        for c in dict.fromkeys(_chord_ends(verts, grid))
+        if all(
+            (min(a, b), max(a, b)) in sharp
+            for a, b in zip(ids[:-1, c].tolist(), ids[1:, c].tolist(), strict=True)
+        )
+    ]
+    if not lines:
+        return (
+            "the edges sharper than the ridge angle form no grid line from station 0 to the "
+            "far station at a chordwise extreme"
+        )
+    aft = [float(verts[ids[:, c], 0].mean()) for c in lines]
+    extent = float(numpy.ptp(verts[ids.ravel()], axis=0).max())
+    # one position along x, by the rule of two nodes that are one position (FR-426 R2 G1)
+    if len(lines) == 2 and abs(aft[0] - aft[1]) <= _geometry.DUPLICATE_FRACTION * extent:
+        return (
+            "both chordwise extremes are sharp grid lines from station 0 to the far station "
+            "and neither lies aft (+x) of the other"
+        )
+    return {int(v) for v in ids[:, lines[int(numpy.argmax(aft))]].tolist()}
+
+
+def _chord_ends(verts: Points, grid: _grid.Grid) -> tuple[int, int]:
+    """Return the chordwise index of each end of the chord: a sheet's edges, a tube's extremes."""
+    n = grid.ids.shape[1]
+    if grid.layout == "sheet":
+        return 0, n - 1
+    mid = verts[grid.ids[grid.ids.shape[0] // 2]]
+    span = numpy.linalg.norm(mid[:, None, :] - mid[None, :, :], axis=2)
+    i, j = numpy.unravel_index(int(numpy.argmax(span)), span.shape)
+    return int(i), int(j)
+
+
+def _meets(row: NDArray[numpy.int64], wrap: bool, nodes: set[int]) -> bool:
+    """Return whether two consecutive nodes of a station, an edge of it, are in ``nodes`` (R2)."""
+    ids = [int(v) for v in row]
+    pairs = zip(ids, ids[1:] + ids[:1] if wrap else ids[1:], strict=False)
+    return any(a in nodes and b in nodes for a, b in pairs)
+
+
+def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
+    """Return which end rows of a grid keep their width under ``keep_first_row`` (FR-430 R2).
+
+    An end station is an interface when two consecutive nodes of it, an edge
+    of the source, are nodes of a family of another component: there the
+    row's spanwise width sets the distance of the last wake filament shed by
+    the trailing edge from that component. Two nodes it shares that are not
+    consecutive make no interface. A grid with no end at another component,
+    and one whose kept rows leave no spanwise interval, are refused before
+    any work (R6).
+    """
+    where = f"{work.source} family {name} keep_first_row"
+    if grid.smooth:
         raise _refuse(where, "keep_first_row applies to a grid with a trailing edge; it has none")
     mine = _component_of(work, name)
     others = [o for o in work.names if o != name and _component_of(work, o) != mine]
-    ends: list[bool] = []
-    for row in (grid.ids[0], grid.ids[-1]):
-        nodes = {int(v) for v in row}
-        ends.append(any(len(nodes & work.fam_v[o]) >= 2 for o in others))
+    ends = [
+        any(_meets(row, grid.wrap, work.fam_v[o]) for o in others)
+        for row in (grid.ids[0], grid.ids[-1])
+    ]
     if not any(ends):
         raise _refuse(
             where,
             f"neither end station of the grid shares an edge with a family of another component "
             f"than {mine!r}, so there is no interface row to keep",
+        )
+    if grid.intervals[1] - sum(ends) < 1:
+        raise _refuse(
+            where,
+            f"the kept rows take the grid's {grid.intervals[1]} spanwise interval(s) and leave "
+            "none to refine; refine it without keep_first_row",
         )
     return ends[0], ends[1]
 
@@ -423,6 +544,8 @@ def _refine_grids(work: _Work) -> None:
                 keep=work.keep_rows.get(name, (False, False)),
             )
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
+        if name in work.te_source:
+            info["trailing_edge"] = work.te_source[name]
         if work.request.elements_of(name) != _config.TRIANGLES:
             info["elements"] = (
                 f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "
@@ -929,6 +1052,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     config: str | Path | None = None,
     out_dir: str | Path | None = None,
     overwrite: bool = False,
+    keep_first_row: Sequence[str] | None = None,
 ) -> RefinedMesh:
     """Refine or coarsen a panel mesh from its OBJ into a new geometry folder (FR-424, FR-425).
 
@@ -949,6 +1073,12 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         Where the level folder goes (default: the parent of the source's folder).
     overwrite : bool
         Replace an existing level folder.
+    keep_first_row : sequence of str, optional
+        The grid families with a trailing edge that keep the spanwise width
+        of their row of panels at each end station meeting another component,
+        refining it chordwise only (FR-430); None or empty asks nothing.
+        Added to the families whose ``[families.<name>]`` table states
+        ``keep_first_row = true`` when that file gives the factors.
 
     Returns
     -------
@@ -979,6 +1109,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         chordwise=chordwise,
         spanwise=spanwise,
         config=config,
+        keep_first_row=[keep_first_row] if isinstance(keep_first_row, str) else keep_first_row,
     )
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     folder = _place(source, stem, out_dir, overwrite)

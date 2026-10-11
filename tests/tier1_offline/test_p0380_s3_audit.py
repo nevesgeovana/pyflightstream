@@ -454,11 +454,14 @@ def _run(*argv: str) -> tuple[int, list[str]]:
 
 
 def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv(tmp_path, capsys):
-    """P0380-AUDIT (FR-426 R1): ``audit-mesh OBJ --against SOURCE --csv FILE`` exits 0, prints
-    the summary and the files written, and the CSV holds one row per family and figure."""
+    """P0380-AUDIT (FR-426 R1): ``audit-mesh OBJ --against SOURCE --out FILE`` exits 0, prints
+    the summary and the files written, and the CSV holds one row per family and figure.
+
+    0.39.0 (NFR-45 R2, API-05): the CSV option is ``--out``; its deprecated alias ``--csv``,
+    which warns, is held in tests/tier1_offline/test_p0390_rev38_mesh_cli.py."""
     level, src = _pair(tmp_path, Mesh())
     table = tmp_path / "audit.csv"
-    code, said = _run("audit-mesh", str(level), "--against", str(src), "--csv", str(table))
+    code, said = _run("audit-mesh", str(level), "--against", str(src), "--out", str(table))
     out = capsys.readouterr().out
     assert code == 0 and said == []
     assert "every gate and check passed" in out and str(level.with_suffix(".audit.json")) in out
