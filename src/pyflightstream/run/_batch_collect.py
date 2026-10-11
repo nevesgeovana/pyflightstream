@@ -469,7 +469,7 @@ def _source_unless_absent(point: _Point, source: Path | None) -> tuple[Path | No
     """
     if source is None or source.exists():
         return source, False
-    if point_absent_logs(point.record, point.work):
+    if point_absent_logs(point.record, point.work, point.batch_sim or point.sim):
         return None, True
     return source, False
 

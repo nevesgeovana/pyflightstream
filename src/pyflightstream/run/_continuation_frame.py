@@ -49,7 +49,11 @@ from pyflightstream.workspace.ledger import latest_record_of_point
 #: continued too, but only by ``ADDITIONAL_REVS`` or ``ADDITIONAL_ITERS`` and
 #: once per request (:func:`continuation_verdict`); a failed run has no state
 #: worth resuming.
-CONTINUABLE = (RunStatus.WALLTIME_REACHED, RunStatus.COMPLETED_MAX_ITER)
+CONTINUABLE = (
+    RunStatus.WALLTIME_REACHED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.MAX_ITER_REACHED,
+)
 
 #: Every status a run ends in when it FAILED, read off the enum by name so a
 #: failure status added there is covered here without an edit.
@@ -60,7 +64,7 @@ FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswith
 MARCHING_RUN_TYPES = ("unsteady", "unsteady_rotor")
 
 #: The statuses of a run that reached every step it was given.
-_COMPLETED = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER)
+_COMPLETED = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.MAX_ITER_REACHED)
 
 #: The step counter's registration, which every unsteady row carries since 0.33.0
 #: (FR-314) and which counts and places nothing.
@@ -415,7 +419,7 @@ def continuation_verdict(
             f"{latest.continues!r} and ended {status}{before}; change the request to march "
             "further",
         )
-    if latest.status is RunStatus.COMPLETED_MAX_ITER:
+    if latest.status in (RunStatus.COMPLETED_MAX_ITER, RunStatus.MAX_ITER_REACHED):
         return ContinuationVerdict(True, f"continuing {run!r}, recorded {status}, {_by(request)}")
     if latest.recipe in MARCHING_RUN_TYPES:
         return ContinuationVerdict(

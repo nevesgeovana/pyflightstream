@@ -99,6 +99,7 @@ from pyflightstream.workspace._missing_log import (
     missing_log_fields,
     missing_log_note,
     point_absent_logs,
+    script_log_names,
 )
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
@@ -504,7 +505,11 @@ def _native_log_or_job_end(
             CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal),
             (),
         )
-    absent = point_absent_logs(record, work_dir) if native.source is None else ()
+    absent = (
+        point_absent_logs(record, work_dir, _sim_dir(workspace, record))
+        if native.source is None
+        else ()
+    )
     if absent:
         return native, None, absent
     failed = job_ended_without_log(workspace, record, names, work_dir, native=native, point=point)
@@ -916,6 +921,8 @@ _STAMPED_FIELDS: tuple[str, ...] = (
     "solver_run_time_s",
     "solver_initialization_s",
     "time_steps",
+    # FR-434: the requested limit, set by the assessor only for MAX_ITER_REACHED.
+    "iterations_requested",
     # 0.30.0: a quasi-steady wheel's verdict per clocking.
     "clocking_verdicts",
     # 0.24.0: WHAT WAS COMPARED, as the local path records it. The verdict
@@ -960,6 +967,7 @@ def _judged(
     if missing_logs and not str(status).startswith("FAILED"):
         fields = missing_log_fields(missing_logs)
         status, verdict = RunStatus.RAN_MISSING_LOG, None
+        stamped.pop("iterations_requested", None)
         stamped.update({key: value for key, value in fields.items() if key != "status"})
     return status, verdict, stamped
 
@@ -1197,6 +1205,10 @@ def _sweep_point_entry(
             "iterations": assessment.iterations,
             "residual": assessment.residual,
         }
+        if status == RunStatus.MAX_ITER_REACHED:
+            # FR-434 R1/R4: the limit the point stopped at, for the entry and its WARNING.
+            read["iterations_requested"] = assessment.iterations_requested
+            read["residual_note"] = assessment.residual_note
     else:
         status, verdict = assessor(as_point, sim_dir)
         status, verdict = _log_verdicts(
@@ -1206,7 +1218,7 @@ def _sweep_point_entry(
     note = None
     if missing and not str(status).startswith("FAILED"):
         status, verdict, note = RunStatus.RAN_MISSING_LOG, None, missing_log_note(missing)
-        read = dict.fromkeys(read)
+        read = dict.fromkeys(k for k in read if k not in ("iterations_requested", "residual_note"))
     entry.update(status=str(status), outputs=collected, **read)
     if note is not None:
         entry["residual_note"] = note
@@ -1462,10 +1474,9 @@ def _declared_log_names(record: RunRecord, sim_dir: Path) -> list[str]:
     exports its log to, and the output a case's LOG_OUTPUT names), and what the
     job's own script on disk exports its log to, so a job submitted before the
     names were recorded is read by them too. A log need not end in ``_log.txt``:
-    a case built in Python or a LEGACY row names it as it likes.
+    a case built in Python or a LEGACY row names it as it likes. The script is
+    read by the workspace layer's one reading (FR-413 R8).
     """
-    from pyflightstream.run._wake_edge_verdict import script_log_names
-
     recorded = (record.submission or {}).get("declared_logs")
     names = [str(name) for name in recorded] if isinstance(recorded, list) else []
     if record.script_path:

@@ -153,6 +153,18 @@ class RunStatus(enum.StrEnum):
 
     CONVERGED = "CONVERGED"
     COMPLETED_MAX_ITER = "COMPLETED_MAX_ITER"
+    #: FR-434, 0.39.0: a STEADY point whose evidence (the solver log, else the
+    #: loads footer) shows the iteration counter AT the iteration limit the run
+    #: requested, with the residual not settled below the convergence limit.
+    #: NOT A FAILURE, and a different statement from COMPLETED_MAX_ITER, which
+    #: an unsteady run that ended its time loop keeps, and which a steady point
+    #: whose evidence does not show the counter at the limit keeps too: this
+    #: value needs that evidence and is never inferred. The record states the
+    #: requested limit and the iterations reached in ``residual_note``. Every
+    #: reader that treats COMPLETED_MAX_ITER as an ended run that is not a
+    #: failure treats this value the same. A manifest holding it is refused by
+    #: a 0.38.0 reader, which the migration note states.
+    MAX_ITER_REACHED = "MAX_ITER_REACHED"
     FAILED_EXECUTION = "FAILED_EXECUTION"
     FAILED_SCRIPT = "FAILED_SCRIPT"
     FAILED_INCOMPLETE_OUTPUT = "FAILED_INCOMPLETE_OUTPUT"
@@ -784,8 +796,9 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         keys = (
-            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by".split()
-        )
+            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by"
+            " iterations_requested"
+        ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
     #: How the solver was called (PFS-2012.04), None where no solver ran
@@ -865,6 +878,10 @@ class RunRecord(BaseModel):
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None
+    #: FR-434 R1 (0.39.0): the iteration limit the run requested, written ONLY for
+    #: ``MAX_ITER_REACHED`` (``iterations`` is the counter reached); absent from the
+    #: record of every other status, so a record keeps its 0.38.0 content.
+    iterations_requested: int | None = None
     residual: float | None = None
     wall_time_s: float | None = None
     outputs: list[str] = Field(default_factory=list)

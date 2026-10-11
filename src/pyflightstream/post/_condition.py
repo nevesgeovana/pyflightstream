@@ -750,7 +750,10 @@ def _simulation_metadata(records: Sequence[RunRecord]) -> RunRecord:
     """Take each shared field from a carrier, preferring successful records."""
     preferred = sorted(
         records,
-        key=lambda record: record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER),
+        key=lambda record: (
+            record.status
+            not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.MAX_ITER_REACHED)
+        ),
     )
     fields = ("pproc", "reference", "description", "mach", "flight_condition", "aliases")
     values = {}

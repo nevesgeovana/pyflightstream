@@ -45,6 +45,9 @@ CLOSED_SET = {
     # 0.37.0, added by the owner's requirement: every output present and the declared
     # solver log absent, a run that ended; minted by collect and by rebuild.
     "RAN_MISSING_LOG",
+    # 0.39.0 (FR-434), amended in by the owner: a steady run that stopped at its requested
+    # iteration limit without settling; minted by the assessor, never by collect's own rules.
+    "MAX_ITER_REACHED",
 }
 
 

@@ -1239,6 +1239,7 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,
+        iterations_requested=assessment.iterations_requested,
         clocking_verdicts=assessment.clocking_verdicts,
         error=error,
     )

@@ -29,15 +29,18 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
+from pyflightstream.cases.pproc import EXPORT_KINDS
 from pyflightstream.workspace.manifest import RunRecord, RunStatus
 
 __all__ = [
     "UNAVAILABLE_WITHOUT_LOG",
     "absent_solver_logs",
+    "declared_log_names",
     "missing_log_fields",
     "missing_log_note",
     "missing_log_warning",
     "point_absent_logs",
+    "script_log_names",
 ]
 
 #: What only a solver log carries, in the order every message names it (FR-413 R7).
@@ -59,6 +62,65 @@ _LOG_ONLY_FIELDS: tuple[str, ...] = (
     "solver_initialization_s",
     "log_file_used",
 )
+
+
+#: The commands that write the solver log to a file: the verb of the ``log``
+#: kind of EXPORT_KINDS, which is where the package states which command writes
+#: which export (EXPORT_LOG; the command database marks no other as writing it).
+_LOG_VERBS = frozenset(verb for kind, _, verb, _ in EXPORT_KINDS if kind == "log")
+
+
+def script_log_names(script_text: str | None) -> list[str]:
+    """Return the name of every file a script tells the solver to write its log to.
+
+    THE ONE READING of a script's log names (FR-413 R8): the run layer's
+    log-line checks and the collect of a point whose record declares no log
+    both come here, so the two cannot disagree. EXPORT_LOG is ``param_lines``:
+    the command alone on its line and the file on the next. The name is the
+    file's own, without its folder, since that is how a collected output is
+    matched to it. Either separator is read, so a script written for a cluster
+    is read here too.
+
+    Parameters
+    ----------
+    script_text : str or None
+        The script as rendered, or as it stands on disk.
+
+    Returns
+    -------
+    list of str
+        Each name once, in the order the script writes them; empty for no script.
+    """
+    if not script_text:
+        return []
+    lines = script_text.splitlines()
+    names: list[str] = []
+    for line, following in zip(lines, lines[1:], strict=False):
+        if line.strip() in _LOG_VERBS and following.strip():
+            name = PureWindowsPath(following.strip()).name
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def declared_log_names(record: RunRecord, sim_dir: Path | None) -> list[str]:
+    """Name the solver logs of a record: its ``declared_logs``, else its script's (FR-413 R8).
+
+    A record that carries the field keeps the field's names. A record without
+    it (a point submitted before 0.37.0) is read from the job's own script on
+    disk, ``sim_dir / script_path``. Empty when there is neither the field nor
+    a readable script, which is a point with no declared log.
+    """
+    recorded = (record.submission or {}).get("declared_logs")
+    if isinstance(recorded, list | tuple):
+        return [str(name) for name in recorded]
+    if sim_dir is None or not record.script_path:
+        return []
+    try:
+        text = (sim_dir / record.script_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return script_log_names(text)
 
 
 def _listed(items: Sequence[str]) -> str:
@@ -113,7 +175,9 @@ def absent_solver_logs(
     return tuple(absent)
 
 
-def point_absent_logs(record: RunRecord, folder: Path) -> tuple[str, ...]:
+def point_absent_logs(
+    record: RunRecord, folder: Path, sim_dir: Path | None = None
+) -> tuple[str, ...]:
     """Ask :func:`absent_solver_logs` of one SUBMITTED record's declared files in ``folder``.
 
     Parameters
@@ -122,6 +186,9 @@ def point_absent_logs(record: RunRecord, folder: Path) -> tuple[str, ...]:
         The record, whose ``submission`` declares its outputs and logs.
     folder : Path
         Where its job wrote them.
+    sim_dir : Path, optional
+        The simulation folder holding the job's script, read for the log names
+        when the record carries no ``declared_logs`` (R8).
 
     Returns
     -------
@@ -130,8 +197,8 @@ def point_absent_logs(record: RunRecord, folder: Path) -> tuple[str, ...]:
     """
     submission: Mapping[str, Any] = record.submission or {}
     outputs = submission.get("declared_outputs")
-    logs = submission.get("declared_logs")
-    if not isinstance(outputs, list | tuple) or not isinstance(logs, list | tuple):
+    logs = declared_log_names(record, sim_dir)
+    if not isinstance(outputs, list | tuple) or not logs:
         return ()
     written = {
         str(entry.get("dat"))

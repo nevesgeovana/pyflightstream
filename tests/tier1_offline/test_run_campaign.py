@@ -292,6 +292,8 @@ def test_loads_assessor_judgments_per_evidence(tmp_path):
         None,
         make_collected(tmp_path / "b", "", text=steady.replace("312", "500")),
     )
+    # FR-434 R2: the footer supplies the counter only; with no readable residual (no log)
+    # a steady point at 500 of 500 keeps its 0.38.0 status.
     assert limited.status is RunStatus.COMPLETED_MAX_ITER
 
     diverged = assessor(
@@ -1165,7 +1167,9 @@ def test_a_completed_forced_run_is_still_completed_max_iter(tmp_path):
 
     The loop ran its prescribed course; nothing about that is wrong, and
     nothing about it is convergence either. This is the second control: the
-    refusal is about the loop ending EARLY, not about forcing.
+    refusal is about the loop ending EARLY, not about forcing. A forced run
+    reaches its budget by design, so FR-434's MAX_ITER_REACHED (a stop that
+    failed to settle) does not apply to it.
     """
     text = _steady_text().replace(_FORCED_OFF, _FORCED_ON).replace("312", "500")
     assessment = LoadsAssessor("loads.txt")(
