@@ -9921,7 +9921,7 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 !!! requirement "FR-431 A neighbour family the band covers whole is rebuilt whole at factor 1, with a warning and a record <span class='srs-pending'>pending</span>"
     Plan: PFS-2080.03 (0.39.0).
 
-    *Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*
+    *Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*
 
     Need: A user who refines a grid family whose unselected neighbour is two face layers deep or less must get a level, not an internal error, and must be told which neighbour was rebuilt whole.
 
@@ -9939,7 +9939,7 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 !!! requirement "FR-432 A family rebuilt at factor 1 beside a refined side takes the spacing of the edge it shares with it <span class='srs-pending'>pending</span>"
     Plan: PFS-2080.04 (0.39.0).
 
-    *Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*
+    *Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*
 
     Need: A user who refines a grid and lets its unselected neighbour be rebuilt at factor 1 (stated, or by FR-431) must get a level whose audit passes G1, with no face of zero area at the shared boundary.
 
@@ -9957,7 +9957,7 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 !!! requirement "FR-433 The automatic level tag is a summary and a short hash when the selection is long <span class='srs-pending'>pending</span>"
     Plan: PFS-2080.05 (0.39.0).
 
-    *Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*
+    *Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*
 
     Need: A user who selects many families must get a level written under an automatic folder name that fits on Windows, and must find the full selection in `refine.json`.
 

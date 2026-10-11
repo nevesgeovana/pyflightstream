@@ -42,6 +42,7 @@ from pyflightstream.results import (
     parse_residual_solves,
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
+from pyflightstream.results.core import RESIDUAL_PAGE, delimited_table, parse_count, parse_number
 from pyflightstream.run._executors import (
     ExecutionResult,
 )
@@ -796,6 +797,8 @@ def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
             history = parse_residual_history(log_text)
             final = history[-1]
         except (IncompleteOutputError, ValueError) as exc:
+            if (limit := _footer_counter_limit(job, log_text, job.log_path.name)) is not None:
+                return limit
             return Assessment(
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
                 error=f"solver log unusable: {exc}",
@@ -889,9 +892,90 @@ def _limit_note(note: object, requested: int, reached: int) -> str:
     return f"{note}; {said}" if note else said
 
 
+def _counterless_final(text: str) -> ResidualSample | None:
+    """Return the final row of a residual table that prints no readable counter, or None.
+
+    FR-434 R1, the footer fallback: the residual history is there, both residuals
+    readable and finite on its last row, and the counter column of EVERY row is not a
+    count (a field the solver could not print). Such a log is no iteration history
+    (:func:`~pyflightstream.results.parse_residual_history` refuses it), so its row
+    carries iteration 0 here and the caller takes the counter from the loads footer.
+    None for a log with a readable counter on any row, an unreadable residual, or no
+    table: those are read, or refused, as 0.38.0 reads them.
+    """
+    rows: list[list[str]] = []
+    try:
+        for page in RESIDUAL_PAGE.split(text.replace("\x00", ""))[1:]:
+            rows.extend(delimited_table("Iteration" + page, "Iteration", delimiter=None))
+        if not rows or any(len(row) < 3 or _a_count(row[0]) for row in rows):
+            return None
+        velocity, pressure = parse_number(rows[-1][1]), parse_number(rows[-1][2])
+    except ValueError:
+        return None
+    if not (math.isfinite(velocity) and math.isfinite(pressure)):
+        return None
+    return ResidualSample(iteration=0, velocity_residual=velocity, pressure_residual=pressure)
+
+
+def _a_count(token: str) -> bool:
+    """Say whether a residual row's first cell reads as an iteration count."""
+    try:
+        parse_count(token, label="the residual table's iteration counter")
+    except ValueError:
+        return False
+    return True
+
+
+def _footer_counter_limit(job: _LoadsJudgment, log_text: str, log_name: str) -> Assessment | None:
+    """MAX_ITER_REACHED from a counterless log and the footer's counter (FR-434 R1), or None.
+
+    The footer supplies the counter only, never the verdict: the log's final residuals
+    must be readable and above the convergence limit, and the footer's counter must
+    equal the requested limit of a steady, unforced run. Anything else is None, and the
+    0.38.0 judgment of the point stands (a counterless log decides nothing else).
+    """
+    final = _counterless_final(log_text)
+    reached = job.report.current_iteration
+    if final is None or not _at_the_limit(job, reached):
+        return None
+    judged = _judge_final_residuals([final], job.report.convergence_limit)
+    if judged.status is not RunStatus.COMPLETED_MAX_ITER:
+        return None
+    requested = job.report.requested_iterations
+    job.stamp["log_file_used"] = log_name
+    job.stamp["residual_note"] = _limit_note(judged.note, requested, reached)
+    job.stamp["iterations_requested"] = requested
+    return Assessment(
+        status=RunStatus.MAX_ITER_REACHED,
+        iterations=reached,
+        residual=judged.residual,
+        **job.stamp,
+    )
+
+
+def _counterless_log_limit(job: _LoadsJudgment) -> Assessment | None:
+    """Apply the footer fallback to a point whose one counterless log is found by content."""
+    if job.assessor.log_file is not None or not _at_the_limit(job, job.report.current_iteration):
+        return None
+    found = []
+    for path in job.collected:
+        if path == job.report_path:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if _counterless_final(text) is not None:
+            found.append((path, text))
+    # Several are not resolved by choosing, as for a log with a counter.
+    return _footer_counter_limit(job, found[0][1], found[0][0].name) if len(found) == 1 else None
+
+
 def _judge_assessment_iterations(job: _LoadsJudgment) -> Assessment:
     """Judge assessment iterations."""
     if job.mode == "steady":
+        if (limit := _counterless_log_limit(job)) is not None:
+            return limit
         # forced_iterations is None when the loads footer does not print
         # the line; the count judgment then stands, because nothing says
         # the threshold was off. Stated rather than left implicit: the

@@ -1243,7 +1243,11 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,
-        iterations_requested=assessment.iterations_requested,
+        # FR-434 R1: the limit rides only on the FINAL status MAX_ITER_REACHED, so a
+        # walltime or log verdict that overrode the assessment does not carry it.
+        iterations_requested=(
+            assessment.iterations_requested if status is RunStatus.MAX_ITER_REACHED else None
+        ),
         clocking_verdicts=assessment.clocking_verdicts,
         error=error,
     )

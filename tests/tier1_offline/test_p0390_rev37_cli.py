@@ -9,16 +9,19 @@ assertion of ``test_p0370_s1_sims_shapes.py``.)
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pyflightstream.results import MalformedOutputError
-from pyflightstream.results.exports import _SIMCENTER_SWEEP_COLUMNS, SWEEP_COLUMNS, sweep_columns
+from pyflightstream.results.exports import SWEEP_COLUMNS, parse_force_distributions, sweep_columns
 from pyflightstream.run import _alias
 from pyflightstream.workspace import ledger
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
 REASON = "read by hand"
 SIMS = ("7001", "7002", "7003")
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _help(command, tmp_path, capsys):
@@ -52,7 +55,6 @@ def test_the_sweep_refusal_names_the_column_that_differs_in_each_layout():
     assert "layout 1:" in said and "layout 2:" in said, said
     # A rename in the CDo slot differs at column 9 of the first layout but at column 8
     # (CDp expected, CDi found) of the second: each layout names its own first difference.
-    assert _SIMCENTER_SWEEP_COLUMNS[7] == "CDp"
     with pytest.raises(MalformedOutputError) as refused:
         sweep_columns(_header(CDo="CDz"), what="sweeper spreadsheet")
     said = str(refused.value)
@@ -141,15 +143,15 @@ def test_delete_sims_reads_a_quoted_value_as_two_ids(tmp_path, capsys):
 
 def test_a_single_layout_refusal_names_the_first_difference_without_a_layout_number():
     """P0390-REV37 (NFR-45 R2, R37-02): one expected layout says "The first difference"."""
-    from pyflightstream.results.exports import _pinned_columns
-
-    layout = ("A", "B", "C")
+    text = (FIXTURES / "force_distributions_26.123.txt").read_text(encoding="utf-8")
+    header = "Boundary, X, Y, Z, Cx, Cy, Cz, Cxv, Cyv, Czv"
+    assert text.count(header) == 1
     with pytest.raises(MalformedOutputError) as refused:
-        _pinned_columns("A, X, C", layout, what="demo")
+        parse_force_distributions(text.replace(header, header.replace(" Y,", " Q,")))
     said = str(refused.value)
-    assert "The first difference: column 2 expected 'B', found 'X'" in said, said
+    assert "The first difference: column 3 expected 'Y', found 'Q'" in said, said
     assert "Against each" not in said and "layout 1" not in said, said
     with pytest.raises(MalformedOutputError) as refused:
-        _pinned_columns("A, X, C", layout, ("A", "Y", "C"), what="demo")
+        sweep_columns(_header(CL="CLx"), what="sweeper spreadsheet")
     said = str(refused.value)
-    assert "Against each, layout 1: column 2 expected 'B'" in said and "layout 2:" in said, said
+    assert "Against each, layout 1: column 7 expected 'CL'" in said and "layout 2:" in said, said

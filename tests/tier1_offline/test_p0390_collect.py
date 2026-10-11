@@ -123,3 +123,62 @@ def test_p0390_collect_one_reading_of_a_script_serves_workspace_and_run():
         run_id="r", submission={"declared_logs": ["a_log.txt"]}, script_path=None
     )
     assert declared_log_names(kept, None) == ["a_log.txt"]
+
+
+@pytest.mark.parametrize(
+    ("field", "read"),
+    [([], False), (["field_log.txt"], False), (["log_AL+000.h5"], True)],
+    ids=["empty-field", "field-names-another", "field-names-it"],
+)
+def test_p0390_collect_the_log_line_checks_read_a_present_field_alone(field, read, tmp_path):
+    """P0390-COLLECT (FR-413 R8): collect's log-line checks take a present field's names alone.
+
+    The job's script exports its log to ``log_AL+000.h5``, which carries a G06
+    refusal line. Every collected text output is scanned for the line whatever its
+    name, so the case where the declaration decides is a log under a suffix the
+    scan takes for binary (``.h5``): it is read only when it is a declared log. A
+    record whose field is an explicitly empty list, or names another file, has
+    not declared that file a log, so the line is not read and
+    the point keeps the assessor's CONVERGED; a field that names it is read and
+    the point is FAILED_SCRIPT (the control). A mutant that adds the script's
+    names to a present field fails the empty and the other-name cases.
+    """
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_collect_stage import _submitted_workspace
+    from tests.tier1_offline.test_g06_actuator_disc import (
+        COPY,
+        PROFILE_REFUSALS,
+        _log_without_residuals,
+    )
+
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt", "log_AL+000.h5"))
+    rows = _rows(workspace.root)
+    rows[0]["submission"]["declared_logs"] = field
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    script = sim / "scripts" / "point.fs"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        f"EXPORT_SOLVER_ANALYSIS_SPREADSHEET\n{sim / 'loads.txt'}\n\n"
+        f"EXPORT_LOG\n{sim / 'log_AL+000.h5'}\n\nCLOSE_FLIGHTSTREAM\n",
+        encoding="utf-8",
+    )
+    assert script_log_names(script.read_text(encoding="utf-8")) == ["log_AL+000.h5"]
+    line = f"{PROFILE_REFUSALS[2]}{sim / COPY}"
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    (sim / "log_AL+000.h5").write_bytes(_log_without_residuals(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        report = collect_once(workspace, interval=0.0, sleep=no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    record = outcome.record
+    assert record is not None, outcome.detail
+    if read:
+        assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+        assert line in (record.error or ""), record.error
+    else:
+        assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+        assert record.error is None
