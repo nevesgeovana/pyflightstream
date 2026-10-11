@@ -80,7 +80,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-43": "883cedfbb85f6121d26271efe4d636f7bf4733d8a6b90d9314928216e452d8bc",
     "FR-44": "7ef2451f1f1215fcb4a31c844aaac6db52098ab82687004cb14c9930a78f6515",
     "FR-45": "b3c7e4711b585b534344e4d55c03ec1825a2ccd3a9d67b4c92d889f3af780896",
-    "FR-46": "cced7a8a0b5379d84bbb9861b13a8902cc9d2cca17591f12c75639665436e21e",
+    # amended in 0.39.0 by FR-434 (MAX_ITER_REACHED joins the closed set), SRS 1.75.0
+    "FR-46": "e866584ed1fa07cf2888d35c87f520775f07532fc2e5f1129302ff7a1c44d70a",
     "FR-47": "79b6e547ac2465f4909928fe12fd1b8c9faaf48f3f358422b2c439059b270764",
     "FR-48": "5103a063d5b962358562031c69da755babc171f0e9ae3e49c2f9814d646bca63",
     "FR-49": "b8c4d1c27efe458ab545fc4369dc4cd3d6af65050e8ebcfac255b8c845cd06ac",
@@ -328,7 +329,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-338": "ada9ff95b4612607d31f154199cf58d7ad86431f2c5affea5a891e3dfe9dc957",
     "FR-339": "358c9225cd2cfaa316244acc55e743d92fbe0bfd155a2c4445ecb686925ad5b3",
     "FR-340": "f26d05a90f0ab72cefd00bfaa93489d76a912ad6dcc11ed70fb49d0e863642d2",
-    "FR-341": "b0a64abf52c335bc10fe0ef380354091a71780b73aeb6ba034f396056d4678ff",
+    # amended in 0.39.0 by NFR-45 R37-10 (the hash is of the separator-folded render)
+    "FR-341": "f26e689fc7ec8be44fa43d989e40b43ec0d2ce682a3a589491a0f0cc29aa94d4",
     "FR-342": "79050abad7adf4ab8a7a011bf0b8b4af4e0b11013669efa50949c5c9ce55a65b",
     "FR-343": "cae73a8008353ea69f3d09a9668e2e65675ce3407c0cdd2575568ef334303899",
     "FR-344": "aa85bcc7b1aae52f124941a55724d034f482924fb968f6b48a9289504707c50e",
@@ -399,7 +401,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-410": "a5711be72694c5c38506bc01840f246e566c8d556e096473b571eac57f7cc220",
     "FR-411": "6b9a61ff17b400c53f32e079da127fcb68c9f46a8acf9a0e885cb16091f164f6",
     "FR-412": "377f03e01dab323e547726f542e434df73bff13a2d28f12205a0a61d5d595c47",
-    "FR-413": "88e12e9dd8b253eb58e6b9f0608ac587934966e6ef8659e2dd0fb39b74aa283d",
+    # amended in 0.39.0 by R8 (log names read from the job script), SRS 1.75.0
+    "FR-413": "ce5ed2e06ab381359f0e5763b23cf746c6df48edb95f9e2f31b31cae04bf4fb9",
     "FR-414": "856398a4f6cb3c0d1e89e8df7fb7f43ab61a397db01f542259f73d7e13ce3c73",
     "FR-415": "d26bee038af4e273c8391aa7f328a36d7e89663f39291b936805184bb6f58f37",
     "FR-416": "eea7cfe0a9de5c234e4d21b1849bc65a24f2bba8d55c7cc9ed4bb1f176d13ebe",
