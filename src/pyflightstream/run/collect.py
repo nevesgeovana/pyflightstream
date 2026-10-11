@@ -262,13 +262,22 @@ class CollectReport:
         """One human line per point, in the order a reader wants them."""
         out: list[str] = []
         for outcome in [*self.collected, *self.failed, *self.waiting, *self.unknown]:
-            out.append(f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}")
+            out.append(_outcome_line(outcome))
         for record in self.discarded:
             out.append(
                 f"discarded WALLTIME_REACHED: sim {record.sim_id} {record.run_id} "
                 f"(stopped at {record.stopped_at or '?'}); a grouped plan runs it again"
             )
         return out
+
+    def failed_lines(self) -> list[str]:
+        """Return the line :meth:`lines` prints for each point the sweep failed, and no other."""
+        return [_outcome_line(outcome) for outcome in self.failed]
+
+
+def _outcome_line(outcome: CollectOutcome) -> str:
+    """Return the human line of one point's outcome: its state, its run, what happened."""
+    return f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}"
 
 
 def _declared_outputs(record: RunRecord) -> list[str]:

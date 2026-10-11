@@ -1,0 +1,35 @@
+{
+  "cheatsheet_cut_approved": "2026-10-11 guide 04 cut approved: eight prose passages and repeated explanations cut from page 1 and the stage 1 page, 11 pages to 10, no overfull box, every command and option of the options registry kept",
+  "receipts": [
+    {
+      "name": "pyfts-guide-04-cheatsheet.pdf",
+      "path": "guide/pyfts-guide-04-cheatsheet.pdf",
+      "source_revision": "f1671f93708ad4a772fa506e2b06486d1d24b09c",
+      "source_tree_clean": false,
+      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File guide/latex-sources/build-all.ps1 04",
+      "typesetter": "pdflatex (three passes, run by build-all.ps1)",
+      "typesetter_version": "MiKTeX-pdfTeX 4.16 (MiKTeX 23.10)",
+      "exit_status": 0,
+      "build_log": "guide/pyfts-guide-04-cheatsheet.log",
+      "build_log_sha256": "6d657c041f15e114af982a3b2000e320e339d83ce375df60a689d2d48a816e3f",
+      "raw_build_log_sha256": "6a449d2c574777f9911ea702f280bf3f28e91a70fc1a7cfce3c023a15ddbf0b3",
+      "pdf_sha256": "0b3cc06770f391289485d6c5bc66767616243f5b480dae3fe7a26ffa742d769f",
+      "page_count": 10
+    },
+    {
+      "name": "pyflightstream_user_guide.pdf",
+      "path": "guide/pyflightstream_user_guide.pdf",
+      "source_revision": "f1671f93708ad4a772fa506e2b06486d1d24b09c",
+      "source_tree_clean": false,
+      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-guide.ps1",
+      "typesetter": "pdflatex, run by latexmk -pdf (build-guide.ps1 takes latexmk when it is on the PATH)",
+      "typesetter_version": "MiKTeX-pdfTeX 4.16 (MiKTeX 23.10); Latexmk, John Collins, 4 Apr. 2023. Version 4.80",
+      "exit_status": 0,
+      "build_log": "guide/pyflightstream_user_guide.log",
+      "build_log_sha256": "70f333add5d1c5b2380e3d4c7ec973726a0e88a098fdeb79a1cd289d526fd911",
+      "raw_build_log_sha256": "217259337149e130d5e523ad963b585adcc6f3b7c020d6285e6c8b3ecd6e20d5",
+      "pdf_sha256": "88595ad93a12ea498ad5b8f7363188e4910e3b77ab191fbb245f871f945d0a8c",
+      "page_count": 96
+    }
+  ]
+}

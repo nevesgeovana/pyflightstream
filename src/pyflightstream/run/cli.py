@@ -112,6 +112,7 @@ from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
 from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, parsed, resume_hint
 from pyflightstream.run._cli_print import (
+    _print_collect,
     _print_delete_sims,
     _print_free_space,
     _print_plan,
@@ -712,8 +713,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 2
 
-    for line in report.lines():
-        print(line)
+    _print_collect(report)
     say_summary(
         f"collected {len(report.collected)}, failed {len(report.failed)}, "
         f"outstanding {report.outstanding}, unknown {len(report.unknown)}"
