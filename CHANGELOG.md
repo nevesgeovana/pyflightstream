@@ -188,6 +188,10 @@ FlightStream versions.
   values (FR-424 R17, FR-426 R3).
 - Across a multiblock patch side the surface is continuous, not smooth: no spline crosses it
   (FR-424 R16).
+- A tube closed at both ends by pole fans is recovered as a grid only while each pole fan has
+  its own size: when the fan size of a pole is shared by more than two nodes, or equals the
+  valence of a near-pole ring (5 on split cells), the tube is not recovered as a grid and is
+  remeshed, never refined as a wrong grid (FR-424 R9).
 - A triangulated tip cap (any triangulation other than a pole fan or a zipper) is not part of
   a grid. Give it a family of its own in the pre-processor, refine the blade as a grid, and
   merge the two with `[components]` (FR-425).
@@ -238,7 +242,9 @@ FlightStream versions.
   name, every refusal rechecked under the manifest lock before anything is
   written. `show`, `status --points`, `post.log` and every `products.json`
   entry built from a marked point name the verdict, and `rebuild` and `sync`
-  keep it, a steady job's point marks included. From Python:
+  keep it, a steady job's point marks included. `--sims` takes the ids as separate words
+  or comma separated, and a single quoted `"2006 2007"` is read as two ids, not as
+  20062007. From Python:
   `pyflightstream.run.records.mark_converged` (FR-414).
 - `pyfs-matrix rebuild` rebuilds grouped runs (`--batch`, `--polar-sweep`): a
   batch point's script is compared at its batch folder, the rebuilt record

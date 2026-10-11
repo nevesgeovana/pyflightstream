@@ -135,7 +135,7 @@ inputs), steady, 30 m/s, five iterations, far field 5. The files stayed on the
 measuring machine; each is named here by its sha256 and its lines are quoted
 as the solver wrote them, without their CRLF line ends. The campaign folder is
 kept on the measuring machine (`campaign/shard1/26.125/<probe>/`, the
-probe-campaign working folder of CMP-26125_2026-10-05), and the sources stay
+folder where the probes of CMP-26125_2026-10-05 ran), and the sources stay
 there.
 
 ### The sweep spreadsheet (W3-1)
