@@ -69,7 +69,8 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace._links import _is_link, _is_reparse, _make_dir_link, _remove_link
+from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
+from pyflightstream.workspace._links import is_reparse as _is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
 from pyflightstream.workspace.naming import (

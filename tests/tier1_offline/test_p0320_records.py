@@ -639,19 +639,19 @@ def test_rst8_each_drift_class_is_named_with_the_input_it_comes_from(tmp_path):
         "SET_PLOT_TYPE LOADS",
         "CLOSE_FLIGHTSTREAM",
     ]
-    comparison = evidence._compare_scripts("\n".join(renders), "\n".join(ran), shadow)
+    comparison = evidence.compare_scripts("\n".join(renders), "\n".join(ran), shadow)
     assert not comparison.same
     assert comparison.run_root == str(tmp_path / "run").replace("\\", "/") or (
         comparison.run_root == str(tmp_path / "run")
     )
-    detail = evidence._drift(comparison, inputs, ["references/r003.toml", "pproc/p001.toml"])
+    detail = evidence.drift(comparison, inputs, ["references/r003.toml", "pproc/p001.toml"])
     for words in ("pproc group renamed", "loads frame line", "VTK export line", "plot type line"):
         assert words in detail, detail
     (renamed,) = [part for part in detail.split("; ") if "ROTOR_PUSHER" in part]
     assert renamed.endswith("(pproc group renamed, from inputs/pproc/p001.toml)"), renamed
     (frame,) = [part for part in detail.split("; ") if "LOADS_FRAME" in part]
     assert "candidates" in frame, "a class no changed word names claims a certain input"
-    same = evidence._compare_scripts("\n".join(renders), "\n".join(renders), shadow)
+    same = evidence.compare_scripts("\n".join(renders), "\n".join(renders), shadow)
     assert same.same
 
 

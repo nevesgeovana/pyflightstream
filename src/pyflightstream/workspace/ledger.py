@@ -101,6 +101,7 @@ __all__ = [
     "storage_rows",
     "trace_run",
     "trace_product",
+    "SIMS_IDS_HELP",
     "listed_sims",
     "latest_record_of_point",
     "matrix_stem",
@@ -154,13 +155,28 @@ _AXIS_OF_CODE = {
 _SWEPT_CODE = re.compile(r"([A-Z]+)" + re.escape(SWEEP_NAME_VALUE))
 
 
+#: The one help text of the simulation ids a records command reads, in the form
+#: :func:`listed_sims` reads them: one value, comma or space separated (a quoted
+#: ``"2006 2007"`` is two ids), square brackets allowed (``delete-sims``,
+#: ``rebuild``, ``mark-failed`` and ``mark-converged``, which also takes the ids as
+#: separate words).
+SIMS_IDS_HELP = (
+    "simulation ids, comma separated: 2006,2007 or [2006,2007]; "
+    "one quoted value of words, '2006 2007', reads as two ids"
+)
+
+
 def listed_sims(text: str) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
+
+    A space or a tab between ids separates them as a comma does, so one quoted value
+    ``"4001 2009"`` is two ids (0.39.0, owner decision P1); it was read as the single
+    id ``40012009`` before.
 
     Parameters
     ----------
     text : str
-        The ids, comma separated, with or without square brackets.
+        The ids, comma or blank separated, with or without square brackets.
 
     Returns
     -------
@@ -171,8 +187,10 @@ def listed_sims(text: str) -> list[str]:
     --------
     >>> listed_sims("[2006, 2007]")
     ['2006', '2007']
+    >>> listed_sims("2006 2007")
+    ['2006', '2007']
     """
-    listed = text.replace(" ", "").strip("[]")
+    listed = re.sub(r"[,\s]+", ",", text.strip().strip("[]"))
     return [item for item in listed.split(",") if item]
 
 

@@ -27,7 +27,7 @@ _DRIFT_VERBS = {
 }
 
 
-def _slashes(text: str) -> str:
+def slashes(text: str) -> str:
     return text.replace("\\", "/")
 
 
@@ -39,7 +39,7 @@ class _Comparison:
     executed: list[str]
 
 
-def _compare_scripts(rendered: str, executed: str, shadow: Path) -> _Comparison:
+def compare_scripts(rendered: str, executed: str, shadow: Path) -> _Comparison:
     """Ask whether the executed script is the rendered one, once the roots are set aside.
 
     A run on a cluster names a POSIX root with forward slashes; a rebuild on
@@ -48,10 +48,10 @@ def _compare_scripts(rendered: str, executed: str, shadow: Path) -> _Comparison:
     root on each side replaced by one token, and the interpreter path by
     another. The run's root is returned AS THE EXECUTED SCRIPT SPELLS IT.
     """
-    shadow_form = _slashes(str(shadow))
-    rendered_lines = [_slashes(line) for line in rendered.splitlines()]
+    shadow_form = slashes(str(shadow))
+    rendered_lines = [slashes(line) for line in rendered.splitlines()]
     executed_raw = executed.splitlines()
-    executed_lines = [_slashes(line) for line in executed_raw]
+    executed_lines = [slashes(line) for line in executed_raw]
     run_root = None
     for index, line in enumerate(rendered_lines):
         if shadow_form not in line:
@@ -78,7 +78,7 @@ def _compare_scripts(rendered: str, executed: str, shadow: Path) -> _Comparison:
     left = [
         _INTERPRETER.sub('"<python>"', line.replace(shadow_form, token)) for line in rendered_lines
     ]
-    root_form = _slashes(run_root) if run_root else None
+    root_form = slashes(run_root) if run_root else None
     right = [
         _INTERPRETER.sub('"<python>"', line.replace(root_form, token) if root_form else line)
         for line in executed_lines
@@ -110,7 +110,7 @@ def _commands(lines: Sequence[str]) -> list[tuple[int, str]]:
     return [(number, " | ".join(parts)) for number, parts in commands]
 
 
-def _drift(
+def drift(
     comparison: _Comparison, inputs: Path, input_files: Sequence[str], *, limit: int | None = 6
 ) -> str:
     """Name each difference between the executed and the rendered script (RST-8).

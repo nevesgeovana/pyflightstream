@@ -5,7 +5,7 @@ the simulations on disk, a snapshot of the workspace taken before the rebuild
 and compared after it, so a write meanwhile refuses the apply, the collect
 made read-only for the length of one call (:func:`collect_without_writing`),
 and the comparison of the script a simulation ran with the script the row
-renders today, with the class of every difference named (:func:`_drift`).
+renders today, with the class of every difference named (:func:`drift`).
 Nothing here writes into the workspace; the shadow's preparation (its matrix
 re-activated, its inputs copied, its one copy of the matrix) writes only there.
 
@@ -34,13 +34,13 @@ from pyflightstream.workspace import matrix_files
 from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path
 from pyflightstream.workspace._script_comparison import (
-    _compare_scripts as _compare_scripts,
+    compare_scripts as compare_scripts,
 )
 from pyflightstream.workspace._script_comparison import (
-    _drift as _drift,
+    drift as drift,
 )
 from pyflightstream.workspace._script_comparison import (
-    _slashes as _slashes,
+    slashes as slashes,
 )
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST
 

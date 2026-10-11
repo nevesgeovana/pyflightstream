@@ -32,12 +32,12 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
-from pyflightstream.run._alias import SIMS_IDS_HELP, split_typed_ids
+from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace._verdicts import marked_units
-from pyflightstream.workspace.ledger import listed_sims
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
 
 __all__ = [
@@ -398,9 +398,9 @@ def add_mark_converged_parser(subparsers: Any) -> None:
         required=True,
         nargs="+",
         metavar="ID",
-        help=SIMS_IDS_HELP + ", or as words: 2006 2007; to mark some of their points, name "
-        "them with --points (a run id alias such as 2006_3 is refused, naming the --sims "
-        "and --points that select its point)",
+        help=SIMS_IDS_HELP + "; also as separate words (2006 2007) or a mix (2006 2007,2008); "
+        "to mark some of their points, name them with --points (a run id alias such as "
+        "2006_3 is refused, naming the --sims and --points that select its point)",
     )
     converged.add_argument(
         "--points",
