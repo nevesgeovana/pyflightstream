@@ -217,7 +217,7 @@ def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
         (str(root), "<ROOT>"),
         (sys.executable, "<PYTHON>"),
         # The resolved form first: on Windows the temporary folder may be named by its 8.3
-        # short form (C:/Users/RUNNER~1/...) while a child process prints the long one.
+        # short form (a segment such as PROGRA~1) while a child process prints the long one.
         (str(temp.resolve()), "<TEMP>"),
         (str(temp), "<TEMP>"),
     ):
