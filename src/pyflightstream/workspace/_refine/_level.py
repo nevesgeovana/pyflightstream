@@ -111,6 +111,7 @@ class _Work:
     te_unit: str
     te_to_file: float
     te_points: Points  # in the mesh's unit; te_to_file turns a length into te_unit's
+    te_listed: bool  # whether the source has a trailing-edge points file
     names: list[str]
     original: dict[str, Faces]
     fam_v: dict[str, set[int]]
@@ -159,7 +160,10 @@ def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> se
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
     te = _obj.te_points(source)
-    unit, points = ("METER", numpy.zeros((0, 3))) if te is None else (te.unit, te.points)
+    # Without a points file, one the level writes (a detected kept row's trailing edge,
+    # FR-430 R4, R7) is in the mesh's unit, stated as the boundaries file states it.
+    unit = (_obj.mesh_unit(source) or "METER") if te is None else te.unit
+    points = numpy.zeros((0, 3)) if te is None else te.points
     scale = mesh.size
     names = list(mesh.families)
     return _Work(
@@ -169,6 +173,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         te_unit=unit,
         te_to_file=1.0 if te is None else te.to_file,
         te_points=points,
+        te_listed=te is not None,
         names=names,
         original={n: list(fs) for n, fs in mesh.families.items()},
         fam_v={n: set(mesh.family_vertices(n).tolist()) for n in names},
@@ -984,7 +989,9 @@ def _write(
     )
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
-    if len(work.te_points):
+    # The source's points file, carried to the level under the level's name, else the
+    # trailing edge the level holds without one: a detected kept row's (FR-430 R4, R7).
+    if work.te_listed or len(te):
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
     if work.sidecar is not None:

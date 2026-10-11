@@ -584,22 +584,32 @@ def spec_tag(spec: FamilySpec) -> str:
 TAG_MAX = 32
 
 
-def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[str], list[str]]:
-    """Return the built tag, the selected families in the source's order and their parts."""
+def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[str], bool]:
+    """Return the built tag, the selected families in the source's order, and whether it is uniform.
+
+    A uniform tag, ``R<factors>``, is one factor on every family of the mesh:
+    it holds no family name.
+    """
     tags = {n: spec_tag(s) for n, s in request.specs.items()}
     picked = [n for n in names if n in request.specs]
-    parts = [f"{n}{tags[n]}" for n in picked]
     if set(request.specs) == set(names) and len(set(tags.values())) == 1:
-        return "R" + next(iter(tags.values())), picked, parts
-    return "R-" + "-".join(parts), picked, parts
+        return "R" + next(iter(tags.values())), picked, True
+    return "R-" + "-".join(f"{n}{tags[n]}" for n in picked), picked, False
 
 
 def _value(value: object) -> str:
-    """Return one option value as the canonical selection writes it."""
+    """Return one option value as the canonical selection writes it (FR-433 R2, R3).
+
+    A number is written in the shortest text that reads back to the same
+    float (:func:`repr`), without a trailing ``.0``, so two factors that
+    differ in any digit give two texts (``1.000001`` and ``1.000002``) and a
+    whole factor is written as ``2``. The short tag keeps its own spelling.
+    """
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float):
-        return f"{value:g}"
+        text = repr(value)
+        return text[:-2] if text.endswith(".0") else text
     return str(value)
 
 
@@ -632,8 +642,8 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
     """Return the selected families when the level's tag is the summary and hash, else None."""
     if request.tag:
         return None
-    tag, picked, _ = _built_tag(request, names)
-    return picked if len(tag) > TAG_MAX else None
+    tag, picked, uniform = _built_tag(request, names)
+    return picked if not uniform and len(tag) > TAG_MAX else None
 
 
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
@@ -641,15 +651,18 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
 
     A built tag of more than 32 characters is ``R-<n>fam-<hash>`` (FR-433 R2):
     ``<hash>`` the first 8 hexadecimal characters of the SHA-256 of the
-    ``<family><factor tag>`` parts in the source's order joined with ``-``.
-    A tag built from family names is one folder name (FR-424 R5): a family
-    whose name would put a path separator, ``..``, a drive or a reserved
-    character into it is refused naming the family, before any work (R11);
-    the summary form holds no family name and is not refused.
+    :func:`canonical_selection`, encoded as UTF-8. A tag built from family
+    names is one folder name (FR-424 R5): a family whose name would put a
+    path separator, ``..``, a drive or a reserved character into it is
+    refused naming the family, before any work (R11); the uniform tag
+    ``R<factors>`` and the summary form hold no family name and are not
+    refused (FR-433 R5), as on 0.38.0.
     """
     if request.tag:
         return str(request.tag)
-    tag, picked, parts = _built_tag(request, names)
+    tag, picked, uniform = _built_tag(request, names)
+    if uniform:
+        return tag
     if len(tag) > TAG_MAX:
         digest = hashlib.sha256(canonical_selection(request, picked).encode("utf-8")).hexdigest()[
             :8

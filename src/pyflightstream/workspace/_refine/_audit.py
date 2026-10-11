@@ -20,7 +20,14 @@ its values. The trailing-edge points file of a mesh is the one its
 ``<stem>.boundaries.toml`` names under ``[trailing_edges] file``, or else
 ``<stem>.te.txt`` beside it; its points are converted from the unit on its
 first line to the mesh's (the ``[import] units`` of the boundaries file)
-before they are matched to the mesh's edges.
+before they are matched to the mesh's edges. G4 compares the level's
+trailing-edge chains with the source's; a source family whose trailing edge
+the refinement detected (FR-430 R7) has no points file to count, so the
+record beside the level (``refine.json``, read when it names this level and
+the source, as for G6) adds one source chain for each family it states
+``"trailing_edge": "detected"`` that has no listed point on its edges. Known
+approximation: a detected line that touches a listed chain is counted as
+one more chain, where the edges together would form one.
 """
 
 from __future__ import annotations
@@ -30,7 +37,7 @@ import os
 import warnings
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -271,6 +278,9 @@ class _Mesh:
     flipped: int
     nonmanifold: int
     trailing: _Trailing
+    # G4: the families whose trailing edge the refinement detected, one chain each;
+    # None without a record that names the level and its source
+    detected: int | None = None
 
 
 def audit_mesh(
@@ -313,7 +323,8 @@ def audit_mesh(
     level = _read(Path(mesh))
     record = _record_of(Path(mesh))
     components = _components_of(record)
-    source = None if against is None else _read(Path(against), components)
+    detected = _recorded_detected(record, Path(mesh), against)
+    source = None if against is None else _read(Path(against), components, detected)
     target = Path(mesh).with_name(Path(mesh).stem + AUDIT_SUFFIX)
     _refuse_an_input_as_target(target, Path(mesh), None if against is None else Path(against))
     grids = tuple(unchanged_grids) or _recorded_grids(record, Path(mesh), against)
@@ -389,21 +400,40 @@ def _refuse_an_input_as_target(target: Path, mesh: Path, against: Path | None) -
             )
 
 
-def _read(path: Path, components: Mapping[str, Sequence[str]] | None = None) -> _Mesh:
+def _read(
+    path: Path,
+    components: Mapping[str, Sequence[str]] | None = None,
+    detected: Sequence[str] | None = None,
+) -> _Mesh:
     """Read an OBJ and its trailing-edge points and measure them.
 
     With ``components``, the families each component lists are measured as
     that one family, so a level whose families were grouped into components
     (FR-425 R4) is compared with the union of its members in the source.
+    ``detected`` names the families whose trailing edge the refinement
+    detected (:func:`_recorded_detected`); each of them that has no listed
+    point on its edges counts one chain (:func:`_g4`). None, without a
+    record, counts nothing and G4 is judged as on 0.38.0.
     """
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")
     obj = read_obj(path)
-    if components:
-        obj = _grouped(obj, components)
     te = te_points(path)
     points = None if te is None else te.points
-    return _measure(obj, points)
+    named = [n for n in dict.fromkeys(detected or ()) if n in obj.families]
+    count = None if detected is None else sum(not _listed_on(obj, n, points) for n in named)
+    if components:
+        obj = _grouped(obj, components)
+    return replace(_measure(obj, points), detected=count)
+
+
+def _listed_on(obj: ObjMesh, family: str, points: Array | None) -> bool:
+    """Return whether a listed trailing-edge point lies on an edge of the family (G4)."""
+    if points is None or not len(points) or not obj.families[family]:
+        return False
+    _, mids = edge_midpoints(obj.verts, obj.families[family])
+    distance, _ = NearestIndex(mids).query(points)
+    return bool((distance <= TE_POINT_FRACTION * obj.size).any())
 
 
 def _record_of(level: Path) -> dict[str, Any]:
@@ -440,11 +470,37 @@ def _recorded_grids(
     taken for this one's.
     """
     found = record.get("unchanged_grids")
-    if against is None or record.get("level") != level.stem:
-        return ()
-    if record.get("source") != Path(against).name or not isinstance(found, list):
+    if not _names_this_level(record, level, against) or not isinstance(found, list):
         return ()
     return tuple(n for n in found if isinstance(n, str))
+
+
+def _names_this_level(record: Mapping[str, Any], level: Path, against: str | Path | None) -> bool:
+    """Return whether the record is the refinement of this level from the source ``against``."""
+    if against is None or record.get("level") != level.stem:
+        return False
+    return record.get("source") == Path(against).name
+
+
+def _recorded_detected(
+    record: Mapping[str, Any], level: Path, against: str | Path | None
+) -> tuple[str, ...] | None:
+    """Return the source families whose trailing edge the refinement detected (G4, FR-430 R7).
+
+    They are the families the record states with ``"trailing_edge":
+    "detected"``, read only from a record that names this level and the
+    source it is audited against, as for G6; None without such a record.
+    """
+    families = record.get("families")
+    if not _names_this_level(record, level, against):
+        return None
+    if not isinstance(families, dict):
+        return ()
+    return tuple(
+        str(name)
+        for name, entry in families.items()
+        if isinstance(entry, dict) and entry.get("trailing_edge") == "detected"
+    )
 
 
 def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
@@ -754,7 +810,12 @@ def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
 
 
 def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
-    """G4: every trailing-edge point on a mesh edge, and the source's number of chains."""
+    """G4: every trailing-edge point on a mesh edge, and the source's number of chains.
+
+    The source's chains are those of its listed points plus one per family
+    the record states detected (``source_chains_detected``, see the module
+    docstring for the approximation).
+    """
     te = level.trailing
     values: dict[str, Value] = {
         "points": te.points,
@@ -763,8 +824,11 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     }
     failed = te.on_edges < te.points
     if source is not None:
-        values["source_chains"] = source.trailing.chains
-        failed = failed or te.chains != source.trailing.chains
+        chains = source.trailing.chains + (source.detected or 0)
+        values["source_chains"] = chains
+        if source.detected is not None:
+            values["source_chains_detected"] = source.detected
+        failed = failed or te.chains != chains
     return _item("gate", "G4", WHOLE_MESH, values, failed)
 
 
