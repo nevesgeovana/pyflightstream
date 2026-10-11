@@ -194,6 +194,8 @@ def test_factor_two_doubles_the_intervals_keeps_the_knots_on_the_surface(make):
     leading edge and the end stations among them), and every level node lies
     within 1e-3 of the size from the source's faces. Control: a node moved by
     2e-3 of the size off the surface is caught.
+
+    Release review of 0.38.0: proves the fix of RV-04.
     """
     fx = make()
     grid = _recovered(fx)

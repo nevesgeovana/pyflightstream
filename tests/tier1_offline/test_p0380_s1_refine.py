@@ -13,6 +13,7 @@ rests on taken away, so a check that accepts everything cannot pass.
 from __future__ import annotations
 
 import ast
+import contextlib
 import dataclasses
 import hashlib
 import json
@@ -46,6 +47,8 @@ PACKAGE = Path(pyflightstream.__file__).resolve().parent
 STRIP = (0.03, 0.04, 0.05, 0.065, 0.08)
 WITH_T = (("T", "tri", STRIP),)
 WITH_TU = (("T", "tri", STRIP), ("U", "tri", (0.1, 0.1)))
+#: The audit warning the strip T draws beside a refined G (its growth check fails).
+GROWTH_ON_T = "audit check growth failed on T"
 
 
 def _source(tmp_path: Path, strips=(), *, te=True, boundaries=True, refine_toml=None) -> Path:
@@ -239,6 +242,8 @@ def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, cap
     not hold is refused on this route as on the FACTOR route, and so is a
     selection the file states no factor for. Control: without the selection
     both tubes are refined.
+
+    Release review of 0.38.0: proves the fix of RV-05.
     """
     src = _two_tubes(tmp_path, BOTH_TABLES)
     text = _refused(tmp_path, src, families=["A", "Z"])
@@ -270,6 +275,8 @@ def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
     not read: each is a warning naming the tables, and ``refine.json`` lists
     them under ``ignored_families_tables``. Control: the file's factors for
     every family warn of nothing and record an empty list.
+
+    Release review of 0.38.0: proves the fix of RV-05.
     """
     src = _two_tubes(tmp_path, BOTH_TABLES)
     with pytest.warns(PyflightstreamWarning, match=r"\[families\.A\], \[families\.B\]") as seen:
@@ -313,11 +320,16 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
 
     T recovers no grid, so it would be remeshed. Control: --chordwise on G
     alone is accepted.
+
+    PUSH-W12-QA-2: the growth check of the strip T fails on this fixture, a
+    warning the test asserts, so it fails if the warning disappears.
     """
     src = _source(tmp_path, WITH_T)
     text = _refused(tmp_path, src, chordwise=2.0)
     assert text.startswith(f"{src} family T: chordwise and spanwise apply to a grid")
-    assert refine_mesh(src, chordwise=2.0, families=["G"]).folder.name == "wing_R-G1c2"
+    with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
+        level = refine_mesh(src, chordwise=2.0, families=["G"])
+    assert level.folder.name == "wing_R-G1c2"
 
 
 # --------------------------------------------------------- R3 the refinement file
@@ -382,6 +394,8 @@ def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsy
     refusal (the file, the table, what to write, "Nothing was written."), not
     a Python exception. The factor is given in the call, so the file is read
     only for its tables. Control: the file's tables written as tables pass.
+
+    Release review of 0.38.0: proves the fix of RV-07.
     """
     src = _source(tmp_path, refine_toml=toml)
     text = _refused(tmp_path, src, 1.0)
@@ -511,12 +525,23 @@ def test_r5_the_tag_names_the_level_beside_the_sources_folder(
     """P0380-REFINE (FR-424 R5): the tag forms, and the default out-dir is the source's parent.
 
     Control: ``out_dir`` places the same level in the folder it names.
+
+    PUSH-W12-QA-2: with the strip T beside G (the subset case) its growth
+    check fails, a warning asserted on both calls.
     """
     src = _source(tmp_path, strips, refine_toml=toml)
-    level = refine_mesh(src, **kwargs)
+
+    def warned():
+        if strips:
+            return pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T)
+        return contextlib.nullcontext()
+
+    with warned():
+        level = refine_mesh(src, **kwargs)
     assert level.folder == tmp_path / folder and _left(tmp_path) == [folder]
     other = tmp_path / "elsewhere"
-    moved = refine_mesh(src, out_dir=other, **kwargs)
+    with warned():
+        moved = refine_mesh(src, out_dir=other, **kwargs)
     assert moved.folder == other / folder and _left(other) == [folder]
     assert _left(tmp_path) == sorted([folder, "elsewhere"])
 
@@ -643,6 +668,8 @@ def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
     kept byte for byte. Controls: the audit refuses the same sidecar with the
     same reason, and the profile sees the resampling of a run that is not
     refused.
+
+    Release review of 0.38.0: proves the fix of RV-01.
     """
     from pyflightstream.workspace import audit_mesh
 
@@ -677,6 +704,8 @@ def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_p
     published, no staging folder is left, and with ``overwrite`` the previous
     level is kept byte for byte. Control: the same call with warnings shown
     replaces the level, and the returned audit names the published folder.
+
+    Release review of 0.38.0: proves the fix of RV-01.
     """
     import warnings
 
@@ -731,6 +760,8 @@ def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelli
     points file, its other values are the source's, its comments are kept, and
     its boundaries are the output OBJ's families. Control: the fixture's own
     double-quoted spelling gives the same values.
+
+    Release review of 0.38.0: proves the fix of RV-06.
     """
     text = SIDECARS[spelling] + '\n[import]\nunits = "METER" # stated, never assumed\n'
     src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
@@ -783,6 +814,8 @@ def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, cap
     passes G4 with the source's chain count. At factor 1 the level's points are
     the source's. Controls: the same file declaring the mesh in MILLIMETER
     matches no point (G4 fails), and a unit that names no scale is refused.
+
+    Release review of 0.38.0: proves the fix of RV-02.
     """
     src = _source(tmp_path)
     rows = _points_in(src, "MILLIMETER", 1000.0, "METER")
@@ -870,6 +903,8 @@ def test_r7_factor_one_keeps_every_source_coordinate_at_any_precision(tmp_path, 
     (G1 finds no two nodes at one position). Control: the source's
     coordinates written with nine decimals, as the writer wrote them, are
     not the source's at these scales.
+
+    Release review of 0.38.0: proves the fix of RV-10.
     """
     src, verts = _sheet_source(tmp_path / "src", scale)
     level = refine_mesh(src, 1.0)
@@ -902,6 +937,8 @@ def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, comp
     factor-1 level with two faces exchanged fails G6 and audit-mesh exits 1.
     Controls: the unmodified level passes with G6 judged; refine.json naming
     another source leaves G6 not judged.
+
+    Release review of 0.38.0: proves the fix of RV-09.
     """
     from pyflightstream.workspace import audit_mesh
 
@@ -990,6 +1027,11 @@ def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resam
     every call of the resampling). Controls: at chordwise 1 and spanwise 2
     the shared station keeps its nodes, so no band is needed and the level is
     written without the extra; with the extra the band is written.
+
+    PUSH-W12-QA-2: the growth check of the strip T fails on this fixture, a
+    warning the test asserts, so it fails if the warning disappears.
+
+    Release review of 0.38.0: proves the fix of RV-11.
     """
     src = _source(tmp_path, WITH_T)
     with monkeypatch.context() as blocked:
@@ -1010,7 +1052,8 @@ def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resam
         assert code == 2 and text in err and _left(tmp_path) == []
         kept = refine_mesh(src, 1.0, families=["G"], spanwise=2.0)
         assert kept.report["T"] == {"method": "copied"}
-    level = refine_mesh(src, 2.0, families=["G"])
+    with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
+        level = refine_mesh(src, 2.0, families=["G"])
     assert level.report["T"]["method"] == "unchanged" and level.report["T"]["band"] > 0
 
 
@@ -1027,6 +1070,9 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
     A grid refined, a neighbour remeshed onto its new nodes and a family
     copied, each run in its own interpreter (PYTHONHASHSEED 1 and 2).
     Control: the same refinement at factor 0.5 differs from them by digest.
+
+    PUSH-W12-QA-2: coarsening the strip T at 0.5 fails its growth check, a
+    warning the control asserts.
     """
     src = _source(tmp_path, WITH_TU)
     script = "import sys\nfrom pyflightstream.run.cli import main\nsys.exit(main(sys.argv[1:]))"
@@ -1042,7 +1088,8 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
         assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
         runs.append(_digests(out / "wing_R-G2-T2"))
     assert runs[0] == runs[1] and len(runs[0]) == 5
-    other = refine_mesh(src, 0.5, families=["G", "T"], out_dir=tmp_path / "control")
+    with pytest.warns(PyflightstreamWarning, match=GROWTH_ON_T):
+        other = refine_mesh(src, 0.5, families=["G", "T"], out_dir=tmp_path / "control")
     coarse = _digests(other.folder)
     assert coarse["wing_R-G0p5-T0p5.obj"] != runs[0]["wing_R-G2-T2.obj"]
 
@@ -1125,6 +1172,8 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
     ``pyflightstream.workspace``. Controls: each rule run on a planted source
     holding the forbidden import (deferred, inside a function) reports it,
     every refinement module among them.
+
+    Release review of 0.38.0: proves the fix of RV-14.
     """
     refine = PACKAGE / "workspace" / "_refine"
     files = sorted(refine.glob("*.py"))
@@ -1191,6 +1240,8 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
     node on a shared curve (``ON_CURVE_FRACTION``) is read by the grid's
     interfaces and the periodic cuts alike. Control: a planted source that
     spells the trailing-edge distance as a literal is reported.
+
+    Release review of 0.38.0: proves the fix of RV-13.
     """
     from pyflightstream.workspace._refine import _geometry, _periodic
 

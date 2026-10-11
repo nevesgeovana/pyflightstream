@@ -4,11 +4,14 @@ A private package of the workspace layer. It imports nothing of ``run``; the
 command layer reaches it only through ``refine_mesh`` and ``audit_mesh`` of
 :mod:`pyflightstream.workspace`. Its modules, from the floor up:
 
-- ``_limits``: every numerical threshold, defined once;
+- ``_geometry``: the thresholds the requirements name, each defined once, and
+  the shared geometric primitives;
 - ``_obj``: the OBJ and trailing-edge points files;
 - ``_audit``: the audit of a level against its source (FR-426), which imports
   nothing of the refinement modules;
 - ``_grid``: the structured grid of a family, recovered and resampled (FR-424 R6, R7);
+- ``_remesh_group`` and ``_remesh_pairs``: the group a remesh works on, and the
+  pairing of its triangles into quadrilaterals;
 - ``_remesh``: the remeshing of the other families, with conforming interfaces
   (FR-424 R8, FR-425 R2);
 - ``_config``: the refinement file (FR-424 R2, R3);

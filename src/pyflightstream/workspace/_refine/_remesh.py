@@ -33,6 +33,12 @@ with the geometry extra, so every import of trimesh, scipy and rtree here is
 deferred: a refinement of grid families alone imports none of them
 (FR-424 R10). :func:`require_geometry_extra` is the check an orchestrator
 calls before any family is resampled.
+
+Two sections live in their own modules below this one, and every name of
+theirs that other modules read is imported here, so each import path of this
+module holds: :mod:`._remesh_group` (the group's local numbering, its targets,
+its curves and its source order) and :mod:`._remesh_pairs` (the pairing of
+triangles into quadrilaterals, and the element report).
 """
 
 from __future__ import annotations
@@ -41,7 +47,6 @@ import importlib
 import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
 import numpy
@@ -53,18 +58,47 @@ from pyflightstream.workspace._refine._geometry import (
     QUAD_WARP_DEGREES,
     RIDGE_DEGREES,
     Faces,
-    NearestIndex,
     Points,
     Stretch,
-    dihedral_degrees,
-    edge_faces,
-    order_like,
-    orient_like,
     quad_shapes,
 )
+from pyflightstream.workspace._refine._geometry import (
+    SHARED_LAYERS as SHARED_LAYERS,
+)
 from pyflightstream.workspace._refine._obj import ObjMesh
-
-Edge = tuple[int, int]
+from pyflightstream.workspace._refine._remesh_group import (
+    BOUNDARY as BOUNDARY,
+)
+from pyflightstream.workspace._refine._remesh_group import (
+    FROZEN,
+    TRAILING_EDGE,
+    Edge,
+    Patch,
+    _curves,
+    _ek,
+    _group,
+    _ordered,
+    _targets,
+    shared_targets,
+)
+from pyflightstream.workspace._refine._remesh_group import (
+    INTERFACE as INTERFACE,
+)
+from pyflightstream.workspace._refine._remesh_group import (
+    RIDGE as RIDGE,
+)
+from pyflightstream.workspace._refine._remesh_pairs import (
+    AUGMENT_DEPTH as AUGMENT_DEPTH,
+)
+from pyflightstream.workspace._refine._remesh_pairs import (
+    _face_normal,
+    _matching,
+    _quad_of,
+    _unit_normal,
+)
+from pyflightstream.workspace._refine._remesh_pairs import (
+    element_report as element_report,
+)
 
 #: The passes of split, collapse, flip and smoothing one remesh runs.
 PASSES = 8
@@ -76,8 +110,6 @@ COLLAPSE_RATIO = 4.0 / 5.0
 COLLAPSE_COSINE = 0.2
 #: A flip is refused when a new face's normal keeps less than this cosine.
 FLIP_COSINE = 0.3
-#: Quad-dominant: a pairing grows the matching along alternating paths this many pairs deep.
-AUGMENT_DEPTH = 4
 #: Quad-dominant: the passes of smoothing after the pairing, an engineering choice: on the
 #: development fixtures more passes improved the skewness little (an unrecorded measurement).
 SMOOTH_PASSES = 3
@@ -85,20 +117,10 @@ SMOOTH_PASSES = 3
 SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
-#: The face layers over which the target of a family at factor 1 beside a refined side returns
-#: from the length of their new shared edges to the family's own (FR-432 R2).
-SHARED_LAYERS = 2
 #: What the geometry extra supplies to a remesh, for the refusal of FR-424 R10.
 SPATIAL_INDEX = "scipy and rtree, the spatial index the projection onto the source surface searches"
 #: The modules whose absence refuses a remesh (FR-424 R10).
 INDEX_MODULES = ("scipy.spatial", "rtree")
-
-#: The kinds of curve, as the keys of ``info["curve_edges"]``.
-BOUNDARY = "boundary"
-TRAILING_EDGE = "trailing_edge"
-RIDGE = "ridge"
-FROZEN = "frozen"
-INTERFACE = "interface"
 
 
 def geometry_extra_refusal(names: Sequence[str]) -> MissingExtraError:
@@ -148,56 +170,9 @@ def require_geometry_extra(families: Iterable[str]) -> None:
         raise geometry_extra_refusal(names) from error
 
 
-def _ek(a: int, b: int) -> Edge:
-    """Return the undirected key of an edge, low vertex first."""
-    return (a, b) if a < b else (b, a)
-
-
-def _unit_normal(p: Points) -> Points:
-    """Return the (unnormalised) normal of a triangle given as three rows."""
-    return numpy.cross(p[1] - p[0], p[2] - p[0])
-
-
 def _keeps_direction(n0: Points, n1: Points, cosine: float) -> bool:
     """Return whether n1 turns away from n0 by less than the given cosine allows."""
     return bool(numpy.dot(n0, n1) > cosine * numpy.linalg.norm(n0) * numpy.linalg.norm(n1))
-
-
-@dataclass
-class Patch:
-    """The triangles of a group of families, with what a remesh must keep.
-
-    Attributes
-    ----------
-    verts : ndarray
-        The group's vertices, numbered locally.
-    faces : list of list of int
-        Its triangles.
-    labels : list of str
-        The family of each triangle.
-    target : ndarray
-        The target edge length at each vertex.
-    curve : dict
-        Each curve edge with its curve key.
-    fixed : set of int
-        Vertices that never move (shared with a family outside the group).
-    frozen : set of tuple
-        Curve edges never split nor collapsed.
-    stretch : Stretch or None
-        For a body refined along and around its axis (FR-428), the map into
-        the space the remesh runs in; ``verts`` and ``target`` stay in the
-        real space, and the source surface and curves the nodes are projected
-        onto are the real ones.
-    """
-
-    verts: Points
-    faces: Faces
-    labels: list[str]
-    target: Points
-    curve: dict[Edge, str]
-    fixed: set[int] = field(default_factory=set)
-    frozen: set[Edge] = field(default_factory=set)
-    stretch: Stretch | None = None
 
 
 class Remesher:
@@ -241,6 +216,7 @@ class Remesher:
         self.corner = {v for v, ks in self.vcurve.items() if len(ks) > 1 or self._turns(v, ends[v])}
         self.h = [float(x) for x in patch.target]
         self.h_source = numpy.asarray(patch.target, dtype=float)
+        self.interfaces: list[set[int]] = []
         self.surface = trimesh.Trimesh(
             numpy.asarray(patch.verts), numpy.asarray(patch.faces), process=False
         )
@@ -631,6 +607,7 @@ class Remesher:
             k for k, fs in self.E.items() if k[0] in old_set and k[1] in old_set and len(fs) == 1
         }
         if not chain:
+            self.interfaces.append(set())
             return {"inserted": 0, "kept": 0, "removed": 0, "not_removed": 0}
         span = numpy.array([self.V[v] for v in sorted(old_set)])
         tol = CONFORM_FRACTION * max(float(numpy.linalg.norm(numpy.ptp(span, axis=0))), 1e-300)
@@ -644,12 +621,42 @@ class Remesher:
                 self.exact.update(dict.fromkeys(keep - before, p))
         dropped = [self._drop(o, chain, keep) for o in sorted({v for k in chain for v in k} - keep)]
         self.fixed |= keep
+        self.interfaces.append(keep)
         return {
             "inserted": inserted,
             "kept": len(keep) - inserted,
             "removed": sum(dropped),
             "not_removed": len(dropped) - sum(dropped),
         }
+
+    def interface_chain(self, index: int) -> set[Edge]:
+        """Return the edges of a conformed interface, between the new nodes it holds.
+
+        Parameters
+        ----------
+        index : int
+            The interface, in the order :meth:`conform` was called.
+
+        Returns
+        -------
+        set of tuple
+            The patch's boundary edges whose two nodes are the interface's.
+        """
+        keep = self.interfaces[index]
+        return {k for k, fs in self.E.items() if len(fs) == 1 and k[0] in keep and k[1] in keep}
+
+    def retarget(self, targets: Mapping[int, float]) -> None:
+        """Set the target length at nodes, and the source's field of targets at its own nodes.
+
+        Parameters
+        ----------
+        targets : mapping of int to float
+            The new target length per node.
+        """
+        for v, h in targets.items():
+            self.h[v] = float(h)
+            if v < len(self.h_source):
+                self.h_source[v] = float(h)
 
     # ---- quad-dominant: pairing triangles into quadrilaterals
 
@@ -808,107 +815,6 @@ class Remesher:
         return points, dict(families), mid
 
 
-def _face_normal(p: Points) -> Points:
-    """Return a polygon's (unnormalized) normal: the cross product of its diagonals for four."""
-    if len(p) == 4:
-        return numpy.cross(p[2] - p[0], p[3] - p[1])
-    return _unit_normal(p)
-
-
-def _quad_of(f0: list[int], f1: list[int], k: Edge) -> list[int] | None:
-    """Return the quadrilateral two triangles sharing the edge k make, or None.
-
-    The first triangle runs a, b, c and the second must run b, a, d (the two
-    agree in orientation); the quadrilateral is a, d, b, c, which runs every
-    remaining edge the way its triangle did.
-    """
-    a, b = k
-    j = f0.index(a)
-    if f0[(j + 1) % 3] != b:
-        a, b = b, a
-        j = f0.index(a)
-    c = f0[(j + 2) % 3]
-    m = f1.index(b)
-    if f1[(m + 1) % 3] != a:
-        return None
-    return [a, f1[(m + 2) % 3], b, c]
-
-
-def _matching(pairs: Sequence[tuple[int, int]], quality: Points) -> dict[int, int]:
-    """Return a matching of triangles: greedy best quality first, then grown.
-
-    Ties of quality are broken by the pair's face numbers, so the matching is
-    deterministic (FR-424 R12).
-    """
-    mate: dict[int, int] = {}
-    order = sorted(range(len(pairs)), key=lambda c: (-float(quality[c]), pairs[c]))
-    for c in order:
-        i, j = pairs[c]
-        if i not in mate and j not in mate:
-            mate[i], mate[j] = j, i
-    around: dict[int, list[int]] = defaultdict(list)
-    for c in order:
-        i, j = pairs[c]
-        around[i].append(j)
-        around[j].append(i)
-    grown = True
-    while grown:
-        grown = False
-        for t in sorted(around):
-            if t not in mate and _augment(t, around, mate, AUGMENT_DEPTH, {t}):
-                grown = True
-    return mate
-
-
-def _augment(
-    t: int, around: Mapping[int, list[int]], mate: dict[int, int], depth: int, seen: set[int]
-) -> bool:
-    """Grow the matching by an alternating path from the free triangle t; return success.
-
-    The path leaves t by a pair not in the matching, crosses a matched pair,
-    and so on, until it reaches a free triangle, at most ``depth`` matched
-    pairs deep and never through a triangle twice; it is then flipped, which
-    matches one more pair.
-    """
-    for u in around[t]:
-        if u in seen:
-            continue
-        w = mate.get(u)
-        if w is None:
-            mate[t], mate[u] = u, t
-            return True
-        if depth > 0 and w not in seen and _augment(w, around, mate, depth - 1, seen | {u, w}):
-            mate[t], mate[u] = u, t
-            return True
-    return False
-
-
-def element_report(mode: str, faces: Faces) -> dict[str, Any]:
-    """Return what ``refine.json`` states of a remeshed family's elements.
-
-    Parameters
-    ----------
-    mode : str
-        The family's element mode, ``"triangles"`` or ``"quad-dominant"``.
-    faces : list of list of int
-        Its faces in the level.
-
-    Returns
-    -------
-    dict
-        ``elements`` (the mode), ``quads``, ``triangles`` and ``quad_share``
-        (the quadrilaterals over the faces, six decimals).
-    """
-    quads = sum(len(f) == 4 for f in faces)
-    share = quads / len(faces) if faces else 0.0
-    return {
-        "elements": mode,
-        "quads": quads,
-        "triangles": len(faces) - quads,
-        "quad_share": round(share, 6),
-    }
-
-
 def _segment_distance(a: Points, b: Points, p: Points) -> float:
     """Return the distance from p to the segment a-b."""
     ab = b - a
@@ -937,181 +843,58 @@ class Remeshed(NamedTuple):
     info: dict[str, Any]
 
 
-@dataclass
-class _Group:
-    """The local numbering of a group: source vertices, triangles, labels, source faces."""
-
-    ids: list[int]
-    verts: Points
-    faces: Faces
-    labels: list[str]
-    source: dict[str, Faces]
+def _interface_key(old: Iterable[int], new: Points) -> tuple[frozenset[int], bytes]:
+    """Return what identifies an interface entry: its source vertices and its new nodes."""
+    return frozenset(int(v) for v in old), numpy.asarray(new, dtype=float).reshape(-1, 3).tobytes()
 
 
-def _group(mesh: ObjMesh, names: Sequence[str]) -> _Group:
-    """Return the group's faces numbered locally, each polygon fanned into triangles."""
-    ids = sorted({v for n in names for f in mesh.families[n] for v in f})
-    local = {v: i for i, v in enumerate(ids)}
-    source = {n: [[local[v] for v in f] for f in mesh.families[n]] for n in names}
-    faces: Faces = []
-    labels: list[str] = []
-    for n in names:
-        for f in source[n]:
-            fan = [[f[0], f[k], f[k + 1]] for k in range(1, len(f) - 1)]
-            faces += fan
-            labels += [n] * len(fan)
-    return _Group(ids, mesh.verts[ids], faces, labels, source)
+def _take_shared(
+    remesher: Remesher,
+    factors: Mapping[str, float],
+    local: Mapping[int, int],
+    conform: Sequence[tuple[Iterable[int], Points]],
+    shared: Sequence[tuple[Iterable[int], Points]],
+) -> dict[str, dict[str, float]]:
+    """Set the targets of FR-432 at the curves a family shares; return the record of R3.
 
-
-def _targets(group: _Group, factors: Mapping[str, float]) -> Points:
-    """Return the target length at each vertex: its mean incident edge length over its factor.
-
-    A vertex shared by two families takes the larger factor (the finer target).
+    A family at factor 1 takes them on each conformed interface ``shared``
+    names, the new shared edges of a refined side (R1); a family at another
+    factor takes them on each frozen interface no ``conform`` entry rebuilt,
+    the shared edges an unchanged neighbour keeps (R5). A node of a face of
+    the other kind keeps its own target.
     """
-    total = numpy.zeros(len(group.verts))
-    count = numpy.zeros(len(group.verts))
-    for a, b in edge_faces(group.faces):
-        d = float(numpy.linalg.norm(group.verts[a] - group.verts[b]))
-        total[[a, b]] += d
-        count[[a, b]] += 1
-    factor = numpy.zeros(len(group.verts))
-    for f, label in zip(group.faces, group.labels, strict=True):
-        factor[f] = numpy.maximum(factor[f], factors[label])
-    return total / numpy.maximum(count, 1) / factor
-
-
-def _spacing(points: Points) -> Points:
-    """Return the length of the new shared edges at each node of a refined side's curve.
-
-    A node's edges on the curve join it to its nearest node and to the
-    nearest node on the other side of it, and its spacing is their mean
-    length; a node with no node on the other side (the end of an open curve)
-    has one edge (FR-432 R1).
-    """
-    out = numpy.zeros(len(points))
-    for i, p in enumerate(points):
-        rel = points - p
-        dist = numpy.linalg.norm(rel, axis=1)
-        dist[i] = numpy.inf
-        j = int(numpy.argmin(dist))
-        other = (rel @ rel[j]) < 0.0
-        out[i] = 0.5 * (dist[j] + float(dist[other].min())) if other.any() else dist[j]
-    return out
-
-
-def _shared_targets(
-    group: _Group, factors: Mapping[str, float], shared: Sequence[tuple[list[int], Points]]
-) -> tuple[Points, dict[str, dict[str, float]]]:
-    """Return the targets of :func:`_targets` with FR-432 applied, and the target at each curve.
-
-    A node of a family at factor 1 on a curve it shares with a refined side
-    (``shared``: its local vertices and the side's new nodes there) takes the
-    length of the new shared edges at the new node nearest it (R1). A node
-    ``d`` face layers from that curve, ``d`` below :data:`SHARED_LAYERS`,
-    takes ``s + (own - s) * d / SHARED_LAYERS``, ``s`` the mean of what its
-    neighbours one layer nearer took, and a node farther keeps its own target,
-    so the target varies between the two values with no step (R2). A node a
-    face at another factor uses keeps its own target, and a group with no
-    shared curve keeps the targets of 0.38.0 (R4).
-
-    Returns
-    -------
-    tuple
-        The target per node, and per family the least and the greatest
-        target taken on its shared curves (R3), empty when none was.
-    """
-    base = _targets(group, factors)
-    held = numpy.zeros(len(group.verts), dtype=bool)
-    for f, label in zip(group.faces, group.labels, strict=True):
-        if factors[label] != 1.0:
-            held[f] = True
-    taken: dict[int, float] = {}
-    for ids, points in shared:
-        if len(points) < 2 or not ids:
-            continue
-        spacing = _spacing(points)
-        _, nearest = NearestIndex(points).query(group.verts[ids])
-        for v, k in zip(ids, nearest.tolist(), strict=True):
-            if not held[v]:
-                taken[v] = float(spacing[k])
-    if not taken:
-        return base, {}
-    targets = base.copy()
-    for v, s in taken.items():
-        targets[v] = s
-    reached, ring = dict(taken), set(taken)
-    for d in range(1, SHARED_LAYERS):
-        found: dict[int, list[float]] = defaultdict(list)
-        for f in group.faces:
-            hit = [reached[v] for v in f if v in ring]
-            for v in f if hit else ():
-                if v not in reached and not held[v]:
-                    found[v] += hit
-        for v, values in found.items():
-            s = sum(values) / len(values)
-            reached[v] = s
-            targets[v] = s + (base[v] - s) * d / SHARED_LAYERS
-        ring = set(found)
-    at_curve: dict[str, dict[int, float]] = defaultdict(dict)
-    for f, label in zip(group.faces, group.labels, strict=True):
-        at_curve[label].update({v: taken[v] for v in f if v in taken})
-    record = {
-        n: {
-            "min": round(min(nodes.values()), 12),
-            "mean": round(sum(nodes.values()) / len(nodes), 12),
-            "max": round(max(nodes.values()), 12),
-        }
-        for n, nodes in at_curve.items()
-        if nodes
+    keys = {_interface_key(old, new) for old, new in shared}
+    chosen = [i for i, (old, new) in enumerate(conform) if _interface_key(old, new) in keys]
+    rebuilt = {local[v] for old, _ in conform for v in old if v in local}
+    rebuilt.update(*remesher.interfaces)
+    faces = list(remesher.F.values())
+    labels = [remesher.L[i] for i in remesher.F]
+    other = {v for f, n in zip(faces, labels, strict=True) if factors[n] != 1.0 for v in f}
+    unit = {v for f, n in zip(faces, labels, strict=True) if factors[n] == 1.0 for v in f}
+    kept = {
+        e
+        for e in remesher.frozen
+        if e in remesher.E and not set(e) <= rebuilt and not set(e) <= unit
     }
-    return targets, record
-
-
-def _edge_kind(
-    edge: Edge, fs: list[int], group: _Group, held: tuple[set[int], set[int]]
-) -> str | None:
-    """Return the curve key of one edge, or None for an edge free to flip.
-
-    The trailing edge is named before an open boundary or an interface it may
-    also be, so its new edges are the ones its points file is rewritten from.
-    """
-    fixed, te = held
-    a, b = edge
-    if a in fixed and b in fixed:
-        return FROZEN
-    if a in te and b in te:
-        return TRAILING_EDGE
-    if len(fs) != 2:
-        return BOUNDARY
-    first, second = group.labels[fs[0]], group.labels[fs[1]]
-    if first != second:
-        return f"{INTERFACE}:{min(first, second)}|{max(first, second)}"
-    return None
-
-
-def _curves(group: _Group, fixed: set[int], te: set[int]) -> tuple[dict[Edge, str], set[Edge]]:
-    """Return every curve edge with its key, and the frozen edges."""
-    dihedral = dihedral_degrees(group.verts, group.faces)
-    curve: dict[Edge, str] = {}
-    for edge, fs in edge_faces(group.faces).items():
-        kind = _edge_kind(edge, fs, group, (fixed, te))
-        if kind is None and dihedral.get(edge, 0.0) > RIDGE_DEGREES:
-            kind = RIDGE
-        if kind is not None:
-            curve[edge] = kind
-    return curve, {e for e, k in curve.items() if k == FROZEN}
-
-
-def _ordered(points: Points, families: dict[str, Faces], group: _Group) -> dict[str, Faces]:
-    """Return each family oriented and ordered like its source faces (FR-424 R7)."""
-    out: dict[str, Faces] = {}
-    for n, source in group.source.items():
-        faces = families.get(n, [])
-        if faces:
-            faces = orient_like(points, faces, group.verts, source)
-            faces = order_like(points, faces, group.verts, source)
-        out[n] = faces
-    return out
+    sources = {local[v] for i in chosen for v in conform[i][0] if v in local}
+    rules = [
+        (other, [remesher.interface_chain(i) for i in chosen], sources),
+        (unit, [kept] if kept else [], set()),
+    ]
+    record: dict[str, dict[str, float]] = {}
+    for held, chains, sources in rules:
+        targets, found = shared_targets(
+            numpy.asarray(remesher.V, dtype=float),
+            faces,
+            labels,
+            own=numpy.asarray(remesher.h, dtype=float),
+            held=held,
+            chains=chains,
+            sources=sources,
+        )
+        remesher.retarget(targets)
+        record.update(found)
+    return record
 
 
 def refine_group(
@@ -1163,9 +946,9 @@ def refine_group(
         nodes smoothed :data:`SMOOTH_PASSES` times by
         :meth:`Remesher.smooth_quads`).
     shared : sequence of (iterable of int, ndarray), optional
-        The entries of ``conform`` whose grid is a refined side: a family of
-        the group at factor 1 takes, along and near each, the length of the
-        new shared edges (FR-432, :func:`_shared_targets`), and
+        The entries of ``conform`` whose grid is a refined side: once each is
+        conformed, a family of the group at factor 1 takes, along and near
+        it, the length of the new shared edges (FR-432, :func:`shared_targets`), and
         ``info["shared_edge_target_m"]`` records it per family. Ignored with
         a stretch, whose targets are measured in its own space (FR-428).
 
@@ -1187,17 +970,16 @@ def refine_group(
     fixed = {local[v] for n in others for v in mesh.family_vertices(n).tolist() if v in local}
     te = {local[v] for v in te_vertices if v in local}
     curve, frozen = _curves(group, fixed, te)
-    near = [
-        ([local[v] for v in old if v in local], numpy.asarray(new, dtype=float).reshape(-1, 3))
-        for old, new in (shared if stretch is None else ())
-    ]
-    targets, at_curve = _shared_targets(group, factors, near)
-    patch = Patch(group.verts, group.faces, group.labels, targets, curve)
+    patch = Patch(group.verts, group.faces, group.labels, _targets(group, factors), curve)
     patch.fixed, patch.frozen, patch.stretch = fixed, frozen, stretch
     remesher = Remesher(patch)
     conformed = [
         remesher.conform([local[v] for v in old if v in local], new) for old, new in conform
     ]
+    if stretch is None:
+        at_curve = _take_shared(remesher, factors, local, conform, shared)
+    else:
+        at_curve = {}
     remesher.run()
     modes = dict(elements) if isinstance(elements, Mapping) else dict.fromkeys(names, elements)
     quad_families = [n for n in names if modes.get(n, TRIANGLES) == QUAD_DOMINANT]

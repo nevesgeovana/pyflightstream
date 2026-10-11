@@ -243,6 +243,8 @@ def test_g3_fails_on_a_hole_moved_near_with_the_outer_boundary_unchanged(tmp_pat
     moved to the next cell, to a cell two away or far away is not the source's
     opening. Control: the same plate against itself passes G3 with no loop
     unmatched.
+
+    Release review of 0.38.0: proves the fix of RV-03.
     """
     src = _plate(tmp_path / "source.obj", (2, 2))
     level = _plate(tmp_path / "level.obj", hole)
