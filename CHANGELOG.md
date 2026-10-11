@@ -7,6 +7,77 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- **The archive row of v0.39.0 is owed** until Zenodo mints its version DOI
+  from the GitHub release. Cite the concept DOI in `CITATION.cff` meanwhile.
+
+### Owed
+
+- **The licensed confirmations of 0.34.0 are owed after the release.** By
+  decision of 2026-10-02 they are made on the released package and
+  recorded as post-release commits, outside the `[0.34.0]` section. Each lands
+  as a commit of its own after the tag, so the 0.34.0 package does not change
+  with it. RPT-130 is still owed. Five are
+  paid, measured on 26.124 (build 8172026) with the released package; the
+  requirements' evidence lines now cite them, FR-318 R5 records the answer to
+  the question it left open, and only FR-338 and FR-340 change status, to
+  implemented:
+  - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
+    `START_SOLVER`, and every step export then carries it; in the order 0.34.0
+    emits, only the final export does. Moving the list is done in 0.35.0
+    (R6 of the same requirement).
+  - RPT-134 (FR-96): when the reopened state is kept, a continuation's plots
+    export holds the whole march numbered from 1, which the post joins with
+    every step once. The continuation 0.34.0 emits does not keep that state
+    (fixed in 0.35.0, FR-396).
+  - RPT-135 (FR-312): 26.124 opens and runs a file whose blocks are reset to
+    the 26.124 fresh import; the uncleaned control differs in its saved
+    actions only, and the blocks are compared offline. Registering the 26.124
+    table in the package is not in 0.35.0 and stays owed.
+  - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
+    the solver prints it so, not because of the package's order, and the
+    magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
+    page states both, and the definitions page that `CD0` reads that zero in
+    a coupled run; nothing the package emits changes.
+  - RPT-126 (FR-334, FR-335): of 43 acoustic, CCS and surface-removal
+    commands probed on 26.124, 26 are verified and 7 broken, and the command
+    database follows the run's report. Ten CCS commands stay unprobed, the
+    arity of the two CCS exports stays undetermined because neither wrote a
+    file, and the REAL control-surface form stays refused: its failure follows
+    the limits, not the REAL token. Citing RPT-126 in the refusal message is done in
+    0.35.0 (FR-336 R4), and 0.35.0 adds the probe waiver (FR-333), which removes the
+    two strict expected failures of the `DELETE_CCS_*_RELAXED_TE` probe scripts.
+    Judging the ten unprobed commands and measuring the arity of the two CCS exports
+    stay owed: the two strict expected failures of the CCS export arity case
+    (`test_p0340_arity_2003_06`) remain until the arity is measured and the emitter
+    corrected if needed.
+
+- **The licensed confirmations of 0.35.0 are owed after the release.** The continuation the
+  package emits no longer re-initializes a reopened state (FR-396); this is
+  verified offline against RPT-134's resume arm, the hand-edited script that
+  marched on, and the continuation the package itself emits has not run on a
+  licensed seat. The continuation of a run the wall clock stopped shares the
+  emission path and is not measured. The absolute paths of the grouped job
+  scripts (FR-359) and the CCS mesh probe judges (FR-401) are likewise
+  verified offline and wait for a licensed run.
+
+- **`pyfs-qa apply-compat` writing a 26.124 row into a command's multi-line version block itself is owed.** In 0.35.0 the `SET_NEW_UNSTEADY_SOLVER_ACTION` row was folded by hand as the tool directs, and a tier-1 test checks the result (FR-342).
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.39.0] - 2026-10-11
+
 ### Added
 
 - **A grid can keep the spanwise width of its row of panels at another component**
@@ -156,6 +227,20 @@ FlightStream versions.
 
 ### Internal
 
+- The tests of each requirement of the release carry its marker: FR-413 R8 by P0390-COLLECT,
+  FR-430 by P0390-FIRSTROW, FR-431 by P0390-BANDSWALLOW, FR-432 by P0390-ZEROAREA,
+  FR-433 by P0390-TAGLEN, FR-434 by P0390-ITERLIMIT, FR-435 by P0390-R02, FR-436 by
+  P0390-R03, NFR-45 by P0390-REV38 and P0390-REV37, NFR-46 by P0390-PDFS.
+  FR-413 is proved by the P0390-COLLECT tests.
+  FR-430 is proved by the P0390-FIRSTROW tests.
+  FR-431 is proved by the P0390-BANDSWALLOW tests.
+  FR-432 is proved by the P0390-ZEROAREA tests.
+  FR-433 is proved by the P0390-TAGLEN tests.
+  FR-434 is proved by the P0390-ITERLIMIT tests.
+  FR-435 is proved by the P0390-R02 tests.
+  FR-436 is proved by the P0390-R03 tests.
+  NFR-45 is proved by the P0390-REV38 tests (the 0.38 findings) and by the P0390-REV37
+  tests; NFR-45 for the 0.37 findings: P0390-REV37.
 - mypy recount 2026-10-11: 159 errors in 16 of 296 modules; the three new modules of 0.39.0,
   `workspace/_settings_file.py` and the two `workspace/_refine/_remesh_*` modules, are clean and not
   exempted (RPT-029).
@@ -179,72 +264,6 @@ FlightStream versions.
   as before; the changed readings are the new status `MAX_ITER_REACHED`, which a 0.38.0
   reader refuses, a quoted `--sims` of several ids, and the summary tag of a long
   selection. `--out-dir` and `--csv` of the mesh verbs are deprecated aliases of `--out`.
-
-### Owed
-
-- **The licensed confirmations of 0.34.0 are owed after the release.** By
-  decision of 2026-10-02 they are made on the released package and
-  recorded as post-release commits, outside the `[0.34.0]` section. Each lands
-  as a commit of its own after the tag, so the 0.34.0 package does not change
-  with it. RPT-130 is still owed. Five are
-  paid, measured on 26.124 (build 8172026) with the released package; the
-  requirements' evidence lines now cite them, FR-318 R5 records the answer to
-  the question it left open, and only FR-338 and FR-340 change status, to
-  implemented:
-  - RPT-133 (FR-318 R5): the solver accepts the vorticity drag list before
-    `START_SOLVER`, and every step export then carries it; in the order 0.34.0
-    emits, only the final export does. Moving the list is done in 0.35.0
-    (R6 of the same requirement).
-  - RPT-134 (FR-96): when the reopened state is kept, a continuation's plots
-    export holds the whole march numbered from 1, which the post joins with
-    every step once. The continuation 0.34.0 emits does not keep that state
-    (fixed in 0.35.0, FR-396).
-  - RPT-135 (FR-312): 26.124 opens and runs a file whose blocks are reset to
-    the 26.124 fresh import; the uncleaned control differs in its saved
-    actions only, and the blocks are compared offline. Registering the 26.124
-    table in the package is not in 0.35.0 and stays owed.
-  - RPT-128 (FR-338, FR-340): `CDo` reads zero in a coupled FSI run because
-    the solver prints it so, not because of the package's order, and the
-    magnitude of the XZ cut moment is confirmed on a cambered wing. The FSI
-    page states both, and the definitions page that `CD0` reads that zero in
-    a coupled run; nothing the package emits changes.
-  - RPT-126 (FR-334, FR-335): of 43 acoustic, CCS and surface-removal
-    commands probed on 26.124, 26 are verified and 7 broken, and the command
-    database follows the run's report. Ten CCS commands stay unprobed, the
-    arity of the two CCS exports stays undetermined because neither wrote a
-    file, and the REAL control-surface form stays refused: its failure follows
-    the limits, not the REAL token. Citing RPT-126 in the refusal message is done in
-    0.35.0 (FR-336 R4), and 0.35.0 adds the probe waiver (FR-333), which removes the
-    two strict expected failures of the `DELETE_CCS_*_RELAXED_TE` probe scripts.
-    Judging the ten unprobed commands and measuring the arity of the two CCS exports
-    stay owed: the two strict expected failures of the CCS export arity case
-    (`test_p0340_arity_2003_06`) remain until the arity is measured and the emitter
-    corrected if needed.
-
-- **The licensed confirmations of 0.35.0 are owed after the release.** The continuation the
-  package emits no longer re-initializes a reopened state (FR-396); this is
-  verified offline against RPT-134's resume arm, the hand-edited script that
-  marched on, and the continuation the package itself emits has not run on a
-  licensed seat. The continuation of a run the wall clock stopped shares the
-  emission path and is not measured. The absolute paths of the grouped job
-  scripts (FR-359) and the CCS mesh probe judges (FR-401) are likewise
-  verified offline and wait for a licensed run.
-
-- **`pyfs-qa apply-compat` writing a 26.124 row into a command's multi-line version block itself is owed.** In 0.35.0 the `SET_NEW_UNSTEADY_SOLVER_ACTION` row was folded by hand as the tool directs, and a tier-1 test checks the result (FR-342).
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.38.0] - 2026-10-06
 
@@ -14722,7 +14741,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.35.1...v0.36.0
