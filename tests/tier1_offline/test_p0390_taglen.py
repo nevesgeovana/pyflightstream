@@ -133,7 +133,7 @@ def test_same_selection_same_tag_and_any_change_another(tmp_path):
 
 
 def test_k_in_the_family_part_of_a_short_tag(tmp_path):
-    """P0390-TAGLEN (FR-430 R8): a kept first row writes k in the family's part, so tags differ."""
+    """P0390-TAGLEN (FR-433, FR-430 R8): a kept first row writes k in its family part."""
     two = ["Wing", "Body"]
     plain = _config.level_tag(_request(tmp_path, two), two)
     kept = _config.level_tag(_request(tmp_path, two, keep={two[0]}), two)
