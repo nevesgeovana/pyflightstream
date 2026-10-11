@@ -3228,7 +3228,7 @@
    "text": "Plan: PFS-2080.03 (0.39.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep.*",
+   "evidence": "*Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*",
    "verification": "none"
   },
   {
@@ -3236,7 +3236,7 @@
    "text": "Plan: PFS-2080.04 (0.39.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1.*",
+   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*",
    "verification": "none"
   },
   {
@@ -3244,7 +3244,7 @@
    "text": "Plan: PFS-2080.05 (0.39.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work.*",
+   "evidence": "*Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names (prospective until that fixture is built).*",
    "verification": "none"
   },
   {
@@ -3260,7 +3260,7 @@
    "text": "Plan: PFS-2080.07 (0.39.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S7; backlog entry R02 (input files reusable across the configurations of one aircraft, naming meshes or boundaries a given model does not carry), designed from a use case written as files before any code (decisions R02-D1 to R02-D8 of 2026-10-10: the study vocabulary declared in the reference). The precedent is the reading the reference aliases (FR-59) and the pproc family entries (FR-73, FR-320) already follow. AMENDS FR-275, 'A setup removes surfaces by name', whose refusal of a stated name that resolves to no surface becomes a skip where the study vocabulary holds the name, and FR-73, whose flag reaches the keys of R1.*",
+   "evidence": "*Origin: scope GOAL-049 item S7; backlog entry R02 (input files reusable across the configurations of one aircraft, naming meshes or boundaries a given model does not carry), designed from a use case written as files before any code (decisions R02-D1 to R02-D8 of 2026-10-10: the study vocabulary declared in the reference). The precedent is the reading the reference aliases (FR-59) and the pproc family entries (FR-73, FR-320) already follow. AMENDS FR-275, 'A setup removes surfaces by name', whose refusal of a stated name that resolves to no surface becomes a skip where the study vocabulary holds the name, and FR-73, whose flag reaches the keys of R1. The 0.38.0 refusals the Need cites were observed on the v0.38.0 package and are reproduced by the synthetic workspace the verification names (prospective until it is built).*",
    "verification": "none"
   },
   {
