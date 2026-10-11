@@ -24,6 +24,7 @@ so.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import tomllib
 import warnings
@@ -495,31 +496,99 @@ def _fmt(value: float) -> str:
 
 
 def spec_tag(spec: FamilySpec) -> str:
-    """Return a family's part of a level's tag: R5 of FR-424, and a and t for a body (FR-428)."""
+    """Return a family's part of a level's tag: R5 of FR-424, a and t for a body (FR-428).
+
+    A family asked to keep its first row carries ``k`` (FR-430 R8), so a level
+    with kept rows and one without never share a tag.
+    """
     if spec.axial is not None or spec.circumferential is not None:
-        return f"a{_fmt(spec.axial or 1.0)}t{_fmt(spec.circumferential or 1.0)}"
-    tag = _fmt(spec.factor)
-    if spec.chordwise is not None:
-        tag += f"c{_fmt(spec.chordwise)}"
-    if spec.spanwise is not None:
-        tag += f"s{_fmt(spec.spanwise)}"
-    return tag
+        tag = f"a{_fmt(spec.axial or 1.0)}t{_fmt(spec.circumferential or 1.0)}"
+    else:
+        tag = _fmt(spec.factor)
+        if spec.chordwise is not None:
+            tag += f"c{_fmt(spec.chordwise)}"
+        if spec.spanwise is not None:
+            tag += f"s{_fmt(spec.spanwise)}"
+    return tag + ("k" if spec.keep_first_row else "")
+
+
+#: The longest built tag that stays the tag of 0.38.0; a longer one is summarised (FR-433 R2).
+TAG_MAX = 32
+
+
+def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[str], list[str]]:
+    """Return the built tag, the selected families in the source's order and their parts."""
+    tags = {n: spec_tag(s) for n, s in request.specs.items()}
+    picked = [n for n in names if n in request.specs]
+    parts = [f"{n}{tags[n]}" for n in picked]
+    if set(request.specs) == set(names) and len(set(tags.values())) == 1:
+        return "R" + next(iter(tags.values())), picked, parts
+    return "R-" + "-".join(parts), picked, parts
+
+
+def _value(value: object) -> str:
+    """Return one option value as the canonical selection writes it."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float):
+        return f"{value:g}"
+    return str(value)
+
+
+def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
+    """Return the canonical selection a summary tag hashes (FR-433 R2).
+
+    One line per selected family, in the source's order: the family's name,
+    then every option its table states that changes the level, as sorted
+    ``key=value`` pairs separated by single spaces.
+    """
+    lines = []
+    for name in picked:
+        spec = request.specs[name]
+        options: dict[str, object] = {"factor": spec.factor}
+        for key in ("chordwise", "spanwise", "axial", "circumferential"):
+            if getattr(spec, key) is not None:
+                options[key] = getattr(spec, key)
+        if spec.method != "auto":
+            options["method"] = spec.method
+        if request.elements_of(name) != TRIANGLES:
+            options["elements"] = request.elements_of(name)
+        if spec.keep_first_row:
+            options["keep_first_row"] = True
+        pairs = " ".join(f"{k}={_value(options[k])}" for k in sorted(options))
+        lines.append(f"{name} {pairs}")
+    return "\n".join(lines)
+
+
+def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | None:
+    """Return the selected families when the level's tag is the summary and hash, else None."""
+    if request.tag:
+        return None
+    tag, picked, _ = _built_tag(request, names)
+    return picked if len(tag) > TAG_MAX else None
 
 
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
     """Return the level's tag: the file's, else ``R<factors>``, else ``R-<family><factors>-...``.
 
+    A built tag of more than 32 characters is ``R-<n>fam-<hash>`` (FR-433 R2):
+    ``<hash>`` the first 8 hexadecimal characters of the SHA-256 of the
+    ``<family><factor tag>`` parts in the source's order joined with ``-``.
     A tag built from family names is one folder name (FR-424 R5): a family
     whose name would put a path separator, ``..``, a drive or a reserved
-    character into it is refused naming the family, before any work (R11).
+    character into it is refused naming the family, before any work (R11);
+    the summary form holds no family name and is not refused.
     """
     if request.tag:
         return str(request.tag)
+    tag, picked, parts = _built_tag(request, names)
+    if len(tag) > TAG_MAX:
+        digest = hashlib.sha256(canonical_selection(request, picked).encode("utf-8")).hexdigest()[
+            :8
+        ]
+        return f"R-{len(picked)}fam-{digest}"
     tags = {n: spec_tag(s) for n, s in request.specs.items()}
-    if set(request.specs) == set(names) and len(set(tags.values())) == 1:
-        return "R" + next(iter(tags.values()))
-    tag = "R-" + "-".join(f"{n}{tags[n]}" for n in names if n in request.specs)
-    for name in (n for n in names if n in request.specs):
+    for name in picked:
         problem = folder_name_problem(f"R-{name}{tags[name]}")
         if problem is not None:
             raise _refuse(

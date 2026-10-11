@@ -126,6 +126,8 @@ class _Work:
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # REF-FIRSTROW: per grid, whether station 0 and the far station keep their row's width
     keep_rows: dict[str, tuple[bool, bool]] = field(default_factory=dict)
+    # FR-433 R4: the selected families of a summary tag, taken with the tag before any work
+    tag_selection: list[str] | None = None
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -778,6 +780,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         if n not in work.bands
     }
     periodic = {} if work.periodic is None else {"periodic": work.periodic}
+    shortened = {} if work.tag_selection is None else {"tag_selection": work.tag_selection}
     return {
         "schema_version": _geometry.SCHEMA_VERSION,
         "source": work.source.name,
@@ -791,6 +794,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands
         },
         "faces": dict(counts),
+        **shortened,
         **periodic,
     }
 
@@ -927,6 +931,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     stem = f"{source.stem}_{_config.level_tag(request, list(obj.families), str(source))}"
     folder = _place(source, stem, out_dir, overwrite)
     work = _start(source, request, obj)
+    work.tag_selection = _config.tag_selection(request, list(obj.families))
     work.sidecar = _boundaries_text(work, stem)
     where = f"{source} [periodic]"
     work.cuts = _periodic.find_cuts(
