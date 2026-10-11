@@ -2,7 +2,7 @@
  "version": "<V>",
  "workspace": "<ROOT>",
  "matrix": "polars",
- "time": "<TIME>-<CLOCK>",
+ "time": "<TIME>",
  "check_frozen": false,
  "records": []
 }

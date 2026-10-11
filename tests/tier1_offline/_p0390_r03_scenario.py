@@ -224,7 +224,9 @@ def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
         for form in (json.dumps(value)[1:-1], value, Path(value).as_posix()):
             text = text.replace(form, token)
     text = text.replace("\\\\", "/").replace("\\", "/")
-    text = re.sub(r"\d{4}-\d\d-\d\dT[0-9:.+]+(Z|\+00:00)?", "<TIME>", text)
+    # An ISO stamp with its offset whole, whichever sign: the two runs of the scenario may be
+    # stamped in zones of different sign, and a -hh:mm left behind read as a clock.
+    text = re.sub(r"\d{4}-\d\d-\d\dT[0-9:.]+(?:Z|[+-]\d\d:\d\d)?", "<TIME>", text)
     text = re.sub(r"\d{8}T\d{6}Z(-\d+)?", "<STAMP>", text)
     text = re.sub(
         r'"((?:pyfs:)?(?:duration_s|wall_time_s|solver_run_time_s|solver_initialization_s))": '

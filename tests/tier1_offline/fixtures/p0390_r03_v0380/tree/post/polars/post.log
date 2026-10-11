@@ -1,5 +1,5 @@
 pyflightstream <V> post
 workspace=<ROOT>
 matrix=polars
-time=<TIME>-<CLOCK>
+time=<TIME>
 check_frozen=False (refuse instead of warn)
