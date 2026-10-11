@@ -269,6 +269,46 @@ def test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing(tmp_
     assert gate.values["faces_of_zero_area"] == 0 and gate.verdict == "pass"
 
 
+def _square_in_frame() -> Composite:
+    """Return ``C``, one unit-square quadrilateral, and ``F``, four quadrilaterals framing it.
+
+    Every node of C is a node of F, so the four sides of C are the edges C
+    shares with F, each of length 1; the group fans C into two triangles, and
+    their diagonal (length sqrt 2) joins two shared nodes without being an
+    edge of F.
+    """
+    verts = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0],
+            [-1, -1, 0],
+            [2, -1, 0],
+            [2, 2, 0],
+            [-1, 2, 0],
+        ],
+        dtype=float,
+    )
+    frame = [[0, 4, 5, 1], [1, 5, 6, 2], [2, 6, 7, 3], [3, 7, 4, 0]]
+    return Composite(verts, {"C": [[0, 1, 2, 3]], "F": frame}, np.zeros((0, 3)), {})
+
+
+def test_p0390_zeroarea_a_diagonal_between_shared_nodes_is_not_a_kept_edge(tmp_path):
+    """P0390-ZEROAREA (FR-432 R5) only an edge of the unchanged neighbour is a kept shared edge.
+
+    The unit-square cap C, remeshed alone at factor 2 inside the unchanged
+    frame F, takes at each corner the mean of its kept shared edges, all of
+    length 1, so ``shared_edge_target_m`` is 1.0 at its least, mean and
+    greatest. Taking every edge frozen between two shared nodes takes the
+    diagonal C's triangulation draws too (length sqrt 2), and records a mean
+    of about 1.069 and a greatest of about 1.138.
+    """
+    obj = read_obj(write_source(tmp_path / "square", "wing", _square_in_frame()))
+    done = refine_group(obj, ["C"], (), {"C": 2.0})
+    assert done.info["shared_edge_target_m"] == {"C": {"min": 1.0, "mean": 1.0, "max": 1.0}}
+
+
 @pytest.mark.parametrize("how", ["stated", "rebuilt", "band"])
 def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
     """P0390-ZEROAREA (FR-432 R1, R3) C beside G at 2 meshes to the shared spacing; G1 passes.

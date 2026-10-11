@@ -782,13 +782,8 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
 def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
     """Judge assessment log."""
     if job.log_path is not None:
-        job.stamp["log_file_used"] = job.log_path.name
         log_text = job.log_path.read_text(encoding="utf-8", errors="replace")
-        # 0.21.0: the times the log prints ride on every verdict read from it.
-        times = parse_log_times(log_text)
-        job.stamp["solver_run_time_s"] = times.solver_run_time_s
-        job.stamp["solver_initialization_s"] = times.solver_initialization_s
-        job.stamp["time_steps"] = times.time_steps
+        _stamp_log(job, log_text, job.log_path.name)
         if job.clockings is not None:
             return _judge_the_clockings(
                 log_text, job.log_path, job.report, job.report_path, job.clockings, job.stamp
@@ -926,6 +921,21 @@ def _a_count(token: str) -> bool:
     return True
 
 
+def _stamp_log(job: _LoadsJudgment, log_text: str, log_name: str) -> None:
+    """Stamp the log a verdict is read from: its name and the times it prints.
+
+    One route for a log named by ``log_file`` and one found by content
+    (FR-434 R1), so both carry the same ``solver_run_time_s``,
+    ``solver_initialization_s`` and ``time_steps`` (0.21.0: the times the
+    log prints ride on every verdict read from it).
+    """
+    job.stamp["log_file_used"] = log_name
+    times = parse_log_times(log_text)
+    job.stamp["solver_run_time_s"] = times.solver_run_time_s
+    job.stamp["solver_initialization_s"] = times.solver_initialization_s
+    job.stamp["time_steps"] = times.time_steps
+
+
 def _footer_counter_limit(job: _LoadsJudgment, log_text: str, log_name: str) -> Assessment | None:
     """MAX_ITER_REACHED from a counterless log and the footer's counter (FR-434 R1), or None.
 
@@ -942,7 +952,7 @@ def _footer_counter_limit(job: _LoadsJudgment, log_text: str, log_name: str) -> 
     if judged.status is not RunStatus.COMPLETED_MAX_ITER:
         return None
     requested = job.report.requested_iterations
-    job.stamp["log_file_used"] = log_name
+    _stamp_log(job, log_text, log_name)
     job.stamp["residual_note"] = _limit_note(judged.note, requested, reached)
     job.stamp["iterations_requested"] = requested
     return Assessment(

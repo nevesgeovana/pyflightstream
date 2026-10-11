@@ -848,20 +848,35 @@ def _interface_key(old: Iterable[int], new: Points) -> tuple[frozenset[int], byt
     return frozenset(int(v) for v in old), numpy.asarray(new, dtype=float).reshape(-1, 3).tobytes()
 
 
+def _outside_edges(mesh: ObjMesh, others: Sequence[str], local: Mapping[int, int]) -> set[Edge]:
+    """Return the edges of the faces of families outside the group, in its local numbering."""
+    return {
+        _ek(local[a], local[b])
+        for n in others
+        for f in mesh.families[n]
+        for a, b in zip(f, f[1:] + f[:1], strict=True)
+        if a in local and b in local
+    }
+
+
 def _take_shared(
     remesher: Remesher,
     factors: Mapping[str, float],
     local: Mapping[int, int],
     conform: Sequence[tuple[Iterable[int], Points]],
     shared: Sequence[tuple[Iterable[int], Points]],
+    *,
+    outside: set[Edge],
 ) -> dict[str, dict[str, float]]:
     """Set the targets of FR-432 at the curves a family shares; return the record of R3.
 
     A family at factor 1 takes them on each conformed interface ``shared``
     names, the new shared edges of a refined side (R1); a family at another
     factor takes them on each frozen interface no ``conform`` entry rebuilt,
-    the shared edges an unchanged neighbour keeps (R5). A node of a face of
-    the other kind keeps its own target.
+    the shared edges an unchanged neighbour keeps (R5): an edge of a face of
+    the neighbour (``outside``, local numbering), so a diagonal the group's
+    triangulation draws between two shared nodes is not one. A node of a
+    face of the other kind keeps its own target.
     """
     keys = {_interface_key(old, new) for old, new in shared}
     chosen = [i for i, (old, new) in enumerate(conform) if _interface_key(old, new) in keys]
@@ -873,7 +888,7 @@ def _take_shared(
     unit = {v for f, n in zip(faces, labels, strict=True) if factors[n] == 1.0 for v in f}
     kept = {
         e
-        for e in remesher.frozen
+        for e in remesher.frozen & outside
         if e in remesher.E and not set(e) <= rebuilt and not set(e) <= unit
     }
     sources = {local[v] for i in chosen for v in conform[i][0] if v in local}
@@ -977,7 +992,8 @@ def refine_group(
         remesher.conform([local[v] for v in old if v in local], new) for old, new in conform
     ]
     if stretch is None:
-        at_curve = _take_shared(remesher, factors, local, conform, shared)
+        outside = _outside_edges(mesh, others, local)
+        at_curve = _take_shared(remesher, factors, local, conform, shared, outside=outside)
     else:
         at_curve = {}
     remesher.run()

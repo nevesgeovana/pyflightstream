@@ -20,7 +20,10 @@ FlightStream versions.
   station is an interface when an edge of it is shared with a family of another component.
   The trailing edge is the one listed in the points file, else the detected one, and the
   family's entry of `refine.json` states which (`trailing_edge`, `"points file"` or
-  `"detected"`) and the kept end stations (`kept_rows`). Refused before any work, ending
+  `"detected"`) and the kept end stations (`kept_rows`); a detected one adds
+  `trailing_edge_points`, the mid-points of the line detected on the source, from which the
+  audit counts the source's trailing-edge chains with the listed edges (G4), so a detected
+  line that a listed edge continues is one chain. Refused before any work, ending
   "Nothing was written.": a remeshed, axial or circumferential, multiblock or unrecovered
   grid, a grid without a trailing edge or with no end at another component, a grid
   remeshed because it shares nodes with a grid refined first, kept rows that leave no
