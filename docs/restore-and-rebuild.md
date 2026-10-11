@@ -212,7 +212,11 @@ Without `--apply` it previews and writes nothing; `--reason` is required, and
 (`2006 2007`, `2006,2007`, `[2006,2007]`).
 Unlike `mark-failed`, it does not mark a run id alias (`2006_3`): the alias is
 read as `mark-failed` reads it and refused, and the refusal names the
-`--sims` and `--points` that select its point (`--sims 2006 --points AL+020`). `mark-failed` and `rebuild` take one comma-separated value (`--sims 2006,2007`); `mark-converged` also takes the ids as separate words.
+`--sims` and `--points` that select its point (`--sims 2006 --points AL+020`).
+
+All four commands (`mark-converged`, `mark-failed`, `rebuild`, `delete-sims`) take
+comma-separated, bracketed or blank-separated ids, quoted or not (`--sims 2006,2007`,
+`[2006,2007]`, `2006 2007`, `"2006 2007"`).
 
 Each marked record becomes `CONVERGED` and keeps under `marked` the status it had
 (`from`), when (`at`), your reason (`reason`) and the verdict (`verdict`);
