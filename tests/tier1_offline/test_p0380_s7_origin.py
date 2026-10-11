@@ -419,7 +419,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-425": "a3dc2a22dfef87563c2bd10f65fe4ac4920589590f6ae99d84910e9856c25d8c",
     # Re-pinned at 85d92803: R3 of the next box dropped a personal attribution (the W0 CI fix).
     # Re-pinned on lane/indfix: R1 refuses a --csv naming an input or the audit (IND-06).
-    "FR-426": "9596e259363c5dcbaaaf73e0c8c2993b92c363293ff5b3b92e014257b0bb1fb1",
+    # amended in 0.39.0 by NFR-45 (R2: the option is `--out FILE`, `--csv` a deprecated alias)
+    "FR-426": "31c1faa85782b31501cff6cbbb99432d9ec4e3bdfd37e186fbab83e4d7efa1be",
     "FR-427": "36a84eacf0dacabd2ee8e7dc5dec1cc4b39f3444e48208d3798c7670817df4c9",
     # Re-pinned on lane/indfix: the evidence says when the skewness check warns (IND-07).
     "FR-428": "1d2df316ee2b79929b8f92b2a06c4ab8a804ec440676fc4b3fbd55aa26ddae35",
@@ -613,7 +614,8 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
 
     A pin moves only with the requirement that amends its box: FR-46 follows its
     0.39.0 amendment by FR-434 (MAX_ITER_REACHED joins the closed set) and FR-341
-    its amendment by NFR-45 R37-10 (the hash is of the separator-folded render).
+    its amendment by NFR-45 R37-10 (the hash is of the separator-folded render); FR-426
+    follows its amendment by NFR-45 R2 (`--out FILE`, with `--csv` a deprecated alias).
     """
     changed = []
     for page in PAGES:
