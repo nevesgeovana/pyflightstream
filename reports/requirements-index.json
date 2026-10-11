@@ -3236,7 +3236,7 @@
    "text": "Plan: PFS-2080.04 (0.39.0).",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*",
+   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package. The synthetic fixture the verification names shows the sizing that leads to it (the 0.38.0 target size at the shared curve) and writes no face of zero area; the faces of zero area are measured on the private multi-component mesh at the release.*",
    "verification": "none"
   },
   {

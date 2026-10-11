@@ -1,0 +1,367 @@
+[
+  {
+    "id": "API-05",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "--out-dir and --csv of the mesh verbs are named differently from their sibling verbs.",
+    "files": [
+      "src/pyflightstream/run/_cli_mesh.py",
+      "src/pyflightstream/run/_cli_parsers.py"
+    ],
+    "proposed_fix": "Rename to the sibling-verb pattern and keep --out-dir and --csv as deprecated aliases that still work and are named in the 0.39 migration note (owner answer P2 of 2026-10-10).",
+    "test": "tests/tier1_offline/test_p0390_rev38_mesh_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "e79ab633",
+    "owner_decision": "Part A of pyflightstream_0-39-0_working-memory.md, row of 2026-10-10 (P2: sibling names, old names kept as deprecated aliases)"
+  },
+  {
+    "id": "PUSH-W12-ARCH-1",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "Remesher tuning constants live in _remesh while _geometry holds the other thresholds.",
+    "files": [
+      "src/pyflightstream/workspace/_refine/_remesh.py",
+      "src/pyflightstream/workspace/_refine/_geometry.py"
+    ],
+    "proposed_fix": "Confirm the _geometry docstring (07fd1755) names which thresholds it holds and which stay in _remesh; if the docstring is current, close with that justification, else move or document the constants.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-W12-ARCH-2",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "_is_reparse is re-exported inside workspace for the moved helpers.",
+    "files": [
+      "src/pyflightstream/workspace/__init__.py"
+    ],
+    "proposed_fix": "Give the helper a public name in its home module or import it from there, so no module reads a private name across the package boundary.",
+    "test": "tests/tier1_offline/test_p0390_rev38_arch.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd"
+  },
+  {
+    "id": "PUSH-W12-QA-2",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "The growth warning on a tier-1 refine fixture is left unasserted.",
+    "files": [
+      "tests/tier1_offline/test_p0380_s1_refine.py"
+    ],
+    "proposed_fix": "Assert the warning (pytest.warns with its text) in that test, or record that the numerical seat judged it expected and filter it explicitly.",
+    "test": "tests/tier1_offline/test_p0380_s1_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-W12-QA-3",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "Four cherry-picks of the FR-424 R7 change carry one commit message.",
+    "files": [],
+    "proposed_fix": "History cannot be rewritten after the tag; close with a justification recorded in the register (owner answer P3 of 2026-10-10).",
+    "test": "doc only",
+    "needs_owner_decision": false,
+    "disposition": "closed",
+    "commit": null,
+    "justification": "The four cherry-picks of the FR-424 R7 change carry one commit message and sit on a branch already tagged and published in 0.38.0; rewriting published history would change every later hash and break the tag, so the history is kept as published (owner answer P3 of 2026-10-10) and the release notes of 0.39.0 say so."
+  },
+  {
+    "id": "PUSH-W3-ARCH-1",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "_remesh.py holds about 1121 lines (981 non-blank at review) and should be split before it grows.",
+    "files": [
+      "src/pyflightstream/workspace/_refine/_remesh.py"
+    ],
+    "proposed_fix": "Split the module along its existing sections into private submodules with no behaviour change; keep every public path.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-W3-QA-1",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "No test names an RV id; each fix was proved only by reverting its source in lane commits.",
+    "files": [
+      "tests/tier1_offline/test_p0380_s1_refine.py",
+      "tests/tier1_offline/test_p0380_s1_grid.py",
+      "tests/tier1_offline/test_p0380_s2_dummy.py",
+      "tests/tier1_offline/test_p0380_s3_audit.py"
+    ],
+    "proposed_fix": "Add the RV id to the docstring of the test that proves each fix so a reader can trace a finding to its test.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "RC-QA-1",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "R6's bound is asserted against source panels on a fine fixture, which bounds the spline surface only there.",
+    "files": [
+      "tests/tier1_offline/test_p0380_s1_grid.py"
+    ],
+    "proposed_fix": "Add a coarse fixture where the source panels and the spline surface differ and assert the bound against the surface.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-IND-QA-5",
+    "source": "0.38",
+    "severity": "medium",
+    "summary": "The 14 to 18 band of the cap test is a tolerance around a third of 48 fans.",
+    "files": [
+      "tests/tier1_offline/test_p0380_independent_review.py"
+    ],
+    "proposed_fix": "Replace the band with the exact count the rule produces, derived in the test from the fixture, or state the rule that makes 14 to 18 exact.",
+    "test": "tests/tier1_offline/test_p0380_independent_review.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-IND-ARCH-6",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "The mesh CLI reads the boundaries file's points entry itself, a second reader of that layout.",
+    "files": [
+      "src/pyflightstream/run/_cli_mesh.py",
+      "src/pyflightstream/workspace/_refine/_obj.py"
+    ],
+    "proposed_fix": "Read the entry through the single reader the refinement already uses.",
+    "test": "tests/tier1_offline/test_p0390_rev38_mesh_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "e79ab633"
+  },
+  {
+    "id": "IND4-01",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "A two-pole tube whose pole fan size is shared by more than two nodes is no longer recovered as a grid and is remeshed.",
+    "files": [
+      "src/pyflightstream/workspace/_refine/_grid.py",
+      "tests/tier1_offline/test_p0380_s1_grid.py",
+      "CHANGELOG.md"
+    ],
+    "proposed_fix": "Add the owed CHANGELOG entry for the limit (also covers PUSH-IND3-QA-3) and a test pinning that such a tube is remeshed, never a wrong grid.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-IND2-QA-1",
+    "source": "0.38",
+    "severity": "medium",
+    "summary": "The IND-08 corner search has no test on a square split sheet, a 1-by-n split strip, or the ambiguity refusal.",
+    "files": [
+      "tests/tier1_offline/test_p0380_independent_review.py",
+      "src/pyflightstream/workspace/_refine/_grid.py"
+    ],
+    "proposed_fix": "Add the three tests: square split sheet, 1-by-n split strip, and the ambiguity refusal naming the family.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "PUSH-IND3-QA-3",
+    "source": "0.38",
+    "severity": "low",
+    "summary": "The limit also covers a pole fan size equal to a near-pole ring's valence (5 on split cells); same as IND4-01.",
+    "files": [
+      "src/pyflightstream/workspace/_refine/_grid.py",
+      "tests/tier1_offline/test_p0380_independent_review.py"
+    ],
+    "proposed_fix": "Fixed together with IND4-01: the same tube test with a fan size of 5 on split cells, and the commit message of a4b32df0 is left as history.",
+    "test": "tests/tier1_offline/test_p0390_rev38_refine.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "df6c3c5b"
+  },
+  {
+    "id": "R37-01",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "SIMS_IDS_HELP lives in run/_alias.py; its home is beside workspace.ledger.listed_sims.",
+    "files": [
+      "src/pyflightstream/run/_alias.py",
+      "src/pyflightstream/workspace/ledger.py",
+      "src/pyflightstream/run/_cli_parsers.py"
+    ],
+    "proposed_fix": "Move the constant to workspace/ledger.py next to listed_sims and import it in the parsers; keep a re-export in _alias only if a test needs it.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd",
+    "note": "The mark-converged help changed by the R37-04 contract (quoted value and mixed shape), pinned by R37-09."
+  },
+  {
+    "id": "R37-02",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The sweep refusal for an unknown header lists both layouts but not which column differs.",
+    "files": [
+      "src/pyflightstream/cases/matrix.py",
+      "src/pyflightstream/cases/_matrix_layouts.py"
+    ],
+    "proposed_fix": "Name the first differing column (position, expected, found) for each of the two layouts in the refusal.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd"
+  },
+  {
+    "id": "R37-03",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "A quoted --sims '2006 2007' of mark-converged is tested only through the private helper.",
+    "files": [
+      "tests/tier1_offline/test_p0370_s1_mark_converged.py",
+      "src/pyflightstream/run/_mark_converged.py"
+    ],
+    "proposed_fix": "Add the bracket and tab cases and one test through the CLI entry point.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd"
+  },
+  {
+    "id": "R37-04",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "A quoted --sims '2006 2007' on mark-failed, rebuild and delete-sims reads as the single id 20062007.",
+    "files": [
+      "src/pyflightstream/run/_cli_parsers.py",
+      "src/pyflightstream/run/_alias.py",
+      "src/pyflightstream/run/_rebuild.py",
+      "tests/tier1_offline/test_mark_failed.py",
+      "tests/tier1_offline/test_delete_sims_force.py",
+      "tests/tier1_offline/fixtures/cli_actions_0331.json",
+      "docs/restore-and-rebuild.md",
+      "docs/migrating-to-0.37.0.md"
+    ],
+    "proposed_fix": "Read a quoted space-separated value as several ids in the three commands, as mark-converged does; every form accepted today keeps working; the 0.33.1 contract test changes by the owner decision P1 of 2026-10-10, with a migration note.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd",
+    "owner_decision": "Part A of pyflightstream_0-39-0_working-memory.md, row of 2026-10-10 (P1: a quoted space-separated --sims reads as several ids; every form accepted today keeps working; the 0.33.1 contract test changes, named in the migration note)",
+    "note": "The 0.33.1 CLI golden pins argparse actions only and none changed, so it stays; the blank-separated reading reaches every caller of listed_sims (delete-sims, rebuild, mark-failed, mark-converged, collect, post, status, log), named in the migration note."
+  },
+  {
+    "id": "R37-05",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "RPT-160 addendum wording 'the probe-campaign working folder' (cosmetic).",
+    "files": [
+      "reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md"
+    ],
+    "proposed_fix": "Reword the phrase to name the folder by its role in the report.",
+    "test": "tests/tier1_offline/test_p0390_rev37_docs.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "d8d7b06b"
+  },
+  {
+    "id": "R37-06",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The mark-failed/rebuild comma sentence is on two pages and unwrapped.",
+    "files": [
+      "docs/restore-and-rebuild.md",
+      "docs/migrating-to-0.37.0.md"
+    ],
+    "proposed_fix": "Keep the sentence in restore-and-rebuild.md only, wrapped, and link to it from the migration page (rewritten under R37-04).",
+    "test": "tests/tier1_offline/test_p0390_rev37_docs.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "d8d7b06b"
+  },
+  {
+    "id": "R37-07",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The FR-414 CHANGELOG entry does not say mark-converged reads one quoted '2006 2007' as two ids.",
+    "files": [
+      "CHANGELOG.md"
+    ],
+    "proposed_fix": "Add the sentence to the FR-414 entry.",
+    "test": "tests/tier1_offline/test_p0390_rev37_docs.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "d8d7b06b"
+  },
+  {
+    "id": "R37-08",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The mixed --sims 7001 7002,7003 case asserts only that 7003 appears, not exit 0 or 7001 and 7002.",
+    "files": [
+      "tests/tier1_offline/test_p0370_s1_sims_shapes.py"
+    ],
+    "proposed_fix": "Assert exit code 0 and the presence of 7001, 7002 and 7003 in the output.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd"
+  },
+  {
+    "id": "R37-09",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The mark-converged --sims help does not name the single quoted value or the mixed shape.",
+    "files": [
+      "src/pyflightstream/run/_cli_parsers.py",
+      "src/pyflightstream/run/_mark_converged.py"
+    ],
+    "proposed_fix": "Extend the help text with the quoted single value and the mixed shape.",
+    "test": "tests/tier1_offline/test_p0390_rev37_cli.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "edeeb1cd"
+  },
+  {
+    "id": "R37-10",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The S6 byte-identity hash is of the separator-folded render, which the comment and docstring do not say, and no native assertion guards the FILE TMP?blade.obj line.",
+    "files": [
+      "tests/tier1_offline/test_p0370_s6_direct_morphing.py",
+      "docs/srs/functional-requirements.md"
+    ],
+    "proposed_fix": "Say in the comment above MAPPED_SCRIPT_SHA256 and the docstring that the hash is of the separator-folded render; add a native assertion on the FILE TMP?blade.obj line; state the folded comparison in FR-341 R3.",
+    "test": "tests/tier1_offline/test_p0390_rev37_docs.py",
+    "needs_owner_decision": false,
+    "disposition": "fixed",
+    "commit": "d8d7b06b"
+  },
+  {
+    "id": "R37-11",
+    "source": "0.37",
+    "severity": "low",
+    "summary": "The 26.125 fixtures are real cuts, but the original campaign exports were not compared byte for byte in review (Q370-1 caveat).",
+    "files": [
+      "tests/tier1_offline/test_p0370_s6_direct_morphing.py",
+      "tests/tier1_offline/fixtures/s10_26125"
+    ],
+    "proposed_fix": "Compare the fixtures with the original exports byte for byte if the exports still exist; otherwise close with the justification recorded (owner answer P3 of 2026-10-10).",
+    "test": "doc only, or a hash test of the fixtures if the originals are found",
+    "needs_owner_decision": false,
+    "disposition": "closed",
+    "commit": null,
+    "justification": "Availability check done 2026-10-10: the original 26.125 probe-campaign exports (sweep.txt of SWEEPER_EXPORT_SPREADSHEET, probes.txt of EXPORT_PROBE_POINTS, campaign CMP-26125_2026-10-05) were searched by file name to depth 5 or 6 in every project folder under the working root and in the estate local work folder, and none exists; the synced cloud folders were not scanned by rule. The byte comparison is therefore impossible; the sha256 of each source stays in fixtures/s10_26125/PROVENANCE.md."
+  }
+]

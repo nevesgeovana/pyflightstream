@@ -793,7 +793,10 @@ Its `families` entry holds, per family:
   and `interfaces` (the nodes of each curve it shares); a grid that keeps its
   first row adds `kept_rows` (`"station 0"`, `"far station"` or both) and
   `trailing_edge` (`"points file"` or `"detected"`, where its trailing edge
-  came from);
+  came from); a detected one adds `trailing_edge_points`, the mid-point
+  `[x, y, z]` of each edge of the line detected on the source, in the unit of
+  the level's points file and written as that file writes them, which the
+  audit of the level reads to count the source's trailing-edge chains (G4);
 - a smooth tube is a grid whose circumferential direction is a periodic cubic
   spline, with the seam at the lowest source node index of its first end
   station and no trailing-edge points; a multiblock family reports `layout`
@@ -912,7 +915,11 @@ G6 is judged only for a level `refine` wrote, which names its grid families at
 factor 1 (and each component whose every member is one) in its `refine.json`
 under `unchanged_grids`; `audit-mesh` reads them from the level's
 `refine.json` when it names that level and the source given with `--against`,
-so a saved level is re-audited as `refine` audited it.
+so a saved level is re-audited as `refine` audited it. G4 reads the same
+record for a family whose trailing edge `refine` detected: the source's chains
+are the connected chains of its listed edges and the detected edges the record
+lists under `trailing_edge_points`, together, so a detected line that a listed
+edge continues is one chain.
 
 `audit.json` holds `schema_version`, `mesh`, `source`, `passed`, `gates` and
 `checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or

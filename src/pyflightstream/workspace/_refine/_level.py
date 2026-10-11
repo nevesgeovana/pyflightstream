@@ -137,6 +137,8 @@ class _Work:
     # to keep its rows where its trailing edge comes from ("points file" or "detected")
     te_route: _obj.TrailingRoute = field(default_factory=_obj.TrailingRoute)
     te_source: dict[str, str] = field(default_factory=dict)
+    # FR-430 R7, FR-426 G4: the mid-points of each detected line's edges, in the mesh's unit
+    te_detected: dict[str, Points] = field(default_factory=dict)
     # FR-433 R4: the selected families of a summary tag, taken with the tag before any work
     tag_selection: list[str] | None = None
 
@@ -301,6 +303,19 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
         )
     work.te_of[name] = line
     work.te_source[name] = "detected"
+    edges = sorted(e for e in sharp if e[0] in line and e[1] in line)
+    ends = numpy.array(edges, dtype=numpy.int64).reshape(-1, 2)
+    work.te_detected[name] = 0.5 * (work.mesh.verts[ends[:, 0]] + work.mesh.verts[ends[:, 1]])
+
+
+def _te_rows(work: _Work, points: Points) -> list[list[float]]:
+    """Return trailing-edge mid-points as the level's points file writes them (FR-426 G4).
+
+    In the points file's unit (``te_to_file``), each coordinate the decimal
+    the points file writes (:func:`_obj.coordinates`), so the audit reads in
+    ``refine.json`` the detected line it would read in that file.
+    """
+    return [[float(w) for w in _obj.coordinates(p * work.te_to_file).split()] for p in points]
 
 
 def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> set[int] | str:
@@ -551,6 +566,8 @@ def _refine_grids(work: _Work) -> None:
         info: dict[str, Any] = dict(level.report, method="grid", reason=grid.describe())
         if name in work.te_source:
             info["trailing_edge"] = work.te_source[name]
+        if name in work.te_detected:
+            info["trailing_edge_points"] = _te_rows(work, work.te_detected[name])
         if work.request.elements_of(name) != _config.TRIANGLES:
             info["elements"] = (
                 f"{work.request.elements_of(name)} ignored: it applies to a remeshed family, "

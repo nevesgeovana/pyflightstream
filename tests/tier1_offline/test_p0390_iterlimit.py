@@ -268,6 +268,32 @@ def test_p0390_iterlimit_a_log_without_a_counter_takes_the_footer_s(named, tmp_p
     assert "iteration limit (500)" in (assessment.residual_note or "")
 
 
+def test_p0390_iterlimit_both_footer_routes_carry_the_log_s_times(tmp_path):
+    """P0390-ITERLIMIT (FR-434 R1): a log found by content and one named give the same times.
+
+    The same counterless log at the limit is read once found by its content and
+    once named by the assessor; both verdicts are MAX_ITER_REACHED and carry the
+    times the log prints, ``solver_run_time_s`` (841.2 s here), ``solver_initialization_s``
+    and ``time_steps``, equal on both routes. A fallback that skips the log's times
+    leaves the run time None on the route found by content.
+    """
+    log = _counterless(_log(ends_at=500, final_velocity=UNSETTLED))
+    got = {}
+    for named in (False, True):
+        sim_dir = make_collected(tmp_path / str(named), "", text=_at(STEADY, 500))
+        make_collected(tmp_path / str(named), "", name="log.txt", text=log)
+        assessor = LoadsAssessor("loads.txt", log_file="log.txt" if named else None)
+        assessment = assessor(None, None, sim_dir)
+        assert assessment.status is RunStatus.MAX_ITER_REACHED, assessment.error
+        got[named] = (
+            assessment.solver_run_time_s,
+            assessment.solver_initialization_s,
+            assessment.time_steps,
+        )
+    assert got[False] == got[True], got
+    assert got[True][0] == pytest.approx(841.2), got
+
+
 def test_p0390_iterlimit_neither_counter_nor_a_settled_counterless_log_gives_the_new_status(
     tmp_path,
 ):

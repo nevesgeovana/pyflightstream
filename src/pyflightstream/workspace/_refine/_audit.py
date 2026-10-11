@@ -24,10 +24,13 @@ before they are matched to the mesh's edges. G4 compares the level's
 trailing-edge chains with the source's; a source family whose trailing edge
 the refinement detected (FR-430 R7) has no points file to count, so the
 record beside the level (``refine.json``, read when it names this level and
-the source, as for G6) adds one source chain for each family it states
-``"trailing_edge": "detected"`` that has no listed point on its edges. Known
-approximation: a detected line that touches a listed chain is counted as
-one more chain, where the edges together would form one.
+the source, as for G6) states it ``"trailing_edge": "detected"`` with the
+mid-points of the detected line's edges (``"trailing_edge_points"``, in the
+unit of the level's points file), and the source's chains are the connected
+components of its listed edges and those edges together, so a detected line
+that a listed edge continues is one chain. A family the record states
+detected without its points (a record written by hand) counts one chain
+when no listed point lies on its edges.
 """
 
 from __future__ import annotations
@@ -77,6 +80,7 @@ from pyflightstream.workspace._refine._obj import (
     SIDECAR_SUFFIX,
     TE_SUFFIX,
     ObjMesh,
+    TrailingPoints,
     edge_midpoints,
     read_obj,
     te_file,
@@ -278,9 +282,10 @@ class _Mesh:
     flipped: int
     nonmanifold: int
     trailing: _Trailing
-    # G4: the families whose trailing edge the refinement detected, one chain each;
-    # None without a record that names the level and its source
+    # G4: the families the record states detected, and the chains of the listed and
+    # detected edges together; None without a record that names the level and its source
     detected: int | None = None
+    chains: int | None = None
 
 
 def audit_mesh(
@@ -403,28 +408,50 @@ def _refuse_an_input_as_target(target: Path, mesh: Path, against: Path | None) -
 def _read(
     path: Path,
     components: Mapping[str, Sequence[str]] | None = None,
-    detected: Sequence[str] | None = None,
+    detected: Mapping[str, list[list[float]] | None] | None = None,
 ) -> _Mesh:
     """Read an OBJ and its trailing-edge points and measure them.
 
     With ``components``, the families each component lists are measured as
     that one family, so a level whose families were grouped into components
     (FR-425 R4) is compared with the union of its members in the source.
-    ``detected`` names the families whose trailing edge the refinement
-    detected (:func:`_recorded_detected`); each of them that has no listed
-    point on its edges counts one chain (:func:`_g4`). None, without a
-    record, counts nothing and G4 is judged as on 0.38.0.
+    ``detected`` maps the families whose trailing edge the refinement
+    detected to their recorded mid-points (:func:`_recorded_detected`); the
+    chains of the listed and the detected edges together are counted once
+    (:func:`_g4`). None, without a record, counts nothing and G4 is judged
+    as on 0.38.0.
     """
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")
     obj = read_obj(path)
     te = te_points(path)
     points = None if te is None else te.points
-    named = [n for n in dict.fromkeys(detected or ()) if n in obj.families]
-    count = None if detected is None else sum(not _listed_on(obj, n, points) for n in named)
-    if components:
-        obj = _grouped(obj, components)
-    return replace(_measure(obj, points), detected=count)
+    measured = _measure(_grouped(obj, components) if components else obj, points)
+    if detected is None:
+        return measured
+    count = sum(n in obj.families for n in detected)
+    return replace(measured, detected=count, chains=_union_chains(obj, detected, te))
+
+
+def _union_chains(
+    obj: ObjMesh, detected: Mapping[str, list[list[float]] | None], te: TrailingPoints | None
+) -> int:
+    """Return the chains of the listed and the recorded detected edges together (G4).
+
+    The recorded mid-points are in the unit of the level's points file, the
+    source's points file's (``to_file``), else the mesh's. A family the
+    record states detected without its points counts one chain when no
+    listed point lies on its edges.
+    """
+    points = numpy.zeros((0, 3)) if te is None else te.points
+    named = {n: p for n, p in detected.items() if n in obj.families}
+    unlisted = sum(p is None and not _listed_on(obj, n, points) for n, p in named.items())
+    scale = 1.0 if te is None else te.to_file
+    union = [points] + [
+        numpy.array(p, dtype=float).reshape(-1, 3) / scale for p in named.values() if p
+    ]
+    faces = [f for fs in obj.families.values() for f in fs]
+    return _components(_on_edges(obj.verts, faces, numpy.vstack(union), obj.size)) + unlisted
 
 
 def _listed_on(obj: ObjMesh, family: str, points: Array | None) -> bool:
@@ -484,23 +511,42 @@ def _names_this_level(record: Mapping[str, Any], level: Path, against: str | Pat
 
 def _recorded_detected(
     record: Mapping[str, Any], level: Path, against: str | Path | None
-) -> tuple[str, ...] | None:
+) -> dict[str, list[list[float]] | None] | None:
     """Return the source families whose trailing edge the refinement detected (G4, FR-430 R7).
 
     They are the families the record states with ``"trailing_edge":
     "detected"``, read only from a record that names this level and the
-    source it is audited against, as for G6; None without such a record.
+    source it is audited against, as for G6, each with its
+    ``"trailing_edge_points"`` (None when the record holds no list of
+    ``[x, y, z]`` numbers); None without such a record.
     """
     families = record.get("families")
     if not _names_this_level(record, level, against):
         return None
     if not isinstance(families, dict):
-        return ()
-    return tuple(
-        str(name)
+        return {}
+    return {
+        str(name): _recorded_points(entry.get("trailing_edge_points"))
         for name, entry in families.items()
         if isinstance(entry, dict) and entry.get("trailing_edge") == "detected"
-    )
+    }
+
+
+def _recorded_points(found: object) -> list[list[float]] | None:
+    """Return recorded mid-points as rows of three finite numbers, else None (G4)."""
+    if not isinstance(found, list):
+        return None
+    rows = []
+    for row in found:
+        if not isinstance(row, list) or len(row) != 3 or not all(_finite(x) for x in row):
+            return None
+        rows.append([float(x) for x in row])
+    return rows
+
+
+def _finite(x: object) -> bool:
+    """Return whether a JSON value is a finite number (a bool is not)."""
+    return isinstance(x, int | float) and not isinstance(x, bool) and bool(numpy.isfinite(x))
 
 
 def _grouped(obj: ObjMesh, components: Mapping[str, Sequence[str]]) -> ObjMesh:
@@ -604,12 +650,19 @@ def _trailing(
     touched = numpy.zeros(len(faces), dtype=bool)
     if points is None or not len(points):
         return _Trailing(points is not None, 0, 0, 0, touched)
-    edges, mids = edge_midpoints(verts, faces)
-    distance, nearest = NearestIndex(mids).query(points)
-    on = edges[nearest[distance <= TE_POINT_FRACTION * size]]
+    on = _on_edges(verts, faces, points, size)
     for a, b in on:
         touched[ef[(int(a), int(b))]] = True
     return _Trailing(True, len(points), len(on), _components(on), touched)
+
+
+def _on_edges(verts: Array, faces: Faces, points: Array, size: float) -> Array:
+    """Return, per trailing-edge point that is the mid-point of a mesh edge, that edge (G4)."""
+    if not len(points) or not faces:
+        return numpy.zeros((0, 2), dtype=numpy.int64)
+    edges, mids = edge_midpoints(verts, faces)
+    distance, nearest = NearestIndex(mids).query(points)
+    return edges[nearest[distance <= TE_POINT_FRACTION * size]]
 
 
 def _components(edges: Array) -> int:
@@ -812,9 +865,9 @@ def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
 def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     """G4: every trailing-edge point on a mesh edge, and the source's number of chains.
 
-    The source's chains are those of its listed points plus one per family
-    the record states detected (``source_chains_detected``, see the module
-    docstring for the approximation).
+    The source's chains are the connected components of its listed edges and
+    the detected edges the record states, together; ``source_chains_detected``
+    is the number of families the record states detected (module docstring).
     """
     te = level.trailing
     values: dict[str, Value] = {
@@ -824,7 +877,7 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     }
     failed = te.on_edges < te.points
     if source is not None:
-        chains = source.trailing.chains + (source.detected or 0)
+        chains = source.trailing.chains if source.chains is None else source.chains
         values["source_chains"] = chains
         if source.detected is not None:
             values["source_chains_detected"] = source.detected

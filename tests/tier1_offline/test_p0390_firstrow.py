@@ -523,6 +523,86 @@ def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
     assert g4.values["source_chains_detected"] == 1
 
 
+def _joined_level(tmp_path: Path, units: str | None):
+    """Return the source and level of the tube whose listed Body edges continue Wing's line.
+
+    The points file lists the two Body edges from Wing's trailing-edge node
+    at the root (node 0) along the body (y = -0.1, then -0.25), and the
+    boundaries file routes Wing's trailing edge to detection; Wing keeps its
+    root row at spanwise factor 2. With ``units`` the mesh is in that unit
+    (``[import] units``) and the points file in METER, its points scaled to
+    it, so the recorded mid-points are in METER.
+    """
+    tube = _tube_source()
+    ring1, ring2 = 6 * 48, 6 * 48 + 48
+    column = [0, ring1, ring2]
+    body = 0.5 * (tube.verts[column[:-1]] + tube.verts[column[1:]])
+    mesh = Composite(tube.verts, tube.families, body, {})
+    toml = "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
+    src = write_source(tmp_path / "joined", "wing", mesh, refine_toml=toml)
+    sidecar = src.with_name("wing.boundaries.toml")
+    text = sidecar.read_text(encoding="utf-8")
+    text = text.replace('file = "wing.te.txt"', 'detect = { surfaces = ["Wing"] }')
+    if units is not None:
+        text += f'\n[import]\nunits = "{units}"\n'
+        rows = ["METER"] + [",".join(f"{c / 1000.0:.12f}" for c in p) for p in body]
+        src.with_name("wing.te.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    sidecar.write_text(text, encoding="utf-8")
+    return src, refine_mesh(src, out_dir=tmp_path / "out")
+
+
+@pytest.mark.parametrize("units", [None, "MILLIMETER"], ids=["same-unit", "mm-mesh"])
+def test_a_listed_edge_joining_the_detected_line_is_one_source_chain(tmp_path, units):
+    """P0390-FIRSTROW (FR-430 R5): G4 counts the listed and detected source edges together.
+
+    The listed Body edges continue Wing's detected trailing-edge line at the
+    root node, so on the source they form one chain with it, and the intact
+    level's trailing edge is one chain too. ``refine.json`` records the
+    detected line under Wing (``trailing_edge_points``, its five edges'
+    mid-points on x = 1, in the unit of the points file), and G4 passes with
+    ``chains == source_chains == 1``. Counting one more source chain per
+    detected family (0.39.0 W1) gives two and fails the intact level.
+    """
+    src, level = _joined_level(tmp_path, units)
+    entry = _record(level)["families"]["Wing"]
+    assert entry["trailing_edge"] == "detected"
+    recorded = np.array(entry["trailing_edge_points"], dtype=float)
+    scale = 1.0 if units is None else 0.001
+    assert recorded.shape == (5, 3)
+    assert recorded[:, 0] == pytest.approx(np.full(5, scale), abs=1e-12)
+    assert np.sort(recorded[:, 1]) == pytest.approx(scale * (0.2 + 0.4 * np.arange(5)), abs=1e-12)
+    g4 = _g4(level.audit)
+    assert g4.passed, g4.values
+    assert g4.values["chains"] == g4.values["source_chains"] == 1, g4.values
+    assert g4.values["source_chains_detected"] == 1
+    again = _g4(audit_mesh(level.obj, against=src))
+    assert again.passed and again.values["source_chains"] == 1, again.values
+
+
+def test_a_level_missing_a_middle_detected_edge_fails_g4(tmp_path):
+    """P0390-FIRSTROW (FR-430 R5): a broken trailing edge is two chains against the source's one.
+
+    The level of the joined tube is re-audited after the middle Wing
+    mid-point (y > 0) is taken out of its points file, so its trailing edge
+    is two chains, the root part with the Body edges and the tip part. The
+    source's listed and detected edges together are one chain, so G4 fails.
+    Counting one more source chain per detected family gives two source
+    chains and passes the broken level.
+    """
+    src, level = _joined_level(tmp_path, None)
+    te = _te_file(level)
+    lines = te.read_text(encoding="utf-8").splitlines()
+    rows = [r for r in lines[1:] if r.strip()]
+    wing = sorted((float(r.split(",")[1]), r) for r in rows if float(r.split(",")[1]) > 0.0)
+    middle = wing[len(wing) // 2][1]
+    te.write_text("\n".join([lines[0]] + [r for r in rows if r != middle]) + "\n", "utf-8")
+    with pytest.warns(PyflightstreamWarning, match="G4 failed"):
+        broken = audit_mesh(level.obj, against=src)
+    g4 = _g4(broken)
+    assert not g4.passed, g4.values
+    assert g4.values["chains"] == 2 and g4.values["source_chains"] == 1, g4.values
+
+
 # ---------------------------------------------------------------------- R8
 
 
