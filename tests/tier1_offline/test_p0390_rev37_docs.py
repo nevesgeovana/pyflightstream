@@ -7,6 +7,7 @@ wording fails here.
 from __future__ import annotations
 
 import glob
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -18,6 +19,8 @@ DOCS = ROOT / "docs"
 S6_TEST = ROOT / "tests/tier1_offline/test_p0370_s6_direct_morphing.py"
 OLD_SENTENCE = "take one comma-separated value"
 CONTRACT = "take comma-separated, bracketed or blank-separated ids, quoted or not"
+#: What the one ``git show`` below needs to start and find its config, and nothing else.
+_GIT_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemRoot", "HOME", "USERPROFILE")
 FROZEN = "migrating-to-*.md"  # a frozen record of its release is never edited after the tag
 
 
@@ -58,6 +61,7 @@ def test_the_frozen_0_37_0_page_is_the_page_the_tag_published():
         cwd=ROOT,
         capture_output=True,
         check=False,
+        env={key: os.environ[key] for key in _GIT_ENV_KEYS if key in os.environ},
     )
     if tagged.returncode != 0:
         pytest.skip("the v0.37.0 tag is not in this checkout")

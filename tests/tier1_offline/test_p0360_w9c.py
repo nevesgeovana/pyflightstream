@@ -25,5 +25,9 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
         fs_exe="FlightStream.exe" if fixture == "matrix.fs" else None,
     )
     actual = json.loads(TypeAdapter(ResolvedMatrix).dump_json(resolved))
+    # Re-pinned at 0.39.0 for three additive fields at their defaults, nothing else
+    # moved: `study` of each reference artifact and `study_surfaces` of each case's
+    # reference (FR-435, None when the artifact declares no study), and
+    # `accept_unregistered_build` of each build (FR-436 R7, False unless a file accepts it).
     expected = json.loads((FIXTURES / "p0360_w9c.json").read_text(encoding="utf-8"))
     assert actual == expected[fixture]

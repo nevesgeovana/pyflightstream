@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -49,6 +50,15 @@ USER_GUIDE_PDF = GUIDE / "pyflightstream_user_guide.pdf"
 PDFS = (CHEATSHEET_PDF, USER_GUIDE_PDF)
 CHEATSHEET_MAIN = GUIDE / "latex-sources" / "04-cheatsheet" / "main.tex"
 USER_GUIDE_TEX = GUIDE / "pyflightstream_user_guide.tex"
+
+#: What the git spawns below need to start and find their config, and nothing
+#: else: an inherited GIT_DIR or GIT_WORK_TREE would point them at another tree.
+_GIT_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemRoot", "HOME", "USERPROFILE")
+
+
+def _git_env() -> dict[str, str]:
+    return {key: os.environ[key] for key in _GIT_ENV_KEYS if key in os.environ}
+
 
 #: The release record of R4 and R5, when it is a file of this repository: the
 #: text holding the dated approval line of the guide 04 cut, and the JSON
@@ -242,6 +252,7 @@ def _is_ancestor(revision: str, of: str = "HEAD") -> bool:
         capture_output=True,
         text=True,
         check=False,
+        env=_git_env(),
     )
     return result.returncode == 0
 
@@ -310,6 +321,7 @@ def test_the_v0380_user_guide_source_fails_the_superscript_check():
         ["git", "-C", str(REPO), "show", "v0.38.0:guide/pyflightstream_user_guide.tex"],
         capture_output=True,
         check=False,
+        env=_git_env(),
     )
     if shown.returncode != 0:
         pytest.skip("the v0.38.0 tag is not in this clone; the line control above stands")
@@ -387,7 +399,11 @@ def test_the_approval_check_refuses_a_record_without_the_line():
 def test_the_receipt_check_refuses_a_substituted_pdf_and_a_foreign_revision(tmp_path):
     """P0390-PDFS (NFR-46 R5) controls: a substituted PDF, a revision outside the history."""
     head = subprocess.run(
-        ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+        ["git", "-C", str(REPO), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_git_env(),
     )
     if head.returncode != 0:
         pytest.skip("not a git checkout")
