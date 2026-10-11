@@ -43,8 +43,10 @@ from tests.tier1_offline._p0390_r03_scenario import (
     BuildSolver,
     make_workspace,
     r10_outputs,
+    untimed_csv,
 )
 from tests.tier1_offline._p0390_r03_scenario import matrix_row as _row
+from tests.tier1_offline.test_collect_stage import _submitted_workspace
 
 
 @pytest.fixture(autouse=True)
@@ -625,6 +627,21 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     assert "<SHA:sims/sim_7002/scripts/" in outputs["tree/runs.json"]
 
 
+def test_p0390_r03_the_r10_comparison_takes_out_the_times_and_no_result():
+    """P0390-R03 (FR-436 R10): only the cells of the time columns are taken out of a CSV product.
+
+    A lift coefficient equal to the wall time of its own row stays in the compared text,
+    so a changed CL is a difference even where it coincides with the time.
+    """
+    first = untimed_csv("CL,wall_time_s\n1.2,1.2\n")
+    second = untimed_csv("CL,wall_time_s\n2.3,2.3\n")
+    assert first == "CL,wall_time_s\n1.2,<S>\n"
+    assert first != second
+    assert untimed_csv("CL,wall_time_s\r\n1.2,3.4\r\n") == "CL,wall_time_s\r\n1.2,<S>\r\n"
+    assert untimed_csv("CL,status\n1.2,1.2\n") == "CL,status\n1.2,1.2\n"
+    assert untimed_csv("CL,wall_time_s\n1.2,NA\n0.4,\n") == "CL,wall_time_s\n1.2,NA\n0.4,\n"
+
+
 # --- every settable key, from each file (R3) ----------------------------------------
 
 EXE = Path(sys.executable).as_posix()
@@ -1183,6 +1200,36 @@ def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
     )
     assert code == 0 and "product(s) written under" in out.strip().splitlines()[-1]
     assert out.count("\n") > 1
+
+
+def test_p0390_r03_a_quiet_collect_says_each_point_it_failed(tmp_path, capsys):
+    """P0390-R03 (FR-436 R6): quiet says the run, the refusal and the remedy of a failed collect.
+
+    A submitted record whose working_dir leaves its simulation is refused by the sweep:
+    at normal the point's line is printed with the count; at quiet the same line is
+    said as an error, before the count and the signature, and the exit is the same.
+    """
+    seen = {}
+    for level in ("normal", "quiet"):
+        workspace, _sim = _submitted_workspace(tmp_path / level)
+        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows[0]["submission"]["working_dir"] = "../wrong"
+        workspace.manifest_path.write_text(json.dumps(rows), encoding="utf-8")
+        argv = ["collect", "--workspace", str(workspace.root), "--interval", "0"]
+        seen[level] = call(capsys, matrix_main, [*argv, "--log-level", level])
+    count = "collected 0, failed 1, outstanding 0, unknown 0\n"
+    code, out, _err = seen["normal"]
+    failed = [line for line in out.splitlines() if line.lstrip().startswith("FAILED")]
+    assert code == 1 and out.endswith(count) and len(failed) == 1
+    assert "camp/sim_9001/AL+000" in failed[0] and "'../wrong'" in failed[0]
+    assert "restore the field, or complete the record by hand" in failed[0]
+    code, out, err = seen["quiet"]
+    assert code == 1 and out == count
+    # The temporary folder differs between the two workspaces; the line is otherwise the same.
+    said = failed[0].replace(str(tmp_path / "normal"), str(tmp_path / "quiet"))
+    assert said in err.splitlines(), err
+    assert err.index(said) < err.index(SIGNATURE)
+    assert "purpose:" not in err and "[collection] started" not in err
 
 
 # --- R11: the import graph --------------------------------------------------------------

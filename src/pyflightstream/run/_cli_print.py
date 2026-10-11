@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyflightstream._console import blocks, table, wrap
 from pyflightstream._progress import print_held_warnings, quiet_keeps
@@ -24,6 +24,9 @@ from pyflightstream.run import (
 from pyflightstream.run._alias import alias_lines
 from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
+
+if TYPE_CHECKING:
+    from pyflightstream.run.collect import CollectReport
 
 
 def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
@@ -143,6 +146,18 @@ def _print_delete_sims(entry: dict[str, Any]) -> None:
         if entry["stale"]:
             print("  choose --matrix-products points-only or regenerate before --apply")
         print("preview only: run again with --apply to delete")
+
+
+def _print_collect(report: CollectReport) -> None:
+    """Print one line per point of a collect sweep, and keep each failed one for quiet.
+
+    FR-436 R6: a quiet console says each point the sweep failed as normal prints it,
+    the run, the refusal and its remedy, because they are the command's errors.
+    """
+    for line in report.lines():
+        print(line)
+    for line in report.failed_lines():
+        quiet_keeps(line, error=True)
 
 
 def _print_sync(entry: dict[str, Any]) -> None:

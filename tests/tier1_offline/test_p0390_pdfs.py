@@ -15,10 +15,11 @@ logs committed beside them, and the sources they were built from:
   other version;
 - R4, R5: the dated approval line of the guide 04 cut, and a build receipt per
   PDF whose sha256 is the committed PDF's and whose source revision is an
-  ancestor of the release commit. The checks are functions with their controls
-  here; the release record they read is named by :data:`RELEASE_RECORD` and
-  :data:`RECEIPTS`, which the requirement does not place in the repository, so
-  the two tree-level tests skip, saying so, until those name a file.
+  ancestor of the release commit, read from the release record committed
+  beside the PDFs, ``guide/pdf-release-record.json`` (:data:`RELEASE_RECORD`).
+  The checks are functions with their controls here, and the record's own
+  approval line and receipts are also refused once a copy loses the line or a
+  copy of a PDF changes by one byte.
 
 A PDF's metadata is read from its information dictionary without a PDF
 library: pdfTeX writes it as plain objects, its strings as PDF literal strings
@@ -60,14 +61,14 @@ def _git_env() -> dict[str, str]:
     return {key: os.environ[key] for key in _GIT_ENV_KEYS if key in os.environ}
 
 
-#: The release record of R4 and R5, when it is a file of this repository: the
-#: text holding the dated approval line of the guide 04 cut, and the JSON
-#: holding one receipt per PDF (``{"receipts": [{name, source_revision,
-#: build_command, typesetter, typesetter_version, exit_status,
-#: build_log_sha256, pdf_sha256}, ...]}``). None while the record is kept
-#: outside the repository.
-RELEASE_RECORD: Path | None = None
-RECEIPTS: Path | None = None
+#: The release record of R4 and R5, committed beside the PDFs: one JSON holding the
+#: dated approval line of the guide 04 cut and one receipt per PDF
+#: (``{"cheatsheet_cut_approved": "<date> guide 04 cut approved: ...", "receipts":
+#: [{name, source_revision, build_command, typesetter, typesetter_version,
+#: exit_status, build_log, build_log_sha256, pdf_sha256, ...}, ...]}``). The
+#: release tooling that rebuilds the PDFs rewrites it with them.
+RELEASE_RECORD = GUIDE / "pdf-release-record.json"
+RECEIPTS = RELEASE_RECORD
 
 #: The v0.38.0 source line that stopped the user guide's build (R1 control).
 V0380_R1_LINE = (
@@ -432,16 +433,44 @@ def test_the_receipt_check_refuses_a_substituted_pdf_and_a_foreign_revision(tmp_
     assert receipt_defects([], {"x.pdf": pdf}) == ["x.pdf: no receipt"]
 
 
+def _record() -> dict:
+    assert RELEASE_RECORD.is_file(), f"{RELEASE_RECORD.relative_to(REPO).as_posix()} is missing"
+    return json.loads(RELEASE_RECORD.read_text(encoding="utf-8"))
+
+
 def test_the_release_record_approves_the_cut():
     """P0390-PDFS (NFR-46 R4) the release record holds the dated approval of the guide 04 cut."""
-    if RELEASE_RECORD is None:
-        pytest.skip("NFR-46 R4: the release record is not a file of this repository")
-    assert not approval_defects(RELEASE_RECORD.read_text(encoding="utf-8"))
+    assert not approval_defects(str(_record().get("cheatsheet_cut_approved", "")))
 
 
 def test_the_release_record_holds_a_receipt_per_published_pdf():
-    """P0390-PDFS (NFR-46 R5) each committed PDF is the one its receipt digests."""
-    if RECEIPTS is None:
-        pytest.skip("NFR-46 R5: the build receipts are not a file of this repository")
+    """P0390-PDFS (NFR-46 R5) each committed PDF and its log are the ones its receipt digests."""
     receipts = json.loads(RECEIPTS.read_text(encoding="utf-8"))["receipts"]
+    assert sorted(receipt["name"] for receipt in receipts) == sorted(pdf.name for pdf in PDFS)
     assert not receipt_defects(receipts, {pdf.name: pdf for pdf in PDFS})
+    for receipt in receipts:
+        log = REPO / receipt["build_log"]
+        assert log == GUIDE / Path(receipt["name"]).with_suffix(".log").name, receipt["build_log"]
+        assert hashlib.sha256(log.read_bytes()).hexdigest() == receipt["build_log_sha256"], log.name
+
+
+def test_the_release_record_checks_fail_without_the_line_or_on_another_pdf(tmp_path):
+    """P0390-PDFS (NFR-46 R4, R5) controls on the committed record.
+
+    The record without its approval line is refused, and so is each committed PDF
+    whose copy differs by one byte from the bytes its receipt digests.
+    """
+    record = _record()
+    assert not approval_defects(record["cheatsheet_cut_approved"])
+    assert approval_defects("")
+    assert approval_defects(json.dumps(dict(record, cheatsheet_cut_approved="")))
+    receipts = record["receipts"]
+    for pdf in PDFS:
+        copy = tmp_path / pdf.name
+        data = pdf.read_bytes()
+        copy.write_bytes(data)
+        assert not receipt_defects(receipts, {pdf.name: copy})
+        copy.write_bytes(data[:-1] + bytes([data[-1] ^ 1]))
+        assert receipt_defects(receipts, {pdf.name: copy}) == [
+            f"{pdf.name}: the committed PDF is not the one the receipt digests"
+        ]

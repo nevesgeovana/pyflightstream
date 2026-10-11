@@ -161,21 +161,33 @@ TIME_COLUMNS = frozenset(
 )
 
 
-def _untimed_csv(text: str) -> str:
-    """Write ``<S>`` for each value a CSV product holds under a column of :data:`TIME_COLUMNS`."""
-    lines = text.splitlines(keepends=True)
-    header = next(csv.reader(lines[:1]), [])
-    columns = [index for index, name in enumerate(header) if name in TIME_COLUMNS]
+def _csv_text(rows: list[list[str]], terminator: str) -> str:
+    out = io.StringIO()
+    csv.writer(out, lineterminator=terminator).writerows(rows)
+    return out.getvalue()
+
+
+def untimed_csv(text: str) -> str:
+    """Write ``<S>`` for each value a CSV product holds under a column of :data:`TIME_COLUMNS`.
+
+    The table is read with the csv module and the columns are found by their header
+    names; only the cells of those columns are replaced, so a cell of any other
+    column keeps its value even where it equals a time of the same row. A product
+    the csv module would not write back unchanged is refused, rather than compared
+    on rewritten bytes.
+    """
+    rows = list(csv.reader(io.StringIO(text, newline="")))
+    columns = [index for index, name in enumerate(rows[0] if rows else []) if name in TIME_COLUMNS]
     if not columns:
         return text
-    kept = lines[:1]
-    for line in lines[1:]:
-        row = next(csv.reader([line]), [])
+    terminator = "\r\n" if "\r\n" in text else "\n"
+    if _csv_text(rows, terminator) != text:
+        raise ValueError("the CSV product does not write back unchanged; its times are kept")
+    for row in rows[1:]:
         for index in columns:
             if index < len(row) and row[index] not in ("", "NA"):
-                line = line.replace(row[index], "<S>")
-        kept.append(line)
-    return "".join(kept)
+                row[index] = "<S>"
+    return _csv_text(rows, terminator)
 
 
 def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
@@ -309,7 +321,7 @@ def r10_outputs(tmp_path: Path) -> dict[str, str]:
     for path in _compared_files(root):
         text = path.read_bytes().decode("utf-8", errors="backslashreplace")
         if path.suffix == ".csv":
-            text = _untimed_csv(text)
+            text = untimed_csv(text)
         # A file name holds no `<` or `>`, so a token in a path is written with `_`.
         name = re.sub(r"[<>:]", "_", shown(path.relative_to(root).as_posix()))
         outputs[f"tree/{name}"] = shown(text)
