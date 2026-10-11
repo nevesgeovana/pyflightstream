@@ -610,7 +610,7 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
-| `--out FILE` | `audit-mesh` | also write the figures as CSV, one row per family and figure; `--csv FILE` is a deprecated alias. Refused when it names a file the audit reads: the OBJ, its boundaries file, its `<stem>.te.txt` or the points file the boundaries file names (`MeshAudit.files_read`) |
+| `--out FILE` | `audit-mesh` | write the figures as CSV, one row per family and figure (the audit JSON is always written beside the OBJ, whatever `--out` says); `--csv FILE` is a deprecated alias. Refused when it names a file the command reads or writes: the OBJ, its boundaries file, its `<stem>.te.txt` or the points file the boundaries file names (`MeshAudit.files_read`), the OBJ's `<stem>.refine.json`, the `<stem>.audit.json` the command writes, and every one of these files of the `--against` source |
 
 `refine` exits 0 when the level is written, whatever the audit says, and 2 when
 the request is refused. `audit-mesh` exits 0 when every gate and check passes,

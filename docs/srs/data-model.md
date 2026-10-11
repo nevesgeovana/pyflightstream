@@ -195,7 +195,7 @@ Every campaign writes `runs.json`, append-only with atomic writes and
 duplicate-id rejection. Per run it records: run id, case point,
 requested and reported FlightStream version and build, package
 version, script and input hashes, the raw-emission flag, status (one
-of the ten values of `pyflightstream.workspace.RunStatus`: CONVERGED,
+of the eleven values of `pyflightstream.workspace.RunStatus`: CONVERGED,
 COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
 FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, WALLTIME_REACHED, the run
 stopped by its wall clock with its outputs written, SUBMITTED, the run
@@ -206,7 +206,11 @@ and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding tha
 RAN_MISSING_LOG (FR-413), a run whose outputs are all present
 and whose declared solver log is absent, not a failure, whose `residual_note`
 names what the log would have carried; a reader must support it to read a
-`runs.json` holding it), iterations, residual,
+`runs.json` holding it; and MAX_ITER_REACHED (FR-434), a steady point that
+stopped at the iteration limit it requested without the residual settling,
+whose record states that limit in `iterations_requested` beside the
+`iterations` reached; a 0.38.0 reader refuses a `runs.json` holding it),
+iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
 
