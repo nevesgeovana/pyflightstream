@@ -17,20 +17,34 @@ from pyflightstream.workspace import _links
 
 SRC = Path(pyflightstream.__file__).parent
 
-#: No crossing is allowed: the three script-comparison helpers have public names.
+#: No crossing is allowed: every helper read from outside the package has a public name.
 KNOWN_CROSSINGS: set[tuple[str, str]] = set()
 
 
+def _imported_module(rel: str, node: ast.ImportFrom) -> str:
+    """The absolute module an ``from ... import`` names, a relative one resolved from ``rel``."""
+    if node.level == 0:
+        return node.module or ""
+    package = ["pyflightstream", *rel.removesuffix(".py").split("/")[:-1]]
+    base = package[: len(package) - (node.level - 1)]
+    return ".".join([*base, node.module] if node.module else base)
+
+
 def crossings(sources: dict[str, str]) -> set[tuple[str, str]]:
-    """Return (module path, private name) read from ``pyflightstream.workspace`` from outside it."""
+    """Return (module path, private name) read from ``pyflightstream.workspace`` from outside it.
+
+    A relative import is resolved against the importing module's package first, so
+    ``from ..workspace import _x`` in ``run/a.py`` is read as the absolute form is.
+    """
     found = set()
     for rel, text in sources.items():
         if rel.startswith("workspace/"):
             continue
         for node in ast.walk(ast.parse(text)):
-            if not isinstance(node, ast.ImportFrom) or node.level != 0 or node.module is None:
+            if not isinstance(node, ast.ImportFrom):
                 continue
-            if node.module != "pyflightstream.workspace" and not node.module.startswith(
+            module = _imported_module(rel, node)
+            if module != "pyflightstream.workspace" and not module.startswith(
                 "pyflightstream.workspace."
             ):
                 continue
@@ -69,3 +83,22 @@ def test_the_guard_sees_a_planted_private_import():
     assert crossings(planted) - KNOWN_CROSSINGS == {("run/planted.py", "_is_reparse")}
     planted["run/planted.py"] = "from pyflightstream.workspace._links import _remove_link as r\n"
     assert crossings(planted) - KNOWN_CROSSINGS == {("run/planted.py", "_remove_link")}
+
+
+def test_the_guard_resolves_a_planted_relative_import():
+    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): control, a relative private import is found.
+
+    ``from ..workspace import _x`` and ``from ..workspace._links import _x`` in ``run/``
+    are the absolute imports written relatively and are found; a relative import of
+    another package, and one inside ``workspace`` itself, stay allowed.
+    """
+    planted = _tree()
+    planted["run/planted.py"] = "from ..workspace import _is_reparse\n"
+    assert crossings(planted) - KNOWN_CROSSINGS == {("run/planted.py", "_is_reparse")}
+    planted["run/planted.py"] = "from ..workspace._links import _remove_link\n"
+    assert crossings(planted) - KNOWN_CROSSINGS == {("run/planted.py", "_remove_link")}
+    planted["run/planted.py"] = "from .. import workspace\nfrom . import _alias\n"
+    assert crossings(planted) - KNOWN_CROSSINGS == set()
+    del planted["run/planted.py"]
+    planted["workspace/planted.py"] = "from ._links import _remove_link\n"
+    assert crossings(planted) - KNOWN_CROSSINGS == set()

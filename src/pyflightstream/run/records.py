@@ -286,6 +286,7 @@ def mark_failed(
         for row in todo:
             row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
             row["status"] = str(RunStatus.FAILED_MARKED)
+            row.pop("iterations_requested", None)  # FR-434 R1: written for MAX_ITER_REACHED alone.
         workspace._replace_manifest(rows)
     result.update(
         applied=True,

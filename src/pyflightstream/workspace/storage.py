@@ -69,8 +69,7 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
-from pyflightstream.workspace._links import is_reparse as _is_reparse
+from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
 from pyflightstream.workspace.naming import (
@@ -168,7 +167,7 @@ def _sha256(path: Path) -> str:
 
 def _walk_files(root: Path) -> Iterator[Path]:
     """Every regular file below ``root``, without following a link or junction."""
-    if not root.is_dir() or _is_reparse(root):
+    if not root.is_dir() or is_reparse(root):
         return
     stack = [root]
     while stack:
@@ -179,7 +178,7 @@ def _walk_files(root: Path) -> Iterator[Path]:
             continue
         for entry in entries:
             path = Path(entry.path)
-            if _is_reparse(path):
+            if is_reparse(path):
                 continue
             if entry.is_dir(follow_symlinks=False):
                 stack.append(path)
@@ -434,7 +433,7 @@ def _remove_sim_folder(folder: Path) -> list[str]:
         current = stack.pop()
         for entry in list(os.scandir(current)):
             path = Path(entry.path)
-            if _is_reparse(path):
+            if is_reparse(path):
                 if _is_link(path) or path.is_dir():
                     _remove_link(path)
                 else:
@@ -442,7 +441,7 @@ def _remove_sim_folder(folder: Path) -> list[str]:
                 undone.append(path.relative_to(folder).as_posix())
             elif entry.is_dir(follow_symlinks=False):
                 stack.append(path)
-    left = [p for p in folder.rglob("*") if _is_reparse(p)]
+    left = [p for p in folder.rglob("*") if is_reparse(p)]
     if left:
         raise StorageError(
             f"{folder}: a link is still inside ({left[0]}); the folder was not removed, so "
@@ -467,7 +466,7 @@ def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str |
     if target_inputs.is_dir() and any(target_inputs.iterdir()):
         return None
     source_inputs = other / "sims" / sim_name / "inputs"
-    if not _is_reparse(source_inputs):
+    if not is_reparse(source_inputs):
         return (
             "not linked: the other workspace staged a copy of its inputs, which sync never copies"
         )
@@ -977,7 +976,7 @@ def free_space(
     present = [
         p.name[len("sim_") :]
         for p in (sims_root.iterdir() if sims_root.is_dir() else [])
-        if p.is_dir() and p.name.startswith("sim_") and not _is_reparse(p)
+        if p.is_dir() and p.name.startswith("sim_") and not is_reparse(p)
     ]
     steps: list[dict[str, Any]] = []
     freed = 0
@@ -1067,10 +1066,10 @@ def free_space(
             # An `archive` folder inside another archive is part of that
             # archive's stamp, handled (or already removed) with it.
             inner = ARCHIVE_DIR in archive_root.relative_to(post_root).parts[:-1]
-            if inner or not archive_root.is_dir() or _is_reparse(archive_root):
+            if inner or not archive_root.is_dir() or is_reparse(archive_root):
                 continue
             stamps = sorted(
-                (p for p in archive_root.iterdir() if p.is_dir() and not _is_reparse(p)),
+                (p for p in archive_root.iterdir() if p.is_dir() and not is_reparse(p)),
                 key=lambda p: p.name,
             )
             chosen = stamps[: max(len(stamps) - keep_latest, 0)]
@@ -1319,7 +1318,7 @@ def delete_sims(
         folder = workspace.root / folder_rel
         for name in item["own"]:
             target = folder / name
-            if target.is_file() and not _is_reparse(target):
+            if target.is_file() and not is_reparse(target):
                 target.unlink()
         _forget_products(folder / "products.json", item, run_ids, sims=ids, stamp=stamp)
     archived_as = f"{ARCHIVE_DIR}/{manifest.stem}-{stamp}.json"
@@ -1561,7 +1560,7 @@ def _sync_files(
     out: set[Path] = set()
     sims = ws / "sims"
     for sim in sorted(sims.glob("sim_*")) if sims.is_dir() else []:
-        if _is_reparse(sim) or sim.name[len("sim_") :] in skip_sims:
+        if is_reparse(sim) or sim.name[len("sim_") :] in skip_sims:
             continue
         if sim.is_file():
             if rank >= 3 and sim.name.endswith(COMPACTED_SUFFIX):
@@ -1599,7 +1598,7 @@ def _sim_ids(ws: Path) -> set[str]:
     found: set[str] = set()
     sims = ws / "sims"
     for path in sims.glob("sim_*") if sims.is_dir() else []:
-        if _is_reparse(path):
+        if is_reparse(path):
             continue
         if path.is_dir():
             found.add(path.name[len("sim_") :])
@@ -1884,7 +1883,7 @@ def _sync_one(
         # geometry library, the way the other workspace's simulation had it.
         other_sims = other / "sims"
         for sim in sorted(other_sims.glob("sim_*")) if other_sims.is_dir() else []:
-            if not sim.is_dir() or _is_reparse(sim):
+            if not sim.is_dir() or is_reparse(sim):
                 continue
             if apply:
                 done = _relink_inputs(main, other, sim.name)
@@ -2091,7 +2090,7 @@ def disk_estimate(
     sizes = []
     sims = workspace.root / "sims"
     for datapoint in sims.glob("sim_*/datapoints/DP-*") if sims.is_dir() else []:
-        if datapoint.is_dir() and not _is_reparse(datapoint):
+        if datapoint.is_dir() and not is_reparse(datapoint):
             sizes.append(sum(_size(p) for p in _walk_files(datapoint)))
     if not sizes:
         return (

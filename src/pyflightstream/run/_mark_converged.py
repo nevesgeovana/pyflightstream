@@ -280,8 +280,11 @@ def mark_converged(
         for row, unit, _run_id, was in todo:
             unit["marked"] = {"from": was, "at": at, "reason": reason, "verdict": _VERDICT.value}
             unit["status"] = _VERDICT.value
+            unit.pop("iterations_requested", None)  # FR-434 R1: the person's verdict outranks.
             if unit is not row:
                 row["status"] = _worst(row)
+                if row["status"] != RunStatus.MAX_ITER_REACHED.value:
+                    row.pop("iterations_requested", None)
         workspace._replace_manifest(rows)
     result.update(applied=True, runs_archived_as=_relative(base, archived))
     return result
@@ -336,7 +339,10 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
         f"the files on disk support {record.get('status')}"
     )
     warnings = [*list(record.get("warnings") or []), note]
-    return {**record, "marked": row["marked"], "status": row.get("status"), "warnings": warnings}
+    kept = {**record, "marked": row["marked"], "status": row.get("status"), "warnings": warnings}
+    if kept["status"] != RunStatus.MAX_ITER_REACHED.value:
+        kept.pop("iterations_requested", None)  # FR-434 R1: written for that status alone.
+    return kept
 
 
 def _worst(row: Mapping[str, Any]) -> str:

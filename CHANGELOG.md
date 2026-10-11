@@ -154,12 +154,10 @@ FlightStream versions.
 - PUSH-W12-QA-3: the history of the four FR-424 R7 cherry-picks that share one commit
   message is kept as published; a published branch is not rewritten, and the register
   records the justification (NFR-45 R5).
-- R37-11: the search for the original 26.125 probe-campaign exports behind the two
-  fixtures of tests/tier1_offline/fixtures/s10_26125 found none on the development machine
-  (the working projects folders and the estate's local work folder were searched by file
-  name and by the campaign name), so the fixtures are not compared with the originals byte
-  for byte; their recorded source hashes in PROVENANCE.md stand as the only link (NFR-45
-  R5).
+- R37-11: the original 26.125 probe-campaign exports behind the two fixtures of
+  tests/tier1_offline/fixtures/s10_26125 were not found, so the fixtures are not compared
+  with the originals byte for byte; their recorded source hashes in PROVENANCE.md stand
+  (NFR-45 R5).
 
 ### Migration
 

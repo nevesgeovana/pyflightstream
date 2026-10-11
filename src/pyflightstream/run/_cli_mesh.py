@@ -1,4 +1,4 @@
-"""The panel-mesh verbs of ``pyfs-matrix`` (0.38.0): ``refine`` and ``audit-mesh``.
+"""The panel-mesh verbs of ``pyfs-matrix``: ``refine`` and ``audit-mesh``.
 
 Pipeline role: the command side of the panel-mesh audit of
 :mod:`pyflightstream.workspace` (FR-426). Each verb's parser names its
@@ -15,9 +15,9 @@ still written, and each failure is a warning held to the end of the command),
 
 The written file is named by ``--out`` on both verbs, as on their sibling
 commands (``rebuild --out``, ``pyfs-workspace ... --out``): ``refine --out
-DIR`` and ``audit-mesh --out FILE``. The names of 0.38.0, ``--out-dir`` and
-``--csv``, are kept as deprecated aliases (NFR-45 R2): each gives the
-identical result and warns once that it is deprecated.
+DIR`` and ``audit-mesh --out FILE``. The former names ``--out-dir`` and
+``--csv`` are kept as deprecated aliases (NFR-45 R2): each gives the identical
+result and warns once that it is deprecated.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def add_mesh_parsers(subparsers: Any) -> None:
         "--csv",
         dest="csv_file",
         metavar="FILE",
-        help="deprecated alias of --out (0.39.0), with the identical result",
+        help="deprecated alias of --out, with the identical result",
     )
     audit.set_defaults(mesh_command=run_audit_mesh)
 
@@ -310,7 +310,7 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--out-dir",
         metavar="DIR",
-        help="deprecated alias of --out (0.39.0), with the identical result",
+        help="deprecated alias of --out, with the identical result",
     )
     refine.add_argument("--overwrite", action="store_true", help="replace an existing level folder")
     refine.set_defaults(mesh_command=run_refine)

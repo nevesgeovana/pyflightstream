@@ -96,10 +96,10 @@ from pyflightstream.run._collect_logs import (
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace._missing_log import (
+    declared_log_names,
     missing_log_fields,
     missing_log_note,
     point_absent_logs,
-    script_log_names,
 )
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
@@ -1050,6 +1050,7 @@ def _complete(
     }
     if missing_logs:
         update["wall_time_s"] = None  # FR-413 R2: the solver clock is the log's; never estimated.
+    _limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
     raw_steps = stamped.get("time_steps", record.time_steps)
@@ -1077,6 +1078,17 @@ def _complete(
         + ("; WARNING: " + "; ".join(status_warnings) if status_warnings else ""),
         record=completed,
     )
+
+
+def _limit_for_its_word(update: dict[str, object]) -> None:
+    """Keep ``iterations_requested`` only where the FINAL status is MAX_ITER_REACHED (FR-434 R1).
+
+    The assessor stamps the limit with its own verdict; the log verdicts and the
+    walltime stop that may replace that verdict come after it, so the field is
+    settled on the status the record is written with.
+    """
+    if update.get("status") != RunStatus.MAX_ITER_REACHED:
+        update["iterations_requested"] = None
 
 
 #: The axes a point of a job can carry that say nothing about its speed. A
@@ -1420,7 +1432,8 @@ def _log_verdicts(
     name: a log carrying no residual table, a scheduler's, is found by neither
     rule, and its refusal line was left unread under a CONVERGED point. A log
     is every output named ``_log.txt`` and every file the job was told to write
-    its log to, whatever its name (:func:`_declared_log_names`).
+    its log to, whatever its name: the record's ``declared_logs`` when it carries
+    the field, else its script's (FR-413 R8, the workspace layer's one reading).
     """
     from pyflightstream.run._wake_edge_verdict import (
         SOLVER_OWN_LOG,
@@ -1441,7 +1454,7 @@ def _log_verdicts(
         status, verdict = with_wake_edge_verdict(
             status, verdict, wake_edge_import_verdict(expected, log_text)
         )
-    declared = _declared_log_names(record, sim_dir)
+    declared = declared_log_names(record, sim_dir)
     # The solver's own log, where the job ran, whether or not a row declared it:
     # it carries the four lines on a job that collected nothing else as a log.
     # Where the job ran: the datapoint folder its submission names relative to
@@ -1465,27 +1478,6 @@ def _log_verdicts(
             log_text, job_log, *own, *collected_log_texts(sim_dir, collected, declared)
         ),
     )
-
-
-def _declared_log_names(record: RunRecord, sim_dir: Path) -> list[str]:
-    """Name every file a submitted job was told to write its solver log to (G06).
-
-    What the submission recorded (``declared_logs``: the files the job's script
-    exports its log to, and the output a case's LOG_OUTPUT names), and what the
-    job's own script on disk exports its log to, so a job submitted before the
-    names were recorded is read by them too. A log need not end in ``_log.txt``:
-    a case built in Python or a LEGACY row names it as it likes. The script is
-    read by the workspace layer's one reading (FR-413 R8).
-    """
-    recorded = (record.submission or {}).get("declared_logs")
-    names = [str(name) for name in recorded] if isinstance(recorded, list) else []
-    if record.script_path:
-        try:
-            text = (sim_dir / record.script_path).read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            text = None
-        names.extend(name for name in script_log_names(text) if name not in names)
-    return names
 
 
 def _collect_by_point(
