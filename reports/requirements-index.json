@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 449,
-  "total": 449,
+  "total": 458,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -3081,10 +3081,10 @@
   },
   {
    "id": "FR-413",
-   "text": "Plan: PFS-2078.01 (0.37.0).",
+   "text": "Plan: PFS-2078.01 (0.37.0); R8 PFS-2080.01 (0.39.0, pending).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner proposal of 2026-10-03 (a status RAN_MISSING_LOG could exist) and the rule of 2026-10-05 (the post does not refuse when the status is RAN_MISSING_LOG, it still runs), scope GOAL-044 item S1. Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
+   "evidence": "*Origin: owner proposal of 2026-10-03 (a status RAN_MISSING_LOG could exist) and the rule of 2026-10-05 (the post does not refuse when the status is RAN_MISSING_LOG, it still runs), scope GOAL-044 item S1; amended by scope GOAL-049 item S1 (COLLECT-4023, R8). Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
    "verification": "test"
   },
   {
@@ -3214,6 +3214,62 @@
    "status": "implemented",
    "evidence": "*Origin: scope GOAL-045 item S6; in 0.37.0 derive_thin_blade is defined in a private module and reached only by pyfs-matrix degenerate. Verification: test, tests/tier1_offline/test_p0380_s6_degapi.py.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-430",
+   "text": "Plan: PFS-2080.02 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope decision of 2026-10-10, scope GOAL-049 item S2 (REF-FIRSTROW).*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-431",
+   "text": "Plan: PFS-2080.03 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-432",
+   "text": "Plan: PFS-2080.04 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-433",
+   "text": "Plan: PFS-2080.05 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-434",
+   "text": "Plan: PFS-2080.06 (0.39.0; backlog PFS-2012.06 and PFS-2022.01.07).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S6; backlog items PFS-2012.06 (a run stopped at its iteration limit is called completed) and PFS-2022.01.07 (whether a further terminal status is worth amending the published vocabulary of FR-46 for, answered yes).*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-435",
+   "text": "Plan: PFS-2080.07 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S7; backlog entry R02 (input files reusable across the configurations of one aircraft, naming meshes or boundaries a given model does not carry), designed from a use case written as files before any code (decisions R02-D1 to R02-D8 of 2026-10-10: the study vocabulary declared in the reference). The precedent is the reading the reference aliases (FR-59) and the pproc family entries (FR-73, FR-320) already follow. AMENDS FR-275, 'A setup removes surfaces by name', whose refusal of a stated name that resolves to no surface becomes a skip where the study vocabulary holds the name, and FR-73, whose flag reaches the keys of R1.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-436",
+   "text": "Plan: PFS-2080.08 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, a versioned file with a machine overlay read over it, and the acceptance stated by either of two routes.*",
+   "verification": "none"
   },
   {
    "id": "NFR-01",
@@ -3598,6 +3654,22 @@
    "status": "implemented",
    "evidence": "*Origin: the 0.37.0 release, where full suites were run for failures the guard tests show alone, and a test pinned the digest of a rendered path and failed only on Linux. Verification: test, tests/tier1_offline/test_p0380_guards.py.*",
    "verification": "test"
+  },
+  {
+   "id": "NFR-45",
+   "text": "Plan: PFS-2080.09 and PFS-2080.10 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 items S9 and S10; the registered rows of the 0.38.0 review record and the low items of the 0.37.0 release review.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-46",
+   "text": "Plan: PFS-2080.11 (0.39.0).",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: scope GOAL-049 item S11; the owed guide builds recorded at the 0.37.0 release review.*",
+   "verification": "none"
   }
  ]
 }

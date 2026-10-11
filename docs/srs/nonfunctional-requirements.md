@@ -1339,3 +1339,40 @@
     Verification: test, `tests/tier1_offline/test_p0380_guards.py`, carrying P0380-GUARDS (NFR-44). Controls: a guard forced to fail makes the command exit 1 and print its name; a listed file removed makes it exit 2; the separator fold is called on one text with backslashes and with forward slashes. The Linux half of R2 is the CI run.
 
     Evidence: in `tests/tier1_offline/test_p0380_guards.py`, `test_p0380_guards_every_listed_guard_file_exists`, `test_p0380_guards_a_missing_guard_file_exits_2`, `test_p0380_guards_a_failing_guard_exits_1_and_is_named`, `test_p0380_guards_a_guard_that_ran_no_test_is_red`, `test_p0380_guards_green_only_when_every_guard_ran_and_passed` and `test_p0380_guards_run_four_workers` (R1); `test_p0380_guards_the_fold_gives_one_digest_for_either_separator` and `test_p0380_guards_the_fold_is_needed` (R2). The command ran green in 189 s on the reference machine at the integration of commit 6ae8b06c. The Linux half of R2 is the CI run of the release.
+
+## 0.39.0
+
+!!! requirement "NFR-45 The registered review findings of 0.37 and 0.38 are fixed, each with a test or a named document change <span class='srs-pending'>pending</span>"
+    Plan: PFS-2080.09 and PFS-2080.10 (0.39.0).
+
+    *Origin: scope GOAL-049 items S9 and S10; the registered rows of the 0.38.0 review record and the low items of the 0.37.0 release review.*
+
+    Need: A user who upgrades to 0.39.0 must find that every defect the two previous release reviews registered and deferred is gone, or is closed in writing with its reason, so that no known finding travels from release to release.
+
+    Requirement: Each of the 13 rows of the 0.38.0 review register that carry the disposition registered and each of the 11 low items of the 0.37.0 release review is fixed in 0.39.0, with a tier-1 test that fails on the previous release, or with a named document change where the finding concerns wording, or closed with a justification recorded in the register.
+
+    - R1 The rigor register of the release lists one entry per finding (24 entries: ids API-05, PUSH-W12-ARCH-1, PUSH-W12-ARCH-2, PUSH-W12-QA-2, PUSH-W12-QA-3, PUSH-W3-ARCH-1, PUSH-W3-QA-1, RC-QA-1, PUSH-IND-QA-5, PUSH-IND-ARCH-6, IND4-01, PUSH-IND2-QA-1, PUSH-IND3-QA-3 and R37-01 to R37-11), each with the files it touches, its test or the words doc only, its disposition and the commit that fixed it. Two findings that cannot be fixed after their release (PUSH-W12-QA-3, the history of a published branch; R37-11, the comparison with exports that may no longer exist) may instead be `closed` with a recorded `justification` of at least 40 characters. A test reads the register and refuses any other entry whose disposition is not fixed or whose commit is null.
+    - R2 A finding about behaviour is fixed with a test that fails when the fix is reverted: the quoted `--sims "2006 2007"` of `mark-failed`, `rebuild` and `delete-sims` reads as two ids and every form accepted before keeps working; the sweep refusal for an unknown header names the column that differs; the mark-converged help names the single quoted value and the mixed shape; the mesh verbs take the names of their sibling verbs and keep the previous option names as deprecated aliases.
+    - R3 A finding about structure is fixed by a structural test: the help constant lives beside `listed_sims`; the boundaries layout has one reader; no private name crosses the package boundary; the remesher module is below the size the guard states.
+    - R4 A finding about a test is fixed in the test: the limit of the grid recovery for a pole fan (IND4-01, PUSH-IND3-QA-3) and the corner search of a split sheet (PUSH-IND2-QA-1) are pinned by tests proved by planted mutants (the behaviour is 0.38.0's), the assertions named in the register are present, the tolerance band of the cap test is replaced by the count the rule produces, and each registered id is traceable from a test docstring.
+    - R5 A finding about wording is fixed in the named page, and a finding that cannot be fixed after the tag (the history of a published branch, the comparison with exports that no longer exist) is closed with its justification in the register and in the release notes.
+    - R6 The migration note of 0.39.0 names each changed contract (R2) and each deprecated option.
+
+    Verification: test, `tests/tier1_offline/test_p0390_rev38.py` carrying P0390-REV38 (NFR-45, the 13 findings of 0.38) and `tests/tier1_offline/test_p0390_rev37.py` carrying P0390-REV37 (NFR-45, the 11 findings of 0.37). Controls: a register entry with the disposition open, one with a null commit and one naming a file that does not exist each fail R1; the behaviour tests of R2 fail on the v0.38.0 source and with each fix reverted; the pinning tests of R4 fail under their planted mutant; a planted private import across the package boundary fails R3.
+
+
+!!! requirement "NFR-46 The published guides build from the release sources <span class='srs-pending'>pending</span>"
+    Plan: PFS-2080.11 (0.39.0).
+
+    *Origin: scope GOAL-049 item S11; the owed guide builds recorded at the 0.37.0 release review.*
+
+    Need: A user who downloads the guides of 0.39.0 reads the user guide and the cheatsheet that describe 0.39.0, and a maintainer can rebuild both from the release sources with one command and no overfull page.
+
+    Requirement: The user guide and guide 04 (the cheatsheet) build without error from the sources of the release commit, and the published PDFs are those builds.
+
+    - R1 The user guide source compiles to the end: the coefficient list that holds the expression with powers in a text line is written so the typesetter accepts it, and no other line of the source stops the build.
+    - R2 Guide 04 compiles to the number of pages its source states, with no overfull box, after a content cut that is approved before publication; the cut leaves every command and option of the cheatsheet that the options registry lists.
+    - R3 Each published PDF names the version of the release it was built from, and the build leaves no log with an error line.
+    - R4 No PDF is published before the approval of the guide 04 cut is recorded in the release record.
+
+    Verification: test, `tests/tier1_offline/test_p0390_pdfs.py` carrying P0390-PDFS (NFR-46). No typesetter runs in the offline suite: the test reads the two PDFs committed under `guide/` and the build logs committed beside them, and asserts that each PDF names the release version in its metadata, that the page count of guide 04 is the one its source states, that each build log holds no error line and no overfull box, and that the user-guide source writes the coefficient expression in a form the typesetter accepts (R1). Controls: the v0.38.0 user-guide source fails the R1 assertion; a planted overfull-box line in a copy of the log fails R2; a PDF whose metadata names another version fails R3.

@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.74.0 |
+| Version | 1.75.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,9 +41,9 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-429, each with origin, status, and evidence.
+   FR-436, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-44.
+   NFR-01 to NFR-46.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.75.0 | 2026-10-10 | The 0.39.0 requirements (GOAL-049): FR-430 to FR-436, NFR-45 and NFR-46, FR-413 amended by R8 and FR-46 by FR-434, written before the first package commit, all pending, with their P0390 markers in `docs/srs/markers-0390.json`. |
 | 1.74.0 | 2026-10-06 | 0.38.0 additions: smooth tube, multiblock grid recovery, quad-dominant elements; the audit of component levels. FR-424 R6 measures its distance to the spline surface through the source's nodes, not to the source's panels, which a coarse curved source cannot meet (release review RV-04); the opening fraction of G3 (0.25) is named among the section's thresholds (RV-03). |
 | 1.73.0 | 2026-10-06 | The 0.38.0 boxes FR-424 to FR-429, NFR-43 and NFR-44 move to implemented, each with its Evidence paragraph and the test files on its Origin line; the section intro cites RPT-162 as the public report of the licensed comparison. |
 | 1.72.0 | 2026-10-06 | The 0.38.0 requirements (GOAL-045): FR-424 to FR-429, NFR-43 and NFR-44, written before the first package commit, all pending, with their P0380 markers in `docs/srs/markers-0380.json`. |
