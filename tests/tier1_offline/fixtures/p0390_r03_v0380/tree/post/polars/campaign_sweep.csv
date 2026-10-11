@@ -1,0 +1,2 @@
+POL,run_id,sim_id,data_origin,reduction,reduction_window,alpha,fs_version_requested,fs_version_reported,fs_build,package_version,status,iterations,residual,wall_time_s,frame,force_units,moment_units,Cx,Cy,Cz,CL,CDi,CDo,CMx,CMy,CMz
+7002,camp/sim_7002/V0300RE120AL+000,7002,raw,none,not_applicable,0.0,26.120,26.1,7012026,<V>,CONVERGED,312,,<S>,Reference,Coefficients,Coefficients,0.0102,1e-06,0.431,0.4308,0.0089,0.0061,2e-06,-0.0912,1e-06

@@ -1,10 +1,10 @@
 """The workspace settings files, ``pyfs.toml`` and this machine's ``pyfs.local.toml`` (FR-436).
 
 A user who runs the same commands day after day writes once, in the workspace,
-the defaults of the options she would otherwise type on every command: the
+the defaults of the options otherwise typed on every command: the
 version, the HPC profile, the cost file, the acceptance of the installed build,
-how much the console says. This module is the one reader of those two files and
-the one place their defaults reach a parsed command line.
+how much the console says. This module is the one reader of those two files,
+and the one place that decides which of their values a command takes.
 
 THE FILES (FR-436 R1, R2). ``pyfs.toml`` at the workspace root is the
 workspace's own file, meant to be versioned; ``pyfs.local.toml`` beside it is
@@ -26,11 +26,11 @@ error) and the file.
 
 PRECEDENCE (the requirement's sentence). An option typed on the command line
 wins over ``pyfs.local.toml``, which wins over ``pyfs.toml``, which wins over the
-package default. The command line is told apart from silence by withholding the
-parser's defaults (:func:`withhold_defaults`): an option still holding the
-withheld marker after the parse was not typed, and only then does a file, or
-the package default, answer for it (:func:`take_defaults`). A workspace without
-either file therefore parses exactly as before.
+package default (:func:`take_defaults`). The command line itself is parsed
+above this module, by each command family (R11): the family states what was
+typed and which settable options were left open, and gives its options the
+values this module returns. A workspace without either file therefore takes
+nothing from here and parses exactly as before.
 
 PROVENANCE (R7, R8). The values a command took from a file, and the file each
 came from, are held for the length of the invocation
@@ -43,11 +43,9 @@ the command lines of both programs import it, downward.
 
 from __future__ import annotations
 
-import argparse
 import sys
 import tomllib
-from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Collection, Iterable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,10 +65,8 @@ __all__ = [
     "LOG_KEYS",
     "SETTINGS_FILE",
     "TYPED_ACCEPTANCE_SOURCE",
-    "WITHHELD",
     "Invocation",
     "TakenDefaults",
-    "Withheld",
     "WorkspaceSettings",
     "console_only",
     "declare_invocation",
@@ -78,12 +74,9 @@ __all__ = [
     "entry_acceptance_allowed",
     "invocation",
     "invocation_sources",
-    "parsed",
     "read_workspace_settings",
     "settings_supplied",
     "take_defaults",
-    "typed_value",
-    "withhold_defaults",
 ]
 
 #: The workspace's own settings file, at the workspace root, meant to be versioned.
@@ -152,10 +145,6 @@ _KIND_WORDS = {
     "texts": "a list of strings",
     "level": "a string",
 }
-
-#: The option whose bare flag states the negation of a settable switch, when the
-#: two are separate destinations: the file must not answer over a typed negation.
-_NEGATIONS = MappingProxyType({"ignore_missing_families": "refuse_missing_families"})
 
 
 @dataclass(frozen=True)
@@ -316,103 +305,7 @@ def _check_kind(where: str, kind: str, value: object, path: Path) -> None:
         )
 
 
-# --- the command line: defaults withheld, then taken --------------------------------
-
-
-class Withheld:
-    """The marker an option holds after the parse when the command line did not state it.
-
-    A repeatable option copies its default before appending to it, so a copy of
-    the marker is an empty list: a typed ``--recipe`` starts from nothing, as it
-    does with the package's own empty default.
-    """
-
-    def __copy__(self) -> list[object]:
-        return []
-
-    def __repr__(self) -> str:
-        return "<not typed>"
-
-
-#: The one marker :func:`withhold_defaults` installs.
-WITHHELD = Withheld()
-
-
-@dataclass
-class _Held:
-    """The defaults one parser had before they were withheld, and its relaxed requirements."""
-
-    defaults: dict[tuple[int, str], object] = field(default_factory=dict)
-    relaxed: set[tuple[int, str]] = field(default_factory=set)
-
-
-def _subparsers(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
-    """Return every subcommand's parser by name, aliases included."""
-    found: dict[str, argparse.ArgumentParser] = {}
-    for action in parser._actions:
-        if isinstance(action, argparse._SubParsersAction):
-            found.update(action.choices)
-    return found
-
-
-def _dests(sub: argparse.ArgumentParser) -> Iterator[tuple[str, argparse.Action]]:
-    """Yield each settable or console destination of a parser once, with its first action."""
-    seen: set[str] = set()
-    names = {*DEFAULT_KEYS, "log_level", "verbose", "pproc_warnings"}
-    for action in sub._actions:
-        # Options only: a positional sharing a key's name (the recipe id of
-        # `free-space`) is never typed as an option, so no file answers for it.
-        if not action.option_strings:
-            continue
-        if action.dest in names and action.dest not in seen:
-            seen.add(action.dest)
-            yield action.dest, action
-
-
-@contextmanager
-def withhold_defaults(
-    parser: argparse.ArgumentParser, *, supplied: Mapping[str, object] | None = None
-) -> Iterator[_Held]:
-    """Hold the defaults of every settable option back for the length of one parse.
-
-    Inside, each settable option of each subcommand defaults to
-    :data:`WITHHELD`, so an option still holding it after the parse was not
-    typed. The parser's own defaults are put back on the way out, whatever
-    happened inside, so the parser a reader inspects (``--help``, the
-    generated command-line reference) shows the package's defaults.
-
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        The program's parser, whose subcommands are walked.
-    supplied : Mapping of str to object, optional
-        The ``[defaults]`` keys a settings file already states, read before
-        the parse: a REQUIRED option a file supplies stops being required at
-        the parse, and is required again by :func:`take_defaults` if no file
-        answers for it after all. None relaxes nothing.
-
-    Yields
-    ------
-    _Held
-        What :func:`take_defaults` needs to restore a default nobody stated.
-    """
-    held = _Held()
-    changed: list[tuple[argparse.Action, object, bool]] = []
-    for sub in {id(sub): sub for sub in _subparsers(parser).values()}.values():
-        for dest, _first in _dests(sub):
-            same = (action for action in sub._actions if action.dest == dest)
-            for action in (action for action in same if action.option_strings):
-                changed.append((action, action.default, action.required))
-                held.defaults.setdefault((id(sub), dest), action.default)
-                action.default = WITHHELD
-                if action.required and supplied is not None and dest in supplied:
-                    action.required = False
-                    held.relaxed.add((id(sub), dest))
-    try:
-        yield held
-    finally:
-        for action, default, required in changed:
-            action.default, action.required = default, required
+# --- the precedence: what the command line did not state, the files answer ---------
 
 
 @dataclass(frozen=True)
@@ -424,7 +317,7 @@ class TakenDefaults:
     sources : Mapping of str to str
         The file each value taken came from, ``[log]`` keys as ``log.<key>``.
     values : Mapping of str to object
-        The values taken, keyed as ``sources``.
+        The values taken, keyed as ``sources``, as the file states them.
     console : str or None
         The console level the command line or a file chose through
         ``--log-level`` or ``[log] console``; None where ``--verbose`` or
@@ -444,174 +337,72 @@ class TakenDefaults:
 
 
 def take_defaults(
-    parser: argparse.ArgumentParser,
-    args: argparse.Namespace,
-    held: _Held,
     settings: WorkspaceSettings,
+    typed: Mapping[str, object],
+    open_keys: Iterable[str],
+    *,
+    negated: Collection[str] = (),
+    console: bool = False,
+    post_warnings: bool = False,
 ) -> TakenDefaults:
-    """Give every option the command line did not state its file default, else its own.
+    """Decide what a command takes from the files, the command line winning (FR-436).
+
+    The precedence of the requirement: an option typed wins over
+    ``pyfs.local.toml``, which wins over ``pyfs.toml`` (already overlaid in
+    ``settings``), which wins over the package default. The command line
+    itself is parsed by each command family, which states here what it typed
+    and which settable options it left open, and gives its options the
+    values returned.
 
     Parameters
     ----------
-    parser : argparse.ArgumentParser
-        The program's parser, as :func:`withhold_defaults` left it.
-    args : argparse.Namespace
-        The parsed command line, changed in place.
-    held : _Held
-        What :func:`withhold_defaults` returned.
     settings : WorkspaceSettings
         The workspace's settings files, read.
+    typed : Mapping of str to object
+        The value of every settable or console option the command line
+        stated, keyed as the files key it (``log_level``, ``verbose`` and
+        ``pproc_warnings`` for the console).
+    open_keys : iterable of str
+        The ``[defaults]`` keys the command takes and the command line left
+        unstated, in the order the command lists them.
+    negated : collection of str, optional
+        The open keys whose negation the command line stated through a flag
+        of its own (``--no-ignore-missing-families``): a file never answers
+        for them.
+    console : bool, optional
+        Whether the command takes a console level (``--log-level``).
+    post_warnings : bool, optional
+        Whether the command takes ``--pproc-warnings``.
 
     Returns
     -------
     TakenDefaults
-        The values taken from a file, where each came from, and the console
-        choices the command line or a file made.
+        The values a file answers for and the file each came from, and the
+        console choices the command line or a file made; an open key no
+        file states keeps the package default.
     """
-    sub = _subparsers(parser)[args.subcommand]
     sources: dict[str, str] = {}
     values: dict[str, object] = {}
-    typed: dict[str, object] = {}
-    for dest, action in _dests(sub):
-        current = getattr(args, dest, WITHHELD)
-        if current is not WITHHELD:
-            typed[dest] = current
-            continue
-        negation = _NEGATIONS.get(dest)
-        if dest in settings.defaults and not (negation and getattr(args, negation, False)):
-            value = settings.defaults[dest]
-            if isinstance(value, str) and callable(action.type):
-                value = action.type(value)
-            setattr(args, dest, value)
-            sources[dest], values[dest] = settings.sources[dest], value
-            continue
-        _restore(sub, args, dest, action, held)
-    console = _console_choice(args, typed, settings, sources, values)
-    post = _post_warnings_choice(args, typed, settings, sources, values)
-    refused = typed.get("accept_unregistered_build") is False
-    return TakenDefaults(sources, values, console, post, refused)
-
-
-def _restore(
-    sub: argparse.ArgumentParser,
-    args: argparse.Namespace,
-    dest: str,
-    action: argparse.Action,
-    held: _Held,
-) -> None:
-    """Give an option nobody stated its package default, required where it was required."""
-    if dest in ("log_level", "verbose", "pproc_warnings"):
-        default = held.defaults.get((id(sub), dest))
-        setattr(args, dest, default)
-        return
-    if (id(sub), dest) in held.relaxed:
-        sub.error(f"the following arguments are required: {'/'.join(action.option_strings)}")
-    default = held.defaults.get((id(sub), dest))
-    if isinstance(default, str) and callable(action.type):
-        default = action.type(default)
-    setattr(args, dest, default)
-
-
-def _console_choice(
-    args: argparse.Namespace,
-    typed: Mapping[str, object],
-    settings: WorkspaceSettings,
-    sources: dict[str, str],
-    values: dict[str, object],
-) -> str | None:
-    """Resolve ``--log-level``, ``--verbose`` and ``[log] console`` for a command taking them."""
-    if not hasattr(args, "log_level"):
-        return None
+    for key in open_keys:
+        if key in settings.defaults and key not in negated:
+            sources[key], values[key] = settings.sources[key], settings.defaults[key]
     level: str | None = None
-    if "log_level" in typed:
-        level = str(typed["log_level"])
-    elif typed.get("verbose") is not True and "console" in settings.log:
-        level = str(settings.log["console"])
-        sources["log.console"], values["log.console"] = settings.sources["log.console"], level
-    shown = level or ("verbose" if typed.get("verbose") is True else "normal")
-    args.log_level = shown
-    args.verbose = shown == "verbose"
-    return level
-
-
-def _post_warnings_choice(
-    args: argparse.Namespace,
-    typed: Mapping[str, object],
-    settings: WorkspaceSettings,
-    sources: dict[str, str],
-    values: dict[str, object],
-) -> bool | None:
-    """Resolve ``--pproc-warnings``, ``--no-pproc-warnings`` and ``[log] pproc_warnings``."""
-    if not hasattr(args, "pproc_warnings"):
-        return None
-    if "pproc_warnings" in typed:
-        args.pproc_warnings = bool(typed["pproc_warnings"])
-        return None if args.pproc_warnings else False
-    if "pproc_warnings" in settings.log:
-        chosen = bool(settings.log["pproc_warnings"])
-        key = "log.pproc_warnings"
-        sources[key], values[key] = settings.sources[key], chosen
-        args.pproc_warnings = chosen
-        return chosen
-    args.pproc_warnings = False
-    return None
-
-
-def parsed(parser: argparse.ArgumentParser, argv: Sequence[str] | None) -> argparse.Namespace:
-    """Parse a command line, then take what it did not state from the workspace files.
-
-    The one entry ``pyfs-matrix`` parses through (FR-436): an option typed
-    wins over ``pyfs.local.toml``, which wins over ``pyfs.toml``, which wins
-    over the package default, and a workspace holding neither file parses
-    exactly as before. A file the reader refuses stops the command here,
-    exit 2, before its console opens and before anything is written.
-
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        The program's parser, with its subcommands.
-    argv : sequence of str or None
-        The command line; None reads ``sys.argv``.
-
-    Returns
-    -------
-    argparse.Namespace
-        The parsed command line, every option it did not state filled in.
-    """
-    supplied = settings_supplied(_named_workspace(argv))
-    with withhold_defaults(parser, supplied=supplied) as held:
-        args = parser.parse_args(argv)
-    try:
-        settings = read_workspace_settings(getattr(args, "workspace", None) or ".")
-        taken = take_defaults(parser, args, held, settings)
-    except InputArtifactError as error:
-        print(f"workspace settings refused: {error}", file=sys.stderr)
-        raise SystemExit(2) from None
-    declare_invocation(taken, verbose=bool(getattr(args, "verbose", False)))
-    return args
-
-
-def _named_workspace(argv: Sequence[str] | None) -> str:
-    """Return the folder ``--workspace`` names on a command line, else the current one (R1).
-
-    Read before the full parse, so the REQUIRED options a file supplies are
-    relaxed against the files of the workspace the command names, not of
-    wherever it was typed. The tokens are scanned rather than parsed: a second
-    parser would be the first ``parse_args`` a reader of the command line (the
-    generated command-line reference) catches. ``--workspace PATH`` and
-    ``--workspace=PATH`` are read, the last one winning as in the parse; a
-    malformed one is the full parse's to refuse, in its own words.
-    """
-    tokens = sys.argv[1:] if argv is None else list(argv)
-    named = "."
-    for index, token in enumerate(tokens):
-        if token == "--":
-            break
-        if token == "--workspace" and index + 1 < len(tokens):
-            named = tokens[index + 1]
-        elif token.startswith("--workspace="):
-            named = token.partition("=")[2]
-    return named or "."
+    if console:
+        if "log_level" in typed:
+            level = str(typed["log_level"])
+        elif typed.get("verbose") is not True and "console" in settings.log:
+            level = str(settings.log["console"])
+            sources["log.console"], values["log.console"] = settings.sources["log.console"], level
+    post: bool | None = None
+    if post_warnings:
+        if "pproc_warnings" in typed:
+            post = None if typed["pproc_warnings"] else False
+        elif "pproc_warnings" in settings.log:
+            post = bool(settings.log["pproc_warnings"])
+            key = "log.pproc_warnings"
+            sources[key], values[key] = settings.sources[key], post
+    refused = typed.get("accept_unregistered_build") is False
+    return TakenDefaults(sources, values, level, post, refused)
 
 
 def console_only(settings: WorkspaceSettings) -> TakenDefaults:
@@ -739,29 +530,6 @@ def declare_invocation(taken: TakenDefaults, *, verbose: bool) -> None:
     if verbose:
         for line in defaults_lines(taken):
             print(line, file=sys.stderr)
-
-
-def typed_value(args: argparse.Namespace, flag: str) -> object:
-    """Return the value of ``flag`` where the command line typed it, else None (FR-436 R2).
-
-    A value a workspace settings file supplied is not the command line's: a
-    command that judges what was asked of it judges the typed value alone, and
-    leaves unused a file's value it does not use.
-
-    Parameters
-    ----------
-    args : argparse.Namespace
-        The parsed command line, as :func:`parsed` returned it.
-    flag : str
-        The long option, ``--fs-exe`` for instance.
-
-    Returns
-    -------
-    object
-        The option's value, or None where a settings file supplied it.
-    """
-    dest = flag.removeprefix("--").replace("-", "_")
-    return None if dest in invocation().sources else getattr(args, dest)
 
 
 def entry_acceptance_allowed() -> bool:

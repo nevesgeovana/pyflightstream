@@ -30,7 +30,7 @@
     "submitted_by": "<WHO>",
     "manifest_schema": "pyfs-manifest/3",
     "fs_exe": "<PYTHON>",
-    "fs_exe_sha256": "<SHA>",
+    "fs_exe_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
     "argv": [
       "<PYTHON>",
       "-c",
@@ -66,17 +66,17 @@
     "staged_as_reason": null,
     "motions": [],
     "reductions": null,
-    "recipe_sha256": "<SHA>",
+    "recipe_sha256": "4591d177ecea352a1dfff34019442f9cb2254e3d29d9aa4cdd9d8f2721b0d861",
     "script_path": "scripts/P7002-V0300RE120AL+000.txt",
-    "script_sha256": "<SHA>",
+    "script_sha256": "<SHA:sims/sim_7002/scripts/P7002-V0300RE120AL+000.txt>",
     "inputs_sha256": {},
     "raw_flag": false,
     "accept_unregistered_build": true,
     "outputs_sha256": {
-      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm": "<SHA>",
-      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt": "<SHA>",
-      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt": "<SHA>",
-      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt": "<SHA>"
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.fsm": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000.txt>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>",
+      "datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_loads.txt": "<SHA:sims/sim_7002/datapoints/DP-V0300RE120AL+000/P7002-V0300RE120AL+000_plot_residuals.txt>"
     },
     "waived_commands": [],
     "executor": {

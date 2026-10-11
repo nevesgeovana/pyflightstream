@@ -51,6 +51,16 @@ thrust profile of an actuator disc a row's ``PROFILE`` names, written into
 sections, or as the uniform or the Betz-Prandtl shape, scaled to a thrust or
 a CT. It previews and applies as the field operations do, and refuses an
 option of another shape rather than leave it unread.
+
+0.39.0 (FR-436) reads the workspace settings files ``pyfs.toml`` and
+``pyfs.local.toml`` through :mod:`pyflightstream.workspace._settings_file`,
+which owns their schema, the precedence and the provenance: this program
+takes their ``[log]`` console level only (R9). The command-line side of the
+same files lives here too, because the parsing of a command line stays in
+the command families (R11): :func:`withhold_defaults` and
+:func:`take_settings` adapt an ``argparse`` parser so that an option the
+command line does not state takes its default from the files, and
+``pyfs-matrix`` parses through them.
 """
 
 from __future__ import annotations
@@ -58,13 +68,16 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import command_help
 from pyflightstream._digest import file_sha256
-from pyflightstream._progress import command_console
+from pyflightstream._progress import command_console, say_summary
 from pyflightstream.workspace import (
     INPUT_KINDS,
     CampaignWorkspace,
@@ -75,13 +88,24 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace import actuator_profiles as _profiles
 from pyflightstream.workspace import fields as _fields
 from pyflightstream.workspace._settings_file import (
+    DEFAULT_KEYS,
+    TakenDefaults,
+    WorkspaceSettings,
     console_only,
     declare_invocation,
+    invocation,
     read_workspace_settings,
+    settings_supplied,
+    take_defaults,
 )
 
 __all__ = [
+    "WITHHELD",
+    "fill_from_settings",
     "main",
+    "take_settings",
+    "typed_value",
+    "withhold_defaults",
 ]
 
 
@@ -449,19 +473,266 @@ def _take_the_console_level(args: argparse.Namespace) -> None:
     command of this program.
     """
     root = getattr(args, "workspace", None) or getattr(args, "root", None) or "."
+    taken = console_only(_settings_or_refusal(root))
+    declare_invocation(taken, verbose=taken.console == "verbose")
+
+
+def _settings_or_refusal(root: str | Path) -> WorkspaceSettings:
+    """Read a workspace's settings files; a refused file stops the command, exit 2 (FR-436 R4).
+
+    Before the command's console opens and before anything is written, for
+    both programs: the message names the key (or the parse error) and the file.
+    """
     try:
-        taken = console_only(read_workspace_settings(root))
+        return read_workspace_settings(root)
     except InputArtifactError as error:
         print(f"workspace settings refused: {error}", file=sys.stderr)
         raise SystemExit(2) from None
-    declare_invocation(taken, verbose=taken.console == "verbose")
+
+
+# --- the command line over the settings files (FR-436 R11) --------------------------
+
+
+class Withheld:
+    """The marker an option holds after the parse when the command line did not state it.
+
+    A repeatable option copies its default before appending to it, so a copy of
+    the marker is an empty list: a typed ``--recipe`` starts from nothing, as it
+    does with the package's own empty default.
+    """
+
+    def __copy__(self) -> list[object]:
+        return []
+
+    def __repr__(self) -> str:
+        return "<not typed>"
+
+
+#: The one marker :func:`withhold_defaults` installs.
+WITHHELD = Withheld()
+
+#: The console options, resolved with ``[log]`` rather than with ``[defaults]``.
+_CONSOLE_OPTIONS = ("log_level", "verbose", "pproc_warnings")
+
+#: The option whose bare flag states the negation of a settable switch, when the
+#: two are separate destinations: the file must not answer over a typed negation.
+_NEGATIONS = {"ignore_missing_families": "refuse_missing_families"}
+
+
+@dataclass
+class _Held:
+    """The defaults one parser had before they were withheld, and its relaxed requirements."""
+
+    defaults: dict[tuple[int, str], object] = field(default_factory=dict)
+    relaxed: set[tuple[int, str]] = field(default_factory=set)
+
+
+def _subparsers(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
+    """Return every subcommand's parser by name, aliases included."""
+    found: dict[str, argparse.ArgumentParser] = {}
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            found.update(action.choices)
+    return found
+
+
+def _dests(sub: argparse.ArgumentParser) -> dict[str, argparse.Action]:
+    """Return each settable or console destination of a parser, with its first action."""
+    found: dict[str, argparse.Action] = {}
+    for action in sub._actions:
+        # Options only: a positional sharing a key's name (the recipe id of
+        # `free-space`) is never typed as an option, so no file answers for it.
+        if action.option_strings and action.dest in {*DEFAULT_KEYS, *_CONSOLE_OPTIONS}:
+            found.setdefault(action.dest, action)
+    return found
+
+
+def _named_workspace(argv: Sequence[str] | None) -> str:
+    """Return the folder ``--workspace`` names on a command line, else the current one (R1).
+
+    Read before the full parse, so the REQUIRED options a file supplies are
+    relaxed against the files of the workspace the command names, not of
+    wherever it was typed. The tokens are scanned rather than parsed: a second
+    parser would be the first ``parse_args`` a reader of the command line (the
+    generated command-line reference) catches. ``--workspace PATH`` and
+    ``--workspace=PATH`` are read, the last one winning as in the parse; a
+    malformed one is the full parse's to refuse, in its own words.
+    """
+    tokens = sys.argv[1:] if argv is None else list(argv)
+    named = "."
+    for index, token in enumerate(tokens):
+        if token == "--":
+            break
+        if token == "--workspace" and index + 1 < len(tokens):
+            named = tokens[index + 1]
+        elif token.startswith("--workspace="):
+            named = token.partition("=")[2]
+    return named or "."
+
+
+@contextmanager
+def withhold_defaults(
+    parser: argparse.ArgumentParser, argv: Sequence[str] | None
+) -> Iterator[_Held]:
+    """Hold the defaults of every settable option back for the length of one parse.
+
+    Inside, each settable option of each subcommand defaults to
+    :data:`WITHHELD`, so an option still holding it after the parse was not
+    typed; a REQUIRED option a settings file of the workspace ``argv`` names
+    supplies stops being required at the parse, and is required again by
+    :func:`fill_from_settings` if no file answers for it after all. The
+    parser's own defaults are put back on the way out, whatever happened
+    inside, so the parser a reader inspects (``--help``, the generated
+    command-line reference) shows the package's defaults.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        The program's parser, whose subcommands are walked.
+    argv : sequence of str or None
+        The command line about to be parsed; None reads ``sys.argv``.
+
+    Yields
+    ------
+    _Held
+        What :func:`fill_from_settings` needs to restore a default nobody stated.
+    """
+    supplied = settings_supplied(_named_workspace(argv))
+    held = _Held()
+    changed: list[tuple[argparse.Action, object, bool]] = []
+    for sub in {id(sub): sub for sub in _subparsers(parser).values()}.values():
+        for dest in _dests(sub):
+            for action in (a for a in sub._actions if a.dest == dest and a.option_strings):
+                changed.append((action, action.default, action.required))
+                held.defaults.setdefault((id(sub), dest), action.default)
+                action.default = WITHHELD
+                if action.required and dest in supplied:
+                    action.required = False
+                    held.relaxed.add((id(sub), dest))
+    try:
+        yield held
+    finally:
+        for action, default, required in changed:
+            action.default, action.required = default, required
+
+
+def fill_from_settings(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    held: _Held,
+    settings: WorkspaceSettings,
+) -> TakenDefaults:
+    """Give every option the command line did not state the value the files decide.
+
+    What was typed and what was left open is read off the parse; which file
+    answers is decided by
+    :func:`~pyflightstream.workspace._settings_file.take_defaults`; an option
+    no file answers for gets its package default back, required where it was
+    required.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        The program's parser, as :func:`withhold_defaults` left it.
+    args : argparse.Namespace
+        The parsed command line, changed in place.
+    held : _Held
+        What :func:`withhold_defaults` yielded.
+    settings : WorkspaceSettings
+        The workspace's settings files, read.
+
+    Returns
+    -------
+    TakenDefaults
+        What the command took from the files.
+    """
+    sub = _subparsers(parser)[args.subcommand]
+    actions = _dests(sub)
+    typed = {
+        dest: getattr(args, dest)
+        for dest in actions
+        if getattr(args, dest, WITHHELD) is not WITHHELD
+    }
+    taken = take_defaults(
+        settings,
+        typed,
+        [dest for dest in actions if dest not in typed and dest in DEFAULT_KEYS],
+        negated={key for key, flag in _NEGATIONS.items() if getattr(args, flag, False)},
+        console="log_level" in actions,
+        post_warnings="pproc_warnings" in actions,
+    )
+    for dest, action in actions.items():
+        if dest in typed:
+            continue
+        if dest in taken.values:
+            value = taken.values[dest]
+        elif (id(sub), dest) in held.relaxed:
+            sub.error(f"the following arguments are required: {'/'.join(action.option_strings)}")
+        else:
+            value = held.defaults.get((id(sub), dest))
+        if isinstance(value, str) and callable(action.type) and dest not in _CONSOLE_OPTIONS:
+            value = action.type(value)
+        setattr(args, dest, value)
+    if "log_level" in actions:
+        shown = taken.console or ("verbose" if typed.get("verbose") is True else "normal")
+        args.log_level, args.verbose = shown, shown == "verbose"
+    if "pproc_warnings" in actions:
+        chosen = typed.get("pproc_warnings", taken.values.get("log.pproc_warnings", False))
+        args.pproc_warnings = bool(chosen)
+    return taken
+
+
+def take_settings(parser: argparse.ArgumentParser, args: argparse.Namespace, held: _Held) -> None:
+    """Take what a parsed command line did not state from its workspace's files (FR-436).
+
+    An option typed wins over ``pyfs.local.toml``, which wins over
+    ``pyfs.toml``, which wins over the package default, and a workspace
+    holding neither file parses exactly as before. A file the reader refuses
+    stops the command here, exit 2, before its console opens and before
+    anything is written. What was taken holds for the rest of the invocation.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        The program's parser, as :func:`withhold_defaults` left it.
+    args : argparse.Namespace
+        The command line parsed inside :func:`withhold_defaults`, changed in place.
+    held : _Held
+        What :func:`withhold_defaults` yielded.
+    """
+    settings = _settings_or_refusal(getattr(args, "workspace", None) or ".")
+    taken = fill_from_settings(parser, args, held, settings)
+    declare_invocation(taken, verbose=bool(getattr(args, "verbose", False)))
+
+
+def typed_value(args: argparse.Namespace, flag: str) -> object:
+    """Return the value of ``flag`` where the command line typed it, else None (FR-436 R2).
+
+    A value a workspace settings file supplied is not the command line's: a
+    command that judges what was asked of it judges the typed value alone, and
+    leaves unused a file's value it does not use.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line, as :func:`take_settings` left it.
+    flag : str
+        The long option, ``--fs-exe`` for instance.
+
+    Returns
+    -------
+    object
+        The option's value, or None where a settings file supplied it.
+    """
+    dest = flag.removeprefix("--").replace("-", "_")
+    return None if dest in invocation().sources else getattr(args, dest)
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
     workspace = CampaignWorkspace.init(args.root)
     # `.root` is already absolute; the workspace resolves it once at
     # construction. Re-resolving here would tell a reader it might not be.
-    print(f"campaign workspace ready at {workspace.root}")
+    say_summary(f"campaign workspace ready at {workspace.root}")
     for kind in INPUT_KINDS:
         print(f"  inputs/{kind}/")
     print("  inputs/executables.toml (build registry)")
@@ -482,7 +753,9 @@ def _cmd_archive(args: argparse.Namespace) -> int:
     except (OSError, WorkspaceError) as error:
         print(str(error), file=sys.stderr)
         return 2
-    print(f"archived sim_{args.sim_id} to {bundle}; the folder sims/sim_{args.sim_id}/ is removed")
+    say_summary(
+        f"archived sim_{args.sim_id} to {bundle}; the folder sims/sim_{args.sim_id}/ is removed"
+    )
     return 0
 
 
@@ -503,13 +776,13 @@ def _cmd_migrate_geometries(args: argparse.Namespace) -> int:
         print(f"left alone: inputs/geometries/{stem}/ (already a folder)")
     if migration.moved:
         folders = {target.parent for _, target in migration.moved}
-        print(
+        say_summary(
             f"moved {len(migration.moved)} file(s) into {len(folders)} folder(s) under "
             f"{workspace.inputs_dir / 'geometries'}; the GEOMETRY cells of every matrix "
             "keep reading, the folder first"
         )
     else:
-        print(f"nothing to move under {workspace.inputs_dir / 'geometries'}")
+        say_summary(f"nothing to move under {workspace.inputs_dir / 'geometries'}")
     return 0
 
 
@@ -569,11 +842,11 @@ def _cmd_fluctuation_only(args: argparse.Namespace) -> int:
     print("  " + _fluctuation_words(report, args.vinf))
     if not written.applied:
         print(f"preview: would write {written.target} and {written.sidecar.name}")
-        print("nothing written; run again with --apply to write")
+        say_summary("nothing written; run again with --apply to write")
         return 0
     for path in written.overwritten:
         print(f"replaced {path}")
-    print(f"wrote {written.target} and {written.sidecar.name}")
+    say_summary(f"wrote {written.target} and {written.sidecar.name}")
     return 0
 
 
@@ -659,11 +932,11 @@ def _cmd_field(args: argparse.Namespace) -> int:
     print(f"  {len(result.rows)} points, {result.form}; m and m/s, global frame, not converted")
     if not written.applied:
         print(f"preview: would write {written.target} and {written.sidecar.name}")
-        print("nothing written; run again with --apply to write")
+        say_summary("nothing written; run again with --apply to write")
         return 0
     for path in written.overwritten:
         print(f"replaced {path}")
-    print(f"wrote {written.target} and {written.sidecar.name}")
+    say_summary(f"wrote {written.target} and {written.sidecar.name}")
     return 0
 
 
@@ -820,11 +1093,13 @@ def _print_profile(
         )
     if not written.applied:
         print(f"preview: would write {written.target} and {written.sidecar.name}")
-        print("nothing written; run again with --apply to write")
+        say_summary("nothing written; run again with --apply to write")
         return
     for path in written.overwritten:
         print(f"replaced {path}")
-    print(f"wrote {written.target} and {written.sidecar.name}; a row names it PROFILE: {args.out}")
+    say_summary(
+        f"wrote {written.target} and {written.sidecar.name}; a row names it PROFILE: {args.out}"
+    )
 
 
 if __name__ == "__main__":

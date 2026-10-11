@@ -626,9 +626,11 @@ def entry_accepted_builds(
 ) -> frozenset[str]:
     """Return the installations whose own build entry accepts their installed build (FR-436 R7).
 
-    Read off the registry entries the bound matrix resolved; the campaign's own
-    installation, the key ``""``, is the entry of the default version, asked
-    only where a row names no build. An explicit executable override names no
+    Read off the registry entries the bound matrix resolved, for the
+    installations its rows use once the selection narrowed them (an entry no
+    selected row runs on accepts nothing); the campaign's own installation,
+    the key ``""``, is the entry of the default version, asked only where a
+    row names no build. An explicit executable override names no
     entry, so it accepts nothing, and a command line that typed
     ``--no-accept-unregistered-build`` lets no entry accept.
 
@@ -650,7 +652,14 @@ def entry_accepted_builds(
     """
     if fs_exe is not None or not entry_acceptance_allowed():
         return frozenset()
-    keys = {build for build, entry in resolved.builds.items() if entry.accept_unregistered_build}
+    # Only the installations the selected rows run on (R7, R8): a narrowed run
+    # never states the acceptance of a build none of its rows uses.
+    used = {build for build in resolved.row_builds if build}
+    keys = {
+        build
+        for build, entry in resolved.builds.items()
+        if build in used and entry.accept_unregistered_build
+    }
     fallback = (default or "").strip()
     if fallback and any(build is None for build in resolved.row_builds):
         if resolve_build(workspace.inputs_dir, fallback).accept_unregistered_build:

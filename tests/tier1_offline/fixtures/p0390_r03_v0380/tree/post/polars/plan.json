@@ -827,6 +827,6 @@
       "wake_termination": {}
     }
   ],
-  "matrix_sha256": "<SHA>",
+  "matrix_sha256": "<SHA:polars.fs>",
   "accept_unregistered_build": true
 }

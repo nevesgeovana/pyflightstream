@@ -81,6 +81,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
+    say_summary,
     stage_progress,
 )
 from pyflightstream._progress import print_held_warnings as print_held_warnings
@@ -713,7 +714,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
     for line in report.lines():
         print(line)
-    print(
+    say_summary(
         f"collected {len(report.collected)}, failed {len(report.failed)}, "
         f"outstanding {report.outstanding}, unknown {len(report.unknown)}"
     )
@@ -732,7 +733,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 def _cmd_post(args: argparse.Namespace) -> int:
     """Rebuild the products from the manifest alone, after the additional post when asked."""
     from pyflightstream.workspace import post_stages
-    from pyflightstream.workspace._settings_file import typed_value
+    from pyflightstream.workspace.cli import typed_value
 
     # FLAGS THAT ONLY MEAN SOMETHING TO THE ADDITIONAL POST ARE REFUSED WITHOUT
     # IT, in the form `--yes` is refused without `--force-overwrite`: accepted and
@@ -899,7 +900,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     for path in written:
         print(path)
     folders = ", ".join(str(workspace.products_dir(matrix)) for matrix in matrices)
-    print(f"{len(written)} product(s) written under {folders}")
+    say_summary(f"{len(written)} product(s) written under {folders}")
     # A simulation whose product was refused by design is a skip the
     # manifest records (PFS-2031.16); say it where the user looks.
     skipped = _report_skips(workspace, matrices)

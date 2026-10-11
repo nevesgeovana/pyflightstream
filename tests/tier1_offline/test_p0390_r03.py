@@ -8,9 +8,10 @@ FlightStream, prints build #7000002 to the identity pre-flight, where 26.120 is
 registered as build #7012026, and writes the committed synthetic loads table
 wherever a point's script exports one.
 
-The byte comparison of R10 reads fixtures captured from v0.38.0 with the same
-scenario (``fixtures/p0390_r03_v0380/``); :func:`capture_v0380_outputs` wrote
-them, run once against an export of the v0.38.0 tree.
+The workspace, the stub and the R10 scenario live in
+``_p0390_r03_scenario.py``, which imports only what v0.38.0 had: the byte
+comparison of R10 reads the outputs that module gave when run under v0.38.0
+(``fixtures/p0390_r03_v0380/``, whose README says how they were captured).
 """
 
 from __future__ import annotations
@@ -18,11 +19,9 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import random
 import re
 import sys
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -31,75 +30,21 @@ import pytest
 import pyflightstream._cli as _cli
 import pyflightstream.workspace as workspace_package
 from pyflightstream.results import VersionMismatchWarning
-from pyflightstream.run import LocalExecutor
 from pyflightstream.run.cli import _build_parser
 from pyflightstream.run.cli import main as matrix_main
-from pyflightstream.workspace import CampaignWorkspace
-from pyflightstream.workspace._settings_file import (
-    read_workspace_settings,
-    take_defaults,
-    withhold_defaults,
-)
+from pyflightstream.workspace._settings_file import read_workspace_settings
+from pyflightstream.workspace.cli import fill_from_settings, withhold_defaults
 from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import resolve_hpc_profile, select_hpc_profile
-
-FIXTURES = Path(__file__).parent / "fixtures"
-LOADS = FIXTURES / "loads_steady_26.120.txt"
-V0380 = FIXTURES / "p0390_r03_v0380"
-
-#: The build the stub reports; 26.120 is registered as build #7012026.
-INSTALLED = "7000002"
-
-#: The stub solver: the identity pre-flight reads build #7000002 from the log it
-#: asks for; a point's script gets the committed loads table, its angle of attack
-#: rewritten to the one the script asked for, and its saved simulation and plots.
-STUB = (
-    "import pathlib, re, sys\n"
-    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines()\n"
-    "if any('PYFS_PREFLIGHT' in line for line in lines):\n"
-    "    for i, line in enumerate(lines):\n"
-    "        if line == 'EXPORT_LOG':\n"
-    "            pathlib.Path(lines[i + 1]).write_text(\n"
-    f"                'Software : Flightstream version 26.1, build #{INSTALLED}' + chr(10))\n"
-    "    raise SystemExit(0)\n"
-    f"template = pathlib.Path({LOADS.as_posix()!r}).read_text(encoding='utf-8')\n"
-    "alpha = None\n"
-    "pattern = r'(Angle of attack .Deg.\\s+)[-+0-9.]+'\n"
-    "for i, line in enumerate(lines):\n"
-    "    if line.startswith('SOLVER_SET_AOA'):\n"
-    "        alpha = float(line.split()[1])\n"
-    "    elif line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET':\n"
-    "        body = template if alpha is None else re.sub("
-    "pattern, lambda f: f.group(1) + ('%.3f' % alpha), template)\n"
-    "        pathlib.Path(lines[i + 1]).write_text(body, encoding='utf-8')\n"
-    "    elif line in ('SAVEAS', 'SAVE_PLOT_TO_FILE'):\n"
-    "        pathlib.Path(lines[i + 1]).write_text('STUB', encoding='utf-8')\n"
+from tests.tier1_offline._p0390_r03_scenario import (
+    INSTALLED,
+    V0380,
+    BuildSolver,
+    make_workspace,
+    r10_outputs,
 )
-
-
-class BuildSolver(LocalExecutor):
-    """FlightStream, replaced by one python process reporting build #7000002."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(fs_exe=sys.executable, hidden=True)
-
-    def _argv(self, script_path: Path) -> list[str]:
-        return [sys.executable, "-c", STUB, str(script_path)]
-
-
-HEADER = (
-    "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | "
-    "SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | "
-    "WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 120 + "\n"
-)
-
-
-def _row(pol: str, build: str = " ") -> str:
-    return (
-        f"{pol} | 1 | 1 | Rig | - | STEADY | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0 | - | "
-        f"r003 | s002 | p001 | - | - | - | - | {build} | steady | VELOCITY: 30.0\n"
-    )
+from tests.tier1_offline._p0390_r03_scenario import matrix_row as _row
 
 
 @pytest.fixture(autouse=True)
@@ -112,47 +57,6 @@ def _stub_and_clean_selections(monkeypatch):
     yield
     select_hpc_profile(None)
     select_cost_file(None)
-
-
-def make_workspace(
-    tmp_path: Path, rows: str = _row("7002"), *, profiles: bool = False, costs: bool = False
-) -> Path:
-    """A synthetic campaign workspace: one steady row naming no build, run by the stub."""
-    root = CampaignWorkspace.init(tmp_path / "camp").root
-    inputs = root / "inputs"
-    (inputs / "references" / "r003.toml").write_text(
-        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 8.0\n", encoding="utf-8"
-    )
-    (inputs / "setups" / "s002.toml").write_text(
-        "iterations = 500\nconvergence = 1e-5\n", encoding="utf-8"
-    )
-    (inputs / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = "Wing"\n\n[exports]\ntecplot = false\n'
-        "sections = false\nsectional_loads = false\nprobes = false\nplots = false\n"
-        "log = false\n",
-        encoding="utf-8",
-    )
-    exe = Path(sys.executable).as_posix()
-    with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
-        handle.write(f'"26.120" = "{exe}"\n"26.124" = "{exe}"\n')
-    (root / "polars.fs").write_text(HEADER + rows, encoding="utf-8")
-    if profiles:
-        hpc = inputs / "hpc"
-        hpc.mkdir(exist_ok=True)
-        for stem in ("h001", "h002"):
-            (hpc / f"{stem}.toml").write_text(
-                f'application_id = "app-{stem}"\n\n[descriptor]\ntemplate = "d.tmpl"\n\n'
-                '[descriptor.fields]\nwalltime = "{walltime}"\n\n'
-                '[submit]\ncommand = ["sbatch", "{descriptor}"]\n',
-                encoding="utf-8",
-            )
-    if costs:
-        example = Path(__file__).resolve().parents[2] / "examples" / "costs" / "c000.toml"
-        (inputs / "costs").mkdir(exist_ok=True)
-        for stem in ("c001", "c002"):
-            text = example.read_text(encoding="utf-8").replace("example-machine", f"m-{stem}")
-            (inputs / "costs" / f"{stem}.toml").write_text(text, encoding="utf-8")
-    return root
 
 
 def call(capsys, main, argv: list[str]) -> tuple[int, str, str]:
@@ -399,7 +303,7 @@ def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_
     import argparse
     import contextvars
 
-    from pyflightstream.workspace._settings_file import parsed
+    from pyflightstream.run._cli_parsers import parsed
 
     def parser() -> argparse.ArgumentParser:
         top = argparse.ArgumentParser(prog="probe")
@@ -597,8 +501,7 @@ def test_p0390_r03_three_console_levels_one_activity_log(tmp_path, capsys, typed
         seen[level] = (*_plan_at(capsys, root, level, typed=typed), _activity(root))
     code, out, err, _log = seen["quiet"]
     assert code == 0
-    assert out.strip().splitlines() == [out.strip().splitlines()[-1]]
-    assert out.strip().startswith("plan:")
+    assert out == "points: 1 ready, 0 blocked, 0 already recorded\n"
     assert SIGNATURE in err and err.strip().startswith("#")
     _code, out, err, _log = seen["normal"]
     assert "Cases" in out and "[continuation] started" not in err and SIGNATURE in err
@@ -615,6 +518,37 @@ def test_p0390_r03_a_quiet_console_still_says_the_error(tmp_path, capsys):
     assert code == 2
     assert "no plan for" in err and SIGNATURE in err
     assert "purpose:" not in err and out == ""
+
+
+def test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count(tmp_path, capsys):
+    """P0390-R03 (FR-436 R6): quiet keeps the errors a plan prints on stdout, and its summary.
+
+    A plan prints its blocked points on standard output, and they are its errors: at
+    quiet they are said, with the points count, whatever line the plan printed last
+    (here the plan.json path, after the blocked block).
+    """
+    # A raw mesh stating no length unit blocks its row's point, and no other.
+    blocked = _row("7004").replace("| 0.0 | - |", "| 0.0 | g1.obj |")
+    root = make_workspace(tmp_path, _row("7002") + blocked)
+    (root / "inputs" / "geometries" / "g1.obj").write_text(
+        "o Body\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8"
+    )
+    (root / "pyfs.toml").write_text(
+        '[defaults]\nfs_version = "26.120"\n[log]\nconsole = "quiet"\n', encoding="utf-8"
+    )
+    code, out, err = call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
+    normal = call(
+        capsys,
+        matrix_main,
+        ["plan", "polars.fs", "--workspace", str(root), "--log-level", "normal"],
+    )
+    assert code == normal[0] == 1
+    assert "Blocked points (1)" in normal[1]
+    assert normal[1].strip().splitlines()[-1].strip().startswith("plan:")
+    assert out == "points: 1 ready, 1 blocked, 0 already recorded\n"
+    assert "Blocked points (1)\n  camp/sim_7004/V0300RE120AL+000\n" in err
+    assert "states no" in err and "length unit" in err
+    assert "Cases" not in err and "purpose:" not in err and SIGNATURE in err
 
 
 def test_p0390_r03_verbose_prints_what_came_from_each_file(tmp_path, capsys):
@@ -652,76 +586,11 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
     (root / "pyfs.toml").write_text('[log]\nconsole = "quiet"\n', encoding="utf-8")
     code, out, err = call(capsys, workspace_main, ["init", str(root)])
     assert code == 0
-    assert out.strip().splitlines() == [
-        "init is idempotent: existing folders and files were kept untouched"
-    ]
+    assert out == f"campaign workspace ready at {root}\n"
     assert "pyfs-workspace init" not in err and SIGNATURE in err
 
 
 # --- R10: no file, no change -------------------------------------------------------
-
-
-def _normal(text: str, root: Path) -> str:
-    """Take out of a text what differs between two runs of one scenario: paths, times, stamps."""
-    temp = Path(tempfile.gettempdir())
-    for value, token in (
-        (STUB, "<STUB>"),
-        (str(root), "<ROOT>"),
-        (sys.executable, "<PYTHON>"),
-        (str(temp), "<TEMP>"),
-    ):
-        for form in (json.dumps(value)[1:-1], value, Path(value).as_posix()):
-            text = text.replace(form, token)
-    text = text.replace("\\\\", "/").replace("\\", "/")
-    text = re.sub(r"\d{4}-\d\d-\d\dT[0-9:.+]+(Z|\+00:00)?", "<TIME>", text)
-    text = re.sub(r"\d{8}T\d{6}Z(-\d+)?", "<STAMP>", text)
-    text = re.sub(r"[0-9a-f]{64}", "<SHA>", text)
-    text = re.sub(
-        r'"(duration_s|wall_time_s|solver_run_time_s|solver_initialization_s)": [0-9.e-]+',
-        r'"\1": <S>',
-        text,
-    )
-    text = re.sub(r"\b\d+:\d\d:\d\d\b|\b\d\d:\d\d\b", "<CLOCK>", text)
-    text = re.sub(
-        r'"(package_version|pyflightstream_version|package_commit|package_dirty)": '
-        r'("[^"]*"|null|true|false)',
-        r'"\1": "<V>"',
-        text,
-    )
-    text = re.sub(r"pyflightstream \d+\.\d+\.\d+\S*", "pyflightstream <V>", text)
-    text = re.sub(r"pyfs-preflight-\w+", "pyfs-preflight-<TMP>", text)
-    text = re.sub(r'"(submitted_by|host|hostname|operator|user)": "[^"]*"', r'"\1": "<WHO>"', text)
-    return re.sub(r'"(pid|process_id)": \d+', r'"\1": <PID>', text)
-
-
-def r10_outputs(capsys, tmp_path: Path) -> dict[str, str]:
-    """Run the R10 scenario, with no settings file, and return its normalized outputs."""
-    root = make_workspace(tmp_path)
-    exe = Path(sys.executable).as_posix()
-    (root / "inputs" / "executables.toml").write_text(f'"26.120" = "{exe}"\n', encoding="utf-8")
-    outputs: dict[str, str] = {}
-    accept = "--accept-unregistered-build"
-    # The run banner draws one of its two aircraft from the module `random`.
-    state = random.getstate()
-    random.seed(20261010)
-    try:
-        for name, argv in (
-            ("plan", ["plan", "polars.fs", "--fs-version", "26.120", accept]),
-            ("run", ["run", "polars.fs", "--fs-version", "26.120", accept]),
-            ("post", ["post", "polars"]),
-            ("collect", ["collect"]),
-        ):
-            code, out, err = call(capsys, matrix_main, [*argv, "--workspace", str(root)])
-            said = f"exit {code}\n--- stdout\n{out}--- stderr\n{err}"
-            outputs[f"{name}.console"] = _normal(said, root)
-    finally:
-        random.setstate(state)
-    outputs["plan.json"] = _normal(
-        (root / "post" / "polars" / "plan.json").read_text("utf-8"), root
-    )
-    outputs["runs.json"] = _normal((root / "runs.json").read_text(encoding="utf-8"), root)
-    outputs["activity.log"] = _normal((root / "logs" / "activity.log").read_text("utf-8"), root)
-    return outputs
 
 
 @pytest.mark.skipif(
@@ -730,23 +599,30 @@ def r10_outputs(capsys, tmp_path: Path) -> dict[str, str]:
     "paths were measured; the Windows runner holds R10",
 )
 @pytest.mark.filterwarnings("ignore::Warning")
-def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path, capsys):
-    """P0390-R03 (FR-436 R10): no file, the console, plan.json, records and activity log of 0.38.0.
+def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
+    """P0390-R03 (FR-436 R10): no file, every output of plan, run, post and collect of 0.38.0.
 
-    The outputs of plan, run, post and collect, captured from v0.38.0 with the same
-    scenario and committed under fixtures/p0390_r03_v0380/, compared byte for byte
-    after the paths, the times, the digests and the package version are taken out.
+    The consoles, plan.json, the records, the activity log, every emitted script, solver
+    output and post product of the scenario, captured from v0.38.0 and committed under
+    fixtures/p0390_r03_v0380/, compared byte for byte after the paths, the times, the
+    user and the package identity are taken out. A digest is kept unless it is the
+    digest of a file of the workspace, whose own bytes are then compared.
     """
-    outputs = r10_outputs(capsys, tmp_path)
-    capture = os.environ.get("P0390_R03_CAPTURE")
-    if capture:
-        target = Path(capture)
-        target.mkdir(parents=True, exist_ok=True)
-        for name, text in outputs.items():
-            (target / name).write_bytes(text.encode("utf-8"))
-        pytest.skip(f"captured into {target}")
+    # The stand-in solver's .fsm is not a package output, and a mesh suffix may not be
+    # committed (NFR-14): it is left out of both sides.
+    outputs = {k: v for k, v in r10_outputs(tmp_path).items() if not k.endswith(".fsm")}
+    captured = {
+        path.relative_to(V0380).as_posix(): path.read_bytes()
+        for path in sorted(V0380.rglob("*"))
+        if path.is_file() and path.name != "README.md"
+    }
+    assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
-        assert text.encode("utf-8") == (V0380 / name).read_bytes(), name
+        assert text.encode("utf-8") == captured[name], name
+    scripts = [name for name in outputs if name.startswith("tree/sims/") and "/scripts/" in name]
+    assert scripts and all("SOLVER_SET_AOA" in outputs[name] for name in scripts)
+    assert any(name.startswith("tree/post/polars/polars/") for name in outputs)
+    assert "<SHA:sims/sim_7002/scripts/" in outputs["tree/runs.json"]
 
 
 # --- every settable key, from each file (R3) ----------------------------------------
@@ -889,9 +765,9 @@ def _resolved(root: Path, command: str, extra: list[str]) -> argparse.Namespace:
     """The namespace a command line resolves to once the files are overlaid (R5)."""
     parser = _build_parser()
     argv = [command, *_positional(command), "--workspace", str(root), *extra]
-    with withhold_defaults(parser, supplied={}) as held:
+    with withhold_defaults(parser, argv) as held:
         args = parser.parse_args(argv)
-    take_defaults(parser, args, held, read_workspace_settings(root))
+    fill_from_settings(parser, args, held, read_workspace_settings(root))
     return args
 
 
@@ -1056,18 +932,29 @@ LOCAL_FILE = "pyfs.local.toml"
 ENTRY_FILE = "executables.local.toml"
 
 #: (id, pyfs.toml acceptance, pyfs.local.toml acceptance, entry acceptance of the row's
-#: build, typed flag, the rows' builds, accepted?, source of the acceptance). None states
-#: nothing; the matrix rows name 26.120 (entry 26.120) unless the builds say another.
+#: build, typed flag, the rows' builds, accepted?, the source settings_sources names for
+#: accept_unregistered_build, None where it names none). None states nothing; the matrix
+#: rows name 26.120 (entry 26.120) unless the builds say another. A refused row still
+#: names the file whose false it took (R8 maps every value taken from a file).
 TRUTH = [
     ("nothing-stated", None, None, None, None, ("26.120",), False, None),
-    ("all-false", False, False, False, None, ("26.120",), False, None),
+    ("all-false", False, False, False, None, ("26.120",), False, LOCAL_FILE),
     ("workspace-true", True, None, None, None, ("26.120",), True, WORKSPACE_FILE),
     ("local-alone-true", None, True, None, None, ("26.120",), True, LOCAL_FILE),
-    ("toml-true-local-false", True, False, None, None, ("26.120",), False, None),
-    ("toml-true-local-false-entry-false", True, False, False, None, ("26.120",), False, None),
+    ("toml-true-local-false", True, False, None, None, ("26.120",), False, LOCAL_FILE),
+    (
+        "toml-true-local-false-entry-false",
+        True,
+        False,
+        False,
+        None,
+        ("26.120",),
+        False,
+        LOCAL_FILE,
+    ),
     ("toml-false-local-true", False, True, None, None, ("26.120",), True, LOCAL_FILE),
     ("entry-true", None, None, True, None, ("26.120",), True, ENTRY_FILE),
-    ("entry-true-other-row", None, None, True, None, ("26.120", "26.124"), False, None),
+    ("entry-true-other-row", None, None, True, None, ("26.120", "26.124"), False, ENTRY_FILE),
     ("both-routes-true", True, None, True, None, ("26.120",), True, WORKSPACE_FILE),
     ("local-and-entry-true", None, True, True, None, ("26.120",), True, LOCAL_FILE),
     ("toml-true-local-false-entry-true", True, False, True, None, ("26.120",), True, ENTRY_FILE),
@@ -1184,14 +1071,19 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
         code, _out, err = plan_then_run(capsys, root, *extra)
     warned = [w for w in caught if issubclass(w.category, VersionMismatchWarning)]
     written = plan_json(root)
+    # The exact provenance of the row: fs_version from pyfs.toml, and the acceptance's
+    # source where a file (or the typed flag beside it) stated one, nothing else.
+    expected = {"fs_version": WORKSPACE_FILE}
+    if source is not None:
+        expected["accept_unregistered_build"] = source
+    assert written["settings_sources"] == expected
     if accepted:
         assert code == 0, err
         assert warned
         assert written["accept_unregistered_build"] is True
-        assert written["settings_sources"]["accept_unregistered_build"] == source
         done = records(root)
         assert done and all(row["accept_unregistered_build"] is True for row in done)
-        assert all(row["settings_sources"]["accept_unregistered_build"] == source for row in done)
+        assert all(row["settings_sources"] == expected for row in done)
     else:
         assert code == 2
         assert "Nothing ran" in err
@@ -1200,9 +1092,97 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
             assert written["accepted_builds"] == ["26.120"]
         else:
             assert written["accept_unregistered_build"] is False
-        assert "accept_unregistered_build" not in written.get("settings_sources", {}) or (
-            written["settings_sources"]["accept_unregistered_build"] != source
-        )
+            assert "accepted_builds" not in written
+
+
+def test_p0390_r03_an_entry_no_selected_row_uses_accepts_nothing(tmp_path, capsys):
+    """P0390-R03 (FR-436 R7, R8): the entry acceptance reaches only the builds the selection runs.
+
+    The entry of 26.120 accepts its build; the selection keeps the 26.124 row alone, which
+    nothing accepts. plan.json states no acceptance, no accepted build and no entry
+    source, and the run is refused with no record. The whole selection, both rows, still
+    names the entry of 26.120.
+    """
+    root = make_workspace(tmp_path, _row("7002", "26.120") + _row("7004", "26.124"))
+    (root / WORKSPACE_FILE).write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
+    (root / "inputs" / ENTRY_FILE).write_text(
+        f'"26.120" = {{ path = "{EXE}", accept_unregistered_build = true }}\n', encoding="utf-8"
+    )
+    code, _out, err = plan_then_run(capsys, root, "--sims", "7004")
+    assert code == 2 and "Nothing ran" in err
+    assert records(root) == []
+    written = plan_json(root)
+    assert written["accept_unregistered_build"] is False
+    assert "accepted_builds" not in written
+    assert written["settings_sources"] == {"fs_version": WORKSPACE_FILE}
+    call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
+    both = plan_json(root)
+    assert both["accepted_builds"] == ["26.120"]
+    assert both["settings_sources"]["accept_unregistered_build"] == ENTRY_FILE
+
+
+def test_p0390_r03_a_continuation_that_cannot_start_records_its_sources(
+    tmp_path, capsys, monkeypatch
+):
+    """P0390-R03 (FR-436 R8): the record of a continuation that cannot start names its sources.
+
+    Its FAILED_SCRIPT record states the acceptance taken from pyfs.toml and every value
+    taken from a file, as every other run record does.
+    """
+    from pyflightstream.cases import CampaignConfigError
+
+    def refused(*args, **kwargs):
+        raise CampaignConfigError("the continuation cannot start (synthetic)")
+
+    root = make_workspace(tmp_path)
+    (root / WORKSPACE_FILE).write_text(
+        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("pyflightstream.run._campaign.resolve_continuation", refused)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan_then_run(capsys, root)
+    done = records(root)
+    assert [row["status"] for row in done] == ["FAILED_SCRIPT"]
+    assert "the continuation cannot start" in done[0]["error"]
+    assert done[0]["accept_unregistered_build"] is True
+    assert done[0]["settings_sources"] == {
+        "fs_version": WORKSPACE_FILE,
+        "accept_unregistered_build": WORKSPACE_FILE,
+    }
+
+
+def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
+    """P0390-R03 (FR-436 R6): quiet says the summary each of run, post and collect states.
+
+    The run's is how its points ended, post's the count of the products written,
+    collect's its closing count; at normal the same commands print their full console
+    and those same lines.
+    """
+    root = make_workspace(tmp_path)
+    (root / WORKSPACE_FILE).write_text(
+        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n'
+        '[log]\nconsole = "quiet"\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        code, out, err = plan_then_run(capsys, root)
+    assert code == 0, err
+    assert re.fullmatch(r"1 point\(s\) in \S+: CONVERGED 1\n", out), out
+    assert "sweep table" not in out and "[run] started" not in err and SIGNATURE in err
+    code, out, err = call(capsys, matrix_main, ["post", "polars", "--workspace", str(root)])
+    assert code == 0, err
+    assert re.fullmatch(r"\d+ product\(s\) written under \S.*\n", out), out
+    code, out, err = call(capsys, matrix_main, ["collect", "--workspace", str(root)])
+    assert code == 0, err
+    assert out == "collected 0, failed 0, outstanding 0, unknown 0\n"
+    code, out, err = call(
+        capsys, matrix_main, ["post", "polars", "--workspace", str(root), "--log-level", "normal"]
+    )
+    assert code == 0 and "product(s) written under" in out.strip().splitlines()[-1]
+    assert out.count("\n") > 1
 
 
 # --- R11: the import graph --------------------------------------------------------------
@@ -1239,6 +1219,27 @@ def test_p0390_r03_no_workspace_module_imports_the_run_layer():
                 path.name,
                 name,
             )
+
+
+def test_p0390_r03_the_settings_module_parses_no_command_line():
+    """P0390-R03 (FR-436 R11): the parsing of the command line stays in the command families.
+
+    workspace/_settings_file.py owns the schema, the precedence and the provenance: it
+    imports no argparse and calls no parser; the parse of pyfs-matrix is in run/ and the
+    parser adaptation it runs inside is on the command side, in workspace/cli.py.
+    """
+    module = PACKAGE / "workspace" / "_settings_file.py"
+    assert "argparse" not in _imports(module)
+    tree_ = ast.parse(module.read_text(encoding="utf-8"))
+    called = {
+        node.func.attr
+        for node in ast.walk(tree_)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert not called & {"parse_args", "parse_known_args", "error", "add_argument"}
+    assert "argparse" in _imports(PACKAGE / "workspace" / "cli.py")
+    parsers = (PACKAGE / "run" / "_cli_parsers.py").read_text(encoding="utf-8")
+    assert "parser.parse_args(argv)" in parsers
 
 
 def test_p0390_r03_only_the_two_command_families_import_the_settings_module():
