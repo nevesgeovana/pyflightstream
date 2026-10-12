@@ -545,10 +545,7 @@ def _group_rows(
                 [point], list(families), mach=ctx.mach, reference=ctx.reference, aliases=ctx.aliases
             )
         except ProductError as error:
-            # Keyed under THIS group's polar, `#<point>`, as a point the group
-            # misses: `runs/<run id>` means no product holds the run, and the
-            # point stays a row of every other group's polar.
-            absent[point.name] = (
+            ctx.skipped[f"runs/{ctx.record_of[point.name].run_id}"] = (
                 f"point {point.name}: {error}. Recollect this point's loads in the "
                 "geometry analysis frame with its Reynolds number to settle it."
             )
