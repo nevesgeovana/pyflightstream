@@ -18,7 +18,7 @@ import re
 import subprocess
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -821,42 +821,22 @@ class SubmittingExecutor:
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
     ) -> ExecutionResult:
-        """Write the descriptor, submit it, and return without waiting."""
+        """Write the descriptor, submit it, and return without waiting.
+
+        A REFUSAL IS THIS POINT'S FAILURE (PFS-2094.037): a build the profile
+        maps nothing for, a steady coupled script, a placeholder the row does
+        not resolve, or a submit command that does not return in time is a
+        failed result for this point, never an exception that ended the
+        campaign with the point unrecorded and every later row unrun.
+        """
         started = _utc_now()
-        values = {
-            **self.values,
-            "application_id": self.profile.application_id,
-            "script_path": Path(script_path).as_posix(),
-            "work_dir": Path(working_dir).as_posix(),
-        }
-        # PFS-2010.01.06. The scheduler's word for this point's build, when
-        # the profile maps it; refused by name when the profile writes the
-        # substitution and maps nothing for the build.
-        refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
-        if refusal is not None:
-            raise CampaignConfigError(refusal)
-        if _a_steady_coupled_script(Path(script_path)):
-            # FSI-G: a steady coupled script never exits by itself; only a local
-            # run reads its completion line and stops it, and a submitted job
-            # would hold its node until the wall clock.
-            raise CampaignConfigError(
-                f"{Path(script_path).name} is a steady coupled run (it ends at "
-                "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
-                "local run stops it once the analysis ends, and a submitted job would hold "
-                "its node until the wall clock. Run it with local (CLI: --local) in this "
-                "release."
+        try:
+            descriptor, argv = self._prepared(script_path, working_dir)
+        except (CampaignConfigError, KeyError, ValueError, IndexError) as error:
+            said = f"the placeholder {{{error.args[0]}}}" if isinstance(error, KeyError) else error
+            return _unsubmitted(
+                (), working_dir, timeout_s, started, f"nothing was submitted: {said}", code=2
             )
-        build = values.get("fs_build")
-        if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
-            values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
-        descriptor = Path(working_dir) / self.profile.descriptor_name
-        descriptor.parent.mkdir(parents=True, exist_ok=True)
-        _textio.write_text(descriptor, render_descriptor(self.profile, values))
-        self.descriptor_path = descriptor
-        argv = [
-            part.format(descriptor_path=descriptor.as_posix(), **values)
-            for part in self.profile.submit
-        ]
         if not self.submit:
             # The switch the predecessor spells `esub`, and it gates the
             # CALL alone: the descriptor above is written either way.
@@ -894,28 +874,31 @@ class SubmittingExecutor:
                 # chose.
                 env=os.environ.copy(),
             )
+        except subprocess.TimeoutExpired:
+            return _unsubmitted(
+                argv,
+                working_dir,
+                timeout_s,
+                started,
+                f"the submit command {argv[0]!r} did not return within {timeout_s} s; whether "
+                f"the scheduler took the job is unknown; the descriptor is {descriptor}",
+                code=124,
+            )
         except OSError as error:
             # THE SCHEDULER IS NOT ON THIS MACHINE, which is what a
             # mistyped submit command or a login node without the client
             # looks like from here. It is this point's failure and not the
             # campaign's: uncaught, one wrong profile aborted every
             # remaining row after the descriptors were already written.
-            return ExecutionResult(
-                return_code=127,
-                stdout="",
-                stderr=(
-                    f"the submit command {argv[0]!r} could not be run: {error}. It is "
-                    f"named by the submit table of {self.profile.path}; the descriptor "
-                    f"was written to {descriptor} and nothing was submitted."
-                ),
-                argv=tuple(argv),
-                cwd=str(working_dir),
-                timeout_s=timeout_s,
-                started_at=started,
-                finished_at=_utc_now(),
-                wall_time_s=0.0,
-                timed_out=False,
-                log_text=None,
+            return _unsubmitted(
+                argv,
+                working_dir,
+                timeout_s,
+                started,
+                f"the submit command {argv[0]!r} could not be run: {error}. It is "
+                f"named by the submit table of {self.profile.path}; the descriptor "
+                f"was written to {descriptor} and nothing was submitted.",
+                code=127,
             )
         return ExecutionResult(
             return_code=completed.returncode,
@@ -930,6 +913,75 @@ class SubmittingExecutor:
             timed_out=False,
             log_text=None,
         )
+
+    def _prepared(self, script_path: Path, working_dir: Path) -> tuple[Path, list[str]]:
+        """Refuse what cannot be submitted, then write the descriptor; return it and the argv.
+
+        The argv is formatted BEFORE the descriptor is written, so a profile
+        whose submit command names a value the row does not resolve leaves no
+        descriptor behind.
+        """
+        values = {
+            **self.values,
+            "application_id": self.profile.application_id,
+            "script_path": Path(script_path).as_posix(),
+            "work_dir": Path(working_dir).as_posix(),
+        }
+        # PFS-2010.01.06. The scheduler's word for this point's build, when
+        # the profile maps it; refused by name when the profile writes the
+        # substitution and maps nothing for the build.
+        refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
+        if refusal is not None:
+            raise CampaignConfigError(refusal)
+        if _a_steady_coupled_script(Path(script_path)):
+            # FSI-G: a steady coupled script never exits by itself; only a local
+            # run reads its completion line and stops it, and a submitted job
+            # would hold its node until the wall clock.
+            raise CampaignConfigError(
+                f"{Path(script_path).name} is a steady coupled run (it ends at "
+                "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
+                "local run stops it once the analysis ends, and a submitted job would hold "
+                "its node until the wall clock. Run it with local (CLI: --local) in this "
+                "release."
+            )
+        build = values.get("fs_build")
+        if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
+            values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
+        descriptor = Path(working_dir) / self.profile.descriptor_name
+        argv = [
+            part.format(descriptor_path=descriptor.as_posix(), **values)
+            for part in self.profile.submit
+        ]
+        rendered = render_descriptor(self.profile, values)
+        descriptor.parent.mkdir(parents=True, exist_ok=True)
+        _textio.write_text(descriptor, rendered)
+        self.descriptor_path = descriptor
+        return descriptor, argv
+
+
+def _unsubmitted(
+    argv: Sequence[str],
+    working_dir: Path,
+    timeout_s: float | None,
+    started: str,
+    said: str,
+    *,
+    code: int,
+) -> ExecutionResult:
+    """Return the failed result of a point that was not submitted, ``said`` as its stderr."""
+    return ExecutionResult(
+        return_code=code,
+        stdout="",
+        stderr=said,
+        argv=tuple(argv),
+        cwd=str(working_dir),
+        timeout_s=timeout_s,
+        started_at=started,
+        finished_at=_utc_now(),
+        wall_time_s=0.0,
+        timed_out=False,
+        log_text=None,
+    )
 
 
 #: G43 of 0.28.0: how often an unsteady run's progress is said, in completed time
