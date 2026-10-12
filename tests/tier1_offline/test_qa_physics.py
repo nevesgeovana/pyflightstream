@@ -217,6 +217,7 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
         "initial reference from the first 26.120 run",
         references_dir=refs,
         date="2026-07-21",
+        repo_root=tmp_path,
     )
     reference = load_reference("PHY-01", refs)
     assert reference is not None
@@ -226,7 +227,14 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
     # incidence sits at zero, where relative bands are meaningless.
     assert reference.metrics["CL_a0"].kind == "abs"
     verdicts = compare_metrics({"CL_a4": 0.35, "CL_a0": 0.0}, reference)
-    assert verdicts == {"CL_a4": Verdict.PASS, "CL_a0": Verdict.PASS}
+    assert {name: verdicts[name] for name in ("CL_a4", "CL_a0")} == {
+        "CL_a4": Verdict.PASS,
+        "CL_a0": Verdict.PASS,
+    }
+    # Since 0.40.0 (PFS-2085.015) the reference metrics not measured judge FAIL.
+    assert {verdicts[name] for name in reference.metrics if name not in ("CL_a4", "CL_a0")} == {
+        Verdict.FAIL
+    }
     # A second update keeps curated bands but must still record a reason.
     path = update_reference(
         "PHY-01",
@@ -234,6 +242,7 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
         "re-seeded in the same session (test)",
         references_dir=refs,
         date="2026-07-21",
+        repo_root=tmp_path,
     )
     stored = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert stored["reason"] == "re-seeded in the same session (test)"
@@ -244,7 +253,7 @@ def test_full_run_against_seeded_reference_passes(tmp_path):
     refs = tmp_path / "refs"
     seed_run = make_run(tmp_path)
     yaml_path, _ = write_physics_report(seed_run, tmp_path, date="2026-07-21")
-    update_reference("PHY-01", yaml_path, "seed (test)", references_dir=refs)
+    update_reference("PHY-01", yaml_path, "seed (test)", references_dir=refs, repo_root=tmp_path)
     compared = make_run(tmp_path, references_dir=refs)
     verdicts = compared.results[0].verdicts
     assert set(verdicts.values()) == {Verdict.PASS}
