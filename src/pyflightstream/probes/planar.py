@@ -23,6 +23,7 @@ axes are dimensionless unit vectors in the reference frame.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Literal
 
@@ -170,8 +171,10 @@ class AxisSpec(BaseModel):
         Axis extent in the local frame (simulation length units).
     spacing : float, optional
         Uniform element size; snapped so an integer number of elements
-        fills the extent exactly (the snapped size never exceeds the
-        requested one by more than the fill rounding).
+        fills the extent exactly. The snapped size is
+        ``extent / ceil(extent / spacing)``, so it never exceeds the
+        requested one: for an extent of 1.0, a request of 0.7 gives two
+        elements of 0.5, and a request of 0.4 gives three of 0.333.
     count : int, optional
         Number of points (at least 2); required for the nonuniform
         distributions.
@@ -236,7 +239,11 @@ class AxisSpec(BaseModel):
         """Return the axis points, increasing, endpoints exact."""
         if self.distribution == "uniform":
             if self.spacing is not None:
-                cells = max(1, round(self.extent / self.spacing))
+                # PFS-2104.016. Rounded until 0.40.0, which delivered 1.0 for a
+                # request of 0.7 over an extent of 1.0. Ceiling never exceeds
+                # the request; the factor absorbs the float noise of an exact
+                # fit (1.1 / 0.1 is 11.000000000000002, which is 11 cells).
+                cells = max(1, math.ceil(self.extent / self.spacing * (1.0 - 1e-9)))
             else:
                 cells = self.count - 1
             return np.linspace(self.start, self.stop, cells + 1)
@@ -267,9 +274,9 @@ class RefinementBand(BaseModel):
     """Two-level near-surface refinement of a planar grid.
 
     Base cells whose center lies within ``distance`` of the body
-    surface (and outside the body) are re-sampled with elements
-    ``factor`` times finer in both in-plane directions, the
-    boundary-layer band of the survey.
+    surface (and, when the gate culls, outside the body) are
+    re-sampled with elements ``factor`` times finer in both in-plane
+    directions, the boundary-layer band of the survey.
 
     Attributes
     ----------
@@ -458,13 +465,26 @@ class PlannedProbes:
         ValueError
             If the count differs or any row-aligned position deviates
             beyond ``rtol``: the export does not belong to this plan,
-            or the solver reordered the probes.
+            or the solver reordered the probes. Also if any exported
+            row is not finite, which no tolerance can judge.
         """
         positions = np.asarray(positions, dtype=float)
         if positions.shape != self.points.shape:
             raise ProbeGeometryError(
                 f"the export holds {len(positions)} probes but this plan placed "
                 f"{len(self.points)}; the export does not belong to this plan"
+            )
+        if len(positions) == 0:
+            return  # PFS-2095.022: an empty plan (every node culled) matches an empty export.
+        # PFS-2095.022. A NaN never fails the tolerance comparison below
+        # (see `_finite`), so a non-finite row is refused before it.
+        bad_rows = np.flatnonzero(~np.isfinite(positions).all(axis=1))
+        if len(bad_rows):
+            first = int(bad_rows[0])
+            raise ProbeGeometryError(
+                f"{len(bad_rows)} of {len(positions)} exported probe rows are not finite, "
+                f"the first being row {first} at {positions[first].tolist()}; a non-finite "
+                "position cannot be checked against the plan, so the export is refused"
             )
         scale = np.maximum(np.abs(self.points), 1e-3)
         mismatch = np.abs(positions - self.points) / scale
@@ -497,6 +517,7 @@ class PlannedProbes:
         payload = json.loads(text)
         return cls(
             grid=PlanarProbeGrid.model_validate(payload["grid"]),
-            points=np.asarray(payload["points"], dtype=float),
+            # PFS-2095.022: an empty plan serializes as [], which loads as (0,).
+            points=np.asarray(payload["points"], dtype=float).reshape(-1, 3),
             report=GeometryGateReport.model_validate(payload["report"]),
         )

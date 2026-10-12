@@ -298,8 +298,46 @@ def _vsection_export_epilogue(script: Script, workdir: Path) -> None:
     script.emit("EXPORT_VOLUME_SECTION_VTK", 1, workdir / "vsection.vtk")
 
 
-def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool:
-    return not (artifacts.workdir / "vsection.vtk").is_file()
+#: A second section, at another offset, created before the deletion: the
+#: survivor that is the positive control of DELETE_VOLUME_SECTION.
+_CREATE_SECOND_VSECTION = _emit(
+    "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+    1,
+    "XZ",
+    0.5,
+    1,
+    -1.0,
+    -1.0,
+    1.0,
+    1.0,
+    "NONE",
+    0.1,
+    1,
+    1.2,
+)
+
+
+def _delete_vsection_epilogue(script: Script, workdir: Path) -> None:
+    """Export both section indices after the deletion of section 1.
+
+    PFS-2102.001. Absence alone was read as the deletion, so an export
+    that failed or aborted on a build verified the target. Two sections
+    exist before the deletion; after it, exactly one of the two exports
+    can produce a file whether the build renumbers the survivor to 1 or
+    keeps it at 2. Two files mean nothing was deleted, and none means
+    the export instrument proved nothing in this run.
+    """
+    _vsection_export_epilogue(script, workdir)
+    script.emit("EXPORT_VOLUME_SECTION_VTK", 2, workdir / "vsection_2.vtk")
+
+
+def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool | None:
+    written = sum(
+        (artifacts.workdir / name).is_file() for name in ("vsection.vtk", "vsection_2.vtk")
+    )
+    if written == 0:
+        return None  # no positive control: the export instrument proved nothing
+    return written == 1
 
 
 _spec(
@@ -366,12 +404,12 @@ _spec(
     command="DELETE_VOLUME_SECTION",
     build_target=_emit("DELETE_VOLUME_SECTION", 1),
     requires=Requires.SOLUTION,
-    prelude=_CREATE_RECT_VSECTION,
-    epilogue=_vsection_export_epilogue,
+    prelude=_seq(_CREATE_RECT_VSECTION, _CREATE_SECOND_VSECTION),
+    epilogue=_delete_vsection_epilogue,
     assert_effect=_delete_vsection_effect,
     effect_note=(
-        "exporting the deleted section 1 afterwards produces no file (the export "
-        "command's own probe rules out an export failure)"
+        "of two sections, exporting indices 1 and 2 after deleting section 1 writes "
+        "exactly one file: the survivor is the positive control, whichever index it holds"
     ),
 )
 

@@ -73,7 +73,11 @@ def test_the_observer_deletions_read_who_is_left_fr_333(tmp_path):
     assert _effect("DELETE_ACOUSTIC_OBSERVER", tmp_path) is True
     _write(tmp_path, _signals({"PYFS_OBS1": rows, "PYFS_OBS2": rows}))
     assert _effect("DELETE_ACOUSTIC_OBSERVER", tmp_path) is False
+    # Since 0.40.0 (PFS-2102.001) an empty file proves nothing: the control
+    # observer created after the deletion must be read.
     _write(tmp_path, "")
+    assert _effect("DELETE_ALL_ACOUSTIC_OBSERVERS", tmp_path) is None
+    _write(tmp_path, _signals({"PYFS_CTRL": rows}))
     assert _effect("DELETE_ALL_ACOUSTIC_OBSERVERS", tmp_path) is True
     _write(tmp_path, _signals({"PYFS_OBS1": rows}))
     assert _effect("DELETE_ALL_ACOUSTIC_OBSERVERS", tmp_path) is False

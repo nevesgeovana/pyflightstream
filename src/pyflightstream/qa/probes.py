@@ -32,7 +32,10 @@ settings dump, and SAVEAS for the saved-simulation assertions. The
 consequence is worth stating because it points the wrong way: an
 instrument that fails records the TARGET rather than the harness, so a
 spec that cannot rely on its instrument asks for ``strict=False`` and
-gets ``unprobed`` instead of ``broken``.
+gets ``unprobed`` instead of ``broken``. Both instruments bracket the
+target from OUTSIDE the sentinels, so their own error lines never land
+in the target's region, and a missing settings dump reads ``unprobed``
+whatever ``strict`` says (PFS-2102.014).
 
 Statuses are promoted from the resulting compat report only through
 ``pyfs-qa apply-compat`` (:mod:`pyflightstream.qa.compat`), never by
@@ -100,6 +103,8 @@ _DUMP_AFTER = "dump_after.txt"
 _SAVE_BEFORE = "state_before.fsm"
 _SAVE_AFTER = "state_after.fsm"
 _SCRIPT_NAME = "probe_script.txt"
+#: Written into every probe directory the harness makes (PFS-2102.027).
+_OWNED_MARKER = ".pyfs_probe"
 _BASELINE_DIR = "_baseline"
 
 #: Conservative error patterns, scanned only between the probe
@@ -484,6 +489,14 @@ class ProbeResult:
         Solver process return code; None when killed on timeout.
     script_sha256 : str or None
         Hash of the generated probe script, for reproducibility.
+    expected : str
+        The effect the specification asserts (its ``effect_note``);
+        empty when no effect was judged.
+    observation : str or None
+        What the specification's ``observe`` reader read from the run;
+        None when it has no reader or no effect was judged. Kept apart
+        from ``expected`` so a report never prints the expectation where
+        the reading belongs (PFS-2003.10.03).
     """
 
     command: str
@@ -496,6 +509,8 @@ class ProbeResult:
     wall_time_s: float | None = None
     return_code: int | None = None
     script_sha256: str | None = None
+    expected: str = ""
+    observation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -671,7 +686,9 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
             # Nothing in the saved state moved, so the command was a
             # no-op whatever it printed to the log.
             return False
-        return all(any(form in changed for form in _fsm_renderings(token)) for token in tokens)
+        return all(
+            any(re.search(form, changed) for form in _fsm_renderings(token)) for token in tokens
+        )
 
     # Read by ProbeSpec.__post_init__, which refuses a spec asserting on
     # a saved state it never asks to be written.
@@ -773,16 +790,21 @@ def _fsm_renderings(token: str) -> tuple[str, ...]:
     nothing. Integers are written plainly. Both are tried, plus the
     leading digits of the rendered form, since the last places carry the
     binary representation of the value rather than the value.
+
+    Returned as regular expressions. THE TRUNCATED FORM KEEPS ITS
+    EXPONENT (PFS-2102.013): the leading digits alone matched a value at
+    any power of ten, so ``0.1`` was found in a changed line holding
+    ``1.00000000000000000E+00``.
     """
-    forms = [token]
+    forms = [re.escape(token)]
     try:
         value = float(token)
     except ValueError:
         return tuple(forms)
     rendered = f"{value:.17E}"
-    forms.append(rendered)
-    mantissa, _, _exponent = rendered.partition("E")
-    forms.append(mantissa[:12])
+    forms.append(re.escape(rendered))
+    mantissa, _, exponent = rendered.partition("E")
+    forms.append(re.escape(mantissa[:12]) + r"\d*E" + re.escape(exponent))
     return tuple(forms)
 
 
@@ -800,7 +822,9 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
     token : str
         Distinctive text expected in the dump after the command.
     strict : bool
-        Whether absence breaks instead of recording unprobed.
+        Whether an absent token breaks instead of recording unprobed. A
+        missing dump file records unprobed either way: it is the
+        instrument that failed.
 
     Returns
     -------
@@ -812,7 +836,9 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         after = artifacts.dump_after()
         if after is None:
-            return False if strict else None
+            # PFS-2102.014. A missing dump is the instrument failing, never
+            # the target: `strict` governs an absent token only.
+            return None
         if token in after:
             return True
         return False if strict else None
@@ -1056,17 +1082,22 @@ def generate_probe_script(
     # measurement is the null control of RPT-022: four commands bracketed
     # by this same pair, through this same PRINT and EXPORT_LOG, came
     # back with byte-identical saved states.
+    #
+    # The settings dumps are instruments too and bracket the target from
+    # outside for the same reason (PFS-2102.014): inside the sentinels an
+    # error line or an abort of OUTPUT_SETTINGS_AND_STATUS recorded the
+    # target BROKEN.
     if spec.save_state:
         script.emit("SAVEAS", workdir / _SAVE_BEFORE)
-    script.emit("PRINT", f"{_BEGIN}_{spec.command}")
-    script.emit("EXPORT_LOG", workdir / _LOG_BEFORE)
     if spec.dump_state:
         script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_BEFORE)
+    script.emit("PRINT", f"{_BEGIN}_{spec.command}")
+    script.emit("EXPORT_LOG", workdir / _LOG_BEFORE)
     spec.build_target(script, workdir)
-    if spec.dump_state:
-        script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_AFTER)
     script.emit("PRINT", f"{_END}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
+    if spec.dump_state:
+        script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_AFTER)
     if spec.save_state:
         script.emit("SAVEAS", workdir / _SAVE_AFTER)
     if spec.epilogue is not None:
@@ -1280,7 +1311,10 @@ def _validate_tiers(
         script.comment(f"prelude tier baseline: {tier.value}")
         try:
             emit_tier_prelude(script, tier, fsm)
-        except CommandNotInVersionError as absent:
+        except (CommandNotInVersionError, CommandArgumentError) as absent:
+            # PFS-2102.033: an edition whose grammar refuses a prelude line
+            # (AIR_ALTITUDE takes one argument on 25.000) is the same tier
+            # failure as a missing row, and ended the run after the baseline.
             # The prelude is a FIXED sequence and the older editions do
             # not document all of it, so on those builds it cannot be
             # emitted at all. That is a tier failure like any other and
@@ -1313,19 +1347,28 @@ def _fresh_dir(workdir: Path) -> Path:
 
     A stale log in a reused directory would fake a probe signal, so the
     directory is recreated; anything not created by a previous probe
-    (no probe script inside a non-empty directory) is refused instead
-    of deleted.
+    (neither the ownership marker nor a probe script inside a non-empty
+    directory) is refused instead of deleted.
+
+    THE MARKER IS WRITTEN WHEN THE DIRECTORY IS MADE (PFS-2102.027). The
+    probe script alone used to be the proof of ownership, and it is
+    written only after the script builds: a spec whose prelude wrote a
+    support file and whose target then refused to build left a directory
+    the next run on that workroot refused to wipe, at that command, for
+    good.
     """
     workdir = workdir.resolve()
     if workdir.exists():
         contents = list(workdir.iterdir())
-        if contents and not (workdir / _SCRIPT_NAME).is_file():
+        owned = (workdir / _OWNED_MARKER).is_file() or (workdir / _SCRIPT_NAME).is_file()
+        if contents and not owned:
             raise ProbeEnvironmentError(
                 f"refusing to wipe {workdir}: it is not empty and holds no probe script, "
                 "so it was not created by the probe harness. Choose a clean workroot."
             )
         shutil.rmtree(workdir)
     workdir.mkdir(parents=True)
+    _textio.write_text(workdir / _OWNED_MARKER, "made by the pyflightstream probe harness\n")
     return workdir
 
 
@@ -1633,14 +1676,30 @@ def _judge(
             " (the epilogue instruments aborted after the target; the effect was "
             "judged from the artifacts they left)"
         )
-    effect = spec.assert_effect(artifacts)
     # WHAT THE INSTRUMENT READ, beside the note (G02). The note is fixed text
     # naming the effect the probe expected, so an evidence line made of it
     # alone reads the same whatever the solver did, and a report could not be
     # re-judged from what it recorded: the import probe's line said "16 trailing
     # edges imported for boundary Wing" for 116 edges, for 16 on "Winglet" and
     # for a second import beside the first, under the judge of that day.
-    reading = "" if spec.observe is None else f". The instrument read: {spec.observe(artifacts)}"
+    try:
+        effect = spec.assert_effect(artifacts)
+        observed = None if spec.observe is None else str(spec.observe(artifacts))
+    except Exception as error:  # noqa: BLE001 - any instrument failure, by design
+        # PFS-2102.028. The run collects every result before it returns, so
+        # one instrument that raised (a saved state that cannot be read)
+        # ended the whole probe run and lost every other command's evidence.
+        # An instrument failure is the harness's, never the target's.
+        return ProbeResult(
+            outcome=ProbeOutcome.UNPROBED,
+            detail=(
+                f"the effect instrument of this probe failed ({type(error).__name__}: "
+                f"{error}), so the target was not judged{epilogue_note}"
+            ),
+            **common,
+        )
+    reading = "" if observed is None else f". The instrument read: {observed}"
+    common = {**common, "expected": spec.effect_note, "observation": observed}
     if effect is None:
         return ProbeResult(
             outcome=ProbeOutcome.UNPROBED,

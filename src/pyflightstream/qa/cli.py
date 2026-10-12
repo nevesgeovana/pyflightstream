@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib import resources
 from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
@@ -44,6 +45,7 @@ from pyflightstream.qa.compat import (
     apply_compat,
     compat_report_paths,
     read_compat_report,
+    resolve_commands_dir,
     write_compat_report,
 )
 from pyflightstream.qa.cost import ABSENT, NOT_RUN, CostView, PointKey, cost_view
@@ -52,6 +54,7 @@ from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.matrix import (
     DEFAULT_MATRIX,
     drift_from_workspace,
+    drift_sides,
     physics_build,
     physics_from_workspace,
     physics_matrix,
@@ -66,6 +69,7 @@ from pyflightstream.qa.physics import (
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
 from pyflightstream.qa.reports import refuse_existing_report, resolve_report_date
+from pyflightstream.run import ExecutorConfigurationError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
 
@@ -165,7 +169,13 @@ def _build_parser() -> argparse.ArgumentParser:
     apply_parser.add_argument(
         "--root",
         default=".",
-        help="repository root; the report is cited relative to it (default .)",
+        help="repository root; the report is cited relative to it, and the promotions "
+        "go into its src/pyflightstream/commands (default .)",
+    )
+    apply_parser.add_argument(
+        "--commands-dir",
+        help="chapter YAML directory to promote into, under --root; default "
+        "<root>/src/pyflightstream/commands",
     )
 
     physics = subparsers.add_parser(
@@ -304,6 +314,22 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="why the reference moves; recorded in the reference file (required)",
     )
+    update.add_argument(
+        "--root",
+        default=".",
+        help="repository root; the report is recorded relative to it (default .)",
+    )
+    update.add_argument(
+        "--references-dir",
+        help="reference directory to write; default the package's qa/references/",
+    )
+    update.add_argument(
+        "--drop",
+        action="append",
+        default=[],
+        metavar="METRIC",
+        help="a reference metric the report does not carry, removed deliberately; repeatable",
+    )
     return parser
 
 
@@ -345,7 +371,13 @@ def _cmd_cost(args: argparse.Namespace) -> int:
     run cost, the command line decides how a terminal reads it.
     """
     workspace = CampaignWorkspace(args.campaign)
-    view = cost_view(workspace)
+    try:
+        view = cost_view(workspace)
+    except (WorkspaceError, OSError, ValueError) as error:
+        # PFS-2102.010. A manifest the workspace refuses, cannot read or
+        # cannot parse reached the terminal as a traceback.
+        print(f"no cost read: {workspace.manifest_path}: {error}", file=sys.stderr)
+        return 2
     if not view.points:
         print(
             f"no runs recorded: {workspace.manifest_path} "
@@ -370,9 +402,10 @@ def _cmd_cost(args: argparse.Namespace) -> int:
             f"column {build.label}: fs_build={build.fs_build} fs_exe_sha256={build.fs_exe_sha256}"
         )
     print(
-        f"seconds of wall-clock time around the solver process; {ABSENT} = the run is "
-        f"recorded and carries no wall time, {NOT_RUN} = that point never ran on that "
-        "build. Both are read as absent, never as zero."
+        f"seconds of wall-clock time around the solver process, the mean over the runs "
+        f"that reached an answer; {ABSENT} = runs are recorded and none carries a wall "
+        f"time to an answer, {NOT_RUN} = that point never ran on that build. Both are "
+        "read as absent, never as zero. A sweep row is one job and its whole time."
     )
     excluded = sum(
         view.cell(point, build).excluded_count for point in view.points for build in view.builds
@@ -385,7 +418,7 @@ def _cmd_cost(args: argparse.Namespace) -> int:
         print(
             f"{excluded} of the recorded runs did not reach an answer: they failed, the "
             "wall clock stopped them, or they are still queued. Their time is time to "
-            "that, not time to an answer"
+            "that, not time to an answer, so no mean above includes it"
         )
 
     if args.compare:
@@ -513,9 +546,12 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     # moment later, so a run started at 23:59 checked one stem and wrote
     # another, which is a missed refusal and therefore a licensed seat.
     date = resolve_report_date()
-    if _refuse_before_the_solver(
-        compat_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
-    ):
+    try:
+        paths = compat_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
+    except QaEvidenceError as error:
+        print(f"nothing run: {error}", file=sys.stderr)
+        return 2
+    if _refuse_before_the_solver(paths):
         return 2
 
     try:
@@ -529,6 +565,12 @@ def _cmd_probe(args: argparse.Namespace) -> int:
         )
     except ProbeEnvironmentError as error:
         print(f"probe run aborted: {error}", file=sys.stderr)
+        return 2
+    except (ExecutorConfigurationError, QaEvidenceError) as error:
+        # PFS-2102.002. A missing --fs-exe and a misspelled --commands name
+        # both fire before the baseline runs, and reached the terminal as
+        # tracebacks.
+        print(f"nothing run: {error}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_compat_report(run, args.report_dir, date=date, label=args.label)
     counts = run.outcome_counts()
@@ -600,9 +642,14 @@ def _cmd_physics(args: argparse.Namespace) -> int:
         print(f"nothing run: {error}", file=sys.stderr)
         return 2
     date = resolve_report_date()
-    if _refuse_before_the_solver(
-        physics_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
-    ):
+    try:
+        paths = physics_report_paths(
+            args.report_dir, version=canonical, date=date, label=args.label
+        )
+    except QaEvidenceError as error:
+        print(f"nothing run: {error}", file=sys.stderr)
+        return 2
+    if _refuse_before_the_solver(paths):
         return 2
     try:
         run = physics_from_workspace(
@@ -666,19 +713,25 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         return 2
     try:
         physics_matrix(args.workspace, args.matrix)
+        # PFS-2102.008. Both sides' executables and roots, before side A
+        # spends a seat on a run that side B's typo would then discard.
+        drift_sides(canonicals[0], canonicals[1], fs_exes=fs_exes, workroot=args.workroot)
     except PhysicsEnvironmentError as error:
         print(f"nothing run: {error}", file=sys.stderr)
         return 2
     date = resolve_report_date()
-    if _refuse_before_the_solver(
-        drift_report_paths(
+    try:
+        paths = drift_report_paths(
             args.report_dir,
             version_a=canonicals[0],
             version_b=canonicals[1],
             date=date,
             label=args.label,
         )
-    ):
+    except QaEvidenceError as error:
+        print(f"nothing run: {error}", file=sys.stderr)
+        return 2
+    if _refuse_before_the_solver(paths):
         return 2
     try:
         run = drift_from_workspace(
@@ -716,7 +769,14 @@ def _cmd_drift(args: argparse.Namespace) -> int:
 
 def _cmd_update_reference(args: argparse.Namespace) -> int:
     try:
-        path = update_reference(args.case, args.from_report, args.reason)
+        path = update_reference(
+            args.case,
+            args.from_report,
+            args.reason,
+            references_dir=args.references_dir,
+            repo_root=args.root,
+            drop=args.drop,
+        )
     except ValueError as error:
         print(f"reference not updated: {error}", file=sys.stderr)
         return 2
@@ -732,7 +792,9 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
     # a stack the operator did not ask for.
     try:
         report_body = read_compat_report(args.report).get("commands", {})
-        promotions = apply_compat(args.report, repo_root=args.root)
+        # PFS-2102.032. The tree --root names, never the installed copy.
+        commands_dir = resolve_commands_dir(args.root, args.commands_dir)
+        promotions = apply_compat(args.report, repo_root=args.root, commands_dir=commands_dir)
     except QaEvidenceError as error:
         print(f"nothing promoted: {error}", file=sys.stderr)
         return 2
@@ -760,6 +822,17 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
         return 0
     for name, status, chapter in promotions:
         print(f"{name}: {status} ({chapter})")
+    installed = Path(str(resources.files("pyflightstream.commands"))).resolve()
+    if commands_dir != installed:
+        # The registry loads the INSTALLED database only, so reloading it
+        # would vouch for a tree this run did not write; every rewritten
+        # chapter was validated in memory before any write.
+        promoted = sum(1 for _, status, _ in promotions if status != CORROBORATED)
+        print(
+            f"{promoted} status(es) promoted into {commands_dir}, each chapter validated "
+            "before it was written; this interpreter loads another copy of the database"
+        )
+        return 0
     CommandRegistry.load.cache_clear()
     try:
         CommandRegistry.load()

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import random
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -74,15 +75,20 @@ _WORKSPACE = "<workspace>"
 
 
 def _workspace_with_the_matrix(tmp_path: Path) -> Path:
-    """A root holding the physics matrix alone: enough for the pre-flight.
+    """A root holding the physics matrix and its build registry: enough for the pre-flight.
 
     `pyfs-qa physics` reads the build its stem names off the matrix rows
-    BEFORE anything runs, and nothing below that read needs the library,
-    so a refusal before the solver is provable without one.
+    BEFORE anything runs, and the version that build declares off
+    ``inputs/executables.toml`` (PFS-2102.006, 0.40.0); nothing below
+    that read needs the library, so a refusal before the solver is
+    provable without one.
     """
     root = tmp_path / "ws"
-    root.mkdir()
+    (root / "inputs").mkdir(parents=True)
     shutil.copy(_TIER3_MATRIX, root / _TIER3_MATRIX.name)
+    shutil.copy(
+        _TIER3_MATRIX.parent / "inputs" / "executables.toml", root / "inputs" / "executables.toml"
+    )
     return root
 
 
@@ -120,9 +126,9 @@ _RUNNERS = ("probe_version", "physics_from_workspace", "drift_from_workspace")
                 "--fs-versions",
                 "26.122,26.123",
                 "--fs-exe",
-                "26.122=a.exe",
+                f"26.122={sys.executable}",
                 "--fs-exe",
-                "26.123=b.exe",
+                f"26.123={sys.executable}",
             ],
         ),
     ],
@@ -241,9 +247,9 @@ class _StubRun:
                 "--fs-versions",
                 "26.122,26.123",
                 "--fs-exe",
-                "26.122=a.exe",
+                f"26.122={sys.executable}",
                 "--fs-exe",
-                "26.123=b.exe",
+                f"26.123={sys.executable}",
             ],
         ),
     ],
@@ -520,7 +526,9 @@ def test_apply_compat_refuses_a_superseded_report_without_a_traceback(
     older = write("2026-07-21", "broken")
     write("2026-07-23", "verified", "reprobe")
 
-    code = main(["apply-compat", older, "--root", str(tmp_path)])
+    # --commands-dir since 0.40.0 (PFS-2102.032): the database under --root.
+    commands = str(tmp_path / "commands")
+    code = main(["apply-compat", older, "--root", str(tmp_path), "--commands-dir", commands])
     captured = capsys.readouterr()
     assert code == 2
     assert "superseded evidence" in captured.err
@@ -546,6 +554,12 @@ def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsy
             }
         ),
         encoding="utf-8",
+    )
+    # A database under --root since 0.40.0 (PFS-2102.032), never the installed one.
+    commands = tmp_path / "src" / "pyflightstream" / "commands"
+    commands.mkdir(parents=True)
+    (commands / "_meta.yaml").write_text(
+        'versions:\n  - canonical: "26.120"\n    alias: "26.12"\n', encoding="utf-8"
     )
     code = main(["apply-compat", str(path), "--root", str(tmp_path)])
     captured = capsys.readouterr()

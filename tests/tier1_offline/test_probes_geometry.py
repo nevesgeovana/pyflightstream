@@ -71,7 +71,8 @@ def test_culling_discards_exactly_the_points_inside_the_body():
 
 
 def test_gate_without_mesh_keeps_everything():
-    planned = apply_geometry_gate(midplane_grid())
+    # cull=False since 0.40.0 (PFS-2088.007): culling without a mesh is refused.
+    planned = apply_geometry_gate(midplane_grid(), cull=False)
     assert planned.report.base_culled == 0
     assert planned.report.mesh_path is None
     assert len(planned.points) == 36
