@@ -453,8 +453,14 @@ def estimate_point_cost(
 
     # PROCESSORS: `max_threads` on the solver settings, which is what
     # `SET_MAX_PARALLEL_THREADS` is emitted from. The first version read a
-    # variable key no row writes and reported a dash for every point.
-    processors = getattr(solver, "max_threads", None)
+    # variable key no row writes and reported a dash for every point. THE
+    # ROW'S NCPUS FIRST, through the one resolver the script and the
+    # descriptor read (PFS-2094.038): the setup's count alone printed 8 for a
+    # row whose script set 48.
+    from pyflightstream.cases.workflows import row_ncpus
+
+    from_setup = getattr(solver, "max_threads", None)
+    processors = row_ncpus(case, from_setup if isinstance(from_setup, int) else None)
     if not isinstance(processors, int):
         processors = None
 

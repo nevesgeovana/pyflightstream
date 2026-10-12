@@ -1,4 +1,4 @@
-"""Tier 1, 0.40.0 lane run-2: the steady job, its descriptor and its marks.
+"""Tier 1, 0.40.0 lane run-2: the steady job, its descriptor, its marks and its cost.
 
 Every fixture is synthetic.
 """
@@ -61,3 +61,18 @@ def test_p0400_mark_converged_judges_a_job_point_by_its_own_loads(tmp_path):
     entry = mark_converged(workspace.root, ["5001"], reason="read by hand", points=["AL+005"])
     assert entry["marked"] == []
     assert "loads export is not on disk" in entry["refused"]["camp/sim_5001/AL+005"]
+
+
+def test_p0400_cost_table_procs_is_the_row_s_ncpus(tmp_path):
+    """P0400-COST-PROCS (PFS-2094.038): the procs column reads the row's NCPUS first.
+
+    The script's SET_MAX_PARALLEL_THREADS comes from row_ncpus, and the
+    table showed the setup's max_threads beside it.
+    """
+    from pyflightstream.run import estimate_point_cost
+    from tests.tier1_offline.test_plan_cost import saved_simulation, steady_case
+
+    geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
+    case = steady_case(geometry, max_threads=8)
+    case = case.model_copy(update={"variables": {**case.variables, "NCPUS": "48"}})
+    assert estimate_point_cost(case, run_id="run/a", recorded=[]).processors == 48
