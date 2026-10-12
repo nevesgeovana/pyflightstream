@@ -33,6 +33,7 @@ from pyflightstream.qa._spec_ccs_noise import (
     _ccs_import,
     _ccs_initialize,
     _ccs_select,
+    _export_obj,
     _wing_loft,
 )
 from pyflightstream.qa._spec_kit import _emit, _seq
@@ -1435,3 +1436,423 @@ def _export_format(fmt: str) -> Build:
         script.emit("EXPORT_SURFACE_MESH", fmt, 1, workdir / f"wing.{fmt.lower()}")
 
     return build
+
+
+# --- the second round (2026-10-12): instruments the first batch showed blind ----------
+
+
+def _state_still(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge a control: the saved boundary list and face count did NOT move.
+
+    A control holds when the command, given nothing to act on, leaves the saved
+    simulation as it found it; a moved state is a control that failed.
+    """
+    before = (_names(artifacts.workdir / _BEFORE), _faces(artifacts.workdir / _BEFORE))
+    after = (_names(artifacts.workdir / _AFTER), _faces(artifacts.workdir / _AFTER))
+    if None in before or None in after:
+        return None
+    return before == after
+
+
+def _selection_took(source: int) -> Judge:
+    """Judge a subset selection by the surface made from it (P1-06).
+
+    The first batch read the new surface as an added LAST boundary; the solver
+    moves the selected faces out of their surface instead, so a selection that
+    took every face of boundary ``source`` empties it and the new surface takes
+    its place with its face count. The judge reads the saved file's boundaries
+    against the state saved right after the target: some boundary of the saved
+    file has exactly the face count of ``source`` and the total did not move.
+    Every face of the body in one surface means the subset was ignored.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        state = _faces(artifacts.workdir / _AFTER)
+        saved = _faces(artifacts.workdir / "saved.fsm")
+        if state is None or saved is None or state[1] is None or saved[1] is None:
+            return None
+        if len(state[1]) < source or saved[0] != state[0]:
+            return None
+        if len(saved[1]) == 1 and saved[1][0] == state[0]:
+            return False
+        names_before = _names(artifacts.workdir / _AFTER) or ()
+        names_after = _names(artifacts.workdir / "saved.fsm") or ()
+        new = [
+            count
+            for name, count in zip(names_after, saved[1], strict=False)
+            if name not in names_before
+        ]
+        return True if new and new[-1] == state[1][source - 1] else None
+
+    return check
+
+
+def _selection_took_all(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge the ALL_FACES control: the new surface holds every face of the body."""
+    state = _faces(artifacts.workdir / _AFTER)
+    saved = _faces(artifacts.workdir / "saved.fsm")
+    if state is None or saved is None or saved[1] is None:
+        return None
+    return True if state[0] in saved[1] else None
+
+
+#: The wing's node 1 as the P1-10 probe measured it on 26.124 and 26.125: the
+#: trailing edge at the tip, (1, -2, 0). Its trailing-edge neighbour at the next
+#: station is (1, -1.5, 0). Moved ONTO it, the two faces sharing the edge left the
+#: saved simulation before the delete ran (288 to 286 faces on both builds, the
+#: second batch), so the node stops 0.1 mm short of it: two sliver faces remain.
+_NODE_ONE_NEIGHBOUR = (1.0, -1.5 - 1.0e-4, 0.0)
+
+
+def _collapsed_edge(script: Script, workdir: Path) -> None:
+    """Make sliver faces inside the solver: move node 1 next to its edge neighbour.
+
+    The STL importer drops a zero-area triangle on import (the first batch saved
+    12 faces from a 13-triangle box on both builds), so a degenerate face has to
+    be made after the import: the faces that share the collapsed edge keep three
+    corners of which two coincide.
+    """
+    _import_wing()(script, workdir)
+    script.emit("SELECT_MESH_NODE", 1)
+    script.emit("TRANSFORM_SELECTED_NODES", 1, "ABSOLUTE", *_NODE_ONE_NEIGHBOUR)
+
+
+def _obj_spans(name: str, axis: int, low: float, high: float) -> Judge:
+    """Judge an exported surface by its range on ``axis`` covering ``low`` to ``high``."""
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        read = _obj(artifacts.workdir / name)
+        if read is None or not read[0]:
+            return None
+        values = [v[axis] for v in read[0]]
+        return True if min(values) <= low + 1e-3 and max(values) >= high - 1e-3 else None
+
+    return check
+
+
+def _section_ccs_text(points: list[tuple[float, float, float]]) -> str:
+    """Return a one-component CCS file holding one cross section."""
+    flat = ";".join(f"{x:.6f};{y:.6f};{z:.6f}" for x, y, z in points)
+    lines = ["Aircraft;PYFS_GAP", "Units;Meter", "", "Component;PYFS_SECTION"]
+    lines += ["LiftingSurface;true", f"CrossSection;{flat}"]
+    return "\n".join(lines) + "\n"
+
+
+def _ccs_section_name(name: str) -> str:
+    return Path(name).with_suffix(".csv").name
+
+
+def _section_ccs_files(workdir: Path) -> None:
+    """Write each section file of :func:`_section_files` again as a one-section CCS file.
+
+    The CAD Create curve probes import their sections through the CCS curve
+    route, verified on both builds by the CCS lofts, because the text route
+    (CAD_CREATE_IMPORT_CURVE_TXT) aborts the script on 26.124 (P2-14) and so
+    could not set a curve probe up.
+    """
+    points = _naca_points()
+    sections = {
+        _SECTION_TXT: [(x, 0.0, z) for x, z in points],
+        _ROOT_3D: [(x, 0.0, z) for x, z in points],
+        _TIP_3D: [(0.2 + 0.6 * x, 2.0, 0.6 * z) for x, z in points],
+    }
+    for name, section in sections.items():
+        _textio.write_text(workdir / _ccs_section_name(name), _section_ccs_text(section))
+
+
+def _cad_session_ccs(*files: str, select: bool = True) -> Build:
+    """Open the CAD Create session and import the sections through the CCS curve route."""
+
+    def build(script: Script, workdir: Path) -> None:
+        _section_files(workdir)
+        _section_ccs_files(workdir)
+        script.emit("NEW_SIMULATION")
+        script.emit("CAD_CREATE_INITIALIZE")
+        for name in files:
+            script.emit(
+                "CAD_CREATE_IMPORT_CURVE_CCS", "METER", 1, 1, workdir / _ccs_section_name(name)
+            )
+        if select:
+            script.emit("CAD_CREATE_CURVE_SELECT", -1)
+
+    return build
+
+
+def _import_txt_as(layout: str) -> Build:
+    """Import the 2D section written in another text layout (the P2-14 file-format probes).
+
+    ``comma`` separates the two columns with a comma; ``count`` opens the file
+    with a line holding the point count. Only the file moves; the command line
+    is the one P2-14 emits.
+    """
+
+    def build(script: Script, workdir: Path) -> None:
+        _section_files(workdir)
+        points = _naca_points()
+        if layout == "comma":
+            body = "".join(f"{x:.6f},{z:.6f}\n" for x, z in points)
+        else:
+            body = f"{len(points)}\n" + "".join(f"{x:.6f} {z:.6f}\n" for x, z in points)
+        path = workdir / f"naca0012_{layout}.txt"
+        _textio.write_text(path, body)
+        script.emit("CAD_CREATE_IMPORT_CURVE_TXT", "METER", "2D", 1, "XZ", path)
+
+    return build
+
+
+def _loft_exported(name: str, index: int, filename: str) -> Build:
+    """Loft the selected curves, then export that loft at once (P2-07 to P2-09).
+
+    The first batch exported both lofts after the second one, and on 26.125
+    (every setting) and on 26.124 (the merge tolerance) both exports came back
+    empty although each loft printed its length; exporting each loft right
+    after it is made keeps the reading of the reference independent of what the
+    second loft does to it.
+    """
+    return _seq(_wing_loft(name), _export_obj(index, filename))
+
+
+def _streamline_table(name: str) -> Judge:
+    """Judge a surface streamline export by the table it writes, rows or none.
+
+    No script command seeds an on-body streamline (the manual, p.263: each one
+    starts from a click on the surface; p.382 lists only generate, delete and
+    export), so a batch run exports the table with zero lines. The file and its
+    count line are still written by the export alone.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        path = artifacts.workdir / name
+        if not path.is_file():
+            return None
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return True if "Number of Surface Streamlines" in text else None
+
+    return check
+
+
+_SURFACE_LINE_COUNT = re.compile(r"Number of Surface Streamlines:\s*(\d+)")
+
+
+def _surface_lines_deleted(name: str) -> Judge:
+    """Judge the on-body streamline delete by the count line of the export after it.
+
+    The first batch read zero lines after the delete as verified, although no
+    line existed to delete: no script command seeds an on-body streamline, so
+    the generation before the delete made none (P3-05 counts 0 on both builds),
+    and a control export before the delete cannot precede it, the phase order
+    putting every export last. Lines left after the delete break it; no line
+    left cannot tell a delete from a delete of nothing and records unprobed.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        path = artifacts.workdir / name
+        if not path.is_file():
+            return None
+        found = _SURFACE_LINE_COUNT.search(path.read_text(encoding="utf-8", errors="replace"))
+        if found is None:
+            return None
+        return False if int(found.group(1)) > 0 else None
+
+    return check
+
+
+def _march_then_trajectory(*, symmetry: str = "NONE") -> Build:
+    """March, then export the trajectory (P4).
+
+    The first batch exported before the march, the phase the database records,
+    and the file held the header and no row on both builds (P4-04 on 26.124 and
+    26.125: 470 bytes, zero numeric rows, after a 20-step march), while the
+    export placed after the march held the rows (P4-04m). So every P4 probe
+    reads the after-the-march export.
+    """
+    return _seq(_march(symmetry=symmetry), _after_the_march_trajectory)
+
+
+#: The trajectory columns the solver writes (x, y, z, u, v, w, p, q, r, phi,
+#: theta, psi, then the forces and moments), measured on both builds.
+_Z, _THETA = 2, 10
+
+
+def _pitch_only(name: str) -> Judge:
+    """Judge pitch-only freedoms: theta moves while z stays, under gravity."""
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        rows = _rows(artifacts.workdir / name)
+        if len(rows) < 2 or min(len(r) for r in rows) <= _THETA:
+            return None
+        z_moved = abs(rows[-1][_Z] - rows[0][_Z]) > 1e-6
+        theta_moved = abs(rows[-1][_THETA] - rows[0][_THETA]) > 1e-6
+        if z_moved:
+            return False
+        return True if theta_moved else None
+
+    return check
+
+
+def _pitch_kick(script: Script, workdir: Path) -> None:
+    """Start the body with a pitch rate, the excitation that needs no force command.
+
+    The first batch excited P4-03 and P4-11 with CREATE_NEW_6DOF_EXTERNAL_FORCE,
+    which aborts the script on both builds (P4-06); an initial pitch rate excites
+    the pitch freedom with a command each build carries.
+    """
+    script.emit("SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY", 1, 0.0, 10.0, 0.0)
+
+
+def _nodes_only(script: Script, workdir: Path) -> None:
+    """Name the structural node file on the motion, the stand-in written beside it."""
+    _write_standin(workdir)
+    script.emit("SET_MOTION_FSI_STRUCTURAL_NODES", 1, workdir / _NODES)
+
+
+def _aero_frame(script: Script, workdir: Path) -> None:
+    """Create frame 2 at the origin, the frame the aeroelastic coupling is assigned.
+
+    The manual refuses the reference frame there (p.388: "Set value to 1
+    (reference) will throw an error"), and the first batch's route B prelude,
+    which assigned frame 1 with no frame created, stopped on "No user-defined
+    coordinate systems available to assign as aeroelastic frames" (26.124).
+    """
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit(
+        "EDIT_COORDINATE_SYSTEM",
+        frame=2,
+        name="PYFS_GAP_AERO",
+        origin_x=0.0,
+        origin_y=0.0,
+        origin_z=0.0,
+        vector_x_x=1.0,
+        vector_x_y=0.0,
+        vector_x_z=0.0,
+        vector_y_x=0.0,
+        vector_y_y=1.0,
+        vector_y_z=0.0,
+        vector_z_x=0.0,
+        vector_z_y=0.0,
+        vector_z_z=1.0,
+    )
+
+
+def _sections_in_frame_then_start(frame: int) -> Build:
+    """Initialise, cut the sectional loads in ``frame``, start (the route B epilogue)."""
+
+    def build(script: Script, workdir: Path) -> None:
+        initialize_solver(script)
+        script.emit(
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
+            frame=frame,
+            plane="XZ",
+            num_sections=8,
+            plot_direction="1",
+            surfaces=-1,
+        )
+        script.emit("START_SOLVER")
+
+    return build
+
+
+def _nothing_converted(name: str) -> Judge:
+    """Judge a CAD body delete by the conversion of every body after it making nothing.
+
+    The two-sheet IGES imports as ONE CAD body: converting every body without a
+    delete makes one surface spanning both sheets (P2-05c, both builds). So
+    deleting body 1 deletes both sheets, and the conversion after it has nothing
+    to make; a surface after the delete means the delete removed nothing.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        names = _names(artifacts.workdir / name)
+        if names is None:
+            return None
+        return len(names) == 0
+
+    return check
+
+
+# --- the declined surface of 26.125 (PFS-2085.021) -------------------------------------
+
+
+def sphere_triangles(
+    radius: float = 0.3, centre: tuple[float, float, float] = (3.0, 0.0, 0.0)
+) -> np.ndarray:
+    """Return a closed, smooth latitude-longitude sphere: a body with no trailing edge."""
+    rings, sectors = 8, 12
+    points = []
+    for i in range(rings + 1):
+        polar = math.pi * i / rings
+        for j in range(sectors):
+            azimuth = 2.0 * math.pi * j / sectors
+            points.append(
+                (
+                    centre[0] + radius * math.cos(polar),
+                    centre[1] + radius * math.sin(polar) * math.cos(azimuth),
+                    centre[2] + radius * math.sin(polar) * math.sin(azimuth),
+                )
+            )
+    triangles = []
+    for i in range(rings):
+        for j in range(sectors):
+            a = i * sectors + j
+            b = i * sectors + (j + 1) % sectors
+            c = (i + 1) * sectors + j
+            d = (i + 1) * sectors + (j + 1) % sectors
+            if i > 0:
+                triangles.append((points[a], points[b], points[d]))
+            if i < rings - 1:
+                triangles.append((points[a], points[d], points[c]))
+    return np.asarray(triangles, dtype=float)
+
+
+def _wing_and_sphere(script: Script, workdir: Path) -> None:
+    """Import the probe wing (trailing edges marked) and a sphere beside it (none)."""
+    _import_wing()(script, workdir)
+    path = write_stl(sphere_triangles(), workdir / "sphere.stl", name="Sphere")
+    script.emit("IMPORT", "METER", "STL", path, clear=False)
+    _units_and_edges(script, workdir)
+
+
+_DECLINED_LOADS = "loads.txt"
+
+
+def _surface_drag(artifacts: ProbeArtifacts) -> dict[str, dict[str, float]] | None:
+    from pyflightstream.results.loads import parse_loads
+
+    path = artifacts.workdir / _DECLINED_LOADS
+    if not path.is_file():
+        return None
+    try:
+        return dict(parse_loads(path.read_text(encoding="utf-8", errors="replace")).surfaces)
+    except (ValueError, KeyError):
+        return None
+
+
+def _sphere_row_read(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge the instrument: the loads export holds the sphere's row.
+
+    The question is a reading, not a yes or no: what the sphere's drag columns
+    print with the sphere on the vorticity list (D-01) against off it (D-01c).
+    """
+    surfaces = _surface_drag(artifacts)
+    if not surfaces:
+        return None
+    return True if any(name.lower().startswith("sphere") for name in surfaces) else None
+
+
+def _drag_read(artifacts: ProbeArtifacts) -> str:
+    surfaces = _surface_drag(artifacts)
+    if surfaces is None:
+        return f"{_DECLINED_LOADS} absent or unreadable"
+    shown = []
+    for name, columns in surfaces.items():
+        values = ", ".join(
+            f"{key} {columns[key]:.7g}"
+            for key in ("Cx", "CL", "CDi", "CDo", "CDp", "CDv")
+            if key in columns
+        )
+        shown.append(f"{name}: {values}")
+    return "; ".join(shown)
+
+
+def _declined_export(script: Script, workdir: Path) -> None:
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", workdir / _DECLINED_LOADS)

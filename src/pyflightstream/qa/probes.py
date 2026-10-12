@@ -1603,7 +1603,8 @@ def _judge(
     # solver's own wording NAMING THIS COMMAND: a prelude line the build
     # does not carry aborts the same script and says nothing about the
     # target.
-    refused = unrecognised_commands(execution.log_text)
+    solver_said = _solver_errors_text(execution)
+    refused = unrecognised_commands(solver_said)
     if spec.expects_halt and not refused:
         return _judge_halt(spec, artifacts, common)
     if execution.timed_out and not refused:
@@ -1648,16 +1649,19 @@ def _judge(
                     "the probe prelude did not reach the BEGIN sentinel although the "
                     "baseline passed; the target was not judged. Inspect the prelude "
                     f"and its support commands (return code {execution.return_code}). "
-                    + "; ".join(_scan_errors(execution.log_text or "", error_patterns)[:3])
+                    + "; ".join(_scan_errors(solver_said, error_patterns)[:3])
                 ),
                 **common,
             )
+        said = _scan_errors(solver_said, error_patterns)
         return ProbeResult(
             outcome=ProbeOutcome.BROKEN,
             detail=(
                 "script processing aborted at the command: the log exported before it "
                 "exists, the one after it never appeared (END sentinel missing)"
+                + (f"; the solver said: {'; '.join(said[:2])}" if said else "")
             ),
+            log_errors=tuple(said),
             **common,
         )
     matches = _scan_errors(artifacts.target_region(), error_patterns)
@@ -1775,6 +1779,21 @@ def _judge_halt(
         effect=True,
         **common,
     )
+
+
+def _solver_errors_text(execution: ExecutionResult) -> str:
+    """Return every channel the solver reports a script abort on, joined.
+
+    26.124 writes the abort into ``FlightStreamLog.txt`` (``log_text``);
+    26.125 writes no such file under ``-hidden`` and prints the same
+    ``ERROR | Syntax | ... | Unrecognized command`` lines to its standard
+    output instead (measured 2026-10-12 on build #10052026, a two-line
+    script with an unknown name: no file in the working directory, the
+    lines on stdout). Reading the file alone recorded every refused name
+    on 26.125 as an abort, broken instead of removed, with no line to
+    show for it.
+    """
+    return "\n".join(text for text in (execution.log_text, execution.stdout) if text)
 
 
 def _scan_errors(region: str, error_patterns: Sequence[str]) -> list[str]:

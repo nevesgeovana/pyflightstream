@@ -34,13 +34,13 @@ inputs, readers and judges live in ``pyflightstream.qa._spec_0400_gapkit``.
 The module is imported by ``pyflightstream.qa.specs`` and registers its primary
 entries into the shared registry of ``pyflightstream.qa._spec_kit``.
 
-Size exemption: one declarative battery of 88 probe entries, each a question with its control.
+Size exemption: one declarative battery of 103 probe entries, each a question with its control.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from pyflightstream.fsi.state import LOADS_FILE
@@ -55,17 +55,22 @@ from pyflightstream.qa._spec_0400_gapkit import (
     _SOLVE_TIMEOUT_S,
     _TIP_3D,
     _TRAJECTORY,
+    _aero_frame,
     _after_the_march_trajectory,
     _boundaries_at_least,
     _boundaries_grew,
     _cad_session,
+    _cad_session_ccs,
     _called,
     _calls_read,
     _ccs_moved,
     _ccs_written,
+    _collapsed_edge,
     _convert,
     _custom_force,
+    _declined_export,
     _deflected,
+    _drag_read,
     _edges_read,
     _emit_export_all,
     _export,
@@ -82,21 +87,27 @@ from pyflightstream.qa._spec_0400_gapkit import (
     _import_marks,
     _import_p3d,
     _import_txt,
+    _import_txt_as,
     _import_wing,
+    _loft_exported,
     _march,
+    _march_then_trajectory,
     _marks_read,
     _marks_reproduced,
     _motion,
     _moved_read,
     _naca_points,
-    _new_surface_matches,
+    _nodes_only,
     _not_called,
-    _obj_centroid_z,
+    _nothing_converted,
     _obj_range_moved,
     _obj_source,
+    _obj_spans,
     _offbody_export,
     _offbody_file,
     _only_sheet_a,
+    _pitch_kick,
+    _pitch_only,
     _pod_import,
     _primitive_exists,
     _read_back_and_loft,
@@ -104,21 +115,27 @@ from pyflightstream.qa._spec_0400_gapkit import (
     _reversed_first_point,
     _save,
     _saved_names_file,
-    _sections_then_start,
+    _sections_in_frame_then_start,
     _seed_line,
+    _selection_took,
+    _selection_took_all,
     _seq_read,
     _sixdof_body,
     _solved_wing,
+    _sphere_row_read,
     _start,
     _state_or_faces_moved,
+    _state_still,
     _states_read,
+    _streamline_table,
     _surface_export,
+    _surface_lines_deleted,
     _threshold,
     _trajectory_export,
-    _trajectory_then_march,
     _two_meshes_differ,
     _units_and_edges,
     _windowless_python,
+    _wing_and_sphere,
     _write_post,
     _write_standin,
     _write_standin_build,
@@ -132,14 +149,16 @@ from pyflightstream.qa._spec_0400_gapkit import (
 )
 from pyflightstream.qa._spec_ccs_noise import (
     _REFERENCE_WING,
-    _SECOND_WING_LOFT,
+    _ccs_assign,
+    _ccs_select,
+    _export_obj,
     _mesh_differs,
     _mesh_read,
     _wing_loft,
 )
 from pyflightstream.qa._spec_kit import PROBE_SPECS, _emit, _seq
 from pyflightstream.qa.errors import QaEvidenceError
-from pyflightstream.qa.probes import ProbeSpec, Requires
+from pyflightstream.qa.probes import ProbeSpec, Requires, fsm_changed
 from pyflightstream.script import Script
 
 __all__: list[str] = []
@@ -153,6 +172,7 @@ NODES = {
     "P3": "PFS-2081.15",
     "P4": "PFS-2081.16",
     "P5": "PFS-2081.17",
+    "D": "PFS-2085.021",
 }
 
 
@@ -335,12 +355,13 @@ def _p1() -> list[GapProbe]:
         _g(
             "P1-03",
             "P1",
-            "cut of the wing by the XZ plane at y = 0.5: how many surfaces it leaves, their names "
-            "and positions",
+            "cut of the wing by the XZ plane at y = 0.75, between two mesh stations (the first "
+            "batch cut at y = 0.5, on a station line, and nothing moved): how many surfaces it "
+            "leaves, their names and positions",
             "the saved state before the cut",
             primary=True,
             command="SURFACE_CUT_BY_PLANE",
-            build_target=_emit("SURFACE_CUT_BY_PLANE", frame=1, plane="XZ", offset=0.5, surface=1),
+            build_target=_emit("SURFACE_CUT_BY_PLANE", frame=1, plane="XZ", offset=0.75, surface=1),
             prelude=_import_wing(),
             save_state=True,
             epilogue=_exports(3),
@@ -392,9 +413,9 @@ def _p1() -> list[GapProbe]:
             build_target=_emit("CREATE_NEW_SURFACE_FROM_SELECTION"),
             prelude=_import_wing(),
             save_state=True,
-            assert_effect=_state_or_faces_moved,
+            assert_effect=_state_still,
             observe=states(),
-            effect_note="with nothing selected the saved simulation should not move",
+            effect_note="with nothing selected the saved simulation does not move",
         ),
         _g(
             "P1-06",
@@ -415,7 +436,7 @@ def _p1() -> list[GapProbe]:
                 _emit("CREATE_NEW_SURFACE_FROM_SELECTION"),
                 _save("saved.fsm"),
             ),
-            assert_effect=_new_surface_matches(2),
+            assert_effect=_selection_took(2),
             observe=states("saved.fsm"),
             effect_note=(
                 "the surface made from a SELECTED_FACES threshold has the face count of "
@@ -439,7 +460,7 @@ def _p1() -> list[GapProbe]:
                 _emit("CREATE_NEW_SURFACE_FROM_SELECTION"),
                 _save("saved.fsm"),
             ),
-            assert_effect=_boundaries_grew("saved.fsm"),
+            assert_effect=_selection_took_all,
             observe=states("saved.fsm"),
             effect_note="over ALL_FACES the new surface takes every face of both surfaces",
         ),
@@ -460,12 +481,14 @@ def _p1() -> list[GapProbe]:
         _g(
             "P1-08",
             "P1",
-            "degenerate face deletion on a closed box with one zero-area triangle: face counts",
-            "the saved state before the deletion (thirteen triangles)",
+            "degenerate face deletion on the wing after node 1 is moved to 0.1 mm from its "
+            "trailing-edge neighbour (the importer drops a zero-area triangle, and a node moved "
+            "onto its neighbour takes its two faces out before the delete): face counts",
+            "the saved state before the deletion, holding the two sliver faces",
             primary=True,
             command="DELETE_DEGENERATE_FACES",
             build_target=_emit("DELETE_DEGENERATE_FACES"),
-            prelude=_import_box(hole=False, degenerate=True),
+            prelude=_collapsed_edge,
             save_state=True,
             assert_effect=_faces_moved("down", strict=False),
             observe=states(),
@@ -539,18 +562,18 @@ def _p2() -> list[GapProbe]:
         _g(
             "P2-01",
             "P2",
-            "CAD body delete on a two-body IGES: does the other body renumber to 1 (the "
-            "conversion's body index depends on it)",
-            "sheet A sits at z = 0 and sheet B at z = 2, so the converted surface says which "
-            "survived",
+            "CAD body delete of body 1, then every body converted: the two-sheet IGES imports "
+            "as one CAD body (P2-05c converts it to one surface spanning both sheets), so the "
+            "delete leaves nothing to convert",
+            "P2-05c, the same conversion of every body with no delete (one surface)",
             primary=True,
             command="CAD_BODY_DELETE",
             build_target=_emit("CAD_BODY_DELETE", 1),
             prelude=_iges_import,
-            epilogue=_seq(_convert(1), _save("saved.fsm"), _export(1, "surface_1.obj")),
-            assert_effect=_obj_centroid_z("surface_1.obj", 2.0),
+            epilogue=_seq(_convert(-1), _save("saved.fsm"), _export(1, "surface_1.obj")),
+            assert_effect=_nothing_converted("saved.fsm"),
             observe=iges_read,
-            effect_note="after deleting body 1, body index 1 converts to sheet B at z = 2",
+            effect_note="after deleting body 1, converting every body makes no surface",
         ),
         _g(
             "P2-02",
@@ -633,9 +656,9 @@ def _p2() -> list[GapProbe]:
                 _export(1, "surface_1.obj"),
                 _export(2, "surface_2.obj"),
             ),
-            assert_effect=file_rows("surface_2.obj"),
+            assert_effect=_obj_spans("surface_1.obj", 2, 0.0, 2.0),
             observe=iges_read,
-            effect_note="with SELECT both bodies convert",
+            effect_note="with SELECT both bodies convert, into one surface spanning z 0 to 2",
         ),
         _g(
             "P2-06",
@@ -664,7 +687,9 @@ def _p2() -> list[GapProbe]:
     for loft_setting, args in (
         ("SET_CAD_CREATE_SPLINE_SEGMENTS", (60,)),
         ("SET_CAD_CREATE_SPLINE_LOFT", ("C0",)),
-        ("SET_CAD_CREATE_MERGE_TOLERANCE", (0.01,)),
+        # 0.01 m merged the 200 points of each curve (their spacing is about 0.01 m)
+        # and the loft came out empty on 26.124 (second batch); 0.002 m is below it.
+        ("SET_CAD_CREATE_MERGE_TOLERANCE", (0.002,)),
     ):
         probes.append(
             _g(
@@ -676,8 +701,12 @@ def _p2() -> list[GapProbe]:
                 primary=True,
                 command=loft_setting,
                 build_target=_emit(loft_setting, *args),
-                prelude=_REFERENCE_WING,
-                epilogue=_SECOND_WING_LOFT,
+                prelude=_seq(_REFERENCE_WING, _export_obj(1, "reference.obj")),
+                epilogue=_seq(
+                    _ccs_select,
+                    _ccs_assign(1),
+                    _loft_exported("PYFS_VARIANT", 2, "variant.obj"),
+                ),
                 assert_effect=_mesh_differs,
                 observe=_mesh_read,
                 effect_note="the wing lofted after the setting differs from the one lofted before",
@@ -739,6 +768,34 @@ def _p2_curves() -> list[GapProbe]:
             effect_note="the curves exported after the import hold the section",
         ),
         _g(
+            "P2-14c",
+            "P2",
+            "the P2-14 section written with a comma between its two columns: does the text "
+            "route read that layout",
+            "P2-14, the same points separated by a space",
+            command="CAD_CREATE_IMPORT_CURVE_TXT",
+            build_target=_import_txt_as("comma"),
+            prelude=_cad_session(select=False),
+            epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
+            assert_effect=_ccs_written(curve),
+            observe=_states_read(curve),
+            effect_note="the curves exported after the comma-layout import hold the section",
+        ),
+        _g(
+            "P2-14n",
+            "P2",
+            "the P2-14 section opened by a line holding its point count: does the text route "
+            "read that layout",
+            "P2-14, the same points with no count line",
+            command="CAD_CREATE_IMPORT_CURVE_TXT",
+            build_target=_import_txt_as("count"),
+            prelude=_cad_session(select=False),
+            epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
+            assert_effect=_ccs_written(curve),
+            observe=_states_read(curve),
+            effect_note="the curves exported after the counted-layout import hold the section",
+        ),
+        _g(
             "P2-15",
             "P2",
             "import of a one-curve Plot3D file: is it read, and as which component",
@@ -760,7 +817,7 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_CURVE_UNSELECT",
             build_target=_emit("CAD_CREATE_CURVE_UNSELECT", 1),
-            prelude=_seq(_cad_session(_ROOT_3D, _TIP_3D), _export_ccs(reference)),
+            prelude=_seq(_cad_session_ccs(_ROOT_3D, _TIP_3D), _export_ccs(reference)),
             epilogue=_export_ccs(curve),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
@@ -775,8 +832,10 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_SCALE_CURVES",
             build_target=_emit("CAD_CREATE_SCALE_CURVES", 2.0, "DELETE"),
-            prelude=_seq(_cad_session(_SECTION_TXT), _export_ccs(reference)),
-            epilogue=_export_ccs(curve),
+            prelude=_seq(_cad_session_ccs(_SECTION_TXT), _export_ccs(reference)),
+            # The curve an operation makes is not selected, and an export with nothing
+            # selected stops on a dialog (second batch, both builds).
+            epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
             effect_note="the exported section changes across the scale",
@@ -788,7 +847,7 @@ def _p2_curves() -> list[GapProbe]:
             "P2-17, the same scale after CAD_CREATE_CURVE_SELECT -1",
             command="CAD_CREATE_SCALE_CURVES",
             build_target=_emit("CAD_CREATE_SCALE_CURVES", 2.0, "DELETE"),
-            prelude=_seq(_cad_session(_SECTION_TXT, select=False), _export_ccs(reference)),
+            prelude=_seq(_cad_session_ccs(_SECTION_TXT, select=False), _export_ccs(reference)),
             epilogue=_export_ccs(curve),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
@@ -802,8 +861,10 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_ROTATE_CURVES",
             build_target=_emit("CAD_CREATE_ROTATE_CURVES", 1, "Y", 10.0, "DELETE"),
-            prelude=_seq(_cad_session(_SECTION_TXT), _export_ccs(reference)),
-            epilogue=_export_ccs(curve),
+            prelude=_seq(_cad_session_ccs(_SECTION_TXT), _export_ccs(reference)),
+            # The curve an operation makes is not selected, and an export with nothing
+            # selected stops on a dialog (second batch, both builds).
+            epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
             effect_note="the exported section changes across the rotation",
@@ -816,7 +877,7 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_TRANSLATE_CURVES",
             build_target=_emit("CAD_CREATE_TRANSLATE_CURVES", 0.0, 2.0, 0.0, "RETAIN"),
-            prelude=_seq(_cad_session(_SECTION_TXT), _export_ccs(reference)),
+            prelude=_seq(_cad_session_ccs(_SECTION_TXT), _export_ccs(reference)),
             epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
@@ -830,7 +891,7 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_REORDER_CURVES",
             build_target=_emit("CAD_CREATE_REORDER_CURVES", 1, "+Y"),
-            prelude=_seq(_cad_session(_TIP_3D, _ROOT_3D), _export_ccs(reference)),
+            prelude=_seq(_cad_session_ccs(_TIP_3D, _ROOT_3D), _export_ccs(reference)),
             epilogue=_export_ccs(curve),
             assert_effect=reordered(curve),
             observe=_states_read(reference, curve),
@@ -845,7 +906,7 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_CURVE_EXPORT_CCS",
             build_target=_export_ccs(curve),
-            prelude=_cad_session(_ROOT_3D, _TIP_3D),
+            prelude=_cad_session_ccs(_ROOT_3D, _TIP_3D),
             epilogue=_seq(_read_back_and_loft(curve), _save("saved.fsm")),
             assert_effect=_ccs_written(curve),
             observe=_states_read(curve, "saved.fsm"),
@@ -862,8 +923,10 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_CURVE_REVERSE",
             build_target=_emit("CAD_CREATE_CURVE_REVERSE", 1),
-            prelude=_cad_session(_SECTION_TXT),
-            epilogue=_export_ccs(curve),
+            prelude=_cad_session_ccs(_SECTION_TXT),
+            # The curve an operation makes is not selected, and an export with nothing
+            # selected stops on a dialog (second batch, both builds).
+            epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
             assert_effect=_reversed_first_point(curve, first_point),
             observe=_states_read(curve),
             effect_note="the exported section no longer starts at the file's first point",
@@ -877,7 +940,7 @@ def _p2_curves() -> list[GapProbe]:
             primary=True,
             command="CAD_CREATE_MIRROR_CURVES",
             build_target=_emit("CAD_CREATE_MIRROR_CURVES", 1, "XZ", "RETAIN"),
-            prelude=_seq(_cad_session(_TIP_3D), _export_ccs(reference)),
+            prelude=_seq(_cad_session_ccs(_TIP_3D), _export_ccs(reference)),
             epilogue=_seq(_emit("CAD_CREATE_CURVE_SELECT", -1), _export_ccs(curve)),
             assert_effect=_ccs_moved(curve, reference),
             observe=_states_read(reference, curve),
@@ -892,6 +955,18 @@ def _p3() -> list[GapProbe]:
     read = _states_read(offbody)
     solved = _solved_wing()
     tube = _emit("NEW_OFF_BODY_STREAMTUBE", 2, "X", -1.0, 0.5, 0.0, 0.2, 2, 4)
+
+    def _numeric_axis_tube(script: Script, workdir: Path) -> None:
+        # The database records AXIS as X, Y or Z; the manual's sample writes 1. The
+        # line is the one P3-01 emits with the axis token alone changed, so it is
+        # written unvalidated and the probe stays out of the registry.
+        script.raw("NEW_OFF_BODY_STREAMTUBE 2 1 -1.0 0.5 0.0 0.2 2 4")
+
+    def _closed_tube(script: Script, workdir: Path) -> None:
+        # Both axis forms read the next script line as a further argument (26.124:
+        # "Unexpected argument PRINT"); a blank line closes a keyword block.
+        script.raw("NEW_OFF_BODY_STREAMTUBE 2 X -1.0 0.5 0.0 0.2 2 4\n")
+
     framed = _seq(
         _import_wing(),
         _units_and_edges,
@@ -916,6 +991,38 @@ def _p3() -> list[GapProbe]:
             assert_effect=file_rows(offbody),
             observe=read,
             effect_note="the off-body export after the streamtube holds numeric rows",
+        ),
+        _g(
+            "P3-01a",
+            "P3",
+            "the P3-01 streamtube with the axis written as the number 1, the form of the manual's "
+            "own sample (NEW_OFF_BODY_STREAMTUBE 1 1 0 0 0 1.5 2 4): on 26.124 the X form read "
+            "the next script line as a further argument",
+            "P3-01, the same streamtube with the axis written X",
+            solves=True,
+            command="NEW_OFF_BODY_STREAMTUBE",
+            build_target=_numeric_axis_tube,
+            prelude=framed,
+            epilogue=_offbody_export(offbody),
+            assert_effect=file_rows(offbody),
+            observe=read,
+            effect_note="the off-body export after the numeric-axis streamtube holds numeric rows",
+        ),
+        _g(
+            "P3-01b",
+            "P3",
+            "the P3-01 streamtube line followed by a blank line: both the X and the numeric "
+            "axis forms read the next line as an argument, so does a blank line end the "
+            "command",
+            "P3-01, the same line with no blank line after it",
+            solves=True,
+            command="NEW_OFF_BODY_STREAMTUBE",
+            build_target=_closed_tube,
+            prelude=framed,
+            epilogue=_offbody_export(offbody),
+            assert_effect=file_rows(offbody),
+            observe=read,
+            effect_note="the off-body export after the closed streamtube line holds numeric rows",
         ),
         _g(
             "P3-01c",
@@ -1016,9 +1123,12 @@ def _p3() -> list[GapProbe]:
             command="EXPORT_ALL_SURFACE_STREAMLINES",
             build_target=_surface_export(),
             prelude=_seq(solved, _emit("GENERATE_ALL_SURFACE_STREAMLINES")),
-            assert_effect=file_rows("surface_lines.txt"),
+            assert_effect=_streamline_table("surface_lines.txt"),
             observe=_states_read("surface_lines.txt"),
-            effect_note="the export writes the file it names, with numeric rows",
+            effect_note=(
+                "the export writes the file it names, with the streamline table (no line in a "
+                "batch run: no script command seeds an on-body streamline)"
+            ),
         ),
         _g(
             "P3-07",
@@ -1038,7 +1148,9 @@ def _p3() -> list[GapProbe]:
         _g(
             "P3-08",
             "P3",
-            "delete every surface streamline after generating them: the export after it",
+            "delete every surface streamline after generating them: the export after it (the "
+            "generation makes no line in a batch run, so zero lines after the delete cannot "
+            "verify it)",
             "P3-06 (the same lines kept)",
             primary=True,
             solves=True,
@@ -1046,9 +1158,9 @@ def _p3() -> list[GapProbe]:
             build_target=_emit("DELETE_ALL_SURFACE_STREAMLINES"),
             prelude=_seq(solved, _emit("GENERATE_ALL_SURFACE_STREAMLINES")),
             epilogue=_surface_export(),
-            assert_effect=emptied("surface_lines.txt"),
+            assert_effect=_surface_lines_deleted("surface_lines.txt"),
             observe=_states_read("surface_lines.txt"),
-            effect_note="the surface streamline export after the deletion holds no line",
+            effect_note="the surface streamline export after the deletion counts no line",
         ),
         _g(
             "P3-09",
@@ -1110,7 +1222,7 @@ def _p4() -> list[GapProbe]:
     read = trajectory_read(_TRAJECTORY)
     moved = trajectory_moved(_TRAJECTORY)
     spec_common = {"solves": True, "observe": read, "assert_effect": moved}
-    return [
+    probes = [
         _g(
             "P4-01",
             "P4",
@@ -1122,7 +1234,7 @@ def _p4() -> list[GapProbe]:
             command="SET_MOTION_GRAVITY",
             build_target=_emit("SET_MOTION_GRAVITY", 1, 0.0, 0.0, -9.81),
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the trajectory moves under gravity; the reading gives the 0.4 s drop",
             **spec_common,  # type: ignore[arg-type]
         ),
@@ -1135,28 +1247,26 @@ def _p4() -> list[GapProbe]:
             command="SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY",
             build_target=_emit("SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY", 1, 10.0, 0.0, 0.0),
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the roll angle changes; 4 after 0.4 s means degrees, 229 means radians",
             **spec_common,  # type: ignore[arg-type]
         ),
         _g(
             "P4-03",
             "P4",
-            "pitch only under gravity and an off-centre pulse: the other five freedoms stay at "
-            "their initial values",
+            "pitch only under gravity, the body started with a pitch rate (the first batch's "
+            "off-centre pulse aborted the script, P4-06): the other five freedoms stay at their "
+            "initial values",
             "P4-01 (every freedom on)",
             primary=True,
             command="SET_MOTION_6DOF_ACTIVE_VARIABLES",
             build_target=_emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", 1, list(_PITCH_ONLY)),
-            prelude=_sixdof_body(gravity=True, active=None),
-            epilogue=_seq(
-                _emit(
-                    "CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 1.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 500.0
-                ),
-                _trajectory_then_march(),
-            ),
-            effect_note="only the pitch column changes",
-            **spec_common,  # type: ignore[arg-type]
+            prelude=_seq(_sixdof_body(gravity=True, active=None), _pitch_kick),
+            epilogue=_march_then_trajectory(),
+            solves=True,
+            observe=read,
+            assert_effect=_pitch_only(_TRAJECTORY),
+            effect_note="theta moves and z stays under gravity: only the pitch is free",
         ),
         _g(
             "P4-04",
@@ -1194,7 +1304,7 @@ def _p4() -> list[GapProbe]:
             command="SET_6DOF_MOTION_SYMMETRY_LOADS",
             build_target=_emit("SET_6DOF_MOTION_SYMMETRY_LOADS", 1, "ENABLE"),
             prelude=_sixdof_body(gravity=True, half=True),
-            epilogue=_trajectory_then_march(symmetry="MIRROR"),
+            epilogue=_march_then_trajectory(symmetry="MIRROR"),
             effect_note="the half body moves with the symmetry loads enabled",
             **spec_common,  # type: ignore[arg-type]
         ),
@@ -1210,8 +1320,24 @@ def _p4() -> list[GapProbe]:
                 "CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 0.25, 0.0, 0.0, 0.1, 0.1, 0.0, 0.0, 500.0
             ),
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the body rises after the pulse",
+            **spec_common,  # type: ignore[arg-type]
+        ),
+        _g(
+            "P4-06s",
+            "P4",
+            "the manual's own sample line of the external force (CREATE_NEW_6DOF_EXTERNAL_FORCE "
+            "1 0.0 -0.2 1.2 0 0.25 -3000 0 0) on the P4-06 body: is the form P4-06 used the "
+            "reason it aborted",
+            "P4-06, the stated pulse on the same body",
+            command="CREATE_NEW_6DOF_EXTERNAL_FORCE",
+            build_target=_emit(
+                "CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 0.0, -0.2, 1.2, 0.0, 0.25, -3000.0, 0.0, 0.0
+            ),
+            prelude=_sixdof_body(),
+            epilogue=_march_then_trajectory(),
+            effect_note="the body moves under the sample force",
             **spec_common,  # type: ignore[arg-type]
         ),
         _g(
@@ -1224,27 +1350,29 @@ def _p4() -> list[GapProbe]:
             command="CREATE_NEW_6DOF_CUSTOM_FORCE",
             build_target=_custom_force,
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the body moves under the tabulated force",
             **spec_common,  # type: ignore[arg-type]
         ),
         _g(
             "P4-08",
             "P4",
-            "mass 50 kg under a steady 500 N up: the acceleration (10 m/s^2 if kilograms)",
-            "P4-06 (100 kg)",
+            "mass 50 kg on the 6DOF body: is it kept by the simulation (the first batch's steady "
+            "500 N force aborted the script, P4-06)",
+            "the saved state before the setting",
             primary=True,
             command="SET_MOTION_MASS_PROPERTIES",
             build_target=_emit("SET_MOTION_MASS_PROPERTIES", 1, 50.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0),
-            prelude=_sixdof_body(mass=False),
-            epilogue=_seq(
-                _emit(
-                    "CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 0.25, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 500.0
-                ),
-                _trajectory_then_march(),
+            prelude=_sixdof_body(mass=False, gravity=True),
+            save_state=True,
+            epilogue=_march_then_trajectory(),
+            solves=True,
+            observe=read,
+            assert_effect=fsm_changed(strict=False),
+            effect_note=(
+                "the saved simulation changes across the mass setting; the trajectory under "
+                "gravity is read after the march"
             ),
-            effect_note="the body accelerates under the steady force",
-            **spec_common,  # type: ignore[arg-type]
         ),
         _g(
             "P4-09",
@@ -1255,7 +1383,7 @@ def _p4() -> list[GapProbe]:
             command="SET_MOTION_6DOF_INITIAL_VELOCITY",
             build_target=_emit("SET_MOTION_6DOF_INITIAL_VELOCITY", 1, 2.0, 0.0, 0.0),
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the body travels along x",
             **spec_common,  # type: ignore[arg-type]
         ),
@@ -1282,7 +1410,7 @@ def _p4() -> list[GapProbe]:
                 1000.0,
             ),
             prelude=_sixdof_body(),
-            epilogue=_trajectory_then_march(),
+            epilogue=_march_then_trajectory(),
             effect_note="the body moves under the spring",
             **spec_common,  # type: ignore[arg-type]
         ),
@@ -1290,39 +1418,86 @@ def _p4() -> list[GapProbe]:
             "P4-11",
             "P4",
             "the reference case, free to pitch: the wing on a quarter-chord pivot, pitch only, "
-            "4.2 kg and the draft's inertias, gravity, 25 m/s at 4 deg, a 40 N 10 ms pulse "
-            "0.25 m ahead of the pivot pushing down: does the pitch respond and settle",
+            "4.2 kg and the draft's inertias, gravity, 25 m/s at 4 deg, started with a pitch "
+            "rate (the 40 N pulse of the draft needs the external force, which aborts the "
+            "script, P4-06): does the pitch respond and settle",
             "P4-03 (pitch only at one metre per second)",
             command="SET_MOTION_6DOF_ACTIVE_VARIABLES",
             build_target=_emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", 1, list(_PITCH_ONLY)),
             prelude=_seq(
                 _sixdof_body(mass=False, gravity=True, active=None),
                 _emit("SET_MOTION_MASS_PROPERTIES", 1, 4.2, 0.05, 0.31, 0.33, 0.0, 0.0, 0.0),
+                _pitch_kick,
             ),
             epilogue=_seq(
-                _emit(
-                    "CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 0.25, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, -40.0
-                ),
-                _trajectory_export,
                 _flow(steady=False, velocity=25.0, steps=40, dt=0.002),
                 _emit("SOLVER_SET_AOA", 4.0),
                 _start(),
+                _after_the_march_trajectory,
             ),
-            effect_note="only the pitch column changes, and it responds to the pulse",
-            **spec_common,  # type: ignore[arg-type]
+            solves=True,
+            observe=read,
+            assert_effect=_pitch_only(_TRAJECTORY),
+            effect_note="theta responds to the initial pitch rate while z stays",
         ),
     ]
+    return _registered_forms(probes)
+
+
+#: The P4 measurement runs whose primary twin reads the saved simulation instead.
+_SAVED_STATE_TWINS = (
+    "P4-01",
+    "P4-02",
+    "P4-03",
+    "P4-05",
+    "P4-06",
+    "P4-07",
+    "P4-08",
+    "P4-09",
+    "P4-10",
+)
+
+
+def _registered_forms(probes: list[GapProbe]) -> list[GapProbe]:
+    """Split each P4 setter into its registered probe and its trajectory run.
+
+    The trajectory export written before the march holds its header and no row
+    on both builds (P4-04), so the second round reads it after the march, a
+    placement the phase order refuses and that is appended unvalidated. A
+    registered probe builds a validated script, so the run that reads the
+    trajectory is kept in the battery as ``<id>m`` and the registered probe of
+    the same command reads the saved simulation across the target instead, with
+    the same prelude and no march: the setters keep their value in the
+    simulation file.
+    """
+    out: list[GapProbe] = []
+    for probe in probes:
+        if probe.probe_id not in _SAVED_STATE_TWINS:
+            out.append(probe)
+            continue
+        out.append(
+            replace(
+                probe,
+                solves=False,
+                spec=replace(
+                    probe.spec,
+                    epilogue=None,
+                    save_state=True,
+                    assert_effect=fsm_changed(strict=False),
+                    observe=_states_read(),
+                    effect_note=(
+                        "the saved simulation changes across the command; the trajectory is "
+                        f"read by {probe.probe_id}m"
+                    ),
+                    timeout_s=None,
+                ),
+            )
+        )
+        out.append(replace(probe, probe_id=f"{probe.probe_id}m", primary=False))
+    return out
 
 
 def _p5_rest(standin: Path | None) -> list[GapProbe]:
-    def executable(script: Script, workdir: Path) -> None:
-        _write_standin(workdir)
-        target = standin if standin is not None else _windowless_python()
-        script.emit("SET_MOTION_FSI_EXECUTABLE", 1, "DISABLE", "ENABLE", target)
-
-    def nodes(script: Script, workdir: Path) -> None:
-        script.emit("SET_MOTION_FSI_STRUCTURAL_NODES", 1, workdir / _NODES)
-
     def route_b(script: Script, workdir: Path) -> None:
         path = _write_standin(workdir)
         script.emit(
@@ -1333,8 +1508,8 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
         _write_standin(workdir)
         script.emit("DELETE_AEROELASTIC_STRUCTURAL_NODES")
         script.emit("ASSIGN_AEROELASTIC_SURFACES", 1, [1])
-        script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", 1, [1])
-        script.emit("IMPORT_AEROELASTIC_STRUCTURAL_NODES", 1, "DISABLE", workdir / _NODES)
+        script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", 1, [2])
+        script.emit("IMPORT_AEROELASTIC_STRUCTURAL_NODES", 2, "DISABLE", workdir / _NODES)
         script.emit("SET_AEROELASTIC_WORKING_DIRECTORY", workdir)
         _write_post(script, workdir)
 
@@ -1342,19 +1517,19 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
         _g(
             "P5-2",
             "P5",
-            "if probe A recognised the pair: the structural node file under a 6DOF motion and one "
-            "coupled march whose stand-in writes zero displacements: the loads file the solver "
-            "writes, its grammar and where",
-            "P5-A2, the executable without a node file",
+            "the structural node file named on a 6DOF motion, alone: is the command recognised "
+            "and does the saved simulation keep the file. Probe A found the executable of the "
+            "pair refused on 26.124 and stopping the script on 26.125, so the coupled march "
+            "the first batch chained after it can run on neither build",
+            "the saved state before the command (no node file named)",
             primary=True,
-            solves=True,
             command="SET_MOTION_FSI_STRUCTURAL_NODES",
-            build_target=nodes,
-            prelude=_seq(_import_wing(), _units_and_edges, _motion("6DOF"), executable),
-            epilogue=_march(steps=3),
-            assert_effect=_called,
-            observe=_calls_read,
-            effect_note="the stand-in is called during the march once the node file is set",
+            build_target=_nodes_only,
+            prelude=_seq(_import_wing(), _units_and_edges, _motion("6DOF")),
+            save_state=True,
+            assert_effect=_saved_names_file(_NODES),
+            observe=_states_read(),
+            effect_note="the saved simulation names the node file after the command",
         ),
         _g(
             "P5-3",
@@ -1372,6 +1547,7 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
             prelude=_seq(
                 _import_wing(),
                 _units_and_edges,
+                _aero_frame,
                 _flow(steady=False, velocity=30.0, steps=3, dt=0.01),
                 _emit("SOLVER_SET_AOA", 4.0),
                 coupling,
@@ -1379,7 +1555,40 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
             epilogue=_seq(
                 _emit("SET_AEROELASTIC_ITERATIONS", 1),
                 _emit("SET_AEROELASTIC_COUPLING_IN_UNSTEADY", "ENABLE"),
-                _sections_then_start,
+                _sections_in_frame_then_start(2),
+            ),
+            assert_effect=_called,
+            observe=_calls_read,
+            effect_note=(
+                "the stand-in is called by the coupling and finds the sectional loads file "
+                f"{LOADS_FILE} in its folder"
+            ),
+        ),
+        _g(
+            "P5-3f",
+            "P5",
+            "route B, the route if the motion pair is unrecognised: the user's program as the "
+            "aeroelastic structural execution command on an unsteady coupled wing, three steps, "
+            "with the package's post-processing script exporting the sectional loads file the "
+            "PyNite beam reads: is it called, in which folder, with which files, and does the "
+            "march continue on the zero displacements it answers",
+            "P5-3, the same coupling with its sections cut in frame 2, which stopped the "
+            "script at the end of the section block (second batch, 26.124)",
+            solves=True,
+            command="SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
+            build_target=route_b,
+            prelude=_seq(
+                _import_wing(),
+                _units_and_edges,
+                _aero_frame,
+                _flow(steady=False, velocity=30.0, steps=3, dt=0.01),
+                _emit("SOLVER_SET_AOA", 4.0),
+                coupling,
+            ),
+            epilogue=_seq(
+                _emit("SET_AEROELASTIC_ITERATIONS", 1),
+                _emit("SET_AEROELASTIC_COUPLING_IN_UNSTEADY", "ENABLE"),
+                _sections_in_frame_then_start(1),
             ),
             assert_effect=_called,
             observe=_calls_read,
@@ -1678,6 +1887,54 @@ def _register() -> None:
 
 
 _register()
+
+
+def declined_surface_probes() -> tuple[GapProbe, ...]:
+    """Return the licensed probe of a declined surface on 26.125 (PFS-2085.021).
+
+    A surface on the vorticity induced-drag list with no trailing edge is not
+    computed, and builds up to 26.124 print its CDi as zero (SRC-003 p.202);
+    the polar declines it there. Whether 26.125, which prints CDp and CDv in
+    place of CDi and CDo, prints the same zero was never measured, so the
+    package declines nothing on 26.125. Two runs settle it: a wing and a sphere
+    (a closed body with no trailing edge) solved, then the list set with the
+    sphere on it, and the same run with the wing alone on the list. Both builds
+    run both, so 26.124 shows the zero the manual describes beside whatever
+    26.125 prints. Neither run is registered: the command keeps its catalog
+    probe, and the reading is the answer.
+    """
+    common: dict[str, object] = {
+        "solves": True,
+        "command": "SET_VORTICITY_DRAG_BOUNDARIES",
+        "prelude": _seq(
+            _wing_and_sphere, _flow(steady=True), _emit("SOLVER_SET_AOA", 4.0), _start()
+        ),
+        "epilogue": _declined_export,
+        "assert_effect": _sphere_row_read,
+        "observe": _drag_read,
+    }
+    return (
+        _g(
+            "D-01",
+            "D",
+            "a sphere with no trailing edge on the vorticity induced-drag list beside a wing: "
+            "what the loads export prints in the sphere's drag columns",
+            "D-01c, the same solve with the wing alone on the list",
+            build_target=_emit("SET_VORTICITY_DRAG_BOUNDARIES", 2, [1, 2]),
+            effect_note="the loads export after the list holds the sphere's row",
+            **common,  # type: ignore[arg-type]
+        ),
+        _g(
+            "D-01c",
+            "D",
+            "control of D-01: the wing alone on the vorticity list, the sphere integrated by "
+            "surface pressure",
+            "this run is the control of D-01",
+            build_target=_emit("SET_VORTICITY_DRAG_BOUNDARIES", 1, [1]),
+            effect_note="the loads export after the list holds the sphere's row",
+            **common,  # type: ignore[arg-type]
+        ),
+    )
 
 
 def gap_commands(probes: Sequence[GapProbe]) -> dict[str, list[str]]:
