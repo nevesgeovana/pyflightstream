@@ -372,7 +372,13 @@ def test_p0350_run_fr361_a_job_that_does_not_launch_fails_its_points(tmp_path):
     )
     matrix = _matrix(tmp_path)
     _plan(workspace, matrix, mode="batch", batch=1)
-    records = _run(workspace, matrix, executor=_submitting(profile))
+    # 0.40.0 (PFS-2094.031): the job that did not launch is raised, its records with it.
+    from pyflightstream.run import CampaignErrors
+
+    with pytest.raises(CampaignErrors) as raised:
+        _run(workspace, matrix, executor=_submitting(profile))
+    records = raised.value.records
+    assert [r.status for r in raised.value.failures] == [RunStatus.FAILED_EXECUTION] * 3
     assert [r.status for r in records] == [RunStatus.FAILED_EXECUTION] * 3
     assert all("BATCH-7001-7003" in (r.error or "") for r in records)
     on_disk = workspace.read_manifest()

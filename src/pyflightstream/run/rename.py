@@ -56,12 +56,12 @@ import json
 import shutil
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     POINT_AXIS_KEYS,
     CampaignConfigError,
     SimCase,
@@ -70,14 +70,15 @@ from pyflightstream.cases import (
     sweep_name,
 )
 from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix
+from pyflightstream.run._record_files import _now_stamp
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
-    ARCHIVE_STAMP,
     DATAPOINT_PREFIX,
     PointName,
     archive_previous,
     datapoint_dir_name,
+    free_root_archive,
     point_file_stem,
     sweep_file_stem,
 )
@@ -344,13 +345,20 @@ def _stem_of(names: Sequence[str]) -> str:
     Every export of a point is ``<stem>`` plus a suffix that begins with ``.``
     or ``_`` (``.txt``, ``.dat``, ``_cp.txt``, ``_log.txt``), so the stem is
     the longest common prefix that every name continues with one of those two
-    characters. A single file therefore yields its own name without its
-    extension, which is the same string.
+    characters. A single file yields its name without the longest export
+    suffix it ends with (:data:`EXPORT_KINDS`), else without its extension:
+    a lone ``<stem>_log.txt`` taken whole as ``<stem>_log`` was renamed onto
+    the loads export's name ``<new stem>.txt`` (PFS-2096.007).
     """
     if not names:
         return ""
     if len(names) == 1:
-        return Path(names[0]).stem
+        name = names[0]
+        suffixes = [kind[1] for kind in EXPORT_KINDS if name.endswith(kind[1])]
+        longest = max(suffixes, key=len, default="")
+        if longest and len(name) > len(longest):
+            return name[: -len(longest)]
+        return Path(name).stem
     shortest = min(names, key=len)
     for size in range(len(shortest), 0, -1):
         head = shortest[:size]
@@ -478,11 +486,15 @@ def _point_of_row(row: MatrixRow, point: Mapping[str, float]) -> bool:
 
 
 def _archive_manifest(workspace: CampaignWorkspace) -> RenameChange:
-    """Copy runs.json under ``archive/`` before it is rewritten."""
-    stamp = datetime.now(UTC).strftime(ARCHIVE_STAMP)
-    archive = workspace.root / ARCHIVE_DIR
-    archive.mkdir(parents=True, exist_ok=True)
-    target = archive / f"runs-{stamp}.json"
+    """Copy runs.json under ``archive/`` before it is rewritten.
+
+    In local time and through the one home of the spelling, as every other
+    archiver writes (PFS-2096.008, PFS-2096.006): a UTC stamp sorted against
+    the local ones made restore take the wrong copy as the newest, and a
+    hand-built name overwrote a copy written within the same second.
+    """
+    (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
+    target = free_root_archive(workspace.root, workspace.manifest_path.name, _now_stamp())
     shutil.copy2(workspace.manifest_path, target)
     return RenameChange(
         "manifest archived",
@@ -712,10 +724,15 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
     plans: list[_Plan] = []
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
+    # EVERY ROW IN MANIFEST ORDER, a note as it is (PFS-2096.024): the
+    # rewritten manifest was built from the plans alone, so every delete-sims
+    # note was dropped from runs.json.
+    ordered: list[_Plan | dict[str, Any]] = []
 
     for record in raw:
         if record.get("deleted_sim") is not None:
-            continue  # a delete-sims note names no run to rename (0.30.0)
+            ordered.append(record)  # a delete-sims note names no run to rename (0.30.0)
+            continue
         stem = record.get("matrix_stem")
         if stem not in rows_by_stem:
             rows_by_stem[stem] = _rows_of(workspace.root, stem)
@@ -730,6 +747,7 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
         plan = _plan_record(record, row, report, claimed)
         if plan is not None:
             plans.append(plan)
+            ordered.append(plan)
 
     if report.refusals:
         raise WorkspaceError(
@@ -740,7 +758,11 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
     rewritten: list[dict[str, Any]] = []
     pending: list[tuple[Path, Path]] = []
     destinations = _Destinations()
-    for plan in plans:
+    for item in ordered:
+        if not isinstance(item, _Plan):
+            rewritten.append(dict(item))
+            continue
+        plan = item
         entry = dict(plan.record)
         sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
         if plan.moves:
@@ -841,19 +863,27 @@ def _plan_changes(
     ``applied`` is False for the rehearsal, which reads the same files, decides
     the same way and writes nothing.
     """
-    every_identity: list[tuple[str, str]] = []
-    every_path: list[tuple[str, str]] = []
+    # PER SIMULATION (PFS-2096.009). A 0.20 tag names neither the simulation
+    # nor its fixed condition, so two rows at different Mach sweeping one alpha
+    # share a tag and take different new names; one merged map gave every plan
+    # entry the last simulation's names. A plan entry carries its sim_id, and
+    # takes the pairs of its own simulation's records; one without it takes
+    # the merged pairs, as before.
+    every_identity: dict[str | None, list[tuple[str, str]]] = {None: []}
+    every_path: dict[str | None, list[tuple[str, str]]] = {None: []}
     stems: set[str | None] = set()
     for plan in plans:
-        every_identity.extend(plan.identity_pairs())
-        every_path.extend(plan.path_pairs())
+        sim = str(plan.record.get("sim_id", ""))
+        for key in (None, sim):
+            every_identity.setdefault(key, []).extend(plan.identity_pairs())
+            every_path.setdefault(key, []).extend(plan.path_pairs())
         stems.add(plan.record.get("matrix_stem"))
     # BACK THROUGH `_usable`, because concatenating several plans' lists loses
     # the longest-first order each of them arrived in: one plan's point stem can
     # come before another plan's longer script stem, which is the same defect as
     # F1 one level up.
-    identity = _usable(every_identity)
-    paths = _usable(every_path)
+    identity = {key: _usable(pairs) for key, pairs in every_identity.items()}
+    paths = {key: _usable(pairs) for key, pairs in every_path.items()}
     changes: list[RenameChange] = []
     for stem in stems:
         plan_file = workspace.plan_dir(stem) / "plan.json"
@@ -867,8 +897,11 @@ def _plan_changes(
         for entry in payload.get("points", []) if isinstance(payload, dict) else []:
             if not isinstance(entry, dict):
                 continue
+            # A simulation no record of which is renamed keeps its entries.
+            of_sim = str(entry["sim_id"]) if entry.get("sim_id") is not None else None
             for key, value in entry.items():
-                entry[key] = _substitute(value, identity if key in IDENTITY_FIELDS else paths)
+                pairs = (identity if key in IDENTITY_FIELDS else paths).get(of_sim, ())
+                entry[key] = _substitute(value, pairs)
         after = json.dumps(payload, indent=2) + "\n"
         if after != before:
             if applied:

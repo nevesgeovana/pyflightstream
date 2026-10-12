@@ -104,7 +104,9 @@ def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
     assert [found[f"5001_{index}"] for index in (1, 2, 3)] == names
     capsys.readouterr()
     assert cli.main(["mark-failed", "--sims", "5001_3", "--workspace", str(workspace.root)]) == 0
-    assert "warm/sim_5001/sweep" in capsys.readouterr().out
+    # 0.40.0 (PFS-2103.009): the job's third point alone, by its own run id.
+    out = capsys.readouterr().out
+    assert f"warm/sim_5001/{names[2]}" in out and f"warm/sim_5001/{names[0]}" not in out
 
 
 def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, capsys):
