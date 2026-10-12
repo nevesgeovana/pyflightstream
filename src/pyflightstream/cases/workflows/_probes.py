@@ -320,25 +320,14 @@ def _normal_probes_of(case: SimCase) -> bool:
         The pproc mixes the two kinds on this row, naming the entries of each.
     """
     pproc = case.pproc
-    if pproc is None or not pproc.probes:
+    if pproc is None:
         return False
-    normal = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind == "normal"]
-    if not normal:
-        return False
-    unsteady = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind != "normal"]
-    if pproc.volume_section is not None:
-        unsteady.append("[volume_section]")
-    if unsteady:
+    try:
+        return pproc.samples_normal_probes()
+    except CampaignConfigError as error:
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} mixes probe kinds "
-            f"on an unsteady row: unsteady (fluid plots at every time step) "
-            f"{', '.join(unsteady)}; normal (probe points at the last time step) "
-            f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
-            'way, an entry stating no kind counting as kind = "unsteady", and a '
-            "[volume_section] is sampled through fluid plots. State one kind on every "
-            "entry, or move the other entries to a second pproc on their own row."
-        )
-    return True
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} {error}"
+        ) from error
 
 
 #: FR-417: the commands that create the probe points of a normal entry.

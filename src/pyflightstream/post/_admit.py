@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import PprocSpec, classify_outputs
+from pyflightstream.cases import CampaignConfigError, PprocSpec, classify_outputs
 from pyflightstream.cases.windows import regate, replan
 from pyflightstream.post._condition import (
     _defaulted_window,
@@ -90,8 +90,15 @@ def _admit(
     loads = _loads_of(record, sim_dir, admitted.skipped)
     if loads is None:
         return
-    stem = _admit_point(admitted, record, loads)
-    _admit_windows(admitted, record, stem, matrix_row, pproc)
+    stem = loads[0][: -len(".txt")]
+    try:
+        _admit_windows(admitted, record, stem, matrix_row, pproc)
+    except CampaignConfigError as error:
+        reason = f"invalid current averaging window: {error}"
+        admitted.skipped[f"runs/{record.run_id}"] = reason
+        warn(f"{stem}: {reason}", PyflightstreamWarning, stacklevel=2)
+        return
+    _admit_point(admitted, record, loads)
     # FR-91. Where this run put its probe points. Per SIM and identical
     # across the sweep, so the first record that names one answers for
     # every point; a record written before 0.16.0 names none and the
@@ -275,6 +282,7 @@ def _admit_windows(
     row_variables = getattr(matrix_row, "variables", None)
     gate = getattr(pproc, "phase_locked", None)
     replanned = replan(record.reductions, row_variables, gate=gate)
+    point_window = _matrix_window(matrix_row, record) or _stated_window(record)
     if replanned is not None and stem not in admitted.plans:
         ran = _recorded_window(record.reductions)
         now = _recorded_window(replanned)
@@ -296,7 +304,6 @@ def _admit_windows(
     current = replanned or record.reductions
     regated = regate(current, gate) if replanned is None else None
     admitted.plans.setdefault(stem, regated or current)
-    point_window = _matrix_window(matrix_row, record) or _stated_window(record)
     if point_window is None:
         point_window = _defaulted_point_window(admitted, record, stem)
     if point_window is not None:

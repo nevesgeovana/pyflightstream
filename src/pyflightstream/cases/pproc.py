@@ -38,6 +38,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 # module imports only the floor, so the package may import it while it loads.
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
+from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
 from pyflightstream.commands import CommandRegistry
 
@@ -2324,13 +2325,27 @@ class PprocSpec(BaseModel):
 
         True when the artifact declares at least one ``[[probes]]`` entry and
         every entry states ``kind = "normal"`` (FR-417); an entry that states no
-        kind is ``unsteady``. A mixture is refused by the unsteady builders,
-        naming the entries of each kind; a steady row samples probe points
-        whatever this says.
+        kind and a volume section are ``unsteady``. A mixture is refused here,
+        naming the entries of each kind. Steady callers do not ask this question.
 
         Returns
         -------
         bool
             Whether the entries are all normal probes.
         """
-        return bool(self.probes) and all(entry.kind == "normal" for entry in self.probes)
+        normal = [str(n) for n, entry in enumerate(self.probes, 1) if entry.kind == "normal"]
+        if not normal:
+            return False
+        unsteady = [str(n) for n, entry in enumerate(self.probes, 1) if entry.kind != "normal"]
+        if self.volume_section is not None:
+            unsteady.append("[volume_section]")
+        if unsteady:
+            raise CampaignConfigError(
+                "mixes probe kinds on an unsteady row: unsteady (fluid plots at every time step) "
+                f"{', '.join(unsteady)}; normal (probe points at the last time step) "
+                f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
+                'way, an entry stating no kind counting as kind = "unsteady", and a '
+                "[volume_section] is sampled through fluid plots. State one kind on every "
+                "entry, or move the other entries to a second pproc on their own row."
+            )
+        return True

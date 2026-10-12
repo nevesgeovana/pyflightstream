@@ -22,7 +22,7 @@ import json
 
 import pytest
 
-from pyflightstream.cases import windows
+from pyflightstream.cases import CampaignConfigError, windows
 
 #: A run of 1000 steps turning a rotor at 250 steps per revolution, four blades
 #: on the flat path, with a second rotor block at 500 steps per revolution.
@@ -79,14 +79,27 @@ def test_the_span_is_the_last_revolutions_of_the_clock_or_the_last_iterations():
     [
         {},
         {"LAST_REVS_AVG": "-"},
-        {"LAST_REVS_AVG": "0"},
-        {"LAST_ITERS_AVG": "nope"},
-        {"LAST_REVS_AVG": "1", "LAST_ITERS_AVG": "10"},
     ],
 )
 def test_a_row_that_states_no_usable_key_resolves_to_nothing(variables):
     assert windows.averaging_span(variables, last_step=1000, per_revolution=250.0) is None
     assert windows.replan(PLAN, variables) is None
+
+
+@pytest.mark.parametrize(
+    "variables",
+    [
+        {"LAST_REVS_AVG": "0"},
+        {"LAST_ITERS_AVG": "nope"},
+        {"LAST_REVS_AVG": "1", "LAST_ITERS_AVG": "10"},
+    ],
+)
+def test_p0400_invalid_stated_window_is_refused(variables):
+    """P0400-WINDOW-REFUSAL: invalid input does not reuse the recorded window."""
+    with pytest.raises(CampaignConfigError):
+        windows.averaging_span(variables, last_step=1000, per_revolution=250.0)
+    with pytest.raises(CampaignConfigError):
+        windows.replan(PLAN, variables)
 
 
 def test_revolutions_without_a_clock_resolve_to_nothing_rather_than_a_guess():
