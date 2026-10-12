@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 import warnings
 from collections.abc import Mapping, Sequence
 from os import PathLike, fspath
@@ -1533,6 +1534,13 @@ def probes_from_file(script: Script, path: str, *, units: str, frame: int | str 
     script.emit("PROBE_POINTS_IMPORT", units, frame, path)
 
 
+def _caller_site(depth: int) -> str:
+    """Name the ``file:line`` of the frame ``depth`` calls above this function's caller."""
+    frame = sys._getframe(depth + 1)
+    name = frame.f_code.co_filename.replace("\\", "/").rsplit("/", 1)[-1]
+    return f"{name}:{frame.f_lineno}"
+
+
 def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     """Export the probe values, refreshing them first (SRC-003 pp.362-363).
 
@@ -1556,9 +1564,10 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         identical lines and nothing anywhere recorded that only one
         survived (PFS-2011.02).
 
-        The message names BOTH call sites, because one naming only the
-        second sends the reader to the wrong line: the one they need to
-        change is usually the earlier one.
+        The message names the EARLIER call site, the helper and the file
+        and line it was called from, because one naming only the second
+        sends the reader to the wrong line: the one they need to change is
+        usually the earlier one. The second site is the traceback's.
 
     Notes
     -----
@@ -1572,7 +1581,7 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     if _read("export_probes", "update", update):
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
-    script._exported_paths[path] = "export_probes"
+    script._exported_paths[path] = f"export_probes (called at {_caller_site(1)})"
 
 
 def coordinate_frame(

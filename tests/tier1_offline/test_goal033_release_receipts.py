@@ -764,8 +764,10 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
         if not setup._carries(lines, route.block) or setup._carries(control, route.block):
             broken.append(f"{command}: script route does not discriminate")
     for path, commands in setup.PROVED_ELSEWHERE.items():
-        text = (ROOT / path).read_text(encoding="utf-8")
-        broken += [c for c in commands if f"GOAL033:setup_bc:operational_commands:{c}" not in text]
+        # The replays skip without the private receipts, so CI holds that each tag sits in
+        # a test that reads a recorded receipt and asserts on it, not that the replay ran.
+        held = setup.tag_holders((ROOT / path).read_text(encoding="utf-8"))
+        broken += [f"{c}: {held.get(c)}" for c in commands if held.get(c) != "ok"]
     assert not broken, "in scope and not operational:\n  " + "\n  ".join(broken)
 
     admitted = []
@@ -1235,6 +1237,152 @@ def test_receipt_validator_accepts_the_valid_receipt(name, tmp_path):
     validate(build(tmp_path), _tree())
 
 
+#: The refusal each arm must be refused FOR, by (case, arm), measured on the tree this
+#: change landed on. The runner used to accept any refusal, so an arm refused by an
+#: earlier check passed without its own check ever running (PFS-2135.073).
+ARM_REFUSAL: dict[tuple[str, str], str] = {
+    (
+        "clean_install",
+        "artifact_hash",
+    ): "wheel: sha256 of pyflightstream-0.29.0-py3-none-any.whl differs from t",
+    ("clean_install", "help_exit"): "pyfs-matrix --help exit",
+    ("clean_install", "import_version"): "import reports another version",
+    ("clean_install", "not_pypi"): "index is not PyPI",
+    ("clean_install", "obligation"): "obligation is not delivery:checks:clean_install",
+    ("clean_install", "pypi_digest"): "wheel differs from PyPI's digest",
+    ("clean_install", "version"): "version is not 0.29.0",
+    (
+        "d10",
+        "artifact_hash",
+    ): "kit: sha256 of DLV-014-015_fts-guides_pyflightstream-0.29.0.zip differ",
+    ("d10", "bare_filename"): "statement must assert the executables-only change",
+    ("d10", "member_lacks_it"): "the statement is not in the Linux guide",
+    ("d10", "no_toml"): "statement must assert the executables-only change",
+    ("d10", "not_in_guide"): "statement must assert the executables-only change",
+    ("d10", "obligation"): "obligation is not capability_ids:items:D10",
+    ("d10", "version"): "version is not 0.29.0",
+    (
+        "d15",
+        "artifact_hash",
+    ): "kit: sha256 of DLV-014-015_fts-guides_pyflightstream-0.29.0.zip differ",
+    ("d15", "member_hash"): "member guide.pdf hash",
+    ("d15", "member_missing"): "members differ from the zip's",
+    ("d15", "obligation"): "obligation is not capability_ids:items:D15",
+    ("d15", "version"): "version is not 0.29.0",
+    ("dev_wheels", "artifact_hash"): "log: sha256 of build.log differs from the receipt",
+    ("dev_wheels", "empty_block"): "B2: no wheel",
+    ("dev_wheels", "not_ancestor"): "B1: revision is not an ancestor of HEAD",
+    ("dev_wheels", "not_dev"): "B1: not a dev version",
+    ("dev_wheels", "obligation"): "obligation is not delivery:checks:dev_wheels_per_block",
+    ("dev_wheels", "revision"): "product_revision is not aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ("dev_wheels", "version"): "version is not 0.29.0",
+    (
+        "dev_wheels",
+        "wheel_hash",
+    ): "B1 wheel: sha256 of pyflightstream-0.29.0.dev1-py3-none-any.whl differ",
+    ("g39", "artifact_hash"): "native_section_saved: sha256 of saved.txt differs from the receipt",
+    ("g39", "bool_only"): "native_volume_byte_identical",
+    ("g39", "error"): "max_velocity_error 0.0006 is not the recomputed 0.00039999999999906777",
+    (
+        "g39",
+        "error_understated",
+    ): "max_velocity_error 0.0 is not the recomputed 0.00039999999999906777",
+    ("g39", "native_nan"): "native.vtk Vz: nonfinite value",
+    ("g39", "obligation"): "obligation is not capability_ids:items:G39",
+    ("g39", "probe_inf"): "probe.vtk Velocity: nonfinite value",
+    (
+        "g39",
+        "quantization",
+    ): "velocities differ by 0.00039999999999906777, beyond the CSV quantizati",
+    ("g39", "quantization_bool"): "csv_quantization",
+    ("g39", "quantization_inf"): "csv_quantization",
+    ("g39", "quantization_nan"): "csv_quantization",
+    ("g39", "quantization_zero"): "csv_quantization",
+    ("g39", "revision"): "product_revision is not aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ("g39", "source"): "source src/pyflightstream/_fsm.py is not the one at HEAD",
+    ("g39", "sources_short"): "sources lack {'src/pyflightstream/post/writers.py'}",
+    ("g39", "velocity_array"): "probe_vtk: no array Pressure",
+    (
+        "g39",
+        "velocity_scalars",
+    ): "native_export_vtk: velocity must name one VECTORS or three SCALARS arr",
+    ("g39", "version"): "version is not 0.29.0",
+    (
+        "g63",
+        "artifact_hash",
+    ): "wheel: sha256 of pyflightstream-0.29.0-py3-none-any.whl differs from t",
+    ("g63", "case_unreported"): "artifact role result:c3 missing",
+    ("g63", "count"): "completed_cases",
+    ("g63", "incomplete"): "a case did not complete",
+    ("g63", "obligation"): "obligation is not capability_ids:items:G63",
+    ("g63", "result_missing"): "artifact role result:c2 missing",
+    ("g63", "version"): "version is not 0.29.0",
+    ("g63", "wheel_digest"): "wheel is not PyPI's",
+    ("g63", "workspace"): "workspace",
+    (
+        "g66",
+        "artifact_hash",
+    ): "input:FLIGHTSTREAM_Refs.zip: sha256 of FLIGHTSTREAM_Refs.zip differs f",
+    ("g66", "dispositions"): "dispositions do not cover the inputs",
+    ("g66", "obligation"): "obligation is not capability_ids:items:G66",
+    ("g66", "two_inputs"): "inputs are not the three owner inputs",
+    ("g66", "unreviewed"): "an input is not reviewed",
+    ("g66", "version"): "version is not 0.29.0",
+    (
+        "guides_kit",
+        "artifact_hash",
+    ): "kit: sha256 of DLV-014-015_fts-guides_pyflightstream-0.29.0.zip differ",
+    ("guides_kit", "no_member"): "kit member absent.md missing",
+    ("guides_kit", "obligation"): "obligation is not delivery:checks:guides_kit",
+    ("guides_kit", "user_not_pdf"): "user guide is not a PDF member",
+    ("guides_kit", "version"): "version is not 0.29.0",
+    (
+        "licensed_regressions",
+        "artifact_hash",
+    ): "junit: sha256 of tier3.xml differs from the receipt",
+    (
+        "licensed_regressions",
+        "count",
+    ): "tier 3: declared {'tests': 6, 'failures': 0, 'errors': 0, 'skipped': 0",
+    ("licensed_regressions", "matrix_unhashed"): "artifact role matrix:matrix-b missing",
+    (
+        "licensed_regressions",
+        "obligation",
+    ): "obligation is not delivery:checks:licensed_regressions",
+    (
+        "licensed_regressions",
+        "revision",
+    ): "product_revision is not aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ("licensed_regressions", "tier"): "tier is not 3",
+    ("licensed_regressions", "version"): "version is not 0.29.0",
+    (
+        "linux_guide",
+        "artifact_hash",
+    ): "kit: sha256 of DLV-014-015_fts-guides_pyflightstream-0.29.0.zip differ",
+    ("linux_guide", "obligation"): "obligation is not delivery:checks:linux_guide",
+    ("linux_guide", "version"): "version is not 0.29.0",
+    ("linux_guide", "wrong_member"): "Linux guide install text",
+    ("tier1_tier2", "artifact_hash"): "tier1_junit: sha256 of tier1.xml differs from the receipt",
+    ("tier1_tier2", "obligation"): "obligation is not delivery:checks:tier1_tier2_regressions",
+    ("tier1_tier2", "revision"): "product_revision is not aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    (
+        "tier1_tier2",
+        "tier1_count",
+    ): "tier 1: declared {'tests': 7002, 'failures': 0, 'errors': 0, 'skipped'",
+    ("tier1_tier2", "tier2_licensed"): "tier2_licensed",
+    ("tier1_tier2", "version"): "version is not 0.29.0",
+}
+
+
+def test_every_arm_names_the_refusal_it_is_held_to():
+    """A key matching no arm holds nothing, and an arm without a key accepts any refusal."""
+    arms = {(name, field) for name, (_, _, own) in CASES.items() for field in COMMON | own}
+    assert set(ARM_REFUSAL) == arms, (
+        sorted(set(ARM_REFUSAL) - arms),
+        sorted(arms - set(ARM_REFUSAL)),
+    )
+
+
 @pytest.mark.parametrize(
     "name,field",
     [
@@ -1250,7 +1398,7 @@ def test_receipt_validator_refuses_one_wrong_field(name, field, tmp_path):
     receipt = copy.deepcopy(build(tmp_path))
     validate(copy.deepcopy(receipt), _tree())  # the control: unchanged, it is accepted
     (COMMON | own)[field](receipt)
-    with pytest.raises(ReceiptRefusedError):
+    with pytest.raises(ReceiptRefusedError, match=re.escape(ARM_REFUSAL[(name, field)])):
         validate(receipt, _tree())
 
 

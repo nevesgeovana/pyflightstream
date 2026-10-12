@@ -460,9 +460,7 @@ def test_the_grid_runs_with_scipy_and_rtree_unimportable():
             "         for a in range(k - 1) for b in range(n - 1)]",
             "grid = recover_grid(pts, faces, set(g[:, 0].tolist()))",
             "level = refine_grid(pts, faces, grid, chordwise=2.0, spanwise=2.0)",
-            "loaded = [m for m in sys.modules if m.split('.')[0] in ('scipy', 'rtree')",
-            "          and sys.modules[m] is not None]",
-            "print(len(level.faces), loaded)",
+            "print(len(level.faces))",
         ]
     )
     src = str(Path(pyflightstream.__file__).resolve().parents[1])
@@ -470,8 +468,10 @@ def test_the_grid_runs_with_scipy_and_rtree_unimportable():
     done = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=120
     )
+    # A module set to None in sys.modules makes any import of it raise, so a clean exit IS
+    # the proof; a "loaded" list filtered to non-None entries was always empty (PFS-2135.022).
     assert done.returncode == 0, done.stderr
-    assert done.stdout.split() == ["96", "[]"]
+    assert done.stdout.split() == ["96"]
 
 
 def test_the_spline_reproduces_a_cubic_and_keeps_its_knots():

@@ -102,14 +102,13 @@ def test_fr314_a_build_without_actions_registers_nothing_the_control(row, build)
 
 
 @pytest.mark.parametrize("build", ["26.120", "26.121"])
+@pytest.mark.requirement("FR-314")
 def test_fr314_a_per_step_export_on_a_build_without_actions_is_refused(build):
     """As before 0.33.0: the threshold asks an action the build cannot run."""
     from pyflightstream.cases.workflows import BuildCapabilityError
 
-    requirement = "FR-314"
     with pytest.raises(BuildCapabilityError, match=ACTION_HEAD):
         build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), Script(build))
-    assert requirement
 
 
 #: The sha256 of the goldens as v0.32.0 committed them, recorded from the tag.
