@@ -25,8 +25,10 @@ import shlex
 import subprocess
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
+from pyflightstream._cli import for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
 from pyflightstream.cases.workflows import (
     read_a_choice,
@@ -39,8 +41,8 @@ from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
-from pyflightstream.workspace.costs import select_cost_file
-from pyflightstream.workspace.hpc import select_hpc_profile
+from pyflightstream.workspace.costs import _SELECTED_COST_FILE
+from pyflightstream.workspace.hpc import _SELECTED_HPC
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 
@@ -80,6 +82,35 @@ def _batch_count(text: str) -> int:
             f"batch (CLI: --batch) takes a whole number of at least 1, not {value}"
         )
     return value
+
+
+def _top_rows(text: str) -> int:
+    """Parse the N of ``space-in-use --top N``: a whole number of at least 1 (PFS-2097.009)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--top takes a whole number, not {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"--top takes a whole number of at least 1, not {value}")
+    return value
+
+
+def _rounds(text: str) -> int:
+    """Parse the N of ``collect --rounds N``: a whole number of at least 1 (PFS-2097.009)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--rounds takes a whole number, not {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(
+            f"--rounds takes a whole number of at least 1, not {value}"
+        )
+    return value
+
+
+def _matrix_stem(text: str) -> str:
+    """Read ``restore --matrix`` as rebuild and post read it: a matrix path or its stem."""
+    return Path(text).stem
 
 
 def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
@@ -272,7 +303,23 @@ def parsed(parser: argparse.ArgumentParser, argv: Sequence[str] | None) -> argpa
     with withhold_defaults(parser, argv) as held:
         args = parser.parse_args(argv)
     take_settings(parser, args, held)
+    _select_for_this_invocation(args)
     return args
+
+
+def _select_for_this_invocation(args: argparse.Namespace) -> None:
+    """Select ``--hpc`` and ``--cost-file`` for THIS command alone (PFS-2094.008).
+
+    After the parse and the settings files, never as a side effect of argparse
+    reading the flag: the selection is restored when the command ends, so a
+    later command in the same process does not inherit it.
+    """
+    hpc = getattr(args, "hpc", None)
+    if hpc is not None:
+        for_this_invocation(_SELECTED_HPC, hpc)
+    cost_file = getattr(args, "cost_file", None)
+    if cost_file is not None:
+        for_this_invocation(_SELECTED_COST_FILE, Path(cost_file).stem)
 
 
 def resume_hint(argv: Sequence[str]) -> str:
@@ -340,7 +387,9 @@ def _add_storage_parsers(subparsers: Any) -> None:
         ),
     )
     space.add_argument("--workspace", default=".", help=workspace_help)
-    space.add_argument("--top", type=int, default=15, help="rows shown per grouping (default: 15)")
+    space.add_argument(
+        "--top", type=_top_rows, default=15, help="rows shown per grouping (default: 15)"
+    )
     free = subparsers.add_parser(
         "free-space",
         help="run a storage recipe inputs/management/m<id>.toml (preview unless --apply)",
@@ -467,9 +516,11 @@ def _add_records_parsers(subparsers: Any) -> None:
     restore.add_argument("--stamp", default=None, help="the archive stamp to restore from")
     restore.add_argument(
         "--matrix",
+        type=_matrix_stem,
         default=None,
-        metavar="STEM",
-        help="for products and plan: the matrix whose file to restore, when several have archives",
+        metavar="MATRIX",
+        help="for products and plan: the matrix whose file to restore, when several have "
+        "archives; its file path or its stem, as rebuild and post read it",
     )
     restore.add_argument("--apply", action="store_true", help=apply_help)
     rebuild = subparsers.add_parser(
@@ -686,14 +737,18 @@ def _add_convert_parsers(subparsers: Any) -> None:
 
 
 def _hpc_profile_name(name: str) -> str:
-    """Select the HPC profile ``name`` as argparse reads it, and return it."""
-    select_hpc_profile(name)
+    """Read the HPC profile ``name``; :func:`parsed` selects it for the command alone."""
+    if not name.strip():
+        raise argparse.ArgumentTypeError(
+            "names no profile; give the stem of inputs/hpc/<NAME>.toml"
+        )
     return name
 
 
 def _cost_file_name(name: str) -> str:
-    """Select the cost file ``name`` as argparse reads it, and return it."""
-    select_cost_file(name)
+    """Read the cost file ``name``; :func:`parsed` selects it for the command alone."""
+    if not name.strip():
+        raise argparse.ArgumentTypeError("names no file; give the stem of inputs/costs/<NAME>.toml")
     return name
 
 
@@ -989,7 +1044,7 @@ def _add_collect_parsers(subparsers: Any) -> None:
     )
     collect.add_argument(
         "--rounds",
-        type=int,
+        type=_rounds,
         default=None,
         help="stop a watch after this many sweeps, whatever is still outstanding",
     )
