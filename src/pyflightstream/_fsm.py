@@ -644,8 +644,9 @@ def names_of(token: str, names: Sequence[str]) -> list[str]:
     """Return the names one cell token selects out of a declared inventory, in its order.
 
     The rule, and the reason for its order, are
-    :func:`resolve_family`'s: an exact name wins over a family, and the
-    family match is case folded where the exact one is not. This is the
+    :func:`resolve_family`'s: an exact name wins over a family, tried
+    with its own spelling first and case folded second, and the family
+    match is case folded. This is the
     same rule expressed over a SEQUENCE of names, which is what a caller
     holds when it judges by the surface rows of a loads table rather
     than by a label-to-index map, and it is the one home both readers
@@ -653,6 +654,10 @@ def names_of(token: str, names: Sequence[str]) -> list[str]:
     """
     if token in names:
         return [token]
+    folded = token.casefold()
+    same = [name for name in names if name.casefold() == folded]
+    if same:
+        return same
     wanted = family_of(token)
     return [name for name in names if family_of(name) == wanted]
 
@@ -683,11 +688,11 @@ def resolve_family(token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
     and a family name is reachable precisely because no boundary is
     called ``Blade`` on its own.
 
-    The exact match is case sensitive, matching the script layer's own
-    label lookup. The family match is case folded, matching the expander
-    this package already carried for rotating a component. The two
-    differ deliberately: an exact name is the file's own spelling, and a
-    family is a word the user chooses.
+    The exact match is tried case sensitive first, matching the script
+    layer's own label lookup, and then case folded, because ``blade_1``
+    against ``Blade_1`` names that one surface and not its family. The
+    family match is case folded, matching the expander this package
+    already carried for rotating a component.
     """
     return tuple(sorted(labels[name] for name in names_of(token, list(labels))))
 
