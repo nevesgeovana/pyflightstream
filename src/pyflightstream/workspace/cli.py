@@ -134,11 +134,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "archive",
         help="zip one recorded simulation under archive/ and remove its folder",
         description=(
-            "Zips sims/sim_<sim_id>/ of a completed simulation into archive/ and removes "
+            "Zips sims/sim_<sim_id>/ of a recorded simulation into archive/ and removes "
             "the folder, so the simulation can be re-run into a clean folder while its "
             "evidence stays. Refuses a simulation the manifest (runs.json) does not "
             "record, and an archive name already taken: file management never destroys "
-            "an unrecorded run or an earlier archive."
+            "an unrecorded run or an earlier archive. It does not read the status of the "
+            "simulation's runs, so a failed or stale run is archived like a finished one; "
+            "do not archive a simulation whose run is still going."
         ),
     )
     archive.add_argument("root", help="campaign root carrying runs.json and sims/")
@@ -585,6 +587,11 @@ def withhold_defaults(
     inside, so the parser a reader inspects (``--help``, the generated
     command-line reference) shows the package's defaults.
 
+    Abbreviated options are refused for the length of the parse: the
+    settings are read from the folder an exact ``--workspace`` names, so an
+    abbreviation argparse would expand (``--works PATH``) would parse to one
+    workspace while the settings came from another.
+
     Parameters
     ----------
     parser : argparse.ArgumentParser
@@ -600,6 +607,10 @@ def withhold_defaults(
     supplied = settings_supplied(_named_workspace(argv))
     held = _Held()
     changed: list[tuple[argparse.Action, object, bool]] = []
+    parsers = {id(sub): sub for sub in (parser, *_subparsers(parser).values())}.values()
+    abbreviating = [(each, each.allow_abbrev) for each in parsers]
+    for each, _ in abbreviating:
+        each.allow_abbrev = False
     for sub in {id(sub): sub for sub in _subparsers(parser).values()}.values():
         for dest in _dests(sub):
             for action in (a for a in sub._actions if a.dest == dest and a.option_strings):
@@ -614,6 +625,8 @@ def withhold_defaults(
     finally:
         for action, default, required in changed:
             action.default, action.required = default, required
+        for each, allowed in abbreviating:
+            each.allow_abbrev = allowed
 
 
 def fill_from_settings(

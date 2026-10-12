@@ -256,10 +256,13 @@ def _edge_kind(
     """
     fixed, te = held
     a, b = edge
-    if a in fixed and b in fixed:
-        return FROZEN
+    # Named before FROZEN too: a trailing-edge edge between two interface nodes is
+    # still the trailing edge, and the level's points file is written from these
+    # keys. It stays frozen through the frozen set (:func:`_curves`).
     if a in te and b in te:
         return TRAILING_EDGE
+    if a in fixed and b in fixed:
+        return FROZEN
     if len(fs) != 2:
         return BOUNDARY
     first, second = group.labels[fs[0]], group.labels[fs[1]]
@@ -278,7 +281,7 @@ def _curves(group: _Group, fixed: set[int], te: set[int]) -> tuple[dict[Edge, st
             kind = RIDGE
         if kind is not None:
             curve[edge] = kind
-    return curve, {e for e, k in curve.items() if k == FROZEN}
+    return curve, {e for e in curve if e[0] in fixed and e[1] in fixed}
 
 
 def _ordered(points: Points, families: dict[str, Faces], group: _Group) -> dict[str, Faces]:

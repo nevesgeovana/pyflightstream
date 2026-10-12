@@ -186,7 +186,13 @@ def _changed_commands(comparison: _Comparison) -> list[tuple[int, str, str]]:
             continue
         ran = list(ran_commands[i1:i2])
         renders = list(render_commands[j1:j2])
-        at = ran[0][0] if ran else (ran_commands[i1][0] if i1 < len(ran_commands) else 0)
+        # A command rendered after the last executed one lands after the
+        # executed script's last line, not at its first.
+        at = (
+            ran[0][0]
+            if ran
+            else (ran_commands[i1][0] if i1 < len(ran_commands) else len(comparison.executed))
+        )
         while ran or renders:
             if ran and renders and ran[0][1].split(" ")[0] == renders[0][1].split(" ")[0]:
                 (line, left), (_, right) = ran.pop(0), renders.pop(0)
