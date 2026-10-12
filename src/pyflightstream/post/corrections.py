@@ -71,8 +71,10 @@ from pyflightstream.cases.corrections import (
     QsteadyCorrectionSpec,
     calibration_path,
     calibration_text,
+    parse_calibration,
     read_calibration,
 )
+from pyflightstream.post._stage import PRODUCTS_MANIFEST
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
@@ -1209,7 +1211,7 @@ def _rotor_row(
         found.append((relative, str(entry.get("rotor")), runs))
     if len(found) != 1:
         raise CalibrationError(
-            f"run {run_id!r} is a row of {len(found)} rotor tables of {out / 'products.json'}"
+            f"run {run_id!r} is a row of {len(found)} rotor tables of {out / PRODUCTS_MANIFEST}"
             + (f" for rotor {rotor!r}" if rotor else "")
             + "; the helper reads exactly one. Post the campaign first, or name the rotor"
         )
@@ -1319,7 +1321,7 @@ def sector_offset_calibration(
         if run not in known:
             raise CalibrationError(f"run {run!r} is not in {space.root / 'runs.json'}")
     out = space.products_dir(matrix_stem)
-    manifest_path = out / "products.json"
+    manifest_path = out / PRODUCTS_MANIFEST
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
@@ -1367,7 +1369,10 @@ def sector_offset_calibration(
     path = calibration_path(space.inputs_dir, calibration_id)
     if path.exists() and not overwrite:
         raise CalibrationError(f"{path} exists; pass overwrite=True to replace it")
+    # VALIDATED BEFORE IT TOUCHES THE TARGET. Written first and read back after,
+    # a refused text stayed in the calibrations folder, and with overwrite the
+    # calibration it replaced was already gone.
+    parse_calibration(text, path=path, calibration_id=path.stem)
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, text)
-    read_calibration(path)
     return path
