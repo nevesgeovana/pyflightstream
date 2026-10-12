@@ -311,9 +311,11 @@ def collected_log_texts(
     Returns
     -------
     list of str
-        The text of each collected output whose suffix is ``.txt`` or ``.log``, or
-        whose name is one of ``declared`` or the solver's own log, in the order
-        collected; empty when none is collected.
+        For each collected output whose suffix is ``.txt`` or ``.log``, or whose
+        name is one of ``declared`` or the solver's own log, the lines that carry
+        a G06 sentence and the line after each (:func:`_refusal_excerpt`), in the
+        order collected; an output carrying none is left out. Streamed, so the
+        per-step exports of a long march are never held whole (PFS-2101.003).
     """
     # A name equal to a declared one but for case is the same file on a
     # case-insensitive file system, so the names are compared casefolded. The
@@ -326,11 +328,17 @@ def collected_log_texts(
         if not path.is_file():
             continue
         suffix = path.suffix.casefold()
-        if suffix in _TEXT_SUFFIXES or path.name.casefold() in named:
-            texts.append(path.read_text(encoding="utf-8", errors="replace"))
-        elif suffix not in _BINARY_SUFFIXES:
-            # Any other kind a child script may have exported its log under
-            # (``step_iteration=11.out``): only the lines that carry a sentence.
+        if (
+            suffix in _TEXT_SUFFIXES
+            or path.name.casefold() in named
+            or (
+                # Any other kind a child script may have exported its log under
+                # (``step_iteration=11.out``).
+                suffix not in _BINARY_SUFFIXES
+            )
+        ):
+            # Only the lines that carry a sentence, streamed: the four lines are
+            # all G06 reads, whatever the file (PFS-2101.003).
             excerpt = _refusal_excerpt(path)
             if excerpt:
                 texts.append(excerpt)
