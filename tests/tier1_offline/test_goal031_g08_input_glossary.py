@@ -64,6 +64,12 @@ from pyflightstream.cases import (
     VolumeSectionSpec,
 )
 from pyflightstream.cases._ccs import CcsControlSurface, CcsImportOptions, CcsSubdivisions
+from pyflightstream.cases._farfield_spec import (
+    FarfieldSpec,
+    LatticeShape,
+    LedgersSpec,
+    TrefftzSpec,
+)
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.pproc import (
@@ -181,6 +187,12 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[[probes.lines]]`"): _fields(ProbeLine),
         ("pproc", "`[[probes.rectangles]]`"): _fields(ProbeRectangle),
         ("pproc", "`[[probes.circles]]`"): _fields(ProbeCircle),
+        # FR-459 R2 (0.40.0): the survey lattice, a probe shape.
+        ("pproc", "`[[probes.lattices]]`"): _fields(LatticeShape),
+        # FR-454 (0.40.0): the far-field family's table.
+        ("pproc", "`[farfield]`"): _fields(FarfieldSpec),
+        ("pproc", "`[farfield.trefftz]`"): _fields(TrefftzSpec),
+        ("pproc", "`[farfield.ledgers]`"): _fields(LedgersSpec),
         ("pproc", "`[products]`"): _fields(ProductsSpec),
         # --- the reference artifact -----------------------------------------
         ("reference", "Top-level keys and tables"): _fields(

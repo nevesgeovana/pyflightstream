@@ -4,11 +4,18 @@ Every ledger equation is validated against pencil-and-paper fields
 before any solver runs (DLV-006 Sec. 5): uniform flow, an analytic
 actuator-disk jump, a solid-body swirl patch, and an imposed pure 1P
 cosine loading. No solver, fast, deterministic.
+
+Since 0.40.0 the ledgers take the numpy ``LatticeFields`` of
+``lattice_fields`` (FR-457); the assertions are those of the xarray
+implementation, and the bit parity of every result is held separately by
+``test_p0400_farfield_numpy.py``. The rothalpy guards left with the two
+functions (FR-458).
 """
+
+import dataclasses
 
 import numpy as np
 import pytest
-import xarray as xr
 
 from pyflightstream.farfield import (
     axial_flux,
@@ -17,8 +24,7 @@ from pyflightstream.farfield import (
     crossflow_kinetic_energy,
     cylindrical_components,
     in_plane_moment,
-    irreversible_deficit,
-    lattice_dataset,
+    lattice_fields,
     mass_closure,
     mass_flux,
     plane_integral,
@@ -56,24 +62,24 @@ def uniform_fields():
 
 
 def make_dataset(fields):
-    return cylindrical_components(lattice_dataset(LATTICE, fields))
+    return cylindrical_components(lattice_fields(LATTICE, fields))
 
 
 def test_g0_uniform_flow_closes_every_ledger():
     ds = make_dataset(uniform_fields())
     closure = mass_closure(ds, RHO)
     area = np.pi * (R_OUT**2 - R_IN**2)
-    assert float(closure["relative_spread"]) == 0.0
+    assert float(closure.relative_spread) == 0.0
     assert float(mass_flux(ds, RHO)[0]) == pytest.approx(RHO * V_INF * area, rel=1e-12)
     assert axial_force(ds, RHO, V_INF, inlet=-2.0, outlet=2.0) == pytest.approx(0.0, abs=1e-9)
     fz = transverse_force(ds, RHO, inlet=-2.0, outlet=2.0)
-    assert float(fz["total"]) == pytest.approx(0.0, abs=1e-9)
+    assert float(fz.total) == pytest.approx(0.0, abs=1e-9)
     assert float(shaft_torque(ds, RHO).max()) == pytest.approx(0.0, abs=1e-12)
     my = in_plane_moment(ds, RHO, V_INF, inlet=-2.0, outlet=2.0)
-    assert float(my["total"]) == pytest.approx(0.0, abs=1e-9)
+    assert float(my.total) == pytest.approx(0.0, abs=1e-9)
     ke = crossflow_kinetic_energy(ds, RHO)
-    assert float(np.abs(ke["total"]).max()) == 0.0
-    assert symmetry_floor(ds["u"]) < 1e-11 * V_INF
+    assert float(np.abs(ke.total).max()) == 0.0
+    assert symmetry_floor(ds["u"], ds.psi) < 1e-11 * V_INF
 
 
 def test_g0_actuator_disk_jump_recovers_the_analytic_thrust():
@@ -102,14 +108,14 @@ def test_g0_solid_body_swirl_recovers_torque_and_fills_only_the_swirl_channel():
     fields["v"] = v_theta * np.cos(PSI)
     fields["w"] = -v_theta * np.sin(PSI)
     ds = make_dataset(fields)
-    assert np.allclose(ds["v_theta"].values, v_theta, atol=1e-12)
-    assert np.allclose(ds["v_r"].values, 0.0, atol=1e-12)
+    assert np.allclose(ds["v_theta"], v_theta, atol=1e-12)
+    assert np.allclose(ds["v_r"], 0.0, atol=1e-12)
     torque = float(shaft_torque(ds, RHO)[0])
     analytic = RHO * V_INF * omega * 0.5 * np.pi * (r_core**4 - R_IN**4)
     assert torque == pytest.approx(analytic, rel=5e-3)
     ke = crossflow_kinetic_energy(ds, RHO)
-    assert float(ke["swirl"][0]) == pytest.approx(float(ke["total"][0]), rel=1e-12)
-    assert abs(float(ke["induced"][0])) < 1e-10 * abs(float(ke["total"][0]))
+    assert float(ke.swirl[0]) == pytest.approx(float(ke.total[0]), rel=1e-12)
+    assert abs(float(ke.induced[0])) < 1e-10 * abs(float(ke.total[0]))
 
 
 def test_g0_pure_1p_cosine_loading_puts_the_moment_in_the_harmonic_term():
@@ -120,19 +126,19 @@ def test_g0_pure_1p_cosine_loading_puts_the_moment_in_the_harmonic_term():
     ds = make_dataset(fields)
     my = in_plane_moment(ds, RHO, V_INF, inlet=-2.0, outlet=0.5)
     analytic = RHO * V_INF * amplitude * np.pi * (R_OUT**4 - R_IN**4) / 4.0
-    assert float(my["total"]) == pytest.approx(analytic, rel=5e-3)
+    assert float(my.total) == pytest.approx(analytic, rel=5e-3)
     # The 1P case is pure disk distortion: the moment is entirely the
     # order-1 harmonic (loading) term, the moment-arm term is zero.
-    assert float(my["moment_arm_term"]) == pytest.approx(0.0, abs=1e-9)
-    assert float(my["loading_term"]) == pytest.approx(float(my["total"]), rel=1e-12)
+    assert float(my.moment_arm_term) == pytest.approx(0.0, abs=1e-9)
+    assert float(my.loading_term) == pytest.approx(float(my.total), rel=1e-12)
     # Two independent code paths, one test (DLV-006 Sec. 3.3-3.4).
     harmonic = in_plane_moment(ds, RHO, V_INF, inlet=-2.0, outlet=0.5, method="harmonic")
-    assert float(harmonic["total"]) == pytest.approx(float(my["total"]), rel=1e-10)
+    assert float(harmonic.total) == pytest.approx(float(my.total), rel=1e-10)
     # The order-1 coefficient of u is a(r)/2 on the loaded plane.
-    loaded_u = ds["u"].sel(station=0.5)
-    c1 = azimuthal_harmonics(loaded_u, m_max=2).sel(m=1)
+    loaded_u = ds["u"][ds.station_index(0.5)]
+    c1 = azimuthal_harmonics(loaded_u, ds.psi, m_max=2)[..., 1]
     assert np.allclose(np.real(c1), amplitude * LATTICE.ring_centers / 2.0, rtol=1e-10)
-    c3 = azimuthal_harmonics(loaded_u, m_max=3).sel(m=3)
+    c3 = azimuthal_harmonics(loaded_u, ds.psi, m_max=3)[..., 3]
     assert float(np.abs(c3).max()) < 1e-12
 
 
@@ -143,39 +149,22 @@ def test_transverse_flux_harmonic_path_matches_the_direct_quadrature():
     ds = make_dataset(fields)
     direct = transverse_flux(ds, RHO, method="quadrature")
     spectral = transverse_flux(ds, RHO, method="harmonic")
-    assert np.allclose(direct.values, spectral.values, rtol=1e-10)
+    assert np.allclose(direct, spectral, rtol=1e-10)
 
 
 def test_g3_symmetry_floor_is_recorded_at_machine_precision():
     ds = make_dataset(uniform_fields())
-    floor = symmetry_floor(ds["u"])
+    floor = symmetry_floor(ds["u"], ds.psi)
     assert floor < 1e-11 * V_INF
 
 
 def test_nonuniform_azimuths_are_refused_with_the_physical_cause():
     ds = make_dataset(uniform_fields())
     warped = np.sort(np.random.default_rng(0).uniform(0, 2 * np.pi, LATTICE.n_psi))
-    tampered = ds["u"].assign_coords(psi=warped)
     with pytest.raises(ValueError, match="uniform"):
-        azimuthal_harmonics(tampered)
+        azimuthal_harmonics(ds["u"], warped)
     with pytest.raises(ValueError, match="uniform"):
-        plane_integral(ds.assign_coords(psi=tampered.coords["psi"]), tampered)
-
-
-def test_radicand_guard_masks_and_reports_the_fraction():
-    ds = make_dataset(uniform_fields())
-    w_rel = xr.full_like(ds["u"], 10.0)
-    zero = xr.zeros_like(ds["u"])
-    clean = irreversible_deficit(w_rel, zero, zero)
-    assert float(clean["masked_fraction"]) == 0.0
-    assert float(np.abs(clean["deficit"]).max()) == 0.0
-    poisoned = zero.copy(deep=True)
-    poisoned[0, 0, 0] = 200.0
-    poisoned[1, 3, 5] = 300.0
-    guarded = irreversible_deficit(w_rel, zero, poisoned)
-    assert float(guarded["masked_fraction"]) == pytest.approx(2.0 / w_rel.size)
-    assert np.isnan(float(guarded["deficit"][0, 0, 0]))
-    assert float(np.abs(guarded["deficit"][2]).max()) == 0.0
+        plane_integral(dataclasses.replace(ds, psi=warped), ds["u"])
 
 
 def test_spurious_diagnostic_reports_counts():
@@ -201,12 +190,12 @@ def test_a_missing_sample_no_longer_shrinks_the_integral():
     lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
     shape = (1, lattice.n_r, lattice.n_psi)
     field = np.full(shape, np.pi)
-    ds = lattice_dataset(lattice, {"u": field})
+    ds = lattice_fields(lattice, {"u": field})
     complete = float(plane_integral(ds, ds["u"])[0])
 
     holed = field.copy()
     holed[0, 0, 0] = np.nan
-    ds_holed = lattice_dataset(lattice, {"u": holed})
+    ds_holed = lattice_fields(lattice, {"u": holed})
     result = float(plane_integral(ds_holed, ds_holed["u"])[0])
 
     assert np.isfinite(complete)
@@ -224,12 +213,12 @@ def test_sample_coverage_says_how_much_is_missing():
     lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
     shape = (1, lattice.n_r, lattice.n_psi)
     field = np.full(shape, np.pi)
-    ds = lattice_dataset(lattice, {"u": field})
+    ds = lattice_fields(lattice, {"u": field})
     assert float(sample_coverage(ds["u"])[0]) == 1.0
 
     holed = field.copy()
     holed[0, 0, 0] = np.nan
-    ds_holed = lattice_dataset(lattice, {"u": holed})
+    ds_holed = lattice_fields(lattice, {"u": holed})
     total = lattice.n_r * lattice.n_psi
     assert float(sample_coverage(ds_holed["u"])[0]) == pytest.approx((total - 1) / total)
 
@@ -245,7 +234,7 @@ def _nyquist_dataset(n_psi_target):
     shape = (1, lattice.n_r, n_psi)
     sign = np.cos(np.arange(n_psi) * np.pi)  # +1, -1, +1, ... exactly
     signal = np.broadcast_to(sign, shape).copy()
-    ds = lattice_dataset(lattice, {"u": signal, "v": np.zeros(shape), "w": signal})
+    ds = lattice_fields(lattice, {"u": signal, "v": np.zeros(shape), "w": signal})
     return cylindrical_components(ds), n_psi
 
 
@@ -284,7 +273,7 @@ def test_the_two_paths_still_agree_on_an_ordinary_mode():
     # against a harmonic path that returns 0.0 unconditionally and against the
     # doubled-Nyquist mutant this test exists to catch.
     ds = cylindrical_components(
-        lattice_dataset(
+        lattice_fields(
             lattice,
             {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
         )
@@ -340,7 +329,7 @@ def _holed(*, holes=("u", "v", "w", "p_prime"), stations=(-1.0, 0.0, 1.0), stati
     for name in holes:
         fields[name] = fields[name].copy()
         fields[name][station, 0, 0] = np.nan
-    return cylindrical_components(lattice_dataset(lattice, fields))
+    return cylindrical_components(lattice_fields(lattice, fields))
 
 
 @pytest.mark.parametrize(
@@ -357,23 +346,23 @@ def _holed(*, holes=("u", "v", "w", "p_prime"), stations=(-1.0, 0.0, 1.0), stati
             lambda ds: transverse_flux(ds, RHO, component="w", method="harmonic"),
         ),
         ("shaft_torque", lambda ds: shaft_torque(ds, RHO)),
-        ("crossflow_kinetic_energy", lambda ds: crossflow_kinetic_energy(ds, RHO)["total"]),
-        ("symmetry_floor", lambda ds: symmetry_floor(ds["u"])),
-        ("mass_closure", lambda ds: mass_closure(ds, RHO)["relative_spread"]),
+        ("crossflow_kinetic_energy", lambda ds: crossflow_kinetic_energy(ds, RHO).total),
+        ("symmetry_floor", lambda ds: symmetry_floor(ds["u"], ds.psi)),
+        ("mass_closure", lambda ds: mass_closure(ds, RHO).relative_spread),
         # The public entry points a user actually calls, absent from the first
         # version of this list and added when the re-run passes named them.
         ("axial_force", lambda ds: axial_force(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)),
         (
             "transverse_force",
-            lambda ds: transverse_force(ds, RHO, inlet=-1.0, outlet=0.0)["total"],
+            lambda ds: transverse_force(ds, RHO, inlet=-1.0, outlet=0.0).total,
         ),
         (
             "in_plane_moment total",
-            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)["total"],
+            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0).total,
         ),
         (
             "in_plane_moment loading",
-            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)["loading_term"],
+            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0).loading_term,
         ),
     ],
 )
@@ -399,7 +388,7 @@ def test_the_same_ledgers_are_finite_on_a_complete_plane():
     lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
     shape = (1, lattice.n_r, lattice.n_psi)
     ds = cylindrical_components(
-        lattice_dataset(
+        lattice_fields(
             lattice,
             {
                 "u": np.full(shape, V_INF),
@@ -410,8 +399,8 @@ def test_the_same_ledgers_are_finite_on_a_complete_plane():
         )
     )
     assert np.isfinite(np.asarray(mass_flux(ds, RHO))).all()
-    assert np.isfinite(np.asarray(symmetry_floor(ds["u"])))
-    assert np.isfinite(np.asarray(mass_closure(ds, RHO)["relative_spread"]))
+    assert np.isfinite(np.asarray(symmetry_floor(ds["u"], ds.psi)))
+    assert np.isfinite(np.asarray(mass_closure(ds, RHO).relative_spread))
     assert np.isfinite(np.asarray(transverse_flux(ds, RHO, component="w", method="harmonic"))).all()
 
 
@@ -444,7 +433,7 @@ def test_the_two_paths_agree_at_an_odd_azimuth_count():
     psi = lattice.psi[None, None, :]
     signal = np.broadcast_to(np.cos(7.0 * psi), shape).copy()
     ds = cylindrical_components(
-        lattice_dataset(
+        lattice_fields(
             lattice,
             {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
         )
@@ -467,8 +456,8 @@ def test_the_swirl_channel_sees_a_hole_that_is_only_in_the_transverse_field():
     """
     ds = _holed(holes=("v", "w"))
     energy = crossflow_kinetic_energy(ds, RHO)
-    assert np.isnan(np.asarray(energy["swirl"])).any(), (
-        f"swirl came back {np.asarray(energy['swirl'])!r} from a holed plane"
+    assert np.isnan(np.asarray(energy.swirl)).any(), (
+        f"swirl came back {np.asarray(energy.swirl)!r} from a holed plane"
     )
 
 
@@ -482,72 +471,11 @@ def test_mass_closure_sees_one_dead_station_among_live_ones():
     """
     ds = _holed(holes=("u",))
     closure = mass_closure(ds, RHO)
-    mdot = np.asarray(closure["mdot"])
+    mdot = np.asarray(closure.mdot)
     assert np.isnan(mdot[1]), "the holed station should carry NaN"
     assert np.isfinite(mdot[0]) and np.isfinite(mdot[2]), (
         "the live stations must stay live, or this proves nothing about skipping"
     )
-    assert np.isnan(np.asarray(closure["relative_spread"])), (
+    assert np.isnan(np.asarray(closure.relative_spread)), (
         "the closure judgment was taken over the surviving stations"
     )
-
-
-# --- REV010-011: NaN was in neither bucket ---------------------------------
-#
-# The mask was `radicand < 0`, and every comparison against NaN is False, so
-# a NaN radicand was not masked and did not enter the fraction while sqrt
-# returned NaN anyway. The coverage metadata overstated how much of the
-# field the evaluation had honored, which is the one thing it exists to
-# prevent.
-
-
-def _deficit_for(radicands):
-    """Build inputs whose radicand is exactly the given sequence.
-
-    radicand = w_rel^2 + 2 (dI - dh_s), so with w_rel = 0 and dh_s = 0 the
-    radicand is 2 dI and the test controls it directly.
-    """
-    values = np.asarray(radicands, dtype=float)
-    zeros = xr.DataArray(np.zeros_like(values), dims="cell")
-    return irreversible_deficit(zeros, xr.DataArray(values / 2.0, dims="cell"), zeros)
-
-
-def test_the_reviews_reproduction_no_longer_understates_the_mask():
-    """[-1, NaN, 1]: two of three outputs are NaN, and the metric said 1/3."""
-    result = _deficit_for([-1.0, np.nan, 1.0])
-    assert float(result["masked_fraction"]) == pytest.approx(2 / 3)
-    assert int(np.isnan(result["w_ideal"]).sum()) == 2
-    # The fraction equals the NaN count, which is the property that broke.
-    assert float(result["masked_fraction"]) == pytest.approx(
-        float(np.isnan(result["w_ideal"]).mean())
-    )
-
-
-@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
-def test_every_non_finite_radicand_is_counted_as_invalid(bad):
-    result = _deficit_for([1.0, bad, 4.0])
-    assert float(result["invalid_input_fraction"]) == pytest.approx(1 / 3)
-    assert float(result["negative_radicand_fraction"]) == 0.0
-    assert float(result["masked_fraction"]) == pytest.approx(1 / 3)
-
-
-def test_the_two_causes_are_reported_separately_and_do_not_overlap():
-    """A negative radicand is a statement about the SOLUTION; a non-finite
-    one is a statement about the INPUT. Different meanings, different fixes."""
-    result = _deficit_for([-1.0, np.nan, 1.0, -4.0])
-    assert float(result["negative_radicand_fraction"]) == pytest.approx(2 / 4)
-    assert float(result["invalid_input_fraction"]) == pytest.approx(1 / 4)
-    assert float(result["masked_fraction"]) == pytest.approx(3 / 4)
-    assert float(result["masked_fraction"]) == pytest.approx(
-        float(result["negative_radicand_fraction"]) + float(result["invalid_input_fraction"])
-    )
-
-
-def test_a_clean_field_masks_nothing():
-    """The control. Without it a metric that reported 1.0 always would pass
-    every assertion above."""
-    result = _deficit_for([1.0, 4.0, 9.0])
-    assert float(result["masked_fraction"]) == 0.0
-    assert float(result["invalid_input_fraction"]) == 0.0
-    assert float(result["negative_radicand_fraction"]) == 0.0
-    assert not bool(np.isnan(result["w_ideal"]).any())

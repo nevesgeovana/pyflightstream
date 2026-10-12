@@ -38,6 +38,7 @@ PUBLIC_MODULES = [
     # its calibration file. PUBLIC deliberately: a user writing or checking a
     # calibration reads it with `read_calibration` here.
     "pyflightstream.cases.corrections",
+    "pyflightstream.cases.farfield_inputs",
     "pyflightstream.cases.field_coverage",
     "pyflightstream.cases.freestream",
     "pyflightstream.cases.fsi_workspace",
@@ -71,6 +72,10 @@ PUBLIC_MODULES = [
     "pyflightstream.exceptions",
     "pyflightstream.extras",
     "pyflightstream.farfield",
+    "pyflightstream.farfield.balances",
+    "pyflightstream.farfield.fields",
+    "pyflightstream.farfield.quadrature",
+    "pyflightstream.farfield.trefftz",
     "pyflightstream.fsi",
     "pyflightstream.fsi.beam",
     "pyflightstream.fsi.calibration",
@@ -116,6 +121,8 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.disc_maps",
     "pyflightstream.post.equations",
+    "pyflightstream.post.farfield_fields",
+    "pyflightstream.post.farfield_products",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
     # her pproc is who calls it. It lives in `post` and not in `workspace`
@@ -167,6 +174,8 @@ PUBLIC_MODULES = [
     "pyflightstream.probes",
     "pyflightstream.probes.errors",
     "pyflightstream.probes.geometry",
+    "pyflightstream.probes.lattice",
+    "pyflightstream.probes.layouts",
     "pyflightstream.probes.planar",
     "pyflightstream.qa",
     "pyflightstream.qa.cli",
@@ -203,6 +212,7 @@ PUBLIC_MODULES = [
     "pyflightstream.results.sectional_loads",
     "pyflightstream.results.surface",
     "pyflightstream.results.tables",
+    "pyflightstream.results.wake",
     "pyflightstream.run",
     "pyflightstream.run.cli",
     # FR-99 at 0.18.0. PUBLIC deliberately: the collect stage is a thing a

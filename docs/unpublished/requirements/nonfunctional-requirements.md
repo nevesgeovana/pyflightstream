@@ -142,7 +142,12 @@
 
     | Today | From the migration release |
     |---|---|
-    | numpy, pandas, pydantic, PyYAML, trimesh, xarray | numpy, itaca, pydantic, PyYAML, trimesh |
+    | numpy, pandas, pydantic, PyYAML, trimesh | numpy, itaca, pydantic, PyYAML, trimesh |
+
+    Amended for 0.40.0 (0.40.0, pending), PFS-2139.007: xarray leaves the runtime set in
+    release 0.40.0, ahead of the move to ITACA, because the far field it carried moves to
+    plain numpy arrays (FR-457); the left-hand column is the set of 0.40.0, and pandas
+    stays until its own decision.
 
     pandas and xarray leave and ITACA arrives as one move, not per
     structure (AD-06, AD-07). Reading the right-hand column as already

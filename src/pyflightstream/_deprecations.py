@@ -628,6 +628,13 @@ def removed_names_hook(module: str) -> Callable[[str], object]:
     def refuse(name: str) -> object:
         if name in REMOVED_AT_0_16_0:
             raise AttributeError(removed_name_refusal(module, name))
+        # The names retired in 0.40.0 (FR-457) answer through the same hook,
+        # naming their replacement, rather than a second hook per module.
+        from pyflightstream._retired_names import RetiredAttributeError, retired_attribute
+
+        retired = retired_attribute(module, name)
+        if retired is not None:
+            raise RetiredAttributeError(retired.message())
         raise AttributeError(f"module {module!r} has no attribute {name!r}")
 
     return refuse

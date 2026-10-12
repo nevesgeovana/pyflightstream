@@ -59,6 +59,7 @@ from pyflightstream.cases.workflows import (
     rotor_machs,
     streamline_count,
 )
+from pyflightstream.cases.workflows._farfield import plan_record as farfield_plan_record
 from pyflightstream.cases.workflows._freestream import (
     WakeTermination,
     planned_run_wake,
@@ -224,6 +225,7 @@ class PointPlan:
     wake_termination: dict[str, object] = field(default_factory=dict)
     run_wake_length: dict[str, object] = field(default_factory=dict)
     streamlines: int = 0
+    farfield: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -867,7 +869,7 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
-    return lines + _streamline_lines(points)
+    return lines + _streamline_lines(points) + _farfield_lines(points)
 
 
 def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
@@ -878,6 +880,23 @@ def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
         for entry in points
         if entry.streamlines
     ]
+
+
+def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return one line per far-field input a plan adds or cannot serve (FR-455 R4, 0.40.0)."""
+    lines: list[str] = []
+    for entry in points:
+        inputs = entry.farfield.get("inputs", ()) if entry.farfield else ()
+        for item in cast(Sequence[Mapping[str, object]], inputs):
+            if item.get("state") in ("added", "not_applicable", "refused"):
+                lines.append(f"  {entry.run_id}: far field {farfield_line(item)}")
+    return lines
+
+
+def farfield_line(item: Mapping[str, object]) -> str:
+    """Return one far-field input of the plan as its console line (FR-455 R4)."""
+    what = item.get("source") or item.get("reason") or ""
+    return f"{item.get('analysis')} {item.get('input')} {item.get('state')}: {what}".rstrip(": ")
 
 
 def run_wake_length_line(run: Mapping[str, object]) -> str:
@@ -1401,10 +1420,15 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
         del record["run_wake_length"]
     if not entry.streamlines:
         del record["streamlines"]
+    # FR-455 R4 (0.40.0): the far-field resolution, on a row with [farfield] only.
+    if not entry.farfield:
+        del record["farfield"]
     return record
 
 
-def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
+def _point_facts(
+    point_case: SimCase, *, inflow_fft: bool, fs_version: str | None = None
+) -> dict[str, Any]:
     """Return what a point's plan states about its rotors, wheel and wake, READY or not.
 
     The rotors' tip and helical Mach numbers (0.30.0, M1), a quasi-steady
@@ -1419,6 +1443,7 @@ def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
         "wake_termination": {} if wake is None else wake.record(),
         "run_wake_length": {} if run is None else run.record(),
         "streamlines": streamline_count(point_case),
+        "farfield": {} if fs_version is None else farfield_plan_record(point_case, fs_version),
     }
 
 
@@ -1482,7 +1507,7 @@ def _plan_point(
     # reason is still a point whose rotor may reach the speed of sound.
     # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
     # READY or not, as the Mach numbers do; 0.34.0: a rotor point its wake.
-    base.update(_point_facts(point_case, inflow_fft=inflow_fft))
+    base.update(_point_facts(point_case, inflow_fft=inflow_fft, fs_version=fs_version))
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count

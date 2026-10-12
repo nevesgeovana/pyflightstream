@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -44,9 +45,11 @@ from pyflightstream.probes.planar import (
 
 __all__ = [
     "GeometryEngineMissingError",
+    "InsideReport",
     "OpenMeshError",
     "load_surface_mesh",
     "apply_geometry_gate",
+    "points_inside",
 ]
 
 
@@ -434,3 +437,68 @@ def _refine_band(
     else:
         near = np.zeros(len(candidates), dtype=bool)
     return candidates[~(inside | near)], int(inside.sum()), int(near.sum())
+
+
+@dataclass(frozen=True, eq=False)
+class InsideReport:
+    """Which probe points lie inside the body (FR-459 R4).
+
+    Attributes
+    ----------
+    checked : bool
+        Whether the containment test ran.
+    reason : str or None
+        Why it did not run (the spatial index absent, a mesh that is not
+        watertight), or None.
+    inside : numpy.ndarray
+        One flag per point, True inside the body; all False when unchecked.
+    """
+
+    checked: bool
+    reason: str | None
+    inside: np.ndarray
+
+    @property
+    def count(self) -> int:
+        """How many points lie inside the body."""
+        return int(np.count_nonzero(self.inside))
+
+    def first(self, points: np.ndarray, n: int = 3) -> list[tuple[float, float, float]]:
+        """Return the first ``n`` inside points of ``points``, for a message."""
+        rows = np.asarray(points, dtype=float)[self.inside][:n]
+        return [(float(x), float(y), float(z)) for x, y, z in rows]
+
+
+def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
+    """Test probe points against the body, never refusing for a missing tool (FR-459 R4).
+
+    The containment of the geometry gate, run on any probe points. Where it
+    cannot run, because the ``[geom]`` spatial index is absent or the mesh is
+    not watertight, the report says so and flags nothing: a caller warns that
+    the points were not checked and goes on.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Probe positions ``(n, 3)`` in the mesh's frame and length unit.
+    mesh_path : str or pathlib.Path
+        The geometry mesh of the row.
+
+    Returns
+    -------
+    InsideReport
+        The flags, or why there are none.
+    """
+    array = np.asarray(points, dtype=float).reshape(-1, 3)
+    unchecked = np.zeros(len(array), dtype=bool)
+    try:
+        mesh = load_surface_mesh(mesh_path, require_watertight=True)
+    except OpenMeshError:
+        return InsideReport(False, f"the mesh {Path(mesh_path).name} is not watertight", unchecked)
+    if len(array) == 0:
+        return InsideReport(True, None, unchecked)
+    try:
+        inside = _inside(mesh, array)
+    except GeometryEngineMissingError:
+        return InsideReport(False, "the [geom] extra (scipy and rtree) is not installed", unchecked)
+    return InsideReport(True, None, inside)

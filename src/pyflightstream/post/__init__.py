@@ -204,7 +204,6 @@ from pyflightstream.post.unsteady import (
 )
 from pyflightstream.post.writers import (
     OutputProvenance,
-    dataset_to_points,
     settings_records,
     write_tecplot_points,
     write_vtk_points,
@@ -229,7 +228,6 @@ __all__ = [
     "ReferenceValues",
     "TimestepSeries",
     "blade_passage_average",
-    "dataset_to_points",
     "passage_windows",
     "read_timestep_series",
     "render_post_diagnostics",

@@ -55,13 +55,45 @@ them was inferred from an implementation.
 
 [Integrated sectional loads](definitions/the-sections-table-and-which-row-is-which.md#integrated-sectional-loads-since-0260).
 
-Since 0.40.0 the integrated strips extend half a station spacing beyond each
+The integrated strips extend half a station spacing beyond each
 end station, preserving the full span when the exported stations sit at strip
 centers. The linked definition states the rule for every block.
 
 <a id="the-probes-table"></a>
 
 [The probes table](definitions/the-probes-table.md#the-probes-table).
+
+<a id="the-far-field-family"></a>
+
+[The far-field family](definitions/the-far-field-family.md#the-far-field-family).
+
+<a id="the-discrete-trace"></a>
+
+[The discrete trace (shared by Trefftz A and B)](definitions/the-far-field-family.md#the-discrete-trace).
+
+<a id="trefftz-a"></a>
+
+[Trefftz A, from the section loads](definitions/the-far-field-family.md#trefftz-a).
+
+<a id="trefftz-b"></a>
+
+[Trefftz B, from the solver's wake](definitions/the-far-field-family.md#trefftz-b).
+
+<a id="trefftz-c"></a>
+
+[Trefftz C, from a plane of probes](definitions/the-far-field-family.md#trefftz-c).
+
+<a id="the-balances"></a>
+
+[The balances on the survey lattice](definitions/the-far-field-family.md#the-balances).
+
+<a id="the-survey-lattice"></a>
+
+[The survey lattice and the far-field plane are probes](definitions/the-far-field-family.md#the-survey-lattice).
+
+<a id="what-the-plan-adds"></a>
+
+[What the far-field plan adds](definitions/the-far-field-family.md#what-the-plan-adds).
 
 <a id="the-reductions-of-an-unsteady-point"></a>
 
