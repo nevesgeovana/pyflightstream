@@ -50,7 +50,6 @@ from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
 )
 from pyflightstream.run._executors import (
-    _LOG_OUTPUT_SUFFIX,
     ExecutionResult,
     Executor,
     LocalExecutor,
@@ -628,13 +627,12 @@ def _collect_sweep_outputs(job: _SweepJob) -> RunRecord | None:
             job.sim_dir,
             job.base["surface_translations"],  # type: ignore[arg-type]
         )
+    # The declared logs by the one finder, not the `_log.txt` suffix (PFS-2103.030).
     job.excused = {
         name
         for _, _, point_case in job.point_cases
-        for name in point_case.outputs
-        if job.cannot_log
-        and name.endswith(_LOG_OUTPUT_SUFFIX)
-        and not (job.sim_dir / name).is_file()
+        for name in (_declared_logs(point_case, job.rendered) if job.cannot_log else ())
+        if not (job.sim_dir / name).is_file()
     }
     for point, _stem, point_case in job.point_cases:
         tag = point_name(job.case, point)

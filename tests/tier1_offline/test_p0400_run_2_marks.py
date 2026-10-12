@@ -10,6 +10,28 @@ from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_mark_failed import _record, _workspace
 
 
+def test_p0400_a_local_log_named_without_the_suffix_is_written_from_the_output(tmp_path):
+    """P0400-LOCAL-LOG-NAME (PFS-2103.030): the declared log is found by _declared_logs.
+
+    On an export_log = false machine with --local, the log is written from the
+    solver's captured output; a case naming it ``solver_<point>.out`` (its
+    LOG_OUTPUT) was not found by the ``_log.txt`` suffix, neither written nor
+    excused.
+    """
+    from tests.tier1_offline.test_goal031_local_run_log import _file_route_point
+    from tests.tier1_offline.test_run_wake_edge_count import LOG_AROUND
+
+    printed = LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
+    record = _file_route_point(
+        tmp_path,
+        prints=printed,
+        outputs=["loads_{point}.txt", "solver_{point}.out"],
+        variables={"LOG_OUTPUT": "2"},
+    )
+    assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+    assert any(name.endswith(".out") for name in record.outputs), record.outputs
+
+
 def test_p0400_steady_job_descriptor_names_the_sweep(tmp_path):
     """P0400-JOB-DESCRIPTOR (PFS-2094.039): a steady job's descriptor names the sweep.
 
