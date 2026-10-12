@@ -1,0 +1,2033 @@
+{
+  "_geoverse_header": {
+    "file_version": "1.0.0",
+    "artifact_id": "RPT-165",
+    "last_modified_at": "2026-10-12T00:00:00-03:00",
+    "last_modified_by": {
+      "provider": "OpenAI",
+      "product": "Codex",
+      "model": "GPT-6",
+      "role": "primary-agent"
+    },
+    "dependencies": [
+      "scripts/build_command_coverage.py",
+      "src/pyflightstream/commands/*.yaml",
+      "src/pyflightstream/cases",
+      "src/pyflightstream/workspace",
+      "src/pyflightstream/run",
+      "src/pyflightstream/script",
+      "reports/RPT-106_setup-key-audit_2026-09-30.md",
+      "tests/tier1_offline/reachability_exceptions.json"
+    ],
+    "authority": "pyflightstream",
+    "status": "active",
+    "confidentiality": "public",
+    "change_summary": "Record the 26.125 setup and boundary command coverage partition.",
+    "revision_source": "git"
+  },
+  "build": "26.125",
+  "chapters": [
+    "solver_settings",
+    "solver_initialization",
+    "solver_analysis",
+    "advanced_settings",
+    "boundary_conditions",
+    "inlets_outlets",
+    "actuators",
+    "base_regions",
+    "transition_trips",
+    "unsteady_solver",
+    "simulation_controls",
+    "runtime_settings",
+    "aeroelastic_coupling",
+    "free_surfaces"
+  ],
+  "counts": {
+    "reachable": 121,
+    "not_offered": 37
+  },
+  "rows": [
+    {
+      "command": "CREATE_NEW_ACTUATOR",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333 adds GENERIC to the thrust-profile models a propeller takes, beside CUSTOM and ELLIPTICAL of SRC-752 p.327; the rest of the grammar is unchanged"
+    },
+    {
+      "command": "DELETE_ACTUATOR",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "setup: actuator_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_actuator.py:_actuator_disc"
+      ],
+      "database_note": "SRC-753 p.334, unchanged from SRC-752 p.328"
+    },
+    {
+      "command": "DISABLE_ACTUATOR",
+      "chapter": "actuators",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/actuators.yaml:DISABLE_ACTUATOR"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "ENABLE_ACTUATOR",
+      "chapter": "actuators",
+      "build_status": "documented",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_actuator.py:_actuator_disc",
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.334, unchanged from SRC-752 p.328"
+    },
+    {
+      "command": "SET_ACTUATOR_AXIS",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333, unchanged from SRC-752 p.327"
+    },
+    {
+      "command": "SET_ACTUATOR_NAME",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "setup: actuator_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_actuator.py:_actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333, unchanged from SRC-752 p.327"
+    },
+    {
+      "command": "SET_ACTUATOR_RADIUS",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333, unchanged from SRC-752 p.327"
+    },
+    {
+      "command": "SET_ACTUATOR_WAKE_TYPE",
+      "chapter": "actuators",
+      "build_status": "documented",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.334, unchanged from SRC-752 p.328"
+    },
+    {
+      "command": "SET_PROP_ACTUATOR_PROFILE",
+      "chapter": "actuators",
+      "build_status": "documented",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333, unchanged from SRC-752 p.327"
+    },
+    {
+      "command": "SET_PROP_ACTUATOR_RPM",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.333, unchanged from SRC-752 p.327"
+    },
+    {
+      "command": "SET_PROP_ACTUATOR_SWIRL",
+      "chapter": "actuators",
+      "build_status": "verified",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.334, unchanged from SRC-752 p.328"
+    },
+    {
+      "command": "SET_PROP_ACTUATOR_THRUST",
+      "chapter": "actuators",
+      "build_status": "documented",
+      "reachable": "row: ACTUATOR",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/helpers.py:actuator_disc"
+      ],
+      "database_note": "SRC-753 p.334, unchanged from SRC-752 p.328"
+    },
+    {
+      "command": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: additional_wake_relaxation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "AEROELASTIC_RBF_TYPE",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: aeroelastic_rbf_type",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:aeroelastic_rbf_type",
+        "src/pyflightstream/cases/fsi_workspace.py:emit_aeroelastic_rbf_type",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
+    },
+    {
+      "command": "KUTTA_JOUKOWSKI_LIFT_FORCES",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: kutta_joukowski_lift",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_lift_and_coupling",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "LAMINAR_SEPARATION",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: laminar_separation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "PRINT_ROTOR_INDUCED_VELOCITIES",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: print_rotor_induced_velocities",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "REYNOLDS_AVERAGED_DRAG_FORCES",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: reynolds_averaged_drag",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "ROTOR_INDUCED_VELOCITY_BLENDING",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: rotor_induced_velocity_blending",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: adaptive_field_grid_refinement",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: jet_wake_decay_normalized_length",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.358, read against SRC-752 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"
+    },
+    {
+      "command": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+      "chapter": "advanced_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/advanced_settings.yaml:SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_SOLVER_CONVERGENCE_ITERATIONS",
+      "chapter": "advanced_settings",
+      "build_status": "verified",
+      "reachable": "setup: convergence_iterations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SET_WAKE_DECAY_CONSTANT",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: wake_decay_constant_per_m",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.355, unchanged from SRC-752 p.348"
+    },
+    {
+      "command": "SET_WAKE_NUMERICAL_RELAXATION",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: wake_numerical_relaxation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.358, unchanged from SRC-752 p.351"
+    },
+    {
+      "command": "SET_WAKE_ON_WAKE_INDUCTION",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: wake_on_wake_induction",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SET_WAKE_RELAXATION",
+      "chapter": "advanced_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/advanced_settings.yaml:SET_WAKE_RELAXATION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_WAKE_STREAMWISE_AGGLOMERATION",
+      "chapter": "advanced_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/advanced_settings.yaml:SET_WAKE_STREAMWISE_AGGLOMERATION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_WAKE_TERMINATION_TIME_STEPS",
+      "chapter": "advanced_settings",
+      "build_status": "verified",
+      "reachable": "setup: wake_termination_revolutions_cap",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_freestream.py:_length_steps",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SOLVER_MINIMUM_CP",
+      "chapter": "advanced_settings",
+      "build_status": "verified",
+      "reachable": "setup: minimum_cp",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_minimum_cp"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
+      "chapter": "advanced_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/advanced_settings.yaml:SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SOLVER_SET_FARFIELD_LAYERS",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: farfield_layers",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/run/_plan.py:estimate_point_cost",
+        "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: mesh_induced_wake_velocity",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
+      "chapter": "advanced_settings",
+      "build_status": "documented",
+      "reachable": "setup: unsteady_pressure_and_kutta",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SOLVER_VORTEX_RING_NORMALIZATION",
+      "chapter": "advanced_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/advanced_settings.yaml:SOLVER_VORTEX_RING_NORMALIZATION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "ASSIGN_AEROELASTIC_SURFACES",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "DELETE_AEROELASTIC_STRUCTURAL_NODES",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "EXECUTE_AEROELASTIC_ANALYSIS",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:emit_steady_aeroelastic_analysis",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "IMPORT_AEROELASTIC_STRUCTURAL_NODES",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "SET_AEROELASTIC_CONVERGENCE_THRESHOLD",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "verified",
+      "reachable": "setup: aeroelastic_convergence_threshold",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:_emit_26125_keys"
+      ],
+      "database_note": "SRC-753 p.390, the first edition to document it"
+    },
+    {
+      "command": "SET_AEROELASTIC_COUPLING_IN_UNSTEADY",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
+    },
+    {
+      "command": "SET_AEROELASTIC_ITERATIONS",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
+    },
+    {
+      "command": "SET_AEROELASTIC_POST_PROCESSING_SCRIPT",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
+    },
+    {
+      "command": "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
+    },
+    {
+      "command": "SET_AEROELASTIC_WORKING_DIRECTORY",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.389, unchanged from SRC-752 p.382"
+    },
+    {
+      "command": "SET_DIRECT_AEROELASTIC_MESH_MORPHING",
+      "chapter": "aeroelastic_coupling",
+      "build_status": "documented",
+      "reachable": "row: FSI",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+      ],
+      "database_note": "SRC-753 p.388, the Aeroelastic Coupling Toolbox page; the licensed run of FR-341 (RPT-155) is the evidence a promotion through pyfs-qa apply-compat would cite, and none is recorded yet"
+    },
+    {
+      "command": "AUTO_DETECT_BASE_REGIONS",
+      "chapter": "base_regions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/base_regions.yaml:AUTO_DETECT_BASE_REGIONS"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "CREATE_NEW_BASE_REGION",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.327, unchanged from SRC-752 p.321"
+    },
+    {
+      "command": "DELETE_BASE_REGION",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.327, unchanged from SRC-752 p.321"
+    },
+    {
+      "command": "DETECT_BASE_REGIONS_BY_SURFACE",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "row: BASE_REGIONS",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/script/_build_forms.py:detect_every_boundary"
+      ],
+      "database_note": "SRC-753 p.327 adds -1, every boundary, to the boundary index SRC-752 p.321 took as positive only, and its second sample passes it"
+    },
+    {
+      "command": "REMESH_BASE_REGION",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.328, unchanged from SRC-752 p.322"
+    },
+    {
+      "command": "SELECT_BASE_REGION_FACES",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.328, unchanged from SRC-752 p.322"
+    },
+    {
+      "command": "SET_BASE_REGION_BENDING_ANGLE",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_bending_angle_deg",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_detection_angle"
+      ],
+      "database_note": "SRC-753 p.293, read against SRC-752 p.288: the sample no longer carries the chapter heading the reader took from the next page; the grammar is unchanged"
+    },
+    {
+      "command": "SET_BASE_REGION_CP",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.327, unchanged from SRC-752 p.321"
+    },
+    {
+      "command": "SET_BASE_REGION_TRAILING_EDGES",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.327, unchanged from SRC-752 p.321"
+    },
+    {
+      "command": "SET_OUTFLOW_TRAILING_EDGES",
+      "chapter": "base_regions",
+      "build_status": "removed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: removed: SRC-753 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as SRC-751 and SRC-752 did; not run on 26.125",
+      "evidence": [
+        "src/pyflightstream/commands/base_regions.yaml:SET_OUTFLOW_TRAILING_EDGES"
+      ],
+      "database_note": "SRC-753 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as SRC-751 and SRC-752 did; not run on 26.125"
+    },
+    {
+      "command": "SET_OUTLET_TRAILING_EDGES",
+      "chapter": "base_regions",
+      "build_status": "documented",
+      "reachable": "setup: base_region_operations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_base_region_operations",
+        "src/pyflightstream/cases/workflows/_geometry.py:_detect_base_regions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_refuse_a_renumbering_skip",
+        "src/pyflightstream/cases/workflows/_geometry.py:_the_operations_the_model_reaches"
+      ],
+      "database_note": "SRC-753 p.337, read against SRC-752 p.331: the placeholder is renamed INDEX and the table describes it as the positive index of the outlet boundary whose edges are marked, while the sample still passes -1; the grammar is unchanged"
+    },
+    {
+      "command": "AIR_ALTITUDE",
+      "chapter": "boundary_conditions",
+      "build_status": "verified",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: flight conditions emit the resolved five fluid properties; altitude cannot express dISA or a Reynolds-derived density",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_freestream.py:_fluid"
+      ],
+      "database_note": "SRC-753 p.340, unchanged from SRC-752 p.333"
+    },
+    {
+      "command": "AUTO_DETECT_TRAILING_EDGES",
+      "chapter": "boundary_conditions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/boundary_conditions.yaml:AUTO_DETECT_TRAILING_EDGES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "AUTO_DETECT_WAKE_TERMINATION_NODES",
+      "chapter": "boundary_conditions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/boundary_conditions.yaml:AUTO_DETECT_WAKE_TERMINATION_NODES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
+      "chapter": "boundary_conditions",
+      "build_status": "documented",
+      "reachable": "setup: leading_edge_wake_boundaries",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.329, unchanged from SRC-752 p.323"
+    },
+    {
+      "command": "DETECT_TRAILING_EDGES_BY_SURFACE",
+      "chapter": "boundary_conditions",
+      "build_status": "documented",
+      "reachable": "sidecar: trailing_edges.detect",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
+        "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
+        "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
+        "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/script/_build_forms.py:detect_every_boundary",
+        "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
+        "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
+        "src/pyflightstream/workspace/_refine/_obj.py:te_route"
+      ],
+      "database_note": "SRC-753 p.329 adds a second sample, SURFACES -1 with no index line after it, which checks every surface; the counted form of SRC-752 p.323 is unchanged"
+    },
+    {
+      "command": "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
+      "chapter": "boundary_conditions",
+      "build_status": "documented",
+      "reachable": "sidecar: wake_termination.detect",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
+        "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_detection",
+        "src/pyflightstream/run/_plan.py:_point_lines",
+        "src/pyflightstream/run/_plan.py:_warn_on_short_wakes",
+        "src/pyflightstream/script/_build_forms.py:detect_every_boundary"
+      ],
+      "database_note": "SRC-753 p.331 adds -1, every boundary, to the surface index SRC-752 p.325 took as one surface, and its second sample passes it"
+    },
+    {
+      "command": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
+      "chapter": "boundary_conditions",
+      "build_status": "verified",
+      "reachable": "setup: disabled_wake_trailing_edges",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.329, unchanged from SRC-752 p.323"
+    },
+    {
+      "command": "FLUID_PROPERTIES",
+      "chapter": "boundary_conditions",
+      "build_status": "verified",
+      "reachable": "column: FLIGHT_CONDITION",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_fold_sweep_type",
+        "src/pyflightstream/script/_settings.py:atmosphere"
+      ],
+      "database_note": "SRC-753 p.340, unchanged from SRC-752 p.333"
+    },
+    {
+      "command": "IMPORT_WAKE_EDGES_FROM_FILE",
+      "chapter": "boundary_conditions",
+      "build_status": "verified",
+      "reachable": "sidecar: trailing_edges.file",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
+        "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
+        "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
+        "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/script/helpers.py:mark_wake_edges",
+        "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
+        "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
+        "src/pyflightstream/workspace/_refine/_obj.py:te_route"
+      ],
+      "database_note": "SRC-753 p.329 prints the third token 26.124 was measured to require (RPT-061) and names it: EDGE_TYPE, 1 when the file lists edge mid-points and 2 when it lists edge corner nodes, with the node file's path on the line after the command. SRC-752 p.323 printed two values and no path"
+    },
+    {
+      "command": "MARK_WAKE_TERMINATION_NODES",
+      "chapter": "boundary_conditions",
+      "build_status": "documented",
+      "reachable": "setup: mark_wake_termination_nodes",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.331, unchanged from SRC-752 p.325"
+    },
+    {
+      "command": "PHYSICS",
+      "chapter": "boundary_conditions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/boundary_conditions.yaml:PHYSICS"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_FREESTREAM",
+      "chapter": "boundary_conditions",
+      "build_status": "documented",
+      "reachable": "row: FREESTREAM",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/_settings.py:free_stream"
+      ],
+      "database_note": "SRC-753 p.332, unchanged from SRC-752 p.326"
+    },
+    {
+      "command": "SET_TRAILING_EDGE_TYPE",
+      "chapter": "boundary_conditions",
+      "build_status": "verified",
+      "reachable": "setup: trailing_edge_types",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.329, unchanged from SRC-752 p.323"
+    },
+    {
+      "command": "SONIC_VELOCITY",
+      "chapter": "boundary_conditions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/boundary_conditions.yaml:SONIC_VELOCITY"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "TRAILING_EDGES_IMPORT",
+      "chapter": "boundary_conditions",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/boundary_conditions.yaml:TRAILING_EDGES_IMPORT"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "CREATE_FREE_SURFACE_TFI_MESH",
+      "chapter": "free_surfaces",
+      "build_status": "broken",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: broken: script processing aborted at the command: on a session holding the probe blade, the documented call raised a modal error dialog naming a perimeter curve with zero virtual curves assigned, and the solver was terminated; the manual states no precondition, so what the free surface needs before it is not measured",
+      "evidence": [
+        "src/pyflightstream/commands/free_surfaces.yaml:CREATE_FREE_SURFACE_TFI_MESH",
+        "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
+      ],
+      "database_note": "script processing aborted at the command: on a session holding the probe blade, the documented call raised a modal error dialog naming a perimeter curve with zero virtual curves assigned, and the solver was terminated; the manual states no precondition, so what the free surface needs before it is not measured"
+    },
+    {
+      "command": "DELETE_FREE_SURFACE",
+      "chapter": "free_surfaces",
+      "build_status": "documented",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: no free-surface setup operation; a route requires code; the prerequisite free-surface creation remains broken on 26.125",
+      "evidence": [
+        "src/pyflightstream/commands/free_surfaces.yaml",
+        "reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md"
+      ],
+      "database_note": "SRC-753 p.338, the first edition to document it"
+    },
+    {
+      "command": "FREE_SURFACE_EXPORT_TYPE",
+      "chapter": "free_surfaces",
+      "build_status": "documented",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: no free-surface pproc export route; a route requires code; the prerequisite free-surface creation remains broken on 26.125",
+      "evidence": [
+        "src/pyflightstream/commands/free_surfaces.yaml",
+        "reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md"
+      ],
+      "database_note": "SRC-753 p.338, the first edition to document it"
+    },
+    {
+      "command": "CREATE_NEW_INLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: ports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_rows.py:_refuse_unregistered_keys",
+        "src/pyflightstream/workspace/_matrix_binding.py:_bind_setup_ports",
+        "src/pyflightstream/workspace/_matrix_binding.py:_validate_setup_ports",
+        "src/pyflightstream/workspace/sidecars.py:read_raw_mesh_conditions"
+      ],
+      "database_note": "SRC-753 p.336, unchanged from SRC-752 p.330"
+    },
+    {
+      "command": "CREATE_NEW_OUTLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: ports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_rows.py:_refuse_unregistered_keys",
+        "src/pyflightstream/workspace/_matrix_binding.py:_bind_setup_ports",
+        "src/pyflightstream/workspace/_matrix_binding.py:_validate_setup_ports",
+        "src/pyflightstream/workspace/sidecars.py:read_raw_mesh_conditions"
+      ],
+      "database_note": "SRC-753 p.336, unchanged from SRC-752 p.330"
+    },
+    {
+      "command": "DELETE_INLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: delete_inlets",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.336, unchanged from SRC-752 p.330"
+    },
+    {
+      "command": "DELETE_OUTLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: delete_outlets",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.337, read against SRC-752 p.331: the parameter table now describes the one argument, the index of the outlet to delete, positive; the signature is unchanged"
+    },
+    {
+      "command": "REMESH_INLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: ports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_rows.py:_refuse_unregistered_keys",
+        "src/pyflightstream/workspace/_matrix_binding.py:_bind_setup_ports",
+        "src/pyflightstream/workspace/_matrix_binding.py:_validate_setup_ports",
+        "src/pyflightstream/workspace/sidecars.py:read_raw_mesh_conditions"
+      ],
+      "database_note": "SRC-753 p.336, unchanged from SRC-752 p.330"
+    },
+    {
+      "command": "REMESH_OUTLET",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: ports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_rows.py:_refuse_unregistered_keys",
+        "src/pyflightstream/workspace/_matrix_binding.py:_bind_setup_ports",
+        "src/pyflightstream/workspace/_matrix_binding.py:_validate_setup_ports",
+        "src/pyflightstream/workspace/sidecars.py:read_raw_mesh_conditions"
+      ],
+      "database_note": "SRC-753 p.337, unchanged from SRC-752 p.331"
+    },
+    {
+      "command": "SET_INLET_CUSTOM_PROFILE",
+      "chapter": "inlets_outlets",
+      "build_status": "documented",
+      "reachable": "setup: ports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_setup_ports",
+        "src/pyflightstream/cases/workflows/_rows.py:_refuse_unregistered_keys",
+        "src/pyflightstream/workspace/_matrix_binding.py:_bind_setup_ports",
+        "src/pyflightstream/workspace/_matrix_binding.py:_validate_setup_ports",
+        "src/pyflightstream/workspace/sidecars.py:read_raw_mesh_conditions"
+      ],
+      "database_note": "SRC-753 p.336, unchanged from SRC-752 p.330"
+    },
+    {
+      "command": "SET_MAX_PARALLEL_THREADS",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: max_threads",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/run/_batch_plan.py:_unit_of",
+        "src/pyflightstream/run/_executors.py:bind_submission_values",
+        "src/pyflightstream/run/_plan.py:estimate_point_cost",
+        "src/pyflightstream/script/_settings.py:_emit_family",
+        "src/pyflightstream/workspace/setup_inspection.py:inspect_case_setup"
+      ],
+      "database_note": "SRC-753 p.352, unchanged from SRC-752 p.345"
+    },
+    {
+      "command": "SOLVER_SET_AOA",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "column: FLIGHT_CONDITION (ALPHA)",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_fold_sweep_type",
+        "src/pyflightstream/cases/workflows/_steady.py:build_steady_sweep",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_CONVERGENCE",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: convergence",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_FORCED_ITERATIONS",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: forced_iterations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/run/_assessment.py:_at_the_limit",
+        "src/pyflightstream/run/_assessment.py:_clocking_at_the_limit",
+        "src/pyflightstream/run/_assessment.py:_validate_assessment_loads",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_ITERATIONS",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: iterations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/run/_assemble.py:_assembled_record",
+        "src/pyflightstream/run/_points.py:_assess_point_record",
+        "src/pyflightstream/run/_sweep.py:_assess_sweep_points",
+        "src/pyflightstream/run/collect.py:_sweep_point_entry",
+        "src/pyflightstream/script/_settings.py:_emit_family",
+        "src/pyflightstream/workspace/ledger.py:_point_row",
+        "src/pyflightstream/workspace/manifest.py:as_points"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_MACH_NUMBER",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: freestream_input",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_resolved_native_mach",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_REF_AREA",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "reference: area_m2",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/run/_assemble.py:_assembled_record",
+        "src/pyflightstream/script/_settings.py:_emit_family",
+        "src/pyflightstream/workspace/_matrix_phases.py:_row_update"
+      ],
+      "database_note": "SRC-753 p.352, unchanged from SRC-752 p.345"
+    },
+    {
+      "command": "SOLVER_SET_REF_LENGTH",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "reference: chord_m",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/run/_assemble.py:_assembled_record",
+        "src/pyflightstream/script/_settings.py:_emit_family",
+        "src/pyflightstream/workspace/_matrix_phases.py:_bind_states",
+        "src/pyflightstream/workspace/_matrix_phases.py:_row_update"
+      ],
+      "database_note": "SRC-753 p.352, unchanged from SRC-752 p.345"
+    },
+    {
+      "command": "SOLVER_SET_REF_MACH_NUMBER",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: reference_mach",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/settings.py:_one_reference_normalization",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_REF_VELOCITY",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "setup: reference_velocity_m_per_s",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/settings.py:_one_reference_normalization",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_SIDESLIP",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "column: FLIGHT_CONDITION (BETA)",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_fold_sweep_type",
+        "src/pyflightstream/cases/workflows/_steady.py:build_steady_sweep",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SOLVER_SET_VELOCITY",
+      "chapter": "runtime_settings",
+      "build_status": "verified",
+      "reachable": "column: FLIGHT_CONDITION (VELOCITY)",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_fold_sweep_type",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE",
+      "chapter": "simulation_controls",
+      "build_status": "documented",
+      "reachable": "setup: geometric_edge_bluntness_angle_deg",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_geometry_simulation_controls"
+      ],
+      "database_note": "SRC-753 p.293, unchanged from SRC-752 p.288"
+    },
+    {
+      "command": "SET_SIGNIFICANT_DIGITS",
+      "chapter": "simulation_controls",
+      "build_status": "documented",
+      "reachable": "setup: significant_digits",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_frames.py:_significant_digits"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.288"
+    },
+    {
+      "command": "SET_SIMULATION_LENGTH_UNITS",
+      "chapter": "simulation_controls",
+      "build_status": "verified",
+      "reachable": "setup: simulation_length_unit",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/fsi_workspace.py:validate_workspace_fsi",
+        "src/pyflightstream/cases/workflows/_freestream.py:_free_stream",
+        "src/pyflightstream/cases/workflows/_geometry.py:_geometry_simulation_controls",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_probes",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_sampled_volume",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_surface_probes",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_qsteady_free_stream",
+        "src/pyflightstream/cases/workflows/_rows.py:_from_metres",
+        "src/pyflightstream/run/_field_motion.py:continued_frame_motions"
+      ],
+      "database_note": "SRC-753 p.293, unchanged from SRC-752 p.288"
+    },
+    {
+      "command": "SET_TRAILING_EDGE_BLUNTNESS_ANGLE",
+      "chapter": "simulation_controls",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/simulation_controls.yaml:SET_TRAILING_EDGE_BLUNTNESS_ANGLE"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_TRAILING_EDGE_SWEEP_ANGLE",
+      "chapter": "simulation_controls",
+      "build_status": "documented",
+      "reachable": "sidecar: trailing_edges.detect.sweep_angle",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
+        "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
+        "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
+        "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
+        "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
+        "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
+        "src/pyflightstream/workspace/_refine/_obj.py:te_route"
+      ],
+      "database_note": "SRC-753 p.293, unchanged from SRC-752 p.288"
+    },
+    {
+      "command": "SET_VERTEX_MERGE_TOLERANCE",
+      "chapter": "simulation_controls",
+      "build_status": "documented",
+      "reachable": "setup: vertex_merge_tolerance_m",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_geometry.py:_geometry_simulation_controls"
+      ],
+      "database_note": "SRC-753 p.293, unchanged from SRC-752 p.288"
+    },
+    {
+      "command": "DELETE_VORTICITY_DRAG_BOUNDARIES",
+      "chapter": "solver_analysis",
+      "build_status": "documented",
+      "reachable": "setup: clear_vorticity_drag_boundaries",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/settings.py:_clear_drag_selection_is_unambiguous",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_solve_one_clocking",
+        "src/pyflightstream/cases/workflows/_skeleton.py:_script_solve_and_export"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
+    },
+    {
+      "command": "SET_ANALYSIS_MOMENTS_MODEL",
+      "chapter": "solver_analysis",
+      "build_status": "verified",
+      "reachable": "setup: moments_model",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:moments_model_of",
+        "src/pyflightstream/script/helpers.py:analysis_setup"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "SET_ANALYSIS_SYMMETRY_LOADS",
+      "chapter": "solver_analysis",
+      "build_status": "documented",
+      "reachable": "setup: symmetry_loads",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/helpers.py:analysis_setup",
+        "src/pyflightstream/workspace/setup_inspection.py:inspect_case_setup"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
+    },
+    {
+      "command": "SET_INVISCID_LOADS",
+      "chapter": "solver_analysis",
+      "build_status": "documented",
+      "reachable": "setup: inviscid_loads",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:loads_selections",
+        "src/pyflightstream/script/helpers.py:analysis_setup"
+      ],
+      "database_note": "SRC-753 p.356, unchanged from SRC-752 p.349"
+    },
+    {
+      "command": "SET_LOADS_AND_MOMENTS_UNITS",
+      "chapter": "solver_analysis",
+      "build_status": "verified",
+      "reachable": "setup: load_units",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:loads_selections",
+        "src/pyflightstream/script/helpers.py:analysis_setup"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
+    },
+    {
+      "command": "SET_SOLVER_ANALYSIS_BOUNDARIES",
+      "chapter": "solver_analysis",
+      "build_status": "documented",
+      "reachable": "setup: analysis_families",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:analysis_indices",
+        "src/pyflightstream/script/helpers.py:analysis_setup"
+      ],
+      "database_note": "SRC-753 p.366, unchanged from SRC-752 p.357"
+    },
+    {
+      "command": "SET_SOLVER_ANALYSIS_LOADS_FRAME",
+      "chapter": "solver_analysis",
+      "build_status": "verified",
+      "reachable": "reference: moment_point",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/run/_assemble.py:_assembled_record",
+        "src/pyflightstream/script/helpers.py:analysis_setup",
+        "src/pyflightstream/workspace/_matrix_phases.py:_row_update"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
+    },
+    {
+      "command": "SET_VORTICITY_DRAG_BOUNDARIES",
+      "chapter": "solver_analysis",
+      "build_status": "verified",
+      "reachable": "setup: vorticity_drag_families",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:moments_model_of",
+        "src/pyflightstream/cases/_setup_link.py:vorticity_indices",
+        "src/pyflightstream/cases/settings.py:_clear_drag_selection_is_unambiguous",
+        "src/pyflightstream/run/_plan.py:_marked_trailing_edges",
+        "src/pyflightstream/script/_settings.py:_flush_pending_vorticity",
+        "src/pyflightstream/script/helpers.py:analysis_setup"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
+    },
+    {
+      "command": "SET_VORTICITY_LIFT_MODEL",
+      "chapter": "solver_analysis",
+      "build_status": "documented",
+      "reachable": "setup: vorticity_lift_model",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_lift_and_coupling"
+      ],
+      "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356; 26.124 answered it as an unrecognized command (its removed row), and 26.125 has not run it"
+    },
+    {
+      "command": "CLEAR_SOLUTION",
+      "chapter": "solver_initialization",
+      "build_status": "verified",
+      "reachable": "column: SWEEP_VALUES",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_fold_sweep_type",
+        "src/pyflightstream/cases/workflows/_steady.py:build_steady_sweep"
+      ],
+      "database_note": "SRC-753 p.350, unchanged from SRC-752 p.343"
+    },
+    {
+      "command": "INITIALIZE_SOLVER",
+      "chapter": "solver_initialization",
+      "build_status": "verified",
+      "reachable": "setup: wake_termination_x_m",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_freestream.py:wake_end_plane",
+        "src/pyflightstream/cases/workflows/_freestream.py:wake_termination_of",
+        "src/pyflightstream/script/__init__.py:emit_after_initialization",
+        "src/pyflightstream/script/_settings.py:initialize_solver"
+      ],
+      "database_note": "SRC-753 p.349, unchanged from SRC-752 p.342"
+    },
+    {
+      "command": "REMOVE_INITIALIZATION",
+      "chapter": "solver_initialization",
+      "build_status": "verified",
+      "reachable": "setup: remove_initialization",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.350, unchanged from SRC-752 p.343"
+    },
+    {
+      "command": "SOLVER_CLEAR",
+      "chapter": "solver_initialization",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_initialization.yaml:SOLVER_CLEAR"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SOLVER_PROXIMAL_BOUNDARIES",
+      "chapter": "solver_initialization",
+      "build_status": "verified",
+      "reachable": "setup: proximal_boundaries",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.349, unchanged from SRC-752 p.342"
+    },
+    {
+      "command": "SOLVER_UNINITIALIZE",
+      "chapter": "solver_initialization",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_initialization.yaml:SOLVER_UNINITIALIZE"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "START_SOLVER",
+      "chapter": "solver_initialization",
+      "build_status": "verified",
+      "reachable": "column: WORKFLOW",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_drop_fs_script_and_name_pproc",
+        "src/pyflightstream/cases/_matrix_upgrade.py:_insert_workflow_cell",
+        "src/pyflightstream/cases/workflows/_probes.py:emit",
+        "src/pyflightstream/script/_settings.py:start_solver"
+      ],
+      "database_note": "SRC-753 p.350, unchanged from SRC-752 p.343"
+    },
+    {
+      "command": "CREATE_AIRFOIL_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: airfoil_separation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_separation_models"
+      ],
+      "database_note": "SRC-753 p.353 replaces the third argument: SRC-752 p.346 took the Valarezo criterion as ENABLE or DISABLE, and this edition takes the type of the leading edge instead, one of ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT or SHARP. The boundary count, its -1 form and the index line are unchanged"
+    },
+    {
+      "command": "CREATE_AXIAL_VORTEX_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: axial_vortex_separation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_separation_models"
+      ],
+      "database_note": "SRC-753 p.354, unchanged from SRC-752 p.347"
+    },
+    {
+      "command": "CREATE_BULK_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:CREATE_BULK_SEPARATION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "CREATE_CYLINDRICAL_BULK_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: cylindrical_bulk_separation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_separation_models"
+      ],
+      "database_note": "SRC-753 p.354, read against SRC-752 p.347: the parameter table differs in layout spacing only"
+    },
+    {
+      "command": "CREATE_STRATFORD_BULK_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: stratford_bulk_separation",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_separation_models"
+      ],
+      "database_note": "SRC-753 p.354, unchanged from SRC-752 p.347"
+    },
+    {
+      "command": "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:DELETE_AXIAL_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:DELETE_CROSSFLOW_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DELETE_SEPARATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: delete_separations",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_separation_models",
+        "src/pyflightstream/workspace/setup_standards.py:render_standard"
+      ],
+      "database_note": "SRC-753 p.355, unchanged from SRC-752 p.348"
+    },
+    {
+      "command": "DELETE_THIN_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: thin_boundaries (empty list)",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.355, unchanged from SRC-752 p.348"
+    },
+    {
+      "command": "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:DELETE_VALAREZO_CRITERION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:DELETE_VALAREZO_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DELETE_VISCOUS_EXCLUDED_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: viscous_excluded (empty list)",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "DISABLE_SOLVER_REF_VELOCITY",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: disable_reference_velocity",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/settings.py:_one_reference_normalization",
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.351, unchanged from SRC-752 p.344"
+    },
+    {
+      "command": "SET_AXIAL_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_AXIAL_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_BOUNDARY_LAYER_TYPE",
+      "chapter": "solver_settings",
+      "build_status": "verified",
+      "reachable": "setup: boundary_layer",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_CROSSFLOW_SEPARATION_AXISYMMETRIC"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_CROSSFLOW_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_CROSSFLOW_SEPARATION_CP",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_CROSSFLOW_SEPARATION_CP"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_CROSSFLOW_SEPARATION_DIAMETER",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_CROSSFLOW_SEPARATION_DIAMETER"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_SOLVER_MODEL",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_SOLVER_MODEL"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_SOLVER_STEADY",
+      "chapter": "solver_settings",
+      "build_status": "verified",
+      "reachable": "column: WORKFLOW",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_matrix_upgrade.py:_drop_fs_script_and_name_pproc",
+        "src/pyflightstream/cases/_matrix_upgrade.py:_insert_workflow_cell",
+        "src/pyflightstream/script/_settings.py:_emit_time_regime"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SET_SOLVER_UNSTEADY",
+      "chapter": "solver_settings",
+      "build_status": "verified",
+      "reachable": "row: DELTA_TIME",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/script/_settings.py:_emit_time_regime",
+        "src/pyflightstream/script/_settings.py:unsteady_solver"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SET_SOLVER_VISCOUS_COUPLING",
+      "chapter": "solver_settings",
+      "build_status": "verified",
+      "reachable": "setup: viscous_coupling",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/run/_plan.py:estimate_point_cost",
+        "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.358, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SET_SURFACE_ROUGHNESS",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: surface_roughness",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SET_THIN_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: thin_boundaries",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.355, unchanged from SRC-752 p.348"
+    },
+    {
+      "command": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:SET_VALAREZO_SEPARATION_BOUNDARIES"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SET_VISCOUS_EXCLUDED_BOUNDARIES",
+      "chapter": "solver_settings",
+      "build_status": "verified",
+      "reachable": "setup: viscous_excluded",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family"
+      ],
+      "database_note": "SRC-753 p.353, unchanged from SRC-752 p.346"
+    },
+    {
+      "command": "SOLVER_STABILIZATION",
+      "chapter": "solver_settings",
+      "build_status": "documented",
+      "reachable": "setup: solver_stabilization",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
+        "src/pyflightstream/script/_settings.py:_emit_family",
+        "src/pyflightstream/workspace/_row_setup.py:_preset_spellings"
+      ],
+      "database_note": "SRC-753 p.357, unchanged from SRC-752 p.350"
+    },
+    {
+      "command": "VALAREZO_CRITERION",
+      "chapter": "solver_settings",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/solver_settings.yaml:VALAREZO_CRITERION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "DELETE_TRANSITION_TRIP",
+      "chapter": "transition_trips",
+      "build_status": "documented",
+      "reachable": "setup: delete_transition_trips",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/workflows/_solver_settings.py:_settings"
+      ],
+      "database_note": "SRC-753 p.339, unchanged from SRC-752 p.332"
+    },
+    {
+      "command": "DISABLE_SOLVER_TIME_AVERAGING",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: solver_time_averaging emits ENABLE over a selected window; no setup key emits DISABLE; a route requires code",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:_emit_26125_keys",
+        "src/pyflightstream/script/_build_forms.py:solver_time_averaging"
+      ],
+      "database_note": "SRC-753 p.360, the first edition to document it"
+    },
+    {
+      "command": "ENABLE_SOLVER_TIME_AVERAGING",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "setup: solver_time_averaging",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:_emit_26125_keys",
+        "src/pyflightstream/script/_build_forms.py:solver_time_averaging"
+      ],
+      "database_note": "SRC-753 p.360, the first edition to document it"
+    },
+    {
+      "command": "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+      "chapter": "unsteady_solver",
+      "build_status": "documented",
+      "reachable": "pproc: surface_probes",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/pproc.py:outputs",
+        "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_probes",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_surface_probes"
+      ],
+      "database_note": "SRC-753 p.359, unchanged from SRC-752 p.352"
+    },
+    {
+      "command": "SET_NEW_UNSTEADY_SOLVER_ACTION",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "setup: unsteady_solver_actions",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/_setup_link.py:emit_setup_extras",
+        "src/pyflightstream/cases/_setup_link.py:package_actions",
+        "src/pyflightstream/cases/workflows/_batch_script.py:user_actions_of",
+        "src/pyflightstream/script/helpers.py:unsteady_action"
+      ],
+      "database_note": "SRC-753 p.360, unchanged from SRC-752 p.353"
+    },
+    {
+      "command": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
+      "chapter": "unsteady_solver",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/unsteady_solver.yaml:SET_UNSTEADY_VISCOUS_COUPLING_ITERATION"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "SOLVER_TIME_AVERAGING",
+      "chapter": "unsteady_solver",
+      "build_status": "unprobed",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing",
+      "evidence": [
+        "src/pyflightstream/commands/unsteady_solver.yaml:SOLVER_TIME_AVERAGING"
+      ],
+      "database_note": ""
+    },
+    {
+      "command": "UNSTEADY_SOLVER_ANIMATION",
+      "chapter": "unsteady_solver",
+      "build_status": "documented",
+      "reachable": "",
+      "not_offered": "not offered in 0.40.0: owner decision of 2026-09-27; unsteady actions deliver per-step exports",
+      "evidence": [
+        "reports/RPT-106_setup-key-audit_2026-09-30.md"
+      ],
+      "database_note": "SRC-753 p.360, unchanged from SRC-752 p.353"
+    },
+    {
+      "command": "UNSTEADY_SOLVER_DELETE_ALL_PLOTS",
+      "chapter": "unsteady_solver",
+      "build_status": "documented",
+      "reachable": "pproc: plots",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/pproc.py:global_frame_plot_declarations",
+        "src/pyflightstream/cases/workflows/_additional.py:additional_outputs",
+        "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_pproc.py:_plot_each_rotors_own_history",
+        "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
+        "src/pyflightstream/run/_assemble.py:_reductions"
+      ],
+      "database_note": "SRC-753 p.360, unchanged from SRC-752 p.353"
+    },
+    {
+      "command": "UNSTEADY_SOLVER_EXPORT_PLOTS",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "pproc: exports",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/pproc.py:_a_sections_plot_needs_sections",
+        "src/pyflightstream/cases/pproc.py:_boundary_layer_sections_are_declared",
+        "src/pyflightstream/cases/pproc.py:outputs",
+        "src/pyflightstream/cases/workflows/_additional.py:additional_outputs",
+        "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_batch_script.py:job_point",
+        "src/pyflightstream/cases/workflows/_exports.py:_export_block",
+        "src/pyflightstream/cases/workflows/_exports.py:_surface_export",
+        "src/pyflightstream/run/_actions_counter.py:render_program"
+      ],
+      "database_note": "SRC-753 p.359, unchanged from SRC-752 p.352"
+    },
+    {
+      "command": "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "pproc: probes",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/pproc.py:outputs",
+        "src/pyflightstream/cases/pproc.py:samples_normal_probes",
+        "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
+        "src/pyflightstream/cases/workflows/_probes.py:_built_from_the_mesh",
+        "src/pyflightstream/cases/workflows/_probes.py:_emit_one_probe_table",
+        "src/pyflightstream/cases/workflows/_probes.py:_normal_probes_of",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_probes",
+        "src/pyflightstream/cases/workflows/_probes.py:_pproc_sampled_volume",
+        "src/pyflightstream/cases/workflows/_probes.py:_refuse_unmeasured_normal_probes",
+        "src/pyflightstream/cases/workflows/_skeleton.py:_refuse_what_a_steady_coupled_run_cannot_export",
+        "src/pyflightstream/workspace/_matrix_phases.py:_resolve_cited_profiles"
+      ],
+      "database_note": "SRC-753 p.359, unchanged from SRC-752 p.352; the argument list is the one SRC-752 prints, carried with the text"
+    },
+    {
+      "command": "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+      "chapter": "unsteady_solver",
+      "build_status": "verified",
+      "reachable": "pproc: plots",
+      "not_offered": "",
+      "evidence": [
+        "src/pyflightstream/cases/pproc.py:global_frame_plot_declarations",
+        "src/pyflightstream/cases/workflows/_additional.py:additional_outputs",
+        "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_pproc.py:_plot_each_rotors_own_history",
+        "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
+        "src/pyflightstream/run/_assemble.py:_reductions"
+      ],
+      "database_note": "SRC-753 p.359 lists CDP and CDV among the parameters where SRC-752 p.352 listed CDI and CDO, as the edition renames the drag split of its loads table to pressure drag and viscous and separation drag (the 26.125 entry of manual_editions in _meta.yaml). The 26.125 solver still ran CDI and CDO in the cross-build runs of 2026-10-05 and wrote them as plot columns, the CDI total equal to the loads table's pressure-drag total (RPT-160), so the four are accepted"
+    }
+  ]
+}
