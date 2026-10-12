@@ -773,7 +773,7 @@ def plan_matrix(
     warn_saved_actions_of_unsteady_rows(resolved.campaign.sims, WORKFLOW_KEY)  # FR-313
     from pyflightstream.workspace.setup_inspection import inspect_case_setup
 
-    row_versions = _row_versions(resolved)
+    row_versions = _row_versions(resolved, default)
     inspections = [
         inspect_case_setup(case, row_versions.get(case.sim_id, resolved.campaign.fs_version))
         for case in resolved.campaign.sims
@@ -817,13 +817,15 @@ def plan_matrix(
     return plan
 
 
-def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
+def _row_versions(resolved: ResolvedMatrix, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation version override, keyed by sim id.
 
-    Per simulation, from the build each row named and the version its
-    registry entry declares; a row on a build declaring no version, or on
-    the campaign's own, is absent here and pre-flights under the campaign
-    default. One function for the two callers, because the first fix
+    Per simulation, from the build each row named, by the fallback chain the
+    run emits its scripts under (:func:`_bind_row_builds`): the version its
+    registry entry declares, else ``default``, else the build id itself
+    (PFS-2094.018: with no default, a bare-path row pre-flighted under the
+    first row's build). A row naming no build is absent here and pre-flights
+    under the campaign default. One function for the two callers, because the first fix
     (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
     kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
     26.123, in a matrix whose default is 26.120, met exactly that on the
@@ -832,8 +834,8 @@ def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
     versions: dict[str, str] = {}
     for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
         registered = resolved.builds.get(build) if build else None
-        if registered is not None and registered.fs_version:
-            versions[case.sim_id] = registered.fs_version
+        if registered is not None:
+            versions[case.sim_id] = registered.fs_version or (default or "").strip() or str(build)
     return versions
 
 
@@ -1314,7 +1316,7 @@ def run_matrix(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
-        versions=_row_versions(resolved),
+        versions=_row_versions(resolved, default),
         matrix_path=path,
         write_plan=False,
     )

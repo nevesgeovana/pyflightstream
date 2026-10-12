@@ -98,21 +98,24 @@ _NOT_RECOVERABLE_NOTE = (
 # ---------------------------------------------------------------------------
 
 
-def row_versions(resolved: Any) -> dict[str, str]:
+def row_versions(resolved: Any, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation solver version of a bound matrix, keyed by sim id.
 
-    The version each row's build declares in the build registry; a row on a
-    build declaring none is absent and runs under the campaign default. The
-    same answer ``pyfs-matrix plan`` and ``run`` use.
+    The version each row's build declares in the build registry, else
+    ``default``, else the build id itself, which is the version the run emits
+    the row's scripts under; a row naming no build is absent and runs under
+    the campaign default. The same answer ``pyfs-matrix plan`` and ``run`` use.
 
     Parameters
     ----------
     resolved : pyflightstream.workspace.matrix.ResolvedMatrix
         The bound matrix.
+    default : str, optional
+        The campaign's default version, as the run binds the rows' builds with.
     """
     from pyflightstream.run import matrix as run_matrix
 
-    return run_matrix._row_versions(resolved)
+    return run_matrix._row_versions(resolved, default)
 
 
 def campaign_executor(

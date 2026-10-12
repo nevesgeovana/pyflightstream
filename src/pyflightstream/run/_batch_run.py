@@ -601,7 +601,7 @@ def run_grouped_matrix(
         resolved.campaign,
         staging,
         recipes=kw.get("recipe_registry"),
-        versions=row_versions(resolved),
+        versions=row_versions(resolved, _default_version(kw)),
         matrix_path=path,
         write_plan=False,
     )
