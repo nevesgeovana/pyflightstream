@@ -1477,7 +1477,7 @@ class Script:
         exports = [
             str(bound[argument.name])
             for argument in entry.args
-            if entry.name.startswith("EXPORT_")
+            if "EXPORT" in entry.name.split("_")
             and argument.type is ArgType.PATH
             and argument.name in bound
         ]
@@ -2347,6 +2347,12 @@ class Script:
         return None
 
     def _check_references(self, entry: CommandEntry, bound: dict[str, object]) -> None:
+        if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
+            raise CommandArgumentError(
+                "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
+                "be deleted. Select a local frame with an index greater than 1 "
+                f"({entry.citation})"
+            )
         for spec in entry.args:
             if spec.name not in bound:
                 continue
