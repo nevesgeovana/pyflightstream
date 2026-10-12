@@ -13,6 +13,44 @@ from tests.support_helpers import grouped_plan_fixture
 from tests.tier1_offline.test_p0350_batch_plan import _plan
 
 
+def test_p0400_a_batch_simulation_completed_while_the_job_ran_is_moved_home(tmp_path):
+    """P0400-BATCH-MOVE-ALL (PFS-2103.022): every simulation of an ended batch goes home.
+
+    7001's points complete from copies while the job runs; when the job ends
+    only the simulations with a SUBMITTED record were moved, so 7001's batch
+    copy stayed for good.
+    """
+    import warnings
+    from pathlib import Path
+
+    from pyflightstream.run.collect import collect_once
+    from pyflightstream.workspace import RunStatus
+    from tests.support_helpers import no_sleep
+    from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace
+
+    workspace = grouped_workspace(tmp_path, mode="batch", collect=False, ended=False)
+    (record,) = [r for r in workspace.read_manifest() if r.sim_id == "7003"]
+    job = (record.submission or {})["job"]
+    batch_sim = workspace.root / job["dir"] / "sim_7003"
+    held = {path: path.read_bytes() for path in batch_sim.rglob("*.txt") if "_" not in path.name}
+    assert held, "the fixture writes 7003's loads in its batch folder"
+    for path in held:
+        path.unlink()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        collect_once(workspace, interval=0.0, sleep=no_sleep)
+        statuses = {r.sim_id: r.status for r in workspace.read_manifest()}
+        assert statuses["7001"] is not RunStatus.SUBMITTED, statuses
+        assert statuses["7003"] is RunStatus.SUBMITTED, statuses
+        for path, body in held.items():
+            path.write_bytes(body)
+        end = workspace.root / job["dir"] / f"{Path(job['script']).stem}.end.json"
+        end.write_text('{"return_code": 0}', encoding="utf-8")
+        collect_once(workspace, interval=0.0, sleep=no_sleep)
+    assert not (workspace.root / job["dir"] / "sim_7001").exists()
+    assert not batch_sim.exists()
+
+
 def test_p0400_job_walltime_prices_a_row_that_states_no_walltime():
     """P0400-JOB-WALLTIME (PFS-2094.007): a row with no WALLTIME is priced, not added as 0 s.
 

@@ -536,7 +536,10 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
     )
     in_batch = job.job["kind"] == "batch"
     if in_batch and verdict.ended:
-        _move_job(workspace, job, {record.sim_id for record in submitted})
+        # EVERY SIMULATION OF THE JOB (PFS-2103.022): one whose points all
+        # completed from copies while the job ran has no SUBMITTED record,
+        # and its batch copy was never moved home.
+        _move_job(workspace, job, {record.sim_id for record in job.members})
         in_batch = False
     for record in sorted(submitted, key=lambda r: (job_of(r) or {"order": 0})["order"]):
         entry = job_of(record)
