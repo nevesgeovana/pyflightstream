@@ -2113,3 +2113,54 @@ its earlier deferred import of the private module.
 No key, script, record or product of 0.37.0 changes. The new verbs need no
 executable, no matrix and no workspace: they read the OBJ they are given and
 write a level folder beside it, never into the source's folder.
+
+## The 0.39.0 additions and their limits
+
+0.39.0 adds three modules, each in the row of its package, and no new row. The
+order of the stack is unchanged. RPT-163 is the release's architecture record
+(296 modules, these three among them; no import from `workspace` to `run`).
+
+### The settings files in the workspace row
+
+`workspace/_settings_file.py` is the one reader of the workspace settings
+files, `pyfs.toml` and this machine's `pyfs.local.toml` (FR-436), and the one
+place that decides which of their values a command takes. It sits in the
+`workspace` row because the files are the workspace's. It imports the floors
+`_cli` (the per-invocation console level and post-warning policy it sets),
+`_console` (the console levels a file may name) and `_errors`, and, in its own
+row, `workspace.builds` (the name of the local executables file). It imports
+nothing of `run`, `cases`, `post` or `qa`.
+
+Its readers are above it. `workspace/cli.py` holds the command-line side of
+the files: it adapts an `argparse` parser so that an option the command line
+does not state takes its default from the files (`withhold_defaults`,
+`take_settings`), and `pyfs-matrix` (`run/cli.py`, through
+`run/_cli_parsers.py`) parses inside that adaptation. In `run`, the plan (`run/_plan.py`), the campaign
+(`run/_campaign.py`) and the run identity (`run/_identity.py`) read the
+provenance of the invocation and the build-acceptance sources, so `plan.json`
+and every run record name the file each value came from. The parsing of a
+command line stays in each command family (FR-436 R11); this module holds
+the schema, the precedence and the provenance, never the parsing.
+
+### Two modules below `_remesh`
+
+The remesh of `workspace/_refine/` gains two modules, both private, both
+below `_remesh.py` in the order given for 0.38.0:
+
+- `_remesh_group.py` is the group a remesh works on: its local numbering,
+  targets, curves and order (FR-424 R7, R8). It imports `_geometry` and
+  `_obj` of the same package.
+- `_remesh_pairs.py` is the quad-dominant remesh: triangles paired into
+  quadrilaterals, and the element report. It imports `_geometry` and
+  `_remesh_group`.
+
+`_remesh.py` imports both at module level and re-exports the names other
+modules read, so their import paths hold. Neither imports the geometry extra
+nor anything outside `workspace/_refine/` but numpy, and both load only
+with `_remesh`, which `_level.py` still imports deferred: a refinement whose
+families are all grids loads neither.
+
+### What 0.39.0 keeps
+
+A workspace without either settings file parses every command exactly as
+0.38.0 did, and the refinement modules keep the layering rule of 0.38.0.

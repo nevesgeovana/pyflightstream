@@ -606,7 +606,7 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 | `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family; refused for a remeshed family |
 | `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
 | `--keep-first-row FAMILY[,FAMILY...]` | `refine` | the grid families that keep the spanwise width of their row at another component, comma separated ([The row kept at an interface](#the-row-kept-at-an-interface)) |
-| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); `--out-dir DIR` is a deprecated alias |
+| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
@@ -736,6 +736,13 @@ that keeps its first row adds `k` to its part:
 | `Wing` at 2 and `Tip` at 1.5 | `R-Wing2-Tip1p5` |
 | a selection whose built tag is longer than 32 characters | `R-<n>fam-<hash>` |
 
+A factor in a built tag shows at most 6 significant digits (`2.0000001` and
+`2` both read `2`, `0.0000123456` reads `1p23456e-05`); `refine.json` holds
+the exact factor under `specs`. Two factors that agree to 6 significant
+digits therefore build the same tag, and the second level is refused as an
+existing one unless `--overwrite` (`overwrite=True`) replaces it; give a
+`[refine] tag` to keep both.
+
 A built tag of at most 32 characters is the tag above. A longer one is
 `R-<n>fam-<hash>`, at most 20 characters for any selection: `<n>` is the number
 of selected families and `<hash>` the first 8 hexadecimal characters of the
@@ -757,7 +764,7 @@ the tag is the summary and the hash.
 
 ### The files of a level
 
-The level folder is `<out-dir>/<stem>_<tag>/`, and every file in it is written
+The level folder is `<out>/<stem>_<tag>/` (`--out`, or `out_dir` in Python), and every file in it is written
 through the package's one text route, without a carriage return.
 
 | file | written when | content |
