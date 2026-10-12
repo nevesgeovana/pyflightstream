@@ -32,8 +32,9 @@ def test_submitted_extraction_waits_then_collects_without_mutating_original(tmp_
     except ExecutorConfigurationError as error:
         raise AssertionError(f"submitted additional post remains refused: {error}") from error
     record = records[0]
-    _, repeated = extract(workspace, matrix, scheduler)
-    assert repeated[0].status == "SUBMITTED" and len(scheduler.invocations) == 1
+    plans, repeated = extract(workspace, matrix, scheduler)
+    assert repeated == [] and len(scheduler.invocations) == 1
+    assert [plan.reason for plan in plans] == ["EXTRACTION_SUBMITTED"]
     assert record.status == "SUBMITTED"
     assert record.declared_outputs and not record.outputs
     assert scheduler.bound[0]["sim"] == record.sim_id

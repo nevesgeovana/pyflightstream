@@ -588,7 +588,7 @@ def prepare_grouped_points(
         The manifest after the step, its notes and its failures.
     """
     watch = _Watch(observer, settled, sleep, interval)
-    jobs = _jobs_of(records)
+    jobs = _jobs_of([r for r in records if sims is None or r.sim_id in sims])
     pending = {
         key: [
             r
@@ -597,19 +597,26 @@ def prepare_grouped_points(
         ]
         for key, members in jobs.items()
     }
-    if not any(pending.values()):
+    if not jobs:
         return GroupedSweep(records=records)
-    profile = resolve_hpc_profile(workspace.inputs_dir)
     notes: list[str] = []
     failed: list[tuple[str, str]] = []
     for key, submitted in sorted(pending.items()):
-        entry = job_of(submitted[0]) if submitted else None
+        members = jobs[key]
+        entry = job_of(members[0])
         if entry is None:
+            continue
+        # Completed points may still have batch copies until the job ends.
+        # Only the selected simulations belong to this preparation step.
+        if not submitted and (
+            entry["kind"] != "batch"
+            or not any((_job_dir(workspace, entry) / f"sim_{r.sim_id}").is_dir() for r in members)
+        ):
             continue
         job = _Job(
             job=entry,
-            members=jobs[key],
-            profile=profile,
+            members=members,
+            profile=resolve_hpc_profile(workspace.inputs_dir),
             watch=watch,
             opening=_opening_orders(workspace, entry),
         )
@@ -618,7 +625,7 @@ def prepare_grouped_points(
         except (OSError, WorkspaceError) as error:
             job.failed += [
                 (r.run_id, f"the grouped job {entry['name']} could not be prepared: {error}")
-                for r in submitted
+                for r in submitted or members
             ]
         notes += job.notes
         failed += job.failed

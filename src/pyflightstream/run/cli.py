@@ -90,8 +90,6 @@ from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_mat
 from pyflightstream.cases.workflows import (
     RAW_MESH_FORMATS,
     WorkflowCoverageError,
-    resolve_workflow,
-    workflow_names,
     workflow_registry,
 )
 
@@ -111,7 +109,15 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
-from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, parsed, resume_hint
+from pyflightstream.run._cli_parsers import (
+    _build_parser,
+    cmd_mark_converged,
+    collect_interval_error,
+    parsed,
+    resume_hint,
+)
+from pyflightstream.run._cli_parsers import _parse_workflows as _parse_workflows
+from pyflightstream.run._cli_parsers import _whole_sims as _whole_sims
 from pyflightstream.run._cli_print import (
     _print_collect,
     _print_delete_sims,
@@ -158,30 +164,6 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
     return recipes
 
 
-def _parse_workflows(pairs: list[str]) -> dict[str, str]:
-    """Turn repeated ``CODE=NAME`` options into the mapping.
-
-    Each name is resolved against the workflow table HERE, so a typo is
-    refused before a file is opened rather than per point.
-    """
-    workflows: dict[str, str] = {}
-    for item in pairs:
-        code, separator, name = item.partition("=")
-        if not separator or not code.strip() or not name.strip():
-            # CampaignConfigError rather than a bare ValueError: FR-39 says
-            # a refusal raised from an exported public name is catalogued,
-            # and this one keeps ValueError as its standard-library base, so
-            # `except ValueError` around main() catches exactly what it did.
-            raise CampaignConfigError(
-                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
-                f"maps to), got {item!r}; the registered types are "
-                f"{', '.join(workflow_names())}"
-            )
-        resolve_workflow(name.strip())
-        workflows[code.strip()] = name.strip()
-    return workflows
-
-
 def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) -> dict[str, str]:
     """Merge the two mappings, refusing a code that names both.
 
@@ -213,14 +195,6 @@ def _listed_sims(text: str) -> list[str]:
     :func:`pyflightstream.workspace.ledger.listed_sims`.
     """
     return listed_sims(text)
-
-
-def _whole_sims(args: argparse.Namespace) -> list[str]:
-    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
-    manifest = getattr(args, "runs", None) or "runs.json"
-    return split_typed_ids(
-        _listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
-    )[0]
 
 
 def _confirmed_destruction(yes: bool) -> bool:
@@ -652,11 +626,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     # zero takes both observations at one instant, so nothing is ever seen to
     # settle, and a negative wait reached time.sleep mid-sweep. Checked here
     # rather than by the parser, so a value from pyfs.toml is held to it too.
-    if args.interval is not None and not 0.0 < args.interval < float("inf"):
-        print(
-            f"interval (CLI: --interval) takes a number of seconds above 0, not {args.interval}",
-            file=sys.stderr,
-        )
+    if (interval_error := collect_interval_error(args.interval)) is not None:
+        print(interval_error, file=sys.stderr)
         return 2
     # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
     # `_cmd_post` reaches it, and not by importing the products writer here.

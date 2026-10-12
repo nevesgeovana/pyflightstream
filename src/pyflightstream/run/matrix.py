@@ -99,7 +99,7 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
-from pyflightstream.run._additional import complete_extraction
+from pyflightstream.run._additional import complete_extraction, discard_extraction_copy
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
@@ -1413,6 +1413,8 @@ class AdditionalSkip(enum.StrEnum):
     SUPERSEDED = "SUPERSEDED"
     #: The point is still in a scheduler's queue.
     NOT_FINISHED = "NOT_FINISHED"
+    #: This point's additional extraction is still queued; collect it first.
+    EXTRACTION_SUBMITTED = "EXTRACTION_SUBMITTED"
     #: The record names no saved simulation, or the file it names is not there.
     NO_SAVED_SIMULATION = "NO_SAVED_SIMULATION"
     #: The file on disk does not hash as the record says, or the record holds no hash.
@@ -1484,6 +1486,22 @@ def _skipped(
         message=message,
         unsteady=str(point.recipe or "").startswith("unsteady"),
     )
+
+
+def _unfinished_extraction(point, done) -> tuple[AdditionalSkip, str] | None:
+    """Explain an unfinished solve or extraction without building another script."""
+    if point.status is RunStatus.SUBMITTED:
+        return (
+            AdditionalSkip.NOT_FINISHED,
+            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
+        )
+    if done is not None and done.status is ExtractionStatus.SUBMITTED:
+        return (
+            AdditionalSkip.EXTRACTION_SUBMITTED,
+            f"the extraction {done.extraction_id} is already submitted; "
+            "collect it (pyfs-matrix collect) before extracting again",
+        )
+    return None
 
 
 def _canonical(version: str) -> str:
@@ -1755,13 +1773,10 @@ def _plan_point(
             f"this run was continued by {superseded[point.run_id]}, whose saved simulation is "
             "the point's; that run is extracted instead",
         )
-    if point.status is RunStatus.SUBMITTED:
-        return _skipped(
-            point,
-            pid,
-            AdditionalSkip.NOT_FINISHED,
-            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
-        )
+    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
+    done = latest.get(extraction_id)
+    if (unfinished := _unfinished_extraction(point, done)) is not None:
+        return _skipped(point, pid, *unfinished)
     sim_dir = workspace.sim_dir(point.sim_id)
     fsm = classify_outputs(point.outputs).get("simulation")
     if fsm is None:
@@ -1793,8 +1808,6 @@ def _plan_point(
     artifact = resolved.additional_pprocs[pid]
     artifact_path = workspace.inputs_dir / "pproc" / f"{pid}.toml"
     pproc_sha256 = optional_file_sha256(artifact_path)
-    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
-    done = latest.get(extraction_id)
     if (
         done is not None
         and done.status is ExtractionStatus.EXTRACTED
@@ -2206,9 +2219,7 @@ def _extract(
         names=names,
         translations=translations if isinstance(translations, list) else None,
     )
-    if completed.status is ExtractionStatus.EXTRACTED:
-        copy.unlink(missing_ok=True)
-    return completed
+    return discard_extraction_copy(workspace, completed, copy)
 
 
 #: The suffix of a declared solver log, the log export kind's own.

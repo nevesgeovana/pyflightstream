@@ -1,5 +1,7 @@
 """The ``pyfs-matrix`` argument parser: every subcommand, option and help text.
 
+Size exemption: a declarative catalogue of command options and their argument readers.
+
 Private to :mod:`pyflightstream.run.cli`, which builds the parser through
 :func:`_build_parser` and dispatches the parsed command. The builders live
 apart from the commands they parse for so that the command line's own module
@@ -28,11 +30,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from pyflightstream._console import CONSOLE_LEVELS
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
+    resolve_workflow,
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._cli_mesh import add_mesh_parsers
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
@@ -41,8 +46,39 @@ from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_co
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import select_hpc_profile
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
+
+
+def _whole_sims(args: argparse.Namespace) -> list[str]:
+    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
+    manifest = getattr(args, "runs", None) or "runs.json"
+    return split_typed_ids(
+        listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
+    )[0]
+
+
+def _parse_workflows(pairs: list[str]) -> dict[str, str]:
+    """Resolve repeated ``CODE=NAME`` options before any input file is opened."""
+    workflows: dict[str, str] = {}
+    for item in pairs:
+        code, separator, name = item.partition("=")
+        if not separator or not code.strip() or not name.strip():
+            raise CampaignConfigError(
+                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
+                f"maps to), got {item!r}; the registered types are "
+                f"{', '.join(workflow_names())}"
+            )
+        resolve_workflow(name.strip())
+        workflows[code.strip()] = name.strip()
+    return workflows
+
+
+def collect_interval_error(value: float | None) -> str | None:
+    """Return the refusal for an invalid settle interval from arguments or settings."""
+    if value is not None and not 0.0 < value < float("inf"):
+        return f"interval (CLI: --interval) takes a number of seconds above 0, not {value}"
+    return None
 
 
 def _a_word_that_means_false(word: str) -> bool:
