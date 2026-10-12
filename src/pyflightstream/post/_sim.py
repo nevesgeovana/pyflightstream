@@ -509,7 +509,14 @@ def _group_polars(ctx: SimContext) -> None:
         try:
             groups = rotor_integration_groups(getattr(ctx.live, "rotors", {}), ctx.pproc.groups)
         except PyflightstreamError as clash:
-            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = str(clash)
+            # NO GROUP POLAR IS WRITTEN. The refusal says a declared group and a
+            # rotor disagree about what one alias means; writing the groups as
+            # declared went on with exactly the group it called ambiguous.
+            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = (
+                f"{clash} No group polar of simulation {ctx.sim_id!r} is written until "
+                "the two agree."
+            )
+            return
     positions = {name: index for index, name in enumerate(groups, start=1)}
     for group, families in () if ctx.window is not None else groups.items():
         _group_polar(ctx, group, families, positions)
@@ -538,7 +545,10 @@ def _group_rows(
                 [point], list(families), mach=ctx.mach, reference=ctx.reference, aliases=ctx.aliases
             )
         except ProductError as error:
-            ctx.skipped[f"runs/{ctx.record_of[point.name].run_id}"] = (
+            # Keyed under THIS group's polar, `#<point>`, as a point the group
+            # misses: `runs/<run id>` means no product holds the run, and the
+            # point stays a row of every other group's polar.
+            absent[point.name] = (
                 f"point {point.name}: {error}. Recollect this point's loads in the "
                 "geometry analysis frame with its Reynolds number to settle it."
             )
