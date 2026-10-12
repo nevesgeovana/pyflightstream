@@ -627,6 +627,10 @@ def _cmd_rename(args: argparse.Namespace) -> int:
     return 0
 
 
+class _PostRefusedError(Exception):
+    """The post stage of ``collect --post`` refused; its one argument is the stage's error."""
+
+
 def _cmd_collect(args: argparse.Namespace) -> int:
     """Sweep the submitted points and collect the ones whose outputs settled."""
     # A FLAG THAT BOUNDS A WATCH IS REFUSED WITHOUT THE WATCH, at parse time,
@@ -695,20 +699,27 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # second sweep of a watch among them, the stage refused them instead
         # of archiving them as the paragraph above says it does.
         note_post_ran()
-        for stage in post_stages():
-            # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
-            # 0.25.1 takes no `check_frozen`, and the bare command must keep
-            # running it (the fourth independent reading of GitHub main).
-            stage(
-                ws,
-                overwrite=True,
-                archive=True,
-                matrix_stem=matrix,
-                **({"check_frozen": True} if args.check_frozen else {}),
-                # FR-307: the post of `collect --sims` is limited to the same simulations.
-                **({"sims": sims} if sims is not None else {}),
-            )
+        try:
+            for stage in post_stages():
+                # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
+                # 0.25.1 takes no `check_frozen`, and the bare command must keep
+                # running it (the fourth independent reading of GitHub main).
+                stage(
+                    ws,
+                    overwrite=True,
+                    archive=True,
+                    matrix_stem=matrix,
+                    **({"check_frozen": True} if args.check_frozen else {}),
+                    # FR-307: the post of `collect --sims` is limited to the same simulations.
+                    **({"sims": sims} if sims is not None else {}),
+                )
+        except (OSError, PyflightstreamError) as error:
+            raise _PostRefusedError(error) from error
 
+    # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
+    # raise what `post` catches, and here it escaped as a traceback after the
+    # records were written. It is said as the post's own refusal and exits 2,
+    # as `post` does, so 1 and 3 keep meaning what the collection found.
     try:
         with stage_progress("collect"):
             report = collect_and_post(
@@ -721,7 +732,14 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 post_matrix=_post if args.post else None,
                 sims=None if args.sims is None else _listed_sims(args.sims),
             )
-    except (WorkspaceError, CampaignConfigError) as error:
+    except _PostRefusedError as refused:
+        print(
+            "the points were collected and their records written; the post was refused: "
+            f"{refused.args[0]}",
+            file=sys.stderr,
+        )
+        return 2
+    except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2
 

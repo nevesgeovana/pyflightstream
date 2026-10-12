@@ -83,6 +83,37 @@ def test_p0400_plan_reports_a_manifest_refusal_without_a_traceback(tmp_path, cap
     assert "the recorded surface averaging window does not validate" in capsys.readouterr().err
 
 
+def test_p0400_collect_post_refusal_is_said_as_the_post_s_and_exits_2(
+    tmp_path, capsys, monkeypatch
+):
+    """P0400-COLLECT-POST-REFUSAL (PFS-2095.052): a product refusal under collect is no traceback.
+
+    ``post`` catches the stages' refusals; ``collect --post`` let one escape
+    after the records were written. It is said as the post's own and exits 2.
+    """
+    from pyflightstream._errors import ProductError
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_goal028_hpc_collect import (
+        _loads,
+        _submitted_workspace,
+        _work_dir,
+    )
+
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt",))
+    work = _work_dir(workspace, sim, alpha=2.0)
+    (work / "loads.txt").write_text(_loads(2.0), encoding="utf-8")
+
+    def stage(ws, **keywords):
+        raise ProductError("the probe plane lies outside the mesh")
+
+    monkeypatch.setattr("pyflightstream.workspace.post_stages", lambda: [stage])
+    status = cli.main(["collect", "--workspace", str(workspace.root), "--interval", "0.001"])
+    assert status == 2
+    err = capsys.readouterr().err
+    assert "the post was refused: the probe plane lies outside the mesh" in err
+    assert workspace.read_manifest()[0].status is RunStatus.CONVERGED
+
+
 _TRIANGLE_STL = (
     "solid wing\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\n"
     "vertex 0 1 0\nendloop\nendfacet\nendsolid wing\n"
