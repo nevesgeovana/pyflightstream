@@ -116,9 +116,12 @@ class ModalResult:
         Per mode, ``"flap"`` or ``"torsion"``: the family holding the
         larger share of the mode's generalized mass.
     flap_mass_fractions : tuple of float
-        Per mode, fraction of generalized mass in the flap DOFs; near
-        1 for pure flap, near 0 for pure torsion, intermediate when
-        offsets couple the families.
+        Per mode, fraction of generalized mass in the flap DOFs; 1 for
+        pure flap, 0 for pure torsion. The lumped mass matrix is
+        diagonal (the flap-twist inertial coupling of a centre of
+        gravity off the elastic axis is not modelled, see
+        :func:`lumped_station_masses`) and the beam's flap and twist
+        stiffness do not couple, so every mode is one or the other.
     """
 
     frequencies_rad_per_s: tuple[float, ...]
@@ -356,6 +359,8 @@ def modal_frequencies(
     n_modes: int = 6,
     include_geometric_stiffness: bool = False,
     twist_stiffness_n_m_per_rad: Sequence[float] | None = None,
+    *,
+    flap_stiffness_n_per_m: Sequence[float] | None = None,
 ) -> ModalResult:
     """Extract flap and torsion natural frequencies of the blade.
 
@@ -387,6 +392,12 @@ def modal_frequencies(
         centrifugal (propeller moment) torsional stiffening of
         :mod:`pyflightstream.fsi.centrifugal` enters here; PyNite's
         geometric stiffness covers bending only.
+    flap_stiffness_n_per_m : sequence of float, optional
+        Additional distributed flap stiffness per station [N/m per m
+        of span], lumped here over the station tributary lengths and
+        added on the flap degrees of freedom. The in-plane centrifugal
+        softening of :mod:`pyflightstream.fsi.centrifugal` enters here
+        with a negative sign, as the static solve applies it.
 
     Returns
     -------
@@ -396,8 +407,10 @@ def modal_frequencies(
     Raises
     ------
     FsiInputError
-        If ``twist_stiffness_n_m_per_rad`` does not have one entry per station, or an eigenvalue is
-        negative: the axial state is beyond buckling or the model is not analyzed.
+        If ``twist_stiffness_n_m_per_rad`` or ``flap_stiffness_n_per_m`` does not have one entry
+        per station, if a free station lumps no positive flap mass or twist inertia (the
+        eigenproblem divides by both), or if an eigenvalue is negative: the axial state is
+        beyond buckling or the model is not analyzed.
 
     Examples
     --------
@@ -431,6 +444,9 @@ def modal_frequencies(
             f"entries for {n_stations} stations; the lumped torsional stiffening "
             "must be sampled at the configuration stations"
         )
+    _refuse_an_unsampled_flap_stiffness_or_a_massless_station(
+        cfg, flap_stiffness_n_per_m, flap_mass, twist_inertia
+    )
 
     free_rows: list[int] = []
     masses: list[float] = []
@@ -459,16 +475,16 @@ def modal_frequencies(
     if twist_stiffness_n_m_per_rad is not None:
         for master_index, i in twist_master_station.items():
             condensed[master_index, master_index] += twist_stiffness_n_m_per_rad[i]
+    _add_lumped_flap_stiffness(condensed, is_flap, cfg, flap_stiffness_n_per_m)
 
-    mass_vector = np.array(masses)
     # Symmetric standard form: L^-1 K L^-T with L = sqrt(M) (M is diagonal).
-    inv_sqrt_m = 1.0 / np.sqrt(mass_vector)
+    inv_sqrt_m = 1.0 / np.sqrt(np.array(masses))
     sym = condensed * inv_sqrt_m[:, None] * inv_sqrt_m[None, :]
     eigenvalues, eigenvectors = np.linalg.eigh(sym)
 
-    frequencies = []
-    kinds = []
-    fractions = []
+    frequencies: list[float] = []
+    kinds: list[str] = []
+    fractions: list[float] = []
     flap_mask = np.array(is_flap)
     for k in range(min(n_modes, len(eigenvalues))):
         lam = eigenvalues[k]
@@ -494,16 +510,28 @@ def lumped_station_masses(cfg: FsiConfig) -> tuple[list[float], list[float]]:
 
     Each station receives the tributary half lengths of its adjacent
     bays: translational mass mu(r_i) l_i [kg] for the flap DOF and
-    polar inertia (I1(r_i) + I2(r_i)) l_i [kg m^2] for the twist DOF.
+    polar inertia about the elastic axis
+    (I1(r_i) + I2(r_i) + mu(r_i) d(r_i)^2) l_i [kg m^2] for the twist
+    DOF, with d the distance from the elastic axis to the centre of
+    gravity (``cg_offset_chordwise_m``, ``cg_offset_normal_m``; the
+    parallel-axis term, zero for a section whose centre of gravity is
+    on the elastic axis).
+
+    The matrix is diagonal: the off-diagonal flap-twist inertial
+    coupling mu(r_i) e_c(r_i) l_i of a chordwise centre of gravity
+    offset is not modelled, so a blade with that offset is treated as
+    if its flap and torsion modes were inertially uncoupled.
 
     Source: standard tributary (lumped) mass matrix for beam finite
     elements, Cook, Malkus, Plesha, Witt, "Concepts and Applications
-    of Finite Element Analysis", 4th ed., Section 11.4.
+    of Finite Element Analysis", 4th ed., Section 11.4; the parallel
+    axis theorem for the inertia about the elastic axis.
 
     Parameters
     ----------
     cfg : FsiConfig
-        Configuration providing mu(r), I1(r), I2(r) and the stations.
+        Configuration providing mu(r), I1(r), I2(r), the centre of
+        gravity offsets and the stations.
 
     Returns
     -------
@@ -516,9 +544,15 @@ def lumped_station_masses(cfg: FsiConfig) -> tuple[list[float], list[float]]:
         mu * length for mu, length in zip(blade.mass_per_length_kg_per_m, tributary, strict=True)
     ]
     twist_inertia = [
-        (i1 + i2) * length
-        for i1, i2, length in zip(
-            blade.inertia_major_kg_m, blade.inertia_minor_kg_m, tributary, strict=True
+        (i1 + i2 + mu * (cg_c**2 + cg_n**2)) * length
+        for i1, i2, mu, cg_c, cg_n, length in zip(
+            blade.inertia_major_kg_m,
+            blade.inertia_minor_kg_m,
+            blade.mass_per_length_kg_per_m,
+            blade.cg_offset_chordwise_m,
+            blade.cg_offset_normal_m,
+            tributary,
+            strict=True,
         )
     ]
     return flap_mass, twist_inertia
@@ -544,6 +578,57 @@ def tributary_lengths(radii: Sequence[float]) -> list[float]:
         right = radii[i + 1] - radii[i] if i < n - 1 else 0.0
         lengths.append(0.5 * (left + right))
     return lengths
+
+
+def _refuse_an_unsampled_flap_stiffness_or_a_massless_station(
+    cfg: FsiConfig,
+    flap_stiffness_n_per_m: Sequence[float] | None,
+    flap_mass: Sequence[float],
+    twist_inertia: Sequence[float],
+) -> None:
+    """Refuse what :func:`modal_frequencies` cannot build an eigenproblem from.
+
+    The symmetric standard form divides by the square root of every
+    lumped mass, so a free station with none would carry an infinity
+    into the eigensolver. The configuration accepts zero inertias (they
+    are nonnegative by definition), so the refusal lives here, where
+    they are divided by. The root is clamped and never enters the
+    eigenproblem.
+    """
+    radii = cfg.blade.station_radii_m
+    if flap_stiffness_n_per_m is not None and len(flap_stiffness_n_per_m) != len(radii):
+        raise FsiInputError(
+            f"flap_stiffness_n_per_m has {len(flap_stiffness_n_per_m)} entries for "
+            f"{len(radii)} stations; the distributed flap stiffness must be sampled at "
+            "the configuration stations"
+        )
+    for i in range(1, len(radii)):
+        for label, value in (("flap mass", flap_mass[i]), ("twist inertia", twist_inertia[i])):
+            if not value > 0.0:
+                raise FsiInputError(
+                    f"station {i} (r = {radii[i]:.4g} m) lumps a {label} of {value!r}; the "
+                    "modal problem needs a positive mass and a positive twist inertia "
+                    "(I1 + I2 > 0) at every free station"
+                )
+
+
+def _add_lumped_flap_stiffness(
+    condensed: np.ndarray,
+    is_flap: Sequence[bool],
+    cfg: FsiConfig,
+    flap_stiffness_n_per_m: Sequence[float] | None,
+) -> None:
+    """Add a distributed flap stiffness, lumped over the tributary lengths, on the flap masters.
+
+    The masters are the free stations in order (the root is clamped), so
+    the k-th flap master is station k + 1.
+    """
+    if flap_stiffness_n_per_m is None:
+        return
+    tributary = tributary_lengths(cfg.blade.station_radii_m)
+    masters = [index for index, flap in enumerate(is_flap) if flap]
+    for station, index in enumerate(masters, start=1):
+        condensed[index, index] += flap_stiffness_n_per_m[station] * tributary[station]
 
 
 def _condense_massless(

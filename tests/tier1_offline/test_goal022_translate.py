@@ -531,7 +531,11 @@ def test_goal022_order_a_steady_sweep_translates_once_then_rotates(tmp_path):
     )
     points = [
         base.model_copy(
-            update={"point": {"alpha": alpha}, "sweep": SweepAxis(type="alpha", values=[0.0, 2.0])}
+            update={
+                "point": {"alpha": alpha},
+                "sweep": SweepAxis(type="alpha", values=[0.0, 2.0]),
+                "outputs": [f"point{alpha:g}_{name}" for name in base.outputs],
+            }
         )
         for alpha in (0.0, 2.0)
     ]
@@ -584,12 +588,17 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
         ("TRANSLATE_COORDINATE_SYSTEM", (0.1, 0.0, 0.0, "METER")),
         ("SET_COORDINATE_SYSTEM_AXIS", ("X", 0.0, 1.0, 0.0, "TRUE")),
         ("NORMALIZE_COORDINATE_SYSTEM", ()),
-        ("MIRROR_COORDINATE_SYSTEM", ("XZ",)),
     ):
         script, index = placed()
         script.emit(command, index, *extra)
         held = script.frame_placements[index]
         assert held.origin is None and held.axes is None, (command, held)
+
+    script, index = placed()
+    script.emit("MIRROR_COORDINATE_SYSTEM", index, "XZ")
+    assert script.frame_placements[index].origin == (1.0, 2.0, 3.0)
+    assert script.num_local_frames == 2
+    assert 3 not in script.frame_placements
 
     script, index = placed()
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")

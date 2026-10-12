@@ -5,7 +5,8 @@
    "pproc": "p001",
    "runs": [
     "camp/sim_7001/AL-020"
-   ]
+   ],
+   "kind": "instant"
   },
   "probes/AL-020_plots.csv": {
    "sim_id": "7001",

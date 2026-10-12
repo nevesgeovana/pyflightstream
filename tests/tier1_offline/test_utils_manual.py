@@ -254,7 +254,7 @@ def test_the_module_reaches_up_to_nothing():
     # write goes through it so that no text mode can put a CR in the file.
     assert reaching == [
         "import pyflightstream._textio as _textio",
-        "from pyflightstream._yamlflow import flow_mapping",
+        "from pyflightstream._yamlflow import flow_mapping, flow_scalar",
         "from pyflightstream.utils.errors import ManualDraftError",
         "from pyflightstream.extras import missing_extra",
     ], reaching
@@ -525,7 +525,7 @@ def test_a_counting_opening_wins_over_the_toggle_rule():
 def test_a_drafted_entry_carries_the_types_it_read_and_marks_the_rest():
     command = typed_command()
     rendered = render_entry(command, source="SRC-000", versions={"26.120": "documented"})
-    assert "      type: enum\n      values: [ENABLE, DISABLE]" in rendered
+    assert '      type: enum\n      values: ["ENABLE", "DISABLE"]' in rendered
     assert "    - name: count\n      type: int" in rendered
     # The one argument no rule reads still refuses to load, which is the
     # safety property the whole module is built around.
@@ -959,7 +959,7 @@ def test_an_uncontradicted_type_is_still_drafted_normally():
     )
     entry = render_entry(command, source="SRC-000", versions={"26.120": "documented"})
     assert "type: enum" in entry
-    assert "values: [ENABLE, DISABLE]" in entry
+    assert 'values: ["ENABLE", "DISABLE"]' in entry
     assert "would REFUSE" not in entry
 
 

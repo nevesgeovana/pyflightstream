@@ -280,11 +280,13 @@ class VtkSurface:
             np.array_equal(other.offsets, self.offsets)
             and np.array_equal(other.connectivity, self.connectivity)
         ):
-            sizes = np.diff(self.offsets)
+            # Both size arrays once, before the loop: computing the other's
+            # inside it made the search for polygon k cost k full passes.
+            sizes, their_sizes = np.diff(self.offsets), np.diff(other.offsets)
             for cell in range(self.n_cells):
                 start, stop = self.offsets[cell], self.offsets[cell + 1]
                 theirs = other.connectivity[other.offsets[cell] : other.offsets[cell + 1]]
-                if int(np.diff(other.offsets)[cell]) != int(sizes[cell]) or not np.array_equal(
+                if int(their_sizes[cell]) != int(sizes[cell]) or not np.array_equal(
                     theirs, self.connectivity[start:stop]
                 ):
                     return f"polygon {cell + 1} joins other nodes"
@@ -309,6 +311,33 @@ def _numbers(lines: Iterator[tuple[int, str]], count: int, what: str) -> list[st
             f"declares {count}"
         )
     return tokens
+
+
+def _stated(path: Path, text: str, line: str, index: int) -> int:
+    """Read the whole count word ``index`` of a VTK keyword line states.
+
+    A keyword line cut short at the end of the file is a truncated export,
+    and one cut short or mangled anywhere else a malformed one; neither may
+    escape as the bare IndexError or ValueError of reading it.
+    """
+    words = line.split()
+    if index >= len(words):
+        if text.rstrip().endswith(line):
+            raise IncompleteOutputError(
+                f"{path} ends on {line!r}, which states no count; the export is truncated"
+            )
+        raise MalformedOutputError(f"{path}'s line {line!r} states no count")
+    try:
+        value = int(words[index])
+    except ValueError:
+        raise MalformedOutputError(
+            f"{path}'s line {line!r} states {words[index]!r} where a whole count belongs"
+        ) from None
+    if value < 0:
+        raise MalformedOutputError(
+            f"{path}'s line {line!r} states negative count {value}; counts must be nonnegative"
+        )
+    return value
 
 
 def _floats(tokens: list[str], what: str) -> np.ndarray:
@@ -339,7 +368,13 @@ def _attributes(
         if len(words) < 3:
             raise MalformedOutputError(f"the VTK's SCALARS line {line!r} names no data type")
         name = words[1]
-        components = int(words[3]) if len(words) > 3 else 1
+        try:
+            components = int(words[3]) if len(words) > 3 else 1
+        except ValueError:
+            raise MalformedOutputError(
+                f"the VTK's SCALARS line {line!r} states {words[3]!r} where a component "
+                "count belongs"
+            ) from None
         if components != 1:
             raise MalformedOutputError(
                 f"the VTK's scalar {name!r} states {components} components; the solver's "
@@ -428,10 +463,10 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
         words = line.split()
         keyword = words[0].upper()
         if keyword == "POINTS":
-            count = int(words[1])
+            count = _stated(path, text, line, 1)
             points = _floats(_numbers(lines, 3 * count, "POINTS"), "POINTS").reshape(count, 3)
         elif keyword == "POLYGONS":
-            cells, size = int(words[1]), int(words[2])
+            cells, size = _stated(path, text, line, 1), _stated(path, text, line, 2)
             flat = _numbers(lines, size, "POLYGONS")
             try:
                 raw = np.asarray(flat, dtype=np.int64)
@@ -461,16 +496,18 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
                 "wake file, which carries no polygon, is not a surface (RPT-074)"
             )
         elif keyword == "POINT_DATA":
-            if points is None or int(words[1]) != len(points):
+            declared = _stated(path, text, line, 1)
+            if points is None or declared != len(points):
                 raise MalformedOutputError(
-                    f"{path} declares POINT_DATA {words[1]} for "
+                    f"{path} declares POINT_DATA {declared} for "
                     f"{0 if points is None else len(points)} points"
                 )
             point_data, pending = _attributes(lines, len(points), "POINT_DATA")
         elif keyword == "CELL_DATA":
-            if offsets is None or int(words[1]) != len(offsets) - 1:
+            declared = _stated(path, text, line, 1)
+            if offsets is None or declared != len(offsets) - 1:
                 raise MalformedOutputError(
-                    f"{path} declares CELL_DATA {words[1]} for "
+                    f"{path} declares CELL_DATA {declared} for "
                     f"{0 if offsets is None else len(offsets) - 1} polygons"
                 )
             cell_data, pending = _attributes(lines, len(offsets) - 1, "CELL_DATA")
@@ -980,9 +1017,14 @@ def stamped_translation(vtk: str, dat: str, step: int) -> tuple[str, str]:
 
 
 def _translation_auxdata(path: Path) -> dict[str, str]:
-    """Read only the provenance header before a Tecplot zone."""
+    """Read only the provenance header before a Tecplot zone.
+
+    Undecodable bytes are replaced rather than raised: a file that is not
+    text proves no provenance, which the caller reports, and a replaced
+    character can match no recorded digest.
+    """
     found = {}
-    with path.open(encoding="utf-8") as stream:
+    with path.open(encoding="utf-8", errors="replace") as stream:
         for line in stream:
             if line.lstrip().startswith("ZONE"):
                 break
@@ -1124,6 +1166,21 @@ def _translate_surface_exports(
                         continue
                     if isinstance(previous, Mapping):
                         artifacts[other] = dict(previous)
+                else:
+                    # No native source, the default since 0.30.0: the header
+                    # the translation wrote must name this VTK and this frame,
+                    # or the file is not this translation's and is preserved
+                    # as the native branch preserves it, never recorded written.
+                    aux = _translation_auxdata(where / other)
+                    if not (
+                        aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
+                        and aux.get("SOURCE_FRAME")
+                        == f"the analysis loads frame, {placed.describe()}"
+                    ):
+                        problems.append(
+                            f"{other} is preserved: source, frame or output provenance changed"
+                        )
+                        continue
                 written.append(other)
                 continue
             try:

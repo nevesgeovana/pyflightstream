@@ -12,10 +12,13 @@ functions and classes. Each exported name is followed through its import
 chain to the statement that defines it, so one definition re-exported from
 three modules is one capability with three public paths. A capability is a
 method or a feature: a name defined by ``def`` or ``class`` (functions,
-classes, exceptions, protocols). A name defined by assignment (a constant
-table, an alias of another name) is data and is not counted; the code that
-reads it is. Names that resolve outside the package (a re-exported
-third-party symbol) or to a submodule are not counted either.
+classes, exceptions, protocols), including a public name bound by
+assignment to one (``public = _hidden``, ``public = module.feature``), which
+counts as the callable it names. A name bound to data (a constant table) is
+not counted; the code that reads it is. Names that resolve outside the
+package (a re-exported third-party symbol) or to a submodule are not
+counted either. Only the module-scope ``__all__`` is read; a function's or a
+class's own ``__all__`` is a local name.
 
 What reaches. A static graph over the package source, read with ``ast``
 and never imported. Its nodes are the top-level definitions of every module
@@ -43,10 +46,27 @@ reach each of those families, so the instrument can say YES.
 
 Limits, stated so a verdict is read for what it is.
 
-- It over-approximates, so UNREACHED is the strong verdict. A reached class
-  reaches every one of its methods; a local variable that shadows a
-  module-level name creates an edge; a type annotation counts as a use; the
-  module-level code of every imported module counts as run.
+- REACHED IS A STATIC REFERENCE PATH, NOT AN OBSERVED EXECUTION. The guard
+  proves that some chain of source references leads from an entry point to
+  the definition; it does not prove that any workspace input makes that
+  chain run. It over-approximates, so UNREACHED is the strong verdict and
+  REACHED can approve a capability no workspace run executes. Where it
+  over-approves, precisely: a reached class reaches every one of its
+  methods, and public methods are not inventoried on their own (a new
+  public method of a routed class cannot fail the guard); a registry entry
+  (a dict value, a run-type table row, a handler list) is reached when the
+  registry is, even when a runtime check refuses that entry; a branch
+  whose test is decided at run time counts both ways; imports are pooled
+  per module, so a function-local import resolves the same name in every
+  function of that module; a local variable that shadows a module-level
+  name creates an edge; the module-level code of every imported module
+  counts as run.
+- What it does not count, because it is cheaply decided from the source:
+  annotations of arguments, returns and variables (a class-body field
+  annotation does count, since dataclasses and models read it), the body
+  of ``if TYPE_CHECKING`` and of a constant-false test (and the ``else`` of a
+  constant-true one), statements after an unconditional ``return``,
+  ``raise``, ``continue`` or ``break``, and ``__name__ == "__main__"`` blocks.
 - Reached means the code runs on some workspace path, not that every option
   of it is steerable from a matrix or an input file. A reader called inside
   a routed verb counts as reached.
@@ -62,8 +82,8 @@ The register. Each row names one capability (``names`` lists its public
 paths), its reason and its authority: ``routed later`` names the planning
 node that routes it (or removes it) and that node's release, and the row
 expires when ``pyproject.toml`` reaches that release; ``maintainer or
-developer API`` and ``Python-only by design`` name the owner decision;
-``pending owner decision`` carries the proposed class until she decides. The
+developer API`` and ``Python-only by design`` name the decision that
+classified them. No other reason is accepted, so an unsigned row fails. The
 register is a ratchet: a row whose capability is now reached, or no longer
 public, must be deleted; it may only shrink, which ``_REGISTER_CEILING`` and
 ``_REGISTER_DIGEST`` below enforce (shrinking means lowering both in the
@@ -103,14 +123,13 @@ ROOTS: tuple[tuple[str, str], ...] = (
 
 # The ratchet: the number of public paths the register names, and the
 # SHA-256 of their sorted list joined by newlines. A shrink lowers both.
-_REGISTER_CEILING = 311
-_REGISTER_DIGEST = "068b0779a284a1e7c8c14f4ac6aa8a6c553cbc3f2a23c32a59da479cd49b4296"
+_REGISTER_CEILING = 312
+_REGISTER_DIGEST = "0be35deead377b7a278e53196c8ab894fad724e4c6274a19f5d61b14ff83720e"
 
 REASONS = (
     "routed later",
     "maintainer or developer API",
     "Python-only by design",
-    "pending owner decision",
 )
 _NODE = re.compile(r"^PFS-\d{4}(\.\d{2,3})+$")
 _RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -191,9 +210,13 @@ def _classify(info: ModuleInfo, statements: Iterable[ast.stmt]) -> None:
                 # A script block runs under ``python -m``, never on import;
                 # the module CLIs it calls are roots when they are roots.
                 continue
-            info.module_level.append(statement.test)
-            _classify(info, statement.body)
-            _classify(info, statement.orelse)
+            truth = _static_truth(statement.test)
+            if truth is None:
+                info.module_level.append(statement.test)
+            if truth is not False:
+                _classify(info, statement.body)
+            if truth is not True:
+                _classify(info, statement.orelse)
         elif isinstance(statement, ast.Try):
             _classify(info, statement.body)
             for handler in statement.handlers:
@@ -215,6 +238,93 @@ def _is_main_guard(test: ast.expr) -> bool:
         and isinstance(test.comparators[0], ast.Constant)
         and test.comparators[0].value == "__main__"
     )
+
+
+def _static_truth(test: ast.expr) -> bool | None:
+    """Return the value of a test known without running it, or None."""
+    if isinstance(test, ast.Constant):
+        return bool(test.value)
+    if (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+        isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    ):
+        return False
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = _static_truth(test.operand)
+        return None if inner is None else not inner
+    return None
+
+
+_TERMINATORS = (ast.Return, ast.Raise, ast.Continue, ast.Break)
+
+
+def _live_block(statements: list[ast.stmt]) -> list[ast.stmt]:
+    """Return the statements of a block up to its first unconditional exit."""
+    live: list[ast.stmt] = []
+    for statement in statements:
+        live.append(statement)
+        if isinstance(statement, _TERMINATORS):
+            break
+    return live
+
+
+def _live_children(node: ast.AST, in_class: bool) -> list[tuple[ast.AST, bool]]:
+    """Return the children of ``node`` that run, each with whether it sits in a class body."""
+    kids: list[ast.AST]
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        arguments = node.args
+        kids = [*node.decorator_list, *arguments.defaults]
+        kids += [d for d in arguments.kw_defaults if d is not None]
+        return [(kid, False) for kid in [*kids, *_live_block(node.body)]]
+    if isinstance(node, ast.ClassDef):
+        heads = [*node.decorator_list, *node.bases, *node.keywords]
+        return [(kid, False) for kid in heads] + [(s, True) for s in _live_block(node.body)]
+    if isinstance(node, ast.AnnAssign):
+        # A class-body annotation is a field type a dataclass or a model
+        # reads at run time; any other annotation is never executed.
+        kids = [node.target, *([node.value] if node.value else [])]
+        if in_class:
+            kids.append(node.annotation)
+        return [(kid, False) for kid in kids]
+    if isinstance(node, ast.If):
+        truth = _static_truth(node.test)
+        if truth is False:
+            return [(s, False) for s in _live_block(node.orelse)]
+        if truth is True:
+            return [(s, False) for s in _live_block(node.body)]
+        kids = [node.test, *_live_block(node.body), *_live_block(node.orelse)]
+        return [(kid, False) for kid in kids]
+    kids = []
+    for _, value in ast.iter_fields(node):
+        if isinstance(value, list):
+            if value and isinstance(value[0], ast.stmt):
+                kids.extend(_live_block(value))
+            else:
+                kids.extend(item for item in value if isinstance(item, ast.AST))
+        elif isinstance(value, ast.AST):
+            kids.append(value)
+    return [(kid, False) for kid in kids]
+
+
+def _live_nodes(root: ast.AST) -> Iterator[ast.AST]:
+    """Walk the code under ``root`` that can run: no annotation, no dead branch."""
+    stack: list[tuple[ast.AST, bool]] = [(root, False)]
+    while stack:
+        node, in_class = stack.pop()
+        yield node
+        stack.extend(_live_children(node, in_class))
+
+
+def _module_scope_nodes(node: ast.AST) -> Iterator[ast.AST]:
+    """Walk module code in source order without entering a function or class namespace."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        if current is not node and isinstance(
+            current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        stack.extend(reversed(list(ast.iter_child_nodes(current))))
 
 
 def _static_strings(node: ast.AST) -> list[str] | None:
@@ -245,7 +355,9 @@ class ExportError(AssertionError):
 
 def _read_exports(info: ModuleInfo) -> list[str] | None:
     exports: list[str] | None = None
-    for statement in ast.walk(info.tree):
+    # Module scope only: a function's or a class's own ``__all__`` is a local
+    # name and never the module's export list.
+    for statement in _module_scope_nodes(info.tree):
         if isinstance(statement, ast.Assign) and any(
             isinstance(target, ast.Name) and target.id == "__all__" for target in statement.targets
         ):
@@ -346,6 +458,13 @@ class Graph:
         found: set[Target] = set()
         if name in info.defs:
             found.add(key)
+            # ``public = _hidden`` (or ``public: T = module.feature``) names
+            # the callable it is bound to, so the alias resolves to it too.
+            for statement in info.defs[name]:
+                if isinstance(statement, (ast.Assign, ast.AnnAssign)) and isinstance(
+                    statement.value, (ast.Name, ast.Attribute)
+                ):
+                    found.update(self.expression(module, statement.value, seen | {key}))
         else:
             for alias in info.aliases.get(name, ()):
                 if alias[0] == "mod":
@@ -368,15 +487,17 @@ class Graph:
             self._symbols[key] = result
         return result
 
-    def expression(self, module: str, node: ast.AST) -> frozenset[Target]:
+    def expression(
+        self, module: str, node: ast.AST, seen: frozenset[Target] = frozenset()
+    ) -> frozenset[Target]:
         """Return what a Name, an attribute chain or an import_module call means."""
         if isinstance(node, ast.Name):
-            return self.symbol(module, node.id)
+            return self.symbol(module, node.id, seen)
         if isinstance(node, ast.Attribute):
             found: set[Target] = set()
-            for target in self.expression(module, node.value):
+            for target in self.expression(module, node.value, seen):
                 if target[1] == _MODULE_NODE:
-                    found.update(self.symbol(target[0], node.attr))
+                    found.update(self.symbol(target[0], node.attr, seen))
             return frozenset(found)
         if isinstance(node, ast.Call) and _is_import_module(node):
             text = node.args[0].value  # type: ignore[attr-defined]
@@ -403,7 +524,7 @@ class Graph:
         info = self.modules[module]
         found: set[Target] = set()
         for root in nodes:
-            for node in ast.walk(root):
+            for node in _live_nodes(root):
                 if isinstance(node, (ast.Name, ast.Attribute)):
                     if not isinstance(getattr(node, "ctx", ast.Load()), ast.Load):
                         continue
@@ -503,15 +624,9 @@ def public_capabilities(graph: Graph) -> dict[Target, Capability]:
         if info.exports is not None:
             exported = info.exports
         else:
-            exported = [
-                defined
-                for defined, statements in info.defs.items()
-                if not defined.startswith("_")
-                and any(
-                    isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-                    for statement in statements
-                )
-            ]
+            # Every public top-level name; an alias bound to a callable
+            # resolves to it below and counts, plain data does not.
+            exported = [defined for defined in info.defs if not defined.startswith("_")]
         for exported_name in exported:
             for target in graph.symbol(name, exported_name):
                 if target[1] == _MODULE_NODE or not _is_callable_definition(graph, target):
@@ -602,9 +717,6 @@ def row_problems(register: Mapping[str, Any], version: str) -> list[str]:
                     f"{row_id}: node {node} was due at {release} and the package is {version}; "
                     "route the capability and delete the row, or move the row with a new decision"
                 )
-        elif reason == "pending owner decision":
-            if row.get("proposed") not in REASONS[:3]:
-                problems.append(f"{row_id}: a pending row proposes one of {REASONS[:3]}")
         elif not row.get("decision"):
             problems.append(f"{row_id}: a {reason!r} row names the owner decision")
     return problems
@@ -831,8 +943,8 @@ def test_p0400_reach_guard_accepts_a_registered_unrouted_function(
         {
             "id": "RX-PLANTED",
             "capability": "planted",
-            "reason": "pending owner decision",
-            "proposed": "Python-only by design",
+            "reason": "Python-only by design",
+            "decision": "planted",
             "names": [
                 "pyflightstream.post.planted_reach.planted_routed",
                 "pyflightstream.post.planted_reach.planted_unrouted",
@@ -873,3 +985,74 @@ def test_p0400_reach_guard_refuses_stale_and_expired_rows(
     assert row_problems({"rows": [routed]}, "0.0.1") == []
     unsigned = {"rows": [{**routed, "reason": "Python-only by design"}]}
     assert "names the owner decision" in row_problems(unsigned, "0.0.1")[0]
+    pending = {"rows": [{**routed, "reason": "pending owner decision"}]}
+    assert "is not one of" in row_problems(pending, "0.0.1")[0]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def _hidden(): pass\npublic = _hidden\n__all__ = ['public']",
+        "def _hidden(): pass\npublic: object = _hidden\n__all__ = ['public']",
+        "import pyflightstream._hidden as hidden\npublic = hidden.feature\n__all__ = ['public']",
+        "def _hidden(): pass\npublic = _hidden",
+    ],
+    ids=["alias", "annotated-alias", "module-alias", "implicit-export"],
+)
+def test_p0400_reach_guard_inventory_includes_callable_aliases(source: str) -> None:
+    """P0400-REACH-ALIAS: exporting a callable by assignment cannot hide it; routed, it passes."""
+    modules = _overlay(
+        {},
+        {"pyflightstream.api": source, "pyflightstream._hidden": "def feature(): pass"},
+    )
+    verdict = analyse(modules, roots=())
+    assert verdict.capability_named("pyflightstream.api.public") is not None
+    assert len(coverage_problems(verdict, {"rows": []})) == 1
+    cli = "from pyflightstream.api import public\ndef main(): public()"
+    modules.update(_overlay({}, {"pyflightstream._cli": cli}))
+    routed = analyse(modules, roots=(("pyflightstream._cli", "main"),))
+    assert coverage_problems(routed, {"rows": []}) == []
+
+
+def test_p0400_reach_guard_ignores_nested_export_lists() -> None:
+    """P0400-REACH-EXPORT-SCOPE: a function's or class's own __all__ cannot hide module exports."""
+    info = parse_module(
+        "pyflightstream.api",
+        False,
+        "__all__ = ['public']\ndef public(): pass\n"
+        "def _helper():\n    __all__ = []\n"
+        "class _Helper:\n    __all__ = []\n",
+    )
+    assert info.exports == ["public"]
+    verdict = analyse({info.name: info}, roots=())
+    assert verdict.capability_named("pyflightstream.api.public") is not None
+
+
+_DEAD_USES = """
+from typing import TYPE_CHECKING
+
+from pyflightstream.api import annotated, dead, guarded, live
+
+if TYPE_CHECKING:
+    from pyflightstream.api import typed
+
+
+def main(argument: annotated) -> annotated:
+    local: typed = live()
+    if TYPE_CHECKING:
+        guarded()
+    if False:
+        dead()
+    return local
+    dead()
+"""
+
+
+def test_p0400_reach_guard_does_not_count_dead_or_annotation_uses() -> None:
+    """P0400-REACH-DEAD: annotation, TYPE_CHECKING, if-False and after-return uses reach nothing."""
+    names = ["annotated", "dead", "guarded", "live", "typed"]
+    api = f"__all__ = {names!r}\n" + "".join(f"def {name}(): pass\n" for name in names)
+    modules = _overlay({}, {"pyflightstream.api": api, "pyflightstream._cli": _DEAD_USES})
+    verdict = analyse(modules, roots=(("pyflightstream._cli", "main"),))
+    unreached = {capability.paths[0].rpartition(".")[2] for capability in verdict.unreached}
+    assert unreached == {"annotated", "dead", "guarded", "typed"}

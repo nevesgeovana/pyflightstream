@@ -1031,11 +1031,13 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
     from the script that was handed to the solver, so the two sides come from
     two different files and neither is derived from the other.
 
-    `expected` is the sum over the artifact's entries of that entry's own count
-    times its planes, which is FR-76's per-entry form; an entry stating no count
-    takes the artifact's. It is computed here from the artifact rather than
-    taken from the emitter, so an emitter that silently changed its arithmetic
-    would show up as a disagreement rather than as agreement with itself.
+    `expected` and `emitted` list the section count of every block, sorted
+    without discarding duplicates. Each entry contributes its count (or the
+    artifact's default) once per plane. The recorded sections layout is the
+    snapshot of those declarations and takes precedence over a live artifact.
+    Historical records without it use the artifact on disk. The emitted side
+    is read independently from the script, so a missing, extra or wrong block
+    remains a disagreement.
 
     A point whose script is not on disk is left OUT rather than counted as zero:
     the arm refuses an empty set, and a missing script is a gap in the evidence
@@ -1048,23 +1050,31 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         sim_id = str(record.get("sim_id") or "")
         pproc_id = str(record.get("pproc") or "")
         run_id = str(record.get("run_id") or "")
-        if not sim_id or not pproc_id or not run_id:
+        if not sim_id or not run_id:
             continue
         artifact = root / "inputs" / "pproc" / f"{pproc_id}.toml"
-        if not artifact.is_file():
+        layout = record.get("sections_layout")
+        if isinstance(layout, list):
+            entries = layout
+            counts = [int(entry["count"]) for entry in entries if isinstance(entry, Mapping)]
+        else:
+            if not artifact.is_file():
+                continue
+            try:
+                spec = tomllib.loads(artifact.read_text(encoding="utf-8"))
+            except (OSError, tomllib.TOMLDecodeError):
+                continue
+            sections = spec.get("sections") or {}
+            entries = sections.get("distributions") or []
+            counts = [
+                int(entry.get("count") or sections.get("count", 50))
+                for entry in entries
+                if isinstance(entry, Mapping)
+                for _plane in entry.get("planes", ["XZ"])
+            ]
+        if not counts:
             continue
-        try:
-            spec = tomllib.loads(artifact.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError):
-            continue
-        sections = spec.get("sections") or {}
-        entries = sections.get("distributions") or []
-        if not entries:
-            continue
-        # WHAT THE ARTIFACT DECLARED: the number of sections each distribution
-        # asks for. It is one number for the artifact, because `count` is a
-        # field of `[sections]` and governs every entry in it.
-        expected = int(sections.get("count", 50))
+        expected = sorted(counts)
 
         # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
         # than matched by name. The first version of this looked for the point
@@ -1095,16 +1105,7 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
                     except ValueError:
                         asked.append(-1)
                     break
-        if not asked:
-            # The artifact declares distributions and the script emitted none,
-            # which is a real disagreement and is reported as one rather than
-            # dropped: this case is what a run that exports sections it never
-            # created looks like from here.
-            emitted = 0
-        elif len(set(asked)) == 1:
-            emitted = asked[0]
-        else:
-            emitted = -1
+        emitted = sorted(asked)
         blocks = len(asked)
         cases.append(
             {
@@ -1130,20 +1131,37 @@ def write_sections_report(
     return target
 
 
+def _legacy_field(text: str) -> str:
+    """Return one field of the legacy polar format: no whitespace inside it."""
+    return "_".join(text.split()) or text
+
+
 def _write_legacy_polar(
     path: Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
     """Write the union in the legacy polar format: fixed-width fields, no commas.
 
     The SAME columns and the same values as the csv form; only the rendering
-    differs, which is what `SUPERFILE_FORMATS` promises. Each field is padded
-    to a fixed width, which is what makes the format readable by a tool that
+    differs, which is what `SUPERFILE_FORMATS` promises. Each column is padded
+    to one width, which is what makes the format readable by a tool that
     splits on position rather than on a delimiter.
+
+    THE WIDTH IS 16 OR ONE MORE THAN THE COLUMN'S LONGEST NAME OR CELL, and a
+    space inside a cell is written ``_``, so at least one space separates every
+    two fields and a reader splitting on whitespace reads one field per
+    column. At a fixed 16 a name of 16 characters or more ran into its
+    neighbour (``POLSET_SOLVER_VISCOUS_COUPLING``), and a superfile always
+    carries such names; a description ``wing at cruise`` split into three.
     """
-    width = 16
-    lines = ["".join(str(name).rjust(width) for name in columns)]
-    for row in rows:
-        lines.append("".join(_fixed_cell(value).rjust(width) for value in row))
+    header = [_legacy_field(str(name)) for name in columns]
+    body = [[_legacy_field(_fixed_cell(value)) for value in row] for row in rows]
+    widths = [
+        max(16, len(name) + 1, *(len(cells[index]) + 1 for cells in body))
+        for index, name in enumerate(header)
+    ]
+    lines = ["".join(name.rjust(width) for name, width in zip(header, widths, strict=True))]
+    for cells in body:
+        lines.append("".join(cell.rjust(width) for cell, width in zip(cells, widths, strict=True)))
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, "\n".join(lines) + "\n")
     return path

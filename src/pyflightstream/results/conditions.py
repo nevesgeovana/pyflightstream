@@ -104,8 +104,14 @@ class ConditionCheck:
 
     @property
     def within(self) -> bool:
-        """True when the deviation is no larger than print rounding."""
-        return self.deviation <= self.tolerance
+        """True when the deviation is no larger than print rounding.
+
+        The slack of one part in 1e9 absorbs the binary representation
+        of the difference: a request at an exact half count, 0.0625
+        printed ``0.063``, differs by 5.000000000000004e-4 in floating
+        point, which is the tolerance itself and not past it.
+        """
+        return self.deviation <= self.tolerance * (1.0 + 1e-9)
 
     def describe(self) -> str:
         """Return one human-readable line for an error message."""

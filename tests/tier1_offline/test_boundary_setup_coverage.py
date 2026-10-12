@@ -118,7 +118,7 @@ def test_a_boundary_cannot_be_assigned_twice_and_silently_renumber_ports(tmp_pat
         _setup_ports(case, _port_script())
 
 
-def test_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
+def test_p0400_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
     """P0400-REMESH-INLET-LINE (PFS-2135.033): the remesh block names its own inlet."""
     case, _ = _port_case(tmp_path, remesh=True)
     script = _port_script()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from pyflightstream.cases import SweepAxis
 from pyflightstream.cases.naming import POINT_AXIS_KEYS, name_field
 from pyflightstream.cases.workflows import SWEEP_WORD
@@ -98,6 +100,20 @@ def _condition_sweep_axes() -> dict[str, str]:
     }
 
 
+def _sweep_value(pol: str, token: str, *, error: type[ValueError]) -> float:
+    """Read one SWEEP_VALUES token as a finite number, or refuse it naming the POL."""
+    try:
+        value = float(token)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value):
+        raise error(
+            f"POL {pol}: SWEEP_VALUES holds {token.strip()!r}, which is not a finite "
+            "number; the column holds comma-separated numbers, for example '0.0,2.0,4.0'."
+        )
+    return value
+
+
 def refuse_repeated_names(
     pol: str, values_text: str, axis: str, held: dict[str, float], *, error: type[ValueError]
 ) -> None:
@@ -107,15 +123,15 @@ def refuse_repeated_names(
         b = token.strip()
         if not b:
             continue
-        point = {**held, axis: float(b)}
+        point = {**held, axis: _sweep_value(pol, b, error=error)}
         name = "".join(
             name_field(POINT_AXIS_KEYS[key], point[key]) for key in POINT_AXIS_KEYS if key in point
         )
         if name in seen:
             i, a = seen[name]
             raise error(
-                f"POL {pol}: SWEEP_VALUES repeats {a} (position {i}) and {b} (position {j}): "
-                f"both write the name {name}, so they would share one run_id and one "
+                f"POL {pol}: SWEEP_VALUES {a} (position {i}) and {b} (position {j}) round "
+                f"to the same name {name}, so they would share one run_id and one "
                 "datapoint folder; remove the repeat, or separate the values by 0.1 degree "
                 "for an angle or 0.01 for an advance ratio."
             )
@@ -172,7 +188,9 @@ def _sweep_of_condition(
             "Every other key of the cell may carry the word in a later release; today "
             "it is refused rather than accepted and ignored."
         )
-    values = [float(token) for token in sweep_values.split(",") if token.strip()]
+    values = [
+        _sweep_value(pol, token, error=error) for token in sweep_values.split(",") if token.strip()
+    ]
     if not values:
         raise error(
             f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES holds "

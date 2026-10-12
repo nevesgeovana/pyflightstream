@@ -1185,7 +1185,9 @@ def test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_sk
     monkeypatch.setattr("pyflightstream.run.matrix.LocalExecutor", WritesNothing)
     assert matrix_cli.main(command) == 2
     captured = capsys.readouterr()
-    assert captured.out.count("failed (FAILED_INCOMPLETE_OUTPUT)") == 2, captured.out
+    # P0400-EXTRACTION-ONE-RULE: absent VTK sources fail the translation,
+    # under the same rule as a collected extraction (PFS-2103.008).
+    assert captured.out.count("failed (FAILED_EXECUTION)") == 2, captured.out
     assert "2 extraction(s) failed" in captured.err, captured.err
 
     made: list = []

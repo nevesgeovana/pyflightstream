@@ -3,8 +3,11 @@
 import threading
 from pathlib import Path
 
+import pytest
+
 import pyflightstream.run.rename as rename
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+from pyflightstream.workspace.manifest import manifest_lock
 from tests.tier1_offline.test_goal028_hpc_manifest_lock import _record
 from tests.tier1_offline.test_goal028_rename_destinations import _old_workspace
 
@@ -31,7 +34,18 @@ def test_rename_does_not_lose_a_concurrent_append(tmp_path, monkeypatch):
         if not attempted.is_set():
             writer.start()
             assert attempted.wait(5)
-            done.wait(0.2)  # A writer without the shared lock finishes inside this pause.
+            # No pause: rename must hold the manifest's lease right now, which a
+            # second taker of the same lease proves by being refused (no clock
+            # decides this, so a slow machine cannot hide a missing lock).
+            with pytest.raises(WorkspaceError, match="held by another writer"):
+                manifest_lock(
+                    workspace.manifest_path,
+                    root=workspace.root,
+                    timeout_s=0.1,
+                    renew_s=5.0,
+                    stale_s=300.0,
+                    poll_s=0.01,
+                ).__enter__()
         return original_plan(*args, **kwargs)
 
     monkeypatch.setattr(rename, "_plan_record", plan)

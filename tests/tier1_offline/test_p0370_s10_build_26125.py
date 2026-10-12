@@ -224,7 +224,7 @@ def test_the_ccs_curve_assignment_is_written_where_the_build_carries_it():
 
 
 @pytest.mark.requirement("FR-423")
-def test_the_26125_setup_keys_write_their_lines_and_nothing_unstated(recwarn):
+def test_the_26125_setup_keys_write_their_lines_and_nothing_unstated():
     """P0370-S10-SETUP-KEYS (FR-423): each key reaches its command; unstated, no line moves."""
     plain = unsteady_case()
     stated = plain.model_copy(
@@ -241,7 +241,11 @@ def test_the_26125_setup_keys_write_their_lines_and_nothing_unstated(recwarn):
         "SET_AEROELASTIC_CONVERGENCE_THRESHOLD 1e-05",
     ]
     assert len(keyed) == len(base) + 2
-    assert _lines(plain, "26.124") == _lines(unsteady_case(), "26.124")
+    # On 26.124 the stated keys have no recorded evidence: the build refuses them by
+    # name instead of writing the lines, and the unstated case still builds.
+    with pytest.raises(CommandNotInVersionError, match="ENABLE_SOLVER_TIME_AVERAGING"):
+        _lines(stated, "26.124")
+    assert not any("ENABLE_SOLVER_TIME_AVERAGING" in line for line in _lines(plain, "26.124"))
 
 
 @pytest.mark.requirement("FR-423")
@@ -311,4 +315,5 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
         assert "AUTO_DETECT" not in text, name
         built += 1
-    assert built == 175
+    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17).
+    assert built == 230

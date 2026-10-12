@@ -49,9 +49,11 @@ import hashlib
 import json
 import os
 import shutil
+import time
 import tomllib
 import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -59,6 +61,7 @@ from typing import Any, cast
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
+from pyflightstream._errors import warn
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -72,10 +75,17 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
+from pyflightstream.workspace.manifest import (
+    MANIFEST_LOCK_POLL_S,
+    MANIFEST_LOCK_RENEW_S,
+    MANIFEST_LOCK_STALE_S,
+    manifest_lock,
+)
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
     archive_previous,
+    free_root_archive,
     resolve_manifest,
 )
 
@@ -142,7 +152,11 @@ def _now() -> _dt.datetime:
 
 
 def _stamp() -> str:
-    return _now().strftime(ARCHIVE_STAMP)
+    # THE PACKAGE'S ONE ARCHIVE CLOCK, local time (PFS-2096.026): every other
+    # writer of archive/<stem>-<stamp>.json stamps its copy in local time, and
+    # restore takes the newest by stamp, so a UTC stamp here sorted a storage
+    # copy hours away from the copies made beside it.
+    return _dt.datetime.now().strftime(ARCHIVE_STAMP)
 
 
 def _version() -> str:
@@ -237,12 +251,66 @@ def _replace_rows(workspace: CampaignWorkspace, path: Path, rows: list[dict[str,
     temporary.replace(path)
 
 
-def _archive_rows(workspace: CampaignWorkspace, path: Path, stamp: str) -> str:
-    """Copy a manifest to ``archive/<stem>-<stamp>.json``; return that path, relative."""
-    (workspace.root / ARCHIVE_DIR).mkdir(exist_ok=True)
-    archived = f"{ARCHIVE_DIR}/{path.stem}-{stamp}.json"
-    shutil.copy2(path, workspace.root / archived)
-    return archived
+#: How long a storage command waits for the ``runs.json`` lease before it says a
+#: run is in progress: long enough for the lease's brief arbitration, never for a run.
+_LEASE_WAIT_S = 1.0
+
+
+@contextmanager
+def _runs_lease(workspace: CampaignWorkspace, refusal: str) -> Iterator[None]:
+    """Hold the ``runs.json`` lease, refusing with ``refusal`` while a live writer holds it.
+
+    The lease's own rules decide whether a ``runs.json.lock`` is held
+    (PFS-2094.047): a lock left by a process that died on this host, or one
+    whose heartbeat stopped for :data:`MANIFEST_LOCK_STALE_S`, is recovered,
+    so a killed run does not stop every storage command for good; and the
+    command holds the lease while it changes files, so no run or collect
+    starts writing beside it.
+    """
+    stack = ExitStack()
+    try:
+        stack.enter_context(
+            manifest_lock(
+                workspace.manifest_path,
+                root=workspace.root,
+                timeout_s=_LEASE_WAIT_S,
+                renew_s=MANIFEST_LOCK_RENEW_S,
+                stale_s=MANIFEST_LOCK_STALE_S,
+                poll_s=MANIFEST_LOCK_POLL_S,
+            )
+        )
+    except WorkspaceError as error:
+        raise StorageError(refusal) from error
+    with stack:
+        yield
+
+
+def _lease_live_in(root: Path) -> bool:
+    """Whether another workspace's ``runs.json.lock`` is a live lease, read without writing there.
+
+    The lease renews its lock's time stamp every few seconds, so a lock no
+    heartbeat touched for :data:`MANIFEST_LOCK_STALE_S` is left by a process
+    that ended, not a run in progress (PFS-2094.047).
+    """
+    lock = root / "runs.json.lock"
+    try:
+        return time.time() - lock.stat().st_mtime <= MANIFEST_LOCK_STALE_S
+    except OSError:
+        return False
+
+
+def _archive_manifest(workspace: CampaignWorkspace, path: Path, stamp: str) -> str:
+    """Copy a manifest to its free ``archive/<stem>-<stamp>.json``; return that path, relative.
+
+    Through :func:`free_root_archive`, the one spelling ``restore`` reads, so a
+    second copy within one stamp is numbered and never overwrites the first
+    (PFS-2096.026). A copy that fails raises: the rows are not rewritten
+    without it.
+    """
+    kept = free_root_archive(workspace.root, path.name, stamp)
+    kept.parent.mkdir(exist_ok=True)
+    shutil.copy2(path, kept)
+    return kept.relative_to(workspace.root).as_posix()
 
 
 # --------------------------------------------------------------------------- the record
@@ -496,27 +564,44 @@ def _compact_sim(workspace: CampaignWorkspace, sim_id: str) -> dict[str, Any]:
     """Zip one simulation folder, verify every member, then remove the folder."""
     folder = workspace.sim_dir(sim_id)
     archive = _zip_path(workspace, sim_id)
+    if archive.exists():
+        # NEVER OVER AN EARLIER ARCHIVE (PFS-2096.014): a folder beside the zip
+        # is a run or a sync that wrote into a compacted simulation, often part
+        # of it, and zipping it over the archive would lose the rest.
+        raise StorageError(_both_refusal(folder, archive))
     inputs = folder / "inputs"
     link_target = os.path.realpath(inputs) if _is_link(inputs) else None
     members: dict[str, str] = {}
     temporary = archive.with_name(archive.name + f".{os.getpid()}.tmp")
-    with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
-        for path in sorted(_walk_files(folder)):
-            name = path.relative_to(folder).as_posix()
-            zf.write(path, name)
-            members[name] = _sha256(path)
-        zf.writestr(
-            _COMPACT_META,
-            json.dumps({"sim_id": sim_id, "inputs_link": link_target, "members": members}),
-        )
-    with zipfile.ZipFile(temporary) as zf:
-        for name, digest in members.items():
-            if hashlib.sha256(zf.read(name)).hexdigest() != digest:
-                temporary.unlink()
-                raise StorageError(
-                    f"sim {sim_id}: the compacted copy of {name} does not match the file; "
-                    "nothing was removed"
-                )
+    try:
+        with zipfile.ZipFile(
+            temporary, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True
+        ) as zf:
+            for path in sorted(_walk_files(folder)):
+                name = path.relative_to(folder).as_posix()
+                zf.write(path, name)
+                members[name] = _sha256(path)
+            zf.writestr(
+                _COMPACT_META,
+                json.dumps({"sim_id": sim_id, "inputs_link": link_target, "members": members}),
+            )
+        with zipfile.ZipFile(temporary) as zf:
+            for name, digest in members.items():
+                # Streamed, as every other hash here: a member can be a large .fsm.
+                check = hashlib.sha256()
+                with zf.open(name) as member:
+                    for chunk in iter(lambda: member.read(1 << 20), b""):
+                        check.update(chunk)
+                if check.hexdigest() != digest:
+                    raise StorageError(
+                        f"sim {sim_id}: the compacted copy of {name} does not match the file; "
+                        "nothing was removed"
+                    )
+    except BaseException:
+        # A failed write (a file another process holds open) or a mismatch
+        # leaves no partial zip, which space-in-use would count as a simulation.
+        temporary.unlink(missing_ok=True)
+        raise
     temporary.replace(archive)
     before = sum(_size(folder / name) for name in members)
     _remove_sim_folder(folder)
@@ -555,15 +640,81 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
     Raises
     ------
     StorageError
-        If a member of the archive leaves the folder or does not match its recorded hash.
+        If a member of the archive leaves the folder or does not match its recorded hash,
+        or the folder and the archive both exist.
     """
     folder = workspace.sim_dir(sim_id)
     archive = _zip_path(workspace, sim_id)
-    if folder.exists() or not archive.is_file():
+    if not archive.is_file():
         return False
+    # ONE RESTORER AT A TIME (PFS-2096.016), under the storage record's own
+    # lease, including the coexistence check: publishing the restored folder
+    # precedes unlinking the archive, so that transient state must wait too.
+    with workspace._manifest_lock(workspace.root / STORAGE_FILE):
+        restored = _expand_archive(workspace, folder, archive)
+    if restored is None:
+        return False
+    record_storage_call(
+        workspace.root,
+        {"action": "restore", "applied": True, "sim_id": sim_id, "reason": reason, **restored},
+    )
+    return True
+
+
+def _both_refusal(folder: Path, archive: Path) -> str:
+    """Refuse a simulation held both as a folder and as a compacted archive, in words."""
+    return (
+        f"{folder} and {archive} both exist: the simulation was compacted, and a run or a "
+        "sync then wrote a folder beside the archive. Neither is read or changed; merge the "
+        "archive's files into the folder (or move one of the two aside), then run again."
+    )
+
+
+def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
+    """Map a compacted simulation's recorded ``inputs`` link onto THIS workspace's library.
+
+    The record is an absolute path on the machine that compacted it, possibly
+    into another workspace's library when the archive came by sync
+    (PFS-2096.015). The part after ``inputs/geometries`` names the geometry
+    folder, as :func:`_relink_inputs` takes it; None when this library has
+    no such folder.
+    """
+    library = (workspace.inputs_dir / "geometries").resolve()
+    parts = Path(recorded).parts
+    relative: Path | None = None
+    for index in range(len(parts) - 1, 0, -1):
+        if (parts[index - 1].lower(), parts[index].lower()) == ("inputs", "geometries"):
+            relative = Path(*parts[index + 1 :]) if index + 1 < len(parts) else Path(".")
+            break
+    if relative is None:
+        name = Path(recorded).name
+        relative = Path(name) if name and (library / name).is_dir() else None
+    if relative is not None:
+        wanted = (library / relative).resolve()
+        if wanted.is_dir() and (wanted == library or wanted.parent == library):
+            return wanted
+    # A link outside any geometry library is kept only inside this workspace.
+    own = Path(recorded)
+    if own.is_dir() and workspace.root.resolve() in own.resolve().parents:
+        return own
+    return None
+
+
+def _expand_archive(
+    workspace: CampaignWorkspace, folder: Path, archive: Path
+) -> dict[str, Any] | None:
+    """Extract, verify and put a compacted simulation in place; None when another restored it.
+
+    Returns what the restore entry records about the ``inputs`` link: whether
+    it was made again, and where it points, or the recorded target it could
+    not reach when only an empty folder could be made (PFS-2085.011).
+    """
+    if not archive.is_file():
+        return None
+    if folder.exists():
+        raise StorageError(_both_refusal(folder, archive))
     temporary = folder.with_name(folder.name + f".{os.getpid()}.restoring")
-    if temporary.exists():
-        shutil.rmtree(temporary)
+    shutil.rmtree(temporary, ignore_errors=True)
     with zipfile.ZipFile(archive) as zf:
         meta = json.loads(zf.read(_COMPACT_META)) if _COMPACT_META in zf.namelist() else {}
         for info in zf.infolist():
@@ -577,18 +728,41 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
         if _sha256(temporary / name) != digest:
             shutil.rmtree(temporary)
             raise StorageError(f"{archive}: {name} does not match its recorded hash; not restored")
-    temporary.replace(folder)
+    try:
+        temporary.replace(folder)
+    except OSError:
+        # The folder appeared while extracting: the copy is discarded, and a
+        # folder beside the archive is the state refused above.
+        shutil.rmtree(temporary, ignore_errors=True)
+        if folder.exists():
+            raise StorageError(_both_refusal(folder, archive)) from None
+        raise
+    restored = _restore_inputs_link(workspace, folder, meta)
+    archive.unlink()
+    return restored
+
+
+def _restore_inputs_link(
+    workspace: CampaignWorkspace, folder: Path, meta: dict[str, Any]
+) -> dict[str, Any]:
+    """Link a restored simulation's ``inputs`` again, into this workspace's library."""
     link = meta.get("inputs_link")
     if link and not (folder / "inputs").exists():
+        wanted = _library_target(workspace, str(link))
         try:
-            _make_dir_link(Path(link), folder / "inputs")
-        except OSError:
+            if wanted is None:
+                raise OSError(f"no folder of {workspace.inputs_dir / 'geometries'} matches it")
+            _make_dir_link(wanted, folder / "inputs")
+        except OSError as error:
             (folder / "inputs").mkdir()
-    archive.unlink()
-    record_storage_call(
-        workspace.root, {"action": "restore", "applied": True, "sim_id": sim_id, "reason": reason}
-    )
-    return True
+            warn(
+                f"{folder}: the compacted simulation linked its inputs to {link}, and that "
+                f"link could not be made again in this workspace ({error}); inputs/ is an "
+                "empty folder. Stage the geometry under inputs/geometries and link it."
+            )
+            return {"inputs_link_restored": False, "inputs_link_target": str(link)}
+        return {"inputs_link_restored": True, "inputs_link_target": str(wanted)}
+    return {}
 
 
 def compacted_sim_ids(workspace: CampaignWorkspace) -> list[str]:
@@ -728,7 +902,36 @@ def read_recipe(root: Path, recipe: str) -> tuple[Path, dict[str, Any]]:
         if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
             raise StorageError(f"{path}: {table} is written [[{table}]], one table per step")
     step_prune.check_prune_tables(path, document.get(PRUNE_MODE, []), StorageError)
+    _check_step_values(path, document)
     return path, document
+
+
+def _check_step_values(path: Path, document: dict[str, Any]) -> None:
+    """Refuse a step's values before any step runs (PFS-2096.027).
+
+    A refusal met in the middle of an applied recipe came after the earlier
+    steps had changed files.
+    """
+    for spec in document.get("delete_extensions", []):
+        extensions = [str(e).lower() for e in spec.get("extensions", [])]
+        if not extensions or not all(e.startswith(".") for e in extensions):
+            raise StorageError(f'{path}: delete_extensions needs extensions = [".vtk", ...]')
+        refused_ext = sorted(set(extensions).intersection(_PROTECTED_SUFFIXES))
+        if refused_ext:
+            raise StorageError(
+                f"{path}: {refused_ext} is never deleted by a recipe: the saved simulation "
+                "is what a later post or continuation reopens"
+            )
+    for spec in document.get("post_archives", []):
+        if spec.get("action", "delete") not in ("compact", "delete"):
+            raise StorageError(f'{path}: post_archives action is "compact" or "delete"')
+        keep_latest = spec.get("keep_latest", 0)
+        if isinstance(keep_latest, bool) or not isinstance(keep_latest, int) or keep_latest < 0:
+            # PFS-2096.017: a negative count chose every archive, the latest included.
+            raise StorageError(
+                f"{path}: post_archives keep_latest = {keep_latest!r}; write how many of the "
+                "newest archives to keep, a whole number 0 or more"
+            )
 
 
 def _runs_of_folder(sim_dir: Path, rows: list[dict[str, Any]], folder: Path) -> list[str]:
@@ -965,20 +1168,92 @@ def free_space(
     """
     workspace = _workspace(root)
     manifest = resolve_manifest(workspace.root, runs)
-    if workspace.manifest_path.with_name("runs.json.lock").exists():
-        raise StorageError(f"{workspace.root}: runs.json.lock present, a run is in progress")
-    path, document = read_recipe(workspace.root, recipe)
-    records = batch_life.mark_running(
-        _records_by_sim(workspace, *dict.fromkeys((workspace.manifest_path, manifest))),
-        workspace.root,
-    )
-    sims_root = workspace.root / "sims"
-    present = [
-        p.name[len("sim_") :]
-        for p in (sims_root.iterdir() if sims_root.is_dir() else [])
-        if p.is_dir() and p.name.startswith("sim_") and not is_reparse(p)
-    ]
-    steps: list[dict[str, Any]] = []
+    with _runs_lease(workspace, f"{workspace.root}: runs.json.lock present, a run is in progress"):
+        path, document = read_recipe(workspace.root, recipe)
+        records = batch_life.mark_running(
+            _records_by_sim(workspace, *dict.fromkeys((workspace.manifest_path, manifest))),
+            workspace.root,
+        )
+        sims_root = workspace.root / "sims"
+        present = [
+            p.name[len("sim_") :]
+            for p in (sims_root.iterdir() if sims_root.is_dir() else [])
+            if p.is_dir() and p.name.startswith("sim_") and not is_reparse(p)
+        ]
+        _check_selections(workspace, document, records, present)
+        entry: dict[str, Any] = {
+            "action": "free-space",
+            "applied": apply,
+            "recipe": path.relative_to(workspace.root).as_posix(),
+            "recipe_sha256": _sha256(path),
+            "steps": [],
+            "bytes_freed": 0,
+        }
+        try:
+            entry["bytes_freed"] = _run_recipe(
+                workspace, document, records, present, apply=apply, steps=entry["steps"]
+            )
+        except BaseException as error:
+            # WHAT AN APPLIED RECIPE DID IS ALWAYS RECORDED (PFS-2096.027), the
+            # steps done so far and the error that stopped the rest.
+            if apply:
+                entry["bytes_freed"] = None
+                entry["interrupted"] = f"{type(error).__name__}: {error}"
+                record_storage_call(workspace.root, entry)
+            raise
+    record_storage_call(workspace.root, entry)
+    return entry
+
+
+def _would_compact(
+    workspace: CampaignWorkspace,
+    spec: dict[str, Any],
+    records: dict[str, list[dict[str, Any]]],
+    present: list[str],
+) -> set[str]:
+    """Return the simulations one ``[[compact_sims]]`` step compacts, as its loop decides."""
+    return {
+        sim
+        for sim in _select_sims(spec, records, present)
+        if not any(row.get("status") == RunStatus.SUBMITTED.value for row in records.get(sim, []))
+        and not _zip_path(workspace, sim).exists()
+        and _older_than(workspace.sim_dir(sim), spec.get("older_than_days"))
+    }
+
+
+def _check_selections(
+    workspace: CampaignWorkspace,
+    document: dict[str, Any],
+    records: dict[str, list[dict[str, Any]]],
+    present: list[str],
+) -> None:
+    """Make every step's selection before any step runs, against what earlier steps leave.
+
+    A ``[[delete_extensions]]`` naming a simulation an earlier ``[[compact_sims]]``
+    compacts is refused here, in the preview as in the apply, and before
+    anything is changed (PFS-2096.027).
+    """
+    left = list(present)
+    for spec in document.get(PRUNE_MODE, []):
+        _select_sims(spec, records, left)
+    for spec in document.get("compact_sims", []):
+        gone = _would_compact(workspace, spec, records, left)
+        left = [sim for sim in left if sim not in gone]
+    for spec in document.get("delete_extensions", []):
+        _select_sims(spec, records, left)
+
+
+def _run_recipe(
+    workspace: CampaignWorkspace,
+    document: dict[str, Any],
+    records: dict[str, list[dict[str, Any]]],
+    present: list[str],
+    *,
+    apply: bool,
+    steps: list[dict[str, Any]],
+) -> int:
+    """Run a checked recipe's steps in order, appending each to ``steps``; return bytes freed."""
+    root = workspace.root
     freed = 0
     # PRUNE FIRST (0.30.0), so a recipe that prunes and then compacts prunes
     # folders that are still folders: a compacted simulation is not read here.
@@ -989,6 +1264,7 @@ def free_space(
             "refused": {},
             **step_prune.selection_record(spec),
         }
+        steps.append(step)
         deleted: set[Path] = set()
         selected = _select_sims(spec, records, present)
         for sim in tracked(f"free-space: {PRUNE_MODE}", selected, label=_sim_folder):
@@ -1002,9 +1278,9 @@ def free_space(
         if apply:
             freed += sum(item["bytes"] for point in step["points"] for item in point["files"])
             step["products_json"] = _forget_pruned_listings(workspace, deleted)
-        steps.append(step)
     for spec in document.get("compact_sims", []):
         step = {"mode": "compact_sims", "sims": [], "refused": {}}
+        steps.append(step)
         selected = _select_sims(spec, records, present)
         for sim in tracked("free-space: compact_sims", selected, label=_sim_folder):
             rows = records.get(sim, [])
@@ -1012,6 +1288,9 @@ def free_space(
                 step["refused"][sim] = "a run is still SUBMITTED"
                 continue
             folder = workspace.sim_dir(sim)
+            if _zip_path(workspace, sim).exists():
+                step["refused"][sim] = _both_refusal(folder, _zip_path(workspace, sim))
+                continue
             if not _older_than(folder, spec.get("older_than_days")):
                 continue
             if apply:
@@ -1022,23 +1301,26 @@ def free_space(
                 step["sims"].append(
                     {"sim_id": sim, "bytes": sum(_size(p) for p in _walk_files(folder))}
                 )
-        present = [sim for sim in present if workspace.sim_dir(sim).is_dir()]
-        steps.append(step)
+        # What this step compacted, or would in the preview, is no longer a
+        # folder a later step can select: the preview refuses what the apply would.
+        compacted = {str(item["sim_id"]) for item in step["sims"]}
+        present = [sim for sim in present if sim not in compacted]
     for spec in document.get("delete_extensions", []):
         extensions = [str(e).lower() for e in spec.get("extensions", [])]
-        if not extensions or not all(e.startswith(".") for e in extensions):
-            raise StorageError(f'{path}: delete_extensions needs extensions = [".vtk", ...]')
-        refused_ext = sorted(set(extensions).intersection(_PROTECTED_SUFFIXES))
-        if refused_ext:
-            raise StorageError(
-                f"{path}: {refused_ext} is never deleted by a recipe: the saved simulation "
-                "is what a later post or continuation reopens"
-            )
-        step = {"mode": "delete_extensions", "extensions": extensions, "files": [], "kept": []}
+        step = {
+            "mode": "delete_extensions",
+            "extensions": extensions,
+            "files": [],
+            "kept": [],
+            "refused": {},
+        }
+        steps.append(step)
         selected = _select_sims(spec, records, present)
         for sim in tracked("free-space: delete_extensions", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
+                # Recorded as the other two modes record it (PFS-2093.006).
+                step["refused"][sim] = "a run is still SUBMITTED; its files are kept"
                 continue
             keep = _protected(workspace, sim, rows)
             for file in _walk_files(workspace.sim_dir(sim)):
@@ -1053,13 +1335,11 @@ def free_space(
                 if apply:
                     file.unlink()
                     freed += size
-        steps.append(step)
     for spec in document.get("post_archives", []):
         action = spec.get("action", "delete")
-        if action not in ("compact", "delete"):
-            raise StorageError(f'{path}: post_archives action is "compact" or "delete"')
         keep_latest = int(spec.get("keep_latest", 0))
         step = {"mode": "post_archives", "action": action, "archives": []}
+        steps.append(step)
         post_root = workspace.root / "post"
         roots = sorted(post_root.rglob(ARCHIVE_DIR)) if post_root.is_dir() else []
         for archive_root in tracked("free-space: post_archives", roots, label=_relative_to(root)):
@@ -1090,17 +1370,7 @@ def free_space(
                         freed += size
                     shutil.rmtree(stamp_dir)
                 step["archives"].append(entry)
-        steps.append(step)
-    entry = {
-        "action": "free-space",
-        "applied": apply,
-        "recipe": path.relative_to(workspace.root).as_posix(),
-        "recipe_sha256": _sha256(path),
-        "steps": steps,
-        "bytes_freed": freed,
-    }
-    record_storage_call(workspace.root, entry)
-    return entry
+    return freed
 
 
 # --------------------------------------------------------------------------- delete sims
@@ -1115,8 +1385,14 @@ def _products_of(workspace: CampaignWorkspace, sim_ids: set[str], run_ids: set[s
             continue
         try:
             document = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
+        except (OSError, ValueError) as error:
+            # NEVER SKIPPED (PFS-2086.006): an unread manifest hides the products
+            # that hold the deleted points, and the shared-product refusal with them.
+            raise StorageError(
+                f"{manifest} cannot be read ({error}); delete-sims reads it to find the "
+                "products that hold the deleted points, so nothing is deleted. Restore it "
+                "(pyfs-matrix restore products) or rebuild it with a post, then run again."
+            ) from error
         folder = manifest.parent
         own: list[str] = []
         shared: list[str] = []
@@ -1238,9 +1514,53 @@ def delete_sims(
             f"(CLI: --runs) {manifest.name}: the post it reruns reads runs.json. Delete with "
             "'points-only', then post that manifest (pyfs-matrix post --runs)."
         )
-    if workspace.manifest_path.with_name("runs.json.lock").exists():
-        raise StorageError(f"{workspace.root}: runs.json.lock present, a run is in progress")
-    ids = [str(sim).strip() for sim in sim_ids if str(sim).strip()]
+    with _runs_lease(workspace, f"{workspace.root}: runs.json.lock present, a run is in progress"):
+        entry = _delete_sims_held(
+            workspace,
+            manifest,
+            sim_ids,
+            matrix_products=matrix_products,
+            apply=apply,
+            caller=caller,
+            force=force,
+        )
+    with _recorded_if_interrupted(workspace.root, entry, apply, {}):
+        shared = cast(dict[str, list[str]], entry["stale"])
+        if entry["applied"] and matrix_products == "regenerate" and shared:
+            regenerated: list[str | None] = []
+            entry["regenerated"] = regenerated
+            stems = {
+                None if name == "None" else name
+                for item in entry["sims"]
+                for name in cast(list[str], item["matrix"])
+            }
+            for folder_rel in shared:
+                folder = (workspace.root / folder_rel).resolve()
+                matching = [s for s in stems if workspace.products_dir(s).resolve() == folder]
+                if not matching:
+                    entry.setdefault("not_regenerated", []).append(folder_rel)
+                    continue
+                for stage in post_stages():
+                    stage(workspace, overwrite=True, archive=True, matrix_stem=matching[0])
+                regenerated.append(matching[0])
+    record_storage_call(workspace.root, entry)
+    return entry
+
+
+def _delete_sims_held(
+    workspace: CampaignWorkspace,
+    manifest: Path,
+    sim_ids: Sequence[str],
+    *,
+    matrix_products: str | None,
+    apply: bool,
+    caller: str | None,
+    force: bool,
+) -> dict[str, Any]:
+    """Check and measure under the ``runs.json`` lease, and with ``apply`` delete."""
+    # ONE ENTRY PER SIMULATION, in the order named (PFS-2103.041): a repeated
+    # id wrote two tombstones with one run_id.
+    ids = list(dict.fromkeys(str(sim).strip() for sim in sim_ids if str(sim).strip()))
     if not ids:
         raise StorageError("name at least one simulation id")
     records = _records_by_sim(workspace, manifest)
@@ -1302,18 +1622,54 @@ def delete_sims(
             "marked stale) or 'regenerate' (rerun their post without the deleted points)."
         )
     if not apply:
-        record_storage_call(workspace.root, entry)
         return entry
+    # THE INTENT IS RECORDED BEFORE ANYTHING IS REMOVED (PFS-2086.005), so a
+    # delete that stops part way is visible, and the same delete-sims run again
+    # finishes it: its records are still in the manifest until the last step.
+    record_storage_call(
+        workspace.root,
+        {
+            **entry,
+            "intent": (
+                "delete-sims started; the entry after this one records what it removed. "
+                "With none after it, the delete stopped part way: run the same delete-sims "
+                "again to finish it."
+            ),
+        },
+    )
+    try:
+        _delete_applied(
+            workspace, manifest, entry, products=products, run_ids=run_ids, measured=measured
+        )
+    except BaseException as error:
+        entry["applied"] = True
+        entry["interrupted"] = f"{type(error).__name__}: {error}"
+        record_storage_call(workspace.root, entry)
+        raise
+    return entry
+
+
+def _delete_applied(
+    workspace: CampaignWorkspace,
+    manifest: Path,
+    entry: dict[str, Any],
+    *,
+    products: dict[str, dict[str, list[str]]],
+    run_ids: set[str],
+    measured: dict[str, int],
+) -> None:
+    """Remove the checked simulations, their own products and their records; fill ``entry``."""
+    ids = [str(item["sim_id"]) for item in entry["sims"]]
     stamp = _stamp()
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
     links_undone: dict[str, list[str]] = {}
+    entry["links_undone"] = links_undone
     for sim in tracked("delete-sims: remove", ids, label=_sim_folder, size=measured.__getitem__):
         links_undone[sim] = batch_life.remove_sim_folders(workspace, sim, _remove_sim_folder)
         archive = _zip_path(workspace, sim)
         if archive.is_file():
             archive.unlink()
-    entry["links_undone"] = links_undone
     for folder_rel, item in products.items():
         folder = workspace.root / folder_rel
         for name in item["own"]:
@@ -1321,50 +1677,28 @@ def delete_sims(
             if target.is_file() and not is_reparse(target):
                 target.unlink()
         _forget_products(folder / "products.json", item, run_ids, sims=ids, stamp=stamp)
-    archived_as = f"{ARCHIVE_DIR}/{manifest.stem}-{stamp}.json"
-    with workspace._manifest_lock():
-        raw = _read_rows(manifest)
-        (workspace.root / ARCHIVE_DIR).mkdir(exist_ok=True)
-        if manifest.is_file():
-            _archive_rows(workspace, manifest, stamp)
-        kept = [row for row in raw if str(row.get("run_id")) not in run_ids]
-        index = len(read_storage_calls(workspace.root))
-        for item in sims_entry:
-            kept.append(
-                {
-                    "run_id": f"deleted/sim_{item['sim_id']}/{stamp}",
-                    DELETED_SIM_KEY: item["sim_id"],
-                    "deleted_at": _now().isoformat(),
-                    "deleted_run_ids": item["run_ids"],
-                    "note": (
-                        "this simulation id belonged to a simulation deleted by pyfs-matrix "
-                        f"delete-sims; the full entry is call {index} of {STORAGE_FILE}"
-                    ),
-                    "storage_entry": index,
-                }
-            )
-        _replace_rows(workspace, manifest, kept)
+    # The runs.json lease is already held by delete_sims for all of this.
+    raw = _read_rows(manifest)
+    archived_as = _archive_manifest(workspace, manifest, stamp) if manifest.is_file() else None
+    kept = [row for row in raw if str(row.get("run_id")) not in run_ids]
+    index = len(read_storage_calls(workspace.root))
+    for item in entry["sims"]:
+        kept.append(
+            {
+                "run_id": f"deleted/sim_{item['sim_id']}/{stamp}",
+                DELETED_SIM_KEY: item["sim_id"],
+                "deleted_at": _now().isoformat(),
+                "deleted_run_ids": item["run_ids"],
+                "note": (
+                    "this simulation id belonged to a simulation deleted by pyfs-matrix "
+                    f"delete-sims; the full entry is call {index} of {STORAGE_FILE}"
+                ),
+                "storage_entry": index,
+            }
+        )
+    _replace_rows(workspace, manifest, kept)
     entry["applied"] = True
     entry["runs_archived_as"] = archived_as
-    if matrix_products == "regenerate" and shared:
-        regenerated: list[str | None] = []
-        stems = {
-            None if name == "None" else name
-            for item in sims_entry
-            for name in cast(list[str], item["matrix"])
-        }
-        for folder_rel in shared:
-            folder = (workspace.root / folder_rel).resolve()
-            matching = [s for s in stems if workspace.products_dir(s).resolve() == folder]
-            if not matching:
-                entry.setdefault("not_regenerated", []).append(folder_rel)
-                continue
-            for stage in post_stages():
-                stage(workspace, overwrite=True, archive=True, matrix_stem=matching[0])
-            regenerated.append(matching[0])
-        entry["regenerated"] = regenerated
-    record_storage_call(workspace.root, entry)
-    return entry
 
 
 # --------------------------------------------------------------------------- sync
@@ -1386,7 +1720,10 @@ def read_sync_config(root: Path) -> tuple[str, dict[str, Path]]:
     for name, item in table.items():
         if not isinstance(item, dict) or not isinstance(item.get("path"), str):
             raise StorageError(f'{path}: [workspaces.{name}] needs path = "..."')
-        spaces[name] = Path(item["path"]).expanduser()
+        # A relative path is the workspace root's (PFS-2094.049), so the
+        # documented path = "." names main wherever the command is run from.
+        written = Path(item["path"]).expanduser()
+        spaces[name] = written if written.is_absolute() else root / written
     if main not in spaces:
         raise StorageError(f"{path}: main = {main!r} is not one of {sorted(spaces)}")
     if spaces[main].resolve() != root.resolve():
@@ -1784,6 +2121,85 @@ def _restore_orphans(root: Path, sims: list[str]) -> dict[str, Any]:
     return {"asked": True, "sims": sims, "result": None, "error": error}
 
 
+@contextmanager
+def _recorded_if_interrupted(
+    root: Path, entry: dict[str, Any], apply: bool, done: dict[str, Any]
+) -> Iterator[None]:
+    """Record ``entry`` and what was ``done`` when an applied command stops part way.
+
+    PFS-2096.027: the error is recorded with the entry, so a sync that merged
+    the records and then failed a copy leaves a record of both.
+    """
+    try:
+        yield
+    except BaseException as error:
+        if apply:
+            entry.update(done, interrupted=f"{type(error).__name__}: {error}")
+            record_storage_call(root, entry)
+        raise
+
+
+def _expand_compacted(
+    main: CampaignWorkspace,
+    files: Iterable[Path],
+    *,
+    source: str,
+    apply: bool,
+    expanded: list[str],
+) -> list[str]:
+    """Restore, with ``apply``, the compacted simulations of main that ``files`` write into.
+
+    Returns their ids: what main holds only as ``sims/sim_<id>.zip``.
+    """
+    found: set[str] = set()
+    for relative in files:
+        parts = relative.parts
+        if len(parts) < 2 or parts[0] != "sims" or not parts[1].startswith("sim_"):
+            continue
+        incoming_archive = len(parts) == 2 and relative.suffix == COMPACTED_SUFFIX
+        sim_id = parts[1][len("sim_") :]
+        if incoming_archive:
+            sim_id = sim_id[: -len(COMPACTED_SUFFIX)]
+        folder, archive = main.sim_dir(sim_id), _zip_path(main, sim_id)
+        if folder.exists() and (incoming_archive or archive.is_file()):
+            raise StorageError(
+                f"sync from {source}: {folder} conflicts with {archive}; "
+                "expand and reconcile the compacted simulation before syncing"
+            )
+        if not incoming_archive and len(parts) > 2 and archive.is_file():
+            found.add(sim_id)
+    for sim_id in sorted(found):
+        if apply:
+            ensure_sim_expanded(main, sim_id, reason=f"sync from {source}")
+        expanded.append(sim_id)
+    return sorted(found)
+
+
+def _sync_existing(main: CampaignWorkspace, relative: Path, source: Path) -> tuple[bool, bool]:
+    """Whether main has a file and the same bytes, including a compacted preview."""
+    target = main.root / relative
+    if target.exists():
+        return True, _size(source) == _size(target) and _sha256(source) == _sha256(target)
+    parts = relative.parts
+    if len(parts) > 2 and parts[0] == "sims" and parts[1].startswith("sim_"):
+        archive = _zip_path(main, parts[1][len("sim_") :])
+        if archive.is_file():
+            with zipfile.ZipFile(archive) as zf:
+                name = Path(*parts[2:]).as_posix()
+                try:
+                    info = zf.getinfo(name)
+                except KeyError:
+                    return False, False
+                if info.file_size != _size(source):
+                    return True, False
+                digest = hashlib.sha256()
+                with zf.open(info) as member:
+                    for chunk in iter(lambda: member.read(1 << 20), b""):
+                        digest.update(chunk)
+                return True, digest.hexdigest() == _sha256(source)
+    return False, False
+
+
 def _sync_one(
     main: CampaignWorkspace,
     name: str,
@@ -1813,129 +2229,146 @@ def _sync_one(
             "runs": manifest.name,
         },
     }
-    if not ((other / "runs.json").exists() or (other / "inputs").is_dir()):
-        entry["skipped"] = "not a pyfs-matrix workspace (no runs.json, no inputs/)"
-        record_storage_call(main.root, entry)
-        return entry
-    if (other / "runs.json.lock").exists():
-        entry["skipped"] = "runs.json.lock present there: a run is in progress"
-        record_storage_call(main.root, entry)
-        return entry
-    stamp = _stamp()
-    # THE OTHER WORKSPACE'S OWN MANIFEST is the source: `runs` names the
-    # manifest of main the records merge into (P0320-RUNS-NAME).
-    other_rows = _read_rows(other / "runs.json")
-    submitted = {
-        str(row.get("sim_id"))
-        for row in other_rows
-        if row.get("status") == RunStatus.SUBMITTED.value
-    }
-    files, archived = _sync_files(other, level, submitted, include_archives=include_archives)
-    plan: list[tuple[str, Path]] = []
-    file_conflicts: list[str] = []
-    identical = 0
-    with stage_progress("sync hash", total_files=len(files)) as progress:
-        for relative in files:
-            source, target = other / relative, main.root / relative
-            if not target.exists():
-                plan.append(("copy", relative))
-            elif _size(source) == _size(target) and _sha256(source) == _sha256(target):
-                identical += 1
-            elif overwrite:
-                plan.append(("overwrite", relative))
-            else:
-                file_conflicts.append(relative.as_posix())
-            progress.advance(files=1, bytes=_size(source), current=relative.as_posix())
-    main_ids, other_ids = _sim_ids(main.root), _sim_ids(other)
     copied: list[dict[str, Any]] = []
     overwritten: list[dict[str, Any]] = []
-    inputs_links: dict[str, str] = {}
-    # RST-6: THE LEASE ON runs.json IS HELD FOR THE WHOLE OF THE MERGE AND THE
-    # COPY, so a restore (which refuses while runs.json.lock is present), a
-    # run, a collect or a second sync never writes into the workspace while
-    # this one does. It was held around the merge only.
-    with main._manifest_lock():
-        with stage_progress("sync merge", total_files=len(other_rows)) as progress:
-            main_rows = _read_rows(manifest)
-            merged, added, replaced, run_conflicts = _merge_runs(
-                main_rows, other_rows, prefer_other
-            )
-            archived_as = None
-            if apply and (added or replaced):
-                if manifest.is_file():
-                    archived_as = _archive_rows(main, manifest, stamp)
-                _replace_rows(main, manifest, merged)
-            progress.advance(files=len(other_rows))
-        total = sum(_size(other / relative) for _, relative in plan)
-        with stage_progress("sync copy", total_files=len(plan), total_bytes=total) as progress:
-            for kind, relative in plan if apply else []:
-                source, target = other / relative, main.root / relative
-                keep = None
-                if kind == "overwrite":
-                    keep = main.root / ARCHIVE_DIR / f"sync-{stamp}" / relative
-                digest = _atomic_copy(source, target, keep=keep)
-                size = _size(target)
-                item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
-                (overwritten if kind == "overwrite" else copied).append(item)
-                progress.advance(files=1, bytes=size, current=relative.as_posix())
-        # THE MESH IS LINKED, NEVER COPIED (fixed rule, 2026-09-28): each
-        # simulation folder sync brought gets its `inputs` link into main's own
-        # geometry library, the way the other workspace's simulation had it.
-        other_sims = other / "sims"
-        for sim in sorted(other_sims.glob("sim_*")) if other_sims.is_dir() else []:
-            if not sim.is_dir() or is_reparse(sim):
-                continue
-            if apply:
-                done = _relink_inputs(main, other, sim.name)
-                if done:
-                    inputs_links[sim.name] = done
-            elif not (main.root / "sims" / sim.name / "inputs").exists():
-                inputs_links[sim.name] = "to link when applied"
-        # MATRICES (fixed rule, 2026-09-28): every difference is reported as
-        # a merge conflict, and the workspace that owns the matrix wins.
-        entry["matrices"] = _sync_matrices(main, name, other, owners, apply=apply, stamp=stamp)
-    entry["inputs_links"] = inputs_links
-    # P0320-SYNC-ALL-FOLDERS: every simulation folder of both sides, recorded
-    # or not; P0320-SYNC-RESTORE-OPTIN: their records rebuilt only when asked.
-    entry["sims"] = _sim_folders(main_ids, other_ids, _brought_sim_ids(files), merged)
-    orphans = entry["sims"]["without_record"]
-    entry["restore"] = {"asked": restore, "sims": [], "result": None, "error": None}
-    if restore:
-        entry["restore"]["sims"] = orphans
-        if apply and orphans:
-            entry["restore"] = _restore_orphans(main.root, orphans)
-    # 0.30.0: what the other workspace planned and no merged record carries.
-    entry["plan_points_without_record"] = _plan_points_without_record(other, merged)
-    entry.update(
-        {
-            "runs": {
-                "manifest": manifest.name,
-                "added": added,
-                "replaced": replaced,
-                "conflicts": run_conflicts,
-                "submitted_sims_record_only": sorted(submitted),
-                "archived_as": archived_as,
-                "records_before": len(main_rows),
-                "records_after": len(merged),
-            },
-            "files": {
-                "to_copy": sum(kind == "copy" for kind, _ in plan),
-                "to_overwrite": sum(kind == "overwrite" for kind, _ in plan),
-                "copied": copied,
-                "overwritten": overwritten,
-                "conflicts": file_conflicts,
-                "identical": identical,
-                "archived_in": f"{ARCHIVE_DIR}/sync-{stamp}" if overwritten else None,
-                "archives_skipped": {
-                    "files": len(archived),
-                    "bytes": sum(_size(other / relative) for relative in archived),
-                },
-            },
-            "bytes_copied": sum(item["bytes"] for item in copied + overwritten),
+    with _recorded_if_interrupted(
+        main.root, entry, apply, {"files": {"copied": copied, "overwritten": overwritten}}
+    ):
+        if not ((other / "runs.json").exists() or (other / "inputs").is_dir()):
+            entry["skipped"] = "not a pyfs-matrix workspace (no runs.json, no inputs/)"
+            record_storage_call(main.root, entry)
+            return entry
+        if _lease_live_in(other):
+            entry["skipped"] = "runs.json.lock present there: a run is in progress"
+            record_storage_call(main.root, entry)
+            return entry
+        stamp = _stamp()
+        # THE OTHER WORKSPACE'S OWN MANIFEST is the source: `runs` names the
+        # manifest of main the records merge into (P0320-RUNS-NAME).
+        other_rows = _read_rows(other / "runs.json")
+        submitted = {
+            str(row.get("sim_id"))
+            for row in other_rows
+            if row.get("status") == RunStatus.SUBMITTED.value
         }
-    )
-    record_storage_call(main.root, entry)
-    return entry
+        files, archived = _sync_files(other, level, submitted, include_archives=include_archives)
+        with main._manifest_lock():
+            # A SIMULATION MAIN HOLDS COMPACTED IS RESTORED BEFORE ANYTHING IS COPIED
+            # INTO IT (PFS-2096.014): the copy made a partial folder beside the
+            # archive, which the next compaction then zipped over the complete one.
+            _expand_compacted(
+                main, files, source=name, apply=apply, expanded=entry.setdefault("expanded", [])
+            )
+            plan: list[tuple[str, Path]] = []
+            file_conflicts: list[str] = []
+            identical = 0
+            with stage_progress("sync hash", total_files=len(files)) as progress:
+                for relative in files:
+                    exists, same = _sync_existing(main, relative, other / relative)
+                    if not exists:
+                        plan.append(("copy", relative))
+                    elif same:
+                        identical += 1
+                    elif overwrite:
+                        plan.append(("overwrite", relative))
+                    else:
+                        file_conflicts.append(relative.as_posix())
+                    progress.advance(
+                        files=1, bytes=_size(other / relative), current=relative.as_posix()
+                    )
+            main_ids, other_ids = _sim_ids(main.root), _sim_ids(other)
+            inputs_links: dict[str, str] = {}
+            # RST-6: THE LEASE ON runs.json IS HELD FOR THE WHOLE OF THE MERGE AND THE
+            # COPY, so a restore (which refuses while runs.json.lock is present), a
+            # run, a collect or a second sync never writes into the workspace while
+            # this one does. It was held around the merge only. A copy that fails
+            # after the records were merged is recorded with what was done (PFS-2096.027).
+            with stage_progress("sync merge", total_files=len(other_rows)) as progress:
+                main_rows = _read_rows(manifest)
+                merged, added, replaced, run_conflicts = _merge_runs(
+                    main_rows, other_rows, prefer_other
+                )
+                archived_as = (
+                    _archive_manifest(main, manifest, stamp)
+                    if apply and (added or replaced) and manifest.is_file()
+                    else None
+                )
+                if apply and (added or replaced):
+                    _replace_rows(main, manifest, merged)
+                entry["runs"] = {
+                    "manifest": manifest.name,
+                    "added": added,
+                    "replaced": replaced,
+                    "conflicts": run_conflicts,
+                    "submitted_sims_record_only": sorted(submitted),
+                    "archived_as": archived_as,
+                    "records_before": len(main_rows),
+                    "records_after": len(merged),
+                }
+                progress.advance(files=len(other_rows))
+            with stage_progress(
+                "sync copy",
+                total_files=len(plan),
+                total_bytes=sum(_size(other / relative) for _, relative in plan),
+            ) as progress:
+                for kind, relative in plan if apply else []:
+                    source, target = other / relative, main.root / relative
+                    keep = None
+                    if kind == "overwrite":
+                        keep = main.root / ARCHIVE_DIR / f"sync-{stamp}" / relative
+                    digest = _atomic_copy(source, target, keep=keep)
+                    size = _size(target)
+                    item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
+                    (overwritten if kind == "overwrite" else copied).append(item)
+                    progress.advance(files=1, bytes=size, current=relative.as_posix())
+            # THE MESH IS LINKED, NEVER COPIED (fixed rule, 2026-09-28): each
+            # simulation folder sync brought gets its `inputs` link into main's own
+            # geometry library, the way the other workspace's simulation had it.
+            other_sims = other / "sims"
+            for sim in sorted(other_sims.glob("sim_*")) if other_sims.is_dir() else []:
+                if not sim.is_dir() or is_reparse(sim):
+                    continue
+                if apply:
+                    done = _relink_inputs(main, other, sim.name)
+                    if done:
+                        inputs_links[sim.name] = done
+                elif not (main.root / "sims" / sim.name / "inputs").exists():
+                    inputs_links[sim.name] = "to link when applied"
+            # MATRICES (fixed rule, 2026-09-28): every difference is reported as
+            # a merge conflict, and the workspace that owns the matrix wins.
+            entry["matrices"] = _sync_matrices(main, name, other, owners, apply=apply, stamp=stamp)
+        entry["inputs_links"] = inputs_links
+        # P0320-SYNC-ALL-FOLDERS: every simulation folder of both sides, recorded
+        # or not; P0320-SYNC-RESTORE-OPTIN: their records rebuilt only when asked.
+        entry["sims"] = _sim_folders(main_ids, other_ids, _brought_sim_ids(files), merged)
+        orphans = entry["sims"]["without_record"]
+        entry["restore"] = {"asked": restore, "sims": [], "result": None, "error": None}
+        if restore:
+            entry["restore"]["sims"] = orphans
+            if apply and orphans:
+                entry["restore"] = _restore_orphans(main.root, orphans)
+        # 0.30.0: what the other workspace planned and no merged record carries.
+        entry["plan_points_without_record"] = _plan_points_without_record(other, merged)
+        entry.update(
+            {
+                "files": {
+                    "to_copy": sum(kind == "copy" for kind, _ in plan),
+                    "to_overwrite": sum(kind == "overwrite" for kind, _ in plan),
+                    "copied": copied,
+                    "overwritten": overwritten,
+                    "conflicts": file_conflicts,
+                    "identical": identical,
+                    "archived_in": f"{ARCHIVE_DIR}/sync-{stamp}" if overwritten else None,
+                    "archives_skipped": {
+                        "files": len(archived),
+                        "bytes": sum(_size(other / relative) for relative in archived),
+                    },
+                },
+                "bytes_copied": sum(item["bytes"] for item in copied + overwritten),
+            }
+        )
+        record_storage_call(main.root, entry)
+        return entry
 
 
 def sync_workspaces(
@@ -2024,11 +2457,12 @@ def sync_workspaces(
             "pyfs-matrix rebuild)."
         )
     main_name, spaces = read_sync_config(main.root)
-    if main.manifest_path.with_name("runs.json.lock").exists():
-        raise StorageError(
-            f"{main.root}: runs.json.lock present, a run, a collect, a restore or another sync "
-            "is writing here; the sync is refused until it ends"
-        )
+    with _runs_lease(
+        main,
+        f"{main.root}: runs.json.lock present, a run, a collect, a restore or another sync "
+        "is writing here; the sync is refused until it ends",
+    ):
+        pass  # only asked here: the lease's own rules say whether a writer holds it
     names = [source] if source else [name for name in spaces if name != main_name]
     for name in names:
         if name not in spaces:

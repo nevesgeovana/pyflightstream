@@ -115,7 +115,8 @@ def test_the_index_prose_range_ends_at_the_highest_identifier(prefix, pattern):
     match = re.search(pattern, index)
     assert match, f"the index no longer announces a {prefix} range in the expected shape"
     assert int(match.group(1)) == _highest(prefix), (
-        f"docs/srs/index.md announces {prefix}-01 to {prefix}-{match.group(1)} while "
+        f"docs/unpublished/requirements/index.md announces "
+        f"{prefix}-01 to {prefix}-{match.group(1)} while "
         f"the highest {prefix} the SRS declares is {prefix}-{_highest(prefix)}"
     )
 

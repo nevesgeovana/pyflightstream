@@ -640,7 +640,9 @@ def write_point_series(
             path, (POLAR_ID_COLUMN, *columns), [(record.sim_id, *row) for row in rows]
         )
         written.append(done)
-        tabled = sorted(step for step in steps if step in files)
+        # THE STEPS THE ROWS HOLD, every series leading with its STEP: a step
+        # whose export declared no section has a file and no row (PFS-2105.038).
+        tabled = sorted({int(str(row[0])) for row in rows})
         entry: dict[str, object] = {
             "runs": [record.run_id],
             "steps": [first, last],

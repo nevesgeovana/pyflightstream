@@ -109,6 +109,7 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -1415,8 +1416,8 @@ def load_campaign(path: str | Path) -> Campaign:
     Raises
     ------
     CampaignConfigError
-        No ``[campaign]`` table; or a generated campaign that has been
-        edited, or whose matrix has changed since the conversion.
+        Not TOML, no valid ``[campaign]`` table and ``[[sim]]`` cases; or a generated
+        campaign that has been edited, or whose matrix changed since the conversion.
 
     Examples
     --------
@@ -1427,14 +1428,14 @@ def load_campaign(path: str | Path) -> Campaign:
     'campaign.toml'
     """
     text = Path(path).read_text(encoding="utf-8")
-    with open(path, "rb") as handle:
-        data = tomllib.load(handle)
-    if "campaign" not in data:
+    try:
+        data = tomllib.loads(text)
+        campaign = Campaign(**data.get("campaign", {}), sims=data.get("sim", []))
+    except (tomllib.TOMLDecodeError, TypeError, ValidationError) as error:
         raise CampaignConfigError(
-            f"{path} has no [campaign] table; campaign.toml needs [campaign] with "
-            "name, fs_version, and fs_exe, plus one [[sim]] entry per case"
-        )
-    campaign = Campaign(**data["campaign"], sims=data.get("sim", []))
+            f"{path} does not load ({error}); campaign.toml needs a [campaign] table with "
+            "name, fs_version and fs_exe, then one [[sim]] entry per case and no sims key"
+        ) from error
     campaign._source_path = str(path)
     if campaign.derived_from is not None:
         _refuse_an_edited_derived_campaign(campaign, path, text)

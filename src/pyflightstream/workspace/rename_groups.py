@@ -22,7 +22,7 @@ from __future__ import annotations
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from pyflightstream._errors import ProductError
@@ -96,7 +96,8 @@ def rename_group_products(
     base = Path(root)
     if not base.is_dir():
         raise ProductError(f"the workspace root {base.as_posix()} is not a directory")
-    stamp = datetime.now(UTC).strftime(ARCHIVE_STAMP)
+    # Local time, as every other ARCHIVE_STAMP writer stamps (the stamp carries no zone).
+    stamp = datetime.now().strftime(ARCHIVE_STAMP)
     archive_root = base / "archive" / f"rename-groups-{stamp}"
 
     # PASS ONE: PLAN AND REFUSE. Nothing touches the disk until every candidate
@@ -111,7 +112,8 @@ def rename_group_products(
     for path in sorted(base.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in (".csv", ".dat"):
             continue
-        if "archive" in path.parts:
+        # The workspace's own archive/ copies, never a folder above the root.
+        if "archive" in path.relative_to(base).parts:
             continue
         target = _renamed(path, groups)
         if target is None:
@@ -203,7 +205,8 @@ def unmapped_group_numbers(root: str | Path, groups: Mapping[int, str]) -> dict[
     for path in sorted(base.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in (".csv", ".dat"):
             continue
-        if "archive" in path.parts:
+        # The workspace's own archive/ copies, never a folder above the root.
+        if "archive" in path.relative_to(base).parts:
             continue
         stem = path.stem
         marker = stem.rfind(_NUMBERED_SUFFIX)

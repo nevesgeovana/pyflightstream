@@ -454,18 +454,49 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     if DRAG_PAIRS[0][0] not in loads.total:
         return ()
     names = list(loads.surfaces)
+    listed = _on_the_vorticity_list(names, selection)
+    return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
+
+
+def _on_the_vorticity_list(names: Sequence[str], selection: object) -> set[str]:
+    """Return the surfaces ``selection`` puts on the vorticity induced-drag list."""
     if isinstance(selection, str):
-        listed = set(names) if selection == "all" else set()
-    elif isinstance(selection, Sequence) and selection:
+        return set(names) if selection == "all" else set()
+    if isinstance(selection, Sequence) and selection:
         placed = [
             names[item - 1]
             for item in selection
             if isinstance(item, int) and not isinstance(item, bool) and 1 <= item <= len(names)
         ]
-        listed = set(placed) if len(placed) == len(selection) else set(names)
-    else:
+        return set(placed) if len(placed) == len(selection) else set(names)
+    return set()
+
+
+def _unjudged_vorticity_drag(loads: LoadsReport, selection: object) -> tuple[str, ...]:
+    """Return the listed surfaces the declined-drag rule cannot judge on a 26.125 table.
+
+    The rule of :func:`declined_induced_drag` reads ``CDi``, and a table printing
+    the 26.125 split (``CDp``, ``CDv``) has none: no run has measured what 26.125
+    prints for a listed surface with no trailing edge, so its axis drag columns
+    are written as numbers the rule never judged. The caller says so in post.log.
+
+    Parameters
+    ----------
+    loads : LoadsReport
+        The parsed loads table.
+    selection : object
+        The recorded value of ``SET_VORTICITY_DRAG_BOUNDARIES``.
+
+    Returns
+    -------
+    tuple of str
+        The listed surfaces, in table order; empty on a table printing ``CDi``.
+    """
+    if DRAG_PAIRS[0][0] in loads.total:
         return ()
-    return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
+    names = list(loads.surfaces)
+    listed = _on_the_vorticity_list(names, selection)
+    return tuple(name for name in names if name in listed)
 
 
 def polar_row(

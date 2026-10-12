@@ -2084,7 +2084,19 @@ def test_the_pre_may_kinematic_family_stops_at_the_february_build():
             "26.000",
             "26.100",
         ], name
-        Script(version="26.100").declare_existing(motions=1)
+        # The command IS written on its last build: the four of the family on 26.100, and
+        # the rotor flag on 26.000 (26.100 removed it, measured 2026-09-15).
+        from pyflightstream.commands import ArgType
+
+        last_build = "26.000" if name == "SET_MOTION_IS_ROTOR" else "26.100"
+        values = [
+            1 if spec.type is ArgType.INT else 1.0 if spec.type is ArgType.FLOAT else spec.values[0]
+            for spec in registry.commands[name].args
+        ]
+        script = Script(version=last_build)
+        script.declare_existing(motions=1)
+        script.emit(name, *values)
+        assert script.render().split()[0] == name, (name, last_build)
         with pytest.raises(CommandNotInVersionError):
             Script(version="26.120").emit(name, 1)
     for name in ("SET_MOTION_ROTOR_AXIS", "SET_MOTION_ROTOR_RPM"):

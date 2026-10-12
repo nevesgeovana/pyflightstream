@@ -128,7 +128,10 @@ def test_p0351_sweep_duplicate_names_the_pol(tmp_path, key, values, a, b, i, j, 
     with pytest.raises(MatrixError) as caught:
         read_matrix(matrix)
     message = str(caught.value)
-    assert f"POL 1004: SWEEP_VALUES repeats {a} (position {i}) and {b} (position {j})" in message
+    assert (
+        f"POL 1004: SWEEP_VALUES {a} (position {i}) and {b} (position {j}) round to the same name"
+        in message
+    )
     assert name in message
     assert message.endswith(
         "so they would share one run_id and one datapoint folder; remove the repeat, or "

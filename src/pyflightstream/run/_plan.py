@@ -478,8 +478,14 @@ def estimate_point_cost(
 
     # PROCESSORS: `max_threads` on the solver settings, which is what
     # `SET_MAX_PARALLEL_THREADS` is emitted from. The first version read a
-    # variable key no row writes and reported a dash for every point.
-    processors = getattr(solver, "max_threads", None)
+    # variable key no row writes and reported a dash for every point. THE
+    # ROW'S NCPUS FIRST, through the one resolver the script and the
+    # descriptor read (PFS-2094.038): the setup's count alone printed 8 for a
+    # row whose script set 48.
+    from pyflightstream.cases.workflows import row_ncpus
+
+    from_setup = getattr(solver, "max_threads", None)
+    processors = row_ncpus(case, from_setup if isinstance(from_setup, int) else None)
     if not isinstance(processors, int):
         processors = None
 
@@ -530,10 +536,21 @@ def estimate_point_cost(
                 continue
             work = float(steps)
         else:
-            work = 1.0
+            # A STEADY JOB RECORD IS ITS POINTS' SOLVES IN ONE PROCESS
+            # (PFS-2094.015): its wall time is the whole job's, so it is
+            # one solve per point it ran, not one solve.
+            work = float(len(record.get("points_ran") or []) or 1)
         rates.append(float(record["wall_time_s"]) / work)
     samples = len(rates)
-    if rates:
+    if rates and unsteady and not iterations:
+        # THE POINT'S OWN WORK IS UNKNOWN (PFS-2094.016): priced at one
+        # time step, the per-step rate was shown as its expected time.
+        basis = (
+            "this point's step count is unknown (its row states none this reader "
+            "can step), so no estimate is offered rather than one priced at a "
+            "single time step"
+        )
+    elif rates:
         rate = sum(rates) / len(rates)
         work = float(iterations) if unsteady and iterations else 1.0
         seconds = round(rate * work, 1)
@@ -1144,6 +1161,10 @@ def plan_campaign(
     ExecutorConfigurationError
         When a case names an ``fs_build`` that ``builds`` does not
         carry.
+    WorkspaceError
+        When :meth:`CampaignWorkspace.read_manifest` refuses a recorded
+        row, for example a surface averaging window that does not
+        validate.
 
     Warns
     -----

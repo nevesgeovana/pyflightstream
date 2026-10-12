@@ -1,7 +1,7 @@
 """Tier 1: the moments model is a setup key, linked to the vorticity drag on a rotor.
 
 The evidence lines of FR-317 and FR-318 cite this module
-(docs/srs/functional-requirements.md).
+(docs/unpublished/requirements/functional-requirements.md).
 
 FR-317: ``moments_model`` states SET_ANALYSIS_MOMENTS_MODEL; unstated, the
 script is byte-identical to the one the package wrote before the key existed.

@@ -237,6 +237,13 @@ _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CDP_", "CDV_", "CD_")
 #: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
 
+#: The physical columns written at significant digits rather than five decimals
+#: where that is the closer statement (:func:`write_csv_table`): the air's dynamic
+#: viscosity in Pa s, about 1.8e-5, and the solution time in seconds, whose step
+#: on a rotor is a few times 1e-5.
+SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset({"MU", "time_s"})
+_SIGNIFICANT_DIGITS = 6
+
 
 #: What a cell writes when the column does not apply to that row.
 #:
@@ -360,6 +367,18 @@ def _cell(value: object) -> str:
     return plain_cell(text) if text.strip() else NOT_APPLICABLE
 
 
+def _significant_cell(value: object) -> str:
+    """Return a cell at six significant digits where that is closer than five decimals."""
+    if not isinstance(value, float | np.floating) or not math.isfinite(float(value)):
+        return _cell(value)
+    number = float(value)
+    decimal = f"{number:.{_DECIMALS}f}"
+    significant = f"{number:.{_SIGNIFICANT_DIGITS}g}"
+    if abs(float(significant) - number) < abs(float(decimal) - number):
+        return significant
+    return decimal
+
+
 def write_csv_table(
     path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
@@ -367,6 +386,14 @@ def write_csv_table(
 
     The header names pass the cells' rule too (G16): no name holds a comma or a
     double quote, so nothing on any line is quoted.
+
+    THE ONE COLUMN-AWARE RULE (PFS-2105.041): a column of
+    :data:`SIGNIFICANT_DIGIT_COLUMNS`, a physical quantity whose values five
+    decimals cannot carry, is written at six significant digits wherever that
+    states the value more closely than five decimals do. Sea-level viscosity
+    was written ``0.00002`` (12 per cent off) and a time step of 2.78e-5 s
+    made consecutive rows read ``0.00003, 0.00006, 0.00008``; a value five
+    decimals already hold exactly is written as it always was.
 
     Parameters
     ----------
@@ -395,7 +422,12 @@ def write_csv_table(
         for row in rows:
             if len(row) != len(columns):
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
-            writer.writerow([_cell(value) for value in row])
+            writer.writerow(
+                [
+                    _significant_cell(value) if name in SIGNIFICANT_DIGIT_COLUMNS else _cell(value)
+                    for name, value in zip(columns, row, strict=True)
+                ]
+            )
     return target
 
 
@@ -692,14 +724,26 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     mach : float
         The Mach number, written as its two-digit code.
     group : str or int
-        The plot group's number.
+        The plot group's number, as an int or as the text of one.
 
     Returns
     -------
     str
         The polar table's file name.
+
+    Raises
+    ------
+    ProductError
+        If ``group`` is a name: the convention states a group by number.
     """
-    return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
+    try:
+        number = int(group)
+    except (TypeError, ValueError):
+        raise ProductError(
+            f"the recorded polar file name states a group by NUMBER and {group!r} is a name; "
+            "a workspace's polar tables are named by swept_polar_file_name, which carries it"
+        ) from None
+    return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.csv"
 
 
 # --- the post's one CSV reader (0.33.0, AD-10: moved from post.products) ---
@@ -746,7 +790,8 @@ def read_csv_table(
         except StopIteration:
             raise ProductError(f"{target} is empty; a table has at least its header") from None
         rows = []
-        for number, cells in enumerate(reader, start=2):
+        # THE FILE'S OWN LINE NUMBER: the header is line 1 + skip.
+        for number, cells in enumerate(reader, start=2 + max(0, int(skip))):
             if len(cells) != len(columns):
                 raise ProductError(
                     f"{target} line {number} carries {len(cells)} values for {len(columns)} columns"
@@ -759,7 +804,8 @@ def read_csv_table(
 
 #: PFS-2038.04. The column an unsteady plots export states its clock in.
 #: Private here, since this module's public names are the ones post.products
-#: lists; post.products keeps it as ``PLOTS_STEP_COLUMN`` (0.33.0, AD-10).
+#: lists; post.products keeps it as ``PLOTS_STEP_COLUMN`` (0.33.0, AD-10), and
+#: the probe table and the probe fields read it from here.
 #: The same name `post.superfile` and the probe table already read, and the
 #: same rule those two write down: the step a sample came from is not a guess.
 _PLOTS_STEP_COLUMN = "Time-step"
@@ -767,11 +813,38 @@ _PLOTS_STEP_COLUMN = "Time-step"
 
 def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np.ndarray:
     """Return the exported clock where the table states one, the ordinal otherwise."""
-    ordinal = np.arange(1, n_rows + 1, dtype=int)
     if _PLOTS_STEP_COLUMN not in columns or not n_rows:
+        return np.arange(1, n_rows + 1, dtype=int)
+    return stated_steps(values[:, list(columns).index(_PLOTS_STEP_COLUMN)])
+
+
+def stated_steps(cells: Sequence[object] | np.ndarray) -> np.ndarray:
+    """Return the steps a plots table's ``Time-step`` cells state, the ordinal where they cannot.
+
+    THE ONE READER OF THAT CLOCK (AD-10): the reductions, the probe table and
+    the probe fields read it through here, so a row's step is the same number
+    in every product. A cell that is not a finite whole number, or a clock
+    that is not strictly increasing, gives the WHOLE table its ordinal, never
+    a mix of stated and ordinal steps.
+
+    Parameters
+    ----------
+    cells : sequence
+        The column's cells, as text or numbers, in table order.
+
+    Returns
+    -------
+    numpy.ndarray
+        One whole step per cell.
+    """
+    n_rows = len(cells)
+    ordinal = np.arange(1, n_rows + 1, dtype=int)
+    try:
+        read = [float(cell) for cell in cells]  # type: ignore[arg-type]
+    except (TypeError, ValueError):
         return ordinal
-    stated = values[:, list(columns).index(_PLOTS_STEP_COLUMN)]
-    if not bool(np.all(np.isfinite(stated))):
+    stated = np.asarray(read, dtype=float)
+    if not n_rows or not bool(np.all(np.isfinite(stated))):
         return ordinal
     whole = np.rint(stated)
     if not bool(np.all(np.abs(stated - whole) < 1e-9)):
@@ -785,6 +858,12 @@ def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np
         # ordinal it has always used.
         return ordinal
     return steps
+
+
+def _plotted_number(text: str | None) -> float:
+    """Read one plots-table cell as a number, its `NA` or blank as NaN."""
+    cell = (text or "").strip()
+    return math.nan if cell in ("", NOT_APPLICABLE) else float(cell)
 
 
 def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
@@ -837,7 +916,13 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     """
     header, rows = read_csv_table(path)
     columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
-    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
+    # `NA` (or blank) READS BACK AS NaN. The table writes a NaN the export
+    # carried as `NA`, and `float` refused the table's own token, so a table
+    # holding one could not be read at all; the window's average decides
+    # whether the NaN matters.
+    values = np.asarray(
+        [[_plotted_number(row[name]) for name in columns] for row in rows], dtype=float
+    )
     return columns, TimestepSeries(
         steps=_stated_steps(columns, values, len(rows)),
         times_s=None,

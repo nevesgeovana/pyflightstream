@@ -70,7 +70,6 @@ from pyflightstream.run._continuation import (
     workflow_conventions_for,
 )
 from pyflightstream.run._executors import (
-    _LOG_OUTPUT_SUFFIX,
     ExecutionResult,
     Executor,
     LocalExecutor,
@@ -281,18 +280,19 @@ _NO_LOCAL_LOG_NOTE = (
 
 
 def _the_local_log(
-    executor: object, outputs: Sequence[str], work_dir: Path, result: ExecutionResult
+    executor: object, logs: Sequence[str], work_dir: Path, result: ExecutionResult
 ) -> _LocalLog:
     """Write a local point's declared log from the solver's output, or excuse it (0.27.0).
 
     Only on a local executor whose machine cannot export the log; on any other
-    run nothing is written and nothing is excused. The declared log is the
-    output named like one (``_log.txt``), the name `collect` copies a
-    scheduler's log to, and a log the solver did write is never overwritten.
+    run nothing is written and nothing is excused. ``logs`` are the point's
+    declared logs (``_declared_logs``, PFS-2103.030: a case built in Python
+    names its log as it likes, so the ``_log.txt`` suffix did not find it),
+    and a log the solver did write is never overwritten.
     """
     if not isinstance(executor, LocalExecutor) or executor.export_log:
         return _LocalLog()
-    declared = [str(name) for name in outputs if str(name).endswith(_LOG_OUTPUT_SUFFIX)]
+    declared = [str(name) for name in logs]
     if not declared or (work_dir / declared[0]).is_file():
         return _LocalLog()
     captured = result.captured_output()
@@ -1084,7 +1084,9 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
     # written from what the solver printed, or, with nothing printed, excused:
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
-    job.local_log = _the_local_log(job.executor, job.point_case.outputs, job.work_dir, job.result)
+    job.local_log = _the_local_log(
+        job.executor, _declared_logs(job.point_case, job.rendered), job.work_dir, job.result
+    )
     # 0.30.0: what the package's own post-processing of an output could not
     # write, where the solver wrote its sources (`untranslated_surfaces`).
     job.post_warnings = []

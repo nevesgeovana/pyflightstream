@@ -76,190 +76,175 @@ markdown_extensions:
 extra_css:
   - stylesheets/extra.css
 nav:
-  # Organized by kind of page (0.33.0, NFR-29 R1): the four Diataxis quadrants,
-  # Tutorials, How-to guides, Reference and Explanation, then Project, which
-  # holds the SRS, the project records and the upgrade pages. Every page keeps
-  # its file name and its anchors; only its place in the menu moved. The LaTeX
-  # user guides are linked from the home page, not absorbed.
-  - Tutorials:
-      - Home: index.md
-      - Getting started: getting-started.md
-      - Your first session with the Python API: tutorial-python-api.md
-      - Replaying a recorded run: tutorial-replay.md
-      - FSI driver tutorial: fsi-tutorial.md
-      - The PDF guides: guides.md
-  - How-to guides:
-      - Run types:
-          - The run matrix, a campaign and its record: workflow-run-matrix.md
-          - The steady workflow: workflow-steady.md
-          - The unsteady workflow: workflow-unsteady.md
-          - The unsteady rotor workflow: workflow-unsteady-rotor.md
-          - The quasi-steady rotor: workflow-qsteady-rotor.md
-      - Geometry:
-          - Mesh inputs and GUI-only operations: mesh-inputs.md
+  - Home: index.md
+  - Start here:
+      - Install pyflightstream: install.md
+      - "Track 0: new to FlightStream and the panel method": start/new-to-flightstream.md
+      - "Track 1: first campaign": getting-started.md
+      - From the GUI to pyfs: gui-to-pyfs.md
+      - PDF guides: guides.md
+  - Workspace and Workflows:
+      - The workspace and the workflow: workspace-and-workflows.md
+      - 1. Geometry and mesh:
           - Prepare a mesh input: mesh/how-to.md
-          - Mesh sidecar reference: mesh/reference.md
-          - Complete mesh example: mesh/example.md
+          - Mesh example: mesh/example.md
+          - Runnable wing example: examples/obj_wing_trailing_edge_file.md
           - CAD inputs: cad-inputs.md
+          - CAD script example: examples/cad_import.md
           - CCS geometry: ccs-geometry.md
-          - Surface translation: surface-translation.md
-          - One row, one geometry, turned or moved: workflow-row-geometry-motion.md
-          - One row, a body free to move (6DOF): sixdof-motion.md
-      - Inputs and setup:
-          - The input library and the solver presets: workflow-input-library.md
-          - The reference artifact: workflow-reference-artifact.md
-          - Setup standards and guidance: setup-standards.md
-          - Boundary conditions: boundary-conditions.md
-          - Field operations: field-operations.md
-          - Actuator-disc profiles: actuator-profiles.md
-          - Removing surfaces and the wake stabilization: removing-surfaces.md
-          - One row, one actuator disc or one custom free stream: workflow-row-flow-inputs.md
-      - Running:
-          - Planning a campaign and what it costs: workflow-plan-and-cost.md
-          - Builds, local runs and clusters: workflow-builds-and-hpc.md
-          - The workspace settings files: workspace-settings.md
-          - What a run cost: solver-cost.md
-          - Continuation and recovery: continuation-recovery.md
+          - Removing surfaces: removing-surfaces.md
+          - Geometry units and starts: geometry-units-and-starts.md
+      - 2. Set up the study:
+          - Matrix, library and presets:
+              - Run matrix: workflow-run-matrix.md
+              - Input library: workflow-input-library.md
+              - Reference artifact: workflow-reference-artifact.md
+              - Setup standards: setup-standards.md
+              - Excel synchronization: excel-matrices.md
+              - Excel example: examples/excel_matrix_sync.md
+          - Flow, boundaries and actuators:
+              - Boundary conditions: boundary-conditions.md
+              - Base-region example: examples/base_region_setup.md
+              - Row flow inputs: workflow-row-flow-inputs.md
+              - Field operations: field-operations.md
+              - Custom field example: examples/prepare_custom_field.md
+              - Actuator profiles: actuator-profiles.md
+          - Moving geometry:
+              - Row geometry motion: workflow-row-geometry-motion.md
+              - Body free to move (6DOF): sixdof-motion.md
+              - Roll rate example: examples/roll_rate_row.md
+      - 3. Choose the run type:
+          - Steady workflow: workflow-steady.md
+          - Unsteady workflow: workflow-unsteady.md
+          - Unsteady rotor workflow: workflow-unsteady-rotor.md
+          - Quasi-steady rotor: workflow-qsteady-rotor.md
+          - Acoustic signals: acoustic-emission.md
+          - Fluid-structure interaction:
+              - FSI workspace: fsi-workspace.md
+              - FSI with your own structural program: fsi-external.md
+              - FSI tutorial: fsi-tutorial.md
+              - Wing static deflection: examples/wing_static_deflection.md
+              - FSI Campbell diagram: examples/fsi_campbell_diagram.md
+              - Blade properties: examples/fsi_solid_blade_properties.md
+              - FSI calibration: examples/workspace_fsi_calibration.md
+      - 4. Plan, run and keep a campaign:
+          - Planning and cost: workflow-plan-and-cost.md
+          - Builds and clusters: workflow-builds-and-hpc.md
+          - Workspace settings: workspace-settings.md
+          - Workspace queries: workspace-queries.md
+          - Solver cost: solver-cost.md
           - Storage and sync: storage-and-sync.md
-          - Restore and rebuild the run records: restore-and-rebuild.md
-          - Query workspace history and compare runs: workspace-queries.md
-          - Excel matrix synchronization: excel-matrices.md
-          - Sync every folder, and the two matrix homes: sync-folders-and-matrix-homes.md
-      - FSI:
-          - FSI in a workspace: fsi-workspace.md
-          - FSI with a structural program of your own: fsi-external.md
-          - FSI Campbell diagram: examples/fsi_campbell_diagram.md
-          - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
-          - Workspace FSI calibration: examples/workspace_fsi_calibration.md
-      - Post-processing:
-          - The post-processing artifact and its products: pproc-artifact.md
-          - Extracting more from a finished point: workflow-additional-post.md
-          - Streamlines from the pproc artifact: streamlines.md
-          - Sampled velocity fields: sampled-fields.md
-          - Boundary-layer products: boundary-layer-products.md
-          - Quasi-steady wheel corrections: qsteady-corrections.md
-          - Unsteady plots and averages: unsteady-postprocessing.md
-          - Acoustic signals from an unsteady run: acoustic-emission.md
-      - Examples:
-          - CAD script with explicit units: examples/cad_import.md
-          - Base-region setup: examples/base_region_setup.md
-          - Steady polar: examples/steady_polar.md
-          - Campaign from a run matrix: examples/campaign_matrix.md
-          - Wing static deflection: examples/wing_static_deflection.md
-          - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
-          - A row with a roll rate: examples/roll_rate_row.md
-          - Inspect continuation recovery: examples/continuation_frame_recovery.md
-          - Prepare an SI custom field: examples/prepare_custom_field.md
-          - Excel workbook synchronization: examples/excel_matrix_sync.md
-          - Extracting more from a finished point: examples/additional_post.md
-          - Native nodal surface strength: examples/surface_with_native_strength.md
-          - Sampled-field products: examples/sampled_field_export.md
-          - Boundary-layer sections: examples/boundary_layer_sections.md
-  - Reference:
-      - Python API: api/
-      - Command-line tools: cli/
-      - Solver command reference: reference/
+      - 5. Post-process:
+          - Post-processing artifact: pproc-artifact.md
+          - Probes: probes.md
+          - Additional post: workflow-additional-post.md
+          - Additional post example: examples/additional_post.md
+          - Streamlines: streamlines.md
+          - Unsteady post-processing: unsteady-postprocessing.md
+          - Quasi-steady corrections: qsteady-corrections.md
+          - Fields and surfaces:
+              - Sampled fields: sampled-fields.md
+              - Sampled field example: examples/sampled_field_export.md
+              - Surface translation: surface-translation.md
+              - Surface strength example: examples/surface_with_native_strength.md
+              - Boundary-layer products: boundary-layer-products.md
+              - Boundary-layer example: examples/boundary_layer_sections.md
+      - 6. Command-line tools: cli/
+  - Python API:
+      - When to use the Python API: python-api/index.md
+      - First Python session: tutorial-python-api.md
+      - Python in a loop: python-api/in-a-loop.md
+      - Steady polar example: examples/steady_polar.md
+      - Campaign example: examples/campaign_matrix.md
+      - Replaying a recorded run: tutorial-replay.md
+      - Workspace route map: workspace-route-map.md
+      - Python API reference: api/
       - Exceptions catalog: exceptions.md
+  - Reference:
+      - Input files and keys:
+          - Input glossary: inputs.md
+          - Flight conditions: flight-conditions.md
+          - Mesh sidecar reference: mesh/reference.md
+          - Numeric settings: settings-codebook.md
+      - Solver commands and builds:
+          - Solver command reference: reference/
+          - Builds: builds.md
+          - Compatibility: compatibility.md
       - Post-processing definitions:
           - Definition index: post-processing-definitions.md
-          - "Warnings and recorded diagnostics": definitions/warnings-and-recorded-diagnostics.md
-          - "The vocabulary": definitions/the-vocabulary.md
-          - "What every product states": definitions/what-every-product-states.md
-          - "The axes of a steady polar": definitions/the-axes-of-a-steady-polar.md
-          - "The sections table, and which row is which": definitions/the-sections-table-and-which-row-is-which.md
-          - "The probes table": definitions/the-probes-table.md
-          - "The reductions of an unsteady point": definitions/the-reductions-of-an-unsteady-point.md
-          - "time_average": definitions/time_average.md
-          - "per_blade": definitions/per_blade.md
-          - "phase_locked": definitions/phase_locked.md
-          - "per_revolution": definitions/per_revolution.md
-          - "The per-station harmonics": definitions/the-per-station-harmonics.md
-          - "The disc maps": definitions/the-disc-maps.md
-          - "Probe parameters": definitions/probe-parameters.md
-          - "The averaging window": definitions/the-averaging-window.md
-          - "Native surface flow exports": definitions/native-surface-flow-exports.md
-          - "The solver's own plots": definitions/the-solvers-own-plots.md
-          - "The boundary-layer profile is not produced": definitions/the-boundary-layer-profile-is-not-produced.md
-          - "A volume section": definitions/a-volume-section.md
-          - "Durable execution activity": definitions/durable-execution-activity.md
-          - "The additional post": definitions/the-additional-post.md
-          - "The unsteady POLAR": definitions/the-unsteady-polar.md
-          - "The mesh face count": definitions/the-mesh-face-count-since-0340.md
-          - "Rotor coefficients": definitions/rotor-coefficients.md
-          - "Tip and helical Mach numbers": definitions/tip-and-helical-mach-numbers.md
-          - "What the package does NOT judge": definitions/what-the-package-does-not-judge.md
-          - "The token for a value that does not exist": definitions/the-token-for-a-value-that-does-not-exist.md
-          - "Sampled velocity fields and reusable inflow": definitions/sampled-velocity-fields-and-reusable-inflow.md
-          - "The installed-frame copy of a product table": definitions/the-installed-frame-copy-of-a-product-table.md
-          - "The inflow tools' products": definitions/the-inflow-tools-products.md
-          - "The quasi-steady rotor": definitions/the-quasi-steady-rotor.md
-          - "Quasi-steady wheel corrections": definitions/quasi-steady-wheel-corrections.md
-          - "The acoustic signals product": definitions/the-acoustic-signals-product.md
-          - "The post of other records": definitions/the-post-of-other-records-since-0320.md
-          - "Posting and collecting some simulations": definitions/posting-and-collecting-some-simulations-since-0330.md
-      - Workspace inputs:
-          - The input glossary: inputs.md
-          - Flight conditions: flight-conditions.md
-          - Custom field units and coverage: custom-field-units.md
-          - Simulation geometry controls: simulation-geometry-controls.md
-          - Numeric settings codebook: settings-codebook.md
-          - From the GUI to pyfs: gui-to-pyfs.md
-      - Which build do I have: builds.md
-      - Compatibility matrix: compatibility.md
-      - House conventions: conventions.md
-  - Explanation:
-      - The workspace and the workflow: workspace-and-workflows.md
+          - Rules for products:
+              - What every product states: definitions/what-every-product-states.md
+              - Vocabulary: definitions/the-vocabulary.md
+              - Missing value token: definitions/the-token-for-a-value-that-does-not-exist.md
+              - Averaging window: definitions/the-averaging-window.md
+              - Warnings: definitions/warnings-and-recorded-diagnostics.md
+              - What the package does not judge: definitions/what-the-package-does-not-judge.md
+          - Steady and common products:
+              - Steady polar axes: definitions/the-axes-of-a-steady-polar.md
+              - Sections table: definitions/the-sections-table-and-which-row-is-which.md
+              - Probe table: definitions/the-probes-table.md
+              - Volume section: definitions/a-volume-section.md
+              - Surface flow exports: definitions/native-surface-flow-exports.md
+              - Solver plots: definitions/the-solvers-own-plots.md
+              - Boundary-layer profile: definitions/the-boundary-layer-profile-is-not-produced.md
+              - Mesh face count: definitions/the-mesh-face-count.md
+          - Unsteady reductions:
+              - Reductions: definitions/the-reductions-of-an-unsteady-point.md
+              - time_average: definitions/time_average.md
+              - per_blade: definitions/per_blade.md
+              - phase_locked: definitions/phase_locked.md
+              - per_revolution: definitions/per_revolution.md
+              - Unsteady polar: definitions/the-unsteady-polar.md
+          - Rotor products:
+              - Per-station harmonics: definitions/the-per-station-harmonics.md
+              - Disc maps: definitions/the-disc-maps.md
+              - Rotor coefficients: definitions/rotor-coefficients.md
+              - Tip and helical Mach: definitions/tip-and-helical-mach-numbers.md
+              - Acoustic signals: definitions/the-acoustic-signals-product.md
+              - Quasi-steady rotor: definitions/the-quasi-steady-rotor.md
+              - Quasi-steady corrections: definitions/quasi-steady-wheel-corrections.md
+          - Fields, frames and inflow:
+              - Sampled velocity fields: definitions/sampled-velocity-fields-and-reusable-inflow.md
+              - Installed-frame copy: definitions/the-installed-frame-copy-of-a-product-table.md
+              - Inflow products: definitions/the-inflow-tools-products.md
+          - Post-stage operations and logs:
+              - Additional post: definitions/the-additional-post.md
+              - Other records: definitions/the-post-of-other-records.md
+              - Posting and collecting: definitions/posting-and-collecting-some-simulations.md
+              - Durable execution activity: definitions/durable-execution-activity.md
+  - Help:
+      - Troubleshooting: troubleshooting.md
+      - Continuation and recovery: continuation-recovery.md
+      - Recovery example: examples/continuation_frame_recovery.md
+      - Restore and rebuild: restore-and-rebuild.md
+      - Upgrading: upgrading.md
+  - Concepts:
+      - Versions, builds and evidence: concepts/versions-and-evidence.md
+      - Philosophy: srs/philosophy.md
+      - Why pyflightstream: srs/introduction.md
+      - Scope: srs/scope.md
+      - Data and evidence model: srs/data-model.md
       - Architecture: architecture.md
-      - Geometry units and starts: geometry-units-and-starts.md
-  - Project:
-      - SRS:
-          - srs/index.md
-          - Introduction: srs/introduction.md
-          - Philosophy: srs/philosophy.md
-          - Scope: srs/scope.md
-          - Data and evidence model: srs/data-model.md
-          - Architecture: srs/architecture-srs.md
-          - Functional requirements: srs/functional-requirements.md
-          - Non-functional requirements: srs/nonfunctional-requirements.md
-          - Standards alignment: srs/standards.md
-          - Roadmap: srs/roadmap.md
-      - Acceptance mapping: requirement-mapping.md
-      - The test tiers and the licensed workspace: tiers.md
-      - Sister library (ITACA): sister-itaca.md
-      - Upgrading:
-          # One section, newest first, so a release adds a line here.
-          - Upgrade index: upgrading.md
-          - Release notes: release-notes.md
-          - Migrating to 0.39.0: migrating-to-0.39.0.md
-          - Migrating to 0.38.0: migrating-to-0.38.0.md
-          - Migrating to 0.37.0: migrating-to-0.37.0.md
-          - Migrating to 0.36.0: migrating-to-0.36.0.md
-          - Migrating to 0.35.1: migrating-to-0.35.1.md
-          - Migrating to 0.35.0: migrating-to-0.35.0.md
-          - Migrating to 0.34.0: migrating-to-0.34.0.md
-          - Migrating to 0.33.1: migrating-to-0.33.1.md
-          - Migrating to 0.33.0: migrating-to-0.33.0.md
-          - Migrating to 0.32.0: migrating-to-0.32.0.md
-          - Migrating to 0.31.0: migrating-to-0.31.0.md
-          - Migrating to 0.30.0: migrating-to-0.30.0.md
-          - Migrating to 0.29.0: migrating-to-0.29.0.md
-          - Migrating to 0.28.0: migrating-to-0.28.0.md
-          - Migrating to 0.27.0: migrating-to-0.27.0.md
-          - Migrating to 0.26.0: migrating-to-0.26.0.md
-          - Migrating to 0.25.0: migrating-to-0.25.0.md
-          - Migrating to 0.24.0: migrating-to-0.24.0.md
-          - Migrating to 0.23.0: migrating-to-0.23.0.md
-          - Migrating to 0.22.0: migrating-to-0.22.0.md
-          - Migrating to 0.21.0: migrating-to-0.21.0.md
-          - Migrating to 0.19.0: migrating-to-0.19.0.md
-          - Migrating to 0.18.0: migrating-to-0.18.0.md
-          - Migrating to 0.17.0: migrating-to-0.17.0.md
-          - Migrating to 0.16.0: migrating-to-0.16.0.md
-          - Migrating to 0.15.0: migrating-to-0.15.0.md
-          - Migrating to 0.14.0: migrating-to-0.14.0.md
-          - Migrating to 0.13.0: migrating-to-0.13.0.md
-          - Migrating to 0.11.0: migrating-to-0.11.0.md
-          - Migrating to 0.10.1: migrating-to-0.10.1.md
-          - Migrating to 0.10.0: migrating-to-0.10.0.md
-          - Migrating to 0.8.1: migrating-to-0.8.1.md
-          - Migrating to 0.5.0: migrating-to-0.5.0.md
+      - Sister library: sister-itaca.md
+  - Contributing:
+      - Contributing guide: contributing.md
+      - Architecture rules: srs/architecture-srs.md
+      - Test tiers: tiers.md
+      - House conventions: conventions.md
+      - Standards alignment: srs/standards.md
+      - Roadmap: srs/roadmap.md
+
+# Requirement registers and release history remain repository material.
+exclude_docs: |
+  /unpublished/
+  /requirement-mapping.md
+  /release-notes.md
+
+# Retained legacy URLs are not part of the reader navigation.
+not_in_nav: |
+  /migrating-to-*.md
+  /custom-field-units.md
+  /mesh-inputs.md
+  /simulation-geometry-controls.md
+  /sync-folders-and-matrix-homes.md
+  /definitions/probe-parameters.md

@@ -1215,7 +1215,7 @@ def test_p0390_r03_a_quiet_collect_says_each_point_it_failed(tmp_path, capsys):
         rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
         rows[0]["submission"]["working_dir"] = "../wrong"
         workspace.manifest_path.write_text(json.dumps(rows), encoding="utf-8")
-        argv = ["collect", "--workspace", str(workspace.root), "--interval", "0"]
+        argv = ["collect", "--workspace", str(workspace.root), "--interval", "0.001"]
         seen[level] = call(capsys, matrix_main, [*argv, "--log-level", level])
     count = "collected 0, failed 1, outstanding 0, unknown 0\n"
     code, out, _err = seen["normal"]

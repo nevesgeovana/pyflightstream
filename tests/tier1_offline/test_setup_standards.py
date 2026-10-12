@@ -278,7 +278,11 @@ def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
     _settings(case, script)
     text = script.render()
     assert text.index("CREATE_NEW_INLET") < text.index("CREATE_NEW_OUTLET")
-    assert "-10.0" in text and "10.0" in text
+    # Each velocity on ITS OWN line: "10.0" is a substring of "-10.0".
+    inlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_INLET"))
+    outlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_OUTLET"))
+    assert "-10.0" in inlet.split(), inlet
+    assert "10.0" in outlet.split() and "-10.0" not in outlet.split(), outlet
 
 
 @pytest.mark.parametrize("workflow", ["steady", "unsteady_rotor"], ids=["steady", "G35"])

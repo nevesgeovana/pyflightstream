@@ -77,7 +77,9 @@ def rows_carrying(node: object, key: str) -> int:
 def json_files(root: Path) -> Iterator[Path]:
     """Yield every `.json` under ``root``, skipping the directories that hold no record."""
     for path in sorted(root.rglob("*.json")):
-        if SKIPPED_DIRECTORIES.isdisjoint(path.parts):
+        # The parts BELOW the root: a root that itself sits under a folder
+        # called build, dist or site yielded nothing, and a total of 0.
+        if SKIPPED_DIRECTORIES.isdisjoint(path.relative_to(root).parts):
             yield path
 
 

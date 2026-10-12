@@ -43,16 +43,17 @@ from pyflightstream.results import (
 )
 from pyflightstream.run._assessment import (
     OutcomeAssessor,
+    job_solver_identity,
     worse_of,
 )
 from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
 )
 from pyflightstream.run._executors import (
-    _LOG_OUTPUT_SUFFIX,
     ExecutionResult,
     Executor,
     LocalExecutor,
+    Submitting,
     _submission_record,
     _with_the_profile_s_log,
     bind_submission_values,
@@ -495,6 +496,11 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
     if written:
         job.base["inputs_sha256"] = {**job.base["inputs_sha256"], **written}
     bind_submission_values(job.executor, job.case, job.point_cases[0][2])
+    # THE DESCRIPTOR NAMES THE SWEEP, as the job record does (PFS-2094.039):
+    # the first point's case supplies the row's clock and processors, and
+    # bound its own name as the job's.
+    if isinstance(job.executor, Submitting):
+        job.executor.bind_point({"point": sweep_name(job.case)})
     if job.progress is not None:
         job.progress.solver_started = True
     try:
@@ -634,13 +640,12 @@ def _collect_sweep_outputs(job: _SweepJob) -> RunRecord | None:
             job.sim_dir,
             job.base["surface_translations"],  # type: ignore[arg-type]
         )
+    # The declared logs by the one finder, not the `_log.txt` suffix (PFS-2103.030).
     job.excused = {
         name
         for _, _, point_case in job.point_cases
-        for name in point_case.outputs
-        if job.cannot_log
-        and name.endswith(_LOG_OUTPUT_SUFFIX)
-        and not (job.sim_dir / name).is_file()
+        for name in (_declared_logs(point_case, job.rendered) if job.cannot_log else ())
+        if not (job.sim_dir / name).is_file()
     }
     for point, _stem, point_case in job.point_cases:
         tag = point_name(job.case, point)
@@ -762,21 +767,13 @@ def _record_sweep_outcome(job: _SweepJob) -> RunRecord:
     # executable produced its evidence, and that is recorded as the job's
     # failure with the readings named rather than settled by picking one.
     # A point whose log stated no build is not a different build, and is left
-    # out of the comparison rather than counted as a disagreement.
-    for key, index in (("fs_build", 1), ("fs_version_reported", 2)):
-        readings = {entry[0]: entry[index] for entry in job.reported if entry[index] is not None}
-        if len(set(readings.values())) == 1:
-            job.base[key] = next(iter(readings.values()))
-        elif readings:
-            job.worst = worse_of(job.worst, RunStatus.FAILED_EXECUTION)
-            job.error_lines.append(
-                f"one process ran every point of this job, and its points read different "
-                f"{key} values ("
-                + ", ".join(f"{name}: {value!r}" for name, value in readings.items())
-                + "), so the record cannot say which solver build produced its evidence; "
-                "check that every point's log is this job's and not a leftover of another "
-                "run, then re-run the row"
-            )
+    # out of the comparison rather than counted as a disagreement. The rule is
+    # one helper, which the collect of a submitted sweep calls too.
+    agreed, disagreements = job_solver_identity(job.reported)
+    job.base.update(agreed)
+    if disagreements:
+        job.worst = worse_of(job.worst, RunStatus.FAILED_EXECUTION)
+        job.error_lines.extend(disagreements)
     return RunRecord(
         **job.base,
         status=job.worst,

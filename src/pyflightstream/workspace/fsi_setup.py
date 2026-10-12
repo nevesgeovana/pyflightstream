@@ -15,7 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import FsiInputError, PyflightstreamError
 from pyflightstream.fsi.calibration import (
     CALIBRATION_FACTORS,
     MATERIAL_FACTORS,
@@ -173,6 +173,14 @@ def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
     return blade_properties_from_sections(material=substance, **spec.sections.model_dump())
 
 
+def _read_input(source: Path) -> bytes:
+    """Return the artifact's bytes, refusing a file that cannot be read by name."""
+    try:
+        return source.read_bytes()
+    except OSError as exc:
+        raise FsiSetupError(f"{source}: the FSI input cannot be read: {exc}") from exc
+
+
 def resolve_fsi_setup(
     path: str | Path, *, matrix_calibration: Mapping[str, float] | None = None
 ) -> ResolvedFsiSetup:
@@ -198,11 +206,12 @@ def resolve_fsi_setup(
     Raises
     ------
     FsiSetupError
-        If the mode and the artifact's content disagree, a factor calibrates one property twice, or
-        the effective inertias are out of order.
+        If the file cannot be read, the mode and the artifact's content disagree, a factor
+        calibrates one property twice, the material or the sections are refused by the FSI
+        package, or the effective inertias are out of order.
     """
     source = Path(path).resolve()
-    raw = source.read_bytes()
+    raw = _read_input(source)
     try:
         spec = FsiSetupSpec.model_validate(tomllib.loads(raw.decode("utf-8-sig")))
         file_factors = _factors(spec.calibration, f"{source} [calibration]")
@@ -270,10 +279,17 @@ def resolve_fsi_setup(
                     raise FsiSetupError(
                         "derived shear modulus cannot be calibrated with E or Poisson ratio."
                     )
-                if factors["shear_modulus_pa"] == 1:
+                # Re-derived only when E or the Poisson ratio was calibrated:
+                # at unity the stated G stands, or a table's rounded G would
+                # make the effective beam differ from the base with every
+                # origin reading unity.
+                if factors["shear_modulus_pa"] == 1 and (
+                    factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
+                ):
                     changed["shear_modulus_pa"] = changed["youngs_modulus_pa"] / (
                         2 * (1 + changed["poisson_ratio"])
                     )
+                    origins["shear_modulus_pa"] = "derived from youngs_modulus_pa, poisson_ratio"
             calibrated = replace(substance, **changed)
             material_effective = asdict(calibrated)
             base = FsiConfig.model_validate({**spec.config, "blade": _solid(spec, substance)})
@@ -291,7 +307,9 @@ def resolve_fsi_setup(
             raise FsiSetupError(
                 "effective principal inertia major is smaller than minor; correct calibration."
             )
-    except (ValidationError, tomllib.TOMLDecodeError, UnicodeError) as exc:
+    except (ValidationError, tomllib.TOMLDecodeError, UnicodeError, FsiInputError) as exc:
+        # FsiInputError: the FSI package's own refusal, an unknown material or
+        # a section contour the section builder refuses.
         raise FsiSetupError(f"{source}: invalid FSI input: {exc}") from exc
     return ResolvedFsiSetup(
         source,
@@ -376,8 +394,9 @@ def resolve_row_fsi(
     Raises
     ------
     FsiSetupError
-        If the code is not an f-prefixed name, resolves outside the inputs folder, a factor key is
-        unknown or not a finite positive number, or factors are stated without an FSI input.
+        If the code is not an f-prefixed name, resolves outside the inputs folder or names no
+        file there (the message lists the inputs that exist), a factor key is unknown or not a
+        finite positive number, or factors are stated without an FSI input.
     """
     code = str(variables.get("FSI", "")).strip()
     factor_cells = {key: value for key, value in variables.items() if key.startswith("FSI_")}
@@ -387,7 +406,8 @@ def resolve_row_fsi(
             f"unknown FSI matrix keys {sorted(unknown)}; use {', '.join(MATRIX_FACTORS)}."
         )
     if code in ("", "-"):
-        if factor_cells:
+        # A placeholder factor cell is blank here as in the loop below.
+        if any(str(value).strip() not in ("", "-") for value in factor_cells.values()):
             raise FsiSetupError(
                 "matrix calibration states no FSI input; add FSI: f001 in VAR_NAMES_VALUES."
             )
@@ -400,6 +420,12 @@ def resolve_row_fsi(
     path = (root / f"{code}.toml").resolve()
     if path.parent != root:
         raise FsiSetupError(f"FSI {code}: input resolves outside {root}.")
+    if not path.is_file():
+        stated = sorted(each.stem for each in root.glob("f*.toml")) if root.is_dir() else []
+        raise FsiSetupError(
+            f"FSI {code}: there is no {path.name} in {root}; the FSI inputs there are "
+            f"{', '.join(stated) if stated else 'none'}."
+        )
     external = _resolve_external_row(path, code, factor_cells)
     if external is not None:
         return external

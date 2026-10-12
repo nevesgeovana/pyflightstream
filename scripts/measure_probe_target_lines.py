@@ -52,6 +52,7 @@ from pathlib import Path
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa.specs import PROBE_SPECS
 from pyflightstream.script import BrokenCommandError, Script
+from pyflightstream.script.entities import ScriptReferenceError
 
 VERSION = "26.122"
 
@@ -62,8 +63,13 @@ def classify() -> dict[str, list[str]]:
     Returns
     -------
     dict of str to list of str
-        Command names under ``with_arguments``, ``bare`` and
-        ``needs_prelude``, each sorted.
+        Command names under ``with_arguments``, ``bare``,
+        ``not_in_this_view``, ``refused_as_broken``, ``needs_prelude``,
+        ``did_not_emit_the_command`` and ``raised_something_else``, each
+        sorted. The last holds ``NAME (ExceptionType)`` for a refusal that
+        is none of the three the module docstring defines: it used to be
+        filed under ``needs_prelude``, which hid a defect in a
+        specification as a missing prelude.
     """
     groups: dict[str, list[str]] = {
         "with_arguments": [],
@@ -72,6 +78,7 @@ def classify() -> dict[str, list[str]]:
         "refused_as_broken": [],
         "needs_prelude": [],
         "did_not_emit_the_command": [],
+        "raised_something_else": [],
     }
     with tempfile.TemporaryDirectory() as scratch:
         workdir = Path(scratch)
@@ -85,8 +92,11 @@ def classify() -> dict[str, list[str]]:
             except BrokenCommandError:
                 groups["refused_as_broken"].append(name)
                 continue
-            except Exception:  # noqa: BLE001 - a reference or binding refusal
+            except ScriptReferenceError:
                 groups["needs_prelude"].append(name)
+                continue
+            except Exception as error:  # noqa: BLE001 - reported in its own bucket
+                groups["raised_something_else"].append(f"{name} ({type(error).__name__})")
                 continue
             target = [
                 line
@@ -103,7 +113,7 @@ def classify() -> dict[str, list[str]]:
 
 
 def main() -> None:
-    """Print the four figures and the list that explains the fourth."""
+    """Print the render figures, one count per refusal bucket, and the names behind them."""
     groups = classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
     print(f"probe specifications in the catalog: {len(PROBE_SPECS)}")
@@ -116,10 +126,16 @@ def main() -> None:
         "refused_as_broken",
         "needs_prelude",
         "did_not_emit_the_command",
+        "raised_something_else",
     ):
         print(f"  {key:38} {len(groups[key])}")
     print()
-    for key in ("not_in_this_view", "refused_as_broken", "did_not_emit_the_command"):
+    for key in (
+        "not_in_this_view",
+        "refused_as_broken",
+        "did_not_emit_the_command",
+        "raised_something_else",
+    ):
         if groups[key]:
             print(f"{key}: {', '.join(groups[key])}")
 

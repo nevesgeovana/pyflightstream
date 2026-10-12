@@ -106,15 +106,18 @@ def test_frozen_failed_record_keeps_histories_and_safe_windows(tmp_path, monkeyp
     workspace = _post_workspace(tmp_path, 2413, window)
     record = workspace.read_manifest()[0].model_copy(update={"status": RunStatus.FAILED_DIVERGED})
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
+    on_disk = workspace.manifest_path.read_bytes()
     # Since 0.25.1 the native log is read only when asked (her decision of
     # 2026-09-22); this test is about what the reading refuses, so it asks.
     write_campaign_products(workspace, check_frozen=True)
+    # The stage did not rewrite the run record it was shown as failed (the local copy cannot
+    # witness that: the manifest on disk can; PFS-2135.007).
+    assert workspace.manifest_path.read_bytes() == on_disk, "the post stage rewrote runs.json"
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_plots.csv" in manifest["products"], "frozen failure lost its history"
     assert "sections/AL-020_sections.csv" in manifest["products"]
     key = "probes/AL-020_time_average.csv"
     assert key in manifest["products" if window[1] < 60 else "skipped"]
-    assert record.status is RunStatus.FAILED_DIVERGED
 
 
 @pytest.mark.parametrize("archive", [True, False])

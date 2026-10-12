@@ -358,11 +358,14 @@ def _rotor_tables(
     aliases: Mapping[str, Sequence[str]] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
     skipped: dict[str, str] | None = None,
+    mach: float | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
     Returns the destination, the alias and everything `write_rotor_table` needs.
     A missing matrix row or unresolved reference is named in ``skipped``.
+    ``mach`` is the simulation's Mach, which a record stating none takes (the
+    first record that states one where it is not given).
     Empty where the row names no reference, the reference declares no rotor, or
     no point states a speed -- each of which is an ordinary campaign rather
     than a fault, so none of them refuses the simulation's other products.
@@ -426,6 +429,7 @@ def _rotor_tables(
         rotors=rotors,
         by_run=by_run,
         sources_read=sources_read,
+        mach=next((m for m in (mach, *(r.mach for r in records)) if m is not None), None),
     )
 
     tables: list[tuple[Path, str, dict[str, object]]] = []
@@ -448,9 +452,7 @@ def _rotor_tables(
         # the table into a subfolder the manifest then keyed with a slash, and a
         # colon on Windows wrote a stream nobody can see. The rotor's own
         # spelling is the file's first line and the manifest's `rotor` field.
-        name = (
-            f"{sweep_file_stem(sim_id, _a_name_a_file_may_carry(str(alias)))}{ROTOR_TABLE_SUFFIX}"
-        )
+        name = _rotor_table_name(sim_id, str(alias))
         if not rows:
             # EVERY ROW REJECTED IS STILL A REPORT. Returning nothing here made
             # the whole product vanish with no explanation, which is the same
@@ -500,6 +502,17 @@ class _RotorTablePlan:
     rotors: Mapping[str, RotorReference]
     by_run: Mapping[str, RunRecord]
     sources_read: dict[str, str]
+    #: The simulation's Mach, for a record that states none of its own.
+    mach: float | None = None
+
+
+def _rotor_table_name(sim_id: str, alias: str) -> str:
+    """Return the rotor table's file name, the alias sanitised (NL-04).
+
+    One builder for the file and for every message that names it, so a
+    warning about the table names the path the table is written to.
+    """
+    return f"{sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))}{ROTOR_TABLE_SUFFIX}"
 
 
 def _rotor_point_record(ctx: _RotorTablePlan, point: PolarPoint) -> RunRecord | None:
@@ -577,7 +590,7 @@ def _averaged_rotor_newtons(
         (ctx.frozen or {}).get(point.name),
         read_steps,
         point=point.name,
-        product=f"polars/P{ctx.sim_id}-{alias}_rotor.csv",
+        product=f"{POLARS_DIR}/{_rotor_table_name(ctx.sim_id, str(alias))}",
     )
     if refusal is not None:
         return None, refusal, None
@@ -729,7 +742,8 @@ def _warn_rotor_advance_ratio(
         and isinstance(flight, int | float)
         and span > 0.0
         and rpm
-        and (len(ctx.rotors) == 1 or clock == str(alias))
+        # CASE-FOLDED, as clock_rotor_facts resolves the same name.
+        and (len(ctx.rotors) == 1 or clock.casefold() == str(alias).casefold())
     ):
         ran = float(flight) / (abs(rpm) / 60.0 * span)
         if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
@@ -772,10 +786,23 @@ def _rotor_row_surfaces(
         return None
     instant = True
     if newtons is not None:
-        ctx.sources_read[str(alias)] = str(read_from)
         averaged_surfaces = _rotor_coefficients_from_newtons(
             ctx.reference, newtons, density=float(density), speed=float(speed)
         )
+        if not averaged_surfaces:
+            # THE SAME RULE WHEN THE AVERAGE CANNOT BE MADE COEFFICIENTS: the
+            # last time step under a time-averaged label is the instant RI-01
+            # refuses, so the point is left out and named instead.
+            left_out.append(
+                (
+                    run_id,
+                    f"{point.name}: its window average cannot be made coefficients, because "
+                    "the dynamic pressure, the reference area or the reference length is "
+                    "not positive",
+                )
+            )
+            return None
+        ctx.sources_read[str(alias)] = str(read_from)
         families = list(getattr(rotor, "families_blades", None) or [])
         if averaged_surfaces and families:
             # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE
@@ -911,7 +938,10 @@ def _plan_rotor_row(
         "clockings": clockings,
         "condition": point_condition(
             point,
-            mach=record.mach or 0.0,
+            # A RECORD STATING NO MACH TAKES THE SIMULATION'S, as every other
+            # product family does (`_mach_of`); a literal 0.0 here published
+            # a Mach the run never had.
+            mach=next((m for m in (record.mach, ctx.mach) if m is not None), float("nan")),
             clock=clock_rotor_facts(
                 record,
                 ctx.matrix_row,

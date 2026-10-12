@@ -266,7 +266,7 @@ def test_goal024_point_name_two_points_that_write_one_name_are_refused_by_name(t
     with pytest.raises(Exception) as caught:
         _plan(workspace, matrix)
     message = str(caught.value)
-    assert "both write" in message, message
+    assert "round to the same name" in message, message
     assert "J+080" in message, message
 
 

@@ -80,7 +80,6 @@ from pyflightstream.cases.workflows import (
     frame_definitions,
     frames_of_the_run,
 )
-from pyflightstream.results import translate_surface_exports
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
     JOB_TAG,
@@ -99,6 +98,10 @@ from pyflightstream.run import (
     plan_campaign,
     run_campaign,
     runs_as_one_job,
+)
+from pyflightstream.run._additional import complete_extraction
+from pyflightstream.run._additional import (
+    record_additional_extraction as record_additional_extraction,
 )
 from pyflightstream.run._identity import entry_accepted_builds
 from pyflightstream.run._ids import narrow_to_selection
@@ -773,7 +776,7 @@ def plan_matrix(
     warn_saved_actions_of_unsteady_rows(resolved.campaign.sims, WORKFLOW_KEY)  # FR-313
     from pyflightstream.workspace.setup_inspection import inspect_case_setup
 
-    row_versions = _row_versions(resolved)
+    row_versions = _row_versions(resolved, default)
     inspections = [
         inspect_case_setup(case, row_versions.get(case.sim_id, resolved.campaign.fs_version))
         for case in resolved.campaign.sims
@@ -817,13 +820,15 @@ def plan_matrix(
     return plan
 
 
-def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
+def _row_versions(resolved: ResolvedMatrix, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation version override, keyed by sim id.
 
-    Per simulation, from the build each row named and the version its
-    registry entry declares; a row on a build declaring no version, or on
-    the campaign's own, is absent here and pre-flights under the campaign
-    default. One function for the two callers, because the first fix
+    Per simulation, from the build each row named, by the fallback chain the
+    run emits its scripts under (:func:`_bind_row_builds`): the version its
+    registry entry declares, else ``default``, else the build id itself
+    (PFS-2094.018: with no default, a bare-path row pre-flighted under the
+    first row's build). A row naming no build is absent here and pre-flights
+    under the campaign default. One function for the two callers, because the first fix
     (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
     kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
     26.123, in a matrix whose default is 26.120, met exactly that on the
@@ -832,8 +837,8 @@ def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
     versions: dict[str, str] = {}
     for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
         registered = resolved.builds.get(build) if build else None
-        if registered is not None and registered.fs_version:
-            versions[case.sim_id] = registered.fs_version
+        if registered is not None:
+            versions[case.sim_id] = registered.fs_version or (default or "").strip() or str(build)
     return versions
 
 
@@ -1314,7 +1319,7 @@ def run_matrix(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
-        versions=_row_versions(resolved),
+        versions=_row_versions(resolved, default),
         matrix_path=path,
         write_plan=False,
     )
@@ -2141,7 +2146,7 @@ def _extract(
 
     bind_submission_values(executor, case, case)
     result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
-    if not isinstance(executor, Submitting) or result.failed:
+    if result.failed:
         copy.unlink(missing_ok=True)
     base.update(
         {
@@ -2186,32 +2191,24 @@ def _extract(
         return record_additional_extraction(
             workspace, base, status=ExtractionStatus.SUBMITTED, error=None, original=original
         )
-    translations = context.get("translations")
-    if isinstance(translations, list) and translations:
-        # G45: the Tecplot written from the VTK before the outputs are checked.
-        base["surface_translations"] = translate_surface_exports(folder, translations)
     relative = folder.relative_to(sim_dir).as_posix()
     names = [f"{relative}/{name}" for name in case.outputs]
     if not context.get("exports_log", True):
         names = _the_extraction_s_log(base, names, sim_dir, result.captured_output())
-    missing = [name for name in names if not (sim_dir / name).is_file()]
-    if missing:
-        return record_additional_extraction(
-            workspace,
-            base,
-            status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT,
-            error=f"the extraction ended and did not write {', '.join(missing)}",
-            original=original,
-            outputs=[name for name in names if name not in missing],
-        )
-    return record_additional_extraction(
+    # ONE COMPLETION FOR THE LOCAL AND THE COLLECTED EXTRACTION (PFS-2103.008): this
+    # path judged by existence alone, over a translation problem collect refuses.
+    translations = context.get("translations")
+    completed = complete_extraction(
         workspace,
         base,
-        status=ExtractionStatus.EXTRACTED,
-        error=None,
+        folder=folder,
         original=original,
-        outputs=names,
+        names=names,
+        translations=translations if isinstance(translations, list) else None,
     )
+    if completed.status is ExtractionStatus.EXTRACTED:
+        copy.unlink(missing_ok=True)
+    return completed
 
 
 #: The suffix of a declared solver log, the log export kind's own.
@@ -2251,60 +2248,3 @@ def _the_extraction_s_log(
 
 def _script_name(pproc: str, stem: str) -> str:
     return f"{ADDITIONAL_DIR}/{pproc}/{stem}.txt"
-
-
-def record_additional_extraction(
-    workspace: CampaignWorkspace,
-    base: Mapping[str, object],
-    *,
-    status: ExtractionStatus,
-    error: str | None,
-    original: Path,
-    outputs: list[str] | None = None,
-) -> AdditionalRecord:
-    """Hash the original again, then write the record; an original that moved fails it.
-
-    Parameters
-    ----------
-    workspace : CampaignWorkspace
-        The workspace whose manifest of additional records is appended to.
-    base : mapping of str to object
-        The record's fields so far, with the ``sim_id`` and the original's ``fsm_sha256`` before
-        the extraction.
-    status : ExtractionStatus
-        The extraction's status; FAILED_EXECUTION when the original moved.
-    error : str or None
-        What went wrong, if anything.
-    original : Path
-        The original saved simulation, hashed again.
-    outputs : list of str, optional
-        The files the extraction wrote, in the simulation folder; each is hashed into the record.
-
-    Returns
-    -------
-    AdditionalRecord
-        The record, appended to the workspace.
-    """
-    sim_dir = workspace.sim_dir(str(base["sim_id"]))
-    after = optional_file_sha256(original)
-    if after != base["fsm_sha256"]:
-        status = ExtractionStatus.FAILED_EXECUTION
-        error = (
-            f"THE ORIGINAL SAVED SIMULATION MOVED during the extraction: {original} hashed "
-            f"{str(base['fsm_sha256'])[:12]} before and {(after or 'nothing')[:12]} after. "
-            "The extraction opens a copy and never the original, so something else wrote "
-            "it; the point's record no longer describes the file." + (f" {error}" if error else "")
-        )
-    listed = outputs or []
-    record = AdditionalRecord.model_validate(
-        {
-            **base,
-            "fsm_sha256_after": after,
-            "status": status,
-            "error": error,
-            "outputs": listed,
-            "outputs_sha256": {name: file_sha256(sim_dir / name) for name in listed},
-        }
-    )
-    workspace.append_additional(record)
-    return record

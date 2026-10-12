@@ -108,4 +108,23 @@ EUCLIDEAN_ROTOR_UNIT = "rad/s"
 #: :func:`unmarked_euclidean_rotor` holds. A maintainer decision, NOT a
 #: measurement: no run in this repository settles the unit on 26.100, and
 #: that build's manual tutorial gives rad/s for the dialog field (RPT-051).
+#: A rotor requested in it is refused during plan rehearsal (PFS-2088.010).
 UNMARKED_EUCLIDEAN_ROTOR_UNIT = "rev/min"
+
+
+def _unmarked_unit_refusal(build: str) -> str:
+    """Return the refusal for a rotor whose angular-velocity unit is unproved.
+
+    Until a licensed probe settles the unit, the speed of such a rotor may be
+    off by 60/(2 pi). The probe that settles it is a rotation null test on
+    that build of the RPT-047 kind, comparing the azimuth the motion reaches
+    with the azimuth it states; the unit is then taken from that report.
+    """
+    return (
+        f"FlightStream {build}: rotary_motion, unsteady_rotor and rotor-speed rows are "
+        "refused until the angular-velocity unit is measured. The earlier emitter used "
+        "rev/min while the manual tutorial gives rad/s, a possible 9.55 times speed "
+        "error (RPT-051). A 26.100 rotation null test of the RPT-047 kind must compare "
+        "the azimuth reached with the azimuth stated before this build can run a rotor. "
+        "Use a build with a proved rotor unit instead."
+    )

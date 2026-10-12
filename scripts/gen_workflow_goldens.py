@@ -61,10 +61,12 @@ TESTS = REPO / "tests" / "tier1_offline"
 GOLDENS = TESTS / "goldens" / "workflows"
 
 # The case table and the expected-refusal set live in the test module,
-# which is the single home; see the module docstring.
-sys.path.insert(0, str(TESTS))
+# which is the single home; see the module docstring. That module imports
+# its helpers as `tests.*`, so the REPOSITORY ROOT goes on the path, as in
+# gen_additional_goldens.py; the tests folder alone crashed on import.
+sys.path.insert(0, str(REPO))
 
-from test_workflows import (  # noqa: E402
+from tests.tier1_offline.test_workflows import (  # noqa: E402
     EXPECTED_REFUSALS,
     GOLDEN_RENDERS,
     golden_name,

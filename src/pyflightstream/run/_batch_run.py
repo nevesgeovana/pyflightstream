@@ -513,18 +513,25 @@ def _records_of(job: GroupedJob, records: Sequence[RunRecord]) -> list[RunRecord
 
 def _launch_all(
     context: _Context, records: list[RunRecord], inners: Mapping[str, Any]
-) -> list[RunRecord]:
-    """Launch every job that holds a point this call recorded; return the records as they end."""
+) -> tuple[list[RunRecord], list[RunRecord]]:
+    """Launch every job that holds a point this call recorded.
+
+    Returns the records as they end, and the records of the jobs that did
+    not launch, which the caller raises (PFS-2094.031).
+    """
     done: dict[str, RunRecord] = {}
+    refused: list[RunRecord] = []
     for job in context.receipt.jobs:
         mine = _records_of(job, records)
         if not mine:
             continue
         launch, ended = _run_job(context, job, mine, inners[job.label])
         done.update({record.run_id: record for record in ended})
+        if launch.refusal is not None:
+            refused.extend(ended)
         _say_job(job, launch, len(mine), local=context.local)
     print("next: pyfs-matrix collect, then pyfs-matrix post")
-    return [done.get(record.run_id, record) for record in records]
+    return [done.get(record.run_id, record) for record in records], refused
 
 
 def _inner_of(job: GroupedJob, cases: Mapping[str, SimCase], builds: Any, grouping: Any) -> Any:
@@ -569,13 +576,16 @@ def run_grouped_matrix(
     Returns
     -------
     list of RunRecord
-        The records of this call: SUBMITTED, or FAILED_EXECUTION for the
-        points of a job that did not launch.
+        The records of this call, SUBMITTED, when every job launched.
 
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
         A refused option, a receipt that does not match, or a blocked pre-flight.
+    CampaignErrors
+        A point failed or a job did not launch: its points are recorded
+        FAILED_EXECUTION and named in ``failures``, and ``records`` holds
+        every record of the call.
     """
     kw = run_matrix_keywords
     refusal = refuse_grouped_options(
@@ -602,7 +612,7 @@ def run_grouped_matrix(
         resolved.campaign,
         staging,
         recipes=kw.get("recipe_registry"),
-        versions=row_versions(resolved),
+        versions=row_versions(resolved, _default_version(kw)),
         matrix_path=path,
         write_plan=False,
     )
@@ -704,6 +714,12 @@ def _run_receipt(
             preflight=False,
         )
     except CampaignErrors as error:
-        error.records = _launch_all(context, list(error.records), inners)
+        error.records, refused = _launch_all(context, list(error.records), inners)
+        error.failures = [*error.failures, *refused]
         raise
-    return _launch_all(context, records, inners)
+    # A JOB THAT DID NOT LAUNCH IS A FAILURE OF THE RUN (PFS-2094.031): its
+    # points were recorded FAILED_EXECUTION and the command exited 0.
+    records, refused = _launch_all(context, records, inners)
+    if refused:
+        raise CampaignErrors(refused, records)
+    return records

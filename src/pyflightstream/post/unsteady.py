@@ -161,32 +161,52 @@ class FrameAverage:
     sources: tuple[Path, ...]
 
 
+#: Tecplot records that carry text, not data: the title and auxiliary
+#: name-value pairs (the package's own surface writer emits
+#: DATASETAUXDATA). A line opening with one of them is not a row.
+_TECPLOT_TEXT_RECORDS = ("TITLE", "DATASETAUXDATA", "AUXDATA")
+
+
 def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
     """Read one Tecplot ASCII ordered POINT zone."""
     names: list[str] = []
     solution_time: float | None = None
     declared_points: int | None = None
+    zones = 0
     rows: list[list[float]] = []
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped:
             continue
         upper = stripped.upper()
-        if upper.startswith("TITLE"):
+        if upper.startswith(_TECPLOT_TEXT_RECORDS):
             continue
         if upper.startswith("VARIABLES"):
             names = [token for token in stripped.split('"')[1::2]]
             continue
         if upper.startswith("ZONE"):
-            # The zone's declared point count, so a truncated table is
-            # refused rather than returned short. Anchored so the I of a
-            # longer keyword cannot match: this record carries several.
+            # One frame is one zone. A second zone's rows were concatenated
+            # onto the first's while its I= replaced the first's, so a
+            # complete multi-zone file was refused as truncated.
+            zones += 1
+            if zones > 1:
+                raise MalformedOutputError(
+                    "the frame carries a second ZONE record. A frame of this series is "
+                    "one ordered zone, and reading several as one would concatenate "
+                    "their rows into samples of a frame that does not exist"
+                )
+            # The keywords are separated by commas or whitespace (the
+            # package's own probe writer uses commas), so a value ends at
+            # either: read up to the next space alone it kept its comma.
+            # The declared point count lets a truncated table be refused
+            # rather than returned short; anchored so the I of a longer
+            # keyword cannot match.
             declared = re.search(r"(?<![A-Z])I\s*=\s*(\d+)", upper)
             if declared is not None:
                 declared_points = int(declared.group(1))
-            if "SOLUTIONTIME" in upper:
-                tail = upper.split("SOLUTIONTIME", 1)[1].lstrip(" =")
-                token = tail.split()[0].strip('"').rstrip('"')
+            stated = re.search(r"SOLUTIONTIME\s*=\s*\"?([^\s,\"]*)", upper)
+            if stated is not None:
+                token = stated.group(1)
                 try:
                     solution_time = float(token)
                 except ValueError as error:
@@ -195,17 +215,24 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
                         "number, so the frame cannot say when it was written"
                     ) from error
             continue
-        rows.append([float(token) for token in stripped.split()])
+        try:
+            rows.append([float(token) for token in re.split(r"[,\s]+", stripped)])
+        except ValueError as error:
+            raise MalformedOutputError(
+                f"the frame line {stripped[:80]!r} is neither a record this reader knows "
+                "nor a row of numbers, so it is not a Tecplot ASCII point zone"
+            ) from error
     if not names or not rows:
         raise MalformedOutputError(
             "the frame carries no VARIABLES record or no data rows, so it is not a "
             "Tecplot ASCII point zone"
         )
-    table = np.asarray(rows, dtype=float)
-    if table.shape[1] != len(names):
+    widths = {len(row) for row in rows}
+    if widths != {len(names)}:
         raise MalformedOutputError(
-            f"the frame declares {len(names)} variables and its rows hold {table.shape[1]} columns"
+            f"the frame declares {len(names)} variables and its rows hold {sorted(widths)} columns"
         )
+    table = np.asarray(rows, dtype=float)
     # The zone's own I= against the rows that are THERE. The reader
     # ignored it until 2026-08-19, so a file cut mid-table came back
     # shorter with no refusal, and a history one step short is the worst
@@ -221,6 +248,26 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
     points = table[:, :3]
     fields = {name: table[:, index] for index, name in enumerate(names) if index >= 3}
     return points, fields, solution_time
+
+
+def _vtk_block(lines: Sequence[str], *, width: int, what: str) -> np.ndarray:
+    """Read a VTK block of ``width`` numbers per line, refusing a ragged or text line."""
+    values: list[list[float]] = []
+    for line in lines:
+        tokens = line.split()
+        try:
+            values.append([float(token) for token in tokens])
+        except ValueError as error:
+            raise MalformedOutputError(
+                f"the frame's {what!r} block holds the line {line[:80]!r}, which is not "
+                "a row of numbers"
+            ) from error
+        if len(tokens) != width:
+            raise MalformedOutputError(
+                f"the frame's {what!r} block holds the line {line[:80]!r} with "
+                f"{len(tokens)} value(s) where each line holds {width}"
+            )
+    return np.asarray(values, dtype=float).reshape(len(values), width)
 
 
 def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
@@ -245,18 +292,42 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
             "truncated, and a shorter frame read as a whole one makes every "
             "reduction over it an average of a run that did not finish writing"
         )
-    points = np.asarray(
-        [[float(token) for token in line.split()] for line in rows],
-        dtype=float,
-    )
+    points = _vtk_block(rows, width=3, what="POINTS")
     fields: dict[str, np.ndarray] = {}
+    # The data section a field block belongs to. A SCALARS or VECTORS
+    # block holds one value per point only under POINT_DATA with the
+    # points' own count; under CELL_DATA it holds one per cell, and its
+    # first values were read as point samples with no refusal.
+    section: str | None = None
     index = start + 1 + count
     while index < len(lines):
         line = lines[index]
         upper = line.upper()
-        if upper.startswith("SCALARS "):
+        if upper.startswith("CELL_DATA"):
+            raise MalformedOutputError(
+                f"the frame carries a CELL_DATA section ({line!r}). This reader takes "
+                "one value per point, and a cell value read as a point sample would "
+                "be a field of the wrong locations"
+            )
+        if upper.startswith("POINT_DATA"):
+            declared = line.split()[1] if len(line.split()) > 1 else ""
+            if declared != str(count):
+                raise MalformedOutputError(
+                    f"the frame declares POINTS {count} and {line!r}, so its point "
+                    "fields do not hold one value per point"
+                )
+            section = "POINT_DATA"
+            index += 1
+            continue
+        if upper.startswith(("SCALARS ", "VECTORS ")):
             name = line.split()[1]
-            body = index + 2  # the LOOKUP_TABLE line sits between
+            if section is None:
+                raise MalformedOutputError(
+                    f"the frame's {name!r} block is not preceded by POINT_DATA {count}, "
+                    "so nothing says its values are one per point"
+                )
+            vector = upper.startswith("VECTORS ")
+            body = index + (1 if vector else 2)  # a SCALARS block has a LOOKUP_TABLE line
             # Bounds-checked rather than indexed and hoped: an out-of-range
             # read here raised a bare IndexError out of a public function,
             # which `except PyflightstreamError` does not catch and which
@@ -268,18 +339,8 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
                     f"after {max(0, len(lines) - body)} value(s). It is truncated "
                     "inside a field block"
                 )
-            fields[name] = np.asarray(
-                [float(lines[i]) for i in range(body, body + count)], dtype=float
-            )
-            index = body + count
-            continue
-        if upper.startswith("VECTORS "):
-            name = line.split()[1]
-            body = index + 1
-            fields[name] = np.asarray(
-                [[float(t) for t in lines[i].split()] for i in range(body, body + count)],
-                dtype=float,
-            )
+            block = _vtk_block(lines[body : body + count], width=3 if vector else 1, what=name)
+            fields[name] = block if vector else block[:, 0]
             index = body + count
             continue
         index += 1
@@ -291,7 +352,13 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
 
 def _read_frame(path: Path) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
     """Read one exported frame, in whichever of the two shapes it is."""
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise MalformedOutputError(
+            f"{path} is not UTF-8 text ({error.reason} at byte {error.start}), so it is "
+            "neither of the ASCII frame formats this reader takes"
+        ) from error
     head = text.lstrip()[:64].upper()
     if head.startswith("# VTK"):
         return _read_vtk_frame(text)
@@ -517,7 +584,9 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
     ------
     MalformedOutputError
         If ``period_steps`` is not positive, or is longer than the
-        series.
+        series; or if the frames are not exported at one stride that
+        divides ``period_steps``, because the passages would then hold
+        their equally weighted frames at different phases.
     """
     period = int(period_steps)
     if period <= 0:
@@ -531,6 +600,19 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
         raise MalformedOutputError(
             f"one passage of {period} steps is longer than the {span} steps this series "
             "covers, so not one complete passage was exported"
+        )
+    # Each passage mean weights its frames equally, which is a time average
+    # of the passage only when every passage holds the same phases: frames
+    # evenly spaced, by a stride that divides the period. Otherwise the
+    # passages hold different numbers of frames at different phases, and
+    # their means differ by a sampling ripple that reads as unsteadiness.
+    strides = {int(gap) for gap in np.diff(steps)}
+    if len(strides) > 1 or (strides and period % next(iter(strides))):
+        raise MalformedOutputError(
+            f"the frames are exported every {sorted(strides)} step(s) and one passage is "
+            f"{period} steps, so the passages would hold their frames at different "
+            "phases and their means would differ by how they were sampled. Export at "
+            "one stride that divides the passage"
         )
     windows: list[tuple[int, int]] = []
     start = int(steps[0])

@@ -203,7 +203,17 @@ def _played(workspace: CampaignWorkspace, grouping) -> None:
     for job in grouping.jobs:
         script = workspace.root / job.script
         emulate(script, script.parent)
-        (script.parent / f"{script.stem}.end.json").write_text('{"returncode": 0}\n')
+        # The record in the shape the batch runner writes (run/_batch_run.py): the key is
+        # return_code, and a record with another key was read by nothing (PFS-2135.016).
+        record = {
+            "job": job.name,
+            "return_code": 0,
+            "timed_out": False,
+            "finished_at": "2026-01-01T00:00:00+00:00",
+        }
+        (script.parent / f"{script.stem}.end.json").write_text(
+            json.dumps(record) + "\n", encoding="utf-8"
+        )
 
 
 def _collected_and_posted(workspace: CampaignWorkspace) -> dict[str, dict]:
