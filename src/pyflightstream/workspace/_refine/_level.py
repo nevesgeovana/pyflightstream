@@ -1062,6 +1062,92 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     return text
 
 
+def _route_detected_te(work: _Work, stem: str) -> None:
+    """Name the level's points file in its boundaries file when the refinement detected it.
+
+    A kept row's trailing edge detected by the refinement (FR-430 R4, R7) is
+    written to ``<stem>.te.txt``, and a boundaries file that routes the
+    trailing edge to detection names no file, so the run would mark the
+    trailing edge by the workflow's own rule and never read the audited line
+    (PFS-2088.018). When every family the ``detect`` route selects is one
+    whose line the refinement detected, the level's boundaries file states
+    ``file = "<stem>.te.txt"`` in place of ``detect``: the run then marks
+    exactly the line the refinement kept and the audit checked. A ``file``
+    and a ``detect`` cannot both be stated, so when the route also selects a
+    family the refinement did not detect on, ``detect`` stays (that family
+    still needs it) and a warning names the points file as one the run does
+    not read.
+
+    Raises
+    ------
+    InputArtifactError
+        The ``detect`` value cannot be rewritten; nothing was written.
+    """
+    detected = sorted(n for n, how in work.te_source.items() if how == "detected")
+    if not detected or work.sidecar is None:
+        return
+    data = tomllib.loads(work.sidecar)
+    table = data.get(_obj.TRAILING_EDGES_TABLE)
+    if not isinstance(table, dict) or "detect" not in table:
+        return
+    routed = [n for n in work.names if work.te_route.detects(n)]
+    others = [n for n in routed if n not in detected]
+    target = f"{stem}{TE_SUFFIX}"
+    if others:
+        warn(
+            f"{work.source}: the trailing edge of {', '.join(detected)} detected for its kept "
+            f"rows is written to {target}, which the level's boundaries file does not name: "
+            f"its detect route also covers {', '.join(others)}, and a boundaries file states "
+            "either a points file or detection, so the run detects with its own rule. List "
+            "every trailing edge in a points file to make the run read the refined line.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return
+    wanted = copy.deepcopy(data)
+    del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
+    wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
+    work.sidecar = _replace_key(
+        work.source, work.sidecar, "detect", table["detect"], "file", target, wanted
+    )
+
+
+def _replace_key(
+    side: Path, text: str, key: str, old: object, new_key: str, new: str, wanted: dict[str, Any]
+) -> str:
+    """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
+
+    The same search as :func:`_rewrite`: every spelling of the key, the
+    shortest value text that parses to ``old``, and the first replacement
+    whose whole file parses to ``wanted``.
+    """
+    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
+    for match in re.finditer(spelled, text):
+        start = match.end()
+        # A detect value may be an inline table, closed by its brace.
+        for end in (m.end() for m in re.finditer(r"[\"'\]}]", text[start:])):
+            end += start
+            try:
+                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
+            except tomllib.TOMLDecodeError:
+                continue
+            if value != old:
+                continue
+            replaced = f"{new_key} = {json.dumps(new, ensure_ascii=False)}"
+            candidate = text[: match.start()] + replaced + text[end:]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+            break
+    raise _refuse(
+        str(side),
+        f"the trailing-edge route {key} cannot be rewritten to name the level's points file; "
+        f"state it as {key} = {json.dumps(old, ensure_ascii=False)} and run again",
+    )
+
+
 #: The places a value can be closed: a quote of a string or the bracket of an array.
 _VALUE_ENDS = re.compile(r"[\"'\]]")
 
@@ -1284,6 +1370,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         obj.verts, obj.families, request.periodic, size=work.scale, where=where
     )
     _decide(work)
+    _route_detected_te(work, stem)
     _refine_grids(work)
     _bands(work)
     _conform_cuts(work)

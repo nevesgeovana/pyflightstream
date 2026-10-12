@@ -459,6 +459,10 @@ def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, 
         "points_on_edges": 9,
         "chains": 1,
         "source_chains": 0,
+        "length": 2.0,
+        "source_length": 0.0,
+        "source_ends": 0,
+        "source_ends_missing": 0,
     }
 
 
