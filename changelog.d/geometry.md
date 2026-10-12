@@ -4,6 +4,11 @@
 - `pyfs-workspace geometry accept` records the inspection of a built body; `pyfs-matrix plan` refuses a row whose body is stale against its instruction and warns on a resaved, unaccepted, audit-failed or other-build body (FR-473).
 - Mesh operations in the instruction file: circular and linear copies, a cut by a plane, hole filling, degenerate-face removal, face extraction and deletion by threshold, and node moves pinned to the mesh's sha256 (FR-474).
 - CAD body operations before the conversion of an IGES file, and bodies and section-lofted wings built by the solver's CAD Create commands (FR-475).
+- `pyfs-workspace geometry build --rows POL --matrix FILE` prints one whole matrix row per built variant, copied from the row `POL`; nothing is written into the matrix (FR-472).
+- `pyfs-workspace geometry build --parallel 2` runs two variants of a sweep at once and reruns alone a variant that failed beside another (FR-472).
+- A deflection sweep writes `<name>.sweep.vtk` in the base folder, the swept control surface of every variant overlaid (FR-472).
+- `pyfs-matrix plan` warns on a row whose `SYMMETRY` is `MIRROR` and whose built body carries a deflected control surface, naming the surface and the angle (FR-473).
+- A rebuilt mesh's sidecar keeps the `translate` and `rotate` operations, `[wake_termination]` and `[base_regions]` of the sidecar it replaces, or of its `[mesh]` source (FR-471).
 - `pyfs-workspace geometry from-sidecar` writes the instruction of a geometry a matrix row builds today (FR-476).
 - `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`, the homes of the `pyfs-matrix` verbs of the same results (FR-477).
 
