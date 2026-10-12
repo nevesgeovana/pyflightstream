@@ -677,6 +677,15 @@ class Submitting(Protocol):
         """Return what was handed to the scheduler, or None before anything was."""
 
 
+def submits_jobs(executor: object) -> bool:
+    """Whether an executor submits jobs, including wrappers over a local executor.
+
+    Older implementations of Submitting without the explicit predicate keep
+    their declared protocol behavior.
+    """
+    return bool(getattr(executor, "submits", isinstance(executor, Submitting)))
+
+
 def bind_submission_values(executor, case, point_case) -> None:
     """Give a submitting executor the values THIS point's descriptor needs.
 

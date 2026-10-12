@@ -1093,6 +1093,8 @@ class Script:
         # :attr:`periodic_copies`; the solver's surface exports hold one zone
         # per copy, so the run needs the count to read them.
         self._periodic_copies: int | None = None
+        self._periodic_symmetry = False
+        self._incidence: dict[str, float] = {}
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
@@ -1471,6 +1473,21 @@ class Script:
                 )
             self.entities.assert_label_free(_CREATION_COMMANDS[entry.name], label)
         bound = self._bind(entry, args, kwargs)
+        if entry.name == _INITIALIZATION_COMMAND:
+            periodic = (
+                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
+            )
+            if periodic and any(self._incidence.values()):
+                raise CommandArgumentError(
+                    "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
+                    "incidence is incompatible with rotational periodicity"
+                )
+        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
+            if self._periodic_symmetry and float(bound["angle"]) != 0:
+                raise CommandArgumentError(
+                    f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
+                    "incompatible with rotational periodicity"
+                )
         phase = self._check_phase(entry)
         self._check_references(entry, bound)
         block, multiline = self._render_command(entry, bound)
@@ -1515,12 +1532,18 @@ class Script:
         if entry.name == _INITIALIZATION_COMMAND:
             self._initialized_at = len(self._lines) + 1
             self._reinitialization_owed = None
-            copies = bound.get("symmetry_copies")
+            copies = bound.get("symmetry_copies", bound.get("symmetry_periodicity"))
+            self._periodic_symmetry = periodic
             self._periodic_copies = (
                 int(copies)  # type: ignore[call-overload]
-                if str(bound.get("symmetry", "")).upper() == "PERIODIC" and copies is not None
+                if periodic and copies is not None
                 else None
             )
+            if "load_frame" in bound:
+                self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
+                self._sets_loads_frame = True
+        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
+            self._incidence[entry.name] = float(bound["angle"])
         self._lines.extend(block)
         if waiver is not None and entry.name not in self._broken_uses:
             # Retain the first accepted line covered by this waiver.
@@ -1531,6 +1554,12 @@ class Script:
             self._lines.append("")
         for path in exports:
             self._exported_paths[path] = entry.name
+        if entry.name in {"OPEN", "NEW_SIMULATION"}:
+            self._incidence.clear()
+            self._periodic_symmetry = False
+            self.surface_operations.clear()
+            self.custom_field_extent_m = None
+            self.custom_field_coverage = None
         if entry.name in _SURFACE_TRANSFORM_COMMANDS:
             frame_index = bound.get("frame")
             placement = (
@@ -2392,6 +2421,14 @@ class Script:
         return [joiner.join(rendered)]
 
     def _render_command(self, entry: CommandEntry, bound: dict) -> tuple[list[str], bool]:
+        for position, spec in enumerate(entry.args):
+            if spec.joins_previous and spec.name in bound:
+                anchor = entry.args[position - 1]
+                if anchor.name not in bound:
+                    raise CommandArgumentError(
+                        f"{entry.name}: {spec.name} needs {anchor.name}, the preceding "
+                        f"argument it joins ({entry.citation})"
+                    )
         provided = [(spec, bound[spec.name]) for spec in entry.args if spec.name in bound]
         if entry.layout is Layout.BARE:
             return [entry.name], False
@@ -2444,4 +2481,6 @@ class Script:
                 lines[-1] += f" {self._format_scalar(value)}"
             else:
                 lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
+        if entry.terminator is not None:
+            lines.append(entry.terminator)
         return lines, True

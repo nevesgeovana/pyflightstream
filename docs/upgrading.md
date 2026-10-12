@@ -35,6 +35,21 @@ off-body streamlines. The streamline and 6DOF commands are recorded from the
 manual only until the licensed probes run; on such a build a row reaching them
 is refused at plan, naming the command.
 
+### 0.40.0 sweep corrections
+
+Workspace settings refuse `runs` and `accept_unregistered_build`. Use `--runs`
+per command, and accept builds on `inputs/executables.local.toml` entries or
+with the typed flag. `fs_exe` and `local` belong only in `pyfs.local.toml`.
+Periodic symmetry refuses nonzero angle of attack and sideslip. An absent
+numbered boundary is refused by name; select its unnumbered family instead.
+Long uniform refinement tags are shortened to the same summary form as other
+long tags. Automatic trailing-edge detection on 26.125 requires a declared
+inventory and emits explicit indices. Probe imports require their coordinate
+unit. CDp and CDv physics metrics use independent pressure-drag references,
+seeded through update-reference from a measured 26.125 report; old induced-drag
+references are never substituted. Explicit zero wake or trailing-edge counts
+and rotor efficiency above 1 warn in post.log and leave run status unchanged.
+
 ### The command that does it
 
 Run `pyfs-matrix post` to rebuild products from recorded solver exports.

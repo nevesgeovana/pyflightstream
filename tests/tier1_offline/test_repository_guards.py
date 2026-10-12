@@ -201,85 +201,7 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     assert numbers["inventory"] >= 400, f"inventory of {numbers['inventory']}: {line}"
     assert numbers["scanned"] >= 250, f"only {numbers['scanned']} files scanned: {line}"
     assert numbers["undecodable"] == 0 and numbers["unreadable"] == 0, line
-    # Every exempted path plus the one exempted tree. Pinned so that widening
-    # the config is a deliberate edit here rather than a quiet loosening: the
-    # `reports/` exemption started as a tree covering 118 files and was
-    # narrowed to three named files on review.
-    # 41 measured at 0.25.0, one more than 0.24.0's 40: the release adds
-    # docs/migrating-to-0.25.0.md, and `docs/` is an exempt TREE, so a release
-    # that writes its migration page moves this number by one without widening
-    # any exemption. The cap allows two more pages before it is read again.
-    # 44 measured at 0.27.0: docs/ gained migrating-to-0.26.0.md,
-    # migrating-to-0.27.0.md and gui-to-pyfs.md (D06), and no exemption was
-    # widened. The cap allows 0.28.0's migration page and nothing more.
-    # 45 measured at the v0.28.0 tag (docs/ at 33 files). 59 measured on the
-    # 0.29.0 candidate on 2026-09-28 (GOAL-034 Q1): docs/ gained fourteen pages,
-    # migrating-to-0.29.0.md and thirteen feature pages, each named beside
-    # `exempt-tree: docs/` in tools/shipped_surface.conf, and the twelve
-    # exempt-path lines are unchanged. The cap allows 0.30.0's migration page
-    # and nothing more. 149 measured on the 0.30.0 candidate on 2026-09-29
-    # (GOAL-035), widened on the author's decision of that date: the guide/
-    # byline path became the guide/ tree when the seven decks moved into the
-    # repository (their sources and PDFs carry the byline and licence notice),
-    # and docs/ gained storage-and-sync.md and migrating-to-0.30.0.md. The cap
-    # allows 0.31.0's migration page and nothing more.
-    # 167 on the 0.31.0 candidate, the author's decision of 2026-09-29: the 15
-    # files of guide 00 in the byline tree guide/, docs/migrating-to-0.31.0.md
-    # and the two 0.31 pages docs/field-operations.md and
-    # docs/qsteady-corrections.md.
-    # 186 on the integrated 0.32.0 branch, the author's authorisation of
-    # 2026-09-30 to raise it by exactly the measured count: docs/ gained 19
-    # pages (migrating-to-0.32.0.md, the six 0.32 feature pages and the twelve
-    # pages of the workflow split), and no exemption line was added or widened.
-    # 188 on the 0.33.0 branch, the author's authorisation of 2026-09-30
-    # ("Sim, 188"): docs/ gained guides.md and tutorial-python-api.md (NFR-29),
-    # and no exemption line was added or widened.
-    # 191 on the 0.33.0 branch, a decision taken on the author's behalf on
-    # 2026-10-01 under her rule for the night: docs/ gained
-    # migrating-to-0.33.0.md (every release has one) and guide/ gained the
-    # pyfs-matrix cheatsheet she asked for (GEO-073), its source and its PDF;
-    # no exemption line was added or widened.
-    # 192 on the 0.33.1 branch: docs/ gained migrating-to-0.33.1.md (every
-    # release has one); no exemption line was added or widened.
-    # 194 on the 0.34.0 branch, the two counts merged (measured at the head, no
-    # slack): the 193 of the guide branch (guide 04 is one source folder of three
-    # files and one PDF, replacing the two files of the pyfs-matrix cheatsheet of
-    # 0.33.0, so guide/ gained two files) plus the migrating-to-0.33.1.md of the
-    # 0.33.1 branch; no exemption line was added or widened.
-    # 196 on the 0.34.0 branch, the session's word of 2026-10-02 at the wave-2
-    # integration: docs/ gained migrating-to-0.34.0.md (every release has one)
-    # and actuator-profiles.md (FR-347); no exemption line was added or widened.
-    # 197 on the 0.35.0 branch: docs/srs/ gained markers-0350.json, the marker map the
-    # SRS index records for FR-350 to FR-378; no exemption line was added or widened.
-    # 198 on the 0.35.0 branch: docs/ gained migrating-to-0.35.0.md (every release has
-    # one); no exemption line was added or widened.
-    # 199 on the 0.35.0 branch: docs/ gained workspace-queries.md (QV2, the query
-    # verbs page); no exemption line was added or widened.
-    # 200 on 0.35.1: docs/srs/ gained markers-0351.json; no exemption was widened.
-    # 201 on 0.35.1: docs/ gained migrating-to-0.35.1.md (every release has one); no
-    # exemption line was added or widened.
-    # 202 on 0.36.0: docs/srs/ gained markers-0360.json; no exemption line was added or widened.
-    # 254 on 0.36.0 after DOC-C and its migration page (tools/shipped_surface.conf).
-    # 256 on 0.37.0: docs/ gained migrating-to-0.37.0.md and docs/srs/ gained
-    # markers-0370.json; no exemption line was added or widened.
-    # 257 on 0.38.0: docs/srs/ gained markers-0380.json; no exemption line was added or widened.
-    # 258 on 0.38.0: docs/ gained migrating-to-0.38.0.md (every release has one); no
-    # exemption line was added or widened.
-    # 259 on 0.39.0: docs/srs/ gained markers-0390.json; no exemption line was added or widened.
-    # 264 on 0.39.0, measured at the head (no slack): docs/ gained migrating-to-0.39.0.md
-    # and workspace-settings.md (FR-436), and guide/ gained the user guide's PDF and the
-    # build logs of the two published PDFs (NFR-46); no exemption line was added or widened.
-    # 265 on 0.39.0: guide/ gained pdf-release-record.json, the release record of the two
-    # published PDFs (NFR-46 R4, R5); no exemption line was added or widened.
-    # 268 on 0.40.0 (gaps-rt lane): docs/ gained streamlines.md, sixdof-motion.md and
-    # fsi-external.md, the pages of the command-gap capabilities (FR-460 to FR-462); no
-    # exemption line was added or widened.
-    assert numbers["exempt"] <= 268, (
-        f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
-        "An exemption was widened, or a tree grew by more than a release's own "
-        "pages; widen this number in the same commit and say why in "
-        "tools/shipped_surface.conf."
-    )
+    _assert_exemption_policy(_shipped_surface_module().load_config(SHIPPED_SURFACE_CONFIG))
 
 
 def test_the_shipped_surface_guard_can_still_fail() -> None:
@@ -422,3 +344,23 @@ def test_no_tracked_file_outside_the_records_points_at_the_retired_method_file()
         f"repository does not publish: {live}. The numbered invariants live in "
         "CONTRIBUTING.md."
     )
+
+
+def _assert_exemption_policy(config) -> None:
+    """Pin the granted paths and trees, independently of their current file counts."""
+    assert config.exempt_paths == frozenset(
+        {
+            "LICENSE",
+            "CITATION.cff",
+            "README.md",
+            "CHANGELOG.md",
+            "CONTRIBUTING.md",
+            "pyproject.toml",
+            ".github/workflows/release.yml",
+            "properdocs.yml",
+            "reports/RPT-004_probe-roundtrip-order_2026-07-21.md",
+            "reports/physics/PHY-26120_2026-07-21_phy06-polar-banded.yaml",
+            "reports/physics/PHY-26120_2026-07-23_reseed-cp100-2026-07-23.yaml",
+        }
+    )
+    assert set(config.exempt_trees) == {"guide/", "docs/"}

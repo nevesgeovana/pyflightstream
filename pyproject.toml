@@ -175,7 +175,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "pyflightstream.commands" = ["*.yaml"]
-"pyflightstream.qa" = ["references/*.yaml"]
+"pyflightstream.qa" = ["references/*.yaml", "references/pressure-drag/*.yaml"]
 
 # NEVER SHIPPED, whatever a package-data pattern or a stray file says
 # (GEO-060 M6). The retired workbook macro left MatrixSync.bas/.bin and

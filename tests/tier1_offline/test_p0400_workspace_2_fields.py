@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,5 +37,6 @@ def test_p0400_subtractmatch_the_same_outcome_under_python_o():
         capture_output=True,
         text=True,
         check=True,
+        env=os.environ.copy(),
     )
     assert done.stdout.strip() == "[-9.0, -18.0]", done.stdout + done.stderr

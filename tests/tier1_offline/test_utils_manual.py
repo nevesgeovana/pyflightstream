@@ -46,6 +46,17 @@ from pyflightstream.utils.cli import main as cli_main
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import citation_reach
 
+
+@pytest.fixture(autouse=True)
+def synthetic_cli_pdf_support(monkeypatch):
+    """Keep text-reader CLI fixtures independent of the optional PDF dependency.
+
+    The missing-extra entry gate is exercised by the sweep-1 regression.
+    Library PDF-reader tests still observe the real dependency environment.
+    """
+    monkeypatch.setattr("pyflightstream.utils.cli._manual_extra_error", lambda: None)
+
+
 INDEX_PAGE = """376
 Script Index
 Function Name Location

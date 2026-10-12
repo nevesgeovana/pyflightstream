@@ -654,9 +654,13 @@ def _add_convert_parsers(subparsers: Any) -> None:
         help="explicit path of the FlightStream executable (never guessed)",
     )
     convert.add_argument(
+        "--out",
+        help="write the campaign.toml here instead of standard output",
+    )
+    convert.add_argument(
         "-o",
         "--output",
-        help="write the campaign.toml here instead of standard output",
+        help="deprecated alias of --out, with the identical result",
     )
 
 
@@ -1131,7 +1135,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         metavar="IDS",
         help="rebuild only these simulations' products of the matrix, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
-        "archived and rewritten, every other simulation's files and products.json entries "
+        "rewritten (archived only with --archive), every other simulation's files and "
+        "products.json entries "
         "stay as they were, and the super files, whose columns are the union over every "
         "simulation, are left as the last whole post wrote them and named under "
         "partial.not_rebuilt in products.json and in post.log. An id with no record of the "

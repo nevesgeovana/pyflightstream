@@ -826,7 +826,9 @@ def _check_scheduled_builds(
         # name means (PFS-2010.01.06). So a submitted point is NOT guarded
         # here; which build it ran on is known only from the build number in
         # its collected log.
-        if getattr(case_executor, "descriptor_path", "missing") != "missing":
+        from pyflightstream.run._executors import submits_jobs
+
+        if submits_jobs(case_executor):
             continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
         accepted, accepted_by = acceptance_of(key, accept_unregistered_build, accepted_builds)

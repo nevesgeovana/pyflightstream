@@ -385,6 +385,10 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
         iterations=report.current_iteration,
         converged=record.status is RunStatus.CONVERGED,
         label=f"sim_{record.sim_id}/{record.run_id.rsplit('/', 1)[-1]}",
+        minimum_cp=(record.solver_setup or {})
+        .get("flags", {})
+        .get("SOLVER_MINIMUM_CP", {})
+        .get("value"),
     )
 
 
@@ -697,7 +701,7 @@ def reduce_physics(
         try:
             _one_row_each(case_id, case_rows)
             points, metrics = _reduce_case(case_id, case_rows, workspace, by_row, steady_rows, path)
-            reference = load_reference(case_id, references_dir)
+            reference = load_reference(case_id, references_dir, fs_version=versions[0])
         except QaEvidenceError as error:
             results.append(
                 CaseResult(case_id=case_id, title=case.title, geometry=geometry, error=str(error))

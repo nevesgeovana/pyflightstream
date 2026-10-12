@@ -10,6 +10,7 @@ reading what a probe leaves behind.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -253,7 +254,13 @@ def test_the_stand_in_logs_archives_and_answers_zero_displacements(tmp_path):
         "0.25,0.0,0.0\n0.25,1.0,0.0\n0.25,2.0,0.0\n", encoding="utf-8"
     )
     (tmp_path / "FS_SurfaceSection_Loads.txt").write_text("loads\n", encoding="utf-8")
-    subprocess.run([sys.executable, str(script), "extra"], cwd=tmp_path, check=True, timeout=60)
+    subprocess.run(
+        [sys.executable, str(script), "extra"],
+        cwd=tmp_path,
+        check=True,
+        timeout=60,
+        env=os.environ.copy(),
+    )
     displacements = (tmp_path / "FSIDisp.txt").read_text(encoding="utf-8").splitlines()
     assert displacements == ["0.000000000000e+00,0.000000000000e+00,0.000000000000e+00"] * 3
     log = (tmp_path / "fsi_standin_calls.log").read_text(encoding="utf-8")

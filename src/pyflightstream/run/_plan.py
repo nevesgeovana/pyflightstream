@@ -94,7 +94,6 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     NamingTemplateError,
     RunRecord,
-    RunStatus,
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
@@ -106,6 +105,7 @@ from pyflightstream.workspace._settings_file import (
     invocation_sources,
 )
 from pyflightstream.workspace.costs import priced_rows
+from pyflightstream.workspace.manifest import COST_EXCLUDED_STATUSES
 from pyflightstream.workspace.naming import (
     PointName,
     archive_previous,
@@ -379,12 +379,7 @@ def _recorded_is_unsteady(record: dict) -> bool:
 #: that a point costs exactly the clock it was given, SUBMITTED has not run here,
 #: and RAN_MISSING_LOG is no verdict. The set of qa/cost.py's _EXCLUDED_STATUSES,
 #: which run/ cannot import (qa imports run).
-_NOT_A_COST_SAMPLE = frozenset(
-    status.value
-    for status in RunStatus
-    if status.name.startswith("FAILED")
-    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
-)
+_NOT_A_COST_SAMPLE = COST_EXCLUDED_STATUSES
 
 
 def _recorded_costs(workspace) -> list[dict]:

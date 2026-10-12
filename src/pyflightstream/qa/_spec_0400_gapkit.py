@@ -811,7 +811,11 @@ def _flow(*, steady: bool, velocity: float = 30.0, steps: int = 20, dt: float = 
 
 def _units_and_edges(script: Script, workdir: Path) -> None:
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    detect_every_boundary(script, "trailing_edges")
+    if script.version.canonical == "26.125":
+        # This prelude always imports one constructed wing boundary.
+        script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=1, surface_indices=[1])
+    else:
+        detect_every_boundary(script, "trailing_edges")
 
 
 def _start(symmetry: str = "NONE") -> Build:

@@ -510,7 +510,12 @@ def _cmd_records(args: argparse.Namespace) -> int:
 def _cmd_mark_failed(args: argparse.Namespace) -> int:
     """Mark the named simulations' records FAILED_MARKED (FR-309)."""
     try:
-        sims, points = split_typed_ids(_listed_sims(args.sims), args.workspace)  # FR-395
+        from pyflightstream.run._mark_converged import _listed
+
+        sims, points = split_typed_ids(_listed(args.sims), args.workspace)  # FR-395
+        if args.points:
+            points = {**points, **{sim: list(args.points) for sim in sims}}
+            sims = []
         entry = run_records.mark_failed(
             args.workspace, sims, reason=args.reason, apply=args.apply, points=points
         )
@@ -1142,6 +1147,13 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
 
 
 def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
+    from pyflightstream.run._cli_mesh import _chosen
+
+    output, _, refusal = _chosen(args, ("--out", "out"), ("--output", "output"), since="0.40.0")
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
+        return 2
+    args.output = output
     if args.name is None:
         print(
             "convert has no workspace to name the campaign after; pass name (CLI: --name).",
@@ -1366,7 +1378,9 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # anything, so a sweep with one failed point left no table at
         # all, which is the acceptance of PFS-2014.03 exactly inverted.
         print(f"matrix run with failures: {error}", file=sys.stderr)
-        for line in failure_alias_lines(error.failures, workspace.read_raw_manifest()):
+        for line in failure_alias_lines(
+            error.failures, workspace.read_raw_manifest(), workspace.root
+        ):
             print(line, file=sys.stderr)
         # The call's records ride on the error, so a run that also SUBMITTED a
         # point is still seen as one below (G43).

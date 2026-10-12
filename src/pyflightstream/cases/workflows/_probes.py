@@ -591,7 +591,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             and case.pproc.volume_section is None
             and not any(entry.field_formats or entry.reusable_inflow for entry in case.pproc.probes)
         ):
-            emit_probe_import(script, probes.resolved_points_file)
+            emit_probe_import(
+                script, probes.resolved_points_file, units=script.simulation_length_unit
+            )
             return vertex
     if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
         return vertex

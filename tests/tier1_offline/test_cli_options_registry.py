@@ -94,6 +94,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-qa", "commands_dir"): OUTPUT,
     ("pyfs-fsi", "node_count"): CASE,
     ("pyfs-fsi", "dir"): SUBJECT,
+    ("pyfs-fsi", "legacy_dir"): SUBJECT,
     ("pyfs-workspace", "root"): SUBJECT,
     ("pyfs-workspace", "sim_id"): SUBJECT,
     # 0.31.0 (G3), `pyfs-workspace field mirror|move|subtract|time-mean`. The
@@ -474,6 +475,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "problems"): frozenset({"log"}),
     ("pyfs-matrix", "open_only"): frozenset({"log"}),
     ("pyfs-fsi", "dir"): frozenset({"external", "init-dummy", "step"}),
+    ("pyfs-fsi", "legacy_dir"): frozenset({"external", "init-dummy", "step"}),
     ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
     ("pyfs-manual", "build"): frozenset({"register"}),
     ("pyfs-manual", "by_section"): frozenset({"sweep"}),
@@ -563,7 +565,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "mark-converged", "plan", "run"}),
+    ("pyfs-matrix", "points"): frozenset(
+        {"inspect-setups", "mark-converged", "mark-failed", "plan", "run"}
+    ),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "cost_file"): frozenset({"inspect-setups", "plan"}),
@@ -642,7 +646,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "csv_file"): frozenset({"audit-mesh"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
-    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "rebuild", "refine"}),
+    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "convert", "rebuild", "refine"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
     ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),

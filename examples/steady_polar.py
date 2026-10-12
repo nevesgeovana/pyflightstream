@@ -30,7 +30,7 @@ from pathlib import Path
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
 from pyflightstream.results import parse_loads
-from pyflightstream.run import LocalExecutor
+from pyflightstream.run import LoadsAssessor, LocalExecutor
 from pyflightstream.script import CommandArgumentError, Script
 
 FS_VERSION = "26.120"  # canonical; the vendor name 26.12 names several builds
@@ -125,6 +125,9 @@ def build_polar_point(version: str, alpha_deg: float, loads_name: str) -> Script
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
+    script.emit(
+        "EXPORT_LOG", loads_name.replace("loads_", "solver_").removesuffix(".txt") + "_log.txt"
+    )
     script.emit("CLOSE_FLIGHTSTREAM")
     return script
 
@@ -189,9 +192,10 @@ else:
     import numpy as np
 
     import pyflightstream
+    from pyflightstream.cases import SimCase, SweepAxis
     from pyflightstream.results import sweep_table
     from pyflightstream.versions import resolve
-    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord
     from pyflightstream.workspace.naming import PointName
 
     executor = LocalExecutor(fs_exe)
@@ -209,12 +213,24 @@ else:
         # `sims/sim_polar/datapoints/DP-<point>/` rather than in one shared folder.
         outputs = workspace.collect_outputs(
             "polar",
-            [sim_dir / f"loads_a{i}.txt"],
+            [sim_dir / f"loads_a{i}.txt", sim_dir / f"solver_a{i}_log.txt"],
             datapoint=PointName(f"a{alpha:+05.1f}"),
         )
         loads_text = (sim_dir / outputs[0]).read_text(encoding="utf-8", errors="replace")
         report = parse_loads(loads_text, requested_version=FS_VERSION)
-        converged = report.current_iteration < report.requested_iterations
+        case = SimCase(
+            sim_id="polar",
+            aircraft="synthetic wing",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[float(alpha)]),
+            point={"alpha": alpha, "velocity": VELOCITY_M_S},
+            outputs=outputs,
+        ).model_copy(update={"datapoint_name": f"a{alpha:+05.1f}"})
+        assessment = LoadsAssessor(
+            loads_file=Path(outputs[0]).name,
+            log_file=Path(outputs[1]).name,
+            requested_version=FS_VERSION,
+        )(case, result, sim_dir)
         workspace.append_record(
             RunRecord(
                 run_id=f"steady_polar/sim_polar/a{alpha:+05.1f}",
@@ -226,7 +242,10 @@ else:
                 package_version=pyflightstream.__version__,
                 script_sha256=script_sha,
                 raw_flag=False,
-                status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
+                status=assessment.status,
+                residual=assessment.residual,
+                residual_note=assessment.residual_note,
+                error=assessment.error,
                 iterations=report.current_iteration,
                 wall_time_s=result.wall_time_s,
                 outputs=outputs,

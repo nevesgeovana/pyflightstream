@@ -575,7 +575,7 @@ def _group_rows(
     absent: dict[str, str] = {}
     for point, condition in zip(ctx.points, ctx.conditions, strict=True):
         if families and not select_group_members(
-            list(families), list(point.loads.surfaces), ctx.aliases
+            list(families), list(point.loads.surfaces), ctx.aliases, strict=False
         ):
             absent[point.name] = (
                 f"point {point.name}: group {group!r} selects no surface of its loads "
@@ -617,7 +617,7 @@ def _group_polar(
     relative = f"{POLARS_DIR}/{swept_polar_file_name(ctx.sim_id, name=group_name, group=group)}"
     ctx.skipped.update({f"{relative}#{name}": reason for name, reason in absent.items()})
     if families and not any(
-        select_group_members(list(families), list(point.loads.surfaces), ctx.aliases)
+        select_group_members(list(families), list(point.loads.surfaces), ctx.aliases, strict=False)
         for point in ctx.points
     ):
         # A NAMED SKIP, NEVER A ROW OF ZEROS. A group whose alias selects no

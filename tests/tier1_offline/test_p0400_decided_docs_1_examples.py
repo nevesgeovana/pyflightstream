@@ -16,13 +16,7 @@ EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 
 #: Private imports still owed a public home: the entry point decorator has no
 #: public module yet.
-OWED = {
-    ("boundary_layer_sections.py", "pyflightstream._cli", "cli_entrypoint"),
-    ("continuation_frame_recovery.py", "pyflightstream._cli", "cli_entrypoint"),
-    ("sampled_field_export.py", "pyflightstream._cli", "cli_entrypoint"),
-    ("surface_with_native_strength.py", "pyflightstream._cli", "cli_entrypoint"),
-    ("workspace_fsi_calibration.py", "pyflightstream._cli", "cli_entrypoint"),
-}
+OWED: set[tuple[str, str, str]] = set()
 
 
 def _private_imports() -> set[tuple[str, str, str]]:

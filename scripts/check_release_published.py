@@ -55,6 +55,20 @@ CHANGELOG = REPO / "CHANGELOG.md"
 #: either.
 VERSION_TAG = re.compile(r"^v\d[\w.\-]*$")
 
+
+def architecture_problem(tag: str, text: str | None = None) -> str | None:
+    """Refuse a release whose version has no public architecture section."""
+    version = tag.removeprefix("v")
+    if text is None:
+        text = (REPO / "docs/srs/architecture-srs.md").read_text(encoding="utf-8")
+    headings = re.findall(r"(?m)^##+ (.+)$", text)
+    if not any(
+        re.search(rf"(?<![\d.]){re.escape(version)}(?![\d.])", heading) for heading in headings
+    ):
+        return f"{tag} has no version section in docs/srs/architecture-srs.md"
+    return None
+
+
 #: The rows below v0.3.0 were never recorded, which CITATION.cff's own header
 #: states. Judging them would report a gap in a LIST as a gap in the archive.
 FIRST_RECORDED = "v0.3.0"
@@ -222,13 +236,17 @@ def main(argv: list[str] | None = None) -> int:
     dois = recorded_dois()
     owed = owed_in_the_changelog()
     problems: list[str] = []
+    failed: set[str] = set()
+    for tag in args.tag:
+        if problem := architecture_problem(tag):
+            problems.append(problem)
+            failed.add(tag)
     # THE FAILING TAGS, not the failing CLAIMS. One tag can contribute two
     # problems, a missing release object and a missing row, and the first
     # writing of the summary subtracted the problem count from the tag count
     # and printed "-1 of 1". A success line that reports a number no run
     # could produce is the defect that is hardest to see, because the line
     # looks right until a failure makes it print.
-    failed: set[str] = set()
     for tag in judged:
         doi = dois.get(tag)
         if doi:

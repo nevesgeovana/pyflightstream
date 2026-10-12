@@ -305,3 +305,7 @@ workstation or on the cluster with no cell changed. A profile that writes
 any point is submitted, naming the build and the table. A key that is not one
 registered build, `26.1` for instance, is refused when the profile is read. A
 profile that does not write the substitution is unaffected by the table.
+
+In every grouped job template (`job_root`, `native_log`, `job_end_files` and
+the descriptor), {sim} is the first simulation of the job and {batch} is
+the job label. {point} names the collected point where available.

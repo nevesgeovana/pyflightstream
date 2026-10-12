@@ -86,7 +86,8 @@ from pathlib import Path
 from statistics import fmean
 
 from pyflightstream.qa.errors import QaEvidenceError
-from pyflightstream.workspace import JOB_TAG, CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import JOB_TAG, CampaignWorkspace, RunRecord
+from pyflightstream.workspace.manifest import COST_EXCLUDED_STATUSES
 
 __all__ = [
     "ABSENT",
@@ -166,12 +167,7 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #: A comment saying the reclassification is "not as failures anywhere a
 #: user reads" stood two lines above the one place it was (the technical
 #: writing lens).
-_EXCLUDED_STATUSES = frozenset(
-    status
-    for status in RunStatus
-    if status.name.startswith("FAILED")
-    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
-)
+_EXCLUDED_STATUSES = COST_EXCLUDED_STATUSES
 
 #: Rendered when a point carries no sweep axes at all (a single-point
 #: simulation). An empty string would render as a blank column and read

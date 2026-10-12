@@ -642,8 +642,8 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
     """Return the selected families when the level's tag is the summary and hash, else None."""
     if request.tag:
         return None
-    tag, picked, uniform = _built_tag(request, names)
-    return picked if not uniform and len(tag) > TAG_MAX else None
+    tag, picked, _ = _built_tag(request, names)
+    return picked if len(tag) > TAG_MAX else None
 
 
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
@@ -661,13 +661,13 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
     if request.tag:
         return str(request.tag)
     tag, picked, uniform = _built_tag(request, names)
-    if uniform:
-        return tag
     if len(tag) > TAG_MAX:
         digest = hashlib.sha256(canonical_selection(request, picked).encode("utf-8")).hexdigest()[
             :8
         ]
         return f"R-{len(picked)}fam-{digest}"
+    if uniform:
+        return tag
     tags = {n: spec_tag(s) for n, s in request.specs.items()}
     for name in picked:
         problem = folder_name_problem(f"R-{name}{tags[name]}")

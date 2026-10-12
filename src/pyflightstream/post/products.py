@@ -582,6 +582,9 @@ def write_campaign_products(
 ) -> list[Path]:
     """Write campaign products, post.log and its JSON; refuse doubts only with check_frozen=True.
 
+    A simulation selection rewrites only its products; archiving is opt-in
+    through archive=True (CLI: --archive), as for a whole post (FR-397).
+
     The log is beside products.json, even on a clean or interrupted post. It
     records every named skip and every warning the package raises during the
     post, collected in a sink of this thread's own, so two posts in two
@@ -731,6 +734,24 @@ def write_campaign_products(
                             _log_record(run_record.run_id, "run-status", message, None)
                             for message in run_record.warnings
                         )
+                        if selected is None or run_record.sim_id in selected:
+                            from pyflightstream.results.log import lifting_log_warnings
+
+                            for output in run_record.outputs:
+                                if str(output).endswith("_log.txt") or str(output).endswith(".log"):
+                                    log = workspace.sim_dir(run_record.sim_id) / output
+                                    try:
+                                        messages = lifting_log_warnings(
+                                            log.read_text(encoding="utf-8", errors="replace")
+                                        )
+                                    except OSError:
+                                        continue
+                                    records.extend(
+                                        _log_record(
+                                            run_record.run_id, "lifting-wake", message, None
+                                        )
+                                        for message in messages
+                                    )
                 manifest_path = out / PRODUCTS_MANIFEST
                 try:
                     if manifest_path.is_file():
