@@ -47,3 +47,28 @@ def test_p0400_sigdigits_mu_round_trips_in_a_series(tmp_path):
     (series,) = [path for path in written if path.name.endswith("_loads_series.csv")]
     _, rows = read_csv_table(series)
     assert rows and all(float(row["MU"]) == pytest.approx(MU, rel=1e-4) for row in rows)
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        "Time (sec)",
+        "Time",
+        "RHO",
+        "Offset",
+        "Fx",
+        "momentum_thickness",
+        "FX_PROP",
+        "VX1",
+        "BL_MOMENTUM_THICKNESS2",
+        "BL_TOTAL_THICKNESS",
+        "AZIMUTH_START",
+    ],
+)
+def test_p0400_sigdigits_small_dimensional_cells_keep_their_scale(tmp_path, column):
+    """P0400-SIGDIGITS: dimensional cells beyond viscosity and series time retain digits."""
+    small = 1.234567e-6
+    table = write_csv_table(tmp_path / "physical.csv", [column, "CL_PROP"], [[small, small]])
+    _, rows = read_csv_table(table)
+    assert float(rows[0][column]) == pytest.approx(small, rel=1e-5)
+    assert rows[0]["CL_PROP"] == "0.00000"

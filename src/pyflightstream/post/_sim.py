@@ -867,10 +867,17 @@ def _probes_products(
     except ProductError as error:
         ctx.skipped[probe_relative] = str(error)
         return
-    if done is not None:
-        ctx.add(done, {"runs": ctx.sources[point.name]})
-        write_installed_probes(ctx, done, point.name)
-        _write_fields(ctx, done, point.name)
+    if done is None:
+        _retire_unwritten(
+            ctx,
+            probe_relative,
+            target,
+            "the probe points export declares no point, so no probes table is written",
+        )
+        return
+    ctx.add(done, {"runs": ctx.sources[point.name]})
+    write_installed_probes(ctx, done, point.name)
+    _write_fields(ctx, done, point.name)
 
 
 def _plots_products(

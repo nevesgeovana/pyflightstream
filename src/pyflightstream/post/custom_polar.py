@@ -372,7 +372,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     target = Path(path)
     # The writer's policy read back: a file someone wrote outside ASCII is read
     # with its text transliterated, never refused by a bare UnicodeDecodeError.
-    lines = _ascii_title(target.read_bytes().decode("utf-8", errors="replace")).split("\n")
+    lines = _ascii_title(target.read_text(encoding="utf-8", errors="replace")).split("\n")
     if lines and lines[-1] == "":
         lines.pop()
     if len(lines) < 9 or not lines[0].startswith(CUSTOM_TITLE_PREFIX):

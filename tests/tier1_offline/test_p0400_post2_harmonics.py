@@ -37,3 +37,15 @@ def test_p0400_coverage_a_full_circle_five_point_fit_is_unchanged():
     assert (fit.h1_amp, fit.h1_phase_deg) == (pytest.approx(0.5), pytest.approx(30.0))
     assert (fit.h2_amp, fit.h2_phase_deg) == (pytest.approx(0.25), pytest.approx(40.0))
     assert getattr(fit, "reason", None) is None
+
+
+def test_p0400_coverage_a_resolved_first_harmonic_survives_a_narrow_second():
+    """P0400-COVERAGE: the definition's five-point example fits 1P and omits 2P."""
+    psi = [0.0, 10.0, 180.0, 190.0, 350.0]
+    load = [2.0 + 0.5 * math.cos(math.radians(p - 30.0)) for p in psi]
+    fit = fit_harmonics(psi, load)
+    assert fit.h0 == pytest.approx(2.0)
+    assert fit.h1_amp == pytest.approx(0.5)
+    assert fit.h1_phase_deg == pytest.approx(30.0)
+    assert fit.h2_amp is None and fit.h2_phase_deg is None
+    assert fit.reason is not None and "2P term and above" in fit.reason

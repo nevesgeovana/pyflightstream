@@ -10,10 +10,10 @@
  "products/sections/AL-020_disc_PROP_Fx.csv": "7a902de1dbf8f91ee32c99a524e5de7c62d3d46869ba1e632a7eb46e426267bf",
  "products/sections/AL-020_disc_PROP_Fz.csv": "75b92b87d999afcc2d26627e8644b7958f3c683da28f33ddf2a75a647fc2bcfc",
  "products/sections/AL-020_disc_PROP_Moment.csv": "5b7663a8250a56f585db94c15e1c47ffa656367bf7c06a92beb4f85b2d709f44",
- "products/sections/AL-020_harmonics.csv": "f70e2f30504523fd45154f45097b5cdd73757a15b1c100703b868af5d511f2e4",
+ "products/sections/AL-020_harmonics.csv": "a538c02ed45221e0d738fee0a8d3e9ff95342ca35bcd50c3fa33032c91361b98",
  "products/sections/AL-020_sections.csv": "3296e106d21560da051e8364fc46b04ea8fc77a54c8ad557f21afd34ecbafbe5",
- "products/sections/AL-020_sloads_Blade1.csv": "cd0df1da7768b86dc1a9a0a77f99747273f0b71323239e4448c050687e8f95dd",
- "products/sections/AL-020_sloads_Blade2.csv": "69c54c20452e09e77b85f93e727b8a4146744997c4124e5ed8589ebaa6c35a73",
- "products/sections/AL-020_sloads_Blade3.csv": "4cde1b0fb42977babae70f42ec50044b4227b954b6f1bd2e0daf03bb66a391fd",
- "products/series/AL-020_sections_series.csv": "7822ddc32246864a9117129d03947cbccbe8a52d9c3d022a26e7774fc54d9f90"
+ "products/sections/AL-020_sloads_Blade1.csv": "2f1a896edeec4fb20ca77bd1e6bf337019ff01c3734c0d9a4adf074de5de175a",
+ "products/sections/AL-020_sloads_Blade2.csv": "6cc098d79f7edae5c81a89c8961079306e6238498dfa4f10e913082b615eb6c5",
+ "products/sections/AL-020_sloads_Blade3.csv": "cc129b3c179d3c0782b53eebdd1c63aad24b4e26761075720df222ab2777e7ca",
+ "products/series/AL-020_sections_series.csv": "1adf708c28662da679fe9e195963c916e1d1a07fcef767a080c6a3b2d55cd53c"
 }

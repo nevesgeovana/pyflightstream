@@ -7,6 +7,8 @@ out of the campaign post; the reader refused a non-ASCII file the same way.
 
 from __future__ import annotations
 
+import pytest
+
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS, ReferenceValues
 from pyflightstream.post.custom_polar import read_custom_polar_format, write_custom_polar_format
 
@@ -45,3 +47,13 @@ def test_p0400_asciititle_the_reader_takes_a_non_ascii_file(tmp_path):
     text = written.read_text(encoding="ascii").replace("plain", _ACCENTED, 1)
     written.write_bytes(text.encode("utf-8"))
     assert read_custom_polar_format(written).description == "Asa em cruzeiro, angulo medio"
+
+
+@pytest.mark.parametrize("line_end", [b"\n", b"\r\n", b"\r"], ids=["lf", "crlf", "cr"])
+def test_p0400_asciititle_reader_preserves_universal_newlines(tmp_path, line_end):
+    """P0400-ASCIITITLE: legacy line endings do not become part of header values."""
+    written = _write(tmp_path / "p.dat", description="plain")
+    written.write_bytes(written.read_bytes().replace(b"\n", line_end))
+    table = read_custom_polar_format(written)
+    assert table.description == "plain"
+    assert table.date == "2026-10-12"

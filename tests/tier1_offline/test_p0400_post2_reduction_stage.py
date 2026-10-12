@@ -8,11 +8,14 @@ never writes.
 
 from __future__ import annotations
 
+import pytest
+
 from pyflightstream.post._reduction_stage import (
     _judged_reduction_windows,
     _ReductionProducts,
     _write_point_revolutions,
 )
+from pyflightstream.post._tables import write_csv_table
 
 
 def _ctx(tmp_path, plan):
@@ -42,6 +45,16 @@ def test_p0400_redskip_a_malformed_window_is_a_skip_of_its_reduction(tmp_path):
     entry = {"windows": [["ten", 20]]}
     assert _judged_reduction_windows(ctx, "time_average", entry, relative, None) is None
     assert "not whole numbers" in ctx.skipped[relative]
+
+
+@pytest.mark.parametrize("name, window", [("time_average", []), ("per_blade", [1])])
+def test_p0400_redskip_a_window_without_two_bounds_is_a_named_skip(tmp_path, name, window):
+    """P0400-REDSKIP: malformed bound counts cannot escape as an IndexError."""
+    ctx = _ctx(tmp_path, {})
+    write_csv_table(ctx.plots_table, ["Time-step", "CL"], [[1, 0.1], [2, 0.2]])
+    relative = f"probes/P1_{name}.csv"
+    assert _judged_reduction_windows(ctx, name, {"windows": [window]}, relative, None) is None
+    assert "two bounds" in ctx.skipped[relative]
 
 
 def test_p0400_redskip_per_revolution_failure_is_keyed_per_rotor(tmp_path):
