@@ -52,6 +52,7 @@ from ._frames import (
     _blade_frames,
     _blade_indices,
     _flat_rotor_frames,
+    _hub_basis,
     _moment_frame,
     _refuse_an_unanswered_hub,
     _rotations,
@@ -770,13 +771,14 @@ def _rotor_motions(
         stem = radical or f"{UNNAMED_ROTOR_RADICAL}{number}"
         hub_name = f"{stem}_SMRP"
         moving_name = f"{stem}_RMRP"
+        x_axis, y_axis = _hub_basis(rotor)
         hubs.append(
             helpers.coordinate_frame(
                 script,
                 name=hub_name,
                 origin=origin,
-                x_axis=(1.0, 0.0, 0.0),
-                y_axis=(0.0, 1.0, 0.0),
+                x_axis=x_axis,
+                y_axis=y_axis,
                 label=f"rotor:{number}",
             )
         )
@@ -785,8 +787,8 @@ def _rotor_motions(
                 script,
                 name=moving_name,
                 origin=origin,
-                x_axis=(1.0, 0.0, 0.0),
-                y_axis=(0.0, 1.0, 0.0),
+                x_axis=x_axis,
+                y_axis=y_axis,
                 label=f"rotor_moving:{number}",
             )
         )

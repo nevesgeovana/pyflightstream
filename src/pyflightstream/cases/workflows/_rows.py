@@ -15,6 +15,7 @@ of the same kind.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import (
     Mapping,
 )
@@ -157,8 +158,10 @@ def _required_float(
     return value
 
 
-def _required_int(case: SimCase, key: str, *, quantity: str, unit: str) -> int:
-    value = _required_float(case, key, quantity=quantity, unit=unit)
+def _required_int(
+    case: SimCase, key: str, *, quantity: str, unit: str, text: str | None = None
+) -> int:
+    value = _required_float(case, key, quantity=quantity, unit=unit, text=text)
     if value != int(value):
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {key} as {value!r}, and the {quantity} is a "
@@ -1020,14 +1023,29 @@ def _angle(case: SimCase, axis: str) -> float:
     advance ratio a row holds, and an angle written among the free
     variables rather than in the cell.
     """
+    key = ALPHA_VARIABLE if axis == "alpha" else BETA_VARIABLE
     if axis in case.point:
-        return float(case.point[axis])
-    stated = _variable(case, ALPHA_VARIABLE if axis == "alpha" else BETA_VARIABLE)
-    return 0.0 if stated is None else float(stated)
+        return _required_float(
+            case, key, quantity="flow angle", unit="degrees", text=str(case.point[axis])
+        )
+    stated = _variable(case, key)
+    if stated is None:
+        return 0.0
+    return _required_float(case, key, quantity="flow angle", unit="degrees", text=stated)
 
 
 def _velocity(case: SimCase) -> float:
     if case.velocity is not None:
+        stated = _variable(case, VELOCITY_VARIABLE)
+        if stated is not None and case.flight_condition:
+            warn(
+                f"case {case.sim_id!r}: VELOCITY = {stated} is ignored because "
+                "FLIGHT_CONDITION already resolves the velocity through TASmps/MACH "
+                "or its resolved flow state. Remove VELOCITY from VAR_NAMES_VALUES "
+                "and state the velocity in FLIGHT_CONDITION.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         return float(case.velocity)
     return _required_float(case, VELOCITY_VARIABLE, quantity="free-stream velocity", unit="m/s")
 
@@ -1083,15 +1101,8 @@ def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
     stated = _variable(case, NCPUS_VARIABLE)
     if stated is None:
         return from_setup
-    text = str(stated).strip()
-    try:
-        value = int(text)
-    except ValueError:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {NCPUS_VARIABLE}: {stated!r}, which is not a "
-            "whole number of processors. It is the count the solver is given and, on a "
-            "cluster, the count the job asks the scheduler for."
-        ) from None
+    # READ AS EVERY COUNT OF A ROW IS READ: 4 or 4.0, and never 4.5.
+    value = _required_int(case, NCPUS_VARIABLE, quantity="processor count", unit="processors")
     if value < 1:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {NCPUS_VARIABLE}: {value}, and a run needs at "
@@ -1186,13 +1197,9 @@ def _stated_rate(case: SimCase, key: str) -> float | None:
         stated = None if value is None else str(value)
     if stated is None:
         return None
-    try:
-        return float(stated)
-    except ValueError as error:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {key} as {stated!r}, and a body rate is a "
-            "number of degrees per second."
-        ) from error
+    # THROUGH THE ONE READER, so a NaN rate is refused here: it compared
+    # unequal to zero and turned the free stream at a rate of NaN.
+    return _required_float(case, key, quantity="body rate", unit="deg/s", text=stated)
 
 
 def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
@@ -1391,12 +1398,18 @@ def parse_restart(case: SimCase) -> RestartRequest | None:
             f"case {case.sim_id!r} asks for {form} and states no number. Write "
             f"{{{form}=<n>}}: how many more to run is the whole of what it says."
         )
-    try:
-        value = float(raw.strip())
-    except ValueError:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} asks for {form}={raw.strip()!r}, which is not a number."
-        ) from None
+    # THROUGH THE ONE READER: a NaN or an infinity passed `value <= 0` and
+    # died later as a bare ValueError or OverflowError, and a step count is
+    # a count, so ADDITIONAL_ITERS=0.5 is refused rather than run as zero.
+    value: float
+    if form == RESTART_ADDITIONAL_ITERS:
+        value = _required_int(
+            case, RESTART_VARIABLE, quantity=f"{form} step count", unit="steps", text=raw.strip()
+        )
+    else:
+        value = _required_float(
+            case, RESTART_VARIABLE, quantity=f"{form} count", unit="revolutions", text=raw.strip()
+        )
     if value <= 0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} asks for {form}={value:g}, and a continuation that "
@@ -1475,7 +1488,9 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
             "states no azimuthal step, so there is no arithmetic from one to the other. "
             f"State {RESTART_ADDITIONAL_ITERS} instead."
         )
-    return int(math.ceil(float(request.value or 0) * 360.0 / float(step_deg)))
+    # Rounded to nine decimals before the ceiling, as the wake conversion is,
+    # so float noise on a whole number of steps does not add one.
+    return int(math.ceil(round(float(request.value or 0) * 360.0 / float(step_deg), 9)))
 
 
 def walltime_margin_s(case: SimCase) -> float:
@@ -1541,6 +1556,14 @@ def row_walltime_is_best(case: SimCase) -> bool:
     return stated is not None and stated.upper() == WALLTIME_BEST
 
 
+#: A wall clock as written: a number, then its unit as letters. ``nan`` and
+#: ``inf`` are numbers here so the finite check refuses them by name.
+_WALLTIME_TEXT = re.compile(
+    r"\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?|[-+]?(?:nan|inf(?:inity)?))\s*([a-z]+)\s*",
+    re.IGNORECASE,
+)
+
+
 def row_walltime_s(case: SimCase) -> float | None:
     """Return the wall clock the ROW states, in seconds, or None (FR-93).
 
@@ -1563,8 +1586,10 @@ def row_walltime_s(case: SimCase) -> float | None:
             "(CLI: --polar-sweep) compute; "
             "write a wall clock with its unit for the default mode."
         )
-    unit = stated[-1:].lower()
-    if unit not in WALLTIME_UNITS:
+    # THE UNIT IS EVERY TRAILING LETTER, not the last one: `30min` read `n`
+    # and was told it carries no unit, and `2hrs` read `s`.
+    matched = _WALLTIME_TEXT.fullmatch(stated)
+    if matched is None and not stated[-1:].isalpha():
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which carries "
             "no unit. Write the unit with the number, as 240m or 4h: a bare number read "
@@ -1572,13 +1597,18 @@ def row_walltime_s(case: SimCase) -> float | None:
             f"two things is a job that dies early or holds a node for a day. The units "
             f"are {WALLTIME_UNITS_GLOSS}."
         )
-    try:
-        value = float(stated[:-1].strip())
-    except ValueError:
+    if matched is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which is not a "
             f"number followed by one of {WALLTIME_UNITS_GLOSS}."
-        ) from None
+        )
+    number, unit = matched.group(1), matched.group(2).lower()
+    if unit not in WALLTIME_UNITS:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, and the unit "
+            f"{unit!r} is not one of {WALLTIME_UNITS_GLOSS}."
+        )
+    value = _required_float(case, WALLTIME_VARIABLE, quantity="wall clock", unit=unit, text=number)
     if value <= 0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, and a run needs "
@@ -1762,11 +1792,37 @@ def _require_the_averaging_window(case: SimCase, name: str) -> None:
     post stage says which.
     """
     _refuse_retired_window_keys(case)
-    stated = (
-        LAST_REVS_AVG_VARIABLE,
-        LAST_ITERS_AVG_VARIABLE,
-    )
-    if any(_variable(case, key) is not None for key in stated):
+    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
+    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
+    # THE VALUE IS READ HERE TOO, and not only its presence: a zero, a text or
+    # both keys planned READY and failed when the run built the point record,
+    # where the window is first read (`_reductions._averaging_window`).
+    if revs is not None and iters is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states both {LAST_REVS_AVG_VARIABLE} = {revs} and "
+            f"{LAST_ITERS_AVG_VARIABLE} = {iters}, and they are two ways to say one "
+            "window. State the revolutions on a row that turns a rotor and the "
+            "iterations on one that does not."
+        )
+    if revs is not None:
+        turns = _required_float(
+            case, LAST_REVS_AVG_VARIABLE, quantity="averaging window", unit="revolutions"
+        )
+        if turns <= 0.0:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {LAST_REVS_AVG_VARIABLE} = {revs}, and an "
+                "averaging window is a positive number of revolutions."
+            )
+        return
+    if iters is not None:
+        steps = _required_int(
+            case, LAST_ITERS_AVG_VARIABLE, quantity="averaging window", unit="iterations"
+        )
+        if steps < 1:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {LAST_ITERS_AVG_VARIABLE} = {iters}, and an "
+                "averaging window is at least one solver step."
+            )
         return
     key, example, other = (
         (LAST_REVS_AVG_VARIABLE, "0.5' averages the last half revolution", LAST_ITERS_AVG_VARIABLE)

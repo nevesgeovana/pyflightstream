@@ -398,7 +398,7 @@ def write_recorded_probe_fields(
                     export_kind=layout["export_kind"],
                 )
                 metadata.update(
-                    declared_frame=layout["frame"],
+                    declared_frame=layout.get("declared_frame", layout["frame"]),
                     frame="REFERENCE",
                     frame_motion=motion,
                     velocity_convention=proof,

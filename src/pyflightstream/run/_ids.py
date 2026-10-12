@@ -36,6 +36,7 @@ from pyflightstream.cases.workflows import (
     disc_speed_moves_with_the_point,
     with_tecplot_source,
 )
+from pyflightstream.cases.workflows._rows import _turning_rate
 from pyflightstream.run._alias import selection_with_aliases
 from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
@@ -301,17 +302,21 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
     is stopped once the analysis ends, so one script holds one point.
 
-    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate. The
-    rotating free stream is set once in a warm job, at the first point's
-    rate, so every point after it was solved at that rate and recorded under
-    its own; such a row is one job per point, as a flow sweep is.
+    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate, or
+    the body rate otherwise changes between points. The rotating free stream
+    is set once in a warm job, at the first point's rate, so every point
+    after it was solved at that rate and recorded under its own; such a row
+    is one job per point, as a flow sweep is.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
     if case.fsi is not None or case.fsi_external is not None:
         return False
     return not (
-        _sweeps_the_flow(case) or _sweeps_a_body_rate(case) or disc_speed_moves_with_the_point(case)
+        _sweeps_the_flow(case)
+        or _sweeps_a_body_rate(case)
+        or _turning_rate_moves(case)
+        or disc_speed_moves_with_the_point(case)
     )
 
 
@@ -326,6 +331,14 @@ def _sweeps_a_body_rate(case: SimCase) -> bool:
         for state in states[1:]
         for key in rates
     )
+
+
+def _turning_rate_moves(case: SimCase) -> bool:
+    """Whether the resolved rotational free stream differs between the sweep's points."""
+    rates = [
+        _turning_rate(case.model_copy(update={"point": point})) for point in case.sweep.points()
+    ]
+    return any(rate != rates[0] for rate in rates[1:])
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:

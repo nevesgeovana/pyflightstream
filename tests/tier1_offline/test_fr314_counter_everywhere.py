@@ -70,7 +70,9 @@ def test_fr314_every_unsteady_row_without_export_registers_the_counter_alone(row
     requirement = "FR-314"
     make, steps = ROWS[row]
     case = make()
-    assert unsteady_export_threshold(case) is None, "the row asks no per-step export"
+    assert unsteady_export_threshold(case, version="26.120") is None, (
+        "the row asks no per-step export"
+    )
     script = Script(build)
     build_script(case, script)
     rendered = script.render()
@@ -430,7 +432,9 @@ def test_fr314_the_count_only_program_counts_and_writes_nothing_else(tmp_path):
     ], requirement
     control = tmp_path / "control" / "actions"
     control.mkdir(parents=True)
-    threshold = unsteady_export_threshold(unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="1"))
+    threshold = unsteady_export_threshold(
+        unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="1"), version="26.120"
+    )
     assert threshold is not None
     (control / "pfs_unsteady_actions.py").write_text(
         render_program(threshold, interpreter=sys.executable), encoding="utf-8"
