@@ -1280,8 +1280,8 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     Raises
     ------
     InputArtifactError
-        A root with no ``inputs/geometries``: there is no library to move,
-        and creating one here would hide a wrong path.
+        A root with no ``inputs/geometries``, or a points file shared by
+        multiple geometries that cannot move to one geometry's folder.
     """
     directory = Path(inputs_dir) / "geometries"
     if not directory.is_dir():
@@ -1356,8 +1356,17 @@ def _geometry_companions(directory: Path, entries: Sequence[Path]) -> dict[str, 
         except InputArtifactError:
             continue
         written = table.get("file") if isinstance(table, dict) else None
-        if isinstance(written, str) and written.strip() in files:
-            owner.setdefault(written.strip(), stem)
+        reference = Path(written.strip()) if isinstance(written, str) else None
+        if reference is not None and reference.parent == Path(".") and reference.name in files:
+            name = reference.name
+            previous = owner.get(name)
+            if previous is not None and previous != stem:
+                raise InputArtifactError(
+                    f"{directory / name}: trailing-edge points are shared by {previous} "
+                    f"and {stem}; give each geometry its own points file before migrating. "
+                    "Nothing was moved."
+                )
+            owner[name] = stem
     for name, entry in files.items():
         if name in owner or entry.suffix.lower() in _GEOMETRY_SUFFIXES:
             continue

@@ -7,7 +7,7 @@ from pathlib import Path
 from pyflightstream.workspace.setup_standards import setup_entry_evidence, write_setup_library
 
 
-def test_alias_build_reports_the_canonical_rows_evidence():
+def test_p0400_alias_build_reports_the_canonical_rows_evidence():
     """P0400-SETUP-ALIAS (PFS-2094.025): a build named by alias reads its canonical version row."""
     available, evidence = setup_entry_evidence("wake_relaxation", "26.0")
     assert available
@@ -18,7 +18,7 @@ def test_alias_build_reports_the_canonical_rows_evidence():
     )
 
 
-def test_existing_non_utf8_user_file_is_preserved(tmp_path: Path):
+def test_p0400_existing_non_utf8_user_file_is_preserved(tmp_path: Path):
     """P0400-SETUP-CP1252 (PFS-2095.033): a cp1252 user file is reported preserved, not decoded."""
     destination = tmp_path / "inputs" / "setups"
     destination.mkdir(parents=True)
