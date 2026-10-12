@@ -1,0 +1,271 @@
+"""The quadratures of the far field, each implemented once (FR-450 R1).
+
+Pipeline role: the annular-plane quadrature of the survey lattice, its
+coverage, the trapezoid rule of a rectangular far-field plane, and the strip
+edges of a spanwise trace. Every balance and every Trefftz integral calls these
+functions; none of them has a second copy elsewhere in the package.
+
+A missing sample is never dropped (PYFS-010): every sum here propagates NaN,
+and the coverage functions say how much of a plane was sampled.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+import numpy as np
+
+from pyflightstream.farfield.fields import FarfieldInputError, LatticeFields
+
+__all__ = [
+    "azimuthal_harmonics",
+    "grid_coverage",
+    "grid_integral",
+    "grid_weights",
+    "plane_integral",
+    "ring_sample_weights",
+    "sample_coverage",
+    "strip_edges",
+    "symmetry_floor",
+]
+
+
+def _delta_psi(psi: np.ndarray) -> float:
+    """Return the uniform azimuth step, refusing a grid that is not uniform."""
+    psi = np.asarray(psi)
+    steps = np.diff(np.concatenate([psi, [psi[0] + 2.0 * np.pi]]))
+    if not np.allclose(steps, steps[0], rtol=1e-10, atol=1e-12):
+        raise ValueError(
+            "the azimuth grid is not uniform; uniform periodic sampling is what "
+            "makes the rectangle rule spectrally accurate and the FFT direct "
+            "(DLV-006 Sec. 2.2), so nonuniform azimuths are refused, never averaged"
+        )
+    return float(steps[0])
+
+
+def ring_sample_weights(fields: LatticeFields) -> np.ndarray:
+    """Per-sample annular quadrature weights of each ring.
+
+    Returns
+    -------
+    numpy.ndarray
+        ``0.5 (r_{j+1/2}^2 - r_{j-1/2}^2) dpsi`` per ring, shape ``(n_r,)``, in
+        units of the tip radius squared; multiplying an integrand sample and
+        summing over rings and azimuths is the whole plane quadrature of
+        DLV-006 Sec. 3.1.
+    """
+    edges = np.asarray(fields.ring_edges)
+    return 0.5 * (edges[1:] ** 2 - edges[:-1] ** 2) * _delta_psi(fields.psi)
+
+
+def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
+    """Integrate a sampled field over each annular plane.
+
+    Implemented once and reused by every balance (DLV-006 Sec. 3.1): the
+    ring-edge rule in radius times the rectangle rule in azimuth.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey samples supplying the weights and the tip radius.
+    integrand : numpy.ndarray
+        Any array whose two trailing axes are ``(n_r, n_psi)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        The integral over the two trailing axes, the leading axes preserved,
+        in integrand units times square meters.
+    """
+    scale = float(fields.tip_radius) ** 2
+    # PYFS-010. A missing sample propagates as NaN and is never dropped: a sum
+    # that skipped it while its ring weight stayed in the geometry returned an
+    # integral smaller in exact proportion to the missing data, a number that is
+    # not wrong-looking and is indistinguishable from a real physical reduction
+    # of flux, force, torque or energy. Use sample_coverage() to ask HOW much is
+    # missing before deciding whether a plane is usable.
+    weights = ring_sample_weights(fields)[:, None]
+    return (np.asarray(integrand) * weights).sum(axis=(-2, -1)) * scale
+
+
+def sample_coverage(integrand: np.ndarray) -> np.ndarray:
+    """Fraction of ``(r, psi)`` samples that are finite, per leading index.
+
+    The diagnostic half of PYFS-010: :func:`plane_integral` returns NaN when
+    any sample is missing, which says THAT a plane is unusable and not how far
+    off it is; this says how much of the plane was actually sampled.
+
+    Parameters
+    ----------
+    integrand : numpy.ndarray
+        Any array whose two trailing axes are ``(n_r, n_psi)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Coverage in ``[0, 1]``; 1.0 means every sample is finite.
+    """
+    array = np.asarray(integrand)
+    total = array.shape[-2] * array.shape[-1]
+    return np.isfinite(array).sum(axis=(-2, -1)) / total
+
+
+def grid_weights(y: np.ndarray, z: np.ndarray) -> np.ndarray:
+    """Trapezoid weights of a uniform rectangular grid, in m^2.
+
+    Corners carry a quarter of a cell, edges a half, the inside a whole cell.
+
+    Parameters
+    ----------
+    y, z : numpy.ndarray
+        Uniform grid axes, m.
+
+    Returns
+    -------
+    numpy.ndarray
+        Weights shaped ``(len(y), len(z))``.
+    """
+    dy = float(y[1] - y[0])
+    dz = float(z[1] - z[0])
+    wy = np.full(len(y), dy)
+    wy[[0, -1]] = 0.5 * dy
+    wz = np.full(len(z), dz)
+    wz[[0, -1]] = 0.5 * dz
+    return wy[:, None] * wz[None, :]
+
+
+def grid_integral(y: np.ndarray, z: np.ndarray, integrand: np.ndarray) -> float:
+    """Integrate a sampled field over a uniform rectangular grid by the trapezoid rule.
+
+    A missing or non-finite sample makes the integral NaN (PYFS-010).
+    """
+    return float((np.asarray(integrand) * grid_weights(y, z)).sum())
+
+
+def grid_coverage(integrand: np.ndarray) -> float:
+    """Fraction of the plane's samples that are finite."""
+    array = np.asarray(integrand)
+    return float(np.isfinite(array).sum() / array.size)
+
+
+def strip_edges(
+    positions: np.ndarray, *, ends: Literal["station", "extended"] = "extended"
+) -> np.ndarray:
+    """Return the edges of the strips around the stations of a trace.
+
+    Between two stations the edge is their midpoint. Beyond the end stations:
+
+    - ``"extended"`` (the far field, FR-451 R3): half the adjacent spacing
+      further out, so ``n`` uniform stations at the centers of ``n`` equal
+      strips tile exactly the extent the solver divided;
+    - ``"station"``: the end stations themselves, the rule of the integrated
+      sectional loads of the sections table.
+
+    Parameters
+    ----------
+    positions : numpy.ndarray
+        Station positions (one coordinate) in the order of the trace, shape
+        ``(n,)``, ``n >= 2``; the edges of a trace in ``(y, z)`` are this rule
+        applied to each coordinate.
+    ends : {"extended", "station"}
+        The rule beyond the end stations.
+
+    Returns
+    -------
+    numpy.ndarray
+        The ``n + 1`` strip edges, in the order of ``positions``.
+    """
+    p = np.asarray(positions, dtype=float)
+    if p.ndim != 1 or p.size < 2:
+        raise FarfieldInputError("a trace needs at least two stations to place strip edges")
+    middle = 0.5 * (p[:-1] + p[1:])
+    if ends == "extended":
+        first = p[0] - 0.5 * (p[1] - p[0])
+        last = p[-1] + 0.5 * (p[-1] - p[-2])
+    elif ends == "station":
+        first, last = p[0], p[-1]
+    else:
+        raise FarfieldInputError(f"unknown strip-edge rule {ends!r}; use 'extended' or 'station'")
+    return np.concatenate([[first], middle, [last]])
+
+
+def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> np.ndarray:
+    """Azimuthal Fourier coefficients of a sampled field, the ledger spine.
+
+    Coefficients follow ``f(psi) = sum_m c_m exp(i m psi)`` with
+    ``c_m = (1/N) sum_k f_k exp(-i m psi_k)``; for real fields the negative
+    orders are the conjugates and are not stored.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        Field whose last axis runs over the uniform lattice azimuths.
+    psi : numpy.ndarray
+        The azimuths of that axis, radians.
+    m_max : int
+        Highest stored order; DLV-006 Sec. 3.2 requires at least 6.
+
+    Returns
+    -------
+    numpy.ndarray
+        Complex coefficients, the last axis replaced by the orders
+        ``0..m_max``. Order 0 carries forces, order 1 the in-plane moments,
+        orders 2 and above the distortion a downstream surface sees.
+    """
+    _delta_psi(psi)
+    data = np.asarray(values)
+    n = data.shape[-1]
+    if m_max >= n // 2:
+        raise FarfieldInputError(
+            f"m_max={m_max} needs more than {2 * m_max} uniform azimuths to avoid "
+            f"aliasing; this grid has {n}"
+        )
+    spectrum = np.fft.fft(data, axis=-1) / n
+    return np.take(spectrum, np.arange(m_max + 1), axis=-1)
+
+
+def _half_spectrum(values: np.ndarray, half: int) -> np.ndarray:
+    """Azimuthal orders ``0..half`` with no anti-aliasing cap.
+
+    The Parseval sum of the transverse flux needs every order the grid
+    carries, including Nyquist. :func:`azimuthal_harmonics` cannot supply that
+    and should not: its cap exists so that STORED harmonics are unaliased,
+    which is a different question from reconstructing a product the grid
+    already determines (PYFS-011).
+    """
+    data = np.asarray(values)
+    n = data.shape[-1]
+    spectrum = np.fft.fft(data, axis=-1) / n
+    return np.take(spectrum, np.arange(half + 1), axis=-1)
+
+
+def _parseval_weights(n: int, half: int) -> np.ndarray:
+    """Multiplicity of each order ``0..half`` in the real-field Parseval sum.
+
+    Order 0 appears once. Orders with a distinct conjugate partner appear
+    twice. For EVEN ``n`` the Nyquist order ``n/2`` is its own conjugate and
+    appears once; giving it 2 double counts it, which is the error opposite
+    to the one PYFS-011 records and just as silent.
+    """
+    weights = np.full(half + 1, 2.0)
+    weights[0] = 1.0
+    if n % 2 == 0:
+        weights[half] = 1.0
+    return weights
+
+
+def symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> float:
+    """Largest azimuthal harmonic magnitude above order zero (gate G3).
+
+    At zero incidence every ``m >= 1`` harmonic must vanish to the numerical
+    floor; the recorded floor becomes the detectability threshold for the
+    nonzero-incidence step (DLV-006 Sec. 3.2).
+
+    Returns
+    -------
+    float
+        ``max_{m>=1} |c_m|`` over every other index, in field units; NaN where
+        any sample is missing.
+    """
+    harmonics = azimuthal_harmonics(values, psi, m_max=m_max)
+    return float(np.abs(harmonics[..., 1:]).max())

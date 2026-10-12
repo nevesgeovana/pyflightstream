@@ -33,10 +33,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream.farfield import lattice_dataset
+from pyflightstream.farfield import lattice_fields
 from pyflightstream.post import (
     OutputProvenance,
-    dataset_to_points,
     write_tecplot_points,
     write_vtk_points,
 )
@@ -107,8 +106,9 @@ def test_farfield_dataset_flattens_into_the_writers(tmp_path):
         n_psi=8,
     )
     shape = (1, 1, 8)
-    ds = lattice_dataset(lattice, {"u": np.full(shape, 30.0)})
-    points, fields = dataset_to_points(ds)
+    # Since 0.40.0 the far field is numpy (FR-457): LatticeFields.points() is
+    # what post.dataset_to_points was, the same pair in the same order.
+    points, fields = lattice_fields(lattice, {"u": np.full(shape, 30.0)}).points()
     assert points.shape == (8, 3)
     # First sample: station 0.5, ring center 0.75, psi 0, tip radius 2:
     # x = 1.0, y = 0.0, z = 1.5 (z up at psi = 0).

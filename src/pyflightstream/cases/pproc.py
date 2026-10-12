@@ -33,6 +33,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 
 # The quasi-steady wheel's correction choice (0.31.0), a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
+from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.selection import EVERY_FAMILY
 from pyflightstream.commands import CommandRegistry
@@ -1092,6 +1093,9 @@ class ProbesSpec(BaseModel):
         Rectangular probe planes, each gridded point by point.
     circles : list of ProbeCircle
         Circular probe planes, each gridded in polar coordinates.
+    lattices : list of LatticeShape
+        Cylindrical survey lattices, each laid out by ``probes`` point by point
+        (FR-459 R2).
     points_file : str, optional
         The name of a points file of ``inputs/profiles/``, cited instead of
         drawing lines and planes.
@@ -1126,6 +1130,9 @@ class ProbesSpec(BaseModel):
     #: whatever the run type.
     rectangles: list[ProbeRectangle] = Field(default_factory=list)
     circles: list[ProbeCircle] = Field(default_factory=list)
+    #: FR-459 R2 (0.40.0): a survey lattice is a shape like a rectangle, so it
+    #: is a list beside them and not a `kind`, which names the sampling mode.
+    lattices: list[LatticeShape] = Field(default_factory=list)
     #: FR-80: the name of a points file the USER wrote, under
     #: `inputs/profiles/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
@@ -1174,7 +1181,7 @@ class ProbesSpec(BaseModel):
             raise ValueError("field_formats must not repeat a format")
         if self.field_formats or self.reusable_inflow:
             self.parameters = list(dict.fromkeys([*self.parameters, "VX", "VY", "VZ"]))
-        drawn = len(self.lines) + len(self.rectangles) + len(self.circles)
+        drawn = len(self.lines) + len(self.rectangles) + len(self.circles) + len(self.lattices)
         if self.points_file and drawn:
             raise ValueError(
                 f"a probe entry in {self.frame or 'the rotor hub frame'} states both "
@@ -1653,6 +1660,9 @@ class PprocSpec(BaseModel):
         families.
     probes : list of ProbesSpec
         The fluid probe entries, one per frame sampled.
+    farfield : FarfieldSpec, optional
+        The far-field analyses and what they are computed over (FR-454);
+        absent, the artifact plans and posts as before.
     products : ProductsSpec
         Which post-processed tables the campaign writes.
     blade_pattern : str
@@ -1744,6 +1754,8 @@ class PprocSpec(BaseModel):
     )
     #: Native surface-property histories, separate from fluid samples and field products.
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
+    #: FR-454 (0.40.0): the far-field family's table; absent, nothing changes.
+    farfield: FarfieldSpec | None = None
 
     @field_validator("surface_probes")
     @classmethod

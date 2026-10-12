@@ -92,15 +92,14 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.custom_polar import write_custom_polar_format
+from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
     write_plots_table,
     write_probes_table,
     write_sections_table,
     write_unsteady_probes_table,
 )
-from pyflightstream.post.polar import (
-    POLAR_COLUMNS as POLAR_COLUMNS,
-)
+from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
     drag_columned_rows,
@@ -1361,6 +1360,8 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _rotor_table_products,
     _qsteady_rotor_products,
     _unsteady_polar_products,
+    # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
+    farfield_products,
     _superfile_drafts,
 )
 

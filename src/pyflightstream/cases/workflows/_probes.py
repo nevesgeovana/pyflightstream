@@ -30,6 +30,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
 )
+from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
 )
@@ -424,93 +425,6 @@ PROBE_PROFILE_DIR = "profiles"
 PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
 
-def _rectangle_points(rectangle, scale: float) -> list[list[float]]:
-    """Lay out the grid of a rectangular probe plane, row by row (FR-79).
-
-    Three corners give two edge vectors from `origin`, and the grid runs along
-    both with BOTH ENDS INCLUDED, so a declaration of 3 by 4 is twelve points
-    and three of its corners are the three declared vertices. The order is v
-    fastest within u, which is the reading order of a row of stations.
-    """
-    origin = list(rectangle.origin)
-    edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
-    edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
-    out: list[list[float]] = []
-    for index_u in range(rectangle.points_u):
-        fraction_u = index_u / (rectangle.points_u - 1)
-        for index_v in range(rectangle.points_v):
-            fraction_v = index_v / (rectangle.points_v - 1)
-            out.append(
-                [
-                    round(
-                        (origin[axis] + edge_u[axis] * fraction_u + edge_v[axis] * fraction_v)
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
-def _circle_points(circle, scale: float) -> list[list[float]]:
-    """Lay out the polar grid of a circular probe plane (FR-79).
-
-    `points_radial` stations from the centre to the rim INCLUDING both, and
-    `points_azimuth` around. THE CENTRE APPEARS ONCE rather than once per
-    azimuth: a survey that sampled its own centre eight times would weight it
-    eight times in anything that averages the file.
-
-    The two in-plane axes are built from the normal by taking the world axis
-    least aligned with it, which is the standard way to get a stable basis and
-    avoids the degenerate cross product a fixed choice hits when the normal
-    happens to be that axis.
-    """
-    import math
-
-    normal = list(circle.normal)
-    length = math.sqrt(sum(value * value for value in normal))
-    normal = [value / length for value in normal]
-    least = min(range(3), key=lambda axis: abs(normal[axis]))
-    seed = [1.0 if axis == least else 0.0 for axis in range(3)]
-    first = [
-        seed[1] * normal[2] - seed[2] * normal[1],
-        seed[2] * normal[0] - seed[0] * normal[2],
-        seed[0] * normal[1] - seed[1] * normal[0],
-    ]
-    span = math.sqrt(sum(value * value for value in first))
-    first = [value / span for value in first]
-    second = [
-        normal[1] * first[2] - normal[2] * first[1],
-        normal[2] * first[0] - normal[0] * first[2],
-        normal[0] * first[1] - normal[1] * first[0],
-    ]
-
-    out: list[list[float]] = []
-    for index_r in range(circle.points_radial):
-        radius = circle.radius * index_r / (circle.points_radial - 1)
-        if radius == 0.0:
-            out.append([round(value * scale, 5) for value in circle.center])
-            continue
-        for index_a in range(circle.points_azimuth):
-            angle = 2.0 * math.pi * index_a / circle.points_azimuth
-            out.append(
-                [
-                    round(
-                        (
-                            circle.center[axis]
-                            + radius
-                            * (math.cos(angle) * first[axis] + math.sin(angle) * second[axis])
-                        )
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
 def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[float]]:
     """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.
 
@@ -619,12 +533,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # simulation. Keep the recorded local points in native units, then
     # convert only this command boundary back to SI. Steady probes differ.
     for line in probes.lines:
-        for step in range(probes.points):
-            fraction = step / (probes.points - 1)
-            point = [
-                round((a + (b - a) * fraction) * scale, 5)
-                for a, b in zip(line.start, line.end, strict=True)
-            ]
+        for point in line_points(line.start, line.end, probes.points, scale):
             vertex += 1
             # FR-91. RECORDED BY THE LOOP THAT PLACES IT, so the position a
             # reader is given is the position the solver was given. It is
@@ -715,9 +624,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
     for rectangle in probes.rectangles:
-        lattice += _rectangle_points(rectangle, scale)
+        lattice += rectangle_points(rectangle, scale)
     for circle in probes.circles:
-        lattice += _circle_points(circle, scale)
+        lattice += circle_points(circle, scale)
     for point in lattice:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one

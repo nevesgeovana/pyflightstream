@@ -976,7 +976,7 @@ def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
     """
     import numpy as np
 
-    from pyflightstream.farfield import cylindrical_components, in_plane_moment, lattice_dataset
+    from pyflightstream.farfield import cylindrical_components, in_plane_moment, lattice_fields
     from pyflightstream.probes import build_lattice
 
     lattice = build_lattice(tip_radius=1.0, stations=(-2.0, 2.0), lateral_radius=None)
@@ -991,20 +991,20 @@ def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
         "p_prime": np.zeros(shape),
     }
     fields["u"][1] += 2.0 * np.cos(lattice.psi)[None, :]
-    complete = cylindrical_components(lattice_dataset(lattice, fields))
+    complete = cylindrical_components(lattice_fields(lattice, fields))
     whole = in_plane_moment(complete, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
-    assert np.isfinite(float(whole["loading_term"])) and float(whole["loading_term"]) != 0.0
+    assert np.isfinite(float(whole.loading_term)) and float(whole.loading_term) != 0.0
 
     holed = {name: value.copy() for name, value in fields.items()}
     holed["u"][1, 0, 0] = np.nan
-    poisoned = cylindrical_components(lattice_dataset(lattice, holed))
+    poisoned = cylindrical_components(lattice_fields(lattice, holed))
     product = in_plane_moment(poisoned, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
-    loading = float(product["loading_term"])
+    loading = float(product.loading_term)
     assert np.isnan(loading), (
         f"one missing sample produced the finite harmonic loading term {loading!r} "
-        f"instead of NaN; the complete field gives {float(whole['loading_term'])!r}"
+        f"instead of NaN; the complete field gives {float(whole.loading_term)!r}"
     )
-    assert np.isnan(float(product["total"])), "the poison reaches the total"
+    assert np.isnan(float(product.total)), "the poison reaches the total"
 
 
 # --- PFS-2012.08.01: a PROV-JSON document per recorded run --------------------------

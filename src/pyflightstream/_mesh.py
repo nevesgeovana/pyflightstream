@@ -22,8 +22,8 @@ WHAT HAPPENS WHEN IT IS ABSENT, stated because the previous accessor
 raised a didactic refusal here and this one does not. Before the
 promotion trimesh arrived with the ``[geom]`` extra, so its absence was
 an ordinary and recoverable state with a remedy to print. It is now a
-declared runtime dependency exactly as numpy, pandas, pydantic and
-xarray are, and none of those is guarded anywhere in this package: an
+declared runtime dependency exactly as numpy, pandas and pydantic
+are, and none of those is guarded anywhere in this package: an
 environment missing one is an incomplete install, and the interpreter's
 own ``ModuleNotFoundError``, naming the module and nothing else, is the
 same answer every other runtime dependency gives. Printing

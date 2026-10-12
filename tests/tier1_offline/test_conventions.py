@@ -155,6 +155,12 @@ _DIMENSIONLESS_OR_DEBT = {
     # A DIRECTION AND NOT A LENGTH: the axis the disk is perpendicular to,
     # normalised on use, so its magnitude carries no meaning at all.
     "normal",  # ProbeCircle.normal
+    # FR-454 and FR-459 R2 (0.40.0): a survey lattice states its radii in tip
+    # radii r/R, the convention of probes.build_lattice whose parameters they are.
+    "r_inner",  # LatticeShape.r_inner, r/R
+    "r_outer",  # LatticeShape.r_outer, r/R
+    "hub_width",  # LatticeShape.hub_width, r/R
+    "tip_width",  # LatticeShape.tip_width, r/R
     # v0.23.0 item 19. A DIRECTION, not a length: the shaft the rotor turns
     # about, normalised on use, so its magnitude carries no meaning. It is
     # also a str on the letter path, where a unit suffix would be nonsense.
