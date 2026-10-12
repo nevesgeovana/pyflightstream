@@ -123,8 +123,8 @@ ROOTS: tuple[tuple[str, str], ...] = (
 
 # The ratchet: the number of public paths the register names, and the
 # SHA-256 of their sorted list joined by newlines. A shrink lowers both.
-_REGISTER_CEILING = 315
-_REGISTER_DIGEST = "50617220ce727dc798709b0e6f630b389af928a31f76660d746d1aed0580e159"
+_REGISTER_CEILING = 312
+_REGISTER_DIGEST = "0be35deead377b7a278e53196c8ab894fad724e4c6274a19f5d61b14ff83720e"
 
 REASONS = (
     "routed later",

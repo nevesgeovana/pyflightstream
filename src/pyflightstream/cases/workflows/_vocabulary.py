@@ -36,6 +36,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._ccs import (
     CCS_SHEDDING_VARIABLE,
 )
+from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
 
 #: Case-variable key carrying the matrix ``WORKFLOW`` column.
 #:
@@ -277,8 +278,9 @@ LOG_OUTPUT_VARIABLE = "LOG_OUTPUT"
 #: unsteady plots. Two windows put a difference in the fourth digit that
 #: no reader can attribute to anything.
 LAST_REVS_AVG_VARIABLE = "LAST_REVS_AVG"
-LAST_ITERS_AVG_VARIABLE = "LAST_ITERS_AVG"
-#: The step the per-step exports BEGIN on, stated in revolutions of the
+LAST_ITERS_AVG_VARIABLE = (
+    "LAST_ITERS_AVG"  #: The step the per-step exports BEGIN on, stated in revolutions of the
+)
 #: rotor or in time iterations (PFS-2031.18, the design of 2026-09-08,
 #: GeoversePlan design 67). A row states at most one. From that step to
 #: the end of the run the solver exports every per-step kind of the row's
@@ -992,9 +994,13 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     RESTART_VARIABLE,
     # 0.32.0 (E2): the acoustic toolbox, whose signals only a march records.
     *_acoustics.ACOUSTIC_KEYS,
+    # 0.40.0 (FR-461): a body free to move, the unsteady run type's ALONE; the
+    # rotor run type below leaves it out (a free body with a rotor turning is
+    # outside the route).
+    SIXDOF_VARIABLE,
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
-    *_UNSTEADY_KEYS,
+    *(key for key in _UNSTEADY_KEYS if key != SIXDOF_VARIABLE),
     # ITEM 16's KEY FOR A ROW THAT TURNS A ROTOR, in REVOLUTIONS. It is the
     # rotor type's alone, because a count of turns has no length without a
     # speed -- which is also what `_averaging_window` refuses when a row states
@@ -1061,6 +1067,13 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             )
             for key, property_name in MATRIX_FACTORS.items()
         },
+        SIXDOF_VARIABLE: InputKey(
+            "A body free to move under its loads, resolved from inputs/sixdof/ (FR-461): "
+            "its families, body frame, mass, inertia, freedoms and forces.",
+            "a d-prefixed code, such as d001",
+            "CREATE_NEW_MOTION, SET_MOTION_MASS_PROPERTIES, "
+            "SET_MOTION_6DOF_ACTIVE_VARIABLES, EXPORT_6DOF_TRAJECTORY",
+        ),
         GEOMETRY_VARIABLE: InputKey(
             "The geometry the row opens, a file of inputs/geometries/; written in the "
             "GEOMETRY column since 0.17.0.",
