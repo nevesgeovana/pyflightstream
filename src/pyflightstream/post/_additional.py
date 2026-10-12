@@ -93,6 +93,23 @@ def _current_extraction(
     return None
 
 
+def _warn_reopened_streamlines(run_id: str, prefix: str, files: list[str]) -> None:
+    """Warn once per extraction that traced streamlines (FR-460 R6), in the post log's form.
+
+    The owner's decision of 2026-10-12: allowed in an additional pproc, and said.
+    """
+    if not any(kind.startswith("streamlines_") for kind in classify_outputs(files)):
+        return
+    warn(
+        f"point={run_id} product={prefix}: the streamlines were traced in the reopened saved "
+        "simulation, not in the run; a reopened simulation may trace differently from the "
+        "run (off-body probe values did not come back identical after reopening, up to 4 "
+        "percent in speed, RPT-062).",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def _additional_products(
     workspace: CampaignWorkspace,
     admitted: Mapping[str, RunRecord],
@@ -180,16 +197,7 @@ def _additional_products(
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
-            if any(kind.startswith("streamlines_") for kind in classify_outputs(files)):
-                # FR-460 R6, the owner's decision of 2026-10-12: allowed, and said.
-                warn(
-                    f"point={extraction.run_id} product={prefix}: the streamlines were traced "
-                    "in the reopened saved simulation, not in the run; a reopened simulation "
-                    "may trace differently from the run (off-body probe values did not come "
-                    "back identical after reopening, up to 4 percent in speed, RPT-062).",
-                    PyflightstreamWarning,
-                    stacklevel=2,
-                )
+            _warn_reopened_streamlines(extraction.run_id, prefix, files)
             for kind, name in classify_outputs(extraction.outputs).items():
                 if kind not in _ADDITIONAL_NATIVE_KINDS:
                     continue

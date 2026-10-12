@@ -58,9 +58,10 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.selection",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     "pyflightstream.cases.settings",
-    "pyflightstream.cases.sixdof",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.setup_surfaces",
+    # 0.40.0: the 6DOF input model (FR-461).
+    "pyflightstream.cases.sixdof",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who
     # recomputes a window off a recorded plan calls `averaging_steps` here.
@@ -252,8 +253,8 @@ PUBLIC_MODULES = [
     # same reason `storage` is public.
     "pyflightstream.workspace.fields",
     "pyflightstream.workspace.flight_condition",
-    "pyflightstream.workspace.fsi_setup",
     "pyflightstream.workspace.fsi_external_setup",
+    "pyflightstream.workspace.fsi_setup",
     # 0.33.0 (AD-11): the HPC profile, cut out of workspace.inputs, which
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.workspace.hpc",

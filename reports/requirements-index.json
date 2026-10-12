@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 458,
+  "cited_by_a_test": 461,
   "total": 461,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -3275,25 +3275,25 @@
    "id": "FR-460",
    "text": "Plan: PFS-2081.15 (0.40.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (routes Q0-1, P3-Q1 to P3-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_streamlines.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "FR-461",
    "text": "Plan: PFS-2081.16 (0.40.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P4-Q2 to P4-Q4); reference case: a free-to-pitch model. Verification: test, tests/tier1_offline/test_p0400_gaps_rt_sixdof.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "FR-462",
    "text": "Plan: PFS-2081.17 (0.40.0).",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P5-Q1 to P5-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_fsiext.py.*",
-   "verification": "none"
+   "verification": "test"
   },
   {
    "id": "NFR-01",

@@ -226,6 +226,9 @@ from ._rows import (
 from ._rows import (
     walltime_margin_s as walltime_margin_s,
 )
+from ._sixdof import (
+    sixdof_commands,
+)
 from ._skeleton import (
     effective_fsi_config,
 )
@@ -242,6 +245,7 @@ from ._steady import (
     refuse_an_untranslatable_surface,
 )
 from ._streamlines import (
+    streamline_commands,
     streamline_count,
 )
 from ._timing import (
@@ -582,6 +586,8 @@ __all__ = [
     "normal_probe_creation",
     "unsteady_time_stepping",
     "select_workflow",
+    "sixdof_commands",
+    "streamline_commands",
     "streamline_count",
     "workflow_names",
     "workflow_registry",

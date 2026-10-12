@@ -149,35 +149,7 @@ def _sixdof_motion(
     )
     script.emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", motion, spec.active_lines())
     for force in spec.forces:
-        if isinstance(force, SixDofExternalForce):
-            script.emit(
-                "CREATE_NEW_6DOF_EXTERNAL_FORCE",
-                motion,
-                *force.point_body_m,
-                force.start_s,
-                force.duration_s,
-                *force.force_body_n,
-            )
-        elif isinstance(force, SixDofSpringForce):
-            script.emit(
-                "CREATE_NEW_6DOF_SPRING_FORCE",
-                motion,
-                *force.point_body_m,
-                *force.axis_body,
-                force.free_length_m,
-                force.solid_length_m,
-                force.initial_length_m,
-                force.rate_n_per_m,
-            )
-        elif isinstance(force, SixDofCustomForce):
-            source = Path(force.resolved_file or "")
-            if not source.is_file():
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: the SIXDOF custom force file {force.file!r} was not "
-                    "resolved to a file of inputs/sixdof/; build the row through the workspace."
-                )
-            _stage(case, script, source.name, source.read_bytes())
-            script.emit("CREATE_NEW_6DOF_CUSTOM_FORCE", motion, force.type, source.name)
+        _emit_force(case, script, motion, force)
     script.emit(
         "SET_6DOF_MOTION_SYMMETRY_LOADS", motion, "ENABLE" if spec.symmetry_loads else "DISABLE"
     )
@@ -191,6 +163,44 @@ def _sixdof_motion(
             SIXDOF_PROVENANCE_FILE,
             json.dumps(case.sixdof_provenance, indent=2) + "\n",
         )
+
+
+def _emit_force(
+    case: SimCase,
+    script: Script,
+    motion: int,
+    force: SixDofExternalForce | SixDofSpringForce | SixDofCustomForce,
+) -> None:
+    """Emit one ``[[forces]]`` entry; a custom force's file is staged beside the script."""
+    if isinstance(force, SixDofExternalForce):
+        script.emit(
+            "CREATE_NEW_6DOF_EXTERNAL_FORCE",
+            motion,
+            *force.point_body_m,
+            force.start_s,
+            force.duration_s,
+            *force.force_body_n,
+        )
+    elif isinstance(force, SixDofSpringForce):
+        script.emit(
+            "CREATE_NEW_6DOF_SPRING_FORCE",
+            motion,
+            *force.point_body_m,
+            *force.axis_body,
+            force.free_length_m,
+            force.solid_length_m,
+            force.initial_length_m,
+            force.rate_n_per_m,
+        )
+    else:
+        source = Path(force.resolved_file or "")
+        if not source.is_file():
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the SIXDOF custom force file {force.file!r} was not "
+                "resolved to a file of inputs/sixdof/; build the row through the workspace."
+            )
+        _stage(case, script, source.name, source.read_bytes())
+        script.emit("CREATE_NEW_6DOF_CUSTOM_FORCE", motion, force.type, source.name)
 
 
 def _stage(case: SimCase, script: Script, name: str, content: str | bytes) -> None:

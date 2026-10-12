@@ -855,14 +855,17 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
-    # 0.40.0 (FR-460 R3): a point that seeds off-body streamlines states how many.
-    for entry in points:
-        if entry.streamlines:
-            lines.append(
-                f"  {entry.run_id}: {entry.streamlines} off-body streamlines traced "
-                "(the [streamlines] lines and tubes of its pproc)"
-            )
-    return lines
+    return lines + _streamline_lines(points)
+
+
+def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return the plan's line per point that seeds off-body streamlines (FR-460 R3)."""
+    return [
+        f"  {entry.run_id}: {entry.streamlines} off-body streamlines traced "
+        "(the [streamlines] lines and tubes of its pproc)"
+        for entry in points
+        if entry.streamlines
+    ]
 
 
 def run_wake_length_line(run: Mapping[str, object]) -> str:

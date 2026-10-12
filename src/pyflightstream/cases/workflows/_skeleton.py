@@ -420,16 +420,8 @@ def _script_init(
     clocked quasi-steady wheel creates them at each clocking, in the pose that
     clocking holds (0.31.0, :func:`_build_qsteady_rotor`).
     """
-    if case.fsi_external is not None:
-        # FR-462: the external structural program, refused before any line.
-        from .._fsi_external import validate_external_fsi
-
-        validate_external_fsi(
-            case,
-            script,
-            workflow=select_workflow(case),
-            continuation=reopens_a_saved_state,
-        )
+    # FR-462: the external structural program, refused before any line.
+    _validate_the_external_structure(case, script, continuation=reopens_a_saved_state)
     if case.fsi is not None:
         from ..fsi_workspace import validate_workspace_fsi
 
@@ -483,13 +475,10 @@ def _script_init(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
-    coupled_surfaces: list[dict[str, object]] = []
-    workflow = (
-        select_workflow(case) if case.fsi is not None or case.fsi_external is not None else None
-    )
-    if case.fsi_external is not None and workflow in ("steady", "unsteady"):
-        coupled_surfaces = _wire_the_external_structure(case, script, workflow, frames, conventions)
-    elif case.fsi is not None and workflow in ("steady", "unsteady"):
+    # FR-462: an external structure's coupling, empty where the row states none.
+    coupled_surfaces = _wire_the_external_structure(case, script, frames, conventions)
+    workflow = select_workflow(case) if case.fsi is not None else None
+    if case.fsi is not None and workflow in ("steady", "unsteady"):
         coupled_surfaces = _wire_the_fixed_wing(case, script, workflow, frames, conventions)
     elif case.fsi is not None and workflow == QSTEADY_ROTOR:
         coupled_surfaces = _wire_the_quasi_steady_sector(case, script, frames, conventions)
@@ -572,10 +561,18 @@ def _wire_the_fixed_wing(
     )
 
 
+def _validate_the_external_structure(case: SimCase, script: Script, *, continuation: bool) -> None:
+    """Refuse a row the external FSI route cannot couple (FR-462 R4); nothing where none."""
+    if case.fsi_external is None:
+        return
+    from .._fsi_external import validate_external_fsi
+
+    validate_external_fsi(case, script, workflow=select_workflow(case), continuation=continuation)
+
+
 def _wire_the_external_structure(
     case: SimCase,
     script: Script,
-    workflow: str,
     frames: Frames | None,
     conventions: WorkflowConventions | None,
 ) -> list[dict[str, object]]:
@@ -583,11 +580,16 @@ def _wire_the_external_structure(
 
     The exports follow the fixed-wing rule: on a steady row the whole export
     block runs in the post-processing script; on an unsteady row that script
-    exports the deformed surface after every call.
+    exports the deformed surface after every call. Empty where the row states
+    no external structure; the run type was judged by
+    :func:`_validate_the_external_structure`.
     """
+    if case.fsi_external is None:
+        return []
     from .._fsi_external import wire_external_fsi
     from ..fsi_workspace import DEFORMED_SURFACE_FILE
 
+    workflow = select_workflow(case)
     if frames is None:
         raise CampaignConfigError("FSI requires the initial wing/frame mapping.")
     exports: Callable[[Script], None]

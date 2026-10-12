@@ -131,6 +131,14 @@ def resolve_row_sixdof(
             "mirrored half model carries no lateral loads, so a lateral freedom would move "
             "under none. Lock v, p and r, or mesh the whole body."
         )
+    spec, files = _with_force_files(spec, root, path)
+    return ResolvedSixDof(path, hashlib.sha256(raw).hexdigest(), spec, files)
+
+
+def _with_force_files(
+    spec: SixDofSpec, root: Path, path: Path
+) -> tuple[SixDofSpec, dict[str, str]]:
+    """Resolve and hash each custom force's file under ``root`` (FR-461 R3, R5)."""
     files: dict[str, str] = {}
     forces = []
     for force in spec.forces:
@@ -144,5 +152,4 @@ def resolve_row_sixdof(
             files[source.name] = _digest(source)
             force = force.model_copy(update={"resolved_file": str(source)})
         forces.append(force)
-    spec = spec.model_copy(update={"forces": forces})
-    return ResolvedSixDof(path, hashlib.sha256(raw).hexdigest(), spec, files)
+    return spec.model_copy(update={"forces": forces}), files

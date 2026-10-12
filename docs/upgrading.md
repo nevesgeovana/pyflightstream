@@ -5,7 +5,7 @@ Read the migration records for the releases between your installed version and t
 ## 0.40.0
 
 - New, nothing to migrate: a pproc may state `[streamlines]` ([Streamlines from the pproc artifact](streamlines.md)); a row whose pproc does not is unchanged. Two output suffixes are new, `_sls.txt` and `_slo.txt`; a row whose own declared outputs already end in either is read as a streamline export from 0.40.0 on, so rename such an output.
-- New, nothing to migrate: the `unsteady` row key `SIXDOF: d<id>` names a 6DOF input of `inputs/sixdof/` ([One row: a body free to move](workflow-sixdof.md)); `_trajectory_6dof.txt` is a new output suffix.
+- New, nothing to migrate: the `unsteady` row key `SIXDOF: d<id>` names a 6DOF input of `inputs/sixdof/` ([One row: a body free to move](sixdof-motion.md)); `_trajectory_6dof.txt` is a new output suffix.
 - New, nothing to migrate: an FSI input may state `mode = "external"` ([FSI with a structural program of your own](fsi-external.md)); `pyfs-fsi` gains the subcommand `external`.
 - `plan.json` gains the key `streamlines` on a point whose pproc seeds off-body streamlines, and states nothing new on any other point.
 - The streamline and 6DOF commands are recorded from the manual only until the licensed probes run; on such a build a row reaching them is refused at plan, naming the command.

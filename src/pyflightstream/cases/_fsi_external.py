@@ -178,6 +178,9 @@ def wire_external_fsi(
             "raise SystemExit(main(['external', '--dir', '.']))\n"
         ),
         "fsi-provenance.json": json.dumps(structure.provenance(), indent=2) + "\n",
+        # FR-462 R6: the input itself, under the digest the record states for it
+        # (the run refuses a source changed after the plan).
+        Path(structure.source).name: Path(structure.source).read_bytes(),
     }
     for name, source in structure.inputs.items():
         payloads[name] = Path(source).read_bytes()

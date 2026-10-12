@@ -27,6 +27,8 @@ The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
 by it. A product family of the backlog joins as one more step here, reading
 the context and writing into its sinks.
+
+Size exemption: one context and every product step of a simulation, each step one family.
 """
 
 from __future__ import annotations
@@ -113,6 +115,7 @@ from pyflightstream.post.polar import (
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import write_rotor_table
+from pyflightstream.post.streamlines import write_point_streamlines
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     plots_last_row,
@@ -654,24 +657,8 @@ def _point_products(ctx: SimContext) -> None:
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
-        _streamline_products(ctx, point)
-
-
-def _streamline_products(ctx: SimContext, point: PolarPoint) -> None:
-    """Write a point's streamline VTK from its off-body export (FR-460 R7)."""
-    from pyflightstream.post.streamlines import STREAMLINES_DIR, write_streamline_products
-
-    exported = ctx.streamlines.get(point.name, {})
-    spec = ctx.pproc.streamlines
-    if not exported or spec is None:
-        return
-    for relative, outcome in write_streamline_products(
-        exported, ctx.out, point.name, vtk=spec.vtk, target=ctx.target
-    ).items():
-        if isinstance(outcome, Path):
-            ctx.add(outcome, {"runs": ctx.sources[point.name], "kind": "instant"})
-        else:
-            ctx.skipped[f"{STREAMLINES_DIR}/{relative}"] = outcome
+        # FR-460 R7: the streamline products of the point, from its exports.
+        write_point_streamlines(ctx, point.name)
 
 
 def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | None) -> None:

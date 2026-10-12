@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
@@ -31,6 +32,7 @@ from pyflightstream.results import OffBodyStreamlinesReport, parse_off_body_stre
 __all__ = [
     "STREAMLINES_DIR",
     "render_streamlines_vtk",
+    "write_point_streamlines",
     "write_streamline_products",
 ]
 
@@ -86,6 +88,35 @@ def render_streamlines_vtk(report: OffBodyStreamlinesReport, *, title: str) -> s
     lines.append("VECTORS velocity double")
     lines += [f"{_number(row[vx])} {_number(row[vy])} {_number(row[vz])}" for row in rows]
     return "\n".join(lines) + "\n"
+
+
+def write_point_streamlines(ctx: Any, point: str) -> None:
+    """Write one point's streamline products into a simulation's post context.
+
+    The post step of FR-460 R7: the context (the post's ``SimContext``) holds
+    the point's streamline exports by kind (``ctx.streamlines``), its pproc,
+    its products root and its sinks; a product written is added to the
+    manifest as an instant of the point's runs, and one not written is a skip
+    that ``post.log`` states.
+
+    Parameters
+    ----------
+    ctx : SimContext
+        The simulation's post context.
+    point : str
+        The point's name.
+    """
+    exported = ctx.streamlines.get(point, {})
+    spec = ctx.pproc.streamlines
+    if not exported or spec is None:
+        return
+    for relative, outcome in write_streamline_products(
+        exported, ctx.out, point, vtk=spec.vtk, target=ctx.target
+    ).items():
+        if isinstance(outcome, Path):
+            ctx.add(outcome, {"runs": ctx.sources[point], "kind": "instant"})
+        else:
+            ctx.skipped[f"{STREAMLINES_DIR}/{relative}"] = outcome
 
 
 def write_streamline_products(

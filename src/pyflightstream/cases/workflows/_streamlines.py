@@ -225,10 +225,15 @@ def _pproc_streamlines(
             )
         script.emit("GENERATE_ALL_SURFACE_STREAMLINES")
         script.emit("EXPORT_ALL_SURFACE_STREAMLINES", surface_file)
-    if not spec.off_body:
-        return
-    assert frames is not None
-    geometry = placed if placed is not None else script
+    if spec.off_body:
+        assert frames is not None
+        _emit_off_body(case, script, frames, spec, placed if placed is not None else script)
+
+
+def _emit_off_body(
+    case: SimCase, script: Script, frames: Frames, spec: StreamlinesSpec, geometry: Script
+) -> None:
+    """Emit the off-body direction, length, seeds and generation (FR-460 R1)."""
     if spec.direction is not None:
         script.emit(f"SET_ALL_OFF_BODY_STREAMLINES_{spec.direction.upper()}")
     if spec.length_m is not None:

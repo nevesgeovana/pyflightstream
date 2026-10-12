@@ -1,8 +1,9 @@
 """P0400-SIXDOF (FR-461): the SIXDOF row key frees a body to move under its loads.
 
 The free-to-pitch input is resolved and its motion block is held to a golden
-(R1, R2); the evidence gate refuses an unverified build and the golden opens it
-only where the database does not already verify every command (R-GATE); every
+(R1, R2), built against the committed database with the 6DOF commands recorded
+verified on the build; the evidence gate refuses a build recording one of them
+documented (R-GATE); every
 refusal of R3 and R4 is asserted by its message; the provenance and the custom
 force file are staged with the script (R5).
 """
@@ -17,10 +18,12 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.sixdof import SixDofSpec
-from pyflightstream.cases.workflows import _gap_evidence, build_script
-from pyflightstream.cases.workflows._sixdof import SIXDOF_PROVENANCE_FILE, sixdof_commands
+from pyflightstream.cases.workflows import build_script, sixdof_commands
+from pyflightstream.cases.workflows._sixdof import SIXDOF_PROVENANCE_FILE
+from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import Script
 from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
+from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_workflows import _case_for, _wb_geometry, _with_pproc
 
 GOLDENS = Path(__file__).parent / "goldens"
@@ -83,15 +86,12 @@ def _resolved(tmp_path: Path, text: str = FREE_TO_PITCH, **variables: str):
     return resolve_row_sixdof(_inputs(tmp_path, text), cell, workflow="unsteady", pol="9401")
 
 
-def _open_gate(monkeypatch: pytest.MonkeyPatch, spec: SixDofSpec) -> None:
-    """Open the evidence gate for the commands the database does not yet verify on BUILD."""
-    script = Script(BUILD)
-    if all(_gap_evidence.command_verified(script, name) for name in sixdof_commands(spec)):
-        return
-    monkeypatch.setattr(_gap_evidence, "command_verified", lambda script, command: True)
+def _verified(spec: SixDofSpec) -> CommandRegistry:
+    """The committed database with every command of ``spec`` recorded verified on BUILD."""
+    return registry_with(sixdof_commands(spec), BUILD, Status.VERIFIED)
 
 
-def _script(tmp_path: Path, resolved) -> Script:
+def _script(tmp_path: Path, resolved, registry: CommandRegistry | None = None) -> Script:
     case = _with_pproc(_case_for("unsteady"), _wb_geometry(tmp_path), pproc=None)
     case = case.model_copy(
         update={"sixdof": resolved.spec, "sixdof_provenance": resolved.provenance()}
@@ -100,7 +100,7 @@ def _script(tmp_path: Path, resolved) -> Script:
 
     names = [name.replace("{name}", "P") for name in row_outputs(case, "unsteady")]
     case = case.model_copy(update={"outputs": names})
-    script = Script(BUILD)
+    script = Script(BUILD, registry if registry is not None else _verified(resolved.spec))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         build_script(case, script)
@@ -114,11 +114,10 @@ def _block(script: Script) -> str:
     return "\n".join(lines[first : last + 2]) + "\n"
 
 
-def test_p0400_sixdof_free_to_pitch_golden(tmp_path, monkeypatch):
+def test_p0400_sixdof_free_to_pitch_golden(tmp_path):
     """P0400-SIXDOF (FR-461 R1, R2): the motion block, before the solver is initialised."""
     resolved = _resolved(tmp_path)
     assert resolved is not None
-    _open_gate(monkeypatch, resolved.spec)
     script = _script(tmp_path, resolved)
     text = script.render()
     assert text.index("CREATE_NEW_MOTION 6DOF") < text.index("INITIALIZE_SOLVER")
@@ -127,11 +126,10 @@ def test_p0400_sixdof_free_to_pitch_golden(tmp_path, monkeypatch):
     )
 
 
-def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path, monkeypatch):
+def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path):
     """P0400-SIXDOF (FR-461 R5): the provenance and the custom force file go with the script."""
     resolved = _resolved(tmp_path)
     assert resolved is not None
-    _open_gate(monkeypatch, resolved.spec)
     staged = _script(tmp_path, resolved).pending_input_files
     source = tmp_path / "inputs" / "sixdof" / "pulse_force.txt"
     assert staged["pulse_force.txt"] == source.read_bytes()
@@ -140,17 +138,15 @@ def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path, monkeypatch
     assert set(record["files_sha256"]) == {"pulse_force.txt"}
 
 
-def test_p0400_sixdof_gate_refuses_an_unprobed_build(tmp_path, monkeypatch):
+def test_p0400_sixdof_gate_refuses_an_unprobed_build(tmp_path):
     """P0400-SIXDOF (FR-461 R-GATE): an unverified 6DOF command is refused by name."""
     resolved = _resolved(tmp_path)
     assert resolved is not None
-    monkeypatch.setattr(
-        _gap_evidence,
-        "command_verified",
-        lambda script, command: command != "SET_MOTION_MASS_PROPERTIES",
+    documented = registry_with(
+        ["SET_MOTION_MASS_PROPERTIES"], BUILD, Status.DOCUMENTED, base=_verified(resolved.spec)
     )
     with pytest.raises(CampaignConfigError, match="SET_MOTION_MASS_PROPERTIES.*6DOF probes"):
-        _script(tmp_path, resolved)
+        _script(tmp_path, resolved, documented)
 
 
 def _replace(old: str, new: str) -> str:
@@ -205,11 +201,10 @@ def test_p0400_sixdof_refused_with_fsi_and_a_bad_code(tmp_path):
     assert resolve_row_sixdof(_inputs(tmp_path), {}, workflow="unsteady") is None
 
 
-def test_p0400_sixdof_frame_the_run_does_not_create(tmp_path, monkeypatch):
+def test_p0400_sixdof_frame_the_run_does_not_create(tmp_path):
     """P0400-SIXDOF (FR-461 R4): a body frame the run does not create is refused."""
     resolved = _resolved(tmp_path, _replace('frame = "MRP"', 'frame = "PIVOT"'))
     assert resolved is not None
-    _open_gate(monkeypatch, resolved.spec)
     with pytest.raises(CampaignConfigError, match="PIVOT"):
         _script(tmp_path, resolved)
 

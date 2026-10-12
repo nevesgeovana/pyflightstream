@@ -21,6 +21,7 @@ import datetime
 import hashlib
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -214,6 +215,9 @@ def _run_program(
             timeout=structure.timeout_s,
             check=False,
             creationflags=flags,
+            # The program runs in the environment the solver gave the step,
+            # passed on as it is, stated here rather than inherited unseen.
+            env=dict(os.environ),
         )
     except subprocess.TimeoutExpired:
         return None, time.perf_counter() - started, f"timed out after {structure.timeout_s} s"

@@ -9,9 +9,10 @@ export (R7).
 
 THE GATE. The streamline commands were recorded ``documented`` and unprobed on
 26.124 when the route was written, so a row reaching them is refused at plan
-(R-GATE). The golden tests open the gate only where the database does not
-already verify every command on the build (:func:`_open_gate`): once the
-licensed probes record them verified, the goldens run the real path unpatched.
+(R-GATE). The emission tests build against the committed database with the
+streamline commands recorded verified on the build (:func:`_verified`), so they
+run the real emission path before and after the licensed probes, and the
+refusal test against one with a command recorded documented.
 """
 
 from __future__ import annotations
@@ -23,11 +24,17 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError, PprocSpec
-from pyflightstream.cases.workflows import _gap_evidence, build_script, streamline_count
-from pyflightstream.cases.workflows._streamlines import streamline_commands
+from pyflightstream.cases.workflows import (
+    _gap_evidence,
+    build_script,
+    streamline_commands,
+    streamline_count,
+)
+from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.post.streamlines import render_streamlines_vtk, write_streamline_products
 from pyflightstream.results import parse_off_body_streamlines
 from pyflightstream.script import Script
+from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_workflows import (
     _case_for,
     _wb_geometry,
@@ -63,24 +70,23 @@ def _spec(**table: object) -> PprocSpec:
     return PprocSpec.model_validate({"groups": {"1": "all"}, "streamlines": table or _TABLE})
 
 
-def _open_gate(monkeypatch: pytest.MonkeyPatch, spec: PprocSpec) -> None:
-    """Open the evidence gate for the commands the database does not yet verify on BUILD."""
-    script = Script(BUILD)
+def _verified(spec: PprocSpec) -> CommandRegistry:
+    """The committed database with every command of ``spec`` recorded verified on BUILD."""
     assert spec.streamlines is not None
     commands = streamline_commands(spec.streamlines, reopened=True)
-    if all(_gap_evidence.command_verified(script, name) for name in commands):
-        return
-    monkeypatch.setattr(_gap_evidence, "command_verified", lambda script, command: True)
+    return registry_with(commands, BUILD, Status.VERIFIED)
 
 
-def _script(tmp_path: Path, run_type: str, spec: PprocSpec) -> Script:
+def _script(
+    tmp_path: Path, run_type: str, spec: PprocSpec, registry: CommandRegistry | None = None
+) -> Script:
     """Build one row of ``run_type`` naming ``spec``, its outputs as the pproc declares them."""
     base = steady_case() if run_type == "steady" else _case_for(run_type)
     tmp_path.mkdir(parents=True, exist_ok=True)
     case = _with_pproc(base, _wb_geometry(tmp_path), pproc=spec)
     names = [name.replace("{name}", "P") for name in spec.outputs(run_type != "steady")]
     case = case.model_copy(update={"outputs": names})
-    script = Script(BUILD)
+    script = Script(BUILD, registry if registry is not None else _verified(spec))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         build_script(case, script)
@@ -138,10 +144,9 @@ def test_p0400_streamlines_exports_cannot_name_them():
 
 
 @pytest.mark.parametrize("run_type", ["steady", "unsteady"])
-def test_p0400_streamlines_golden(tmp_path, monkeypatch, run_type):
+def test_p0400_streamlines_golden(tmp_path, run_type):
     """P0400-STREAMLINES (FR-460 R1, R2): the trace after the solve, before the exports."""
     spec = _spec()
-    _open_gate(monkeypatch, spec)
     script = _script(tmp_path, run_type, spec)
     heads = [line.split()[0] for line in script.render().splitlines() if line[:1].isalpha()]
     assert heads.index("START_SOLVER") < heads.index("GENERATE_ALL_SURFACE_STREAMLINES")
@@ -153,15 +158,14 @@ def test_p0400_streamlines_golden(tmp_path, monkeypatch, run_type):
     assert _tail(script) == golden.read_text(encoding="utf-8")
 
 
-def test_p0400_streamlines_gate_refuses_an_unprobed_build(tmp_path, monkeypatch):
+def test_p0400_streamlines_gate_refuses_an_unprobed_build(tmp_path):
     """P0400-STREAMLINES (FR-460 R-GATE): an unverified command is refused by name at plan."""
-    monkeypatch.setattr(
-        _gap_evidence,
-        "command_verified",
-        lambda script, command: command != "NEW_OFF_BODY_STREAMTUBE",
+    spec = _spec()
+    documented = registry_with(
+        ["NEW_OFF_BODY_STREAMTUBE"], BUILD, Status.DOCUMENTED, base=_verified(spec)
     )
     with pytest.raises(CampaignConfigError, match="NEW_OFF_BODY_STREAMTUBE.*probe"):
-        _script(tmp_path, "steady", _spec())
+        _script(tmp_path, "steady", spec, documented)
 
 
 def test_p0400_streamlines_gate_reads_the_database(tmp_path):
@@ -182,7 +186,7 @@ def test_p0400_streamlines_plan_count(tmp_path):
 # --------------------------------------------------------------------------- R5
 
 
-def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame(tmp_path, monkeypatch):
+def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame():
     """P0400-STREAMLINES (FR-460 R5): off-body lines on qsteady_rotor name the rotor-fixed frame."""
     from pyflightstream.cases.workflows._streamlines import refuse_streamlines_where_they_cannot_run
 
@@ -196,13 +200,12 @@ def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame(tmp_pa
     refuse_streamlines_where_they_cannot_run(case, surface.streamlines)
 
 
-def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path, monkeypatch):
+def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path):
     """P0400-STREAMLINES (FR-460 R5): a frame the run does not create is refused."""
     table = {
         "lines": [{"frame": "NOWHERE", "start": [0, 0, 0], "end": [1, 0, 0], "count": 2}],
     }
     spec = _spec(**table)
-    _open_gate(monkeypatch, spec)
     with pytest.raises(CampaignConfigError, match="NOWHERE"):
         _script(tmp_path, "steady", spec)
 
@@ -210,7 +213,7 @@ def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path, monkeypatch):
 # --------------------------------------------------------------------------- R6
 
 
-def test_p0400_streamlines_reopened_deletes_first(monkeypatch):
+def test_p0400_streamlines_reopened_deletes_first():
     """P0400-STREAMLINES (FR-460 R6): an extraction deletes what the saved simulation carries."""
     spec = _spec()
     assert spec.streamlines is not None

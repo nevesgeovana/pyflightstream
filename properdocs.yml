@@ -104,7 +104,7 @@ nav:
           - CCS geometry: ccs-geometry.md
           - Surface translation: surface-translation.md
           - One row, one geometry, turned or moved: workflow-row-geometry-motion.md
-          - One row, a body free to move (6DOF): workflow-sixdof.md
+          - One row, a body free to move (6DOF): sixdof-motion.md
       - Inputs and setup:
           - The input library and the solver presets: workflow-input-library.md
           - The reference artifact: workflow-reference-artifact.md

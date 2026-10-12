@@ -90,6 +90,22 @@ def _under(root: Path, stated: str, *, what: str, source: Path) -> Path:
     return path
 
 
+def _refuse_the_beam_keys(source: Path, data: dict[str, object]) -> None:
+    """Refuse ``show_console`` and ``morphing`` by name (FR-462 R4)."""
+    table = data.get("external")
+    if isinstance(table, dict) and "show_console" in table:
+        raise FsiExternalSetupError(
+            f"{source}: [external] show_console: a console window per coupling call would "
+            "open on the desktop; the step always runs the program with no window. Remove it."
+        )
+    if "morphing" in data or (isinstance(table, dict) and "morphing" in table):
+        raise FsiExternalSetupError(
+            f"{source}: morphing: the solver's direct mesh morphing is a route of the "
+            "package's beam; an external program is coupled through the aeroelastic "
+            "toolbox's interpolation. Remove it."
+        )
+
+
 def resolve_external_fsi(path: str | Path) -> ExternalStructure:
     """Read, check and hash an external FSI input (FR-462 R1, R4, R6).
 
@@ -117,18 +133,7 @@ def resolve_external_fsi(path: str | Path) -> ExternalStructure:
         data = tomllib.loads(raw.decode("utf-8-sig"))
     except (tomllib.TOMLDecodeError, UnicodeError) as error:
         raise FsiExternalSetupError(f"{source}: invalid FSI input: {error}") from error
-    table = data.get("external")
-    if isinstance(table, dict) and "show_console" in table:
-        raise FsiExternalSetupError(
-            f"{source}: [external] show_console: a console window per coupling call would "
-            "open on the desktop; the step always runs the program with no window. Remove it."
-        )
-    if "morphing" in data or (isinstance(table, dict) and "morphing" in table):
-        raise FsiExternalSetupError(
-            f"{source}: morphing: the solver's direct mesh morphing is a route of the "
-            "package's beam; an external program is coupled through the aeroelastic "
-            "toolbox's interpolation. Remove it."
-        )
+    _refuse_the_beam_keys(source, data)
     try:
         spec = ExternalFsiInput.model_validate(data)
     except ValidationError as error:

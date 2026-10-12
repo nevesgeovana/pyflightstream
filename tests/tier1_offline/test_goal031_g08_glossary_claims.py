@@ -34,13 +34,11 @@ which field stands for the key.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -67,18 +65,20 @@ from pyflightstream.cases.workflows import (
     RESTART_ITERATIONS_VARIABLE,
     ROW_KEY_MEANINGS,
     WORKFLOWS,
-    _gap_evidence,
     build_script,
     build_steady_sweep,
     covered_builds,
     select_workflow,
+    sixdof_commands,
 )
+from pyflightstream.commands import Status
 from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.run._ids import _is_cold_start
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import read_raw_mesh_conditions
 from pyflightstream.workspace.matrix import _bind_setup_ports
+from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
@@ -929,17 +929,17 @@ class Outcome:
 
 
 def _render(case: SimCase, build: str, sweep: bool) -> tuple[str | None, str]:
-    script = Script(build)
     # 0.40.0: the evidence gate of the command gap (FR-461 R-GATE) is held by its
-    # own tests; here a SIXDOF row is measured for what its value sets, so the
-    # gate is opened for the 6DOF commands a probe has not yet verified.
-    gate = (
-        mock.patch.object(_gap_evidence, "command_verified", return_value=True)
-        if case.sixdof is not None
-        else contextlib.nullcontext()
+    # own tests; here a SIXDOF row is measured for what its value sets, so it is
+    # built against the database with its 6DOF commands recorded verified.
+    script = Script(
+        build,
+        None
+        if case.sixdof is None
+        else registry_with(sixdof_commands(case.sixdof), build, Status.VERIFIED),
     )
     try:
-        with warnings.catch_warnings(), gate:
+        with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if sweep:
                 points = [case_at_point(case, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
