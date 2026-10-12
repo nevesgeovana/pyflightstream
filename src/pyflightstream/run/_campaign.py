@@ -276,7 +276,11 @@ def _leave_sweep_table(
     )
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        write_table(sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target)
+        write_table(
+            sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem),
+            target,
+            overwrite=True,
+        )
     except Exception as error:
         return (
             f"the campaign ran and its sweep table was NOT written to {target}: "

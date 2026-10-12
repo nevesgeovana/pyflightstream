@@ -199,10 +199,10 @@ def test_1010_the_rotorless_unsteady_row_states_its_clock_in_seconds(runs):
     sweep = runs.products(MATRIX) / "campaign_sweep.csv"
     with sweep.open(encoding="utf-8") as handle:
         row = next(r for r in csv.DictReader(handle) if r["run_id"] == record.run_id)
-    # The documented pairing of an unsteady loads export: the solver averaged
-    # and its spreadsheet does not print the window; WINDOW_STEPS 6 is the
-    # window the plots reduction uses, not a line of the script.
-    assert (row["reduction"], row["reduction_window"]) == ("time_average", "not_printed")
+    # The documented pairing of an unsteady loads export: it states the last
+    # time step only (0.40.0); WINDOW_STEPS 6 is the window the plots
+    # reduction uses, not a line of the script.
+    assert (row["reduction"], row["reduction_window"]) == ("last_step", "last_time_step")
 
 
 def test_1011_the_rotorless_unsteady_row_states_its_clock_in_azimuth(runs):
