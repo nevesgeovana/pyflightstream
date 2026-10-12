@@ -209,13 +209,74 @@ _COUNT_ARG_NAMES = {
 # inventory comes from declare_existing() and -1 selects all of them.
 _CREATION_COMMANDS = {
     "CREATE_NEW_COORDINATE_SYSTEM": "frames",
+    # A copy is appended as a new frame, and MIRROR duplicates before it
+    # mirrors, so the original survives and the mirrored copy is appended
+    # (coordinate_systems.yaml). Uncounted until 0.40.0, so the next
+    # CREATE_NEW_COORDINATE_SYSTEM was given the copy's index (PFS-2104.017).
+    "DUPLICATE_COORDINATE_SYSTEM": "frames",
+    "MIRROR_COORDINATE_SYSTEM": "frames",
     "CREATE_NEW_ACTUATOR": "actuators",
     "CREATE_NEW_MOTION": "motions",
+    # 25.000 creates a motion by one command per type and has no
+    # CREATE_NEW_MOTION (SRC-749); uncounted until 0.40.0 (PFS-2104.018).
+    "CREATE_NEW_MOTION_EUCLIDEAN": "motions",
+    "CREATE_NEW_MOTION_CUSTOM": "motions",
+    "CREATE_NEW_MOTION_6DOF": "motions",
+    "CREATE_NEW_MOTION_FSI": "motions",
 }
+#: The CREATE_NEW_* commands that make nothing the entity registry counts:
+#: a force, an observer, a region, an inlet or outlet, a surface or a section.
+#: Every CREATE_NEW_* of the database is here or in ``_CREATION_COMMANDS``, and
+#: a tier-1 guard walks the database for one in neither (PFS-2104.018).
+_UNCOUNTED_CREATIONS = frozenset(
+    {
+        "CREATE_NEW_6DOF_CUSTOM_FORCE",
+        "CREATE_NEW_6DOF_EXTERNAL_FORCE",
+        "CREATE_NEW_6DOF_SPRING_FORCE",
+        "CREATE_NEW_ACOUSTIC_OBSERVER",
+        "CREATE_NEW_BASE_REGION",
+        "CREATE_NEW_CIRCLE_VOLUME_SECTION",
+        "CREATE_NEW_INLET",
+        "CREATE_NEW_OUTLET",
+        "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+        "CREATE_NEW_SURFACE_FROM_SELECTION",
+        "CREATE_NEW_SURFACE_SECTION",
+    }
+)
+#: Each deletion command, the kind it deletes and the argument naming the
+#: index, which the registry needs to renumber the labels above it (RPT-021
+#: section 3; PFS-2104.025).
 _DELETION_COMMANDS = {
-    "DELETE_ACTUATOR": "actuators",
-    "DELETE_MOTION": "motions",
+    "DELETE_ACTUATOR": ("actuators", "actuator_index"),
+    "DELETE_MOTION": ("motions", "motion_id"),
+    "DELETE_COORDINATE_SYSTEM": ("frames", "frame"),
 }
+
+#: THE COMMANDS THAT MOVE, SCALE, MIRROR OR COPY MESH SURFACES, named one by one
+#: (PFS-2104.020). A prefix rule recorded ROTATE_SURFACE and the two
+#: TRANSLATE_SURFACE_* and missed SURFACE_ROTATE, SURFACE_SCALE and
+#: SURFACE_MIRROR, so the custom-field envelope was computed from a body those
+#: commands had changed. A tier-1 guard walks the mesh-operations chapter for a
+#: transform missing from this set.
+_SURFACE_TRANSFORM_COMMANDS = frozenset(
+    {
+        "ROTATE_SURFACE",
+        "SURFACE_ROTATE",
+        "TRANSLATE_SURFACE_IN_FRAME",
+        "TRANSLATE_SURFACE_BY_FRAME",
+        "SURFACE_SCALE",
+        "SURFACE_MIRROR",
+        "SURFACE_LINEAR_COPY_PASTE",
+        "SURFACE_CIRCULAR_COPY_PASTE",
+        "TRANSFORM_SELECTED_NODES",
+    }
+)
+
+#: The commands that discard the model the script built and start another.
+_NEW_MODEL_COMMANDS = frozenset({"OPEN", "NEW_SIMULATION"})
+#: The minimum-Cp limiter, whose library default a settings call emits only
+#: while the script carries none (PFS-2104.023).
+_MINIMUM_CP_COMMAND = "SOLVER_MINIMUM_CP"
 #: The command that initialises the solver. The script keeps where it last
 #: emitted it, which :meth:`Script.emit_after_initialization` needs (G02).
 _INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
@@ -473,7 +534,6 @@ _UNFOLLOWED_FRAME_COMMANDS = frozenset(
         "SET_COORDINATE_SYSTEM_AXIS",
         "NORMALIZE_COORDINATE_SYSTEM",
         "TRANSLATE_COORDINATE_SYSTEM",
-        "MIRROR_COORDINATE_SYSTEM",
     }
 )
 
@@ -491,6 +551,7 @@ _FRAME_NEUTRAL_COMMANDS = frozenset(
         "CREATE_NEW_COORDINATE_SYSTEM",
         "SET_COORDINATE_SYSTEM_NAME",
         "DUPLICATE_COORDINATE_SYSTEM",
+        "MIRROR_COORDINATE_SYSTEM",
         "SET_MOTION_COORDINATE_SYSTEM",
         "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
     }
@@ -772,6 +833,42 @@ def _match_enum(entry: CommandEntry, spec: ArgSpec, value: object) -> str:
     raise AssertionError("unreachable")
 
 
+#: How :meth:`Script.emit_line` names a token of each typed argument it cannot read.
+_LINE_TOKEN_EXAMPLES = {
+    ArgType.INT: "a whole number such as 300",
+    ArgType.FLOAT: "a number such as 1.0",
+    ArgType.BOOL: "ENABLE or DISABLE (or True or False)",
+}
+_LINE_BOOLS = {"ENABLE": True, "TRUE": True, "DISABLE": False, "FALSE": False}
+#: What :func:`_line_token` returns for a token that is not its argument's type.
+_UNREAD = object()
+
+
+def _line_token(spec: ArgSpec, token: str, *, element: bool) -> object:
+    """Read one token of a script line as the value ``spec`` declares.
+
+    ``element`` reads the token as one item of a list argument. Returns
+    :data:`_UNREAD` when the token is not that type, which for a list ends
+    the run of tokens the list takes.
+    """
+    kind = spec.type
+    if element:
+        kind = {
+            ArgType.INT_LIST: ArgType.INT,
+            ArgType.FLOAT_LIST: ArgType.FLOAT,
+        }.get(kind, ArgType.STR)
+    try:
+        if kind is ArgType.INT:
+            return int(token)
+        if kind is ArgType.FLOAT:
+            return float(token)
+    except ValueError:
+        return _UNREAD
+    if kind is ArgType.BOOL:
+        return _LINE_BOOLS.get(token.upper(), _UNREAD)
+    return token
+
+
 def _check_scalar(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
     if spec.type is ArgType.INT:
         if isinstance(value, bool) or not isinstance(value, int):
@@ -941,6 +1038,14 @@ class Script:
         # resolved 1-based boundary indices, never labels.
         self._pending_vorticity: list[int] | Literal["all"] | None = None
         self._vorticity_selection: list[int] | Literal["all"] | None = None
+        # Whether a SOLVER_MINIMUM_CP is in the script, by any route: a later
+        # settings call that omits minimum_cp then emits no library default
+        # over it (PFS-2104.023). Filled by :meth:`emit`.
+        self._minimum_cp_emitted = False
+        # The unsteady regime unsteady_solver emitted, (time_iterations,
+        # delta_time), for the snapshot of a settings call that states no mode
+        # (PFS-2103.037); None while no such call ran.
+        self._unsteady_regime: tuple[int, float] | None = None
         #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
         #: point in creation order: the vertex number, its x, y and z as
         #: emitted, and the NAME of the frame they are measured in.
@@ -1305,10 +1410,12 @@ class Script:
             boundary accept the entity's label instead of its index;
             labels resolve at emission through the entity registry.
         label : str, optional
-            Only on a creation command (CREATE_NEW_COORDINATE_SYSTEM,
-            CREATE_NEW_ACTUATOR, CREATE_NEW_MOTION): registers this
-            label for the created entity, so later commands can cite
-            it by name instead of by index.
+            Only on a creation command (CREATE_NEW_COORDINATE_SYSTEM and
+            the two that append a frame, DUPLICATE_COORDINATE_SYSTEM and
+            MIRROR_COORDINATE_SYSTEM; CREATE_NEW_ACTUATOR; CREATE_NEW_MOTION
+            and the four type-specific motion creations of 25.000):
+            registers this label for the created entity, so later
+            commands can cite it by name instead of by index.
 
         Raises
         ------
@@ -1337,7 +1444,24 @@ class Script:
         # whole database and emit each broken command with no arguments
         # at all, which is what makes that guard writable for commands
         # whose grammars have nothing in common.
-        waived = self._check_not_broken(entry)
+        #
+        # NOTHING IS RECORDED UNTIL THE BLOCK IS ACCEPTED (PFS-2104.019). The
+        # waiver record and the phase move are computed here and committed
+        # after every check below has passed, so a refused emission leaves
+        # the script exactly as it found it: no waiver listed for a line
+        # never written, no phase reached by a command that is not there.
+        waiver = self._check_not_broken(entry)
+        if entry.name in _NEW_MODEL_COMMANDS and (
+            self.num_local_frames
+            or self.num_actuators
+            or self.num_motions
+            or self.num_boundaries is not None
+        ):
+            raise CommandArgumentError(
+                f"{entry.name}: cannot replace a model whose entities this Script already "
+                "tracks. Its labels, placements and loads records belong to that model. "
+                "Create a new Script for the new model instead (PFS-2088.009)"
+            )
         if label is not None:
             if entry.name not in _CREATION_COMMANDS:
                 raise CommandArgumentError(
@@ -1347,9 +1471,18 @@ class Script:
                 )
             self.entities.assert_label_free(_CREATION_COMMANDS[entry.name], label)
         bound = self._bind(entry, args, kwargs)
-        self._check_phase(entry)
+        phase = self._check_phase(entry)
         self._check_references(entry, bound)
         block, multiline = self._render_command(entry, bound)
+        exports = [
+            str(bound[argument.name])
+            for argument in entry.args
+            if entry.name.startswith("EXPORT_")
+            and argument.type is ArgType.PATH
+            and argument.name in bound
+        ]
+        for path in exports:
+            self._refuse_export_collision(path, asker=entry.name)
         # The choke point, and the reason this guard is here rather than only
         # in the type checks above. Those close the two argument types known
         # to carry text today; this closes the INVARIANT, which is that one
@@ -1368,14 +1501,17 @@ class Script:
                     "argument type that is not line-checked, that check is the "
                     f"fix, not this message ({entry.citation})"
                 )
-        if waived and not self._broken_uses[entry.name].first_line:
-            # The reason was written for ONE call and the waiver covers
-            # every later one, so the record keeps the line the first
-            # waived emission produced. Set here rather than in the
-            # status check, because that runs before rendering.
-            self._broken_uses[entry.name] = self._broken_uses[entry.name].model_copy(
-                update={"first_line": block[0] if block else ""}
-            )
+        # ACCEPTED: from here on the emission is committed.
+        if phase is not None:
+            self._phase_index, self._phase_setter = phase
+        if entry.name == _MINIMUM_CP_COMMAND:
+            self._minimum_cp_emitted = True
+        if entry.name in _NEW_MODEL_COMMANDS:
+            self.surface_operations.clear()
+            self.custom_field_extent_m = None
+            self.custom_field_coverage = None
+            self._minimum_cp_emitted = False
+            self._unsteady_regime = None
         if entry.name == _INITIALIZATION_COMMAND:
             self._initialized_at = len(self._lines) + 1
             self._reinitialization_owed = None
@@ -1386,15 +1522,16 @@ class Script:
                 else None
             )
         self._lines.extend(block)
+        if waiver is not None and entry.name not in self._broken_uses:
+            # Retain the first accepted line covered by this waiver.
+            self._broken_uses[entry.name] = waiver.model_copy(
+                update={"first_line": block[0] if block else ""}
+            )
         if multiline:
             self._lines.append("")
-        if entry.name in {"OPEN", "NEW_SIMULATION"}:
-            self.surface_operations.clear()
-            self.custom_field_extent_m = None
-            self.custom_field_coverage = None
-        if "SURFACE" in entry.name and entry.name.startswith(
-            ("ROTATE", "TRANSLATE", "SCALE", "MIRROR")
-        ):
+        for path in exports:
+            self._exported_paths[path] = entry.name
+        if entry.name in _SURFACE_TRANSFORM_COMMANDS:
             frame_index = bound.get("frame")
             placement = (
                 self.frame_placements.get(frame_index) if isinstance(frame_index, int) else None
@@ -1422,9 +1559,14 @@ class Script:
             self._sets_loads_frame = True
         self._follow_volume_sections(entry.name, bound)
         if entry.name in _CREATION_COMMANDS:
-            self.entities.create(_CREATION_COMMANDS[entry.name], label=label)
+            kind = _CREATION_COMMANDS[entry.name]
+            created = self.entities.create(kind, label=label)
+            if kind == "frames":
+                # A new frame, a copy included, is placed by no command yet.
+                self._frame_placements.pop(created, None)
         elif entry.name in _DELETION_COMMANDS:
-            self.entities.delete(_DELETION_COMMANDS[entry.name])
+            kind, argument = _DELETION_COMMANDS[entry.name]
+            self.entities.delete(kind, int(bound[argument]))  # type: ignore[call-overload]
 
     def bind_native_solver_identity(self, *, executable_sha256: str, build: str) -> None:
         """Bind an identity verified by the caller for exact motion-proof lookup.
@@ -1603,11 +1745,70 @@ class Script:
 
     def _follow_length_unit(self, name: str, bound: Mapping[str, object]) -> None:
         """Keep :attr:`simulation_length_unit` in step with a command just emitted."""
-        if name in {"OPEN", "NEW_SIMULATION"}:
+        if name in _NEW_MODEL_COMMANDS:
             self._simulation_length_unit = None
             self._opened_length_unit = None
         elif name == LENGTH_UNIT_COMMAND:
             self._simulation_length_unit = str(bound["units"])
+
+    def _refuse_export_collision(self, path: str, *, asker: str) -> None:
+        """Refuse an export to a file this script already exports to (PFS-2093.004).
+
+        THE ONE CHECK OF THE EXPORT REGISTER, keyed by
+        :func:`~pyflightstream._digest.one_file_key`, the key the parked action
+        scripts and input files are matched by: a path through a parent folder,
+        or equal but for case, is the same file where the solver writes. The
+        export helpers call it before their first line, so a refusal leaves the
+        script untouched, and record the path afterwards. A command emitted
+        directly passes through it too, before any state is committed.
+
+        Parameters
+        ----------
+        path : str
+            The output path, as the command renders it.
+        asker : str
+            The helper or command asking, named in the remedy.
+
+        Raises
+        ------
+        CommandArgumentError
+            If the register already holds the file, naming the earlier call
+            site.
+        """
+        from pyflightstream._digest import one_file_key
+
+        key = one_file_key(path)
+        for held, site in self._exported_paths.items():
+            if one_file_key(held) == key:
+                same = "" if held == path else f" (as {held!r}, the same file)"
+                raise CommandArgumentError(
+                    f"this script already exports to {path!r}{same}, from {site}. The "
+                    "solver writes one file per path, so the second export would "
+                    "silently replace the first and the script would carry two "
+                    f"exports of one file. Give {asker} a path of its own, for "
+                    "example one carrying the point or the survey name."
+                )
+
+    def _parked_file(self, path: str) -> tuple[str, str] | None:
+        """Name the parked file ``path`` would replace, across both registers.
+
+        Returns ``("action script", key)`` or ``("input file", key)`` for the
+        parked path that :func:`~pyflightstream._digest.one_file_key` reads as
+        the same file, or None. The two registers are written by different
+        helpers, so a check on one alone let an action script and an input file
+        share a path (PFS-2093.011).
+        """
+        from pyflightstream._digest import one_file_key
+
+        key = one_file_key(path)
+        for register, parked in (
+            ("action script", self._pending_action_scripts),
+            ("input file", self._pending_input_files),
+        ):
+            for held in parked:
+                if one_file_key(held) == key:
+                    return register, held
+        return None
 
     @property
     def volume_sections(self) -> int:
@@ -1666,19 +1867,24 @@ class Script:
         """Emit one command line as the solver reads it (PFS-2033.01).
 
         The line is split on whitespace; the first token is the command
-        and the rest its arguments, each coerced to the scalar type the
-        database declares for its position (an int, a float, or the
-        token itself for an enum, a string or a path), then handed to
-        :meth:`emit`, so every check of a curated emission applies. Only a
-        command whose grammar is one line (``bare`` or ``inline``) is
-        carried: a block, a payload or a parameter list is refused naming
-        the layout, since the line the user wrote cannot be it.
+        and the rest its arguments, each coerced to the type the database
+        declares for its position (an int, a float, ENABLE/DISABLE or
+        True/False for a bool, or the token itself for an enum, a string or
+        a path), then handed to :meth:`emit`, so every check of a curated
+        emission applies. A list argument takes the run of following tokens
+        its element type reads, as the inline renderer writes it, so a
+        sweep line such as ``SWEEPER_SET_AOA_SWEEP CUSTOM 0.0 2.0 4.0``
+        round-trips. Only a command whose grammar is one line (``bare`` or
+        ``inline``) is carried: a block, a payload or a parameter list is
+        refused naming the layout, since the line the user wrote cannot be
+        it.
 
         Raises
         ------
         CommandArgumentError
-            If the command's layout is not one line, or a token is not
-            the number its position declares.
+            If the command's layout is not one line, a token is not the
+            type its position declares, or tokens are left that no argument
+            reads (a value containing a space, which splits into several).
         """
         tokens = line.split()
         if not tokens:
@@ -1692,34 +1898,66 @@ class Script:
                 "has no place in it. State what the block sets through the preset's own "
                 "keys or the row's, or drop the entry"
             )
-        typed: list[object] = []
-        for argument, token in zip(spec.args, arguments, strict=False):
-            try:
-                if argument.type is ArgType.INT:
-                    typed.append(int(token))
-                elif argument.type is ArgType.FLOAT:
-                    typed.append(float(token))
-                else:
-                    typed.append(token)
-            except ValueError:
-                example = (
-                    "a whole number such as 300"
-                    if argument.type is ArgType.INT
-                    else "a number such as 1.0"
-                )
+        # BY NAME, because a list argument takes a run of tokens rather than
+        # one, and an optional list left out must not shift the tokens after
+        # it onto the wrong argument (PFS-2095.054, PFS-2093.012). A list takes
+        # every following token its element type reads, which is how the
+        # inline renderer wrote it (items joined by spaces); the first token
+        # it cannot read goes to the next argument.
+        bound: dict[str, object] = {}
+        position = 0
+        for argument in spec.args:
+            if position >= len(arguments):
+                break
+            if argument.is_list:
+                items: list[object] = []
+                while position < len(arguments):
+                    item = _line_token(argument, arguments[position], element=True)
+                    if item is _UNREAD:
+                        break
+                    items.append(item)
+                    position += 1
+                if items:
+                    bound[argument.name] = items
+                continue
+            token = arguments[position]
+            value = _line_token(argument, token, element=False)
+            if value is _UNREAD:
                 raise CommandArgumentError(
                     f"{name}: argument {argument.name!r} is {token!r}, which is not "
-                    f"{argument.type.value}; write it as the manual prints it, {example}"
-                ) from None
-        typed.extend(arguments[len(spec.args) :])
-        self.emit(name, *typed)
+                    f"{argument.type.value}; write it as the manual prints it, "
+                    f"{_LINE_TOKEN_EXAMPLES.get(argument.type, 'one token')}"
+                )
+            bound[argument.name] = value
+            position += 1
+        left = arguments[position:]
+        if left:
+            raise CommandArgumentError(
+                f"{name}: the line carries {len(left)} token(s) no argument of the "
+                f"command reads ({' '.join(left)!r}). A line is split on whitespace, "
+                "so a value containing a space (a path under 'Program Files') arrives "
+                "as several tokens, and a list is read only where the command declares "
+                "one. Neither form is supported on one line: emit the command with "
+                "Script.emit, which takes each argument whole"
+            )
+        self.emit(name, **bound)
 
     def raw(self, text: str) -> None:
-        """Append unvalidated script text and flag the script (FR-07)."""
+        """Append unvalidated script text and flag the script (FR-07).
+
+        Unvalidated text may move any frame, so every placement but the
+        reference's is forgotten, as the motion ledger forgets its motions: a
+        reader of :attr:`frame_placements` then refuses the frame by name
+        rather than computing from geometry the text may have changed
+        (PFS-2104.021).
+        """
         self.raw_flag = True
         self._motion_ledger.invalidate(
             "Unvalidated raw script may change motion or frame placement."
         )
+        for frame in self._frame_placements:
+            if frame != _REFERENCE_PLACEMENT_INDEX:
+                self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
         self._lines.extend(text.splitlines())
 
     def allow_broken(self, name: str, /, *, reason: str) -> None:
@@ -1804,11 +2042,13 @@ class Script:
         """Return the complete script text, newline terminated."""
         return "\n".join(self._lines) + "\n"
 
-    def _check_not_broken(self, entry: CommandEntry) -> bool:
+    def _check_not_broken(self, entry: CommandEntry) -> BrokenCommandUse | None:
         """Refuse a command a probe measured broken, unless it was waived.
 
-        Returns whether this emission is being waived, so the caller can
-        record which line the waiver actually covered.
+        Returns the waiver record this emission would add, or None when the
+        command is not broken here. Nothing is recorded: :meth:`emit` commits
+        the record once the block is accepted, so an emission refused by a
+        later check leaves no waiver in the manifest (PFS-2103.035).
         """
         # evidence_in, not status_in. A hotfix build inherits its base
         # release's record, and this is one of the two places where the
@@ -1819,7 +2059,7 @@ class Script:
         # it is the sentence a user reads before deciding to waive.
         evidence = entry.evidence_in(self.version)
         if evidence is None or evidence.record.status is not Status.BROKEN:
-            return False
+            return None
         record = evidence.record
         observed = record.note or "a committed probe measured it not behaving as documented"
         where = (
@@ -1841,22 +2081,14 @@ class Script:
                 "then emits and the script and the run manifest record it, its "
                 "report and your justification."
             )
-        # setdefault, not assignment: the entry describes the command and
-        # the waiver, so a second emission of the same command adds no
-        # fact, and the first emission is the one whose position in the
-        # script a reader would look for.
-        self._broken_uses.setdefault(
-            entry.name,
-            BrokenCommandUse(
-                command=entry.name,
-                version=self.version.canonical,
-                source_version=evidence.source,
-                report=record.report,
-                note=record.note,
-                reason=reason,
-            ),
+        return BrokenCommandUse(
+            command=entry.name,
+            version=self.version.canonical,
+            source_version=evidence.source,
+            report=record.report,
+            note=record.note,
+            reason=reason,
         )
-        return True
 
     def _bind(self, entry: CommandEntry, args: tuple, kwargs: dict) -> dict[str, object]:
         specs = entry.args
@@ -1944,6 +2176,19 @@ class Script:
                             f"the documented all-entities form ({entry.citation})"
                         )
                     continue
+                # -1 TAKES NO PAYLOAD, so a list under it is refused rather
+                # than rendered: its lines would follow the count line and
+                # the solver would read them as commands (PFS-2104.022).
+                given = bound[spec.name]
+                if count_value == -1 and len(given):
+                    raise CommandArgumentError(
+                        f"{entry.name}: the declared count is -1, the documented "
+                        f"all-entities form, which takes no payload, and {spec.name!r} "
+                        f"holds {len(given)} values. Their lines would follow the "
+                        "count line and the solver would read them as commands. Drop "
+                        f"the {spec.name!r} values to select every entity, or state "
+                        f"their count to select those ({entry.citation})"
+                    )
                 # Only -1 is exempt, being the documented all-entities
                 # count. `>= 0` let EVERY negative through, so a count
                 # of -2 silently disabled the comparison and the list
@@ -2063,13 +2308,21 @@ class Script:
             self._through_the_door = False
         self._reinitialization_owed = (name, line)
 
-    def _check_phase(self, entry: CommandEntry) -> None:
+    def _check_phase(self, entry: CommandEntry) -> tuple[int, tuple[str, int]] | None:
+        """Refuse a command whose phase has passed; return the phase it reaches.
+
+        Returns the new phase index and its setter when the command moves the
+        phase forward, or None when it does not. Nothing is moved here:
+        :meth:`emit` commits the move once the block is accepted, so a command
+        refused by a later check does not leave the script in a phase it never
+        reached (PFS-2104.019).
+        """
         if entry.phase is Phase.CONTROL:
-            return
+            return None
         if self._through_the_door:
             # emit_after_initialization judged this emission, and it moves no
             # phase: the next command still meets the init phase.
-            return
+            return None
         index = _ORDERED_PHASES.index(entry.phase)
         if self._reinitialization_owed is not None and index > _ORDERED_PHASES.index(Phase.INIT):
             waiting, line = self._reinitialization_owed
@@ -2090,8 +2343,8 @@ class Script:
                 "geometry, setup, init, exec, analysis, export."
             )
         if self._phase_index is None or index > self._phase_index:
-            self._phase_index = index
-            self._phase_setter = (entry.name, len(self._lines) + 1)
+            return index, (entry.name, len(self._lines) + 1)
+        return None
 
     def _check_references(self, entry: CommandEntry, bound: dict[str, object]) -> None:
         for spec in entry.args:

@@ -564,6 +564,10 @@ def test_a_build_inside_the_range_emits():
     covered = covered_builds(resolve_workflow("unsteady_rotor"))
     assert len(covered) >= 2, "too few covered builds for this guard to mean anything"
     for build in covered:
+        if build == "26.100":
+            with pytest.raises(CommandArgumentError, match="RPT-051"):
+                build_script(rotor_case(), Script(build))
+            continue
         script = Script(build)
         build_script(rotor_case(), script)
         speed = (
@@ -601,76 +605,31 @@ def test_a_build_without_the_rotary_type_writes_the_rotor_as_a_euclidean_motion(
     assert f"SET_MOTION_IS_ROTOR 1 ENABLE {axis}" in lines
 
 
-def test_26100_writes_the_rotor_as_a_euclidean_motion_without_the_mark_in_rev_per_min():
-    """FR-101 at 0.20.1: no rotor mark, rev/min along the axis, and the script says so (RPT-051)."""
+def test_26100_refuses_the_unproved_rotor_unit():
+    """The rev/min choice is refused until a null test settles it (RPT-051)."""
     script = Script("26.100")
-    build_script(rotor_case(), script)
-    lines = script.render().splitlines()
-    assert "CREATE_NEW_MOTION EUCLIDEAN" in lines
-    assert not any(
-        line.startswith(("SET_MOTION_ROTOR_", "SET_MOTION_IS_ROTOR", "CREATE_NEW_MOTION ROTARY"))
-        for line in lines
-    )
-    rotary = Script("26.120")
-    build_script(rotor_case(), rotary)
-    rotary_lines = rotary.render().splitlines()
-    rpm = float(
-        next(line for line in rotary_lines if line.startswith("SET_MOTION_ROTOR_RPM")).split()[2]
-    )
-    axis = next(line for line in rotary_lines if line.startswith("SET_MOTION_ROTOR_AXIS")).split()[
-        2
-    ]
-    velocity = next(line for line in lines if line.startswith("SET_MOTION_ANGULAR_VELOCITY"))
-    expected = [rpm if letter == axis else 0.0 for letter in "XYZ"]
-    assert [float(v) for v in velocity.split()[2:]] == pytest.approx(expected, rel=1e-12), velocity
-    motion = lines.index("CREATE_NEW_MOTION EUCLIDEAN")
-    comment = []
-    for line in reversed(lines[:motion]):
-        if not line.startswith("#"):
-            break
-        comment.insert(0, line[2:])
-    told = " ".join(comment)
-    for said in (
-        "not marked as a rotor",
-        "written in rev/min",
-        "neither the unit nor the sense",
-        "9.55",
-        "RPT-051",
-    ):
-        assert said in told, (said, told)
+    with pytest.raises(CommandArgumentError, match="RPT-051"):
+        build_script(rotor_case(), script)
+    assert script.render() == "\n"
 
 
 @pytest.mark.parametrize("rpm", [1200.0, -1200.0])
-def test_26100_keeps_the_sign_of_the_speed_the_rotary_motion_writes(rpm):
-    """QA-1: a negative speed stays negative on 26.100, as the rotary motion on 26.120 writes it."""
+def test_26100_refuses_both_hands_of_the_unproved_speed(rpm):
+    """The unit is unknown for either sign; no motion is emitted."""
     from pyflightstream.script import helpers
 
-    unmarked = Script("26.100")
-    unmarked.declare_existing(frames=2)
-    helpers.rotary_motion(unmarked, frame=2, axis="Y", rpm=rpm)
-    rotary = Script("26.120")
-    rotary.declare_existing(frames=2)
-    helpers.rotary_motion(rotary, frame=2, axis="Y", rpm=rpm)
-    written = next(
-        line
-        for line in unmarked.render().splitlines()
-        if line.startswith("SET_MOTION_ANGULAR_VELOCITY")
-    )
-    rotary_rpm = next(
-        line for line in rotary.render().splitlines() if line.startswith("SET_MOTION_ROTOR_RPM")
-    )
-    assert [float(v) for v in written.split()[2:]] == [0.0, float(rotary_rpm.split()[2]), 0.0]
-    assert float(written.split()[3]) == rpm
+    script = Script("26.100")
+    script.declare_existing(frames=2)
+    with pytest.raises(CommandArgumentError, match="RPT-051"):
+        helpers.rotary_motion(script, frame=2, axis="Y", rpm=rpm)
+    assert script.render() == "\n"
 
 
 def test_the_euclidean_speed_is_written_in_the_unit_its_constant_names(monkeypatch):
     """Architect AR-1, API-1: the unit constants decide the value, so they cannot drift from it."""
     from pyflightstream.script import helpers
 
-    for build, constant in (
-        ("26.000", "EUCLIDEAN_ROTOR_UNIT"),
-        ("26.100", "UNMARKED_EUCLIDEAN_ROTOR_UNIT"),
-    ):
+    for build, constant in (("26.000", "EUCLIDEAN_ROTOR_UNIT"),):
         for unit, factor in (("rad/s", 2 * math.pi / 60), ("rev/min", 1.0)):
             monkeypatch.setattr(helpers, constant, unit)
             script = Script(build)
@@ -1867,7 +1826,7 @@ def unsteady_case_resolved() -> SimCase:
     return unsteady_case(DELTA_TIME="0.00125", TIME_ITERATIONS="96").model_copy(
         update={
             "reference": steady_case_resolved().reference,
-            "condition": steady_case_resolved().condition,
+            "condition": getattr(steady_case_resolved(), "condition", None),
         }
         if hasattr(steady_case_resolved(), "condition")
         else {"reference": steady_case_resolved().reference}
@@ -1920,7 +1879,13 @@ GOLDEN_CASES = {
 #: that is decided either way, this set goes empty in the same commit.
 #: The quasi-steady rotor (0.30.0) initialises as the steady type does, so it
 #: meets the same refusal on that edition.
-EXPECTED_REFUSALS = {("steady", "25.000"), ("unsteady", "25.000"), ("qsteady_rotor", "25.000")}
+EXPECTED_REFUSALS = {
+    ("steady", "25.000"),
+    ("unsteady", "25.000"),
+    ("qsteady_rotor", "25.000"),
+    ("unsteady_rotor", "26.100"),
+    ("qsteady_rotor", "26.100"),
+}
 
 #: Every workflow crossed with every case shape and every build it
 #: covers: the population the byte-identity claim was always about.

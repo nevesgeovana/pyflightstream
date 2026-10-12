@@ -58,6 +58,9 @@ _SHEDDING_BY_FIELD: Mapping[int, str] = {
 #: The direction a specification that states no direction value means.
 DEFAULT_SHEDDING_DIRECTION = "AXIAL"
 
+#: The character that separates the values of the specification.
+_SEPARATOR = ";"
+
 
 def _shedding_vocabulary() -> str:
     """Render the accepted directions the way every refusal names them."""
@@ -197,10 +200,12 @@ class RelaxedTrailingEdge:
     def __post_init__(self) -> None:
         """Normalize the values and refuse a record that cannot render.
 
-        The record is public and constructible directly, so the two
+        The record is public and constructible directly, so the
         invariants rendering rests on are checked here rather than only
-        in the parser: exactly the three values, and a direction the
-        direction value can spell.
+        in the parser: exactly the three values, none blank and none
+        holding the separator, and a direction the direction value can
+        spell, resolved as the parser resolves it (so 0 and 1 are the
+        directions the refusal names, PFS-2097.017, PFS-2097.018).
         """
         object.__setattr__(self, "fields", tuple(str(field).strip() for field in self.fields))
         if len(self.fields) != RELAXED_TE_FIELDS_WITHOUT_DIRECTION:
@@ -212,12 +217,25 @@ class RelaxedTrailingEdge:
                 "can tell a specification that states the direction from one that leaves "
                 "it at the default (SRC-752 p.85)"
             )
-        if self.direction is not None and self.direction not in RELAXED_SHEDDING_DIRECTIONS:
+        unwritable = [
+            position
+            for position, field in enumerate(self.fields, start=1)
+            if not field or _SEPARATOR in field
+        ]
+        if unwritable:
             raise CommandArgumentError(
-                f"RelaxedTrailingEdge direction is {self.direction!r}, and the direction "
-                f"value of the specification takes {_shedding_vocabulary()} "
-                "(SRC-751 p.85). Pass None to leave the value unwritten, which means "
-                "the axial direction"
+                f"RelaxedTrailingEdge fields {self.fields!r}: value(s) "
+                f"{', '.join(str(position) for position in unwritable)} are blank or hold "
+                f"the separator {_SEPARATOR!r}. Every value is written, and the "
+                "specification separates them with that character, so a blank value is "
+                "a separator too many and one holding it renders as two values, which "
+                "reads back as another specification (SRC-752 p.85)"
+            )
+        if self.direction is not None:
+            object.__setattr__(
+                self,
+                "direction",
+                resolve_shedding_direction(self.direction, context="RelaxedTrailingEdge"),
             )
 
     @property
