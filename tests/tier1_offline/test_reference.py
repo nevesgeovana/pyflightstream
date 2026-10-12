@@ -58,7 +58,7 @@ def test_help_writes_the_page_without_opening_a_browser(tmp_path: Path):
     assert target.is_file()
     text = target.read_text(encoding="utf-8")
     assert "pyflightstream command reference" in text
-    assert "113 commands" in text or "commands." in text
+    assert f"{len(CommandRegistry.load().commands)} commands." in text
 
 
 def test_markdown_pages_cover_every_chapter_and_command():
