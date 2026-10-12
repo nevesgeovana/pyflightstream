@@ -119,6 +119,7 @@ def test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup():
 
 
 @pytest.mark.requirement("FR-310")
+@pytest.mark.requirement("FR-380")  # kept: the module cites it, and the test resolves its commands
 @pytest.mark.parametrize("layout", LAYOUTS)
 @pytest.mark.parametrize("command", sorted(MATRIX_ARGUMENTS))
 def test_fr310_each_command_resolves_its_matrix_over_both_homes(
