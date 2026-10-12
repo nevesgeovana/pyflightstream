@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.78.0 |
+| Version | 1.80.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -104,7 +104,8 @@ is still pending.
 
 | Version | Date | Change |
 |---|---|---|
-| 1.80.0 | 2026-10-12 | FR-176 amended by R1 (PFS-2113.031): the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` joins `M_tip` and `M_hel` in the plan, the run record and the rotor table, and the plan warns on `M_adv >= 1`; `M_hel` is unchanged; implemented with P0400-MADV. |
+| 1.81.0 | 2026-10-12 | FR-176 amended by R1 (PFS-2113.031): the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` joins `M_tip` and `M_hel` in the plan, the run record and the rotor table, and the plan warns on `M_adv >= 1`; `M_hel` is unchanged; implemented with P0400-MADV. |
+| 1.80.0 | 2026-10-12 | The geometry stage completes the accepted design: FR-471 gains R10 (a rebuilt mesh's sidecar carries over the operations and tables the run reads), FR-472 gains R5 to R7 (`--rows`, `--parallel` and the overlaid sweep preview) and FR-473 gains R5 (the warning on a mirrored row whose body carries a deflected control surface). No other requirement changes. |
 | 1.79.0 | 2026-10-12 | The 0.40.0 far-field family and probes home (PFS-2139.001, PFS-2140.001): FR-450 to FR-459, FR-38 amended (the workspace route of the ledgers, the rothalpy ledger leaves) and FR-79 amended (the layouts move to `probes`), written before the first package commit of the family, all pending, with their P0400 markers in `docs/srs/markers-0400.json`. |
 | 1.78.0 | 2026-10-12 | The geometry stage of 0.40.0: FR-470 to FR-477, written before the code and implemented with their tier-1 tests in the same release (the solver's answer to each gated command is owed to the licensed probe batch, and the build refuses those commands until then), for PFS-2081.41 with the mesh operations of PFS-2081.13 and the CAD bodies and solver-built geometry of PFS-2081.14: the instruction file (FR-470), `pyfs-workspace geometry build` with its preview, its one solver execution, the read-back, the audit, the preview file and the record (FR-471), the deflection sweep (FR-472), the acceptance and the plan's reading of the record (FR-473), the mesh operations (FR-474), the CAD bodies and the solver-built geometry (FR-475), the warnings of the in-row routes and the converter (FR-476) and the geometry verbs in one group (FR-477). No existing requirement changes its statement or its status. |
 | 1.77.0 | 2026-10-12 | The command-gap requirements of 0.40.0: FR-460 (streamlines from a pproc table), FR-461 (a body free to move, by the SIXDOF row key) and FR-462 (an external structural program behind the FSI input), written before the first package commit and promoted to implemented in the same lane with their tests (P0400-STREAMLINES, P0400-SIXDOF, P0400-FSIEXT). |

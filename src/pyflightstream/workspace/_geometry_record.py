@@ -124,6 +124,30 @@ def _judge_the_record(geometry: Path, pol: str, fs_build: str | None) -> None:
         )
 
 
+def _warn_a_mirrored_deflection(geometry: Path, pol: str, symmetry: str | None) -> None:
+    """Warn on a MIRROR row whose body carries a deflected control surface (FR-473 R5)."""
+    if (symmetry or "").strip().upper() != "MIRROR":
+        return
+    found = build_record_of(geometry)
+    if found is None:
+        return
+    deflected = [
+        surface
+        for surface in found[1].get("control_surfaces", [])
+        if float(surface.get("angle_deg", 0.0)) != 0.0
+    ]
+    if not deflected:
+        return
+    angles = ", ".join(f"{s.get('name')} at {s.get('angle_deg')} deg" for s in deflected)
+    warn(
+        f"matrix row POL {pol} mirrors {geometry.name} (SYMMETRY MIRROR), whose control "
+        f"surface is deflected ({angles}): a mirrored half deflects both sides alike. "
+        f"Write SYMMETRY NONE for a one-sided deflection ({_PAGE}).",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def _warn_in_row_routes(geometry: Path, pol: str, mesh_import: MeshImport | None) -> None:
     suffix = geometry.suffix.lower()
     moved = (
@@ -155,7 +179,12 @@ def _warn_in_row_routes(geometry: Path, pol: str, mesh_import: MeshImport | None
 
 
 def judge_the_row_geometry(
-    geometry: Path, pol: str, *, fs_build: str | None, mesh_import: MeshImport | None
+    geometry: Path,
+    pol: str,
+    *,
+    fs_build: str | None,
+    mesh_import: MeshImport | None,
+    symmetry: str | None = None,
 ) -> None:
     """Judge the geometry one row names: its build record and its route (FR-473, FR-476).
 
@@ -165,4 +194,5 @@ def judge_the_row_geometry(
         A built body whose instruction or a recorded input changed after the build.
     """
     _judge_the_record(geometry, pol, fs_build)
+    _warn_a_mirrored_deflection(geometry, pol, symmetry)
     _warn_in_row_routes(geometry, pol, mesh_import)

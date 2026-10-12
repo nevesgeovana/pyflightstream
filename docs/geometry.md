@@ -140,6 +140,16 @@ trailing-edge points file `<name>.te.txt` instead of the saved simulation; with
 both outputs the mesh is a geometry of its own, `<name>_obj/`. `--png` also
 draws `<name>.preview.png` (the `plot` extra).
 
+**What a rebuilt mesh keeps.** The built mesh's sidecar carries over what the
+run reads of a mesh and the build does not make: the `translate` and `rotate`
+operations of `[[import.operations]]`, `[wake_termination]` and
+`[base_regions]`. They are taken from the sidecar the mesh had before the
+rebuild, else from the sidecar of the `[mesh]` source. With a carried
+`translate` or `rotate`, the sidecar marks the trailing edges by detection
+(`detect = "auto"`), because the run refuses a points file beside an
+operation that moves the body; `<name>.te.txt` stays beside the mesh. The
+build prints what it carried over.
+
 The exit status is 0 when the body is built and audited, 1 when it is built
 and an audit gate failed (the files stay), 2 when the build is refused and
 nothing was written, 3 when the solver or the read-back failed (nothing is
@@ -175,6 +185,22 @@ degree, with its sign). `--only AIL+100` builds the variants named. The command
 prints the `CONFIGURATION` and `GEOMETRY` cells of a row naming each variant;
 the matrix names one variant per row.
 
+`--rows POL --matrix FILE` prints those rows whole: the row `POL` of the
+matrix, once per variant, with `CONFIGURATION` set to the variant's tag,
+`GEOMETRY` to its built file and `POL` to the next free numbers of the
+matrix. Nothing is written into the matrix; paste the rows where they
+belong.
+
+`--parallel 2` runs two variants at once, each its own solver execution, when
+the machine has 0.5 GB free; a variant that fails while another runs beside it
+is run again alone, so a licence refused to the second seat costs no variant.
+The default is one at a time, and 2 is the limit.
+
+After the variants are built, `wing.sweep.vtk` in the base folder overlays
+the swept control surface of every variant built by that command: open it in
+ParaView and colour by `variant` (the position of the angle in `angle_deg`,
+counted from 1; the field `tags` lists the variants in that order).
+
 ## Looking at the body, and what the plan reads
 
 Open the preview, then record the check:
@@ -187,7 +213,11 @@ pyfs-workspace geometry accept wing
 row when the instruction or a source changed after the build, naming the
 rebuild command. It warns when the built file was saved again afterwards, when
 the body was never accepted, when its audit failed, and when the row's
-`FS_BUILD` is not the build that made it. A body with no record, saved from the
+`FS_BUILD` is not the build that made it. It also warns when the row's
+`SYMMETRY` is `MIRROR` and the body carries a control surface at a nonzero
+angle, naming the surface and the angle: a mirrored half deflects both sides
+alike, so a one-sided deflection runs with `SYMMETRY` `NONE`. A body with no
+record, saved from the
 solver's window or from another tool, is planned as before.
 
 ## From a geometry the row builds

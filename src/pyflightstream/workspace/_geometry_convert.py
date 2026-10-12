@@ -24,9 +24,11 @@ from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._geometry_instruction import GEOMETRY_PAGE, INSTRUCTION_SUFFIX
 from pyflightstream.cases.matrix import read_matrix
+from pyflightstream.workspace._geometry_sidecar import toml_table as _table
+from pyflightstream.workspace._geometry_sidecar import toml_value as _value
 from pyflightstream.workspace.sidecars import inventory_sidecar, load_toml
 
-__all__ = ["GeometryConversion", "instruction_from_sidecar"]
+__all__ = ["GeometryConversion", "instruction_from_sidecar", "rows_for_built_geometries"]
 
 _PAGE = GEOMETRY_PAGE
 _MOVED = ("scale", "rename", "mirror")
@@ -44,34 +46,6 @@ class GeometryConversion:
     built: str
     staying: tuple[str, ...]
     notes: tuple[str, ...]
-
-
-def _value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return repr(value)
-    if isinstance(value, str):
-        return '"' + value.replace('"', "'") + '"'
-    if isinstance(value, Mapping):
-        return "{ " + ", ".join(f"{key} = {_value(item)}" for key, item in value.items()) + " }"
-    return "[" + ", ".join(_value(item) for item in value) + "]"
-
-
-def _table(name: str, table: Mapping[str, Any]) -> list[str]:
-    rows = [f"[{name}]"]
-    nested: list[str] = []
-    for key, value in table.items():
-        if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
-            for item in value:
-                nested += [
-                    "",
-                    f"[[{name}.{key}]]",
-                    *(f"{k} = {_value(v)}" for k, v in item.items()),
-                ]
-        else:
-            rows.append(f"{key} = {_value(value)}")
-    return rows + nested
 
 
 def _rows_naming(root: Path, name: str) -> list[Any]:
@@ -256,3 +230,71 @@ def conversion_lines(conversion: GeometryConversion, rows: Sequence[str] = ()) -
             "of the built mesh"
         )
     return lines + [f"note: {note}" for note in conversion.notes]
+
+
+def _cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.split("|")]
+
+
+def _header_and_rows(matrix: Path) -> tuple[list[str], list[list[str]]]:
+    try:
+        lines = matrix.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise InputArtifactError(f"{matrix} cannot be read: {error} ({GEOMETRY_PAGE}).") from error
+    header_at = next(
+        (i for i, line in enumerate(lines) if "|" in line and _cells(line)[0] == "POL"), None
+    )
+    if header_at is None:
+        raise InputArtifactError(f"{matrix} holds no header line beginning POL ({GEOMETRY_PAGE}).")
+    header = _cells(lines[header_at])
+    rows = [
+        _cells(line)
+        for line in lines[header_at + 1 :]
+        if "|" in line and len(_cells(line)) == len(header)
+    ]
+    return header, rows
+
+
+def rows_for_built_geometries(
+    matrix: str | Path, pol: str, cells: Sequence[tuple[str | None, str]]
+) -> list[str]:
+    """Return one matrix row per built geometry, copied from the row ``pol``.
+
+    Parameters
+    ----------
+    matrix : str or Path
+        The run matrix holding the template row.
+    pol : str
+        The template row's ``POL``.
+    cells : sequence of (configuration or None, geometry file)
+        Per built geometry, the ``CONFIGURATION`` cell (None keeps the
+        template's) and the ``GEOMETRY`` cell.
+
+    Raises
+    ------
+    InputArtifactError
+        A matrix that cannot be read, has no ``CONFIGURATION`` or ``GEOMETRY``
+        column, or holds no row ``pol``.
+    """
+    path = Path(matrix)
+    header, rows = _header_and_rows(path)
+    missing = [column for column in ("CONFIGURATION", "GEOMETRY") if column not in header]
+    if missing:
+        raise InputArtifactError(
+            f"{path} has no {' or '.join(missing)} column; --rows copies a row of a matrix "
+            f"at the current layout (`pyfs-matrix upgrade` converts one) ({GEOMETRY_PAGE})."
+        )
+    template = next((row for row in rows if row[0] == str(pol).strip()), None)
+    if template is None:
+        raise InputArtifactError(f"{path} holds no row POL {pol} to copy ({GEOMETRY_PAGE}).")
+    numbers = [int(row[0]) for row in rows if row[0].isdigit()]
+    next_pol = max(numbers, default=0) + 1
+    out = []
+    for offset, (configuration, geometry) in enumerate(cells):
+        row = list(template)
+        row[0] = str(next_pol + offset)
+        if configuration is not None:
+            row[header.index("CONFIGURATION")] = configuration
+        row[header.index("GEOMETRY")] = geometry
+        out.append(" | ".join(row))
+    return out

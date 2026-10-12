@@ -53,7 +53,13 @@ from pyflightstream.workspace._geometry_instruction import (
     refuse_foreign_source_names,
     refuse_moved_nodes,
 )
-from pyflightstream.workspace._geometry_vtk import PREVIEW_SUFFIX, write_preview_vtk
+from pyflightstream.workspace._geometry_sidecar import carried_tables, sidecar_text
+from pyflightstream.workspace._geometry_vtk import (
+    PREVIEW_SUFFIX,
+    SWEEP_SUFFIX,
+    write_preview_vtk,
+    write_sweep_vtk,
+)
 from pyflightstream.workspace._refine._audit import audit_mesh
 from pyflightstream.workspace.builds import resolve_build
 
@@ -143,6 +149,7 @@ class GeometryBuilt:
     passed: bool
     failed_gates: tuple[str, ...] = ()
     files: tuple[Path, ...] = field(default_factory=tuple)
+    notes: tuple[str, ...] = ()
 
 
 def _refuse(text: str) -> InputArtifactError:
@@ -405,6 +412,13 @@ def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool
         _require_the_plot_extra()
 
 
+#: At most this many variants run at once: the standing rule for native runs.
+MAX_PARALLEL = 2
+
+#: The free memory, in GB, below which a second variant does not start.
+_MEMORY_FLOOR_GB = 0.5
+
+
 def apply_geometry_build(
     plan: GeometryBuildPlan,
     *,
@@ -412,21 +426,30 @@ def apply_geometry_build(
     overwrite: bool = False,
     png: bool = False,
     package_version: str = "",
+    parallel: int = 1,
 ) -> tuple[GeometryBuilt, ...]:
     """Run each geometry of a plan once, read it back, audit it and promote it (FR-471 R2 to R8).
+
+    ``parallel`` (1 or 2) runs up to that many variants of a sweep at once; a
+    variant that fails while another runs beside it is run again alone
+    (FR-472 R6). After a sweep, ``<name>.sweep.vtk`` overlays the swept control
+    surface of every variant built (FR-472 R7).
 
     Raises
     ------
     InputArtifactError
-        A command awaiting evidence on the build, or an existing output without
-        ``overwrite``: nothing is run or written.
+        A command awaiting evidence on the build, an existing output without
+        ``overwrite``, or ``parallel`` outside 1 to 2: nothing is run or written.
     GeometryBuildError
         The solver failed, or the saved boundaries or trailing edges are not
         the ones stated; nothing of that geometry is promoted.
     """
+    if not 1 <= parallel <= MAX_PARALLEL:
+        raise _refuse(f"--parallel {parallel}: write 1 or {MAX_PARALLEL}, the native-run limit")
     refuse_before_running(plan, overwrite=overwrite, png=png)
-    return tuple(
-        _build_one(
+
+    def build(variant: GeometryVariant) -> GeometryBuilt:
+        return _build_one(
             plan,
             variant,
             runner=runner,
@@ -434,7 +457,57 @@ def apply_geometry_build(
             png=png,
             package_version=package_version,
         )
-        for variant in plan.variants
+
+    if parallel == 1 or len(plan.variants) < 2 or not _room_for_a_second_run():
+        built = tuple(build(variant) for variant in plan.variants)
+    else:
+        built = _built_two_at_a_time(plan.variants, build, parallel)
+    _overlay_the_sweep(plan, built)
+    return built
+
+
+def _room_for_a_second_run() -> bool:
+    """Return whether the machine has the memory floor free; True where it cannot be read."""
+    try:
+        import psutil
+    except ImportError:
+        return True
+    return bool(psutil.virtual_memory().available / 2**30 >= _MEMORY_FLOOR_GB)
+
+
+def _built_two_at_a_time(
+    variants: Sequence[GeometryVariant],
+    build: Callable[[GeometryVariant], GeometryBuilt],
+    parallel: int,
+) -> tuple[GeometryBuilt, ...]:
+    """Build the variants ``parallel`` at a time, and each failed one again alone (FR-472 R6)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    done: dict[int, GeometryBuilt] = {}
+    again: list[int] = []
+    with ThreadPoolExecutor(max_workers=parallel) as pool:
+        futures = {position: pool.submit(build, v) for position, v in enumerate(variants)}
+        for position, future in futures.items():
+            try:
+                done[position] = future.result()
+            except GeometryBuildError:
+                again.append(position)
+    for position in again:
+        done[position] = build(variants[position])
+    return tuple(done[position] for position in sorted(done))
+
+
+def _overlay_the_sweep(plan: GeometryBuildPlan, built: Sequence[GeometryBuilt]) -> None:
+    """Write ``<name>.sweep.vtk`` in the base folder after a sweep (FR-472 R7)."""
+    sweep = plan.instruction.sweep
+    if sweep is None:
+        return
+    pairs = [
+        (variant.tag or "", item.folder / f"{variant.instruction.name}.fsm")
+        for variant, item in zip(plan.variants, built, strict=True)
+    ]
+    write_sweep_vtk(
+        plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}", pairs, sweep.control_surface
     )
 
 
@@ -516,6 +589,7 @@ def _build_one(
         passed=not failed,
         failed_gates=failed,
         files=files,
+        notes=tuple(record["notes"]),
     )
 
 
@@ -554,16 +628,17 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
     }
 
 
-def _sidecar_text(names: Sequence[str], units: str | None, te_file: str | None) -> str:
-    rows = [
-        "# Written by pyfs-workspace geometry build.",
-        "boundaries = [" + ", ".join(f'"{n}"' for n in names) + "]",
-    ]
-    if units is not None:
-        rows += ["", "[import]", f'units = "{units}"']
-    if te_file is not None:
-        rows += ["", "[trailing_edges]", f'file = "{te_file}"']
-    return "\n".join(rows) + "\n"
+def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
+    """Return what the rebuilt mesh's sidecar, else the [mesh] source's, carries over (R10)."""
+    instruction = variant.instruction
+    folder = variant.folder
+    built = folder / f"{mesh_name}.boundaries.toml"
+    if instruction.outputs != ("obj",):
+        built = folder.with_name(mesh_name) / f"{mesh_name}.boundaries.toml"
+    candidates = [built]
+    if instruction.mesh is not None:
+        candidates.append(folder / f"{Path(instruction.mesh.file).stem}.boundaries.toml")
+    return carried_tables(candidates)
 
 
 def _audit(
@@ -589,15 +664,16 @@ def _audit(
         te_file = f"{mesh_name}.te.txt"
         write_te(mesh_dir / te_file, unit, numpy.asarray(midpoints, dtype=float))
     export_unit = variant.instruction.mesh.units if variant.instruction.mesh is not None else unit
-    _textio.write_text(
-        mesh_dir / f"{mesh_name}.boundaries.toml",
-        _sidecar_text(variant.instruction.boundaries, export_unit, te_file),
+    text, notes = sidecar_text(
+        variant.instruction.boundaries, export_unit, te_file, _carried(variant, mesh_name)
     )
+    _textio.write_text(mesh_dir / f"{mesh_name}.boundaries.toml", text)
     try:
         audit = audit_mesh(target)
     except InputArtifactError as error:
-        return {"file": None, "passed": False, "failed": [f"not audited: {error}"]}
+        return {"file": None, "passed": False, "failed": [f"not audited: {error}"], "notes": notes}
     return {
+        "notes": notes,
         "file": f"{variant.instruction.name}.audit.json",
         "passed": audit.passed,
         "failed": [f"{item.name} on {item.family}" for item in audit.failures],
@@ -681,9 +757,21 @@ def _record(
         "inputs": [{**item, "file": rel(plan.path.parent / item["file"])} for item in plan.inputs],
         "script": {"file": script_path.name, "sha256": file_sha256(script_path)},
         "outputs": outputs,
-        "audit": audit,
+        "audit": {key: value for key, value in audit.items() if key != "notes"},
+        "notes": list(audit.get("notes", [])),
+        "control_surfaces": _control_surfaces(variant.instruction),
         "inspected": None,
     }
+
+
+def _control_surfaces(instruction: GeometryInstruction) -> list[dict[str, Any]]:
+    """Return the angle of every control surface of a [ccs] wing (FR-473 R5)."""
+    if instruction.ccs is None:
+        return []
+    return [
+        {"name": surface.name, "angle_deg": surface.angle_deg}
+        for surface in instruction.ccs.options.control_surfaces
+    ]
 
 
 def _relative(path: Path, folder: Path) -> str:
@@ -740,7 +828,7 @@ def _promote(
     if "fsm" in variant.instruction.outputs:
         _textio.write_text(
             work / f"{name}.boundaries.toml",
-            _sidecar_text(variant.instruction.boundaries, None, None),
+            sidecar_text(variant.instruction.boundaries, None, None)[0],
         )
         suffixes += [".fsm", ".boundaries.toml"]
     moved = _move_into([work / f"{name}{suffix}" for suffix in suffixes], folder, overwrite)
