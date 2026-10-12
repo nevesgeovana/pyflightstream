@@ -630,8 +630,9 @@ def _qsteady_products(
 
     One pair per rotor, named after it like the rotor table:
     ``polars/P<sim>-<ALIAS>_qs_positions.csv`` and ``_qs_avg.csv``. A point
-    whose record or clocking export is missing is left out and named under the
-    file's key. A sector point is one clocking and is tabled like a wheel of
+    whose clocking export is missing is left out and named under the file's
+    key; one whose record cannot be read names no rotor, and is named under
+    ``runs/<run id>#qsteady_record``. A sector point is one clocking and is tabled like a wheel of
     one position. The validity is the sections' where the point has them, else
     the plan's estimate from the mesh (:mod:`pyflightstream.post.qsteady`).
     """
@@ -643,12 +644,16 @@ def _qsteady_products(
         record = record_of.get(point.name)
         if record is None or record.recipe != QSTEADY_ROTOR:
             continue
-        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), and
-        # the point is named under the clockings tables' key, never a traceback.
+        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), never
+        # a traceback. It is keyed under the point, beside its validity skip:
+        # with no record there is no rotor alias, and a made-up one named a
+        # positions file of a rotor called "rotor" that no plan writes.
         try:
             quasi = read_qsteady_record(point.loads_path)
         except QsteadyRecordError as error:
-            left_out.setdefault("?", []).append(f"{point.name}: {error}")
+            skipped[f"runs/{record.run_id}#qsteady_record"] = (
+                f"the quasi-steady point {point.name} is not a row of any clockings table: {error}"
+            )
             continue
         alias = quasi.rotor_alias
         validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
