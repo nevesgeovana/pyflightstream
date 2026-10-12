@@ -227,7 +227,7 @@ class _TickingClock(datetime):
 
 
 @pytest.mark.parametrize("straddle", [False, True])
-def test_l3_force_rerun_says_one_line_per_simulation_and_l4_logs_every_point(
+def test_p0400_l3_force_rerun_says_one_line_per_simulation_and_l4_logs_every_point(
     tmp_path, monkeypatch, straddle
 ):
     """P0400-FORCE-RERUN-STAMP (PFS-2135.032): one line whether or not the stamps share a second.

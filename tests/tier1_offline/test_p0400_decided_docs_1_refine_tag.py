@@ -16,6 +16,7 @@ import pytest
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.workspace import refine_mesh
+from pyflightstream.workspace._refine import _config
 from tests.tier1_offline.test_p0380_s1_refine import _source
 
 PAGE = Path(__file__).resolve().parents[2] / "docs" / "mesh" / "reference.md"
@@ -51,3 +52,24 @@ def test_p0400_refine_tag_page_states_digits_exact_factor_and_collision():
     assert "at most 6 significant digits" in text
     assert "`refine.json` holds the exact factor under `specs`" in text
     assert "refused as an existing one unless `--overwrite`" in text
+
+
+def test_p0400_refine_tag_rounding_collision_excludes_summary_hashes():
+    """P0400-REFINE-TAG: summary hashes retain digits hidden by the short spelling."""
+    names = ["LongFamilyNameAlpha", "LongFamilyNameBeta"]
+    requests = [
+        _config.RefineRequest(
+            specs={
+                names[0]: _config.FamilySpec(factor=factor),
+                names[1]: _config.FamilySpec(factor=5.0),
+            }
+        )
+        for factor in (2.0000001, 2.0000002)
+    ]
+    assert [_config.spec_tag(request.specs[names[0]]) for request in requests] == ["2", "2"]
+    tags = [_config.level_tag(request, names) for request in requests]
+    assert all(tag.startswith("R-2fam-") for tag in tags)
+    assert tags[0] != tags[1]
+    text = " ".join(PAGE.read_text(encoding="utf-8").split())
+    assert "For a short tag without a hash" in text
+    assert "Summary tags hash the exact factors" in text
