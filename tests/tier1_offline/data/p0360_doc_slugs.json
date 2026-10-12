@@ -53,6 +53,46 @@
     },
     {
       "level": 2,
+      "slug": "the-far-field-family",
+      "title": "The far-field family"
+    },
+    {
+      "level": 3,
+      "slug": "the-discrete-trace",
+      "title": "The discrete trace (shared by A and B)"
+    },
+    {
+      "level": 3,
+      "slug": "trefftz-a",
+      "title": "Trefftz A, from the section loads"
+    },
+    {
+      "level": 3,
+      "slug": "trefftz-b",
+      "title": "Trefftz B, from the solver's wake"
+    },
+    {
+      "level": 3,
+      "slug": "trefftz-c",
+      "title": "Trefftz C, from a plane of probes"
+    },
+    {
+      "level": 3,
+      "slug": "the-balances",
+      "title": "The balances on the survey lattice"
+    },
+    {
+      "level": 3,
+      "slug": "the-survey-lattice",
+      "title": "The survey lattice and the far-field plane are probes"
+    },
+    {
+      "level": 3,
+      "slug": "what-the-plan-adds",
+      "title": "What the plan adds"
+    },
+    {
+      "level": 2,
       "slug": "the-reductions-of-an-unsteady-point",
       "title": "The reductions of an unsteady point"
     },

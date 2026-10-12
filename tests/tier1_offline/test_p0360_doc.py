@@ -266,7 +266,8 @@ def test_one_home(tmp_path):
 
 def test_definitions_split(tmp_path):
     """P0360-DOC-DEFINITIONS-SPLIT (NFR-34): all old slugs, families and unchanged pins."""
-    assert len(FIXTURE["definitions"]) == 53
+    # 61 on 0.40.0: the far-field family page and its seven anchors (FR-450 to FR-459).
+    assert len(FIXTURE["definitions"]) == 61
     assert not split_problems(DOCS, "post-processing-definitions.md", "definitions")
     expected = {
         h["slug"] + ".md"

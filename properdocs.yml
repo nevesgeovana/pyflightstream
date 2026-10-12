@@ -165,6 +165,7 @@ nav:
           - "The axes of a steady polar": definitions/the-axes-of-a-steady-polar.md
           - "The sections table, and which row is which": definitions/the-sections-table-and-which-row-is-which.md
           - "The probes table": definitions/the-probes-table.md
+          - "The far-field family": definitions/the-far-field-family.md
           - "The reductions of an unsteady point": definitions/the-reductions-of-an-unsteady-point.md
           - "time_average": definitions/time_average.md
           - "per_blade": definitions/per_blade.md

@@ -129,6 +129,10 @@ matrix workflows read without importing the structural side branch.
     deleted, because a decision that changes content is only readable
     against what it replaced.
 
+    Amended for 0.40.0 (0.40.0, pending): xarray leaves the runtime set in release
+    0.40.0 (FR-457), the far field resting on plain numpy arrays, so the transition
+    below concerns pandas alone from that release.
+
     Transition, stated because the code and this decision do not yet
     agree. pandas and xarray are still declared and still imported at
     three sites in `src/` (`results/tables.py`, `farfield/__init__.py`,
