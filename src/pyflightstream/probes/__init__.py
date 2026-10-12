@@ -40,7 +40,7 @@ from pyflightstream.probes.planar import (
     PlannedProbes,
     RefinementBand,
 )
-from pyflightstream.script import Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.script.toggles import Toggle
 
 __all__ = [
@@ -387,7 +387,9 @@ def write_probe_csv(lattice: ProbeLattice, path: str | Path) -> int:
     the first line, then one ``X,Y,Z,TYPE`` row per probe with TYPE 1
     for volume probes. This is the practical path for the full ~20k
     point lattice, where one NEW_PROBE_POINT line per probe would be
-    unwieldy.
+    unwieldy. The coordinates are in simulation length units (scaled by
+    ``tip_radius``), so the import must cite that unit's token in
+    :func:`emit_probe_import`.
 
     Parameters
     ----------
@@ -448,7 +450,7 @@ def emit_probe_import(
     path: str | Path,
     *,
     units: str = "METER",
-    frame: int = 1,
+    frame: int | str = 1,
 ) -> None:
     """Emit PROBE_POINTS_IMPORT for a csv written by :func:`write_probe_csv`.
 
@@ -459,12 +461,20 @@ def emit_probe_import(
     path : str or pathlib.Path
         Csv path as the solver machine sees it.
     units : str
-        Length unit token of the csv coordinates (SRC-003 p.362).
-    frame : int
-        Coordinate system index of the csv coordinates; 1 is the
-        reference frame.
+        Length unit token of the csv coordinates (SRC-003 p.362). The
+        csv that :func:`write_probe_csv` and :func:`write_points_csv`
+        write is in the case's simulation length unit (the lattice is
+        scaled by ``tip_radius``), so pass that unit's token; the
+        default ``METER`` is right only for a case set up in meters.
+    frame : int or str
+        Coordinate system of the csv coordinates; index 1 is the
+        reference frame, and created frames may be cited by their
+        creation label, as in
+        :func:`pyflightstream.script.helpers.probes_from_file`.
     """
-    script.emit("PROBE_POINTS_IMPORT", units, frame, str(path))
+    # PFS-2104.015. One entry point onto the command, so the two cannot
+    # disagree again on what a frame may be.
+    helpers.probes_from_file(script, str(path), units=units, frame=frame)
 
 
 def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True) -> None:
@@ -503,6 +513,18 @@ def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True
     second entry point onto that register and re-stamps it with its own
     name, for the reason under the call below.
     """
+    # PFS-2081.26. The remedy sentence of the helper's refusal names
+    # `export_probes`, which a caller of this function never wrote, so a
+    # collision is refused here first, in this entry point's own words.
+    already = script._exported_paths.get(str(path))
+    if already is not None:
+        raise CommandArgumentError(
+            f"this script already exports to {str(path)!r}, from {already}. The solver "
+            "writes one file per path, so the second export would silently replace "
+            "the first and the script would carry two identical lines. Give "
+            "emit_probe_export a path of its own, for example one carrying the point "
+            "or the survey name."
+        )
     helpers.export_probes(script, str(path), update=update)
     # PFS-2011.02. `helpers.export_probes` registers the path under the
     # name of the helper, so a collision between two calls made THROUGH
@@ -511,10 +533,9 @@ def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True
     # did not write is worse than one that names none: it sends them to
     # look for a line that is not there. This is the only one of the two
     # entry points that knows which was used, so the register is stamped
-    # with the truthful site here. The remedy sentence of the refusal is
-    # built inside `script.helpers` and still names the helper; moving
-    # that into a caller-supplied site name is a change to `script`, not
-    # to this layer, and is reported rather than made here.
+    # with the truthful site here. The remedy sentence of the helper's
+    # refusal still names the helper, which is why this function refuses
+    # a collision itself, above.
     script._exported_paths[str(path)] = "emit_probe_export"
 
 
