@@ -521,16 +521,17 @@ def check_solver_identity(
         # from the solver". That is the misattribution this function's
         # own path fix was about, one line further on, and the timeout
         # case is one the operator can act on by raising timeout_s.
+        # PFS-2094.012: what the run said comes from ExecutionResult.diagnosis,
+        # the single home, which reads stdout too.
         if result.timed_out:
             cause = (
-                f"the pre-flight run was killed by its {timeout_s} second timeout, so "
-                "no build number could be read; raise timeout_s if this installation "
-                "is simply slow to start"
+                f"the pre-flight run {result.diagnosis()}, so no build number could be "
+                "read; raise timeout_s if this installation is simply slow to start"
             )
         elif result.failed:
             cause = (
-                f"the pre-flight run exited with return code {result.return_code} and "
-                "wrote no readable log, so no build number could be read"
+                f"the pre-flight run {result.diagnosis()} and wrote no readable log, so no "
+                "build number could be read"
             )
         else:
             cause = "the pre-flight could not read a build number from the solver"

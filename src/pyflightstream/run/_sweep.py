@@ -490,9 +490,15 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
     bind_submission_values(job.executor, job.case, job.point_cases[0][2])
     if job.progress is not None:
         job.progress.solver_started = True
-    job.result = job.executor.run_script(
-        job.script_path, working_dir=job.sim_dir, timeout_s=job.case.solver.timeout_s
-    )
+    try:
+        job.result = job.executor.run_script(
+            job.script_path, working_dir=job.sim_dir, timeout_s=job.case.solver.timeout_s
+        )
+    except CampaignConfigError as exc:
+        # The job's refusal, recorded as the point path records its own (PFS-2094.010).
+        return RunRecord(
+            **job.base, status=RunStatus.FAILED_SCRIPT, error=f"{type(exc).__name__}: {exc}"
+        )
     job.base["argv"] = list(job.result.argv)
     job.base["cwd"] = job.result.cwd
     job.base["timeout_s"] = job.result.timeout_s

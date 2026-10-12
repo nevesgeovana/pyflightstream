@@ -956,9 +956,17 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     bind_submission_values(job.executor, job.case, job.point_case)
     if job.progress is not None:
         job.progress.solver_started = True
-    job.result = job.executor.run_script(
-        job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
-    )
+    try:
+        job.result = job.executor.run_script(
+            job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
+        )
+    except CampaignConfigError as exc:
+        # THIS POINT'S REFUSAL, recorded, and the campaign goes on (PFS-2094.010): a
+        # submitting executor refuses a steady coupled script, or a descriptor or
+        # submit placeholder this row does not supply, before anything is sent.
+        return RunRecord(
+            **job.base, status=RunStatus.FAILED_SCRIPT, error=f"{type(exc).__name__}: {exc}"
+        )
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
     # timeout. Reproducing a run from its record used to mean re-deriving
