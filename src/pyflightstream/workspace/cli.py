@@ -729,7 +729,13 @@ def typed_value(args: argparse.Namespace, flag: str) -> object:
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
-    workspace = CampaignWorkspace.init(args.root)
+    # Refused like every sibling subcommand (PFS-2095.059): a bad root is a message and
+    # exit 2, never a traceback.
+    try:
+        workspace = CampaignWorkspace.init(args.root)
+    except (OSError, WorkspaceError, InputArtifactError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
     # `.root` is already absolute; the workspace resolves it once at
     # construction. Re-resolving here would tell a reader it might not be.
     say_summary(f"campaign workspace ready at {workspace.root}")
