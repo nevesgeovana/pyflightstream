@@ -73,9 +73,9 @@ def select_families(
     entry that resolves to nothing is an empty result and the caller
     skips it. ``all`` is the empty list standing for the command's own
     every-boundary form, which the caller spells as -1; as a list member it
-    adds every surface of the inventory. An ALIAS of the
-    row's setup (the design decision of 2026-09-09) is read before the five
-    selector words, as the bare string and as a list member, so
+    adds every surface of the inventory. An exact boundary name wins over an
+    ALIAS of the row's setup. The alias is read before the five selector words,
+    as the bare string and as a list member, so
     ``airframe`` and ``blades`` are the setup's own where it defines them
     and refused as selectors where it does not (since 0.15.0);
     a bare word that is neither is a family name.
@@ -100,7 +100,7 @@ def select_families(
     """
     blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
-        aliased = resolve_alias(selection, inventory, aliases)
+        aliased = _resolve_token(selection, inventory, aliases)
         if aliased is not None:
             return [aliased] if aliased else []
         if selection == "all":
@@ -122,7 +122,7 @@ def select_families(
         return [names] if names else []
     chosen: list[str] = []
     for item in selection:
-        aliased = resolve_alias(item, inventory, aliases)
+        aliased = _resolve_token(item, inventory, aliases)
         if aliased is not None:
             names = aliased
         elif item in _SELECTORS_THAT_GUESS:
@@ -276,49 +276,37 @@ def _resolve_alias_key(
     names: list[str] = []
     path = (*seen, key)
     for member in aliases[key]:
-        token = str(member)
-        # THE INVENTORY IS ASKED FIRST, and it has to be. A member that
-        # names a boundary the mesh carries is that boundary, whatever
-        # else shares its spelling; only a member the mesh does not carry
-        # is looked up as an alias. Without this order an alias `wing`
-        # whose member is the family `Wing` resolves to ITSELF, because
-        # an alias is matched case folded, and the reader reports a cycle
-        # over a file that has none (measured 2026-09-10 against
-        # test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members).
-        if token in inventory:
-            if token not in names:
-                names.append(token)
-            continue
-        nested = _alias_key(token, aliases)
-        # A MEMBER THAT NAMES ITS OWN ALIAS IS NOT A RING, it is the
-        # 0.14.0 case of an alias resolving to nothing: `wing = ["Wing"]`
-        # over a mesh whose wing was renamed matches the alias itself when
-        # names are folded, and that file has no ring in it. It falls
-        # through to the FAMILY reading, which finds the wings of a mesh
-        # that has them and nothing of one whose wing was renamed, which
-        # is what it did before aliases could nest. Saying "it resolves to
-        # nothing" was the RENAMED case mistaken for the rule, and a
-        # technical-writing pass caught it in three places at once
-        # (2026-09-10). A ring needs two distinct aliases, and that is what is
-        # refused below.
-        if nested is not None and nested == key:
-            nested = None
-        if nested is not None and nested in path:
-            raise AliasCycleError(
-                f"the alias {key!r} resolves through {token!r}, which resolves back to "
-                f"{nested!r}: {' -> '.join(repr(name) for name in (*path, nested))}. An "
-                "alias may name another alias, and the reader follows to the end, so a "
-                "ring has no end; break it in the reference"
-            )
-        resolved = (
-            _resolve_alias_key(nested, inventory, aliases, seen=path)
-            if nested is not None
-            else names_of(token, inventory)
-        )
+        resolved = _resolve_token(str(member), inventory, aliases, seen=path) or []
         for name in resolved:
             if name not in names:
                 names.append(name)
     return names
+
+
+def _resolve_token(
+    token: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None,
+    *,
+    seen: tuple[str, ...] = (),
+) -> list[str] | None:
+    """Read a cited token as an exact boundary, an alias, then a family."""
+    if token in inventory:
+        return [token]
+    nested = _alias_key(token, aliases) if aliases else None
+    # A self-named member is the family fallback, not an alias cycle.
+    if seen and nested == seen[-1]:
+        nested = None
+    if nested is not None and nested in seen:
+        raise AliasCycleError(
+            f"the alias {seen[-1]!r} resolves through {token!r}, which resolves back to "
+            f"{nested!r}: {' -> '.join(repr(name) for name in (*seen, nested))}. An "
+            "alias may name another alias, and the reader follows to the end, so a "
+            "ring has no end; break it in the reference"
+        )
+    if nested is not None and aliases is not None:
+        return _resolve_alias_key(nested, inventory, aliases, seen=seen)
+    return names_of(token, inventory) or None
 
 
 def alias_members_missing(
@@ -348,7 +336,7 @@ def alias_members_missing(
     answered confidently for a file the resolver refuses is a second
     reading of one file (the QA lens of 2026-09-10, measured).
     """
-    if not aliases:
+    if not aliases or token in inventory:
         return []
     key = _alias_key(token, aliases)
     if key is None:
@@ -440,9 +428,7 @@ def select_group_members(
         if isinstance(member, int):
             continue
         token = str(member)
-        names = [token] if token in inventory else resolve_alias(token, inventory, aliases)
-        if names is None:
-            names = names_of(token, inventory)
+        names = _resolve_token(token, inventory, aliases) or []
         if not names and token == EVERY_FAMILY:
             # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE (0.24.0).
             # A group is ONE alias as a string, an empty list was every family, and

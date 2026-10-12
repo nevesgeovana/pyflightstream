@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.cases import CampaignConfigError, RotorBlock, SimCase, acoustics, pproc
+from pyflightstream.cases import CampaignConfigError, RotorBlock, acoustics, pproc
 from pyflightstream.cases.pproc import (
     PprocSpec,
     ProbeCircle,
@@ -18,9 +18,10 @@ from pyflightstream.cases.pproc import (
     SurfaceProbeSpec,
     classify_outputs,
 )
-from pyflightstream.cases.workflows._exports import _export_surface_vtk
+from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import resolve_pproc
+from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case
 
 SECTIONS = {"distributions": [{"families": "all", "planes": ["XZ"]}]}
 SURFACE_PROBE = {
@@ -169,20 +170,14 @@ def test_p0400_surface_probe_parameter_accepts_lowercase():
     )
 
 
-def test_p0400_vtk_variables_are_refused_naming_the_target_build():
+def test_p0400_vtk_variables_are_refused_naming_the_target_build(tmp_path):
     """P0400-VTK-BUILD (PFS-2135.064): a union token is checked when the target is known."""
-    case = SimCase(
-        sim_id="1",
-        aircraft="Wing",
-        description="vtk",
-        reynolds=1e6,
-        mach=0.1,
-        sweep={"type": "alpha", "values": [0.0]},
-        recipe="recipes.steady:build",
+    case = _with_pproc(
+        steady_case(), _wb_geometry(tmp_path), pproc=PprocSpec(vtk_variables=["C_H"])
     )
-    case.pproc = PprocSpec(vtk_variables=["C_H"])
+    case.outputs = ["P.txt", "P.vtk"]
     with pytest.raises(CampaignConfigError, match="C_H.*26.124"):
-        _export_surface_vtk(Script("26.124"), case, "P.vtk")
+        build_script(case, Script("26.124"))
     script = Script("26.125")
-    _export_surface_vtk(script, case, "P.vtk")
+    build_script(case, script)
     assert "C_H" in script.render()
