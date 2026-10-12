@@ -1403,8 +1403,16 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
             ),
             "omitted_workflow": _replace_json(
                 "runs_response",
+                # It names this repository as its own, so the repository check passes and
+                # the arm reaches the check it is named for (PFS-2135.073).
                 lambda d: d["workflow_runs"].append(
-                    {"id": 20, "name": "ci-extra", "head_sha": HEAD, "conclusion": "failure"}
+                    {
+                        "id": 20,
+                        "name": "ci-extra",
+                        "head_sha": HEAD,
+                        "conclusion": "failure",
+                        "repository": {"full_name": REPO},
+                    }
                 ),
             ),
             "api_url": _set("facts", "api_url", value="https://api.github.com/"),
@@ -1539,6 +1547,15 @@ CASES = {f"publication:{k}": v for k, v in PUBLICATION.items()} | {
 }
 
 
+#: The refusal an arm must be refused FOR, by (case, arm). An arm absent here is held only to
+#: being refused; the generic runner used to accept any refusal, so an arm refused by an
+#: earlier check passed without its own check ever running (PFS-2135.073).
+ARM_REFUSAL: dict[tuple[str, str], str] = {
+    ("ci", "omitted_workflow"): "workflows is not",
+    ("ci", "foreign_repo"): "does not name",
+}
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_publication_campaign_validator_accepts_the_valid_receipt(name, tmp_path):
     build, validate, _ = CASES[name]
@@ -1558,7 +1575,7 @@ def test_publication_campaign_validator_refuses_a_corrupted_copy(name, field, tm
     receipt = build(tmp_path)
     validate(copy.deepcopy(receipt), _tree())  # the control: unchanged, it is accepted
     (COMMON | own)[field](receipt)
-    with pytest.raises(ReceiptRefusedError):
+    with pytest.raises(ReceiptRefusedError, match=ARM_REFUSAL.get((name, field))):
         validate(receipt, _tree())
 
 
