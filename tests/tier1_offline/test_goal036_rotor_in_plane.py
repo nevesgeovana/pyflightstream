@@ -98,7 +98,7 @@ def test_exact_values_on_a_constructed_load_with_a_known_axis(tmp_path):
         _row(Cx=-0.4, Cy=0.03, Cz=0.05, CMx=0.01, CMy=0.02, CMz=-0.015),
         reference=_reference(XMOM=1.0),
     )
-    assert tuple(columns[-6:]) == ("MTIP_PUSHER", "MHEL_PUSHER", *IN_PLANE), columns
+    assert tuple(columns[-7:]) == ("MTIP_PUSHER", "MHEL_PUSHER", *IN_PLANE, "MADV_PUSHER"), columns
     (row,) = rows
     assert _in_plane(row) == pytest.approx((0.01, -0.006, 0.0015, 0.003), abs=1e-9)
     # The same force gives the thrust, so the two sets cannot come from two loads.

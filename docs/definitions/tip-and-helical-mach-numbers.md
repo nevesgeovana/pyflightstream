@@ -9,6 +9,7 @@ type that names an actuator disc (`ACTUATOR`), for each disc:
 Omega = 2 pi RPM / 60                  rad/s
 M_tip = Omega R / a
 M_hel = sqrt(V^2 + (Omega R)^2) / a
+M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a
 ```
 
 - `RPM` is the speed the run turns, in rev/min, the unit of every rotor speed
@@ -35,22 +36,34 @@ M_hel = sqrt(V^2 + (Omega R)^2) / a
   are dimensionless and geometric: `V` is the free-stream speed alone, not
   corrected for the rotor's own induced velocity, which near hover and at low
   advance ratio adds to the speed the tip actually sees.
+- `M_adv` is the Mach number of the advancing blade tip. `V_ax` is the
+  component of the free-stream velocity along the rotor axis and
+  `V_ip = |V - V_ax axis|` the component in the rotor plane; the velocity
+  comes from the point's resolved speed, angle of attack and sideslip in the
+  body frame, and the axis from the rotor block's `axis` (a disc's, from its
+  block's `axis` in its frame, where that frame is `MRP` or a declared
+  `[[frames]]` entry). **`M_hel` bounds the tip only in axial flow**: there
+  `M_adv = M_hel`, and in edgewise flow `M_adv = (Omega R + V) / a`, which is
+  larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
+  edgewise bound and the plan line says so. `M_hel` is unchanged.
 
 Where they appear:
 
 - `pyfs-matrix plan` prints both per rotor and per disc per point, and
   `plan.json` carries them per point under `rotor_mach`, keyed by the rotor's
   alias or the disc's name, with `kind` (`rotor` or `actuator`) and the speed,
-  the diameter, `V` and `a` they were taken at. **The plan warns when
-  `M_hel >= 1`** on any point, naming each point, its rotor or disc and its
-  `M_hel`: at 1 or more the tip is sonic or supersonic. It is a warning and
-  never a refusal.
+  the diameter, `V` and `a` they were taken at, and `mach_advancing`
+  (`M_adv`) beside `mach_helical`, with `mach_advancing_bound` saying `axis`
+  or `edgewise`. **The plan warns when `M_adv >= 1`** on any point, naming
+  each point, its rotor or disc and its `M_adv`: at 1 or more the advancing
+  tip is sonic or supersonic. It is a warning and never a refusal.
 - The run record (`runs.json`) carries the same block under `rotor_mach`;
   the key is absent on a record with no such point. A steady row runs its
   points as one job, so its job record keys the blocks one level up by the
   point's name, and each point read out of the job carries its own.
 - The rotor table carries `MTIP_<alias>` and `MHEL_<alias>` after its six
-  coefficients (and before the four in-plane ones of 0.31.0), taken at that
+  coefficients (and before the four in-plane ones of 0.31.0), and
+  `MADV_<alias>` as its last column (0.40.0), taken at that
   row's speed and `DIAMETER_<alias>` and at the point's resolved condition. A
   point whose condition does not resolve reads `NA` in both and keeps its row.
   A disc has no rotor table, and a steady row's record states no rotor speed

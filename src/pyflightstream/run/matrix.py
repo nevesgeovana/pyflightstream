@@ -333,7 +333,11 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
             if not isinstance(helical, int | float):
                 unknown[str(mach.get("note"))] = None
                 continue
-            if helical < SONIC_HELICAL_MACH:
+            # FR-176 R1: the warning reads the advancing tip, which is M_hel in
+            # axial flow and the larger edgewise; a record without it reads M_hel.
+            advancing = mach.get("mach_advancing")
+            tip_mach = advancing if isinstance(advancing, int | float) else helical
+            if tip_mach < SONIC_HELICAL_MACH:
                 continue
             case = cases.get(entry.sim_id)
             try:
@@ -341,13 +345,18 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
             except CampaignConfigError:
                 name = entry.run_id
             kind = mach.get("kind") or "rotor"
-            sonic.append(f"POL {entry.sim_id} point {name}, {kind} {alias}, M_hel {helical:.3f}")
+            sonic.append(
+                f"POL {entry.sim_id} point {name}, {kind} {alias}, M_adv {tip_mach:.3f} "
+                f"(M_hel {helical:.3f})"
+            )
     if sonic:
         warn(
-            f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
-            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the geometric speed the blade tip "
-            "meets the flow at (free stream plus rotation, no induced velocity) over the "
-            "speed of sound, so at 1 or more the tip is sonic or supersonic. Nothing is "
+            f"advancing-tip Mach M_adv >= 1 on {len(sonic)} polar point(s): "
+            f"{'; '.join(sonic)}. "
+            "M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a is the speed the advancing "
+            "blade tip meets the flow at (free stream plus rotation, no induced velocity) "
+            "over the speed of sound, so at 1 or more the tip is sonic or supersonic; it "
+            "equals M_hel in axial flow and is larger in inclined flow. Nothing is "
             "refused; check these points before running them.",
             PyflightstreamWarning,
             stacklevel=3,

@@ -977,7 +977,13 @@ def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
     tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
     kind = mach.get("kind") or "rotor"
     if isinstance(tip, int | float) and isinstance(helical, int | float):
-        return f"{kind} {alias} M_tip {tip:.3f}, M_hel {helical:.3f}"
+        line = f"{kind} {alias} M_tip {tip:.3f}, M_hel {helical:.3f}"
+        advancing = mach.get("mach_advancing")
+        if isinstance(advancing, int | float):
+            line += f", M_adv {advancing:.3f}"
+            if mach.get("mach_advancing_bound") == "edgewise":
+                line += " (rotor axis not resolved: the edgewise bound)"
+        return line
     return f"{kind} {alias} M_tip and M_hel not computed: {mach.get('note')}"
 
 

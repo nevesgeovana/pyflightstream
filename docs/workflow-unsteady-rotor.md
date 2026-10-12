@@ -167,18 +167,25 @@ stream and speed of sound, one row per rotor per point under the title
 
 ```text
 Rotor Mach numbers
-  POL   point                    rotor       M_tip  M_hel
-  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
-  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+  POL   point                    rotor       M_tip  M_hel  M_adv
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
 ```
 
-and warns, naming each point, when a helical Mach number is 1 or more
-(`M_hel >= 1`, the tip sonic or supersonic):
+and warns, naming each point, when the advancing-tip Mach number is 1 or more
+(`M_adv >= 1`, the advancing tip sonic or supersonic):
 
 ```text
-helical Mach >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-rotor PORT, M_hel 1.117. ...
+advancing-tip Mach M_adv >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+rotor PORT, M_adv 1.117 (M_hel 1.117). ...
 ```
+
+`M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`, with `V_ax` the free-stream
+component along the rotor axis and `V_ip` the component in the rotor plane.
+`M_hel = sqrt(V^2 + (Omega R)^2) / a` bounds the tip only in axial flow, where
+`M_adv = M_hel` (the example above); in edgewise flow `M_adv = (Omega R + V) / a`
+is larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
+edgewise bound and the plan line says so.
 
 A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing for
 the warning. A rotor whose reference states no diameter for it has no known
