@@ -223,6 +223,9 @@ from pyflightstream.post.custom_polar import (
 )
 from pyflightstream.post.custom_polar import CustomPolarTable as CustomPolarTable
 from pyflightstream.post.custom_polar import (
+    _ascii_title as _ascii_title,  # noqa: F401
+)
+from pyflightstream.post.custom_polar import (
     custom_count as _custom_count,  # noqa: F401
 )
 from pyflightstream.post.custom_polar import (
