@@ -54,6 +54,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._lengths import scale as length_scale
 from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
@@ -73,6 +74,8 @@ STAGING_SUFFIX = ".partial"
 #: ``overwrite`` replaces it, until the new level is in place (FR-424 R5): an error before
 #: then puts it back.
 PREVIOUS_SUFFIX = ".previous"
+#: Version 2 names native-unit target lengths explicitly when mesh units are absent.
+REFINE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,7 @@ class _Work:
     # The working copy of the request's specs: a factor-1 family leaves it, a band or a
     # rebuilt family joins it; the request itself, which refine.json records, never changes.
     specs: dict[str, FamilySpec] = field(default_factory=dict)
+    te_edges: dict[str, set[tuple[int, int]]] = field(default_factory=dict)
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -155,12 +159,17 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 
 def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[int]:
     """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
+    return {v for edge in _listed_edges(mesh, family, points, scale) for v in edge}
+
+
+def _listed_edges(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[tuple[int, int]]:
+    """Keep the listed edges themselves; their vertex set cannot represent a wake gap."""
     if not len(points):
         return set()
     edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
     dist, index = NearestIndex(mid).query(points)
     hit = dist < _geometry.TE_POINT_FRACTION * scale
-    return {int(v) for v in edges[index[hit]].ravel()}
+    return {(int(a), int(b)) for a, b in edges[index[hit]]}
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
@@ -186,6 +195,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         scale=scale,
         te_route=_obj.te_route(source),
         specs=dict(request.specs),
+        te_edges={n: _listed_edges(mesh, n, points, scale) for n in names},
     )
 
 
@@ -230,6 +240,20 @@ def _decide_family(work: _Work, name: str) -> None:
     if spec.keep_first_row:
         _kept_trailing_edge(work, name)
     found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
+    if not isinstance(found, str) and work.te_edges[name]:
+        if isinstance(found, _blocks.Blocks):
+            chains = [found.arcs[i] for i in found.te_arcs]
+        elif found.smooth:
+            chains = []
+        else:
+            chains = [found.ids[:, 0].tolist()]
+        represented = {
+            (min(a, b), max(a, b))
+            for chain in chains
+            for a, b in zip(chain, chain[1:], strict=False)
+        }
+        if represented != work.te_edges[name]:
+            found = "the listed trailing-edge edges are not complete grid lines; use remesh"
     if isinstance(found, str):
         if spec.keep_first_row:
             raise _refuse(
@@ -291,6 +315,12 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
             "no edge of it is listed in the trailing-edge points file, and the boundaries file "
             "does not route its trailing edge to detection",
         )
+    if _obj.mesh_unit(work.source) is None:
+        raise _refuse(
+            where,
+            "detection writes a points file with a length unit; state [import] units in "
+            "the boundaries file before detecting the trailing edge",
+        )
     sharp, line = _detection(work, name)
     if line is None or isinstance(line, str):
         why = line or (
@@ -306,6 +336,7 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
     work.te_of[name] = line
     work.te_source[name] = "detected"
     edges = sorted(e for e in sharp if e[0] in line and e[1] in line)
+    work.te_edges[name] = set(edges)
     ends = numpy.array(edges, dtype=numpy.int64).reshape(-1, 2)
     work.te_detected[name] = 0.5 * (work.mesh.verts[ends[:, 0]] + work.mesh.verts[ends[:, 1]])
 
@@ -313,23 +344,20 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
 def _detection(work: _Work, name: str) -> tuple[set[tuple[int, int]], set[int] | str | None]:
     """Return a family's sharp edges and the trailing edge detected on them (FR-430 R7).
 
-    The dihedral is measured on the family's own faces first. A sheet's
-    trailing edge is a boundary of the family, one face of it on each side
-    in two families, so when that finds no line the family's edges are
-    measured again on the faces of every family, as the solver's detection
-    measures them.
+    Measure across all families before filtering to this family's edges.
+    A sheet's trailing edge can have its opposite face in another family.
     """
     faces = work.mesh.families[name]
-    found: tuple[set[tuple[int, int]], set[int] | str | None] = (set(), None)
-    for measured in (faces, [f for fs in work.mesh.families.values() for f in fs]):
-        own = set(_geometry.edge_faces(faces))
-        dihedral = _geometry.dihedral_degrees(work.mesh.verts, measured)
-        sharp = {e for e, deg in dihedral.items() if deg > _geometry.RIDGE_DEGREES and e in own}
-        line = _detected_line(work.mesh.verts, faces, sharp) if sharp else None
-        if isinstance(line, set):
-            return sharp, line
-        found = found if found[1] is not None else (sharp, line)
-    return found
+    own = set(_geometry.edge_faces(faces))
+    measured = [f for fs in work.mesh.families.values() for f in fs]
+    dihedral = _geometry.dihedral_degrees(work.mesh.verts, measured)
+    sharp = {e for e, deg in dihedral.items() if deg > _geometry.RIDGE_DEGREES and e in own}
+    line = (
+        _detected_line(work.mesh.verts, faces, sharp, work.specs[name].trailing_edge_direction)
+        if sharp
+        else None
+    )
+    return sharp, line
 
 
 def _te_rows(work: _Work, points: Points) -> list[list[float]]:
@@ -342,7 +370,12 @@ def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     return [[float(w) for w in _obj.coordinates(p * work.te_to_file).split()] for p in points]
 
 
-def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> set[int] | str:
+def _detected_line(
+    verts: Points,
+    faces: Faces,
+    sharp: set[tuple[int, int]],
+    direction: tuple[float, float, float] | None = None,
+) -> set[int] | str:
     """Return the vertices of the detected trailing edge, or why the sharp edges hold none (R7).
 
     The grid is recovered on every sharp edge's vertices, and the trailing
@@ -350,7 +383,8 @@ def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> 
     far station, is sharp, at a chordwise extreme: the first or last line of
     a sheet, either end of the chord of a tube's middle station. Of two such
     lines, a sharp leading edge and the trailing edge, the trailing edge is
-    the aft one, aft being +x (the frame is x aft, y starboard, z up). A
+    the one farther along the family's explicit trailing_edge_direction. A
+    missing direction or equal projections is ambiguous and refused. A
     family no single grid is recovered on gets every sharp edge, and the
     recovery's own refusal follows.
     """
@@ -372,13 +406,21 @@ def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> 
             "the edges sharper than the ridge angle form no grid line from station 0 to the "
             "far station at a chordwise extreme"
         )
-    aft = [float(verts[ids[:, c], 0].mean()) for c in lines]
+    if len(lines) > 1 and direction is None:
+        return (
+            "both chordwise extremes are sharp; state trailing_edge_direction in the "
+            "family's refinement table, pointing from leading to trailing edge, or list "
+            "the trailing-edge points"
+        )
+    axis = numpy.asarray(direction if direction is not None else (1.0, 0.0, 0.0))
+    axis = axis / numpy.linalg.norm(axis)
+    aft = [float((verts[ids[:, c]] @ axis).mean()) for c in lines]
     extent = float(numpy.ptp(verts[ids.ravel()], axis=0).max())
-    # one position along x, by the rule of two nodes that are one position (FR-426 R2 G1)
+    # Equal projections cannot distinguish the two sharp extremes.
     if len(lines) == 2 and abs(aft[0] - aft[1]) <= _geometry.DUPLICATE_FRACTION * extent:
         return (
             "both chordwise extremes are sharp grid lines from station 0 to the far station "
-            "and neither lies aft (+x) of the other"
+            "and trailing_edge_direction does not distinguish them"
         )
     return {int(v) for v in ids[:, lines[int(numpy.argmax(aft))]].tolist()}
 
@@ -716,6 +758,7 @@ def _bands(work: _Work) -> None:
         for n in (name, bname):
             work.fam_v[n] = set(work.mesh.family_vertices(n).tolist())
             work.te_of[n] = _te_vertices(work.mesh, n, work.te_points, work.scale)
+            work.te_edges[n] = _listed_edges(work.mesh, n, work.te_points, work.scale)
         work.specs[bname] = FamilySpec(factor=1.0, method="remesh")
         work.remesh.append(bname)
         work.conform[bname] = work.conform.pop(name)
@@ -813,9 +856,20 @@ def _remesh_groups(work: _Work) -> None:
             stretch=stretch,
             elements=modes,
             shared=shared,
+            te_edges=set().union(*(work.te_edges[n] for n in ordered)),
         )
-        at_curve = done.info.get("shared_edge_target_m", {})
-        info = {k: v for k, v in done.info.items() if k != "shared_edge_target_m"}
+        at_curve = done.info.get("shared_edge_target_mesh_units", {})
+        unit = _obj.mesh_unit(work.source)
+        to_metres = None if unit is None else length_scale(unit, "METER")
+        target_key = (
+            "shared_edge_target_mesh_units" if to_metres is None else "shared_edge_target_m"
+        )
+        if to_metres is not None:
+            at_curve = {
+                n: {key: value * to_metres for key, value in measures.items()}
+                for n, measures in at_curve.items()
+            }
+        info = {k: v for k, v in done.info.items() if k != "shared_edge_target_mesh_units"}
         for n in ordered:
             entry = work.report.setdefault(n, {"method": "remesh"})
             entry.update(
@@ -826,10 +880,10 @@ def _remesh_groups(work: _Work) -> None:
             )
             entry.update(work.rebuilt.get(n, {}))
             if n in at_curve and n not in work.bands:  # FR-432 R3, under the rebuilt family
-                entry["shared_edge_target_m"] = at_curve[n]
+                entry[target_key] = at_curve[n]
         for n in ordered:
             if n in work.bands and n in at_curve:  # FR-432 R3, under the band's family
-                work.report[work.bands[n]]["shared_edge_target_m"] = at_curve[n]
+                work.report[work.bands[n]][target_key] = at_curve[n]
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
 
@@ -1061,7 +1115,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
     periodic = {} if work.periodic is None else {"periodic": work.periodic}
     shortened = {} if work.tag_selection is None else {"tag_selection": work.tag_selection}
     return {
-        "schema_version": _geometry.SCHEMA_VERSION,
+        "schema_version": REFINE_SCHEMA_VERSION,
         "source": work.source.name,
         "level": stem,
         "config": None if work.request.config is None else work.request.config.name,
