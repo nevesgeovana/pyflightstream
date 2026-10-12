@@ -457,16 +457,20 @@ def _surface_section_prelude(script: Script, workdir: Path) -> None:
     script.emit("CREATE_NEW_SURFACE_SECTION", 1, "XZ", 0.05, "1", "DISABLE", -1)
 
 
+def _surface_section_export(script: Script, workdir: Path) -> None:
+    script.emit("EXPORT_SURFACE_SECTIONS", 1, workdir / "section_1.txt")
+
+
 _spec(
     command="EXPORT_SURFACE_SECTIONS",
-    build_target=_emit("EXPORT_SURFACE_SECTIONS", 1),
+    build_target=_surface_section_export,
     requires=Requires.SOLUTION,
     prelude=_surface_section_prelude,
     assert_effect=_a_file_was_added,
     observe=_added_files_read,
     effect_note=(
-        "the solver adds a file to its working folder: the manual states no file name "
-        "for the one-section export, so the folder is read, and silence records unprobed"
+        "the solver adds the requested section export to its working folder; "
+        "silence records unprobed"
     ),
     timeout_s=240.0,
 )

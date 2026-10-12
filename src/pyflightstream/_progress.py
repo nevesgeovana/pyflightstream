@@ -261,6 +261,15 @@ def say_summary(text: str) -> None:
     quiet_keeps(text)
 
 
+def say_data(text: str) -> None:
+    """Print requested data on stdout at every console level, including quiet."""
+    stream = sys.stdout
+    if isinstance(stream, _ConsoleStream):
+        stream.write_data(text + "\n")
+    else:
+        print(text)
+
+
 def release_quiet(terminal: _Terminal | None, *, failed: bool) -> None:
     """Say what a quiet console held: the errors of the command, then its final summary line.
 
@@ -796,6 +805,10 @@ class _ConsoleStream:
     def write(self, text: str) -> int:
         if self._terminal.quiet:
             return _hold(self._terminal, self._console, text, out=self._out)
+        return self.write_data(text)
+
+    def write_data(self, text: str) -> int:
+        """Write data and log it without suppressing it at quiet level."""
         if text:
             _before_a_line(self._terminal, self._console, text)
         written = self._raw.write(text)
@@ -912,7 +925,8 @@ def command_console(
     printed as one block at the end, a refusal and an interruption included.
     With ``live_log`` in a campaign workspace, every line the console shows,
     standard output included, is written to ``logs/<command>-<stamp>.log`` as
-    it is said. Standard output carries exactly what it carried before.
+    it is said. At quiet level ordinary stdout is held for the summary;
+    requested data uses :func:`say_data` to remain visible at every level.
 
     Only inside :func:`command_terminal`, and once: a nested command runs in
     the console already open.

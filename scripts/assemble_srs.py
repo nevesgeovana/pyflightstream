@@ -74,10 +74,19 @@ def fragments(repo: Path) -> list[Path]:
 def split_boxes(text: str) -> list[tuple[str, str]]:
     """Return ``(id, box text)`` of every requirement box of ``text``, in order."""
     starts = list(_BOX_START.finditer(text))
-    ends = [m.start() for m in starts[1:]] + ([len(text)] if starts else [])
-    return [
-        (m["id"], text[m.start() : end].strip("\n")) for m, end in zip(starts, ends, strict=True)
-    ]
+    boxes = []
+    for match in starts:
+        lines = text[match.start() :].split("\n")
+        end = next(
+            (
+                i
+                for i, line in enumerate(lines[1:], 1)
+                if line.strip() and not line.startswith("    ")
+            ),
+            len(lines),
+        )
+        boxes.append((match["id"], "\n".join(lines[:end]).strip("\n")))
+    return boxes
 
 
 def parse_fragment(path: Path) -> list[tuple[str, str]]:

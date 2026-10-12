@@ -660,7 +660,14 @@ def names_of(token: str, names: Sequence[str]) -> list[str]:
     if same:
         return same
     wanted = family_of(token)
-    return [name for name in names if family_of(name) == wanted]
+    family = [name for name in names if family_of(name) == wanted]
+    if family and wanted != folded:
+        raise MeshReadError(
+            f"boundary token {token!r} carries an index but matches only the family "
+            f"spanning {', '.join(family)}; name an existing surface or use {wanted!r} "
+            "for the whole family"
+        )
+    return family
 
 
 def resolve_family(token: str, labels: Mapping[str, int]) -> tuple[int, ...]:

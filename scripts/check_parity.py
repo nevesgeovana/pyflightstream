@@ -376,6 +376,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "lines": rf"^{_TOGGLE_LINE}$",
         "block": rf"(?:{_TOGGLE_LINE}(?:\n|$))+",
         "requirement": "FR-349",
+        "directed_toggles": "true",
         "since": "0.34.0",
         "why": (
             "P0340-TOGGLES: a row that asks DISABLE for valarezo_criterion, wake_relaxation, "
@@ -1358,6 +1359,24 @@ def _legacy_cell(line: str) -> tuple[str, str | None]:
     return head, field.lstrip(" ") if len(field) == LEGACY_FIELD else None
 
 
+def _toggle_correction(old: str, new: str) -> bool:
+    """Accept only ENABLE to DISABLE replacements of the same toggle commands."""
+    removed, added = [], []
+    for line in difflib.ndiff(old.splitlines(), new.splitlines()):
+        if line.startswith("- "):
+            removed.append(line[2:])
+        elif line.startswith("+ "):
+            added.append(line[2:])
+    return (
+        bool(removed)
+        and len(removed) == len(added)
+        and all(
+            before.endswith(" ENABLE") and after == before.removesuffix("ENABLE") + "DISABLE"
+            for before, after in zip(removed, added, strict=True)
+        )
+    )
+
+
 def name_difference(
     kind: str,
     name: str,
@@ -1393,6 +1412,8 @@ def name_difference(
             continue
         block = named.get("block")
         if block and not re.fullmatch(block, "\n".join(lines)):
+            continue
+        if named.get("directed_toggles") and not _toggle_correction(old or "", new):
             continue
         lacks = named.get("release_lacks")
         if lacks and re.search(lacks, new):
