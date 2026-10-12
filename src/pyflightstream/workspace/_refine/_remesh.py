@@ -1018,6 +1018,7 @@ def refine_group(
         for _ in range(SMOOTH_PASSES):
             remesher.smooth_quads(quad_families)
     points, families, te_mid = remesher.result()
+    ratio = remesher.edge_ratio_median()
     kinds: dict[str, int] = defaultdict(int)
     for key in curve.values():
         kinds[key.partition(":")[0]] += 1
@@ -1026,7 +1027,8 @@ def refine_group(
         "remeshed_together": list(names),
         "fixed_interface_nodes": len(fixed),
         "curve_edges": dict(sorted(kinds.items())),
-        "edge_ratio_median": round(remesher.edge_ratio_median(), 6),
+        # JSON null when every edge is a curve: NaN is no JSON a strict reader accepts.
+        "edge_ratio_median": None if math.isnan(ratio) else round(ratio, 6),
     }
     if conformed:
         info["conformed_interfaces"] = conformed

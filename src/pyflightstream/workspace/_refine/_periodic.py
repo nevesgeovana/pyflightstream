@@ -290,6 +290,31 @@ def _near(points: Points, a: Points, b: Points) -> NDArray[numpy.bool_]:
     return numpy.asarray(dist < ON_CURVE_FRACTION * length[k])
 
 
+#: FR-427, FR-425 R2: a boundary edge runs along a cut when both its ends lie within this
+#: fraction of the edge's own length from it; a node near a cut's end whose edges all leave
+#: the cut (the next open boundary) is no node of the cut.
+ALONG_FRACTION = 0.5
+
+
+def _along(
+    points: Points, ids: Sequence[int], edges: Sequence[tuple[int, int]], a: Points, b: Points
+) -> NDArray[numpy.bool_]:
+    """Return which nodes ``ids`` lie on the segments a-b and have a boundary edge along them."""
+    ids = list(ids)
+    near = _near(points[ids], a, b) if ids else numpy.zeros(0, dtype=bool)
+    if not near.any():
+        return near
+    dist, _ = segment_distances(points[ids], a, b)
+    found = {v: float(d) for v, d, n in zip(ids, dist, near, strict=True) if n}
+    along: set[int] = set()
+    for u, w in edges:
+        if u in found and w in found:
+            span = float(numpy.linalg.norm(points[u] - points[w]))
+            if max(found[u], found[w]) < ALONG_FRACTION * span:
+                along.update((u, w))
+    return numpy.array([v in along for v in ids], dtype=bool)
+
+
 def _edges_of(plan: _Plan, chain: Sequence[int], name: str) -> list[tuple[int, int]]:
     return [(a, b) for a, b in pairwise(chain) if plan.owner.get(_ek(a, b)) == name]
 
@@ -305,8 +330,9 @@ def _fixed_nodes(plan: _Plan, chain: Sequence[int], side: Sequence[str]) -> Poin
         edges = _edges_of(plan, chain, name)
         if name in plan.grids:
             pts, faces = plan.grids[name]
-            ids = sorted({v for e in boundary_edges(faces) for v in e})
-            parts.append(pts[ids][_near(pts[ids], *_ends(plan.verts, edges))])
+            outline = boundary_edges(faces)
+            ids = sorted({v for e in outline for v in e})
+            parts.append(pts[ids][_along(pts, ids, outline, *_ends(plan.verts, edges))])
         else:
             parts.append(plan.verts[sorted({v for e in edges for v in e})])
     points = numpy.vstack(parts)
@@ -410,13 +436,17 @@ def plan_conform(
 
 
 def _match_pair(
-    level: Points, outline: NDArray[numpy.int64], cut: CutPair, plan: _Plan
+    level: Points,
+    outline: NDArray[numpy.int64],
+    edges: Sequence[tuple[int, int]],
+    cut: CutPair,
+    plan: _Plan,
 ) -> dict[str, Any]:
     """Place the slave's level nodes on the rotated master's and return the pair's report."""
     sides = []
     for chain in (cut.master, cut.slave):
         a, b = plan.verts[list(chain[:-1])], plan.verts[list(chain[1:])]
-        sides.append(outline[_near(level[outline], a, b)])
+        sides.append(outline[_along(level, outline.tolist(), edges, a, b)])
     master, slave = sides
     rotated = rotate(level[master], plan.periodic, cut.sense)
     found = nearest_match(rotated, level[slave])
@@ -483,9 +513,10 @@ def match_level(
         return level, None
     out = numpy.array(level, dtype=float, copy=True)
     flat = [f for fs in faces.values() for f in fs]
-    outline = numpy.array(sorted({v for e in boundary_edges(flat) for v in e}), dtype=numpy.int64)
+    edges = boundary_edges(flat)
+    outline = numpy.array(sorted({v for e in edges for v in e}), dtype=numpy.int64)
     plan = _Plan(source, periodic, {}, {}, {}, size)
-    rows = [_match_pair(out, outline, cut, plan) for cut in cuts]
+    rows = [_match_pair(out, outline, edges, cut, plan) for cut in cuts]
     worst = max(r["level_distance"] for r in rows)
     if not worst <= PERIODIC_LEVEL_FRACTION * size:
         bad = next(r for r in rows if r["level_distance"] == worst)
