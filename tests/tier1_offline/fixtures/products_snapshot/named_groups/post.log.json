@@ -6,6 +6,14 @@
  "check_frozen": false,
  "records": [
   {
+   "point": "polars/6002",
+   "product": "polars/6002",
+   "message": "simulation 6002's group polars are read from the loads export of an unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging window resolves for it; the manifest marks them kind: instant.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "polars/6001#rotor_tables",
    "product": "polars/6001#rotor_tables",
    "message": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",

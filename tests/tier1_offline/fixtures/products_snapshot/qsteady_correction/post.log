@@ -3,4 +3,5 @@ workspace=<ROOT>
 matrix=matriz
 time=<TIME>
 check_frozen=False (refuse instead of warn)
+WARNING point=polars/6002 product=polars/6002: simulation 6002's group polars are read from the loads export of an unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging window resolves for it; the manifest marks them kind: instant.
 WARNING point=polars/6002#rotor_tables product=polars/6002#rotor_tables: reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; available reference ids: r001 Remedy: restore the required data or correct the stated inputs and post again.
