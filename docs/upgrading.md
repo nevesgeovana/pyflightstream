@@ -2,6 +2,23 @@
 
 Read the migration records for the releases between your installed version and the version you are adopting. Each record states the changes a workspace needs.
 
+## 0.40.0
+
+The tier-3 maintenance programs have several corrected behaviors:
+
+- `tests/tier3_licensed/actions_probe.py` and `duct.py` can now start as
+  scripts from another working directory, with no `PYTHONPATH` setting.
+  Use the full script path when starting them outside the repository.
+- `tests/tier3_licensed/mesh_routes.py` applies the same relative `1e-9`
+  rounding slack to its unit-conversion verdict and its route comparisons.
+  A gap of exactly one printed unit can now report `IMPORT CONVERTS` when
+  binary rounding previously put it just above the band.
+- `tests/tier3_licensed/rotation_null.py` resolves the simulation ID from
+  the leading token of each point name, for both angle signs. It now scores
+  the recorded products instead of raising `KeyError` before comparison.
+
+## Earlier releases
+
 - [Migrating to 0.39.0](migrating-to-0.39.0.md)
 - [Migrating to 0.38.0](migrating-to-0.38.0.md)
 - [Migrating to 0.37.0](migrating-to-0.37.0.md)
