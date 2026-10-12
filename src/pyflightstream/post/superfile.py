@@ -72,6 +72,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -161,22 +162,32 @@ def release_tag(version: str) -> str:
     Returns
     -------
     str
-        Its major, minor and patch numbers written one after another.
+        Its major, minor and patch numbers written one after another, and a
+        pre-release's label after them (``0.40.0rc1`` is ``0400rc1``), so no
+        pre-release takes the tag of a final release (PFS-2081.46).
 
     Raises
     ------
     ProductError
-        If the version has no major, minor and patch, or a part carries no digits.
+        If the version has no major, minor and patch, a part carries no digits,
+        or the patch is followed by something other than a pre-release label.
     """
     parts = version.split(".")
     if len(parts) < 3:
         raise ProductError(f"the version {version!r} has no major, minor and patch to tag with")
     numbers = []
-    for part in parts[:3]:
+    for part in parts[:2]:
         digits = "".join(character for character in part if character.isdigit())
         if not digits:
             raise ProductError(f"the version {version!r} carries a part with no digits")
         numbers.append(str(int(digits)))
+    patch = re.fullmatch(r"(\d+)((?:a|b|rc)\d+)?(\+.*)?", parts[2].lower())
+    if patch is None:
+        raise ProductError(
+            f"the version {version!r} has a patch {parts[2]!r} that is not a number, "
+            "optionally followed by a pre-release label (a, b or rc and a number)"
+        )
+    numbers.append(str(int(patch.group(1))) + (patch.group(2) or ""))
     return "".join(numbers)
 
 
