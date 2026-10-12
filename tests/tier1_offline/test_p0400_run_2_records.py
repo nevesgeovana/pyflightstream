@@ -42,6 +42,22 @@ def test_p0400_mark_failed_numbers_a_second_archive_within_one_stamp(tmp_path, m
     assert (archive / "runs-20261012-120000.2.json").read_bytes() == second
 
 
+def test_p0400_mark_failed_refuses_a_named_point_no_record_holds(tmp_path):
+    """P0400-MARK-UNKNOWN-POINT (PFS-2094.019): a point planned but not run is refused by name.
+
+    The alias resolves through plan.json to a point with no record; the
+    mark matched nothing and exited 0 in silence.
+    """
+    from tests.tier1_offline.test_mark_failed import _workspace
+
+    workspace = _workspace(tmp_path)
+    before = workspace.manifest_path.read_bytes()
+    refusal = r"no record of point AL\+010 in simulation 2006"
+    with pytest.raises(records.RunsManifestError, match=refusal):
+        records.mark_failed(workspace.root, [], points={"2006": ["AL+010"]}, apply=True)
+    assert workspace.manifest_path.read_bytes() == before
+
+
 @pytest.mark.parametrize("sims", ["2006,2007", "2006"])
 def test_p0400_mark_failed_refuses_a_bare_string_of_ids(tmp_path, sims):
     """P0400-SIMS-STRING (PFS-2089.009): a str is refused in Python terms, never iterated.

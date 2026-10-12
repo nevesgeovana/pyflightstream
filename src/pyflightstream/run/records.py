@@ -102,7 +102,7 @@ from pyflightstream.results import parse_unsteady_plots as parse_unsteady_plots
 # Since 0.33.0 (AD-11) the rebuild, what it reads, the assembly and the record
 # files are private modules of this package; every public name of them keeps
 # its 0.32.0 path here.
-from pyflightstream.run._alias import row_selected
+from pyflightstream.run._alias import _row_tags, row_selected
 from pyflightstream.run._assemble import APART_MARK as APART_MARK
 from pyflightstream.run._assemble import ASSEMBLED_NOTE as ASSEMBLED_NOTE
 from pyflightstream.run._assemble import FROM_SIMS_LABEL as FROM_SIMS_LABEL
@@ -216,7 +216,8 @@ def mark_failed(
     Raises
     ------
     RunsManifestError
-        No ``runs.json``, no simulation named, or an id with no record.
+        No ``runs.json``, no simulation named, an id with no record, or a
+        point of ``points`` that no record holds.
     """
     from pyflightstream.workspace import CampaignWorkspace, RunStatus
 
@@ -255,6 +256,18 @@ def mark_failed(
                 or row_selected(row, only.get(str(row.get("sim_id")), ()))
             )
         ]
+        # A NAMED POINT NO RECORD HOLDS IS REFUSED BY NAME (PFS-2094.019), as
+        # an unknown simulation is: an alias the plan resolves for a point
+        # not yet run marked nothing and exited 0 in silence.
+        found = {(str(row.get("sim_id")), tag) for row in chosen for tag in _row_tags(row)}
+        missing = [
+            (sim, tag) for sim, tags in only.items() for tag in tags if (sim, tag) not in found
+        ]
+        if missing:
+            raise RunsManifestError(
+                "; ".join(f"no record of point {tag} in simulation {sim}" for sim, tag in missing)
+                + "; nothing was marked"
+            )
         already = [
             str(row["run_id"]) for row in chosen if row.get("status") == RunStatus.FAILED_MARKED
         ]
