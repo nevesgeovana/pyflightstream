@@ -293,22 +293,8 @@ def apply_geometry_gate(
         If ``cull`` is set and the mesh is not watertight, whether it
         came as ``mesh`` or through ``mesh_path``.
     """
-    # PFS-2103.001. With both, the report would record a file the gate
-    # never loaded.
-    if mesh is not None and mesh_path is not None:
-        raise ProbeGeometryError(
-            "pass mesh or mesh_path, not both: the report records the mesh file the "
-            "gate tested against, and with both it would name a file it never loaded"
-        )
     resolved_path = str(mesh_path) if mesh_path is not None else None
-    if mesh_path is not None:
-        # PFS-2097.007, PFS-2100.010. Containment is asked only when the
-        # gate culls, so only then must the surface be closed.
-        mesh = load_surface_mesh(mesh_path, require_watertight=cull)
-    elif mesh is not None and cull:
-        # PFS-2097.008. A mesh object reaches containment with no
-        # check unless the gate makes the one the loader makes.
-        _refuse_open(mesh, "passed as mesh=")
+    mesh = _gate_mesh(mesh, mesh_path, cull=cull)
     if grid.refinement is not None and mesh is None:
         raise ProbeGeometryError(
             "the grid prescribes a near-surface refinement band, but no surface "
@@ -367,6 +353,28 @@ def apply_geometry_gate(
     return PlannedProbes(grid=grid, points=points, report=report)
 
 
+def _gate_mesh(mesh, mesh_path, *, cull: bool):
+    """Resolve exactly one surface, checking closure only for containment."""
+    if mesh is not None and mesh_path is not None:
+        raise ProbeGeometryError(
+            "pass mesh or mesh_path, not both: the report records the mesh file the "
+            "gate tested against, and with both it would name a file it never loaded"
+        )
+    if mesh_path is not None:
+        return load_surface_mesh(mesh_path, require_watertight=cull)
+    if mesh is not None and cull:
+        _refuse_open(mesh, "passed as mesh=")
+    return mesh
+
+
+def _band_centers(mesh, centers, distance, *, cull: bool):
+    """Select nearby cell centers, without containment for distance-only use."""
+    flagged = _surface_distance(mesh, centers) < distance
+    if cull:
+        flagged &= ~_inside(mesh, centers)
+    return flagged
+
+
 def _refine_band(
     grid: PlanarProbeGrid, mesh, *, cull: bool, standoff: float = 0.0
 ) -> tuple[np.ndarray, int, int]:
@@ -393,12 +401,7 @@ def _refine_band(
     centers_local[:, 1] = np.tile(centers_v, len(centers_u))
     centers = grid.frame.to_reference(centers_local)
 
-    center_distance = _surface_distance(mesh, centers)
-    flagged = center_distance < distance
-    if cull:
-        # PFS-2097.007. Containment on an open surface is a guess, and
-        # the gate checks the surface is closed only when it culls.
-        flagged &= ~_inside(mesh, centers)
+    flagged = _band_centers(mesh, centers, distance, cull=cull)
     flagged = flagged.reshape(len(centers_u), len(centers_v))
 
     fine_u = _fine_axis(u, factor)

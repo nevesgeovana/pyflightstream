@@ -801,11 +801,16 @@ def _fsm_renderings(token: str) -> tuple[str, ...]:
         value = float(token)
     except ValueError:
         return tuple(forms)
+    forms[0] = re.escape(token.removeprefix("+"))
     rendered = f"{value:.17E}"
     forms.append(re.escape(rendered))
     mantissa, _, exponent = rendered.partition("E")
     forms.append(re.escape(mantissa[:12]) + r"\d*E" + re.escape(exponent))
-    return tuple(forms)
+    # Every numeric form needs boundaries, including the plain literal:
+    # otherwise 37 verifies 370 or -37, and 0.1 verifies 0.1E+01. A
+    # trailing exponent digit must not extend a matched exponent either.
+    sign = r"\+?" if value >= 0 else ""
+    return tuple(r"(?<![\w.+-])(?:" + sign + form + r")(?![\w.+-])" for form in forms)
 
 
 def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], bool | None]:
@@ -1676,6 +1681,13 @@ def _judge(
             " (the epilogue instruments aborted after the target; the effect was "
             "judged from the artifacts they left)"
         )
+    return _judge_effect(spec, artifacts, common, epilogue_note)
+
+
+def _judge_effect(
+    spec: ProbeSpec, artifacts: ProbeArtifacts, common: dict[str, object], epilogue_note: str
+) -> ProbeResult:
+    """Read an effect instrument and record its verdict or its own failure."""
     # WHAT THE INSTRUMENT READ, beside the note (G02). The note is fixed text
     # naming the effect the probe expected, so an evidence line made of it
     # alone reads the same whatever the solver did, and a report could not be
