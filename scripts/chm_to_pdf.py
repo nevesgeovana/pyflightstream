@@ -62,7 +62,8 @@ def _pypdf():
     """Return the pypdf module, or refuse in the shape the package uses.
 
     One accessor rather than an import at each of the two call sites,
-    mirroring ``pyflightstream.probes.geometry._trimesh``. Both earlier
+    refusing through ``pyflightstream.extras.missing_extra`` as the
+    package's own optional imports do. Both earlier
     forms were defects of their own: one site imported bare, which reads
     as a base dependency and is what
     ``tests/tier1_offline/test_extras_isolation.py`` now refuses, and the other wrote
@@ -225,7 +226,8 @@ def main() -> int:
     -------
     int
         0 on success, 2 when the arguments or Chrome path are missing, 1 when the
-        ``[manual]`` extra is not installed. The two failures are given
+        ``[manual]`` extra is not installed or the package reader finds no
+        command in the rendered pdf. The usage failure and the others are given
         different codes deliberately: a caller that cannot tell a usage
         mistake from a missing dependency cannot act on either.
     """
@@ -298,7 +300,13 @@ def main() -> int:
             f"the package reader finds {len(found)} commands, pages {numbers[0]} to {numbers[-1]}"
         )
     else:
-        print("the package reader finds NO command; the page numbers are not citable")
+        # A FAILURE, not a report line: a pdf the package reader finds no
+        # command in is a pdf nothing can cite, and exit 0 said it was fine.
+        print(
+            "chm_to_pdf.py: the package reader finds NO command; the page numbers are not citable",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

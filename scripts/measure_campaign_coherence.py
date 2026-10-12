@@ -40,6 +40,12 @@ import re
 import sys
 from pathlib import Path
 
+# ONE Total-row reader for the scripts that read one, the strict one: a row whose
+# cell count differs from its header's is refused, never zipped short.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from extract_recorded_total_rows import total_row  # noqa: E402
+
 SIX = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 CONDITION_LABELS = {
     "ALPHA": "Angle of attack (Deg)",
@@ -67,18 +73,23 @@ def _number(text: object) -> float | None:
 
 
 def _loads_total(path: Path) -> dict[str, float] | None:
-    """Return the Total row and the two angles of one raw loads export."""
+    """Return the Total row and the two angles of one raw loads export.
+
+    Raises
+    ------
+    ValueError
+        If the Total row's cell count differs from its header's, or a cell is
+        not a number: a short row zipped leniently shifted every column after
+        the gap onto the wrong name.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
-    header = re.search(r"^\s*Surface,\s*(.+)$", text, flags=re.M)
-    total = re.search(r"^\s*Total,\s*(.+)$", text, flags=re.M)
+    printed = total_row(text)
     alpha = re.search(r"Angle of attack \(Deg\)\s+(\S+)", text)
     beta = re.search(r"Side-slip angle \(Deg\)\s+(\S+)", text)
-    if not (header and total and alpha and beta):
+    if not (printed and alpha and beta):
         return None
-    names = [name.strip() for name in header.group(1).split(",")]
-    cells = [cell.strip() for cell in total.group(1).split(",") if cell.strip()]
-    values = [float(cell) for cell in cells]
-    row = dict(zip(names, values, strict=False))
+    cells = list(printed.values())
+    row = {name: float(cell) for name, cell in printed.items()}
     # HOW MANY DECIMALS THE EXPORT PRINTS, which is the precision of every number read
     # off it: some builds print seven and some four.
     row["decimals"] = float(min(len(cell.partition(".")[2]) for cell in cells))

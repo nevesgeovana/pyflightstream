@@ -10,9 +10,12 @@ the face count, the axial and radial extent and the wetted area; then, for the f
 after the first, how many vertices of each surface land on the FIRST file's surface of
 that name, and whether each blade is a rotation of the first blade about x.
 
-It reads the mesh block of the file and nothing else: the face count, the surface names
-and colours, three lines of vertex indices, the per-face arrays, and the vertex
-coordinates. No solver, no package import, no licence.
+It reads the mesh block through the package's own reader (``pyflightstream._fsm``), so
+the format has one reader: the boundary names, the triangles, the boundary each face
+belongs to (the measured per-face row) and the vertex coordinates, every one located by
+the block's own counts. The element count the block states first is not used; the
+package documents it as untrustworthy (one campaign geometry states 7848 where every
+array holds 7784). No solver, no licence.
 """
 
 from __future__ import annotations
@@ -22,32 +25,27 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from pyflightstream._fsm import MeshReadError, _mesh_block, boundary_names
+
 
 def load(path: Path) -> tuple[list[str], list[list[int]], list[int], list[list[float]]]:
-    """Return (surface names, the three vertex indices per face, the surface of each face, xyz)."""
-    lines = path.read_bytes().split(b"\n")
-    start = next(k for k, s in enumerate(lines) if s.strip() == b"$MESH_START$")
-    faces = int(lines[start + 1])
-    surfaces = int(lines[start + 3])
-    names = [lines[start + 4 + 3 * k + 1].strip().decode() for k in range(surfaces)]
-    arrays: list[list[bytes]] = []
-    row = start + 4 + 3 * surfaces + 1
-    while True:
-        cells = [c.strip() for c in lines[row].split(b",") if c.strip()]
-        if len(cells) != faces:
-            break
-        arrays.append(cells)
-        row += 1
-    count = int(lines[row + 1])
-    xyz = [[float(c) for c in lines[row + 2 + axis].split(b",") if c.strip()] for axis in range(3)]
-    if any(len(axis) != count for axis in xyz):
-        raise SystemExit(f"{path.name}: {count} vertices declared, {[len(a) for a in xyz]} read")
-    triangle = [[int(c) for c in arrays[column]] for column in (2, 3, 4)]
-    wanted = {str(n).encode() for n in range(1, surfaces + 1)}
-    of_face = next(([int(c) for c in a] for a in arrays[5:] if set(a) == wanted), None)
-    if of_face is None:
-        raise SystemExit(f"{path.name}: no per-face array names the surfaces 1 to {surfaces}")
-    return names, triangle, of_face, xyz
+    """Return (surface names, the three vertex indices per face, the surface of each face, xyz).
+
+    The vertex indices are 1-based, as the file writes them, and the surface of a face is
+    its 1-based boundary position.
+    """
+    try:
+        names = boundary_names(path)
+        vertices, triangles, _flags, owners = _mesh_block(path)
+    except MeshReadError as error:
+        raise SystemExit(str(error)) from error
+    if names is None:
+        raise SystemExit(f"{path.name}: carries no mesh block")
+    if not owners:
+        raise SystemExit(f"{path.name}: no per-face row names the boundary of every face")
+    triangle = [[face[corner] + 1 for face in triangles] for corner in range(3)]
+    xyz = [[vertex[axis] for vertex in vertices] for axis in range(3)]
+    return list(names), triangle, list(owners), xyz
 
 
 def surface(

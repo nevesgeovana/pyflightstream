@@ -1196,8 +1196,13 @@ class VersionView:
                 if record.successor
                 else "No direct successor is recorded."
             )
-            last = self._last_documented(entry)
-            last_part = f" Last documented in {last.canonical}." if last else ""
+            last, later = self._documented_around(entry)
+            if last is not None:
+                last_part = f" Last documented in {last.canonical}."
+            elif later:
+                last_part = f" Documented in the later build(s) {', '.join(later)}."
+            else:
+                last_part = ""
             inherited_note = (
                 f" That record belongs to {evidence.source}; "
                 f"{self.version.canonical} inherits it and no probe on "
@@ -1238,18 +1243,18 @@ class VersionView:
             # February manual beside a page number from the current one.
             # An error message that names the wrong page is worse than one
             # that names none: the reader goes and reads it.
-            # The citation goes into whichever field the entry already
-            # uses, never into both. model_copy runs no validator, so
-            # writing the override citation unconditionally into
-            # manual_ref would give a probe-cited entry both fields set,
-            # which is the state _every_entry_cites_exactly_one_kind_of
-            # _evidence exists to refuse, plus a manual_ref that fails
-            # its own pattern. No entry combines a probe_ref with a
-            # per-version args override today; this is one YAML row away
-            # from being reachable.
+            # A MANUAL-CITED entry only. model_copy runs no validator, so
+            # writing the override citation into manual_ref of a
+            # probe-cited entry would set both fields, the state
+            # _every_entry_cites_exactly_one_kind_of_evidence refuses; and
+            # writing "<report>, the <ver> grammar" into its probe_ref
+            # breaks that field's own repository-relative-path rule. A
+            # probe-cited entry therefore keeps its citation unchanged: the
+            # report is still the evidence, and the grammar is the row's.
+            if entry.probe_ref and not entry.manual_ref:
+                return entry.model_copy(update={"args": record.args})
             cited = _override_citation(entry, evidence.source, record.note)
-            field = "probe_ref" if entry.probe_ref and not entry.manual_ref else "manual_ref"
-            return entry.model_copy(update={"args": record.args, field: cited})
+            return entry.model_copy(update={"args": record.args, "manual_ref": cited})
         return entry
 
     def __contains__(self, name: str) -> bool:
@@ -1264,14 +1269,22 @@ class VersionView:
         """Iterate over the command names available in this version."""
         return (name for name in self._registry.commands if name in self)
 
-    def _last_documented(self, entry: CommandEntry) -> FsVersion | None:
+    def _documented_around(self, entry: CommandEntry) -> tuple[FsVersion | None, list[str]]:
+        """Return the newest build BEFORE this view's with a non-removed row, and the later ones.
+
+        Only an earlier build can be where a command was "last documented"
+        before its removal; a build after the requested one that documents
+        it again is named as such, never as the last one.
+        """
         documented = [
             version
             for version in known_versions()
             if entry.versions.get(version.canonical) is not None
             and entry.versions[version.canonical].status is not Status.REMOVED
         ]
-        return documented[-1] if documented else None
+        earlier = [version for version in documented if version < self.version]
+        later = [version.canonical for version in documented if version > self.version]
+        return (earlier[-1] if earlier else None), later
 
 
 @dataclass(frozen=True)

@@ -38,3 +38,16 @@ def test_p0400_ffharmonics_m_max_must_be_a_non_negative_integer(m_max: object) -
     """P0400-FFHARMONICS: m_max = -1 or 2.5 on a 16-azimuth lattice is refused (PFS-2086.003)."""
     with pytest.raises(FarfieldInputError, match="is not an azimuthal order"):
         azimuthal_harmonics(_ring(16), m_max=m_max)  # type: ignore[arg-type]
+
+
+def test_p0400_ffharmonics_origin_offset_grid_gives_unrotated_coefficients() -> None:
+    """P0400-FFHARMONICS-ORIGIN (PFS-2105.003): psi starting at 0.3 rad gives c_1 = 1/2, real.
+
+    The FFT computes c_m only for psi_k = 2 pi k / N; on a grid offset by psi_0 every order
+    came back multiplied by exp(i m psi_0).
+    """
+    n, psi_0 = 16, 0.3
+    psi = psi_0 + 2.0 * np.pi * np.arange(n) / n
+    field = np.cos(psi) + 0.25 * np.sin(2.0 * psi)
+    c = azimuthal_harmonics(_ring(n, field, psi_0), m_max=3).values
+    np.testing.assert_allclose(c, [0.0, 0.5, -0.125j, 0.0], atol=1e-12)

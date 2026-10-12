@@ -214,6 +214,10 @@ def main(argv: list[str] | None = None) -> int:
 
     judged = [t for t in tags if _sortable(t) >= _sortable(FIRST_RECORDED)]
     skipped = [t for t in tags if t not in judged]
+    # THE NEWEST TAG OF THE CHECKOUT, not of the judged list: a tag named
+    # alone (or named after a newer one) was the last judged tag, so an old
+    # owed tag asked about by name read as inside its one-release window.
+    newest = max(version_tags(), key=_sortable)
 
     dois = recorded_dois()
     owed = owed_in_the_changelog()
@@ -229,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         doi = dois.get(tag)
         if doi:
             row = f"DOI {doi}"
-        elif tag in owed and tag == judged[-1]:
+        elif tag in owed and tag == newest:
             # THE WINDOW IS ONE RELEASE WIDE, and it was unbounded. The
             # docstring defines it as the one commit between a tag and the
             # row that pays it, and nothing enforced that: a sentence in the
@@ -239,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
             # exactly that. Found by the quality and verification lenses of
             # the 0.18.0 round, independently, 2026-09-14.
             #
-            # `judged[-1]` is the NEWEST judged tag, which is the only one
+            # `newest` is the NEWEST tag of the checkout, which is the only one
             # that can legitimately be inside its window: once a further
             # release has shipped, the debt is not a window any more, it is a
             # release that stopped being citable.

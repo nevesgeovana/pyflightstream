@@ -1431,7 +1431,7 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
     ],
 )
 def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
-    """The override citation goes into the field the entry already uses.
+    """A probe-cited entry's override changes its grammar and neither citation field.
 
     ``model_copy`` runs no validator, so writing the per-version
     citation into ``manual_ref`` unconditionally would hand a
@@ -1472,13 +1472,12 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
         "a probe-cited entry was handed a manual_ref by the override, which is the "
         "both-citations state the model refuses and which model_copy cannot catch"
     )
-    assert resolved.probe_ref.startswith(report), (
-        "the note's own manual page was taken as this entry's citation, so probe_ref "
-        "now holds a page reference that fails its repository-relative-path rule. "
-        "The second parameter of this test is that case: a note may mention a manual "
-        "page even when the entry rests on a report"
+    assert resolved.probe_ref == report, (
+        "the override wrote its provenance into probe_ref, so the field no longer "
+        "names a committed report and fails its repository-relative-path rule. "
+        "The second parameter of this test is the case where the note also mentions "
+        "a manual page (P0400-CMDPROBEREF, PFS-2102.024)"
     )
-    assert resolved.probe_ref.endswith("the 26.100 grammar")
     assert resolved.citation == resolved.probe_ref
 
 
