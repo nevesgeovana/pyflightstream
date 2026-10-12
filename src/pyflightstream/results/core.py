@@ -234,20 +234,22 @@ def parse_number(token: str) -> float:
     MalformedOutputError
         If the token is not a number (a ``ValueError``).
     """
+    refusal = (
+        f"{token!r} is not a solver-printed number; expected forms like "
+        "'.000', '4380000.', or '1.000E-05'"
+    )
     try:
-        if "_" in token:
-            # Python's digit separator: float() reads '1_000' as 1000.0,
-            # and no solver prints it, so a token carrying one is not a
-            # number of the export.
-            raise ValueError(token)
-        return float(token)
+        value = float(token)
     except ValueError as error:
         if match := _OMITTED_EXPONENT_MARKER.fullmatch(token.strip()):
             return float(f"{match[1]}e{match[2]}")
-        raise MalformedOutputError(
-            f"{token!r} is not a solver-printed number; expected forms like "
-            "'.000', '4380000.', or '1.000E-05'"
-        ) from error
+        raise MalformedOutputError(refusal) from error
+    if "_" in token:
+        # Python's digit separator: float() reads '1_000' as 1000.0, and no
+        # solver prints it, so a token carrying one is not a number of the
+        # export.
+        raise MalformedOutputError(refusal)
+    return value
 
 
 def reject_duplicate_columns(columns: Sequence[str], *, what: str) -> None:
@@ -471,9 +473,12 @@ def classify_solver_mode(printed: str) -> str | None:
 #
 # PFS-2014.05, the requirement of 2026-08-16. A sweep table carries one row
 # per point, and in a mixed campaign a steady point's row holds a direct
-# integration while an unsteady point's row holds a time average. Same
-# column, two different quantities, and a reader who cannot tell them apart
-# reads a method difference as physics.
+# integration while an unsteady point's row holds the last time step, one
+# instant of a cycle (docs/definitions/the-unsteady-polar.md,
+# rotor-coefficients.md). Same column, two different quantities, and a
+# reader who cannot tell them apart reads a method difference as physics.
+# Until 0.40.0 the unsteady row said ``time_average``, an average the
+# solver never took (PFS-2105.043): no package run asks the solver for one.
 #
 # The vocabulary lives HERE rather than in the table module because it is
 # published in every result file the package writes, tabular or not: the
@@ -484,11 +489,11 @@ def classify_solver_mode(printed: str) -> str | None:
 # THE TOKENS AND THEIR CODES ARE A SEAT DECISION and are built here under
 # the lane's default, which that seat has not yet ruled on; the vocabulary is a
 # proposal until it does, and NFR-19 is where its status is tracked. Two
-# origin tokens, three reduction
+# origin tokens, four reduction
 # tokens; a row with no loads report says ``unknown`` rather than ``none``,
 # because ``none`` would assert a direct integration that never happened; and
-# an unsteady solver export counts as ``raw``, because the solver did the
-# averaging and the reduction token is what names it.
+# an unsteady solver export counts as ``raw``, because it is the solver's own
+# last-step instant and the reduction token ``last_step`` is what names it.
 
 #: What produced the numbers in a row or a file, and the integer each token
 #: is published as in the numeric-only formats. APPEND ONLY: a published
@@ -498,38 +503,45 @@ DATA_ORIGIN_CODES: dict[str, int] = {"raw": 0, "reduced": 1}
 
 #: Which reduction produced them, on the same append-only rule.
 #: ``none`` is a direct integration the solver printed, ``time_average`` is
-#: an average over a window, and ``unknown`` is a row whose mode was never
-#: printed at all. ``unknown`` is deliberately a WORD and not an empty cell:
-#: an empty cell reads back out of a csv as NaN, so the identifier would not
-#: survive its own file.
-REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2}
+#: an average over a window, ``unknown`` is a row whose mode was never
+#: printed at all, and ``last_step`` (0.40.0) is an unsteady export, which
+#: states the last time step only. Nothing in the package writes
+#: ``time_average`` since 0.40.0; it stays published because a file written
+#: before carries it. ``unknown`` is deliberately a WORD and not an empty
+#: cell: an empty cell reads back out of a csv as NaN, so the identifier
+#: would not survive its own file.
+REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2, "last_step": 3}
 
 #: Over what window a reduced row was reduced, on the same append-only
 #: rule as the two above, and for the same reason: a file written last
 #: month is read with this table and cannot be asked what it meant.
 #:
-#: ALL THREE RECORD SOMETHING THE PACKAGE KNOWS, and two of them record
+#: ALL FOUR RECORD SOMETHING THE PACKAGE KNOWS, and two of them record
 #: ignorance rather than a window. ``not_applicable`` is a direct
 #: integration, which averages over nothing. ``not_printed`` is an
 #: average the SOLVER took: the loads spreadsheet prints a solver mode
 #: and an iteration counter and no averaging window, so this package does
-#: not know the window and says so. ``unknown`` is a row whose mode was
+#: not know the window and says so; nothing writes it since 0.40.0.
+#: ``unknown`` is a row whose mode was
 #: never printed at all, so whether anything was averaged is itself
 #: unknown; it exists because mapping that row to ``not_printed`` would
 #: assert an average that may never have happened, which is the same
 #: false assertion :data:`REDUCTION_CODES` refuses for ``none``.
+#: ``last_time_step`` (0.40.0) goes with ``last_step``: the unsteady export
+#: states the instant of the run's last time step, a window of one step.
 #:
 #: A TOKEN FOR A WINDOW THIS PACKAGE COMPUTED IS NOT PUBLISHED YET, and
 #: deliberately: nothing in the package writes one. This table is append
 #: only, so a token added later is cheap and a token whose meaning has to
 #: change is impossible, which is the wrong way round to guess.
 #:
-#: A blank cell would say all three at once and survive none of them: it
+#: A blank cell would say all four at once and survive none of them: it
 #: reads back out of a csv as NaN.
 REDUCTION_WINDOW_CODES: dict[str, int] = {
     "not_applicable": 0,
     "not_printed": 1,
     "unknown": 2,
+    "last_time_step": 3,
 }
 
 #: The three column labels, named once so no writer spells them itself.
@@ -573,9 +585,11 @@ def window_for_reduction(reduction: str) -> str:
     Notes
     -----
     ``time_average`` maps to ``not_printed`` rather than to a window,
-    because the average is the solver's and the spreadsheet does not
-    describe it. ``unknown`` maps to ``unknown``: a row whose solver mode
-    never printed cannot be said to have been averaged at all.
+    because such an average would be the solver's and the spreadsheet
+    does not describe it; it is kept for files written before 0.40.0.
+    ``last_step`` maps to ``last_time_step``, the instant an unsteady
+    export states. ``unknown`` maps to ``unknown``: a row whose solver
+    mode never printed cannot be said to have been averaged at all.
 
     A DICT RATHER THAN A CHAIN OF IFS, so an unhandled token is a refusal
     rather than a default. The chain it replaced ended in a fallback
@@ -587,6 +601,7 @@ def window_for_reduction(reduction: str) -> str:
         "none": "not_applicable",
         "time_average": "not_printed",
         "unknown": "unknown",
+        "last_step": "last_time_step",
     }
     try:
         return windows[reduction]
@@ -654,8 +669,9 @@ def reduction_code(token: str) -> int:
         raise MalformedOutputError(
             f"{token!r} is not a reduction this package publishes; the tokens are "
             f"{', '.join(sorted(REDUCTION_CODES))}. 'none' is a direct integration, "
-            "'time_average' an average over a window, and 'unknown' a row whose solver "
-            "mode was never printed"
+            "'time_average' an average over a window, 'last_step' the last time step "
+            "an unsteady export states, and 'unknown' a row whose solver mode was "
+            "never printed"
         ) from None
 
 
@@ -676,10 +692,17 @@ def reduction_for_solver_mode(printed: str | None) -> str:
     -------
     str
         One key of :data:`REDUCTION_CODES`. A steady export is ``none``,
-        an unsteady one ``time_average``, and anything else ``unknown``:
+        an unsteady one ``last_step``, and anything else ``unknown``:
         a mode this package has never seen is a mode whose reduction it
         cannot name, and guessing ``none`` would assert a direct
         integration that never happened.
+
+    Notes
+    -----
+    An unsteady export states the last time step only, one instant of a
+    cycle (docs/definitions/the-unsteady-polar.md); it was labelled
+    ``time_average`` until 0.40.0, a solver average no package run asks
+    for.
     """
     if printed is None:
         return "unknown"
@@ -687,7 +710,7 @@ def reduction_for_solver_mode(printed: str | None) -> str:
     if mode == "steady":
         return "none"
     if mode == "unsteady":
-        return "time_average"
+        return "last_step"
     return "unknown"
 
 

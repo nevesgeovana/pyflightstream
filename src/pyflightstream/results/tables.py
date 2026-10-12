@@ -32,8 +32,8 @@ requirement of 2026-08-16). Each frame these functions build carries
 write one that does not. They are constant columns for a single parsed
 result and genuinely PER ROW in the sweep table, which is the one file
 here that mixes provenances: a steady point's coefficients are a direct
-integration and an unsteady point's are the solver's own time average,
-printed under the same names. The vocabulary and its integer codes live
+integration and an unsteady point's are the last time step, one instant
+of a cycle, printed under the same names. The vocabulary and its integer codes live
 in :mod:`pyflightstream.results`, one layer below the writers that
 publish them.
 
@@ -321,12 +321,13 @@ def to_table(result: object) -> pd.DataFrame:
     Every one of them also carries the three provenance columns
     (PFS-2014.05, PFS-2014.03): ``data_origin``, ``raw`` for anything
     read off a solver export; ``reduction_window``, ``not_applicable``
-    where nothing was averaged, ``not_printed`` where the solver averaged
-    and printed no window, and ``unknown`` where the mode itself never
-    printed; and ``reduction``, which is ``none`` where nothing
-    was averaged, ``time_average`` where the unsteady solver averaged
-    over its window, and ``unknown`` where the file printed no solver
-    mode to decide it by.
+    where nothing was averaged, ``last_time_step`` on an unsteady export,
+    and ``unknown`` where the mode itself never printed; and
+    ``reduction``, which is ``none`` where nothing was averaged,
+    ``last_step`` on an unsteady export, which states the last time step
+    only, and ``unknown`` where the file printed no solver mode to decide
+    it by. ``time_average`` with ``not_printed`` is what files written
+    before 0.40.0 carry on an unsteady export.
 
     Parameters
     ----------
@@ -593,10 +594,29 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
         if not pairs.empty:
             raise MalformedOutputError(
                 f"{len(pairs)} row(s) pair reduction {reduction!r} with reduction_window "
-                f"{window!r}, which contradicts itself: {why}. The pairs this package "
-                "writes are none with not_applicable, time_average with not_printed, and "
-                "unknown with unknown"
+                f"{window!r}, which contradicts itself: {why}. {_WRITTEN_PAIRS}"
             )
+    # `last_step` and `last_time_step` (0.40.0) state one fact, the instant
+    # of an unsteady export's last time step, so each goes with the other
+    # and with nothing else.
+    lone = frame[
+        (frame[REDUCTION_COLUMN] == "last_step")
+        != (frame[REDUCTION_WINDOW_COLUMN] == "last_time_step")
+    ]
+    if not lone.empty:
+        raise MalformedOutputError(
+            f"{len(lone)} row(s) pair reduction last_step or reduction_window "
+            "last_time_step with another token, which contradicts itself: both say the "
+            f"row is the last time step of an unsteady export. {_WRITTEN_PAIRS}"
+        )
+
+
+#: The provenance pairs this package writes, named in every pair refusal.
+_WRITTEN_PAIRS = (
+    "The pairs this package writes are none with not_applicable, last_step with "
+    "last_time_step, and unknown with unknown; time_average with not_printed is what "
+    "a file written before 0.40.0 carries on an unsteady export"
+)
 
 
 def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
@@ -970,9 +990,9 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
         row["force_units"] = report.force_units
         row["moment_units"] = report.moment_units
         rows.append(row)
-    # The solver did the averaging on an unsteady export, so the numbers
-    # are still raw off the run and it is the reduction token that names
-    # what they are.
+    # An unsteady export states its last time step, so the numbers are
+    # still raw off the run and it is the reduction token that names what
+    # they are.
     return _stamped(
         pd.DataFrame(rows),
         origin="raw",
@@ -1027,8 +1047,8 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
     ``reduction`` is ``none`` and that is physical rather than
     bookkeeping. This file IS the per-time-step history, so no window
     was averaged to produce a row; a time average taken OF it would be
-    ``time_average``, and the unsteady loads spreadsheet, which the
-    solver averages itself, already is.
+    ``time_average``. The unsteady loads spreadsheet is neither: it
+    states the last time step only, ``last_step``.
 
     Raises
     ------
@@ -1268,14 +1288,14 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
     # PER ROW, straight after the identity, because this is the one table
     # this package writes that MIXES provenances: a steady point's
     # coefficients are a direct integration and an unsteady point's are the
-    # solver's own time average, under the same column names.
+    # last time step, one instant of a cycle, under the same column names.
     row[DATA_ORIGIN_COLUMN] = "raw"
     reduction = "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
     row[REDUCTION_COLUMN] = reduction
     # AND OVER WHAT WINDOW (PFS-2014.03). A steady point averages over
-    # nothing; an unsteady point's coefficients are the solver's own time
-    # average and the spreadsheet does not print the window it used, which
-    # this column says rather than leaving blank. A row whose loads never
+    # nothing; an unsteady point's coefficients are its last time step,
+    # `last_time_step`, which this column says rather than leaving blank
+    # (it said `not_printed`, a solver average, until 0.40.0). A row whose loads never
     # parsed reduces to `unknown` and takes the window of the same name:
     # this line used to hard-code `not_printed` for that branch, which
     # asserted a solver average on the one row class where nothing at all
