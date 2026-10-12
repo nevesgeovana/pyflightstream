@@ -1551,9 +1551,15 @@ CASES = {f"publication:{k}": v for k, v in PUBLICATION.items()} | {
 #: being refused; the generic runner used to accept any refusal, so an arm refused by an
 #: earlier check passed without its own check ever running (PFS-2135.073).
 ARM_REFUSAL: dict[tuple[str, str], str] = {
-    ("ci", "omitted_workflow"): "workflows is not",
-    ("ci", "foreign_repo"): "does not name",
+    ("publication:ci", "omitted_workflow"): "workflows is not",
+    ("publication:ci", "foreign_repo"): "does not name",
 }
+
+
+def test_every_arm_refusal_names_an_arm_that_exists():
+    """A key of ARM_REFUSAL that matches no parametrized arm would hold nothing."""
+    arms = {(name, field) for name, (_, _, own) in CASES.items() for field in COMMON | own}
+    assert set(ARM_REFUSAL) <= arms, sorted(set(ARM_REFUSAL) - arms)
 
 
 @pytest.mark.parametrize("name", sorted(CASES))
