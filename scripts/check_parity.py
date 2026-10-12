@@ -91,7 +91,7 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = "scripts/check_parity.py"
-EXPORTED = ("src", "tests", "docs/srs", "pyproject.toml")
+EXPORTED = ("src", "tests", "docs/srs", "docs/unpublished/requirements", "pyproject.toml")
 PACKAGE = "pyflightstream"
 MATRIX_CONSOLE = "pyfs-matrix"
 
@@ -1472,14 +1472,15 @@ def text_control(
 
 
 def srs_ids(tree: Path) -> set[str]:
-    """Return every requirement id the tree's ``docs/srs`` pages DEFINE, as a requirement box.
+    """Return requirement ids defined by the tree's retained specification pages.
 
     A box, not a mention: an id cited in passing on any page used to count as
     defined, so a named entry stayed live for a requirement the release no longer states.
     """
     text = "\n".join(
         p.read_text(encoding="utf-8", errors="replace")
-        for p in (tree / "docs" / "srs").rglob("*.md")
+        for folder in (tree / "docs" / "srs", tree / "docs" / "unpublished" / "requirements")
+        for p in folder.rglob("*.md")
     )
     return set(re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text))
 

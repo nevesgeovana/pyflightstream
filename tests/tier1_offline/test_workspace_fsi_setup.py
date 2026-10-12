@@ -1,4 +1,5 @@
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 import json
 from pathlib import Path
 

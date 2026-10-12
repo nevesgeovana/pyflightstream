@@ -5,7 +5,8 @@ exercises the package's behaviour for it, offline: no solver runs, and where a
 capability also has a licensed acceptance, that half is named and not claimed.
 The fixtures are the ones the capability's own module already tests with.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 # FR-152, FR-153, FR-158, FR-164.
 
 import re

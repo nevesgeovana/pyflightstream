@@ -2,7 +2,7 @@
 
 A row's `FREESTREAM` key names a file of the workspace's `inputs/freestreams/`
 by its stem, and the run writes it as `SET_FREESTREAM CUSTOM` (see
-[custom-field units and coverage](custom-field-units.md)). The field such a
+[custom-field units and coverage](workflow-row-flow-inputs.md#custom-field-units)). The field such a
 file holds is often built out of other fields: a survey plane sampled by one
 run, mirrored or moved to where another body sits, averaged over the steps of
 an unsteady run, or corrected by a second survey. `pyfs-workspace field` does

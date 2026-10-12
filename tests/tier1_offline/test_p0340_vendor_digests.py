@@ -52,7 +52,7 @@ HEX_TOKEN = re.compile(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
 FILES_READ_FLOOR = 1000
 
 RPT_050 = next((ROOT / "reports").glob("RPT-050_*.md"))
-NFR_PAGE = ROOT / "docs" / "srs" / "nonfunctional-requirements.md"
+NFR_PAGE = ROOT / "docs" / "unpublished" / "requirements" / "nonfunctional-requirements.md"
 
 
 def _tracked() -> list[Path]:

@@ -1,6 +1,7 @@
 """Tier 1: a release is refused while a requirement or amendment it owns is pending.
 
-The rule of the SRS (docs/srs/index.md, revision 1.76.0): a release promotes the
+The rule of the SRS (docs/unpublished/requirements/index.md, revision 1.76.0):
+a release promotes the
 requirements it owns in its own docs step, so none stays pending after the release
 that ships it. 0.39.0 shipped with its requirements still pending, and the first
 commit of 0.40.0 had to promote them; this arm makes that impossible to repeat.

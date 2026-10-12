@@ -37,7 +37,7 @@ computed again. Which rows:
   blades placed ahead of blade one whatever the sense of rotation, as the
   per-blade table places them,
   `pyflightstream.post.axes.placed_blade_azimuth_deg`), and the fit reads it
-  as stated. See [the harmonics migration](../migrating-to-0.31.0.md) for older series.
+  as stated. See [the harmonics migration](../upgrading.md#older-layouts) for older series.
 
 A sample is a BLOCK of one blade: the consecutive rows of one clocking or
 step whose `FAMILY` names families of one blade of the rotor, blade `n` being

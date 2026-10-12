@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-SRS = Path(__file__).resolve().parents[2] / "docs" / "srs"
+SRS = Path(__file__).resolve().parents[2] / "docs" / "unpublished" / "requirements"
 PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
 
 # The digest of each box of the two pages at the base commit 0b82ccda, its Origin paragraph

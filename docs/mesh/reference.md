@@ -21,7 +21,7 @@ reach it the same way. It holds the list and nothing else:
 # order of the file: how the solver numbers an OBJ's surfaces on import
 # (RPT-078). The package never rewrites this file. Add the [import] table with
 # the file's units, and the [trailing_edges] table, beneath the list
-# (docs/mesh-inputs.md).
+# (docs/mesh/how-to.md).
 boundaries = [
     "Wing",
     "Tail",
@@ -1015,7 +1015,7 @@ The reference artifact refuses the retired fields `rotation`, `blade_travel`,
 `rpm_sign_installed` and `rpm_sign_isolated`. The speed a row states is a
 MAGNITUDE and the hand is `rpm_sign` on that rotor's own block, beside its
 `axis`. `pyfs-matrix upgrade --in-place --inputs <inputs dir>` strips the
-retired fields (PFS-2029.08); the [migration record](../migrating-to-0.22.0.md)
+retired fields (PFS-2029.08); the [migration record](../upgrading.md#older-layouts)
 explains the historical row-sign convention. The argument that
 related them is kept here, because it is what a reader setting up a new
 rotor has to work out once, and it was measured on the
