@@ -537,6 +537,7 @@ def _group_polars(ctx: SimContext) -> None:
     # table beside them is, with `kind: instant` and a line in post.log.
     instant = ctx.window is None and any(
         str(getattr(ctx.record_of.get(point.name), "recipe", "") or "").startswith("unsteady")
+        or str(point.loads.solver_mode).strip().casefold() == "unsteady"
         for point in ctx.points
     )
     if instant and groups:

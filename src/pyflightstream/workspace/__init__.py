@@ -201,6 +201,7 @@ from pyflightstream.workspace._links import (
     _remove_sim_tree,
     _sim_files,
 )
+from pyflightstream.workspace._missing_log import missing_log_warning as missing_log_warning
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
 from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
@@ -366,6 +367,7 @@ __all__ = [
 # 0.38.0 (FR-429): the thin blade of 0.34 is public. One appended line, because the module
 # sits at the 1000 code lines the size lens allows.
 __all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
+__all__ += ["missing_log_warning"]
 
 
 def collection_name(declared: str | Path) -> str:

@@ -45,9 +45,12 @@ the `n`-th entry of its `families_blades` (expanded through the aliases). A
 block of several blades, or of a family no blade names, is not a sample.
 
 **The stations.** Station `j` is the `j`-th row of every blade block of the
-rotor, at the radius `STATION_R_M = |Offset|` of the first sample, read as the
-radius of a distribution cut along the blade from the hub, as the validity
-columns read it. Every sample must hold its station within `1e-6` of the
+rotor, at the radius from the hub of the first sample, as the validity
+columns read it. For a rotor frame this is `|Offset|`; for an MRP cut it is
+the absolute value of Offset minus the hub coordinate along the cut normal. Where
+the hub is off the cut's radial line or the recorded frame is ambiguous,
+`STATION_R_M` and `R_OVER_R` read `NA` and `post.log` names the missing radius.
+Every sample with a known radius must hold its station within `1e-6` of the
 first sample's largest radius: a station where one does not is left out and
 named in `products.json` `skipped` under
 `sections/<point>_harmonics.csv#rotor=<ALIAS>#station=<j>`, and a rotor whose

@@ -46,7 +46,12 @@ from pyflightstream._tokens import (
 )
 from pyflightstream.post._tables import write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
-from pyflightstream.post.qsteady import CLOCKING_COLUMN, STATION_COLUMN, VALIDITY_COLUMNS
+from pyflightstream.post.qsteady import (
+    CLOCKING_COLUMN,
+    STATION_COLUMN,
+    VALIDITY_COLUMNS,
+    _radius_from_the_hub,
+)
 
 __all__ = [
     "AZIMUTH_TOLERANCE_DEG",
@@ -141,6 +146,9 @@ class HarmonicRotor:
     blades: tuple[tuple[str, ...], ...]
     diameter_m: float | None
     azimuth_is_blade_one: bool
+    hub_m: Sequence[float] | None = None
+    axis_vector: Sequence[float] | None = None
+    section_frames: Mapping[tuple[str, str], str | None] | None = None
 
 
 @dataclass
@@ -154,7 +162,9 @@ class StationHarmonics:
     that is ``NA`` somewhere.
     """
 
-    rows: list[tuple[str, str, float, float | None, HarmonicFit]] = field(default_factory=list)
+    rows: list[tuple[str, str, float | None, float | None, HarmonicFit]] = field(
+        default_factory=list
+    )
     samples: dict[str, int] = field(default_factory=dict)
     skipped: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
@@ -424,8 +434,10 @@ def station_harmonics(
     rows of one sample, family, plane and rotor; a block of one blade of a
     rotor in ``rotors`` is a sample of that rotor, at its blade's azimuth.
 
-    Station j of a rotor is the j-th row of each of its blade blocks, at the
-    radius ``|Offset|``. A rotor whose blocks hold different numbers of
+    Station j of a rotor is the j-th row of each of its blade blocks. Its
+    radius is measured from the hub using the recorded frame; a geometry
+    cut that cannot be placed has NA radius columns and a note. Legacy
+    calls without frame metadata use ``|Offset|``. A rotor whose blocks hold different numbers of
     stations, or states no azimuth, is skipped by name; a station whose
     radius differs from the first sample's by more than
     :data:`STATION_MATCH_TOLERANCE` of the first sample's largest radius is
@@ -495,14 +507,34 @@ def _fit_rotor(
             "stations of one blade cannot be matched across samples"
         )
         return
-    radii = [[_number(row.get("Offset")) for row in block] for _, block in taken]
-    if any(radius is None for block in radii for radius in block):
+    offsets = [[_number(row.get("Offset")) for row in block] for _, block in taken]
+    if any(offset is None for block in offsets for offset in block):
         result.skipped[f"#rotor={alias}"] = (
             f"a block of rotor {alias!r} states no Offset, so its stations have no radius"
         )
         return
-    reference = [abs(float(radius or 0.0)) for radius in radii[0]]
-    largest = max(reference, default=0.0)
+
+    def radius_of(row: Mapping[str, str]) -> float | None:
+        offset = float(row["Offset"])
+        if rotor.section_frames is None:
+            return abs(offset)
+        plane = row.get("PLANE", "")
+        frame = rotor.section_frames.get((row.get("FAMILY", ""), plane))
+        if frame is None:
+            return None
+        radius = _radius_from_the_hub(
+            frame, plane, offset, hub_m=rotor.hub_m, axis_vector=rotor.axis_vector
+        )
+        return None if radius is None else abs(radius)
+
+    radii = [[radius_of(row) for row in block] for _, block in taken]
+    reference = radii[0]
+    largest = max((r for r in reference if r is not None), default=0.0)
+    if any(radius is None for block in radii for radius in block):
+        result.notes.append(
+            f"rotor {alias!r}: station radius and R_OVER_R read NA where the recorded "
+            "frame and hub cannot place the cut on a radial line"
+        )
     result.samples[alias] = len(taken)
     half = (
         0.5 * float(rotor.diameter_m)
@@ -511,8 +543,11 @@ def _fit_rotor(
     )
     short: dict[int, int] = {1: 0, 2: 0}
     fewest: dict[int, int] = {}
-    fitted: list[tuple[int, float]] = []
+    fitted: list[tuple[int, float | None]] = []
     for station, radius in enumerate(reference):
+        if radius is None or any(block[station] is None for block in radii):
+            fitted.append((station, None))
+            continue
         off = [
             abs(float(block[station] or 0.0))
             for block in radii
@@ -541,7 +576,13 @@ def _fit_rotor(
                     short[order] += 1
                     fewest[order] = min(fewest.get(order, fit.distinct), fit.distinct)
             result.rows.append(
-                (alias, quantity, radius, None if half is None else radius / half, fit)
+                (
+                    alias,
+                    quantity,
+                    radius,
+                    None if half is None or radius is None else radius / half,
+                    fit,
+                )
             )
     for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items():
         if short[order]:
@@ -582,7 +623,7 @@ def write_harmonics_table(
                 *context,
                 alias,
                 quantity,
-                float(radius),
+                None if radius is None else float(radius),
                 None if ratio is None else float(ratio),
                 fit.samples,
                 fit.distinct,

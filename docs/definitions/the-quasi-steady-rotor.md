@@ -81,9 +81,12 @@ blade meets an inflow that varies once around the disc, never the
 blade-passing frequency a fixed surface near the rotor feels, nor what a
 balance summing every blade reads. Where the point has
 a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
-`Chord` and `r` the absolute `Offset` of the rows the record's layout gives to
-the rotor, read as the radius of a distribution cut along the blade from the
-hub; the summary is taken over the rotor's first blade present, so a wheel's
+`Chord` and `r` the station's distance from the hub. In a rotor frame this is
+the absolute `Offset`; for an MRP cut, subtract the hub coordinate along the
+cut normal before taking the magnitude. If the hub sits off the cut's radial
+line, the radius and `K_1P` read `NA`, and the load shares are unavailable,
+with a note. The torque lever arm is also measured from the hub.
+The summary is taken over the rotor's first blade present, so a wheel's
 blades do not count one station several times. Each station stands for a
 strip, half-way to its neighbours. The two shares are the strips above 0.1
 over all strips, of the thrust and of the torque per unit span, both taken
