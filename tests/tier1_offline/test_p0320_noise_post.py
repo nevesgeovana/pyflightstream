@@ -306,8 +306,8 @@ def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_bloc
         )
     assert (
         (files, names) == ([], {})
-        and "acoustics" in skipped
-        and "cannot be read" in skipped["acoustics"]
+        and "acoustics/P1_acoustics_summary.csv" in skipped
+        and "cannot be read" in skipped["acoustics/P1_acoustics_summary.csv"]
     )
 
 
@@ -372,7 +372,7 @@ def test_p0320_noise_post_an_unwritable_product_never_blocks_the_post_fr_264(tmp
             target=lambda p: p,
             skipped=skipped,
         )
-    assert (files, names) == ([], {}) and "acoustics" in skipped
+    assert (files, names) == ([], {}) and "acoustics/P1_acoustics_summary.csv" in skipped
 
 
 def _unsteady_rotor_workspace(tmp_path, *, listed: bool):

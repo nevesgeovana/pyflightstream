@@ -262,7 +262,8 @@ def _acoustic_products(
     layer records it, ``with_acoustic_signals``): a path relative to the point's
     simulation folder, or absolute. A record without one asks for no acoustics,
     and nothing is said. A file
-    that cannot be read is named under ``acoustics`` in ``skipped`` and warned
+    that cannot be read is named in ``skipped`` under the point's own key,
+    ``acoustics/<stem>_acoustics_summary.csv``, and warned
     in ``post.log``; every ``NA`` the writer owes is warned too. Nothing blocks.
     """
     listed = next(
@@ -278,7 +279,12 @@ def _acoustic_products(
     source = Path(listed)
     if not source.is_absolute():
         source = sim_dir / source
-    key = _acoustics.ACOUSTICS_DIR
+    folder = _acoustics.ACOUSTICS_DIR
+    # THE SKIP IS THE POINT'S, keyed by the path its summary would have had:
+    # `skipped` is the campaign's, so one key for every point kept only the
+    # last point's reason, and a post limited with --sims could not tell whose
+    # it was.
+    key = f"{folder}/{stem}_acoustics_summary.csv"
     try:
         signals = _acoustics.read_acoustic_signals(source)
     except ProductError as error:
@@ -294,14 +300,14 @@ def _acoustic_products(
         )
     try:
         made = _acoustics.write_acoustic_products(
-            signals, out / key, stem=stem, rotors=speeds, target=target
+            signals, out / folder, stem=stem, rotors=speeds, target=target
         )
     except (ProductError, OSError) as error:
         skipped[key] = str(error)
         warn(f"point={stem} product={key}: {error}", PyflightstreamWarning, stacklevel=2)
         return [], {}
     for note in made.notes:
-        warn(f"point={stem} product={key}: {note}", PyflightstreamWarning, stacklevel=2)
+        warn(f"point={stem} product={folder}: {note}", PyflightstreamWarning, stacklevel=2)
     names: dict[str, dict[str, object]] = {
         (path.relative_to(out) if path.is_relative_to(out) else path).as_posix(): {
             "runs": [record.run_id],
@@ -487,6 +493,16 @@ def _harmonic_rotors(
     return table
 
 
+def _last_step_held(table: Path, *, fallback: int) -> int:
+    """Return the last STEP a written series holds, ``fallback`` where it cannot be read."""
+    try:
+        _columns, rows = read_csv_table(table)
+    except (ProductError, OSError):
+        return fallback
+    steps = [step for row in rows if (step := _step_of(row.get("STEP"))) is not None]
+    return max(steps) if steps else fallback
+
+
 def _unsteady_harmonics(
     record: RunRecord,
     *,
@@ -532,7 +548,12 @@ def _unsteady_harmonics(
         warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
         _skip_disc_maps(stem, missing, skipped)
         return None
-    first, last = int(window["first_step"]), int(window["time_iterations"])
+    first = int(window["first_step"])
+    # THE HISTORY ENDS AT THE LAST STEP THE SERIES HOLDS, not at the step the
+    # plan asked for: a run a wall clock stopped holds fewer, and the last
+    # revolution counted to the planned end was fitted over a partial cycle.
+    planned = int(window["time_iterations"])
+    last = min(_last_step_held(table, fallback=_last_time_step(record) or planned), planned)
     windows: dict[str, tuple[int, int]] = {}
     clocks: dict[str, float] = {}
     for alias, (_, per_revolution) in rotors.items():
