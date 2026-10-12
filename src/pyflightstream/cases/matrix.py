@@ -944,6 +944,26 @@ def _check_workflow(value: str, pol: str) -> str:
     return value
 
 
+def _read_switches(
+    record: Mapping[str, str], row_number: int, path: str | Path
+) -> tuple[int, bool]:
+    """Read the RUN and HIDDEN cells, refusing a value neither column defines."""
+    where = f"data row {row_number} of {path}, POL {record['POL']}"
+    try:
+        run = int(record["RUN"])
+    except ValueError:
+        raise MatrixError(
+            f"{where}: RUN reads {record['RUN']!r}; RUN is an integer, 1 to run the "
+            "row and 0 to keep it off"
+        ) from None
+    if record["HIDDEN"] not in ("0", "1"):
+        raise MatrixError(
+            f"{where}: HIDDEN reads {record['HIDDEN']!r}; HIDDEN is 0 or 1, 1 running "
+            "the solver without its window"
+        )
+    return run, record["HIDDEN"] == "1"
+
+
 def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, str]) -> None:
     """Refuse a row asking for an aerodynamic AND a geometric sweep.
 
@@ -1081,6 +1101,17 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             "IT WILL NOT DO is split a row that sweeps BOTH angles: that is one row "
             "per sideslip, each needing a POL of its own, and a POL is run identity."
         )
+    if header == _LAYOUT_0_15_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_15_0)}-column layout of v0.15.0 to "
+            f"v0.16.0. At v0.17.0 it gained six columns, {', '.join(COLUMNS_NEW_AT_0_17_0)}, "
+            "and HIDDEN and RUN moved to follow POL. To upgrade it, pass in_place=True "
+            "to pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It takes GEOMETRY and SYMMETRY "
+            "out of the row's own free cell and writes the unstated cell in the other "
+            "four, whose facts the cited setup still answers or no earlier row could "
+            "state. Every other cell, separator and line ending is untouched."
+        )
     if header != _COLUMNS:
         # The fallthrough, and the one an upgrading user is most likely
         # to reach: legacy recognition above is exact tuple equality, so
@@ -1118,15 +1149,15 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             | set(_LEGACY_COLUMNS_16)
             | set(_LAYOUT_0_9_0)
             | set(_LAYOUT_0_11_0)
+            | set(_LAYOUT_0_15_0)
         )
         looks_half_edited = len(known & set(header)) * 2 > len(_COLUMNS)
         remedy = (
-            " If this file was written before v0.9.0 AND has since been edited by "
-            "hand, restore the original and upgrade THAT: pass in_place=True to "
+            " If this file was written at an earlier layout AND has since been edited "
+            "by hand, restore the original and upgrade THAT: pass in_place=True to "
             "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
-            "`pyfs-matrix upgrade <path> --in-place`. The converter reads the two "
-            "older layouts as they were written and does not recognise a partly "
-            "edited one."
+            "`pyfs-matrix upgrade <path> --in-place`. The converter reads the older "
+            "layouts as they were written and does not recognise a partly edited one."
             if looks_half_edited
             else ""
         )
@@ -1210,6 +1241,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         # sweep. The other attitude keys ride on the variables, where the
         # builders read them (FR-69).
         variables.update({key: value for key, value in attitude.items() if value != SWEEP_WORD})
+        run, hidden = _read_switches(record, row_number, path)
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers
@@ -1230,8 +1262,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             pproc_code=record["PPROC"],
             script_code=variables.get(RECIPE_VARIABLE, ""),
             fs_build=record["FS_BUILD"],
-            hidden=record["HIDDEN"] == "1",
-            run=int(record["RUN"]),
+            hidden=hidden,
+            run=run,
             workflow=_check_workflow(record["WORKFLOW"], record["POL"]),
             variables=variables,
             motions=motions,
@@ -1708,8 +1740,8 @@ def to_campaign(
     ------
     MatrixError
         If a LEGACY row's RECIPE code is missing or not in ``recipes``, a row declares no outputs
-        while ``require_outputs`` is true, or a raw-command record names a file while
-        ``defer_raw_files`` is false.
+        while ``require_outputs`` is true, a raw-command record names a file while
+        ``defer_raw_files`` is false, or no row is active and ``fs_version`` is blank.
     """
     rows = read_matrix(path)
     # Read once and judged before anything is built, so the refusal below
@@ -1802,27 +1834,14 @@ def to_campaign(
     # records the first active row's build as its version, since a blank
     # default answers for no row and the model asks for a version.
     if fs_version is None or not fs_version.strip():
-        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
-    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
-    # records the first active row's build as its version, since a blank
-    # default answers for no row and the model asks for a version.
-    if fs_version is None or not fs_version.strip():
-        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
-    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
-    # records the first active row's build as its version, since a blank
-    # default answers for no row and the model asks for a version.
-    if fs_version is None or not fs_version.strip():
-        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
-    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
-    # records the first active row's build as its version, since a blank
-    # default answers for no row and the model asks for a version.
-    if fs_version is None or not fs_version.strip():
-        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
-    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
-    # records the first active row's build as its version, since a blank
-    # default answers for no row and the model asks for a version.
-    if fs_version is None or not fs_version.strip():
-        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
+        named = next((row.fs_build.strip() for row in rows if row.fs_build.strip()), None)
+        if named is None:
+            raise MatrixError(
+                f"{path} has no active row (RUN = 1) naming a build in FS_BUILD, and no "
+                "default build was given, so the campaign has no FlightStream version; "
+                "pass fs_version (CLI: --fs-version), or switch a row on with RUN = 1"
+            )
+        fs_version = named
     return Campaign(
         name=name, fs_version=fs_version, fs_exe=fs_exe, sims=sims, matrix_stem=Path(path).stem
     )
@@ -1981,4 +2000,25 @@ def convert_matrix(
             lines.append("[sim.variables]")
             for key, value in sim.variables.items():
                 lines.append(f"{_toml_value(key)} = {_toml_value(value)}")
+        # THE RECORD LISTS ARE PART OF THE CASE TOO (FR-11): the reader pops
+        # MOTIONS, ROTATE, TRANSLATE and RAW out of the variables, so a writer
+        # that stopped at [sim.variables] dropped them. The row's build rides
+        # in the variables as matrix_fs_build; SimCase.fs_build is a workspace
+        # binding this conversion does not set.
+        for table, records in (
+            ("motions", sim.motions),
+            ("rotations", sim.rotations),
+            ("translations", sim.translations),
+        ):
+            for record in records:
+                lines.append(f"[[sim.{table}]]")
+                lines += [
+                    f"{_toml_value(key)} = {_toml_value(value)}" for key, value in record.items()
+                ]
+        for command in sim.raw_commands:
+            lines.append("[[sim.raw_commands]]")
+            lines += [
+                f"{key} = {_toml_value(value)}"
+                for key, value in command.model_dump(exclude_none=True).items()
+            ]
     return "\n".join(lines) + "\n"
