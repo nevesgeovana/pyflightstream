@@ -194,14 +194,11 @@ definitions, and where else the two numbers appear (the run record, the
 rotor table), are in
 [the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
-The package-reserved matrix keys are listed in the [input glossary](inputs.md#tables-and-reserved-keys).
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
-itself reads, and a cell of yours that already spells one of them is
-read by the package rather than ignored:
-
-The [input glossary](inputs.md) lists the current keys and their meanings.
-The [upgrade index](upgrading.md) links the release records for retired
-spellings and changes to their interpretation.
+itself reads, which the [input glossary](inputs.md#tables-and-reserved-keys)
+lists; a cell of yours that spells one of them is read by the package
+rather than ignored. The [upgrade index](upgrading.md) links the release
+records for retired spellings and changes to their interpretation.
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
 `DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
@@ -314,41 +311,6 @@ The `matrix_` prefix is the CONVERTER's rather than yours:
 `matrix_fs_build`, `matrix_hidden` and `matrix_workflow` are written
 over whatever your cell said, after your cell is read. A key of yours
 spelling one of those is not read by the package; it is replaced.
-
-**`REVOLUTIONS` AND `DELTA_THETA` ARE THE TWO TO CHECK FIRST**, because
-they are ordinary words a rotor study is likely to have already used for
-its own bookkeeping. A cell of yours spelling either is now the
-package's, so rename yours or adopt the meaning.
-
-The match is on the EXACT key, so a cell spelling it `SYMMETRY_TYPE` or
-`N_REVOLUTIONS` is untouched. The rows of [the run matrix](workflow-run-matrix.md) use `FSM_FILE`, a key of
-their own that nothing in the package reads; moving a row off `LEGACY`
-is the moment to rename it to `GEOMETRY`, and a row that stays on
-`LEGACY` keeps its recipe and its own key with nothing changed for it.
-
-v0.9.0 added a larger upgrade risk than any name, the removal of the
-`RE` and `MACH` columns, which is handled by
-`pyfs-matrix upgrade <path> --in-place` and described on
-[the flight-condition page](flight-conditions.md).
-
-A row that names none of the reserved keys behaves as it did before. The [input glossary](inputs.md) lists both matrix homes and the package-reserved names.
-
-Going forward, every workflow crossed with three case shapes and every
-build it covers is pinned as a committed golden under
-`tests/tier1_offline/goldens/workflows/` and compared byte for byte on every run of the
-suite. On one of the workflow-and-build pairs, `steady` on FlightStream
-25.000, the builder refuses instead of rendering, and both of that pair's
-goldens pin the refusal text; the changelog's "Known gaps" says why.
-
-Looking back, the same four case shapes were rendered against a worktree
-at the `v0.8.0` tag: every render came out byte for byte identical, and
-the two refusals matched their text as well. That is the half the goldens
-cannot prove on their own, since they were generated from this release.
-The receipt is committed beside them.
-
-Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
-anything is written, and that is deliberate: naming is the workspace's
-job.
 
 ## One row, several rotors
 

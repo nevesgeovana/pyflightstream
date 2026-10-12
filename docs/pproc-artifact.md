@@ -705,3 +705,15 @@ re-run into a clean one while its evidence stays and the manifest keeps
 its records. The products already under `post/` are untouched, and a
 later `pyfs-matrix post` reads the exports from the simulation folder,
 which is now in the zip: rebuild the products first, archive after.
+
+Three things are refused, each by name and with
+nothing written or deleted: a simulation the manifest does not record
+(`refusing to archive sim_8001: the manifest has no record of this
+simulation`), a campaign root without `runs.json`, and an archive name
+already taken, since writing it would replace an earlier archive and
+then delete the folder it came from. The Python surface is
+`CampaignWorkspace.archive_sim`, and this command does the same thing
+and nothing more; the suite runs the `pyfs-workspace archive` line above on a recorded
+simulation and on an unrecorded one
+(`test_workspace.py::test_archive_subcommand_zips_a_recorded_simulation`
+and the refusal beside it).
