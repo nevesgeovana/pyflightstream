@@ -237,6 +237,13 @@ _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CDP_", "CDV_", "CD_")
 #: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
 
+#: The physical columns written at significant digits rather than five decimals
+#: where that is the closer statement (:func:`write_csv_table`): the air's dynamic
+#: viscosity in Pa s, about 1.8e-5, and the solution time in seconds, whose step
+#: on a rotor is a few times 1e-5.
+SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset({"MU", "time_s"})
+_SIGNIFICANT_DIGITS = 6
+
 
 #: What a cell writes when the column does not apply to that row.
 #:
@@ -360,6 +367,18 @@ def _cell(value: object) -> str:
     return plain_cell(text) if text.strip() else NOT_APPLICABLE
 
 
+def _significant_cell(value: object) -> str:
+    """Return a cell at six significant digits where that is closer than five decimals."""
+    if not isinstance(value, float | np.floating) or not math.isfinite(float(value)):
+        return _cell(value)
+    number = float(value)
+    decimal = f"{number:.{_DECIMALS}f}"
+    significant = f"{number:.{_SIGNIFICANT_DIGITS}g}"
+    if abs(float(significant) - number) < abs(float(decimal) - number):
+        return significant
+    return decimal
+
+
 def write_csv_table(
     path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
@@ -367,6 +386,14 @@ def write_csv_table(
 
     The header names pass the cells' rule too (G16): no name holds a comma or a
     double quote, so nothing on any line is quoted.
+
+    THE ONE COLUMN-AWARE RULE (PFS-2105.041): a column of
+    :data:`SIGNIFICANT_DIGIT_COLUMNS`, a physical quantity whose values five
+    decimals cannot carry, is written at six significant digits wherever that
+    states the value more closely than five decimals do. Sea-level viscosity
+    was written ``0.00002`` (12 per cent off) and a time step of 2.78e-5 s
+    made consecutive rows read ``0.00003, 0.00006, 0.00008``; a value five
+    decimals already hold exactly is written as it always was.
 
     Parameters
     ----------
@@ -395,7 +422,12 @@ def write_csv_table(
         for row in rows:
             if len(row) != len(columns):
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
-            writer.writerow([_cell(value) for value in row])
+            writer.writerow(
+                [
+                    _significant_cell(value) if name in SIGNIFICANT_DIGIT_COLUMNS else _cell(value)
+                    for name, value in zip(columns, row, strict=True)
+                ]
+            )
     return target
 
 
@@ -787,6 +819,12 @@ def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np
     return steps
 
 
+def _plotted_number(text: str | None) -> float:
+    """Read one plots-table cell as a number, its `NA` or blank as NaN."""
+    cell = (text or "").strip()
+    return math.nan if cell in ("", NOT_APPLICABLE) else float(cell)
+
+
 def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
     """Read a written plots table back as the series its reductions are taken over.
 
@@ -837,7 +875,13 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     """
     header, rows = read_csv_table(path)
     columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
-    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
+    # `NA` (or blank) READS BACK AS NaN. The table writes a NaN the export
+    # carried as `NA`, and `float` refused the table's own token, so a table
+    # holding one could not be read at all; the window's average decides
+    # whether the NaN matters.
+    values = np.asarray(
+        [[_plotted_number(row[name]) for name in columns] for row in rows], dtype=float
+    )
     return columns, TimestepSeries(
         steps=_stated_steps(columns, values, len(rows)),
         times_s=None,

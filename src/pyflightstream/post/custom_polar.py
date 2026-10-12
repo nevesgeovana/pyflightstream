@@ -7,6 +7,7 @@ available through :mod:`pyflightstream.post.products`.
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -193,6 +194,9 @@ def write_custom_polar_format(
 
     * line 1: the title, ``FlightStream - <description>``, with
       `` - <configuration>`` appended where the row states one (FR-94).
+      A character outside ASCII is TRANSLITERATED (:func:`_ascii_title`): an
+      accent is dropped from its letter, and anything with no ASCII letter
+      under it is written ``?``.
       THE HEADER IS EXACTLY NINE LINES AND THE READER COUNTS THEM, so the
       label joins a line rather than taking one of its own;
     * line 2: the polar identifier followed by the two-digit Mach code,
@@ -274,7 +278,7 @@ def write_custom_polar_format(
     if configuration and configuration.strip() and configuration.strip() != "-":
         title = f"{title} - {configuration.strip()}"
     lines = [
-        title,
+        _ascii_title(title),
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(CUSTOM_DATE_FORMAT),
         f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, position=group_number):02d}",
@@ -292,6 +296,21 @@ def write_custom_polar_format(
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, "\n".join(lines) + "\n", encoding="ascii")
     return target
+
+
+def _ascii_title(text: str) -> str:
+    """Return ``text`` in ASCII: accents dropped from their letters, any other character ``?``.
+
+    The custom format is ASCII and its title carries the row's DESCRIPTION and
+    CONFIGURATION, which nothing upstream holds to ASCII. Written strictly, one
+    accented letter raised a UnicodeEncodeError out of the campaign post.
+
+    >>> _ascii_title("Asa em cruzeiro, " + chr(0xE2) + "ngulo de 5" + chr(0xB0))
+    'Asa em cruzeiro, angulo de 5?'
+    """
+    folded = unicodedata.normalize("NFKD", text)
+    kept = "".join(char for char in folded if not unicodedata.combining(char))
+    return kept.encode("ascii", errors="replace").decode("ascii")
 
 
 def custom_count(line: str, path: Path, number: int, what: str) -> int:
@@ -351,7 +370,9 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
         If the file does not have the shape the writer's docstring states.
     """
     target = Path(path)
-    lines = target.read_text(encoding="ascii").split("\n")
+    # The writer's policy read back: a file someone wrote outside ASCII is read
+    # with its text transliterated, never refused by a bare UnicodeDecodeError.
+    lines = _ascii_title(target.read_bytes().decode("utf-8", errors="replace")).split("\n")
     if lines and lines[-1] == "":
         lines.pop()
     if len(lines) < 9 or not lines[0].startswith(CUSTOM_TITLE_PREFIX):

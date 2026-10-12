@@ -279,6 +279,12 @@ def write_sections_table(
     # exactly how two families come to disagree about which column is which --
     # a value landing under its neighbour's name, which is the defect 0.23.0
     # item 5 found in three of the four families.
+    try:
+        reynolds = None if condition is not None else _reynolds_millions(export_text)
+    except (PyflightstreamError, ValueError) as error:
+        # A banner without its Reynolds number is an export this table cannot
+        # state a condition for: a refusal naming the file, as the parser's.
+        raise ProductError(f"the sectional loads export {path} cannot be read: {error}") from error
     stated: Mapping[str, object] = (
         condition
         if condition is not None
@@ -286,7 +292,7 @@ def write_sections_table(
             "ALPHA": report.angle_of_attack_deg,
             "BETA": report.sideslip_deg,
             "MACH": mach,
-            "RE": _reynolds_millions(export_text),
+            "RE": reynolds,
             "VINF": report.freestream_velocity_m_s,
             "ALT": _altitude_ft(export_text),
             ADVANCE_RATIO_COLUMN: advance_ratio,
@@ -344,7 +350,14 @@ def write_plots_table(
     values = np.asarray(report.values, dtype=float)
     if values.size == 0:
         return None
-    vinf = float(labeled_value(export_text, "Freestream velocity (m/s)"))
+    # Inside a refusal, as the parse above: the parser accepts an export with
+    # no banner, and the bare AnchorNotFoundError (or a ValueError for a
+    # value that is no number) was neither a ProductError nor an OSError, so
+    # it ended the whole post instead of skipping this point's table.
+    try:
+        vinf = float(labeled_value(export_text, "Freestream velocity (m/s)"))
+    except (PyflightstreamError, ValueError) as error:
+        raise ProductError(f"the unsteady plots export {path} cannot be read: {error}") from error
     try:
         vref = float(labeled_value(export_text, "Reference velocity (m/s)"))
     except (MalformedOutputError, ValueError):
@@ -628,6 +641,16 @@ def write_probes_table(
     return write_csv_table(path, (*PROBE_SPINE, *rest), rows)
 
 
+def _plotted_value(text: str | None) -> float | None:
+    """Read one plots-table cell back, its `NA` (or blank) as a missing value.
+
+    The plots table writes a NaN the export carried as `NA`, and ``float``
+    refused it, so one missing sample dropped the point's whole probes table.
+    """
+    cell = (text or "").strip()
+    return None if cell in ("", NOT_APPLICABLE) else float(cell)
+
+
 def write_unsteady_probes_table(
     path: str | Path,
     plots_table: str | Path,
@@ -758,7 +781,7 @@ def write_unsteady_probes_table(
                     *_exact_position(
                         _probe_spine(vertex, positions, step, context=context, pol=pol)
                     ),
-                    *(float(row[name]) if name in present else None for name in names),
+                    *(_plotted_value(row[name]) if name in present else None for name in names),
                 )
             )
     return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)

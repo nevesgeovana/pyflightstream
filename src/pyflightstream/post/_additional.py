@@ -45,8 +45,29 @@ if TYPE_CHECKING:
 _ADDITIONAL_NATIVE_KINDS = ("tecplot", "vtk", "csv", "plots")
 
 
+def _saved_digest(saved: Path, digests: dict[tuple[Path, int, int], str] | None) -> str | None:
+    """Hash a saved simulation once per post, keyed on its path, size and mtime.
+
+    Several extractions of one point open the same saved simulation, and each
+    post hashed it again for every one of them. A file whose size or mtime
+    changed is a new key, so the cache never answers for a file that changed.
+    """
+    if not saved.is_file():
+        return None
+    if digests is None:
+        return file_sha256(saved)
+    stat = saved.stat()
+    key = (saved, stat.st_size, stat.st_mtime_ns)
+    if key not in digests:
+        digests[key] = file_sha256(saved)
+    return digests[key]
+
+
 def _current_extraction(
-    workspace: CampaignWorkspace, extraction: AdditionalRecord, point: RunRecord | None
+    workspace: CampaignWorkspace,
+    extraction: AdditionalRecord,
+    point: RunRecord | None,
+    digests: dict[tuple[Path, int, int], str] | None = None,
 ) -> str | None:
     """Say why an extraction no longer describes its point, or None when it does.
 
@@ -59,7 +80,8 @@ def _current_extraction(
     THE SAVED SIMULATION IS HASHED ON DISK, not only read off the two records:
     a file deleted or replaced under a record nobody rewrote is not the state
     the extraction opened, and a product of it would describe a state nothing on
-    disk holds.
+    disk holds. ``digests`` is the post's cache of those hashes
+    (:func:`_saved_digest`).
     """
     if point is None:
         return (
@@ -77,7 +99,7 @@ def _current_extraction(
         )
     folder = workspace.sim_dir(extraction.sim_id)
     saved = folder / extraction.fsm
-    on_disk = file_sha256(saved) if saved.is_file() else None
+    on_disk = _saved_digest(saved, digests)
     if on_disk != extraction.fsm_sha256:
         found = "is gone" if on_disk is None else f"hashes {on_disk[:12]} on disk"
         return (
@@ -140,10 +162,11 @@ def _additional_products(
         if extraction.status is ExtractionStatus.EXTRACTED:
             extractions[extraction.extraction_id] = extraction
     groups: dict[tuple[str, str], list[tuple[AdditionalRecord, RunRecord]]] = {}
+    digests: dict[tuple[Path, int, int], str] = {}
     for extraction in extractions.values():
         prefix = f"{ADDITIONAL_DIR}/{extraction.pproc}"
         point = admitted.get(extraction.run_id)
-        reason = _current_extraction(workspace, extraction, point)
+        reason = _current_extraction(workspace, extraction, point, digests)
         if reason is not None or point is None:
             skipped[f"{prefix}/runs/{extraction.extraction_id}"] = str(reason)
             continue

@@ -509,7 +509,14 @@ def _group_polars(ctx: SimContext) -> None:
         try:
             groups = rotor_integration_groups(getattr(ctx.live, "rotors", {}), ctx.pproc.groups)
         except PyflightstreamError as clash:
-            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = str(clash)
+            # NO GROUP POLAR IS WRITTEN. The refusal says a declared group and a
+            # rotor disagree about what one alias means; writing the groups as
+            # declared went on with exactly the group it called ambiguous.
+            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = (
+                f"{clash} No group polar of simulation {ctx.sim_id!r} is written until "
+                "the two agree."
+            )
+            return
     positions = {name: index for index, name in enumerate(groups, start=1)}
     for group, families in () if ctx.window is not None else groups.items():
         _group_polar(ctx, group, families, positions)
@@ -699,8 +706,28 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
     except ProductError as error:
         ctx.skipped[relative] = str(error)
         return
-    if done is not None:
-        _sections_cut_products(ctx, point, done)
+    if done is None:
+        _retire_unwritten(
+            ctx,
+            relative,
+            target,
+            "the sectional loads export declares no section, so no sections table is written",
+        )
+        return
+    _sections_cut_products(ctx, point, done)
+
+
+def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str) -> None:
+    """Name a product the writer did not write, where a previous one would stay current.
+
+    A post without the archive prepares a destination by leaving the previous
+    product in place for the writer to overwrite. A writer that writes nothing
+    (an export with no section, a history with no step) then left that file on
+    disk, unnamed by the new manifest and read as current. Named in ``skipped``,
+    it is retired by the post's retirement, which removes it.
+    """
+    if target.exists():
+        ctx.skipped[relative] = f"{reason}; the previous table is retired"
 
 
 def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> None:
@@ -885,6 +912,9 @@ def _plots_products(
             )
         return
     if done is None:
+        _retire_unwritten(
+            ctx, relative, target, "the plots export holds no step, so no plots table is written"
+        )
         return
     ctx.add(done, {"runs": ctx.sources[point.name]})
     ctx.plots_tables[point.name] = done
