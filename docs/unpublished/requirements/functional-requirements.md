@@ -7220,6 +7220,33 @@ Requirements written after the specification was last reconciled with the packag
     **Solution (0.30.0).** `docs/post-processing-definitions.md`, "Tip and
     helical Mach numbers". **Trace.** The test above.
 
+    **R1 (0.40.0, PFS-2113.031): the advancing-tip Mach number.** `M_hel`
+    bounds the tip speed only in axial flow; a rotor in edgewise or inclined
+    flow has an advancing blade that meets the air faster than `M_hel` says.
+    Every point that states `M_tip` and `M_hel` also states
+
+    `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`,
+
+    with `V_ax` the component of the point's free-stream velocity along the
+    rotor axis and `V_ip = |V - V_ax axis|` the component in the rotor plane.
+    The free-stream vector is the point's resolved speed, angle of attack and
+    sideslip in the body frame the package already uses; the rotor axis is the
+    rotor block's `axis` (a disc's, its block's). `M_adv` equals `M_hel` in
+    axial flow and `(Omega R + V) / a` edgewise. Where a row's rotor axis
+    cannot be resolved, `M_adv = (Omega R + V) / a`, the edgewise bound, and
+    the plan line says so. `M_hel` is unchanged. The plan's Mach table gains an
+    `M_adv` column, its warning fires on `M_adv >= 1` (a warning, never a
+    refusal) and names `M_adv`, `plan.json` and the run record carry
+    `mach_advancing` beside `mach_helical`, and the rotor table gains the
+    column `MADV_<alias>` after the existing ones. The computation lives in the
+    same module as `rotor_mach_numbers`.
+
+    Status of R1: implemented. Verification: test,
+    `tests/tier1_offline/test_p0400_madv.py`, carrying P0400-MADV: axial flow
+    gives `M_adv == M_hel`; edgewise flow gives `(Omega R + V) / a`; an
+    inclined case against a hand value; the plan warns at `M_adv >= 1` with
+    `M_hel < 1`.
+
 !!! requirement "FR-177 The user guides ship as numbered decks under guide/ <span class='srs-implemented'>implemented</span>"
 
     *Origin: the 0.30.0 scope: the guides are numbered, in the order general
