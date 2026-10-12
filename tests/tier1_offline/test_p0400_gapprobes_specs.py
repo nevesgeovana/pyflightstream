@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from pyflightstream._fsm import trailing_edge_midpoints
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa import _spec_0400_gap as gap
 from pyflightstream.qa import _spec_0400_gapkit as kit
 from pyflightstream.qa.probes import generate_probe_script
@@ -214,9 +215,16 @@ def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
     """
     fsm = _source(tmp_path)
     raw_ids = {"P4-04m", "P4-06s", "P4-11", "P3-01a", "P3-01b"}
+    view = CommandRegistry.load().for_version(build)
     for probe in probes:
         workdir = tmp_path / build / probe.probe_id
         workdir.mkdir(parents=True)
+        if probe.spec.command not in view:
+            # Measured removed on this build by the batch itself (RPT-166): the
+            # emitter refuses the name, which is the point of recording it.
+            with pytest.raises(CommandNotInVersionError, match="removed"):
+                generate_probe_script(probe.spec, build, workdir, fsm=fsm)
+            continue
         script = generate_probe_script(probe.spec, build, workdir, fsm=fsm)
         expected = probe.probe_id in raw_ids or (
             probe.capability == "P4" and probe.probe_id.endswith("m")
