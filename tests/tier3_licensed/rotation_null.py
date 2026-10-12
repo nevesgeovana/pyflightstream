@@ -162,6 +162,16 @@ class Verdict:
         return [row for row in self.rows if not row[4]]
 
 
+def sim_id_of(point: str) -> str:
+    """The simulation id a point name leads with: ``P9002-M100RE230AL+060`` is ``9002``.
+
+    The sweep table is keyed by the row's ``sim_id``. Splitting the name on the dash and
+    taking the second part read ``M100RE230AL+060`` (or ``M100RE230AL`` for the minus row), a
+    key no row has, and the run died with a KeyError before scoring anything (PFS-2135.080).
+    """
+    return point.split("-", 1)[0].removeprefix("P")
+
+
 def sweep_rows() -> dict[str, dict[str, str]]:
     """The campaign sweep table, keyed by the point each row is."""
     rows = read_csv(PRODUCTS / "campaign_sweep.csv")
@@ -314,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     agreeing: list[str] = []
     scored: dict[str, tuple[float, list[Verdict]]] = {}
     for point in TURNED:
-        sim = point.split("-")[1].split("_")[0]
+        sim = sim_id_of(point)
         verdicts = [
             compare_wind_axes(control, by_sim[sim]),
             compare_totals(control, by_sim[sim]),
