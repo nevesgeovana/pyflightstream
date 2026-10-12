@@ -1,4 +1,4 @@
-"""Tier 1, 0.40.0 lane run-2: mark-converged on the points of a steady job.
+"""Tier 1, 0.40.0 lane run-2: the steady job, its descriptor and its marks.
 
 Every fixture is synthetic.
 """
@@ -8,6 +8,36 @@ from __future__ import annotations
 from pyflightstream.run.records import mark_converged
 from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_mark_failed import _record, _workspace
+
+
+def test_p0400_steady_job_descriptor_names_the_sweep(tmp_path):
+    """P0400-JOB-DESCRIPTOR (PFS-2094.039): a steady job's descriptor names the sweep.
+
+    The first point's case was bound for the row's clock and processors, and
+    its point name went into the descriptor as the job's.
+    """
+    from pathlib import Path
+
+    from tests.tier1_offline.test_goal021_swept_row import _run, _submitting
+    from tests.tier1_offline.test_matrix_run import HPC_PROFILE, RECIPES, _steady_sweep_matrix
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    text = "\n".join(
+        line.replace('"FTS{sim}"', '"FTS{sim}_{point}"')
+        for line in HPC_PROFILE.splitlines()
+        if not line.startswith(("walltime ", "ncpus "))
+    )
+    records = _run(
+        workspace,
+        matrix,
+        _submitting(workspace, build="26.120", text=text + "\n"),
+        name="warm",
+        recipes=RECIPES,
+        default_fs_version="26.120",
+    )
+    (job,) = records
+    descriptor = Path(job.submission["descriptor"]).read_text(encoding="utf-8")
+    assert f"FTS5001_{job.point_name}" in descriptor, descriptor
 
 
 def test_p0400_mark_converged_judges_a_job_point_by_its_own_loads(tmp_path):

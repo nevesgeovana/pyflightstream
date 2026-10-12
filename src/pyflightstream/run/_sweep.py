@@ -53,6 +53,7 @@ from pyflightstream.run._executors import (
     ExecutionResult,
     Executor,
     LocalExecutor,
+    Submitting,
     _submission_record,
     _with_the_profile_s_log,
     bind_submission_values,
@@ -488,6 +489,11 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
     if written:
         job.base["inputs_sha256"] = {**job.base["inputs_sha256"], **written}
     bind_submission_values(job.executor, job.case, job.point_cases[0][2])
+    # THE DESCRIPTOR NAMES THE SWEEP, as the job record does (PFS-2094.039):
+    # the first point's case supplies the row's clock and processors, and
+    # bound its own name as the job's.
+    if isinstance(job.executor, Submitting):
+        job.executor.bind_point({"point": sweep_name(job.case)})
     if job.progress is not None:
         job.progress.solver_started = True
     job.result = job.executor.run_script(
