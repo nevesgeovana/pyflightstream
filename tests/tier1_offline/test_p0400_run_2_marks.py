@@ -91,3 +91,23 @@ def test_p0400_cost_prices_a_steady_job_record_per_point(tmp_path):
     job = {**recorded("run/sweep", 1000.0), "points_ran": [{"tag": f"p{i}"} for i in range(10)]}
     cost = estimate_point_cost(steady_case(geometry), run_id="run/a", recorded=[job])
     assert cost.seconds == 100.0
+
+
+def test_p0400_cost_offers_no_time_for_an_unsteady_point_of_unknown_steps(tmp_path):
+    """P0400-COST-UNKNOWN-STEPS (PFS-2094.016): no step count, no expected time.
+
+    The point was priced at one time step, the per-step rate shown as its
+    expected time.
+    """
+    from pyflightstream.run import estimate_point_cost
+    from tests.tier1_offline.test_plan_cost import recorded, rotor_case, saved_simulation
+
+    rotor = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
+    case = rotor_case(rotor)
+    variables = {k: v for k, v in case.variables.items() if k != "REVOLUTIONS"}
+    case = case.model_copy(update={"variables": variables})
+    history = [recorded("run/u1", 360.0, "unsteady_rotor")]
+    cost = estimate_point_cost(case, run_id="run/b", recorded=history, steps_by_run={"run/u1": 36})
+    assert cost.time_iterations is None
+    assert cost.seconds is None
+    assert "step count is unknown" in cost.basis

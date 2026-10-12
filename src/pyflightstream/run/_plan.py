@@ -517,7 +517,15 @@ def estimate_point_cost(
             work = float(len(record.get("points_ran") or []) or 1)
         rates.append(float(record["wall_time_s"]) / work)
     samples = len(rates)
-    if rates:
+    if rates and unsteady and not iterations:
+        # THE POINT'S OWN WORK IS UNKNOWN (PFS-2094.016): priced at one
+        # time step, the per-step rate was shown as its expected time.
+        basis = (
+            "this point's step count is unknown (its row states none this reader "
+            "can step), so no estimate is offered rather than one priced at a "
+            "single time step"
+        )
+    elif rates:
         rate = sum(rates) / len(rates)
         work = float(iterations) if unsteady and iterations else 1.0
         seconds = round(rate * work, 1)
