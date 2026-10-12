@@ -58,7 +58,7 @@ def test_load_campaign_reads_the_sad_shape(tmp_path):
 def test_load_campaign_without_campaign_table_is_didactic(tmp_path):
     path = tmp_path / "campaign.toml"
     path.write_text("[[sim]]\nsim_id = '1'\n", encoding="utf-8")
-    with pytest.raises(ValueError, match=r"no \[campaign\] table"):
+    with pytest.raises(ValueError, match=r"needs a \[campaign\] table"):
         load_campaign(path)
 
 
@@ -380,7 +380,7 @@ def test_the_refusal_reaches_a_campaign_file_as_it_loads(tmp_path):
         CAMPAIGN_TOML + f'{ROTATION_SWEEP_KEY} = "0.0,5.0"\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+    with pytest.raises(CampaignConfigError, match="asks for two sweeps at once"):
         load_campaign(path)
 
 

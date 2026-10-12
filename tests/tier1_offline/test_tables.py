@@ -252,7 +252,7 @@ SWEEP_TABLE_SCHEMA = {
     "run_id": "manifest run identity, campaign/sim/point",
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
-    "reduction": "none on a steady point, time_average on an unsteady one",
+    "reduction": "none on a steady point, last_step on an unsteady one",
     "reduction_window": "over what window it was reduced (PFS-2014.03)",
     "alpha": "sweep axis of this campaign, deg (see the note above)",
     "fs_version_requested": "canonical FlightStream version the campaign asked for",
@@ -355,7 +355,7 @@ RUN_ROW_SCHEMA = {
     "run_id": "manifest run identity, campaign/sim/point",
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
-    "reduction": "none on a steady point, time_average on an unsteady one",
+    "reduction": "none on a steady point, last_step on an unsteady one",
     "reduction_window": "over what window it was reduced (PFS-2014.03)",
     "alpha": "sweep axis of this fixture, deg (see the docstring below)",
     "fs_version_requested": "canonical FlightStream version the campaign asked for",
@@ -812,15 +812,16 @@ def test_a_requested_zero_is_a_request_the_export_can_contradict(tmp_path):
 #
 # The author's requirement of 2026-08-16, and the sweep is the case the author named. One
 # table, two provenances per row: a steady point's coefficients are a direct
-# integration, an unsteady point's are the solver's own time average, and
-# both are printed under CL and CDi. A reader who cannot tell them apart
-# compares them and reads a method difference as physics.
+# integration, an unsteady point's are its last time step (0.40.0; it
+# said time_average before), and both are printed under CL and CDi. A
+# reader who cannot tell them apart compares them and reads a method
+# difference as physics.
 #
 # THE VOCABULARY IS THE AUTHOR'S CALL and these tests pin the lane default
-# rather than the author's ruling, which is still owed: two origin tokens, three
+# rather than the author's ruling, which is still owed: two origin tokens, four
 # reduction tokens, a failed row saying `unknown` rather than `none`, and an
-# unsteady solver export counting as `raw` because the solver did the
-# averaging and the reduction token is what names it.
+# unsteady solver export counting as `raw` because it is the solver's own
+# last-step instant and the reduction token `last_step` is what names it.
 
 
 @pytest.mark.requirement("NFR-19")
@@ -840,7 +841,7 @@ def test_a_mixed_sweep_traces_every_row_without_another_file(tmp_path):
     written = write_table(frame, tmp_path / "sweep.csv")
     back = pd.read_csv(written)
     traced = list(zip(back["data_origin"], back["reduction"], strict=True))
-    assert traced == [("raw", "none"), ("raw", "time_average"), ("raw", "unknown")], (
+    assert traced == [("raw", "none"), ("raw", "last_step"), ("raw", "unknown")], (
         "a mixed sweep must let every row be traced to raw or reduced with no "
         f"other file open; the written csv says {traced}"
     )
@@ -866,7 +867,7 @@ def test_every_written_table_says_what_produced_its_numbers(tmp_path):
         "loads_steady": (parse_loads(read_fixture("loads_steady_26.120.txt")), "none"),
         "loads_unsteady": (
             parse_loads(read_fixture("loads_unsteady_26.120.txt")),
-            "time_average",
+            "last_step",
         ),
         "probes": (parse_probe_points(read_fixture("probe_points_26.120.txt")), "none"),
         "residuals": (parse_residual_history(read_fixture("log_residuals_26.120.txt")), "none"),
@@ -876,7 +877,7 @@ def test_every_written_table_says_what_produced_its_numbers(tmp_path):
         # kind of file it is.
         "sectional": (
             parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt")),
-            "time_average",
+            "last_step",
         ),
     }
     for name, (result, expected_reduction) in cases.items():
@@ -961,7 +962,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
 
 
 def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
-    """The default stays what this module always did; the refusal is opt-in."""
+    """The default preserves an existing file; replacement is deliberate."""
     frame = pd.DataFrame(
         {
             "CL": [0.4],
@@ -972,7 +973,7 @@ def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
     )
     target = tmp_path / "polar.csv"
     write_table(frame, target)
-    assert write_table(frame, target).is_file()  # overwrite=True by default
+    assert write_table(frame, target, overwrite=True).is_file()
     with pytest.raises(MalformedOutputError, match="already exists"):
         write_table(frame, target, overwrite=False)
 
@@ -986,11 +987,16 @@ def test_the_published_codes_are_integers_and_append_only():
     written before the change.
     """
     assert DATA_ORIGIN_CODES == {"raw": 0, "reduced": 1}
-    assert REDUCTION_CODES == {"none": 0, "time_average": 1, "unknown": 2}
+    assert REDUCTION_CODES == {"none": 0, "time_average": 1, "unknown": 2, "last_step": 3}
     # The third table had no pin at all when it was added, which a review
     # pass caught: it claimed the append-only rule of its two siblings in
     # its own comment and nothing held it to it.
-    assert REDUCTION_WINDOW_CODES == {"not_applicable": 0, "not_printed": 1, "unknown": 2}
+    assert REDUCTION_WINDOW_CODES == {
+        "not_applicable": 0,
+        "not_printed": 1,
+        "unknown": 2,
+        "last_time_step": 3,
+    }
     assert (origin_code("raw"), origin_code("reduced")) == (0, 1)
     assert reduction_code("time_average") == 1
     for call, token in ((origin_code, "time_average"), (reduction_code, "raw")):
@@ -1030,6 +1036,7 @@ def test_the_window_mapping_refuses_a_reduction_it_does_not_publish():
     assert window_for_reduction("none") == "not_applicable"
     assert window_for_reduction("time_average") == "not_printed"
     assert window_for_reduction("unknown") == "unknown"
+    assert window_for_reduction("last_step") == "last_time_step"
     with pytest.raises(MalformedOutputError, match="not a published reduction"):
         window_for_reduction("time_avarage")
 
@@ -1642,12 +1649,29 @@ def test_products_re_exports_every_public_name_of_the_private_tables_module():
             elif isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
                 # A `try: import numpy` or an `if TYPE_CHECKING:` binds at
                 # module scope just as the top level does.
-                for attribute in ("body", "orelse", "finalbody", "handlers"):
-                    block = getattr(node, attribute, None) or []
-                    for item in block:
-                        inner = getattr(item, "body", None)
-                        found |= module_scope(inner if inner is not None else [item])
+                # EACH BLOCK IS A LIST OF STATEMENTS AT MODULE SCOPE: recursing on the
+                # statements, not on the ``body`` of each one, is what keeps a ``def`` or a
+                # ``class`` inside the block a name (and its locals not) (PFS-2135.030).
+                for attribute in ("body", "orelse", "finalbody"):
+                    found |= module_scope(getattr(node, attribute, None) or [])
+                for handler in getattr(node, "handlers", None) or []:
+                    found |= module_scope(handler.body)
         return found
+
+    planted = ast.parse(
+        "if True:\n"
+        "    def pub_fn():\n"
+        "        inner_local = 1\n"
+        "    class PubCls:\n"
+        "        pass\n"
+        "    PUB_OK = 1\n"
+        "try:\n"
+        "    pass\n"
+        "except ImportError:\n"
+        "    def in_handler():\n"
+        "        hidden = 2\n"
+    )
+    assert module_scope(planted.body) == {"pub_fn", "PubCls", "PUB_OK", "in_handler"}
 
     public = {name for name in module_scope(tree.body) if not name.startswith("_")}
     assert public, "the sweep found no public name at all, so it is measuring nothing"

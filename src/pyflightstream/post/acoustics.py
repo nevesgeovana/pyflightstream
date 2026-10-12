@@ -404,6 +404,13 @@ class AcousticProducts:
     notes: list[str] = field(default_factory=list)
 
 
+def _round_trip(cell: object) -> object:
+    """Spell a finite float so it reads back exactly (its shortest repr); leave anything else."""
+    if isinstance(cell, float | np.floating) and math.isfinite(float(cell)):
+        return repr(float(cell))
+    return cell
+
+
 def _slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "observer"
 
@@ -454,8 +461,12 @@ def write_acoustic_products(
     result = AcousticProducts()
 
     def emit(name: str, columns: Sequence[str], rows: Sequence[Sequence[object]]) -> None:
+        # ROUND-TRIP PRECISION, as the boundary-layer table writes it: five
+        # fixed decimals are a coefficient's precision, and they quantised a
+        # 30 kHz clock and wrote a 4e-6 Pa harmonic as 0.00000.
+        exact = [[_round_trip(cell) for cell in row] for row in rows]
         path = folder / name
-        result.files.append(write_csv_table(target(path) if target else path, columns, rows))
+        result.files.append(write_csv_table(target(path) if target else path, columns, exact))
 
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []

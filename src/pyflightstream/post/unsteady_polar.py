@@ -566,8 +566,18 @@ def _the_axes_of_the_unsteady_rows(
             "parameters; it takes a new run, the script defines what the solver plots."
         )
         return []
-    if reference is None or reference.sref_m2 <= 0.0 or reference.cref_m <= 0.0:
-        notes.append("the axis coefficients are not written: no reference area and chord")
+    # The span too: the roll and yaw moments are made dimensionless by it, and a
+    # zero BREF was a bare ZeroDivisionError out of the whole polar.
+    if (
+        reference is None
+        or reference.sref_m2 <= 0.0
+        or reference.cref_m <= 0.0
+        or reference.bref_m <= 0.0
+    ):
+        notes.append(
+            "the axis coefficients are not written: no positive reference area, chord "
+            "and span (the roll and yaw moments need a span)"
+        )
         return []
     added: list[str] = []
     for condition, values, _window, _content in rows:

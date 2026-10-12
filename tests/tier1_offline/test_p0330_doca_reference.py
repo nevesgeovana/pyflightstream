@@ -26,6 +26,7 @@ import griffe
 import pytest
 import yaml
 
+from tests.tier1_offline._docs_site import GROUPS
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
 REPO = Path(__file__).resolve().parents[2]
@@ -414,7 +415,7 @@ def test_the_python_api_tutorial_is_on_the_site_and_its_blocks_run():
     # P0330-DOC-TUTORIAL
     page = DOCS / "tutorial-python-api.md"
     assert page.is_file(), "the Python API tutorial page is absent"
-    assert "tutorial-python-api.md" in _group("Tutorials")
+    assert "tutorial-python-api.md" in _group("Python API")
     text = page.read_text(encoding="utf-8")
     blocks = _executed_blocks(text)
     assert len(blocks) >= 5, f"only {len(blocks)} executed blocks on the tutorial"
@@ -484,7 +485,7 @@ def test_the_exceptions_catalog_lists_every_catalogued_exception():
         assert f"[`{name}`]" in hierarchy, f"{name} is not in the hierarchy"
     generator = (SCRIPTS / "gen_docs_pages.py").read_text(encoding="utf-8")
     assert 'mkdocs_gen_files.open("exceptions.md"' in generator
-    assert "exceptions.md" in _group("Reference")
+    assert "exceptions.md" in _group("Python API")
     # The control: a row cut from the page is seen.
     first = sorted(catalogued)[0]
     cut = re.sub(rf"^\| \[`{first}`\].*\n", "", page, count=1, flags=re.MULTILINE)
@@ -495,22 +496,29 @@ def test_the_exceptions_catalog_lists_every_catalogued_exception():
 # -------------------------------------------------------------------- the nav
 
 
-def test_the_nav_is_the_four_quadrants_and_project_with_the_srs_under_project():
-    """NFR-29 R1: Tutorials, How-to guides, Reference, Explanation, then Project."""
+def test_the_nav_follows_the_approved_reader_structure():
+    """NFR-29 R1: eight reader groups with workspace workflows before the API."""
     # NFR-29 R1 (decision 13 of GOAL-038)
     names = [next(iter(item)) for item in _nav()]
-    assert names == ["Tutorials", "How-to guides", "Reference", "Explanation", "Project"]
+    assert names == GROUPS
     srs = sorted(p.relative_to(DOCS).as_posix() for p in (DOCS / "srs").glob("*.md"))
-    assert len(srs) >= 10, srs
-    assert set(srs) <= set(_group("Project")), sorted(set(srs) - set(_group("Project")))
-    elsewhere = [p for p in _pages(_nav()) if p.startswith("srs/") and p not in _group("Project")]
-    assert not elsewhere, elsewhere
-    for folder in ("api/", "cli/", "reference/"):
-        assert folder in _group("Reference"), f"{folder} is not under Reference"
+    assert set(srs) == set(_group("Concepts") + _group("Contributing")) & set(srs)
+    assert {"srs/philosophy.md", "srs/introduction.md", "srs/scope.md", "srs/data-model.md"} <= set(
+        _group("Concepts")
+    )
+    assert {"srs/architecture-srs.md", "srs/standards.md", "srs/roadmap.md"} <= set(
+        _group("Contributing")
+    )
+    for folder, group in (
+        ("api/", "Python API"),
+        ("cli/", "Workspace and Workflows"),
+        ("reference/", "Reference"),
+    ):
+        assert folder in _group(group), f"{folder} is not under {group}"
     # R9: the LaTeX guides are linked from the navigation, not absorbed
     # (decision 14): one page in the menu links every PDF in guide/, and the
     # home page links the folder.
-    assert "guides.md" in _group("Tutorials")
+    assert "guides.md" in _group("Start here")
     guides = (DOCS / "guides.md").read_text(encoding="utf-8")
     pdfs = sorted(p.name for p in (REPO / "guide").glob("pyfts-guide-*.pdf"))
     assert len(pdfs) >= 8, pdfs

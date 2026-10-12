@@ -650,6 +650,16 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (0.40.0, PFS-2081.28):
+    # zero takes both observations at one instant, so nothing is ever seen to
+    # settle, and a negative wait reached time.sleep mid-sweep. Checked here
+    # rather than by the parser, so a value from pyfs.toml is held to it too.
+    if args.interval is not None and not 0.0 < args.interval < float("inf"):
+        print(
+            f"interval (CLI: --interval) takes a number of seconds above 0, not {args.interval}",
+            file=sys.stderr,
+        )
+        return 2
     # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
     # `_cmd_post` reaches it, and not by importing the products writer here.
     # Dependencies flow downward and a function-body import does not make an
@@ -700,6 +710,10 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 **({"sims": sims} if sims is not None else {}),
             )
 
+    # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
+    # raise what `post` catches, and here it escaped as a traceback after the
+    # records were written. It is said as the post's own refusal and exits 2,
+    # as `post` does, so 1 and 3 keep meaning what the collection found.
     try:
         with stage_progress("collect"):
             report = collect_and_post(
@@ -712,7 +726,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 post_matrix=_post if args.post else None,
                 sims=None if args.sims is None else _listed_sims(args.sims),
             )
-    except (WorkspaceError, CampaignConfigError) as error:
+    except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2
 
@@ -1179,15 +1193,21 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
-    if getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False):
+    setup = getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False)
+    # EVERY REFUSAL THE ARGUMENTS ALONE DECIDE COMES BEFORE THE FIRST WRITE
+    # (PFS-2096.023): the setup guides and the --update-ids renumbering were
+    # written, and then a contradiction between two flags refused the plan.
+    if setup and args.fs_version is None:
+        print(
+            "setup generation requires --fs-version to identify the target build",
+            file=sys.stderr,
+        )
+        return 2
+    name, name_from = _campaign_name(args)
+    missing_families = _the_missing_family_choice(args)
+    if setup:
         from pyflightstream.workspace.setup_standards import write_setup_library
 
-        if args.fs_version is None:
-            print(
-                "setup generation requires --fs-version to identify the target build",
-                file=sys.stderr,
-            )
-            return 2
         try:
             generated = write_setup_library(
                 workspace.root,
@@ -1200,7 +1220,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             return 2
         for filename, status in generated.items():
             print(f"setup {status}: inputs/setups/{filename}")
-    name, name_from = _campaign_name(args)
     renumbered = 0
     if getattr(args, "update_ids", False):
         # PFS-2031.21. BEFORE the plan, so the receipt the plan writes is
@@ -1208,7 +1227,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # then refuse it as a matrix edited after it was planned.
         try:
             changes = renumber_repeated_pols(args.matrix, workspace, in_place=True)
-        except (MatrixError, OSError) as error:
+        except (MatrixError, PyflightstreamError, OSError) as error:
             print(f"matrix not planned: {error}", file=sys.stderr)
             return 2
         matrix_name = Path(args.matrix).name
@@ -1220,7 +1239,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 f"--update-ids: {matrix_name} row {change.row_number}: "
                 f"POL {change.old} -> {change.new}"
             )
-    missing_families = _the_missing_family_choice(args)
     # THE WARNINGS ARE HELD while the plan is made and printed as one titled
     # block after its header (0.31.0), because a reader could not tell what
     # the warnings were about when they arrived first, unannounced. They are released
@@ -1250,7 +1268,11 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 sims=args.sims,  # FR-326
                 points=args.points,
             )
-    except (MatrixError, InputArtifactError, OSError, ValueError) as error:
+    # PyflightstreamError, AS `_cmd_run` CATCHES IT (PFS-2095.051): a
+    # WorkspaceError, the refusal read_manifest writes for a recorded defect,
+    # is neither a ValueError nor an OSError and reached the user as a
+    # traceback.
+    except (MatrixError, InputArtifactError, PyflightstreamError, OSError, ValueError) as error:
         release_warnings(held)
         print(f"matrix not planned: {error}", file=sys.stderr)
         if renumbered:
@@ -1426,7 +1448,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PyflightstreamWarning)
             table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
-        write_table(table, target)
+        write_table(table, target, overwrite=True)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

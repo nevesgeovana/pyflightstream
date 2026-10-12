@@ -54,6 +54,14 @@
    "severity": "warning"
   },
   {
+   "point": "polars/7001",
+   "product": "polars/7001",
+   "message": "simulation 7001's group polars are read from the loads export of an unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging window resolves for it; the manifest marks them kind: instant.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
    "point": "camp/sim_7001/AL-020",
    "product": "settings/products_settings.csv",
    "message": "no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it",

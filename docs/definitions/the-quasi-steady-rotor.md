@@ -108,7 +108,7 @@ with `w` each station's strip, so the torque comes from the in-plane
 clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
 `z` for a shaft stated as a vector, because every such frame is the hub frame
 turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
-`axis_vector` itself. See [the wheel migration](../migrating-to-0.31.0.md) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
+`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
 RPT-006); the reading of an XY cut was measured on the 0.31.0 short licensed
 confirmation of a clocked wheel, where the strip integrals of `Fx`, `Fz` and
 `Fz Offset` over blade one matched the blade's force along the shaft, its

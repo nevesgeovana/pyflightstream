@@ -199,12 +199,22 @@ def main() -> int:
         print("\nthe overrides-off run did not end in a countable line; nothing is stated")
         return 1
     errors, dirty_files, checked = final.groups()
+    # BOTH REFUSALS END THE RUN NON-ZERO AND STATE NO HEADLINE. The shipped run
+    # was printed and never judged, and a count mismatch printed "do not state
+    # either number" and then the bold sentence stating them, exiting 0.
+    if not shipped_final.startswith("Success:"):
+        print(
+            "\nthe shipped configuration is not green, and the docstring requires it to be; "
+            "nothing is stated until it is"
+        )
+        return 1
     if int(checked) != len(modules):
         print(
             f"\nmypy checked {checked} source files and git tracks {len(modules)}. "
             "One of the two is not the package; do not state either number until "
             "that is explained (an untracked .py under src/ is the usual cause)."
         )
+        return 1
     print()
     print(
         f"**mypy recount {date.today().isoformat()}: {errors} errors in "

@@ -492,7 +492,9 @@ def subtract_fields(
     WorkspaceError
         If the grids differ (a different number of points, or a point of
         either with no point of the other), naming both fields and the
-        first point that has no partner; if a field holds one point twice;
+        first point that has no partner; if a point of ``total`` lies within
+        the tolerance of two points of ``other`` not yet matched, so the pairing
+        is not decided by the positions; if a field holds one point twice;
         or if the reference is not three finite numbers.
 
     Examples
@@ -515,14 +517,25 @@ def subtract_fields(
     used: set[int] = set()
     rows: list[Row] = []
     for number, row in enumerate(total.rows, start=1):
-        partner = next(
-            (
-                candidate
-                for candidate in _near(index, _cell(row, tolerance))
-                if _same_position(other.rows[candidate], row, tolerance)
-            ),
-            None,
-        )
+        # One to one: a point of `other` already matched is no candidate, and
+        # a point with two candidates left is refused rather than given the
+        # first, which could take the partner a later point needs. A pairing
+        # made only of single candidates is the only one the grids allow.
+        candidates = [
+            candidate
+            for candidate in _near(index, _cell(row, tolerance))
+            if candidate not in used and _same_position(other.rows[candidate], row, tolerance)
+        ]
+        if len(candidates) > 1:
+            first, second = (other.rows[c] for c in candidates[:2])
+            raise WorkspaceError(
+                f"point {number} of {total.name}, ({row[0]:.17g}, {row[1]:.17g}, "
+                f"{row[2]:.17g}) m, lies within {tolerance:g} m of two points of {other.name}, "
+                f"({first[0]:.17g}, {first[1]:.17g}, {first[2]:.17g}) and ({second[0]:.17g}, "
+                f"{second[1]:.17g}, {second[2]:.17g}) m, so the grids do not say which it is. "
+                "State a tolerance smaller than the grid spacing."
+            )
+        partner = candidates[0] if candidates else None
         if partner is None:
             raise WorkspaceError(
                 f"the grids differ: point {number} of {total.name}, ({row[0]:.17g}, "
@@ -542,9 +555,8 @@ def subtract_fields(
                 row[5] - (v[5] - reference[2]),
             )
         )
-    # Equal counts, each total point matched and no field holding a point
-    # twice: every point of `other` is used exactly once.
-    assert len(used) == len(other.rows)
+    # Equal counts and each total point matched to a point not used before:
+    # every point of `other` is used exactly once.
     return Field(total.form, tuple(rows), total.header, total.source)
 
 

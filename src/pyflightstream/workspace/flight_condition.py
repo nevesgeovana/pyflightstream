@@ -387,6 +387,28 @@ def _density_from_reynolds(
     return reynolds, reynolds * viscosity / (velocity * reference_length_m)
 
 
+def _refuse_signs(effective: Mapping[str, float], speed_key: str, pol: str) -> None:
+    """Refuse a negative speed and a Reynolds number at or below zero, before any solve.
+
+    Either resolves into a negative or zero velocity or density that nothing
+    downstream refuses. Zero speed is hover and stays legal. Beside a Reynolds
+    number a speed at or below zero is the Reynolds refusal's, which names both.
+    """
+    if DENSITY_KEY not in effective and effective[speed_key] < 0.0:
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} states {speed_key}:{effective[speed_key]:g}, "
+            f"and {speed_key} is a speed, a magnitude: the flow's direction is ALPHA and "
+            "BETA. State it zero (hover) or positive."
+        )
+    if DENSITY_KEY in effective and effective[DENSITY_KEY] <= 0.0:
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} states "
+            f"{DENSITY_KEY}:{effective[DENSITY_KEY]:g}, and a Reynolds number is a positive "
+            "quantity: it would solve a zero or negative density. State it positive, or "
+            f"drop {DENSITY_KEY} and let the density come from the atmosphere."
+        )
+
+
 def resolve_flight_condition(
     stated: dict[str, float],
     *,
@@ -524,6 +546,7 @@ def resolve_flight_condition(
             "would solve a condition nobody asked for; state one and delete the "
             "other."
         )
+    _refuse_signs(effective, given_velocity[0], pol)
 
     altitude_ft = effective.get("ALTFT", 0.0)
     delta_isa_c = effective.get("dISA", 0.0)

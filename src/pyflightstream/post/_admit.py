@@ -231,8 +231,15 @@ def _warn_the_point_s_state(stem: str, report: LoadsReport, point: PolarPoint) -
         warn(
             f"{stem}: the export states a reference velocity of {vref:g} m/s and a free "
             f"stream of {vinf:g} m/s. The steady polar's coefficients are normalised by "
-            "the REFERENCE velocity; the plots table, the reductions and the unsteady "
-            "polar are rescaled to the FREE STREAM. Both are in every row, as VREF and VINF.",
+            "the REFERENCE velocity; "
+            + (
+                "the plots table's coefficient columns read NA because the FREE STREAM "
+                "velocity is not positive. "
+                if vinf <= 0.0
+                else "the plots table, the reductions and the unsteady polar are rescaled "
+                "to the FREE STREAM. "
+            )
+            + "Both are in every row, as VREF and VINF.",
             PyflightstreamWarning,
             stacklevel=2,
         )

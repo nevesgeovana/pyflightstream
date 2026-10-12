@@ -43,7 +43,13 @@ from pyflightstream.cases import (
     RawMeshConditions,
     TrailingEdgeMarking,
 )
+from pyflightstream.cases._ccs import CCS_FORMATS
 from pyflightstream.cases._geometry_instruction import BUILD_RECORD_SUFFIX, INSTRUCTION_SUFFIX
+from pyflightstream.cases.workflows._vocabulary import (
+    CAD_FORMATS,
+    RAW_MESH_FORMATS,
+    SIMULATION_SUFFIX,
+)
 
 __all__ = [
     "BASE_REGIONS_TABLE",
@@ -72,11 +78,21 @@ __all__ = [
 ]
 
 
-def load_toml(path: Path, kind: str) -> dict[str, Any]:
-    """Read one TOML artifact file, naming the file on a syntax error."""
+def _utf8_text(path: Path, what: str) -> str:
+    """Decode a TOML file as UTF-8, a leading byte-order mark accepted, naming it otherwise."""
     try:
-        with open(path, "rb") as handle:
-            return tomllib.load(handle)
+        return path.read_bytes().decode("utf-8-sig")
+    except UnicodeDecodeError as error:
+        raise InputArtifactError(
+            f"{what} {path} is not UTF-8 text ({error}). Save it as UTF-8."
+        ) from error
+
+
+def load_toml(path: Path, kind: str) -> dict[str, Any]:
+    """Read one TOML artifact file, naming the file on a syntax or encoding error."""
+    text = _utf8_text(path, f"the {kind} artifact")
+    try:
+        return tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise InputArtifactError(
             f"the {kind} artifact {path} is not valid TOML: {error}. Artifacts are "
@@ -693,7 +709,8 @@ def _sidecar_data(sidecar: Path) -> dict[str, Any]:
     they are.
     """
     try:
-        return tomllib.loads(sidecar.read_text(encoding="utf-8"))
+        text = _utf8_text(sidecar, "the geometry sidecar")
+        return tomllib.loads(text)
     except (OSError, tomllib.TOMLDecodeError) as error:
         raise InputArtifactError(
             f"{sidecar} cannot be read as a geometry sidecar: {error}"
@@ -1217,7 +1234,7 @@ class GeometryMigration:
     moved : tuple of (Path, Path)
         Every file moved, as ``(where it was, where it is)``, in the order
         the moves were made: each geometry file, then the sidecars that
-        carry its stem.
+        carry its stem, then its companion files.
     kept : tuple of str
         The stems whose folder already existed and was left alone, a flat
         file of that stem included: the folder is the reading's first
@@ -1235,7 +1252,14 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     Every ``geometries/<stem>.<ext>`` directly under the library moves to
     ``geometries/<stem>/<stem>.<ext>``, and its ``<stem>.boundaries.toml``
     and ``<stem>.provenance.toml`` move with it, so what belongs to one
-    geometry sits in one place (PFS-2032.05, design 68 section A3). A
+    geometry sits in one place (PFS-2032.05, design 68 section A3). Its
+    companion files move with it too: the points file its sidecar's
+    ``[trailing_edges]`` table names, which is read beside the sidecar,
+    and every other ``<stem>.*`` file that is not itself a geometry, such
+    as the ``<stem>.audit.json`` and ``<stem>.refine.json`` written beside
+    a mesh (PFS-2096.013). A geometry is a file the workflow opens or
+    imports (``.fsm``, a raw mesh, a CAD or a CCS file), so ``blade.v2.fsm``
+    is a geometry of its own and never a companion of ``blade.fsm``. A
     folder that already exists is left alone with whatever it holds, and a
     second run over the same library moves nothing: nothing here decides
     for the user. The run records of a workspace are untouched and keep
@@ -1258,8 +1282,8 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     Raises
     ------
     InputArtifactError
-        A root with no ``inputs/geometries``: there is no library to move,
-        and creating one here would hide a wrong path.
+        A root with no ``inputs/geometries``, or a points file shared by
+        multiple geometries that cannot move to one geometry's folder.
     """
     directory = Path(inputs_dir) / "geometries"
     if not directory.is_dir():
@@ -1272,6 +1296,7 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
         )
     entries = sorted(directory.iterdir())
     kept = tuple(entry.name for entry in entries if entry.is_dir())
+    companions = _geometry_companions(directory, entries)
     created: set[Path] = set()
     moved: list[tuple[Path, Path]] = []
     for entry in entries:
@@ -1282,6 +1307,8 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
         # creates a folder the resolver then reads as a geometry's home.
         if not entry.is_file() or is_sidecar(entry.name) or entry.name == GEOMETRIES_README:
             continue
+        if entry.name in companions:
+            continue
         folder = directory / entry.stem
         if folder.exists() and folder not in created:
             continue
@@ -1289,8 +1316,63 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
             folder.mkdir()
             created.add(folder)
         sidecars = [directory / (entry.stem + suffix) for suffix in SIDECAR_SUFFIXES]
-        for source in (entry, *[sidecar for sidecar in sidecars if sidecar.is_file()]):
+        owned = [directory / name for name, stem in companions.items() if stem == entry.stem]
+        for source in (entry, *sidecars, *owned):
+            if not source.is_file():
+                continue
             target = folder / source.name
             source.rename(target)
             moved.append((source, target))
     return GeometryMigration(moved=tuple(moved), kept=kept)
+
+
+#: The suffixes of a file a workflow opens or imports as a geometry.
+_GEOMETRY_SUFFIXES = frozenset({SIMULATION_SUFFIX, *RAW_MESH_FORMATS, *CAD_FORMATS, *CCS_FORMATS})
+
+
+def _geometry_companions(directory: Path, entries: Sequence[Path]) -> dict[str, str]:
+    """Map each flat companion file's name to the stem of the geometry it belongs to.
+
+    The points file a geometry's sidecar names under ``[trailing_edges]`` is
+    read beside that sidecar, so it belongs to that geometry whatever its
+    name. Any other file that is not a geometry belongs to the geometry
+    whose stem prefixes its name with a dot, the longest such stem first.
+    """
+    files = {
+        entry.name: entry
+        for entry in entries
+        if entry.is_file() and not is_sidecar(entry.name) and entry.name != GEOMETRIES_README
+    }
+    stems = sorted(
+        {entry.stem for entry in files.values() if entry.suffix.lower() in _GEOMETRY_SUFFIXES},
+        key=len,
+        reverse=True,
+    )
+    owner: dict[str, str] = {}
+    for stem in stems:
+        sidecar = directory / (stem + INVENTORY_SUFFIX)
+        if not sidecar.is_file():
+            continue
+        try:
+            table = _sidecar_data(sidecar).get(TRAILING_EDGES_TABLE)
+        except InputArtifactError:
+            continue
+        written = table.get("file") if isinstance(table, dict) else None
+        reference = Path(written.strip()) if isinstance(written, str) else None
+        if reference is not None and reference.parent == Path(".") and reference.name in files:
+            name = reference.name
+            previous = owner.get(name)
+            if previous is not None and previous != stem:
+                raise InputArtifactError(
+                    f"{directory / name}: trailing-edge points are shared by {previous} "
+                    f"and {stem}; give each geometry its own points file before migrating. "
+                    "Nothing was moved."
+                )
+            owner[name] = stem
+    for name, entry in files.items():
+        if name in owner or entry.suffix.lower() in _GEOMETRY_SUFFIXES:
+            continue
+        found = next((stem for stem in stems if name.startswith(stem + ".")), None)
+        if found is not None:
+            owner[name] = found
+    return owner

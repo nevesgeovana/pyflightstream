@@ -438,8 +438,8 @@ def test_nothing_leaves_an_artifact_in_the_repository_root():
     )
 
 
-def test_the_cleanliness_detector_can_actually_see_an_artifact(tmp_path):
-    """The guard above is a negative assertion, so it needs a witness.
+def test_p0400_the_cleanliness_detector_can_actually_see_an_artifact(tmp_path):
+    """P0400-ROOT-WITNESS (PFS-2135.065): the negative guard needs a witness.
 
     In CI both of its halves are green by construction: the docs blocks
     that would write `runs/` are executed in a later step than the tier 1

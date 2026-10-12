@@ -10,7 +10,8 @@ plan reading disagree is refused naming both.
 
 What it does NOT check: a solver. A stub stands in for the executor.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 
@@ -104,7 +105,9 @@ def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
     assert [found[f"5001_{index}"] for index in (1, 2, 3)] == names
     capsys.readouterr()
     assert cli.main(["mark-failed", "--sims", "5001_3", "--workspace", str(workspace.root)]) == 0
-    assert "warm/sim_5001/sweep" in capsys.readouterr().out
+    # 0.40.0 (PFS-2103.009): the job's third point alone, by its own run id.
+    out = capsys.readouterr().out
+    assert f"warm/sim_5001/{names[2]}" in out and f"warm/sim_5001/{names[0]}" not in out
 
 
 def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, capsys):

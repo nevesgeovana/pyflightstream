@@ -31,6 +31,7 @@ quadrature accuracy and the FFT (DLV-006 Sec. 2.2).
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Mapping
 
 import numpy as np
@@ -260,13 +261,27 @@ def azimuthal_harmonics(da: xr.DataArray, *, m_max: int = 6) -> xr.DataArray:
     """
     _delta_psi(da)
     n = da.sizes["psi"]
-    if m_max >= n // 2:
+    if isinstance(m_max, bool) or not isinstance(m_max, numbers.Integral) or m_max < 0:
+        raise FarfieldInputError(
+            f"m_max={m_max!r} is not an azimuthal order; give a non-negative integer"
+        )
+    # Order m is unaliased while 2 m < n: an odd grid of n = 2 m + 1 azimuths
+    # carries order m, and an even grid's Nyquist order n/2 is refused.
+    if 2 * m_max >= n:
         raise FarfieldInputError(
             f"m_max={m_max} needs more than {2 * m_max} uniform azimuths to avoid "
             f"aliasing; this grid has {n}"
         )
-    spectrum = np.fft.fft(da.values, axis=da.dims.index("psi")) / n
-    kept = np.take(spectrum, np.arange(m_max + 1), axis=da.dims.index("psi"))
+    axis = da.dims.index("psi")
+    spectrum = np.fft.fft(da.values, axis=axis) / n
+    kept = np.take(spectrum, np.arange(m_max + 1), axis=axis)
+    # THE AZIMUTH ORIGIN. The FFT sums f_k exp(-i m 2 pi k / N), which is the
+    # c_m of the docstring only when psi_0 = 0; a grid starting at psi_0 needs
+    # the factor exp(-i m psi_0), or every order comes back rotated by m psi_0.
+    psi_0 = float(np.asarray(da.coords["psi"])[0])
+    shape = [1] * kept.ndim
+    shape[axis] = m_max + 1
+    kept = kept * np.exp(-1j * np.arange(m_max + 1) * psi_0).reshape(shape)
     dims = tuple("m" if dim == "psi" else dim for dim in da.dims)
     coords = {
         name: coord

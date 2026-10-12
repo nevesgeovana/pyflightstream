@@ -36,7 +36,9 @@ from _mutation_harness import PYTHON, REPO, park, recover, unpark  # noqa: E402
 
 PROBES = "src/pyflightstream/qa/probes.py"
 REFERENCE = "src/pyflightstream/reference.py"
-SPECS = "src/pyflightstream/qa/specs.py"
+#: Where the shared motion prelude moved when the catalog was split into parts;
+#: anchoring on specs.py left the mutant with no anchor and the battery red.
+SPEC_CATALOG_B = "src/pyflightstream/qa/_spec_catalog_b.py"
 COMPAT = "src/pyflightstream/qa/compat.py"
 #: The renderer moved out of `qa/compat.py` on 2026-08-17, below every
 #: layer, because a second writer sits BELOW qa and could not reach it.
@@ -124,7 +126,7 @@ MUTANTS = [
     ),
     (
         "shared motion prelude flipped to 6DOF",
-        SPECS,
+        SPEC_CATALOG_B,
         '_MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")',
         '_MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "6DOF")',
         "tests/tier1_offline/test_qa_probes.py",
@@ -258,13 +260,23 @@ def run(test_file: str, selector: str) -> tuple[str, str]:
         return "INCONCLUSIVE", f"timed out after {SUITE_TIMEOUT:.0f}s"
     out = done.stdout + done.stderr
     tail = " | ".join(line for line in out.splitlines()[-3:] if line.strip())
-    if "error" in out.lower() and " passed" not in out and " failed" not in out:
-        return "INCONCLUSIVE", tail
-    if " failed" in out:
-        return "FAILED", tail
-    if " passed" in out:
-        return "passed", tail
-    return "INCONCLUSIVE", tail
+    return score(done.returncode, out), tail
+
+
+def score(returncode: int, out: str) -> str:
+    """Classify one pytest run by its EXIT CODE first, its summary second.
+
+    1 with "failed" is a FAILED selection and 0 with "passed" a passing one;
+    anything else (2 for a collection or fixture error, 5 for no test
+    selected, a summary of "3 passed, 1 error" that exits 1) is
+    INCONCLUSIVE. Read from the text alone, "3 passed, 1 error" scored as
+    passed and hid an erroring suite behind a negative control.
+    """
+    if returncode == 1 and " failed" in out:
+        return "FAILED"
+    if returncode == 0 and " passed" in out:
+        return "passed"
+    return "INCONCLUSIVE"
 
 
 def main() -> int:

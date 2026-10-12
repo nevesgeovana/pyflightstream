@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the machine-readable index of the requirement set.
 
-Pipeline role: evidence generator. The SRS pages under ``docs/srs`` are
+Pipeline role: evidence generator. The SRS pages under ``docs/unpublished/requirements`` are
 the single source; this script renders them into one JSON document that
 an external dashboard can consume without parsing Markdown, plus the
 traceability counts that say how much of the set a test reaches.
@@ -81,7 +81,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-SRS = REPO / "docs" / "srs"
+SRS = REPO / "docs" / "unpublished" / "requirements"
 OUT = REPO / "reports" / "requirements-index.json"
 TESTS = REPO / "tests"
 
@@ -396,7 +396,7 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
     """
     entries = collect(srs_dir)
     return {
-        "source": "docs/srs",
+        "source": "docs/unpublished/requirements",
         "generated_by": "scripts/gen_requirements_index.py",
         "traceability": traceability([e["id"] for e in entries], tests_dir),
         "requirements": entries,

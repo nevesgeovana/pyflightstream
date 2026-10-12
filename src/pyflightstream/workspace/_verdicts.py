@@ -72,6 +72,16 @@ def merge_runs(
         if not run_id:
             conflicts.append({"run_id": None, "reason": "a record without run_id"})
             continue
+        if row.get(DELETED_SIM_KEY) is not None:
+            # A delete-sims note records a deletion in the OTHER workspace;
+            # main still holds that simulation, so the note is not imported.
+            conflicts.append(
+                {
+                    "run_id": run_id,
+                    "reason": "a delete-sims note of the other workspace, not applied",
+                }
+            )
+            continue
         if str(run_id) in deleted:
             conflicts.append({"run_id": run_id, "reason": "deleted in main by delete-sims"})
             continue

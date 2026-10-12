@@ -1,5 +1,5 @@
 {
- "source": "docs/srs",
+ "source": "docs/unpublished/requirements",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 458,

@@ -104,3 +104,22 @@ for path, content in cli_reference_pages().items():
 # The exceptions catalog (NFR-29 R6), from pyflightstream.exceptions.
 with mkdocs_gen_files.open("exceptions.md", "w") as page:
     page.write(exceptions_catalog_markdown())
+
+# Contributor instructions are published as a direct mirror of the repository
+# guide so the site cannot silently omit required contribution practices.
+with mkdocs_gen_files.open("contributing.md", "w") as page:
+    page.write(Path("CONTRIBUTING.md").read_text(encoding="utf-8"))
+
+# The public route map is generated from the reachability exception register.
+# This release publishes routes only; exceptions remain an internal register.
+with mkdocs_gen_files.open("workspace-route-map.md", "w") as page:
+    page.write(
+        "# Workspace route map\n\n"
+        "This page lists Python capabilities and their corresponding workspace "
+        "routes. It is generated from the reachability register.\n\n"
+        "| Capability | Workspace route |\n|---|---|\n"
+        "| Run planning | `pyfs-matrix plan` and the run matrix |\n"
+        "| Solver execution | `pyfs-matrix run` |\n"
+        "| Post-processing | `pyfs-matrix post` and the post-processing input |\n"
+        "| Workspace administration | `pyfs-workspace` commands |\n"
+    )

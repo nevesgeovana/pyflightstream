@@ -177,8 +177,16 @@ def test_goal025_a_record_naming_no_folder_at_all_is_still_refused(tmp_path):
     """
     workspace, work = _a_0_20_workspace(tmp_path)
     sim_dir = work.parent.parent
-    for name in (f"{STEM}.txt", f"{STEM}_log.txt"):
-        shutil.copy2(work / f"{STEM}.txt", sim_dir / name)
+    shutil.copy2(work / f"{STEM}.txt", sim_dir / f"{STEM}.txt")
+    # The log is a log (renumbered to end where the export ends, as the module's
+    # builder does), so the refusal is reached with real inputs on both names.
+    (sim_dir / f"{STEM}_log.txt").write_text(
+        (FIXTURES / "log_residuals_26.120.txt")
+        .read_text(encoding="utf-8")
+        .replace(chr(10) + "1575 ", chr(10) + "312 ")
+        .replace(chr(10) + "1574 ", chr(10) + "311 "),
+        encoding="utf-8",
+    )
     rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
     for row in rows:
         row["submission"] = {

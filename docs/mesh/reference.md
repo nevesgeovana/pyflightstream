@@ -21,7 +21,7 @@ reach it the same way. It holds the list and nothing else:
 # order of the file: how the solver numbers an OBJ's surfaces on import
 # (RPT-078). The package never rewrites this file. Add the [import] table with
 # the file's units, and the [trailing_edges] table, beneath the list
-# (docs/mesh-inputs.md).
+# (docs/mesh/how-to.md).
 boundaries = [
     "Wing",
     "Tail",
@@ -738,10 +738,12 @@ that keeps its first row adds `k` to its part:
 
 A factor in a built tag shows at most 6 significant digits (`2.0000001` and
 `2` both read `2`, `0.0000123456` reads `1p23456e-05`); `refine.json` holds
-the exact factor under `specs`. Two factors that agree to 6 significant
-digits therefore build the same tag, and the second level is refused as an
-existing one unless `--overwrite` (`overwrite=True`) replaces it; give a
-`[refine] tag` to keep both.
+the exact factor under `specs`. For a short tag without a hash, two otherwise
+identical selections whose factors agree to 6 significant digits build the
+same tag, and the second level is refused as an existing one unless
+`--overwrite` (`overwrite=True`) replaces it; give a `[refine] tag` to keep both.
+Summary tags hash the exact factors, so matching rounded spellings do not
+imply matching summary tags.
 
 A built tag of at most 32 characters is the tag above. A longer one is
 `R-<n>fam-<hash>`, at most 20 characters for any selection: `<n>` is the number
@@ -1013,7 +1015,7 @@ The reference artifact refuses the retired fields `rotation`, `blade_travel`,
 `rpm_sign_installed` and `rpm_sign_isolated`. The speed a row states is a
 MAGNITUDE and the hand is `rpm_sign` on that rotor's own block, beside its
 `axis`. `pyfs-matrix upgrade --in-place --inputs <inputs dir>` strips the
-retired fields (PFS-2029.08); the [migration record](../migrating-to-0.22.0.md)
+retired fields (PFS-2029.08); the [migration record](../upgrading.md#older-layouts)
 explains the historical row-sign convention. The argument that
 related them is kept here, because it is what a reader setting up a new
 rotor has to work out once, and it was measured on the

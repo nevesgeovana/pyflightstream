@@ -36,6 +36,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.tier1_offline._docs_site import site_pages
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -161,7 +163,17 @@ def test_the_release_wheel_is_built_from_the_tree_with_the_release_identity(buil
     # The version the wheel carries is the version the CHANGELOG releases, and
     # the release workflow refuses a tag that differs from it.
     newest = re.search(r"^## \[(\d+\.\d+\.\d+)\]", CHANGELOG, flags=re.MULTILINE)
-    assert newest and newest.group(1) == RELEASED, (newest and newest.group(1), RELEASED)
+    assert newest, "the CHANGELOG has no released section"
+    # RELEASED is defined as the newest section on a development tree, so it
+    # cannot be the reference there: compare with the version itself.
+    if re.search(r"\.dev\d+$", VERSION):
+        base = tuple(int(part) for part in VERSION.split(".dev")[0].split("."))
+        assert tuple(int(part) for part in newest.group(1).split(".")) < base, (
+            newest.group(1),
+            VERSION,
+        )
+    else:
+        assert newest.group(1) == VERSION, (newest.group(1), VERSION)
     release = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     )
@@ -214,13 +226,24 @@ def test_no_private_payload_reaches_the_release_wheel(built):
         package.replace(".", "/"): globs
         for package, globs in PYPROJECT["tool"]["setuptools"]["package-data"].items()
     }
+    forbidden, stray, leaked = _classify_wheel(
+        built["files"],
+        lambda name: (built["lib"] / name).read_text(encoding="utf-8"),
+        patterns,
+        PYPROJECT["tool"]["setuptools"]["exclude-package-data"],
+    )
+    assert not forbidden, f"files of a never-shipped kind in the wheel: {forbidden}"
+    assert not stray, f"files in the wheel that no package-data rule declares: {stray}"
+    assert not leaked, f"shipped data naming a machine path: {leaked}"
+
+
+def _classify_wheel(files, read, patterns, excluded):
+    """Sort a wheel's file list into never-shipped, undeclared and path-leaking files."""
     stray, forbidden, leaked = [], [], []
-    for name in built["files"]:
+    for name in files:
         path = Path(name)
         if path.suffix.lower() in _NEVER_SHIPPED or any(
-            fnmatch.fnmatch(path.name, glob)
-            for globs in PYPROJECT["tool"]["setuptools"]["exclude-package-data"].values()
-            for glob in globs
+            fnmatch.fnmatch(path.name, glob) for globs in excluded.values() for glob in globs
         ):
             forbidden.append(name)
         if path.suffix in (".py", ".pyi") or path.name == "py.typed":
@@ -235,16 +258,42 @@ def test_no_private_payload_reaches_the_release_wheel(built):
         ):
             stray.append(name)
             continue
-        if _MACHINE_PATH.search((built["lib"] / name).read_text(encoding="utf-8")):
+        if _MACHINE_PATH.search(read(name)):
             leaked.append(name)
-    assert not forbidden, f"files of a never-shipped kind in the wheel: {forbidden}"
-    assert not stray, f"files in the wheel that no package-data rule declares: {stray}"
-    assert not leaked, f"shipped data naming a machine path: {leaked}"
-    # The check itself can see what it exists to refuse.
-    probe = Path("pyflightstream/commands/blade.fsm")
-    assert probe.suffix in _NEVER_SHIPPED
+    return forbidden, stray, leaked
+
+
+def test_the_wheel_classification_refuses_what_it_exists_to_refuse():
+    """The control of the payload check: a synthetic file list it must sort correctly.
+
+    A defect in the classification (a list never appended to, a pattern that
+    matches everything) turns the real check above green on any tree.
+    """
     # Assembled, so this tracked file carries no profile path of its own.
-    assert _MACHINE_PATH.search("path: C:" + "\\" + "Us" + "ers" + "\\" + "someone" + "\\mesh.stl")
+    home = "path: C:" + "\\" + "Us" + "ers" + "\\" + "someone" + "\\mesh.stl"
+    files = {
+        "pyflightstream/__init__.py": "",
+        "pyflightstream/data/table.csv": "a,b\n",
+        "pyflightstream/data/undeclared.json": "{}",
+        "pyflightstream/data/declared.json": "{}",
+        "pyflightstream/data/leaky.json": home,
+        "pyflightstream/commands/blade.fsm": "",
+    }
+    forbidden, stray, leaked = _classify_wheel(
+        list(files),
+        files.__getitem__,
+        {"pyflightstream/data": ["declared.json", "leaky.json", "table.csv"]},
+        {},
+    )
+    assert sorted(forbidden) == [
+        "pyflightstream/commands/blade.fsm",
+        "pyflightstream/data/table.csv",
+    ]
+    assert sorted(stray) == [
+        "pyflightstream/commands/blade.fsm",
+        "pyflightstream/data/undeclared.json",
+    ]
+    assert leaked == ["pyflightstream/data/leaky.json"]
 
 
 def _nav_targets(nav) -> list[str]:
@@ -287,7 +336,7 @@ def test_every_documented_page_is_built_and_reachable():
     """
     targets = _nav_targets(_config()["nav"])
     generated = _generated_pages()
-    committed = {p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")}
+    committed = set(site_pages(DOCS, in_nav=True))
     unresolved = [
         target
         for target in targets
@@ -304,8 +353,9 @@ def test_every_documented_page_is_built_and_reachable():
         re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
     )
     assert f"migrating-to-{RELEASED}.md" in cited
-    absent = sorted(page for page in cited if page not in targets)
-    assert not absent, f"pages the {RELEASED} notes cite that the menu lacks: {absent}"
+    built = set(site_pages(DOCS)) | generated
+    absent = sorted(page for page in cited if page not in built)
+    assert not absent, f"pages the {RELEASED} notes cite that the site lacks: {absent}"
 
 
 #: Each reader-facing change of the CHANGELOG's ``### Changed`` list, by its

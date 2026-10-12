@@ -9,9 +9,12 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
+from pyflightstream.post._tables import _PLOTS_STEP_COLUMN, stated_steps
 from pyflightstream.post.field_frames import field_in_reference, native_velocity_proof
 from pyflightstream.post.writers import (
     OutputProvenance,
+    _refuse_existing,
+    provenance_path,
     write_output_pair,
     write_vtk_points,
 )
@@ -40,6 +43,41 @@ def _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow):
         if np.linalg.matrix_rank(points[:, 1:] - points[0, 1:]) < 2:
             raise ProductError("reusable inflow requires a two-dimensional YZ survey")
     return points, velocity
+
+
+def _float_or_nan(cell: object) -> float:
+    """Read one cell as a number, NaN where it is none (NaN equals nothing)."""
+    try:
+        return float(cell)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _field_destinations(
+    stem: str | Path, formats: Sequence[str], reusable_inflow: bool
+) -> list[Path]:
+    """Every file one field writes: each product and its provenance record."""
+    suffixes = [".vtk" if form == "vtk" else ".dat" for form in formats]
+    if reusable_inflow:
+        suffixes.append(".inflow.dat")
+    products = [Path(str(stem) + suffix) for suffix in suffixes]
+    return [path for product in products for path in (product, provenance_path(product))]
+
+
+def _ready_every_destination(jobs: Sequence[tuple], prepare) -> None:
+    """Prepare every destination of every job, or refuse one that exists, before any write.
+
+    NO JOB WRITES WHILE A LATER ONE WOULD REFUSE: tested job by job, a later
+    job's existing file refused after the earlier jobs had written theirs.
+    """
+    for stem, _points, _velocity, layout, _step in jobs:
+        for path in _field_destinations(
+            stem, layout["formats"], layout.get("reusable_inflow", False)
+        ):
+            if prepare is not None:
+                prepare(path)
+            else:
+                _refuse_existing(path, False)
 
 
 def write_probe_field(
@@ -97,6 +135,9 @@ def write_probe_field(
     ProductError
         If the frame, shapes, finiteness, formats or inflow conditions are not
         met; nothing is written then.
+    OutputExistsError
+        If any destination exists and ``overwrite`` is false; every one is
+        tested first, so nothing is written then.
 
     Examples
     --------
@@ -119,6 +160,10 @@ def write_probe_field(
     ['field.vtk', 'field.vtk.provenance.json']
     """
     points, velocity = _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow)
+    # EVERY DESTINATION BEFORE ANY WRITE: each pair refused on its own let a
+    # .dat that exists refuse after the .vtk pair had been written.
+    for destination in _field_destinations(stem, formats, reusable_inflow):
+        _refuse_existing(destination, overwrite)
     metadata = {
         **dict(sample_metadata or {}),
         "source_file": Path(source).name,
@@ -255,13 +300,20 @@ def write_recorded_probe_fields(
     if step_source is not None:
         with Path(step_source).open(encoding="utf-8-sig", newline="") as stream:
             native_rows = list(csv.DictReader(stream))
-        if not native_rows or "Time-step" not in native_rows[0]:
+        if not native_rows or _PLOTS_STEP_COLUMN not in native_rows[0]:
             raise ProductError(
                 "field products require the native Time-step column; no ordinal STEP"
             )
-        native_steps = [float(row["Time-step"]) for row in native_rows]
-        if not np.isfinite(native_steps).all() or len(set(native_steps)) != len(native_steps):
-            raise ProductError("native STEP values must be finite and unique")
+        # READ BY THE ONE READER OF THAT CLOCK (`stated_steps`), and refused
+        # where it would fall back to the ordinal: a field is placed in time by
+        # its step, so it takes the clock every other product reads or none.
+        cells = [row[_PLOTS_STEP_COLUMN] for row in native_rows]
+        native_steps = [float(step) for step in stated_steps(cells)]
+        if [_float_or_nan(cell) for cell in cells] != native_steps:
+            raise ProductError(
+                "native STEP values must be finite, whole and strictly increasing, the "
+                "clock the reductions and the probe table read"
+            )
         if set(groups) != {format(value, ".17g") for value in native_steps}:
             raise ProductError("field STEP values differ from the recorded native history")
         step_evidence = {"path": str(step_source), "sha256": file_sha256(Path(step_source))}
@@ -365,16 +417,10 @@ def write_recorded_probe_fields(
         if key in destinations:
             raise ProductError("recorded probe fields produce colliding output names")
         destinations.add(key)
+    _ready_every_destination(jobs, prepare)
     written = []
     Path(directory).mkdir(parents=True, exist_ok=True)
     for stem, points, velocity, layout, step in jobs:
-        if prepare is not None:
-            suffixes = [".vtk" if f == "vtk" else ".dat" for f in layout["formats"]]
-            if layout.get("reusable_inflow"):
-                suffixes.append(".inflow.dat")
-            for suffix in suffixes:
-                prepare(Path(str(stem) + suffix))
-                prepare(Path(str(stem) + suffix + ".provenance.json"))
         written.extend(
             write_probe_field(
                 stem,

@@ -19,6 +19,7 @@ nowhere, which is what two of them were.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -76,7 +77,20 @@ def _provoke(entry: RetiredName, tmp_path: Path) -> str:
             f"the frame registry answers {found} for {wrote!r} and the tuple holds "
             f"{entry}, so one fact has two homes"
         )
-        return found.message(wrote=wrote)
+        # PROVOKED AT THE CONSUMER, not asked of the registry's own message builder: a
+        # pproc entry citing the frame is refused by the frame reader (PFS-2135.036).
+        from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
+        from pyflightstream.cases.workflows._frames import _refuse_a_retired_frame
+
+        case = SimCase(
+            sim_id="9001",
+            aircraft="Rig",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+        )
+        with pytest.raises(CampaignConfigError) as caught:
+            _refuse_a_retired_frame(case, wrote, "an entry")
+        return str(caught.value)
     if entry.old == "engine_point":
         workspace = CampaignWorkspace(tmp_path)
         with pytest.raises(AttributeError) as caught:
@@ -137,24 +151,83 @@ def test_a_worked_reference_of_this_repository_still_loads():
     assert sorted(reference.rotors) == ["PORT", "STARBOARD"], sorted(reference.rotors)
 
 
+def _spellings_in(data, entry: RetiredName) -> bool:
+    """Whether a parsed artifact carries ``entry``'s old spelling as a KEY, a table or a value.
+
+    The tables are walked at every depth: ``kind = "engine"`` lives inside a rotor block or a
+    point, never at the top level, and a frame citation is a string VALUE. A word in a comment
+    or in a longer key does not count; a key that is the right word with another value does not
+    either (``kind = "wing"`` is not ``kind = "engine"``).
+    """
+    old = entry.old
+    pair = old.split(" = ", 1)
+    key, value = (pair[0], pair[1].strip('"')) if len(pair) == 2 else (old.strip("[]"), None)
+    citation = re.compile(old.replace("<k>", "[0-9]+") + "$")
+    is_citation = entry.owner == "a frame citation"
+
+    def walk(node) -> bool:
+        if isinstance(node, dict):
+            for name, child in node.items():
+                if is_citation:
+                    if isinstance(child, str) and citation.match(child):
+                        return True
+                elif name == key and (value is None or child == value):
+                    return True
+                if walk(child):
+                    return True
+        elif isinstance(node, list):
+            return any(walk(child) for child in node)
+        return False
+
+    return walk(data)
+
+
+def _retired_entry(old: str) -> RetiredName:
+    return next(entry for entry in RETIRED if entry.old == old)
+
+
 def test_no_shipped_artifact_carries_a_retired_spelling():
     """The workspace the documentation points at speaks only 0.15.0.
 
     An example a reader is told to copy is the one place a retired spelling
     costs most: they copy it, and the refusal they meet is one this
-    repository wrote into the file it gave them.
+    repository wrote into the file it gave them. Every shipped toml is read: the
+    licensed inputs, the examples and the fixtures (PFS-2135.069).
     """
-    inputs = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs"
+    repo = Path(__file__).resolve().parents[2]
+    roots = [repo / "tests" / "tier3_licensed" / "inputs", repo / "examples", repo / "tests"]
+    paths = sorted({path for root in roots for path in root.rglob("*.toml")})
+    assert len(paths) >= 40, f"the walk found only {len(paths)} shipped tomls"
     offenders: list[str] = []
-    for path in sorted(inputs.rglob("*.toml")):
-        text = path.read_text(encoding="utf-8")
+    for path in paths:
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError:
+            continue
         for entry in RETIRED:
-            token = entry.old.strip("[]").split(" =")[0]
-            if token in text and f"{token}s" not in text.replace(token + "s", ""):
-                # A KEY, NOT A SUBSTRING: read the parsed file rather than
-                # the bytes, so a word inside a comment or a longer key does
-                # not read as a declaration.
-                data = tomllib.loads(text)
-                if token in data:
-                    offenders.append(f"{path.name}: {entry.old}")
+            if entry.old == "engine_point":
+                continue  # an attribute of the workspace object, not a spelling in a file
+            if _spellings_in(data, entry):
+                offenders.append(f"{path.relative_to(repo).as_posix()}: {entry.old}")
     assert not offenders, f"shipped artifacts carry retired spellings: {offenders}"
+
+
+def test_the_shipped_artifact_walk_sees_every_kind_of_retired_spelling():
+    """The control of the guard above: each kind of entry is found where it is written."""
+    planted = {
+        "propeller_diameter_m": {"propeller_diameter_m": 3.6},
+        "[propeller]": {"propeller": {"radius_m": 1.8}},
+        'kind = "engine"': {"PUSHER": {"kind": "engine"}},
+        'scale = "propeller_radius"': {"probes": [{"scale": "propeller_radius"}]},
+        "PROP_MRP": {"pproc": [{"frame": "PROP_MRP"}]},
+        "ROTOR_MRP": {"pproc": [{"frame": "ROTOR_MRP"}]},
+        "RotorAxis<k>": {"pproc": [{"frame": "RotorAxis2"}]},
+    }
+    assert {entry.old for entry in RETIRED} >= set(planted), (
+        "an entry was renamed under this control"
+    )
+    for old, data in planted.items():
+        assert _spellings_in(data, _retired_entry(old)), old
+    # The current spelling and the right key with another value are not retired.
+    assert not _spellings_in({"PUSHER": {"kind": "wing"}}, _retired_entry('kind = "engine"'))
+    assert not _spellings_in({"pproc": [{"frame": "PUSHER_SMRP"}]}, _retired_entry("PROP_MRP"))

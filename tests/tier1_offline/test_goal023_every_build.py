@@ -229,6 +229,7 @@ BUILD_ROWS = [
 ]
 
 
+@pytest.mark.requirement("FR-314")
 @pytest.mark.parametrize("build", WITH_ACTIONS)
 @pytest.mark.parametrize(("label", "cells"), BUILD_ROWS)
 def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, label, cells):
@@ -237,11 +238,9 @@ def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, l
     FR-314 changed this expectation: the step counter every unsteady row now
     registers is not an action the label counts; any other action is.
     """
-    requirement = "FR-314"
     script = Script(build)
     build_script(unsteady_case(**cells), script)
     emitted = any(use.name != "pfs_unsteady_counter" for use in script.unsteady_actions)
-    assert requirement
     assert (script.march_strategy == MARCH_ACTIONS) is emitted, (label, script.march_strategy)
 
 
@@ -370,15 +369,16 @@ def test_goal023_transparent_one_row_plans_on_every_build_with_only_the_build_ch
 #: edition exposes and no edition gives a default for (load frame, proximity
 #: avoidance, stabilization, its strength, fast multipole; SRC-749 p.303), so
 #: choosing them is a numerical decision that is the owner's (GOAL-023 arm 4).
-#: 26.100 LEFT THIS TABLE at 0.20.1: it has no scripted rotor mark (RPT-049),
-#: and the owner decided its rotor is written as a Euclidean motion without
-#: the mark, the speed in rev/min (RPT-051).
+#: 26.100 rotor rows are refused again at 0.40.0 until the angular-velocity
+#: unit is measured; the rev/min decision disagrees with the manual (RPT-051).
 NOT_YET_RENDERED = {
     ("steady", "25.000"): "OWNER",
     ("unsteady", "25.000"): "OWNER",
     ("unsteady_rotor", "25.000"): "OWNER",
     # 0.30.0: the quasi-steady rotor initialises as the steady type does.
     ("qsteady_rotor", "25.000"): "OWNER",
+    ("unsteady_rotor", "26.100"): "UNPROVED_ROTOR_UNIT",
+    ("qsteady_rotor", "26.100"): "UNPROVED_ROTOR_UNIT",
 }
 
 #: How each declared cell refuses, and the words that say why (qa lens 5): a
@@ -388,6 +388,8 @@ REFUSED_BY = {
     ("unsteady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady_rotor", "25.000"): (WorkflowCoverageError, "no CREATE_NEW_MOTION"),
     ("qsteady_rotor", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
+    ("unsteady_rotor", "26.100"): (CommandArgumentError, "RPT-051"),
+    ("qsteady_rotor", "26.100"): (CommandArgumentError, "RPT-051"),
 }
 
 

@@ -211,7 +211,7 @@ class RotorBlock(BaseModel):
         a rotor block.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     alias: str
     axis: str | tuple[float, float, float] | list[float]
@@ -273,6 +273,8 @@ class RotorBlock(BaseModel):
                 components = tuple(float(component) for component in value)
             except (TypeError, ValueError) as error:
                 raise ValueError(f"axis = {value!r} is not three numbers: {error}") from error
+            if not all(math.isfinite(component) for component in components):
+                raise ValueError(f"axis = {value!r} must have three finite components")
             length = math.sqrt(sum(component * component for component in components))
             if length <= _AXIS_TOLERANCE:
                 raise ValueError(

@@ -166,8 +166,8 @@ def test_an_offset_layout_outside_its_section_is_refused_naming_the_node():
 
 def test_the_plan_refuses_a_blade_whose_nodes_are_not_inside(tmp_path, monkeypatch):
     # P0300-FSI1-NODES-INSIDE
+    from pyflightstream.cases.workflows import build_script
     from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
-    from tests.tier1_offline.test_g06_actuator_disc import _lines
 
     guard = ws.fsi_workflow_refusal
     monkeypatch.setattr(
@@ -181,11 +181,11 @@ def test_the_plan_refuses_a_blade_whose_nodes_are_not_inside(tmp_path, monkeypat
         update={"section_contours_m": [_plate(c, 1.5e-3) for c in blade.chord_m]}
     )
     case = case.model_copy(update={"fsi": case.fsi.model_copy(update={"blade": thin})})
+    script = Script("26.124")
     with pytest.raises(CampaignConfigError, match="FSI structural nodes: .*row 0 \\(station 0"):
-        _lines(case)
+        build_script(case, script)
     with pytest.raises(CampaignConfigError, match="FSI structural nodes: .*row 0 \\(station 0"):
         ws.structural_node_layout(case.fsi)
-    script = Script("26.124")
     assert "AEROELASTIC" not in script.render()
 
 

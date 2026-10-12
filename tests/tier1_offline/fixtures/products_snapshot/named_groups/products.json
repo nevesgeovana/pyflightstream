@@ -21,14 +21,16 @@
    "pproc": "p002",
    "runs": [
     "camp/sim_6002/M144RE438AL+000BE+000J+170"
-   ]
+   ],
+   "kind": "instant"
   },
   "polars/P6002-M144RE438AL+000BE+000J+170_WING.csv": {
    "sim_id": "6002",
    "pproc": "p002",
    "runs": [
     "camp/sim_6002/M144RE438AL+000BE+000J+170"
-   ]
+   ],
+   "kind": "instant"
   },
   "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
    "sim_id": "6002",

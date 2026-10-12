@@ -410,16 +410,9 @@ def test_the_two_selectors_that_guess_what_a_blade_is_are_refused_as_a_bare_word
     The refusal names the replacement, which is an alias the reference
     declares.
     """
-    plain = SimCase(
-        sim_id="9301",
-        aircraft="WORK",
-        recipe="steady",
-        sweep=SweepAxis(type="alpha", values=[0.0]),
-    )
     for word in ("airframe", "blades"):
         with pytest.raises(CampaignConfigError, match="no longer accepted"):
             select_families(word, INVENTORY, lambda name: "B_" in name)
-    assert plain.sim_id == "9301"
 
 
 def test_the_same_two_are_refused_as_a_list_member_which_is_a_separate_branch():

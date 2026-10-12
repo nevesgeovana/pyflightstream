@@ -92,7 +92,7 @@ beside it. `cites` is what makes that affordable: a chapter may spell
 one thing four ways and the checking stays one behaviour, because the
 emitter reads the declaration and nothing else.
 
-**There is one entity-resolution mechanism: the argument declaration.** An argument name alone never selects an entity kind; the declaration is visible in its command-database row. See [the migration record](../migrating-to-0.5.0.md) for the historical behaviour.
+**There is one entity-resolution mechanism: the argument declaration.** An argument name alone never selects an entity kind; the declaration is visible in its command-database row. See [the migration record](../upgrading.md#older-layouts) for the historical behaviour.
 
 Forgetting is not silent, but the guard is a heuristic and is worth
 knowing as one. A tier 1 test fails on any index argument whose NAME
@@ -202,7 +202,7 @@ stopped by its wall clock with its outputs written, SUBMITTED, the run
 handed to a scheduler and not yet collected, and
 FAILED_MARKED, a run the person marked failed with `pyfs-matrix
 mark-failed`, whose record keeps under `marked` the status it had, when
-and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../migrating-to-0.33.0.md); and
+and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../upgrading.md#older-layouts); and
 RAN_MISSING_LOG (FR-413), a run whose outputs are all present
 and whose declared solver log is absent, not a failure, whose `residual_note`
 names what the log would have carried; a reader must support it to read a

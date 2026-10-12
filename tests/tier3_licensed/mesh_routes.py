@@ -128,24 +128,31 @@ def compare(runs: Any) -> dict[str, Any]:
     return table
 
 
-def outside(table: dict[str, Any], band: float) -> dict[str, dict[str, float]]:
-    """The banded rows whose worst gap exceeds the band, with their gaps.
+def within(gap: float, band: float) -> bool:
+    """Whether ``gap`` is inside ``band``, with the slack both comparisons share.
 
     A gap of exactly one printed unit over the floor is the band itself in
     exact arithmetic; the relative 1e-9 keeps the binary rounding of that
-    quotient from turning an equality into a failure.
+    quotient from turning an equality into a failure (PFS-2135.057: the unit
+    answer compared without it, so a millimetre row exactly one unit from the
+    metre row read as not converting while the banded rows beside it passed).
     """
+    return gap <= band * (1.0 + 1e-9)
+
+
+def outside(table: dict[str, Any], band: float) -> dict[str, dict[str, float]]:
+    """The banded rows whose worst gap exceeds the band, with their gaps."""
     return {
         pol: entry["gaps"]
         for pol, entry in table["routes"].items()
-        if entry["banded"] and max(entry["gaps"].values()) > band * (1.0 + 1e-9)
+        if entry["banded"] and not within(max(entry["gaps"].values()), band)
     }
 
 
 def unit_answer(table: dict[str, Any], band: float) -> str:
     """Whether the MILLIMETER import gave the METER body's coefficients, in words."""
     worst = max(table["units"]["gaps"].values())
-    if worst <= band:
+    if within(worst, band):
         return (
             f"IMPORT CONVERTS: the body written in millimetres gives the METER row's "
             f"coefficients within {band:g} (worst gap {worst:.3g})"

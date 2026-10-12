@@ -1,6 +1,7 @@
 """Tier 1: every choosable command of the six solver chapters has a key, or a measured reason.
 
-The evidence line of FR-319 cites this module (docs/srs/functional-requirements.md).
+The evidence line of FR-319 cites this module
+(docs/unpublished/requirements/functional-requirements.md).
 
 The audit is ``reports/RPT-106_setup-key-audit_2026-09-30.md``. These tests
 walk its table against the command database and the code: a command of the

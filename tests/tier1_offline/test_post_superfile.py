@@ -354,8 +354,15 @@ def _the_union_the_workspace_knows(workspace) -> set[str]:
     """Everything the workspace knows about a simulation, gathered from the workspace."""
     out = workspace.products_dir("matriz")
     known: set[str] = set()
-    for table in sorted((out / "polars").glob("POLAR-*.csv")):
-        known |= set(_header(table))
+    # The polar tables are found by shape, as ``test_products_layout`` finds them: every csv of
+    # polars/ that is not a superfile. They are named P<id>-...csv, so a POLAR-*.csv glob matched
+    # none and the union silently lacked every polar column (PFS-2135.024).
+    polar_names: set[str] = set()
+    for table in sorted((out / "polars").glob("*.csv")):
+        if not table.name.startswith("SUPER-"):
+            polar_names |= set(_header(table))
+    assert len(polar_names) >= 20, f"the polar tables gave only {sorted(polar_names)}"
+    known |= polar_names
     known |= set(_header(out / "campaign_sweep.csv"))
     for table in sorted((out / "probes").glob("*_plots.csv")):
         known |= set(_header(table))
@@ -754,11 +761,13 @@ def test_the_flight_condition_variables_are_all_there(tmp_path):
 def test_the_post_stage_writes_its_own_measurement(tmp_path):
     """The report the goal's superfile arm reads: the files written and the union."""
     import pyflightstream
+    from pyflightstream.post.superfile import release_tag
 
     workspace = _workspace(tmp_path)
     _post(workspace)
-    major, minor, patch = pyflightstream.__version__.split(".")[:3]
-    report = workspace.root / "reports" / f"superfile-{major}{minor}{patch}.json"
+    report = (
+        workspace.root / "reports" / f"superfile-{release_tag(pyflightstream.__version__)}.json"
+    )
     assert report.is_file(), f"no superfile measurement at {report}"
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["known"], "the arm refuses an empty union, and so does this"
@@ -766,6 +775,17 @@ def test_the_post_stage_writes_its_own_measurement(tmp_path):
     for entry in payload["files"]:
         assert entry["rows"] >= 1
         assert set(payload["known"]) <= set(entry["columns"])
+
+
+def test_p0400_the_release_tag_is_the_three_numbers_of_a_release_dev_or_local_version():
+    """The tag the measurement's name carries, pinned for the forms a build can have."""
+    from pyflightstream.post.superfile import release_tag
+
+    assert release_tag("0.39.0") == "0390"
+    assert release_tag("0.40.0.dev0") == "0400"
+    assert release_tag("0.10.1") == "0101"
+    # The fallback version of an uninstalled tree: three numbers, the local part dropped.
+    assert release_tag("0.0.0+uninstalled") == "000"
 
 
 def test_a_workspace_without_its_matrix_still_gets_a_superfile(tmp_path):

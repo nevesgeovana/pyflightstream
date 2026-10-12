@@ -1,12 +1,13 @@
 {
  "about": "The workspace reachability register of PFS-2140.011: every public capability the guard tests/tier1_offline/test_p0400_reach_guard.py finds unreached from the workspace entry points, each expressly identified. A row is deleted when its capability becomes reached; the register only shrinks.",
+ "limit": "Reached means a static reference path from a workspace entry point, not an observed execution: a reached class reaches all its methods (public methods are not inventoried on their own), a registry entry is reached with its registry even when a runtime check refuses it, and a branch decided at run time counts both ways. Annotations, TYPE_CHECKING and constant-false branches and code after an unconditional exit do not count. The guard's module docstring states the full list.",
  "reasons": {
   "routed later": "a planning node routes the capability to the workspace, or removes it, at the release named; the row expires at that release",
-  "maintainer or developer API": "maintainer or developer API, outside the workspace rule by the owner decision named",
-  "Python-only by design": "Python-only by design, by the owner decision named",
-  "pending owner decision": "the owner has not decided yet; the row carries the proposed class"
+  "maintainer or developer API": "maintainer or developer API, outside the workspace rule by the decision named",
+  "Python-only by design": "Python-only by design, by the decision named"
  },
- "seed": "the reachability audit of 2026-10-12, translated; groups map to PFS-2140.001 to .005 and to the far-field nodes PFS-2139.005, .008 and .009",
+ "seed": "the reachability audit of 2026-10-12, translated; groups map to PFS-2140.001 to .005 and .007 and to the far-field nodes PFS-2139.005, .008 and .009",
+ "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
    "id": "RX-01",
@@ -311,8 +312,8 @@
   {
    "id": "RX-22",
    "capability": "QA tooling of the pyfs-qa console tool (compatibility, cost, drift, physics, probes, reports, synthetic geometry)",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.exceptions.PhysicsEnvironmentError",
     "pyflightstream.exceptions.ProbeEnvironmentError",
@@ -409,8 +410,8 @@
   {
    "id": "RX-23",
    "capability": "Vendor manual tooling of the pyfs-manual console tool and the manual-edition registry",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.exceptions.ManualCallError",
     "pyflightstream.exceptions.ManualDraftError",
@@ -456,8 +457,8 @@
   {
    "id": "RX-24",
    "capability": "Test assertions for downstream test suites",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.testing.assert_records_close",
     "pyflightstream.testing.assert_scripts_equal"
@@ -466,8 +467,8 @@
   {
    "id": "RX-25",
    "capability": "Package options (the registered options are QA timeouts and scratch root)",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.describe_option",
     "pyflightstream.get_option",
@@ -479,8 +480,8 @@
   {
    "id": "RX-26",
    "capability": "Offline HTML command reference and architecture overview",
-   "reason": "pending owner decision",
-   "proposed": "routed later",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.help",
     "pyflightstream.overview"
@@ -489,8 +490,8 @@
   {
    "id": "RX-27",
    "capability": "Markdown and HTML builders of the documentation site",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.overview.markdown_overview",
     "pyflightstream.overview.render_overview_html",
@@ -505,8 +506,8 @@
   {
    "id": "RX-28",
    "capability": "Python campaign-file form beside the matrix",
-   "reason": "pending owner decision",
-   "proposed": "Python-only by design",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.cases.derived_body_sha256",
     "pyflightstream.cases.load_campaign",
@@ -516,8 +517,9 @@
   {
    "id": "RX-29",
    "capability": "Moving structural-node frame of the unsteady_rotor FSI route, which is refused",
-   "reason": "pending owner decision",
-   "proposed": "routed later",
+   "reason": "routed later",
+   "node": "PFS-2140.007",
+   "release": "0.43.0",
    "names": [
     "pyflightstream.cases.fsi_workspace.patch_structural_node_frame"
    ]
@@ -525,8 +527,8 @@
   {
    "id": "RX-30",
    "capability": "FSI developer surface: the structural solver protocol, alternative setup entry points, config dump and test helpers",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.fsi.StructuralSolver",
     "pyflightstream.fsi.centrifugal.axial_tension",
@@ -542,8 +544,8 @@
   {
    "id": "RX-31",
    "capability": "Library building blocks behind routed products (reduction plans and windows, matrix code rewrite, calibration text)",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.cases.corrections.calibration_text",
     "pyflightstream.cases.matrix.rewrite_codes",
@@ -557,8 +559,8 @@
   {
    "id": "RX-32",
    "capability": "Post readers and writer wrappers whose products the workspace writes through other entry points",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.post.CustomPolarTable",
     "pyflightstream.post.custom_polar.custom_count",
@@ -578,9 +580,9 @@
   },
   {
    "id": "RX-33",
-   "capability": "Result readers and export registry lookups",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "capability": "Result readers, export registry lookups and the section-family protocol of the sectional loads split",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.exceptions.UnsupportedResultTypeError",
     "pyflightstream.results.ExportConversion",
@@ -590,6 +592,7 @@
     "pyflightstream.results.reduction_code",
     "pyflightstream.results.require_export_parser",
     "pyflightstream.results.run_table",
+    "pyflightstream.results.sectional_loads.FamilyMap",
     "pyflightstream.results.to_csv",
     "pyflightstream.results.to_table"
    ]
@@ -597,8 +600,8 @@
   {
    "id": "RX-34",
    "capability": "Run library entry points beside the console (collected assessment, additional post plan, invocation text, sim identity reconstruction)",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.run.Reconstruction",
     "pyflightstream.run.collect.assess_collected",
@@ -610,8 +613,8 @@
   {
    "id": "RX-35",
    "capability": "Script helpers for hand-written scripts (rotor azimuth basis and blade frames, settings block from a snapshot)",
-   "reason": "pending owner decision",
-   "proposed": "Python-only by design",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.script.helpers.azimuth_basis",
     "pyflightstream.script.helpers.blade_frames",
@@ -621,8 +624,8 @@
   {
    "id": "RX-36",
    "capability": "Workspace helpers (cost files without a mark, workbook cell patch, setup inspection summary, wake-edge evidence notice)",
-   "reason": "pending owner decision",
-   "proposed": "maintainer or developer API",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
     "pyflightstream.workspace.costs.unmarked_cost_files",
     "pyflightstream.workspace.excel_file.patch_cells",

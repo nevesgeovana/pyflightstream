@@ -289,8 +289,6 @@ def test_module_only_control_is_refused(heading):
     """NFR-38: planted comment-only and docstring-only claims fail the same scanner."""
     source = heading + "def test_control():\n    assert 2 + 2 == 4\n"
     assert _module_only_ids(source) == {"FR-987654"}
-    with pytest.raises(AssertionError):
-        assert not _module_only_ids(source)
 
 
 @pytest.mark.parametrize(
@@ -350,8 +348,6 @@ def test_shared_helpers_have_one_definition():
     copied = next(n for n in ast.parse(support).body if isinstance(n, ast.FunctionDef))
     copied.name = "_planted_copy"
     assert _helper_duplicates(ast.unparse(copied), support) == ["_planted_copy"]
-    with pytest.raises(AssertionError):
-        assert not _helper_duplicates(control, support)
 
 
 def test_shared_helpers_are_imported_by_their_consumers():

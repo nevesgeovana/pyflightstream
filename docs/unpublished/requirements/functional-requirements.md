@@ -687,6 +687,13 @@ the session records.
     wide row (identity, conditions, coefficients, with identity
     cross-checks); a whole sweep assembles from the manifest alone.
 
+    Amended at 0.40.0 by PFS-2105.043 and PFS-2105.046: every native
+    unsteady solver export, including a sweep row read from its loads
+    spreadsheet, carries `reduction = last_step` and
+    `reduction_window = last_time_step`. It states one instant, as the
+    [definition of record](../definitions/the-unsteady-polar.md) requires.
+    A time average requires a reduction of the recorded time history.
+
     The tidy table is a pandas DataFrame today and stops being one at
     v0.5.0 ([AD-06](architecture-srs.md) is the decision;
     [NFR-06](nonfunctional-requirements.md) is the home of the release

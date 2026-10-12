@@ -71,8 +71,10 @@ from pyflightstream.cases.corrections import (
     QsteadyCorrectionSpec,
     calibration_path,
     calibration_text,
+    parse_calibration,
     read_calibration,
 )
+from pyflightstream.post._stage import PRODUCTS_MANIFEST
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
@@ -140,7 +142,9 @@ _ROTOR_TABLE_COMPONENTS: Mapping[str, str] = {
 _ROTOR_TABLE_DERIVED: Mapping[str, tuple[str, ...]] = {
     "CP": ("CQ",),
     "ETA": ("CT", "CQ"),
-    "ETAW": ("CT", "CQ"),
+    # THE WHOLE FORCE, turned into wind axes, in-plane components included:
+    # a calibration of CN or CS alone left ETAW raw beside them.
+    "ETAW": ("CT", "CQ", "CN", "CS"),
 }
 #: The average table's column of each component, alias-suffixed or as named.
 _AVERAGE_COMPONENTS: Mapping[str, str] = {
@@ -155,12 +159,18 @@ _AVERAGE_COMPONENTS: Mapping[str, str] = {
     "CT": "CT_PROPELLER",
     "CT_ROTOR": "CT_ROTOR",
 }
-#: The average table's rotor-state columns derived from components, and from which.
+#: The average table's columns derived from components, and from which, an
+#: alias-suffixed name as in :data:`_AVERAGE_COMPONENTS`. THRUST and TORQUE are
+#: the shaft projections of the force and of the moment about the hub, so a
+#: calibration of FX to MZ that does not state them leaves them NA, and with
+#: them the rotor-state columns derived from the thrust.
 _AVERAGE_DERIVED: Mapping[str, tuple[str, ...]] = {
-    "CT_ROTOR": ("THRUST",),
-    "CT_PROPELLER": ("THRUST",),
-    "LAMBDA_I": ("THRUST", "CT_ROTOR"),
-    "CHI_DEG": ("THRUST", "CT_ROTOR"),
+    "THRUST_{alias}": ("FX", "FY", "FZ"),
+    "TORQUE_{alias}": ("FX", "FY", "FZ", "MX", "MY", "MZ"),
+    "CT_ROTOR": ("THRUST", "FX", "FY", "FZ"),
+    "CT_PROPELLER": ("THRUST", "FX", "FY", "FZ"),
+    "LAMBDA_I": ("THRUST", "CT_ROTOR", "FX", "FY", "FZ"),
+    "CHI_DEG": ("THRUST", "CT_ROTOR", "FX", "FY", "FZ"),
 }
 #: A strip's integrated load, derived from the load of its station.
 _SECTION_DERIVED: Mapping[str, tuple[str, ...]] = {
@@ -1125,7 +1135,10 @@ def _corrected_tables(
             (
                 AVERAGE_SUFFIX,
                 {name: column.format(alias=alias) for name, column in _AVERAGE_COMPONENTS.items()},
-                {column: ",".join(src) for column, src in _AVERAGE_DERIVED.items()},
+                {
+                    column.format(alias=alias): ",".join(src)
+                    for column, src in _AVERAGE_DERIVED.items()
+                },
             ),
         ):
             relative = _table_of(written_names, suffix, alias)
@@ -1209,7 +1222,7 @@ def _rotor_row(
         found.append((relative, str(entry.get("rotor")), runs))
     if len(found) != 1:
         raise CalibrationError(
-            f"run {run_id!r} is a row of {len(found)} rotor tables of {out / 'products.json'}"
+            f"run {run_id!r} is a row of {len(found)} rotor tables of {out / PRODUCTS_MANIFEST}"
             + (f" for rotor {rotor!r}" if rotor else "")
             + "; the helper reads exactly one. Post the campaign first, or name the rotor"
         )
@@ -1319,7 +1332,7 @@ def sector_offset_calibration(
         if run not in known:
             raise CalibrationError(f"run {run!r} is not in {space.root / 'runs.json'}")
     out = space.products_dir(matrix_stem)
-    manifest_path = out / "products.json"
+    manifest_path = out / PRODUCTS_MANIFEST
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
@@ -1367,7 +1380,10 @@ def sector_offset_calibration(
     path = calibration_path(space.inputs_dir, calibration_id)
     if path.exists() and not overwrite:
         raise CalibrationError(f"{path} exists; pass overwrite=True to replace it")
+    # VALIDATED BEFORE IT TOUCHES THE TARGET. Written first and read back after,
+    # a refused text stayed in the calibrations folder, and with overwrite the
+    # calibration it replaced was already gone.
+    parse_calibration(text, path=path, calibration_id=path.stem)
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, text)
-    read_calibration(path)
     return path

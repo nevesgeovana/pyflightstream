@@ -137,7 +137,7 @@ PAGES = (
     "docs/srs/philosophy.md",
     "docs/srs/roadmap.md",
     "docs/srs/scope.md",
-    "docs/srs/functional-requirements.md",
+    "docs/unpublished/requirements/functional-requirements.md",
     "docs/srs/introduction.md",
     "docs/tutorial-replay.md",
     "guide/pyflightstream_user_guide.tex",
@@ -256,7 +256,7 @@ SENTENCES_THAT_WENT_STALE = (
         "  page number; manual text is never reproduced.",
     ),
     (
-        "docs/srs/functional-requirements.md",
+        "docs/unpublished/requirements/functional-requirements.md",
         "    script commands. Each entry records name, layout grammar, typed\n"
         "    arguments, the version span in which it exists, per-version\n"
         "    argument differences, and a manual page citation.",
@@ -460,7 +460,7 @@ DELIBERATELY_UNLISTED = {
     # HISTORY: these record what the pages used to say, so a stale
     # sentence quoted inside them is the subject rather than a claim.
     "CHANGELOG.md",
-    "docs/srs/index.md",
+    "docs/unpublished/requirements/index.md",
     # The field named AS A FIELD, in error messages, schema prose and
     # drafting output, which says nothing about what every entry carries.
     "src/pyflightstream/utils/manual.py",

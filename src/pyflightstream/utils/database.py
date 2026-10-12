@@ -50,6 +50,7 @@ invariant is that its rows are not hand-edited.
 from __future__ import annotations
 
 import dataclasses
+import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -177,6 +178,45 @@ def _validate_chapter(path: Path, text: str, names: list[str]) -> None:
                 f"the command schema ({error}). NOTHING HAS BEEN WRITTEN. If the entry "
                 "was already invalid before this run, repair it first"
             ) from None
+
+
+def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]) -> None:
+    """Replace every chapter of ``edited``, or leave every one as it was.
+
+    Each new text goes to a sibling temporary file first; only when all of
+    them are on disk are the chapters replaced. A failure while writing
+    the temporaries replaces nothing; a failure while replacing puts back
+    the chapters already replaced from their original bytes. Either way
+    the OSError arrives as a ManualDraftError naming the files.
+    """
+    pending: dict[Path, Path] = {}
+    try:
+        for path, text in edited.items():
+            temporary = path.with_name(f"{path.name}.register-tmp")
+            pending[path] = temporary
+            _textio.write_text(temporary, text)
+    except OSError as error:
+        for temporary in pending.values():
+            temporary.unlink(missing_ok=True)
+        raise ManualDraftError(
+            f"could not write the new text of {path.name} ({error}); no chapter was "
+            f"replaced: {', '.join(sorted(p.name for p in edited))} are unchanged"
+        ) from error
+    replaced: list[Path] = []
+    try:
+        for path, temporary in pending.items():
+            os.replace(temporary, path)
+            replaced.append(path)
+    except OSError as error:
+        for path in replaced:
+            path.write_bytes(originals[path].encode("utf-8"))
+        for temporary in pending.values():
+            temporary.unlink(missing_ok=True)
+        raise ManualDraftError(
+            f"could not replace {path.name} ({error}); the chapters already replaced "
+            f"({', '.join(p.name for p in replaced) or 'none'}) were put back, so no "
+            "chapter changed"
+        ) from error
 
 
 def register_edition(
@@ -389,6 +429,7 @@ def register_edition(
     # late chapter left the earlier ones on disk and the database was in
     # a state no single command produced.
     edited: dict[Path, str] = {}
+    originals: dict[Path, str] = {}
     written = 0
     per_chapter: dict[str, list[EditionDelta]] = {}
     for delta in writable:
@@ -407,9 +448,9 @@ def register_edition(
             written += 1
         _validate_chapter(path, text, [delta.name for delta in rows])
         edited[path] = text
+        originals[path] = texts[chapter]
 
-    for path, text in edited.items():
-        _textio.write_text(path, text)
+    _write_all_or_none(edited, originals)
     # REPLACED, not rebuilt. The class docstring says a dry run and a
     # write report the same object, and nothing enforced it: seven fields
     # were repeated across two constructions, so one added to the write

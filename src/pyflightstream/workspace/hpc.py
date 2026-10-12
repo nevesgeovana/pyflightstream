@@ -238,7 +238,8 @@ def select_hpc_profile(name: str | None) -> None:
         The selection is held in a context variable, so it belongs to the
         invocation that made it.
     """
-    _SELECTED_HPC.set(name)
+    # The stem, as select_cost_file takes it: h002 and h002.toml select one file.
+    _SELECTED_HPC.set(None if name is None else Path(name).stem)
 
 
 def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
@@ -387,8 +388,10 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         If the file is not valid TOML, lacks the scheduler's application name,
         asks for a descriptor format or walltime arithmetic this package does
         not write, names a descriptor that is not a plain file name, lists no
-        descriptor fields or no submit command, or states a key this package
-        does not read (or one it owns under the wrong table).
+        descriptor fields or no submit command, states a key this package
+        does not read (or one it owns under the wrong table), states
+        descriptor, submit, defaults or log as something other than a table,
+        or states export_log as anything but true or false.
     """
     target = Path(path)
     table = load_toml(target, "hpc profile")
@@ -399,6 +402,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
                 "name for the application and the one field nothing else in the "
                 "workspace can supply, which is why it is the only mandatory one."
             )
+    _refuse_a_value_for_a_table(target, table)
     descriptor = table.get("descriptor") or {}
     fmt = str(descriptor.get("format") or "yaml").strip().lower()
     if fmt not in HPC_FORMATS:
@@ -450,7 +454,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             "[log], with export_log and native_log under it."
         )
     _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
-    export_log = bool(log.get("export_log", True))
+    export_log = _export_log(target, log)
     native_log = str(log.get("native_log") or "").strip() or None
     if not export_log and native_log is None:
         raise InputArtifactError(
@@ -485,6 +489,27 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+def _refuse_a_value_for_a_table(target: Path, table: Mapping) -> None:
+    """Refuse descriptor, submit or defaults stated as a value, before their keys are read."""
+    for name in ("descriptor", "submit", "defaults", "log"):
+        if name in table and not isinstance(table[name], Mapping):
+            raise InputArtifactError(
+                f"the HPC profile {target} has a {name} entry that is not a table. Write it "
+                f"as [{name}], with its keys under it."
+            )
+
+
+def _export_log(target: Path, log: Mapping) -> bool:
+    """Return ``[log] export_log``, a TOML boolean; bool("false") is True, so it is never cast."""
+    export_log = log.get("export_log", True)
+    if not isinstance(export_log, bool):
+        raise InputArtifactError(
+            f"the HPC profile {target} states export_log = {export_log!r} under [log]; "
+            "export_log is true or false, unquoted."
+        )
+    return export_log
 
 
 #: The one form ``max_walltime`` takes: hours (which may exceed 24), minutes, seconds.

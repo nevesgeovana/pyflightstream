@@ -473,5 +473,5 @@ is what turns this from documented into verified.
 * [Command reference](reference/index.md): every command, its
   arguments, and its evidence per version.
 * [Compatibility matrix](compatibility.md): what is verified where.
-* [Mesh inputs and GUI-only operations](mesh-inputs.md): the supported
+* [Mesh inputs and GUI-only operations](mesh/how-to.md): the supported
   route when a step exists in the interface and has no script command.

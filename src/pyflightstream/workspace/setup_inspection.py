@@ -13,6 +13,8 @@ from pyflightstream.cases import (
     classify_outputs,
 )
 from pyflightstream.cases.workflows import (
+    NCPUS_VARIABLE,
+    SYMMETRY_LOADS_VARIABLE,
     carries_singularity_strength,
     row_ncpus,
     row_symmetry_loads,
@@ -54,10 +56,13 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
             "setup" if key in explicit else "package default" if value is not None else "unset"
         )
         error = None
-        override = {"max_threads": "NCPUS", "symmetry_loads": "SYMMETRY_LOADS"}.get(key)
-        has_override = override is not None and any(
-            name.upper() == override for name in case.variables
+        override = {"max_threads": NCPUS_VARIABLE, "symmetry_loads": SYMMETRY_LOADS_VARIABLE}.get(
+            key
         )
+        # The builder's rule for a row value: the exact key, and a blank cell
+        # states nothing, so the setup's value stands.
+        stated = case.variables.get(override) if override is not None else None
+        has_override = stated is not None and str(stated).strip() != ""
         try:
             if key == "max_threads":
                 value = row_ncpus(case, case.solver.max_threads)

@@ -236,6 +236,8 @@ def _verdict(tmp_path, monkeypatch, base_skipped, release_skipped):
     parity = _parity()
 
     def git(*args, binary=False):
+        if args[0] == "show" and args[1].endswith(":pyproject.toml"):
+            return 'version = "0.36.0"'  # the base version that scopes named entries (P0400)
         return Path(parity.__file__).read_bytes() if binary else "a" * 40
 
     def collect(python, mode, tree, work, argument=None):

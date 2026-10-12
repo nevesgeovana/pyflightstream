@@ -62,9 +62,28 @@ def test_g37_a_point_of_a_recorded_job_redoes_the_whole_job(tmp_path, named):
 def test_g37_naming_the_job_is_unchanged_and_not_warned_as_a_point(tmp_path):
     workspace, matrix = _recorded_sweep(tmp_path, SWEPT)
     stub = CountingStub(WRITES_EVERY_EXPORT)
-    records = _run(workspace, matrix, stub, force_rerun=["warm/sim_5001/sweep"])
+    # ``_run`` silences PyflightstreamWarning, so the matrix is run here with it recorded.
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, converged
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        records = run_matrix(
+            matrix,
+            workspace,
+            name="warm",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=stub,
+            force_rerun=["warm/sim_5001/sweep"],
+        )
     assert [record.run_id for record in records] == ["warm/sim_5001/sweep"]
     assert len(records[0].points_ran) == 3
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert not [s for s in said if "a job is indivisible" in s], said
 
 
 @pytest.mark.parametrize(

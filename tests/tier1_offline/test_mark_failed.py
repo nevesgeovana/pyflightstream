@@ -5,7 +5,8 @@ FAILED_MARKED, keeping the status they had, when and why; every other record
 keeps its bytes, and runs.json is archived first. Every workspace is a real
 ``tmp_path`` tree.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

@@ -24,7 +24,8 @@ No azimuth is computed here: every angle is the table's own or comes from
 term peaks where ``k psi = PHI_k``, so the 1P peak is at the azimuth
 ``PHI1`` and the 2P peaks at ``PHI2 / 2`` and ``PHI2 / 2 + 180``. A harmonic
 whose station holds fewer distinct azimuths than it needs (1P needs 3, 2P
-needs 5, the unknowns of the fit up to it) is ``NA``. The definitions page,
+needs 5, the unknowns of the fit up to it), or whose samples do not go round
+the circle (:func:`fit_harmonics`), is ``NA``. The definitions page,
 ``docs/post-processing-definitions.md``, is the definition of record.
 """
 
@@ -99,6 +100,9 @@ HARMONICS_COLUMNS: tuple[str, ...] = (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *HARMON
 MINIMUM_DISTINCT_AZIMUTHS: Mapping[int, int] = {1: 3, 2: 5}
 #: Two azimuths closer than this, in degrees around the circle, are one azimuth.
 AZIMUTH_TOLERANCE_DEG = 1e-6
+#: The largest gap the angles ``k psi`` of the samples may leave around the circle
+#: for the kP term to be fitted: samples inside a half circle do not go round it.
+_LARGEST_GAP_DEG = 180.0
 #: How far a sample's station may sit from the first sample's, as a fraction
 #: of the largest radius of the first sample, before the station is refused.
 STATION_MATCH_TOLERANCE = 1e-6
@@ -112,7 +116,10 @@ _ADDED_COLUMNS = frozenset(
 
 @dataclass(frozen=True)
 class HarmonicFit:
-    """The fit of one station and quantity; a harmonic that cannot be fitted is None."""
+    """The fit of one station and quantity; a harmonic that cannot be fitted is None.
+
+    ``reason`` says why a harmonic was left out, None where both were fitted.
+    """
 
     samples: int
     distinct: int
@@ -122,6 +129,7 @@ class HarmonicFit:
     h2_amp: float | None
     h2_phase_deg: float | None
     residual_rms: float
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -215,6 +223,15 @@ def _phase_deg(cosine: float, sine: float) -> float:
     return 0.0 if phase < _PHASE_WRAP_DEG or phase >= 360.0 - _PHASE_WRAP_DEG else phase
 
 
+def _largest_gap_deg(angles_deg: Sequence[float]) -> float:
+    """Return the largest gap, in degrees, the angles leave around the circle; 360 for one."""
+    turned = sorted(float(value) % 360.0 for value in angles_deg)
+    if not turned:
+        return 360.0
+    gaps = [after - before for before, after in zip(turned[:-1], turned[1:], strict=True)]
+    return max([*gaps, turned[0] + 360.0 - turned[-1]])
+
+
 def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> HarmonicFit:
     """Fit ``H0 + A1 cos(psi - PHI1) + A2 cos(2 psi - PHI2)`` by least squares.
 
@@ -222,6 +239,15 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     azimuths or more, 1P with three or more, ``H0`` alone below that; a
     harmonic left out is None. ``RESIDUAL_RMS`` is the root mean square of
     the samples less the fit that was made.
+
+    THE SAMPLES MUST GO ROUND THE CIRCLE, not only be distinct (the angular
+    coverage criterion). The kP term is fitted only where the angles
+    ``k psi`` of the samples leave no gap larger than 180 deg around the
+    circle, and every lower term is fitted too: samples crowded inside a half
+    circle determine a sinusoid only through differences at the round-off of
+    their values, and five samples 0.1 deg apart gave amplitudes of 1e5 on a
+    constant load. A harmonic left out for either reason is None, and the
+    fit's ``reason`` says which.
 
     Parameters
     ----------
@@ -254,10 +280,24 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     if psi.shape != load.shape or load.size == 0:
         raise ProductError("a fit needs one value per azimuth and at least one sample")
     distinct = distinct_azimuths([float(value) for value in azimuths_deg])
-    orders = max(
-        (order for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items() if distinct >= needed),
-        default=0,
-    )
+    orders = 0
+    reason: str | None = None
+    for order, needed in sorted(MINIMUM_DISTINCT_AZIMUTHS.items()):
+        if distinct < needed:
+            reason = (
+                f"the {order}P term and above are left out: the samples hold {distinct} "
+                f"distinct azimuth(s), and a {order}P fit needs {needed}"
+            )
+            break
+        gap = _largest_gap_deg([order * float(value) for value in azimuths_deg])
+        if gap > _LARGEST_GAP_DEG:
+            reason = (
+                f"the {order}P term and above are left out: the angles {order} psi of the "
+                f"samples leave a gap of {gap:.6g} deg around the circle, and a {order}P fit "
+                f"needs them spread with no gap over {_LARGEST_GAP_DEG:g} deg"
+            )
+            break
+        orders = order
     design = [np.ones_like(psi)]
     for order in range(1, orders + 1):
         design.extend((np.cos(order * psi), np.sin(order * psi)))
@@ -280,6 +320,7 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
         h2_amp=terms[2],
         h2_phase_deg=terms[3],
         residual_rms=float(np.sqrt(np.mean(residual**2))),
+        reason=reason,
     )
 
 
@@ -510,6 +551,7 @@ def _fit_rotor(
         else None
     )
     short: dict[int, int] = {1: 0, 2: 0}
+    narrow: dict[int, int] = {1: 0, 2: 0}
     fewest: dict[int, int] = {}
     fitted: list[tuple[int, float]] = []
     for station, radius in enumerate(reference):
@@ -540,6 +582,8 @@ def _fit_rotor(
                 if fit.distinct < needed:
                     short[order] += 1
                     fewest[order] = min(fewest.get(order, fit.distinct), fit.distinct)
+                elif (fit.h1_amp if order == 1 else fit.h2_amp) is None:
+                    narrow[order] += 1
             result.rows.append(
                 (alias, quantity, radius, None if half is None else radius / half, fit)
             )
@@ -549,6 +593,12 @@ def _fit_rotor(
                 f"rotor {alias!r}: the {order}P harmonic is NA in {short[order]} row(s), whose "
                 f"stations hold as few as {fewest[order]} distinct azimuth(s); a {order}P fit "
                 f"needs {needed}"
+            )
+        if narrow[order]:
+            result.notes.append(
+                f"rotor {alias!r}: the {order}P harmonic is NA in {narrow[order]} row(s), whose "
+                f"samples do not go round the circle: a {order}P fit needs the angles "
+                f"{order} psi with no gap over {_LARGEST_GAP_DEG:g} deg"
             )
 
 
