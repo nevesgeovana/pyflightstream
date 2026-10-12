@@ -228,7 +228,9 @@ def manifest_workspace(root: str | Path, runs: str | None = None) -> CampaignWor
     path = resolve_manifest(root, runs)
     if path == resolve_manifest(root):
         return CampaignWorkspace(root)
-    if path.stem == FROM_SIMS_LABEL:
+    # Folded: on a case-insensitive file system post/<matrix>@Sims/ IS the
+    # from-sims folder.
+    if path.stem.casefold() == FROM_SIMS_LABEL:
         raise RunsManifestError(
             f"the manifest name {runs!r} would post into post/<matrix>{APART_MARK}"
             f"{FROM_SIMS_LABEL}/, the folder of the from_sims (CLI: --from-sims) post, whose "
