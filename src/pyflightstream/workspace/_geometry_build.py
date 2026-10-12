@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import shutil
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -64,6 +65,7 @@ __all__ = [
     "accept_geometries",
     "apply_geometry_build",
     "plan_geometry_build",
+    "refuse_before_running",
 ]
 
 #: The record of a build: ``<name>.build.json``.
@@ -256,7 +258,8 @@ def _inputs(path: Path, instruction: GeometryInstruction) -> tuple[dict[str, str
         found.append((Path(marking.points_file), "trailing_edges"))
     seen: dict[Path, dict[str, str]] = {}
     for file, role in found:
-        seen.setdefault(file, {"file": file.name, "role": role, "sha256": file_sha256(file)})
+        named = Path(os.path.relpath(file, path.parent)).as_posix()
+        seen.setdefault(file, {"file": named, "role": role, "sha256": file_sha256(file)})
     return tuple(seen.values())
 
 
@@ -372,6 +375,27 @@ def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
             raise _refuse(f"{', '.join(existing)} exist; rebuild with --overwrite to replace them")
 
 
+def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
+    """Refuse, before any executable is looked up, what ``--apply`` would refuse (FR-471 R9).
+
+    Raises
+    ------
+    InputArtifactError
+        A command awaiting evidence on the build, an existing output without
+        ``overwrite``, a foreign variant folder, or ``png`` without the plot extra.
+    """
+    waiting = plan.awaiting_evidence
+    if waiting:
+        raise _refuse(
+            f"the build needs {', '.join(waiting)}, which the command database does not record "
+            f"as verified on FlightStream {plan.version}; a licensed probe on that build settles "
+            "it, and until then the build is not run there"
+        )
+    _refuse_existing(plan, overwrite)
+    if png:
+        _require_the_plot_extra()
+
+
 def apply_geometry_build(
     plan: GeometryBuildPlan,
     *,
@@ -391,16 +415,7 @@ def apply_geometry_build(
         The solver failed, or the saved boundaries or trailing edges are not
         the ones stated; nothing of that geometry is promoted.
     """
-    waiting = plan.awaiting_evidence
-    if waiting:
-        raise _refuse(
-            f"the build needs {', '.join(waiting)}, which the command database does not record "
-            f"as verified on FlightStream {plan.version}; a licensed probe on that build settles "
-            "it, and until then the build is not run there"
-        )
-    _refuse_existing(plan, overwrite)
-    if png:
-        _require_the_plot_extra()
+    refuse_before_running(plan, overwrite=overwrite, png=png)
     return tuple(
         _build_one(
             plan,
@@ -645,12 +660,7 @@ def _record(
             "wall_s": round(outcome.wall_s, 3),
         },
         "instruction": instruction,
-        "inputs": [
-            {**item, "file": rel(plan.path.parent / item["file"])}
-            if item["role"] != "trailing_edges"
-            else item
-            for item in plan.inputs
-        ],
+        "inputs": [{**item, "file": rel(plan.path.parent / item["file"])} for item in plan.inputs],
         "script": {"file": script_path.name, "sha256": file_sha256(script_path)},
         "outputs": outputs,
         "audit": audit,
@@ -659,10 +669,28 @@ def _record(
 
 
 def _relative(path: Path, folder: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(folder.resolve()))
-    except ValueError:
-        return str(Path("..") / path.parent.name / path.name)
+    return os.path.relpath(path.resolve(), folder.resolve())
+
+
+def _rebased(record: dict[str, Any], old: Path, new: Path) -> dict[str, Any]:
+    """Return a record whose file paths are read from ``new`` instead of ``old``."""
+
+    def moved(item: dict[str, Any]) -> dict[str, Any]:
+        return {**item, "file": Path(_relative(old / item["file"], new)).as_posix()}
+
+    outputs = [
+        {**item, "file": Path(item["file"]).name} if item["file"].endswith(".obj") else moved(item)
+        for item in record["outputs"]
+    ]
+    audit = {**record["audit"], "file": f"{new.name}.audit.json"}
+    return {
+        **record,
+        "instruction": moved(record["instruction"]),
+        "inputs": [moved(item) for item in record["inputs"]],
+        "script": moved(record["script"]),
+        "outputs": outputs,
+        "audit": audit,
+    }
 
 
 def _promote(
@@ -713,8 +741,9 @@ def _promote(
         if target.exists() and overwrite:
             shutil.rmtree(target)
         shutil.move(str(mesh_dir), target)
-        shutil.copyfile(
-            folder / f"{name}{BUILD_RECORD_SUFFIX}", target / f"{mesh_name}{BUILD_RECORD_SUFFIX}"
+        record = json.loads((folder / f"{name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8"))
+        _textio.write_json(
+            target / f"{mesh_name}{BUILD_RECORD_SUFFIX}", _rebased(record, folder, target)
         )
         moved.append(target)
     return tuple(moved)

@@ -292,6 +292,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.subcommand == "collect":
             return _cmd_collect(args)
         if args.subcommand in _GEOMETRY_COMMANDS:
+            # FR-477 R1: the identical result, and one warning naming the home.
+            from pyflightstream.run._cli_geometry import alias_warning
+
+            warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
             return _cmd_geometry(args)
         if args.subcommand == "upgrade":
             return _cmd_upgrade(args)
