@@ -277,7 +277,7 @@ def _after() -> Composite:
     return sheet_with_strips((("T", "quad", (0.03, 0.04, 0.05)),))
 
 
-DETECT = '[trailing_edges]\ndetect = "auto"\n'
+DETECT = '[import]\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n'
 
 
 def _refusal_cases():
@@ -407,7 +407,7 @@ def test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance(tmp_p
 
 
 @pytest.mark.parametrize(
-    ("units", "line"), [(None, "METER"), ("MILLIMETER", "MILLIMETER")], ids=["unstated", "mm"]
+    ("units", "line"), [("METER", "METER"), ("MILLIMETER", "MILLIMETER")], ids=["m", "mm"]
 )
 def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, units, line):
     """P0390-FIRSTROW (FR-430 R4, R7): a detected kept row's trailing edge is in the points file.
@@ -430,8 +430,9 @@ def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, 
     src = write_source(tmp_path / "det", "wing", _tube_source(), refine_toml=toml)
     assert not list(src.parent.glob("*.te.txt"))
     sidecar = src.with_name("wing.boundaries.toml")
-    extra = "" if units is None else f'\n[import]\nunits = "{units}"\n'
-    sidecar.write_text(sidecar.read_text(encoding="utf-8") + extra + DETECT, encoding="utf-8")
+    sidecar.write_text(
+        sidecar.read_text(encoding="utf-8") + DETECT.replace("METER", units), encoding="utf-8"
+    )
     level = refine_mesh(src, out_dir=tmp_path / "out")
     assert level.report["Wing"]["trailing_edge"] == "detected"
     te = level.folder / f"{level.folder.name}.te.txt"
@@ -501,12 +502,17 @@ def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
     far_ring = 6 * 48 + 48  # Body's ring at y = -0.25
     body_edge = 0.5 * (lens.verts[far_ring + 12] + lens.verts[far_ring + 13])
     mesh = Composite(lens.verts, lens.families, body_edge[None, :], {})
-    toml = "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
+    toml = (
+        "[families.Wing]\nspanwise = 2.0\nkeep_first_row = true\n"
+        "trailing_edge_direction = [1.0, 0.0, 0.0]\n"
+    )
     src = write_source(tmp_path / "lens", "wing", mesh, refine_toml=toml)
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
     sidecar.write_text(
-        text.replace('file = "wing.te.txt"', 'detect = { surfaces = ["Wing"] }'), encoding="utf-8"
+        text.replace('file = "wing.te.txt"', 'detect = { surfaces = ["Wing"] }')
+        + '\n[import]\nunits = "METER"\n',
+        encoding="utf-8",
     )
     level = refine_mesh(src, out_dir=tmp_path / "out")
     entry = level.report["Wing"]
@@ -547,6 +553,8 @@ def _joined_level(tmp_path: Path, units: str | None):
         text += f'\n[import]\nunits = "{units}"\n'
         rows = ["METER"] + [",".join(f"{c / 1000.0:.12f}" for c in p) for p in body]
         src.with_name("wing.te.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    else:
+        text += '\n[import]\nunits = "METER"\n'
     sidecar.write_text(text, encoding="utf-8")
     return src, refine_mesh(src, out_dir=tmp_path / "out")
 

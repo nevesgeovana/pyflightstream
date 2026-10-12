@@ -1053,6 +1053,20 @@ def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     return value
 
 
+def row_solver_setting(case: SimCase, key: str) -> tuple[int | bool | None, bool]:
+    """Return a solver setting and whether an exact, nonblank row key supplied it.
+
+    Inspection uses the builder's parsers without repeating its override
+    vocabulary or emitting the builder's symmetry conflict warning.
+    """
+    if key == "max_threads":
+        return row_ncpus(case, case.solver.max_threads), _variable(case, NCPUS_VARIABLE) is not None
+    if key == "symmetry_loads":
+        stated = _variable(case, SYMMETRY_LOADS_VARIABLE) is not None
+        return row_symmetry_loads(case, None if stated else case.solver.symmetry_loads), stated
+    raise ValueError(f"unknown row solver setting {key!r}; use max_threads or symmetry_loads")
+
+
 def _stated_rate(case: SimCase, key: str) -> float | None:
     """Return one body rate this row states, from `variables` or its POINT."""
     stated = _variable(case, key)

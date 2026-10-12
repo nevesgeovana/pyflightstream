@@ -13,11 +13,8 @@ from pyflightstream.cases import (
     classify_outputs,
 )
 from pyflightstream.cases.workflows import (
-    NCPUS_VARIABLE,
-    SYMMETRY_LOADS_VARIABLE,
     carries_singularity_strength,
-    row_ncpus,
-    row_symmetry_loads,
+    row_solver_setting,
 )
 from pyflightstream.workspace.setup_standards import setup_entry_evidence
 
@@ -56,23 +53,11 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
             "setup" if key in explicit else "package default" if value is not None else "unset"
         )
         error = None
-        override = {"max_threads": NCPUS_VARIABLE, "symmetry_loads": SYMMETRY_LOADS_VARIABLE}.get(
-            key
-        )
-        # The builder's rule for a row value: the exact key, and a blank cell
-        # states nothing, so the setup's value stands.
-        stated = case.variables.get(override) if override is not None else None
-        has_override = stated is not None and str(stated).strip() != ""
         try:
-            if key == "max_threads":
-                value = row_ncpus(case, case.solver.max_threads)
-            elif key == "symmetry_loads":
-                # The builder owns the conflict warning; inspect the same row value once.
-                value = row_symmetry_loads(
-                    case, None if has_override else case.solver.symmetry_loads
-                )
-            if has_override:
-                provenance = "matrix row"
+            if key in ("max_threads", "symmetry_loads"):
+                value, has_override = row_solver_setting(case, key)
+                if has_override:
+                    provenance = "matrix row"
         except CampaignConfigError as exc:
             value = None
             provenance = "unresolved matrix override"

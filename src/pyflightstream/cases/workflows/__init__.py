@@ -218,6 +218,9 @@ from ._rows import (
     row_ncpus as row_ncpus,
 )
 from ._rows import (
+    row_solver_setting as row_solver_setting,
+)
+from ._rows import (
     row_walltime_s as row_walltime_s,
 )
 from ._rows import (

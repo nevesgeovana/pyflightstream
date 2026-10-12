@@ -76,6 +76,10 @@ def load_toml(path: Path, kind: str) -> dict[str, Any]:
     try:
         with open(path, "rb") as handle:
             return tomllib.load(handle)
+    except UnicodeDecodeError as error:
+        raise InputArtifactError(
+            f"the {kind} artifact {path} is not UTF-8; save it as UTF-8, which TOML requires."
+        ) from error
     except tomllib.TOMLDecodeError as error:
         raise InputArtifactError(
             f"the {kind} artifact {path} is not valid TOML: {error}. Artifacts are "
