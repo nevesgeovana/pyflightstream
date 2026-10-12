@@ -607,6 +607,11 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
     # passages hold different numbers of frames at different phases, and
     # their means differ by a sampling ripple that reads as unsteadiness.
     strides = {int(gap) for gap in np.diff(steps)}
+    if any(stride <= 0 for stride in strides):
+        raise MalformedOutputError(
+            f"the frames have strides {sorted(strides)}; the export stride must be positive "
+            "so each frame advances to a new solver step"
+        )
     if len(strides) > 1 or (strides and period % next(iter(strides))):
         raise MalformedOutputError(
             f"the frames are exported every {sorted(strides)} step(s) and one passage is "

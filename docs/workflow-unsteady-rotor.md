@@ -167,18 +167,25 @@ stream and speed of sound, one row per rotor per point under the title
 
 ```text
 Rotor Mach numbers
-  POL   point                    rotor       M_tip  M_hel
-  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
-  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+  POL   point                    rotor       M_tip  M_hel  M_adv
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
 ```
 
-and warns, naming each point, when a helical Mach number is 1 or more
-(`M_hel >= 1`, the tip sonic or supersonic):
+and warns, naming each point, when the advancing-tip Mach number is 1 or more
+(`M_adv >= 1`, the advancing tip sonic or supersonic):
 
 ```text
-helical Mach >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-rotor PORT, M_hel 1.117. ...
+advancing-tip Mach M_adv >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+rotor PORT, M_adv 1.117 (M_hel 1.117). ...
 ```
+
+`M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`, with `V_ax` the free-stream
+component along the rotor axis and `V_ip` the component in the rotor plane.
+`M_hel = sqrt(V^2 + (Omega R)^2) / a` bounds the tip only in axial flow, where
+`M_adv = M_hel` (the example above); in edgewise flow `M_adv = (Omega R + V) / a`
+is larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
+edgewise bound and the plan line says so.
 
 A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing for
 the warning. A rotor whose reference states no diameter for it has no known
@@ -187,14 +194,11 @@ definitions, and where else the two numbers appear (the run record, the
 rotor table), are in
 [the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
-The package-reserved matrix keys are listed in the [input glossary](inputs.md#tables-and-reserved-keys).
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
-itself reads, and a cell of yours that already spells one of them is
-read by the package rather than ignored:
-
-The [input glossary](inputs.md) lists the current keys and their meanings.
-The [upgrade index](upgrading.md) links the release records for retired
-spellings and changes to their interpretation.
+itself reads, which the [input glossary](inputs.md#tables-and-reserved-keys)
+lists; a cell of yours that spells one of them is read by the package
+rather than ignored. The [upgrade index](upgrading.md) links the release
+records for retired spellings and changes to their interpretation.
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
 `DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
@@ -307,41 +311,6 @@ The `matrix_` prefix is the CONVERTER's rather than yours:
 `matrix_fs_build`, `matrix_hidden` and `matrix_workflow` are written
 over whatever your cell said, after your cell is read. A key of yours
 spelling one of those is not read by the package; it is replaced.
-
-**`REVOLUTIONS` AND `DELTA_THETA` ARE THE TWO TO CHECK FIRST**, because
-they are ordinary words a rotor study is likely to have already used for
-its own bookkeeping. A cell of yours spelling either is now the
-package's, so rename yours or adopt the meaning.
-
-The match is on the EXACT key, so a cell spelling it `SYMMETRY_TYPE` or
-`N_REVOLUTIONS` is untouched. The rows of [the run matrix](workflow-run-matrix.md) use `FSM_FILE`, a key of
-their own that nothing in the package reads; moving a row off `LEGACY`
-is the moment to rename it to `GEOMETRY`, and a row that stays on
-`LEGACY` keeps its recipe and its own key with nothing changed for it.
-
-v0.9.0 added a larger upgrade risk than any name, the removal of the
-`RE` and `MACH` columns, which is handled by
-`pyfs-matrix upgrade <path> --in-place` and described on
-[the flight-condition page](flight-conditions.md).
-
-A row that names none of the reserved keys behaves as it did before. The [input glossary](inputs.md) lists both matrix homes and the package-reserved names.
-
-Going forward, every workflow crossed with three case shapes and every
-build it covers is pinned as a committed golden under
-`tests/tier1_offline/goldens/workflows/` and compared byte for byte on every run of the
-suite. On one of the workflow-and-build pairs, `steady` on FlightStream
-25.000, the builder refuses instead of rendering, and both of that pair's
-goldens pin the refusal text; the changelog's "Known gaps" says why.
-
-Looking back, the same four case shapes were rendered against a worktree
-at the `v0.8.0` tag: every render came out byte for byte identical, and
-the two refusals matched their text as well. That is the half the goldens
-cannot prove on their own, since they were generated from this release.
-The receipt is committed beside them.
-
-Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
-anything is written, and that is deliberate: naming is the workspace's
-job.
 
 ## One row, several rotors
 

@@ -157,6 +157,16 @@ class FrameDefinition(BaseModel):
         return (np.asarray(points, dtype=float) - np.asarray(self.origin)) @ self.basis.T
 
 
+def _uniform_cells(extent: float, spacing: float) -> int:
+    """Snap an exact fit only when its resulting size respects the requested bound."""
+    cells = max(1, math.ceil(extent / spacing))
+    if cells > 1 and extent / (cells - 1) <= spacing:
+        cells -= 1
+    if extent / cells > spacing:
+        cells += 1
+    return cells
+
+
 class AxisSpec(BaseModel):
     """Point distribution along one in-plane axis of a grid.
 
@@ -241,9 +251,10 @@ class AxisSpec(BaseModel):
             if self.spacing is not None:
                 # PFS-2104.016. Rounded until 0.40.0, which delivered 1.0 for a
                 # request of 0.7 over an extent of 1.0. Ceiling never exceeds
-                # the request; the factor absorbs the float noise of an exact
-                # fit (1.1 / 0.1 is 11.000000000000002, which is 11 cells).
-                cells = max(1, math.ceil(self.extent / self.spacing * (1.0 - 1e-9)))
+                # the request. Check the resulting size before removing a
+                # division-roundoff cell: even a one-ULP finer request must
+                # not be rounded back to a size larger than it requested.
+                cells = _uniform_cells(self.extent, self.spacing)
             else:
                 cells = self.count - 1
             return np.linspace(self.start, self.stop, cells + 1)

@@ -107,6 +107,19 @@ WARNING point=<point> product=sections/<point>_harmonics.csv: rotor 'PROP': the 
 A wheel of 2 blades at 2 clockings (4 azimuths) has a 1P fit and no 2P. Nothing
 blocks: the table is written.
 
+**Angular coverage is required too.** For a `kP` term, the sample angles
+`k psi` reduced modulo 360 must leave no gap greater than 180 degrees around
+the circle, including the gap across zero. Every lower term must also pass
+its count and coverage checks. The fit stops before the first term that fails:
+five samples inside a narrow sector fit `H0` alone, while samples at 0, 10,
+180, 190 and 350 degrees fit 1P but leave 2P `NA`. Five evenly spaced samples
+around the full circle still fit both harmonics. `HarmonicFit.reason` states
+the first failed check; it is `None` when both terms are fitted.
+
+When coverage is insufficient, `post.log` names the rotor, harmonic and
+number of affected rows, and states the 180-degree maximum-gap criterion.
+The table is still written, and `RESIDUAL_RMS` describes the reduced fit.
+
 **Not written, and said.** An unsteady rotor whose record states no
 `steps_per_revolution`, or whose series holds no complete revolution, is named
 under `sections/<point>_harmonics.csv#rotor=<ALIAS>`; where no station of any

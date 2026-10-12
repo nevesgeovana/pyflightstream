@@ -196,30 +196,6 @@ builds have since run on 26.124: a sector coupled with FSI (RPT-090) and a
 wheel at 5 deg clocked by rotating its surfaces inside one launch
 (RPT-091).
 
-From the terminal, that whole study is one command:
-
-```text
-pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --workspace . \
-    --sweep-csv sweep.csv
-```
-
-No Python is written, no notebook is opened, and nothing sits between
-the file and the result. The sweep table lands as `campaign_sweep.csv`
-under `post/<matrix stem>/` in the workspace when you do not say where, so a
-second matrix of the same workspace keeps its own.
-
-**Each point keeps its outputs in its own folder**, and that is what lets
-a swept row be judged point by point. `run` judges each finished point
-with the standard assessor, which reads the loads spreadsheet that point
-exported, and finds it by CONTENT rather than by name, because a swept
-case names its outputs per point and no single literal could name them
-all. Each point collects into `sims/<sim>/datapoints/DP-<point>/`, so
-what the assessor reads is that point's evidence and nothing else. The
-matrix printed on [the workflows page](workspace-and-workflows.md) runs as printed, row 7002's two alphas included,
-and that is what the acceptance case in the suite does with the
-committed fixture unmodified.
-
 **A missing output strands nothing** (0.27.0). A point one of whose
 declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
 every declared output it did write is still filed in its
