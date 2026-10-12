@@ -261,7 +261,7 @@ class LedgersSpec(LatticeShape):
     balances: list[
         Literal["mass", "axial", "transverse", "torque", "in_plane_moment", "crossflow_energy"]
     ] = Field(
-        default_factory=lambda: list(BALANCES),
+        default_factory=lambda: list(BALANCES),  # type: ignore[arg-type]
         min_length=1,
         description="The balances written: any of the six, all six by default.",
     )

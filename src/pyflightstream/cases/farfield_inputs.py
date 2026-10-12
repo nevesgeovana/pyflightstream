@@ -21,6 +21,8 @@ __all__ = [
     "FARFIELD_STATES",
     "FarfieldInput",
     "FarfieldResolution",
+    "ROTOR_RUN_TYPES",
+    "UNSTEADY_RUN_TYPES",
     "applies",
     "resolve_farfield",
 ]
@@ -29,8 +31,8 @@ __all__ = [
 FARFIELD_STATES: tuple[str, ...] = ("reused", "added", "not_applicable", "refused")
 
 #: The run types whose rows are rotors: a helical wake is not a streamwise sheet.
-_ROTOR_RUN_TYPES = frozenset({"unsteady_rotor", "qsteady_rotor"})
-_UNSTEADY_RUN_TYPES = frozenset({"unsteady", "unsteady_rotor"})
+ROTOR_RUN_TYPES = frozenset({"unsteady_rotor", "qsteady_rotor"})
+UNSTEADY_RUN_TYPES = frozenset({"unsteady", "unsteady_rotor"})
 
 #: The command each input reaches, checked against the selected build (FR-455 R6).
 _COMMANDS = {
@@ -105,9 +107,9 @@ class FarfieldResolution:
             return "not_applicable"
         return "ready"
 
-    def as_record(self) -> list[dict[str, str]]:
+    def as_record(self) -> dict[str, object]:
         """Return the row's ``farfield`` object of ``plan.json`` (FR-455 R4)."""
-        return [item.as_record() for item in self.inputs]
+        return {"inputs": [item.as_record() for item in self.inputs]}
 
 
 def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
@@ -116,9 +118,9 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     ``rotor`` marks a steady row whose far field is a rotor's.
     """
     if analysis in ("trefftz:sections", "trefftz:wake"):
-        if rotor or run_type in _ROTOR_RUN_TYPES:
+        if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
-        if run_type in _UNSTEADY_RUN_TYPES:
+        if run_type in UNSTEADY_RUN_TYPES:
             return "variants A and B serve steady rows in 0.40.0"
     return ""
 
@@ -185,7 +187,7 @@ def resolve_farfield(
         covered=frozenset(covered_families),
         exports=dict(exports),
         has_command=has_command,
-        rotor=rotor or run_type in _ROTOR_RUN_TYPES,
+        rotor=rotor or run_type in ROTOR_RUN_TYPES,
     )
     if not selected_families:
         for analysis in _analyses(spec):
@@ -301,7 +303,7 @@ class _Resolver:
             f"the declared [[probes]] {shape}",
             f"the far-field {shape} as probe points",
         )
-        if self.run_type in _UNSTEADY_RUN_TYPES:
+        if self.run_type in UNSTEADY_RUN_TYPES:
             self.item(analysis, "probe_export", "added", "per-step fluid plots of every point")
         else:
             self.export(analysis, "probes", "probe_export", True)

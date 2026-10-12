@@ -40,6 +40,7 @@ from pyflightstream.script._surface_averaging import (
 from ._conventions import (
     WorkflowConventions,
 )
+from ._farfield import wants_wake
 from ._freestream import (
     _log_position_shape,
 )
@@ -216,6 +217,11 @@ def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
     selection at all the solver also writes a ``<name>_wakes.vtk`` (RPT-074).
     """
     variables = case.pproc.vtk_variables if case.pproc is not None else None
+    if wants_wake(case):
+        # FR-455 R3 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
+        # wake switch in the variable selection writes.
+        helpers.export_results(script, vtk=name, vtk_variables=variables or "all", vtk_wake=True)
+        return
     helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
 
 

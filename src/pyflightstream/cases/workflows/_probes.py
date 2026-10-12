@@ -20,6 +20,8 @@ from pathlib import (
     Path,
 )
 
+import numpy as np
+
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
@@ -37,6 +39,12 @@ from pyflightstream.script import (
 
 from ._export_first_step import (
     stated_threshold_keys,
+)
+from ._farfield import (
+    declared_lattices,
+    farfield_probes,
+    needs_fresh_probes,
+    warn_declared_inside,
 )
 from ._frames import (
     _pproc_frame,
@@ -154,6 +162,10 @@ def _pproc_probes(
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
+    # FR-455 (0.40.0): a steady point whose far field lays probes starts from
+    # none, as a sampled field does, so its export holds each point once.
+    sampled = sampled or (not unsteady and needs_fresh_probes(case))
+    declared: list[tuple[int, str, np.ndarray]] = []
     previous_layout = list(script.probe_field_layout)
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     for entry_number, probes in enumerate(pproc.probes, start=1):
@@ -186,6 +198,16 @@ def _pproc_probes(
                 )
         first_vertex = vertex + 1
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+        declared.append(
+            (
+                entry_number,
+                _the_probe_frame(case, probes.frame),
+                np.array(
+                    [p[1:4] for p in script.probe_points if first_vertex <= p[0] <= vertex],
+                    dtype=float,
+                ).reshape(-1, 3),
+            )
+        )
         if (probes.field_formats or probes.reusable_inflow) and vertex >= first_vertex:
             resolved_frame = _the_probe_frame(case, probes.frame)
             frame_index = (
@@ -218,6 +240,16 @@ def _pproc_probes(
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
+    # FR-455 and FR-459 R4 (0.40.0): the far field's plane and lattice after
+    # every declared point, then the inside-the-body check of the declared ones.
+    farfield_probes(
+        case,
+        script,
+        max((point[0] for point in script.probe_points), default=0),
+        unsteady=unsteady,
+        frames=frames,
+    )
+    warn_declared_inside(case, declared)
     if sampled and previous_layout and previous_layout != script.probe_field_layout:
         raise CampaignConfigError(
             "a steady job changed its sampled field layout between points; "
@@ -491,7 +523,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         ):
             emit_probe_import(script, probes.resolved_points_file)
             return vertex
-    if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
+    if not (
+        probes.points_file or probes.lines or probes.rectangles or probes.circles or probes.lattices
+    ):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -627,6 +661,8 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         lattice += rectangle_points(rectangle, scale)
     for circle in probes.circles:
         lattice += circle_points(circle, scale)
+    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`.
+    lattice += declared_lattices(case, probes, native_per_m, unsteady=unsteady)
     for point in lattice:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one
