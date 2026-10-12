@@ -98,6 +98,9 @@ from pyflightstream.results.core import (
     reduction_for_solver_mode,
     window_for_reduction,
 )
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.results.core import IncompleteOutputError as IncompleteOutputError
 from pyflightstream.results.exports import (
     FORCE_DISTRIBUTION_COLUMNS,
     OFF_BODY_STREAMLINE_COLUMNS,

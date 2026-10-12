@@ -18,6 +18,9 @@ import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._alias import alias_lines, planned_in_workspace
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.run._alias import planned_from_plan_files as planned_from_plan_files
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,

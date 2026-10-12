@@ -79,6 +79,10 @@ from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.workspace.inputs import hpc_profiles as hpc_profiles
+from pyflightstream.workspace.inputs import read_hpc_profile as read_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 from pyflightstream.workspace.naming import PointName
 

@@ -46,6 +46,10 @@ not show whole-rotor loads, naming the run.
 A requested free-stream velocity is compared with the loads export at half a
 count of the last digit the export printed it with.
 
+A rotor row on build 26.100 (`unsteady_rotor`, `qsteady_rotor`, a rotor speed, a
+`rotary_motion` call) is refused at plan time: the unit of that build's angular
+velocity is not measured. Run rotor rows on a build with a measured rotor unit.
+
 ### The command that does it
 
 Run `pyfs-matrix post` to rebuild products from recorded solver exports.
