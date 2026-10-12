@@ -359,6 +359,7 @@ def modal_frequencies(
     n_modes: int = 6,
     include_geometric_stiffness: bool = False,
     twist_stiffness_n_m_per_rad: Sequence[float] | None = None,
+    *,
     flap_stiffness_n_per_m: Sequence[float] | None = None,
 ) -> ModalResult:
     """Extract flap and torsion natural frequencies of the blade.
@@ -443,30 +444,13 @@ def modal_frequencies(
             f"entries for {n_stations} stations; the lumped torsional stiffening "
             "must be sampled at the configuration stations"
         )
-    if flap_stiffness_n_per_m is not None and len(flap_stiffness_n_per_m) != n_stations:
-        raise FsiInputError(
-            f"flap_stiffness_n_per_m has {len(flap_stiffness_n_per_m)} entries for "
-            f"{n_stations} stations; the distributed flap stiffness must be sampled at "
-            "the configuration stations"
-        )
-    # The symmetric standard form below divides by the square root of every
-    # lumped mass, so a free station with none would carry an infinity into
-    # the eigensolver. The configuration accepts zero inertias (they are
-    # nonnegative by definition), so the refusal lives here, where they are
-    # divided by. The root is clamped and never enters the eigenproblem.
-    for i in range(1, n_stations):
-        for label, value in (("flap mass", flap_mass[i]), ("twist inertia", twist_inertia[i])):
-            if not value > 0.0:
-                raise FsiInputError(
-                    f"station {i} (r = {cfg.blade.station_radii_m[i]:.4g} m) lumps a "
-                    f"{label} of {value!r}; the modal problem needs a positive mass and "
-                    "a positive twist inertia (I1 + I2 > 0) at every free station"
-                )
+    _refuse_an_unsampled_flap_stiffness_or_a_massless_station(
+        cfg, flap_stiffness_n_per_m, flap_mass, twist_inertia
+    )
 
     free_rows: list[int] = []
     masses: list[float] = []
     is_flap: list[bool] = []
-    flap_master_station: dict[int, int] = {}
     twist_master_station: dict[int, int] = {}
     slave_rows: list[int] = []
     root_id = node_ids[station_name(0)]
@@ -477,7 +461,6 @@ def modal_frequencies(
         for dof in range(6):
             row = node_id * 6 + dof
             if dof == _FLAP_DOF:
-                flap_master_station[len(free_rows)] = i
                 free_rows.append(row)
                 masses.append(flap_mass[i])
                 is_flap.append(True)
@@ -492,20 +475,16 @@ def modal_frequencies(
     if twist_stiffness_n_m_per_rad is not None:
         for master_index, i in twist_master_station.items():
             condensed[master_index, master_index] += twist_stiffness_n_m_per_rad[i]
-    if flap_stiffness_n_per_m is not None:
-        tributary = tributary_lengths(cfg.blade.station_radii_m)
-        for master_index, i in flap_master_station.items():
-            condensed[master_index, master_index] += flap_stiffness_n_per_m[i] * tributary[i]
+    _add_lumped_flap_stiffness(condensed, is_flap, cfg, flap_stiffness_n_per_m)
 
-    mass_vector = np.array(masses)
     # Symmetric standard form: L^-1 K L^-T with L = sqrt(M) (M is diagonal).
-    inv_sqrt_m = 1.0 / np.sqrt(mass_vector)
+    inv_sqrt_m = 1.0 / np.sqrt(np.array(masses))
     sym = condensed * inv_sqrt_m[:, None] * inv_sqrt_m[None, :]
     eigenvalues, eigenvectors = np.linalg.eigh(sym)
 
-    frequencies = []
-    kinds = []
-    fractions = []
+    frequencies: list[float] = []
+    kinds: list[str] = []
+    fractions: list[float] = []
     flap_mask = np.array(is_flap)
     for k in range(min(n_modes, len(eigenvalues))):
         lam = eigenvalues[k]
@@ -599,6 +578,57 @@ def tributary_lengths(radii: Sequence[float]) -> list[float]:
         right = radii[i + 1] - radii[i] if i < n - 1 else 0.0
         lengths.append(0.5 * (left + right))
     return lengths
+
+
+def _refuse_an_unsampled_flap_stiffness_or_a_massless_station(
+    cfg: FsiConfig,
+    flap_stiffness_n_per_m: Sequence[float] | None,
+    flap_mass: Sequence[float],
+    twist_inertia: Sequence[float],
+) -> None:
+    """Refuse what :func:`modal_frequencies` cannot build an eigenproblem from.
+
+    The symmetric standard form divides by the square root of every
+    lumped mass, so a free station with none would carry an infinity
+    into the eigensolver. The configuration accepts zero inertias (they
+    are nonnegative by definition), so the refusal lives here, where
+    they are divided by. The root is clamped and never enters the
+    eigenproblem.
+    """
+    radii = cfg.blade.station_radii_m
+    if flap_stiffness_n_per_m is not None and len(flap_stiffness_n_per_m) != len(radii):
+        raise FsiInputError(
+            f"flap_stiffness_n_per_m has {len(flap_stiffness_n_per_m)} entries for "
+            f"{len(radii)} stations; the distributed flap stiffness must be sampled at "
+            "the configuration stations"
+        )
+    for i in range(1, len(radii)):
+        for label, value in (("flap mass", flap_mass[i]), ("twist inertia", twist_inertia[i])):
+            if not value > 0.0:
+                raise FsiInputError(
+                    f"station {i} (r = {radii[i]:.4g} m) lumps a {label} of {value!r}; the "
+                    "modal problem needs a positive mass and a positive twist inertia "
+                    "(I1 + I2 > 0) at every free station"
+                )
+
+
+def _add_lumped_flap_stiffness(
+    condensed: np.ndarray,
+    is_flap: Sequence[bool],
+    cfg: FsiConfig,
+    flap_stiffness_n_per_m: Sequence[float] | None,
+) -> None:
+    """Add a distributed flap stiffness, lumped over the tributary lengths, on the flap masters.
+
+    The masters are the free stations in order (the root is clamped), so
+    the k-th flap master is station k + 1.
+    """
+    if flap_stiffness_n_per_m is None:
+        return
+    tributary = tributary_lengths(cfg.blade.station_radii_m)
+    masters = [index for index, flap in enumerate(is_flap) if flap]
+    for station, index in enumerate(masters, start=1):
+        condensed[index, index] += flap_stiffness_n_per_m[station] * tributary[station]
 
 
 def _condense_massless(

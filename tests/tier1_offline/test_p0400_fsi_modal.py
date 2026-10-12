@@ -87,10 +87,16 @@ def test_p0400_flapsoften_a_flap_stiffness_entry_count_is_held_to_the_stations()
         beam.modal_frequencies(model, cfg, flap_stiffness_n_per_m=[0.0, 0.0])
 
 
-def test_p0400_campbellconv_an_unsettled_static_solve_is_refused(monkeypatch):
-    """P0400-CAMPBELLCONV: no modes are linearized about an unconverged twist."""
-    monkeypatch.setattr(centrifugal, "_INNER_MAX_SOLVES", 1)
-    cfg = plate_config(30.0, 300.0)
+def test_p0400_campbellconv_an_unsettled_static_solve_is_refused():
+    """P0400-CAMPBELLCONV: no modes are linearized about an unconverged twist.
+
+    A plate at a tenth of its torsional stiffness, 30 deg of pitch and
+    1000 rad/s: the propeller moment outweighs the stiffness and the inner
+    iteration exhausts its solves (measured, residual about 1.6 rad).
+    """
+    base = plate_config(30.0, 1000.0)
+    soft = [0.1 * g for g in base.blade.torsion_stiffness_n_m2]
+    cfg = plate_config(30.0, 1000.0, torsion_stiffness_n_m2=soft)
     assert not centrifugal.solve_rotating_static(cfg).converged
     with pytest.raises(TwistIterationError, match="did not converge"):
         centrifugal.rotating_frequencies(cfg, n_modes=2)
