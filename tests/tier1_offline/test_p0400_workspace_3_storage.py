@@ -71,7 +71,7 @@ FULL = {"scripts/point.fs": "s", "datapoints/DP-1/loads.txt": "full"}
 # --------------------------------------------------------------------------- PFS-2096.014
 
 
-def test_compacting_a_folder_beside_an_archive_is_refused_and_the_archive_kept(tmp_path):
+def test_p0400_compacting_a_folder_beside_an_archive_is_refused_and_the_archive_kept(tmp_path):
     """P0400-COMPACT-OVER-ZIP (PFS-2096.014): a second compaction never replaces the zip."""
     workspace = _ws(tmp_path, "overzip")
     archive = _compacted(workspace, "4101", FULL)
@@ -82,7 +82,7 @@ def test_compacting_a_folder_beside_an_archive_is_refused_and_the_archive_kept(t
     assert _members(archive) == members
 
 
-def test_a_restore_refuses_a_folder_beside_the_archive_naming_both(tmp_path):
+def test_p0400_a_restore_refuses_a_folder_beside_the_archive_naming_both(tmp_path):
     """P0400-RESTORE-BOTH (PFS-2096.014): the folder and the zip together are refused."""
     workspace = _ws(tmp_path, "both")
     archive = _compacted(workspace, "4102", FULL)
@@ -93,7 +93,7 @@ def test_a_restore_refuses_a_folder_beside_the_archive_naming_both(tmp_path):
     assert str(archive) in message and str(workspace.sim_dir("4102")) in message
 
 
-def test_sync_restores_a_compacted_simulation_before_copying_into_it(tmp_path):
+def test_p0400_sync_restores_a_compacted_simulation_before_copying_into_it(tmp_path):
     """P0400-SYNC-INTO-ZIP (PFS-2096.014): sync expands main's archive, then copies."""
     main, other = _sync_pair(tmp_path, "zipsync")
     archive = _compacted(main, "4103", FULL)
@@ -123,7 +123,7 @@ def _synced_linked_archive(tmp_path: Path, tag: str, *, main_has_wing: bool):
     return main, other
 
 
-def test_a_synced_archive_restores_its_inputs_link_into_mains_library(tmp_path):
+def test_p0400_a_synced_archive_restores_its_inputs_link_into_mains_library(tmp_path):
     """P0400-RESTORE-RELINK (PFS-2096.015): the link goes to main's library, not the other's."""
     main, _ = _synced_linked_archive(tmp_path, "relinkzip", main_has_wing=True)
     assert storage_module.ensure_sim_expanded(main, "4201", reason="test")
@@ -132,7 +132,7 @@ def test_a_synced_archive_restores_its_inputs_link_into_mains_library(tmp_path):
     assert Path(os.path.realpath(inputs)) == (main.inputs_dir / "geometries" / "wing").resolve()
 
 
-def test_a_restore_that_cannot_link_inputs_records_it_and_warns(tmp_path):
+def test_p0400_a_restore_that_cannot_link_inputs_records_it_and_warns(tmp_path):
     """P0400-RESTORE-NOLINK (PFS-2085.011): an empty inputs folder is recorded and warned."""
     main, other = _synced_linked_archive(tmp_path, "nolink", main_has_wing=False)
     with pytest.warns(PyflightstreamWarning, match="empty folder"):
@@ -147,7 +147,7 @@ def test_a_restore_that_cannot_link_inputs_records_it_and_warns(tmp_path):
 # --------------------------------------------------------------------------- PFS-2096.016
 
 
-def test_two_readers_of_one_compacted_simulation_restore_it_once(tmp_path, monkeypatch):
+def test_p0400_two_readers_of_one_compacted_simulation_restore_it_once(tmp_path, monkeypatch):
     """P0400-RESTORE-RACE (PFS-2096.016): the second reader waits and finds it restored."""
     workspace = _ws(tmp_path, "tworeaders")
     archive = _compacted(
@@ -193,7 +193,9 @@ class _Clock(dt.datetime):
         return local if tz is None else (local + dt.timedelta(hours=3)).replace(tzinfo=tz)
 
 
-def test_storage_archives_runs_on_the_package_clock_and_never_over_a_copy(tmp_path, monkeypatch):
+def test_p0400_storage_archives_runs_on_the_package_clock_and_never_over_a_copy(
+    tmp_path, monkeypatch
+):
     """P0400-ARCHIVE-CLOCK (PFS-2096.026): restore takes the newest copy, and none is lost."""
     monkeypatch.setattr(dt, "datetime", _Clock)
     workspace = _ws(tmp_path, "clock")
@@ -213,7 +215,7 @@ def test_storage_archives_runs_on_the_package_clock_and_never_over_a_copy(tmp_pa
 # --------------------------------------------------------------------------- delete-sims
 
 
-def test_a_repeated_id_writes_one_tombstone(tmp_path):
+def test_p0400_a_repeated_id_writes_one_tombstone(tmp_path):
     """P0400-DELETE-DEDUP (PFS-2103.041): one note row per simulation, run ids unique."""
     workspace = _ws(tmp_path, "dedup")
     _recorded_sim(workspace, "4501", {"scripts/point.fs": "s"})
@@ -225,7 +227,7 @@ def test_a_repeated_id_writes_one_tombstone(tmp_path):
     assert [item["sim_id"] for item in entry["sims"]] == ["4501"]
 
 
-def test_an_interrupted_delete_is_recorded_and_a_rerun_finishes_it(tmp_path, monkeypatch):
+def test_p0400_an_interrupted_delete_is_recorded_and_a_rerun_finishes_it(tmp_path, monkeypatch):
     """P0400-DELETE-INTENT (PFS-2086.005): the stop is recorded; the same delete finishes it."""
     workspace = _shared_product_workspace(tmp_path, "interrupted")
     real = Path.replace
@@ -256,7 +258,7 @@ def test_an_interrupted_delete_is_recorded_and_a_rerun_finishes_it(tmp_path, mon
     assert [row for row in rows if row.get(DELETED) == "3001"]
 
 
-def test_delete_refuses_when_a_products_manifest_cannot_be_read(tmp_path):
+def test_p0400_delete_refuses_when_a_products_manifest_cannot_be_read(tmp_path):
     """P0400-DELETE-PRODUCTS (PFS-2086.006): a truncated products.json refuses, deleting nothing."""
     workspace = _shared_product_workspace(tmp_path, "truncated")
     manifest = workspace.root / "post" / "matriz" / "products.json"
@@ -270,7 +272,7 @@ def test_delete_refuses_when_a_products_manifest_cannot_be_read(tmp_path):
 # --------------------------------------------------------------------------- free-space
 
 
-def test_delete_extensions_records_a_submitted_simulation_it_skips(tmp_path):
+def test_p0400_delete_extensions_records_a_submitted_simulation_it_skips(tmp_path):
     """P0400-EXT-SUBMITTED (PFS-2093.006): the skipped simulation is recorded as refused."""
     workspace = _ws(tmp_path, "extsubmitted")
     _recorded_sim(workspace, "4601", {"datapoints/DP-1/a.vtk": "v"}, status=RunStatus.SUBMITTED)
@@ -280,7 +282,7 @@ def test_delete_extensions_records_a_submitted_simulation_it_skips(tmp_path):
 
 
 @pytest.mark.parametrize("value", ["-1", '"two"', "1.5", "true"])
-def test_post_archives_keep_latest_is_a_whole_number(tmp_path, value):
+def test_p0400_post_archives_keep_latest_is_a_whole_number(tmp_path, value):
     """P0400-KEEP-LATEST (PFS-2096.017): keep_latest is refused unless an integer 0 or more."""
     workspace = _ws(tmp_path, "keeplatest")
     stamp = workspace.root / "post" / "matriz" / ARCHIVE_DIR / "20260101-000000"
@@ -291,7 +293,7 @@ def test_post_archives_keep_latest_is_a_whole_number(tmp_path, value):
     assert (stamp / "polar.csv").is_file()
 
 
-def test_a_later_step_naming_a_compacted_sim_is_refused_before_any_step(tmp_path):
+def test_p0400_a_later_step_naming_a_compacted_sim_is_refused_before_any_step(tmp_path):
     """P0400-RECIPE-CHECKED (PFS-2096.027): the preview refuses what the apply would."""
     workspace = _ws(tmp_path, "checked")
     _recorded_sim(workspace, "4901", {**FULL, "datapoints/DP-1/a.vtk": "v"})
@@ -309,7 +311,7 @@ def test_a_later_step_naming_a_compacted_sim_is_refused_before_any_step(tmp_path
     assert not _zip(workspace, "4901").exists()
 
 
-def test_an_applied_recipe_that_stops_part_way_is_recorded(tmp_path, monkeypatch):
+def test_p0400_an_applied_recipe_that_stops_part_way_is_recorded(tmp_path, monkeypatch):
     """P0400-RECIPE-PARTIAL (PFS-2096.027): the steps done and the error are recorded."""
     workspace = _ws(tmp_path, "partial")
     _recorded_sim(workspace, "4911", FULL)
@@ -331,7 +333,7 @@ def test_an_applied_recipe_that_stops_part_way_is_recorded(tmp_path, monkeypatch
     assert [item["sim_id"] for item in last["steps"][0]["sims"]] == ["4911"]
 
 
-def test_a_compaction_that_fails_while_zipping_leaves_no_partial_zip(tmp_path, monkeypatch):
+def test_p0400_a_compaction_that_fails_while_zipping_leaves_no_partial_zip(tmp_path, monkeypatch):
     """P0400-COMPACT-TMP (PFS-2096.029): the temporary zip is removed on a failed write."""
     workspace = _ws(tmp_path, "ziptmp")
     _recorded_sim(workspace, "4921", FULL)
@@ -347,7 +349,7 @@ def test_a_compaction_that_fails_while_zipping_leaves_no_partial_zip(tmp_path, m
     assert workspace.sim_dir("4921").is_dir()
 
 
-def test_compaction_verifies_each_member_by_streaming_it(tmp_path, monkeypatch):
+def test_p0400_compaction_verifies_each_member_by_streaming_it(tmp_path, monkeypatch):
     """P0400-COMPACT-STREAM (PFS-2101.001): no member is read whole into memory."""
     workspace = _ws(tmp_path, "stream")
     _recorded_sim(workspace, "4931", FULL)
@@ -374,7 +376,7 @@ def _exited_pid() -> int:
     return int(done.stdout)
 
 
-def test_a_lock_left_by_a_dead_process_does_not_stop_free_space_which_holds_the_lease(
+def test_p0400_a_lock_left_by_a_dead_process_does_not_stop_free_space_which_holds_the_lease(
     tmp_path, monkeypatch
 ):
     """P0400-LEASE-DEAD (PFS-2094.047): the lease's rules recover it; free-space holds the lease."""
@@ -398,7 +400,7 @@ def test_a_lock_left_by_a_dead_process_does_not_stop_free_space_which_holds_the_
     assert not lock.exists()
 
 
-def test_sync_reads_another_workspace_whose_lock_no_heartbeat_touched(tmp_path):
+def test_p0400_sync_reads_another_workspace_whose_lock_no_heartbeat_touched(tmp_path):
     """P0400-LEASE-STALE (PFS-2094.047): a stale lock there is not a run in progress."""
     main, other = _sync_pair(tmp_path, "stalelock")
     _recorded_sim(other, "4702", {"scripts/point.fs": "s"})
@@ -414,7 +416,7 @@ def test_sync_reads_another_workspace_whose_lock_no_heartbeat_touched(tmp_path):
 # --------------------------------------------------------------------------- PFS-2094.049
 
 
-def test_a_relative_sync_path_is_the_workspace_roots(tmp_path, monkeypatch):
+def test_p0400_a_relative_sync_path_is_the_workspace_roots(tmp_path, monkeypatch):
     """P0400-SYNC-RELATIVE (PFS-2094.049): path = "." names main from any working directory."""
     main, other = _sync_pair(tmp_path, "relpath")
     config = main.root / storage_module.SYNC_CONFIG

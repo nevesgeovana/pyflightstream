@@ -13,7 +13,7 @@ from tests.tier1_offline.test_raw_mesh_conditions import FILE_ROUTE, _case, _lib
 CP1252_TOML = 'name = "référence"\n'.encode("cp1252")
 
 
-def test_load_toml_names_a_file_that_is_not_utf8(tmp_path: Path):
+def test_p0400_load_toml_names_a_file_that_is_not_utf8(tmp_path: Path):
     """P0400-TOML-UTF8 (PFS-2095.035): a cp1252 artifact is refused by name, not by codec."""
     path = tmp_path / "setup.toml"
     path.write_bytes(CP1252_TOML)
@@ -23,14 +23,14 @@ def test_load_toml_names_a_file_that_is_not_utf8(tmp_path: Path):
     assert str(path) in message and "UTF-8" in message, message
 
 
-def test_load_toml_accepts_a_byte_order_mark(tmp_path: Path):
+def test_p0400_load_toml_accepts_a_byte_order_mark(tmp_path: Path):
     """P0400-TOML-BOM (PFS-2095.035): a UTF-8 file with a BOM, as PowerShell 5.1 writes, reads."""
     path = tmp_path / "setup.toml"
     path.write_bytes(b"\xef\xbb\xbf" + b'name = "x"\n')
     assert load_toml(path, "setup") == {"name": "x"}
 
 
-def test_a_sidecar_that_is_not_utf8_is_refused_by_name(tmp_path: Path):
+def test_p0400_a_sidecar_that_is_not_utf8_is_refused_by_name(tmp_path: Path):
     """P0400-SIDECAR-UTF8 (PFS-2095.035): the sidecar reader names a cp1252 sidecar."""
     sidecar = tmp_path / "wing.boundaries.toml"
     sidecar.write_bytes('boundaries = ["Étage"]\n'.encode("cp1252"))
@@ -40,7 +40,7 @@ def test_a_sidecar_that_is_not_utf8_is_refused_by_name(tmp_path: Path):
     assert str(sidecar) in message and "UTF-8" in message, message
 
 
-def test_migration_carries_the_points_file_and_companions_and_the_row_binds(tmp_path: Path):
+def test_p0400_migration_carries_the_points_file_and_companions_and_the_row_binds(tmp_path: Path):
     """P0400-MIGRATE-COMPANIONS (PFS-2096.013): the trailing-edge points file and the
     ``<stem>.*`` companions move with their geometry, a ``<stem>.v2`` geometry keeps a
     folder of its own, and the row still binds against the migrated library."""
