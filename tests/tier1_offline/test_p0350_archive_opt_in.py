@@ -108,3 +108,14 @@ def test_archive_and_force_overwrite_together_are_refused(tmp_path, capsys):
 
     assert stopped.value.code == 2
     assert "--archive" in capsys.readouterr().err
+
+
+def test_doc_post_archive_flags_state_the_same_default():
+    """The command help agrees that archive creation is opt-in (PFS-2113.010)."""
+    from pyflightstream.run._cli_parsers import _build_parser
+
+    parser = _build_parser()
+    help_text = " ".join(parser._subparsers._group_actions[0].choices["post"].format_help().split())
+    assert "writes no archive folder" in help_text
+    assert "use --archive to keep a copy" in help_text
+    assert "default still writes no archive" in help_text

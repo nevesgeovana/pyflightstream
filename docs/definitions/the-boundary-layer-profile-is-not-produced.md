@@ -13,8 +13,3 @@ The boundary-layer quantities of the surface come from the VTK export instead
 The independent `products.boundary_layer_integrals` request writes these actual
 cell quantities at configured section cuts; it never substitutes them for a
 velocity profile. See [boundary-layer products](../boundary-layer-products.md).
-
-**Run as a campaign writes it.** A point saves each plot to its own name,
-relative to its working directory, as every export of the point does; a run
-of that exact block on 26.124, two saves in a row, left both files in the
-working directory (RPT-067, its addendum).

@@ -45,7 +45,7 @@ simulation of theirs is collected, and plans them as before
 whether the row takes part at all, and `HIDDEN` whether the solver shows a
 window.
 
-**SIX COLUMNS ARRIVED AT v0.17.0** and each of them was expressible before,
+**SIX ADDITIONAL COLUMNS** are expressible in the row and setup artifacts:
 four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
 `CONFIGURATION` is your own name for what is in the wind, beside
 `AIRCRAFT`; it labels and configures nothing, and it reaches two places you
@@ -75,7 +75,7 @@ NO geometry cannot say so in the `GEOMETRY` column, because `-` there means
 `GEOMETRY:` key in `VAR_NAMES_VALUES`, and the upgrade leaves such a key
 where it found it for exactly that reason.
 
-**A FACT MAY NOT BE STATED IN BOTH HOMES.** A row that puts one of the six
+**A FACT MAY NOT BE STATED IN BOTH MATRIX HOMES.** A row that puts one of the six
 in its column AND as a key of the free cell is refused naming both, because
 two homes for one fact is how the two come to disagree.
 
@@ -479,7 +479,7 @@ file is not written. An id or a point the matrix does not carry is refused
 before anything runs, naming the ones that exist. A selected point that is
 already recorded follows the rules above (refused, `--resume`,
 `--force-rerun`). Without `--force-rerun-all`, `--sims` alone runs those
-simulations; in 0.33.0 that was refused.
+simulations;
 
 **A second run of the same matrix without `--resume`** is refused, as before,
 with exit status 2 and nothing run; the message says how many

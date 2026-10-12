@@ -28,7 +28,7 @@ test that checks it.
 
 ### The library
 
-`inputs/geometries/` holds nine saved simulations, every one SYNTHETIC:
+`inputs/geometries/` holds ten saved simulations, including the renamed wing `14_WING_RENAMED.fsm`, every one SYNTHETIC:
 a NACA 0012 wing and its half at two resolutions, a blunt body with a
 flat base, a blade and its physics-resolution twin, a pusher body with a
 two-blade rotor behind its base, and a twin-rotor body whose second rotor

@@ -138,8 +138,8 @@ it is not CPU time, and it is only meaningful between runs taken on the
 same machine under a comparable load. Two builds compared across two
 machines are not compared at all.
 
-Repeated runs of one point on one build are averaged, and the individual
-readings stay available as `view.cell(point, build).samples`. Runs that
-ended in a FAILED status are kept and counted rather than dropped, and
-the command line says how many there were: time to a failure is time,
-and it is not the time to an answer.
+Repeated runs of one point on one build are averaged over runs that reached an
+answer. Failed, clock-stopped, queued and log-less runs are counted separately
+and their times remain available as excluded samples. The command reports the
+excluded count and omits those times from cell means and comparisons. Mark a run
+failed or converged after review when its recorded status needs correction.

@@ -73,8 +73,7 @@ that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
 local run (FR-129) appears on every unsteady row; its script differs from
 the one 0.32.0 wrote by those three lines only, and its `march_strategy`
-stays `single_march`. That the counter leaves the results unchanged is owed
-by the licensed round of 0.33.0. The per-step history of
+stays `single_march`. RPT-112 measured no effect from the counter on 26.124, build 8172026. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 
@@ -117,8 +116,7 @@ plan rehearsal until a rotation null test settles the angular-velocity unit
 - the sense of rotation is not measured on that build;
 - the solver is never told the motion is a rotor.
 
-A licensed rotation null test of the RPT-047 kind must compare the azimuth
-reached with the azimuth stated. Use a build with a proved rotor unit meanwhile.
+The 26.100 build-compare sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT despite the rev/min input and absent rotor mark (build-compare finding 4; answer G77-0335).
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default
@@ -305,3 +303,5 @@ workstation or on the cluster with no cell changed. A profile that writes
 any point is submitted, naming the build and the table. A key that is not one
 registered build, `26.1` for instance, is refused when the profile is read. A
 profile that does not write the substitution is unaffected by the table.
+
+On the 26.100 rotor route, which states rev/min without a rotor mark, the sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT (build-compare finding 4; answer G77-0335).

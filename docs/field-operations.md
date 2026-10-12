@@ -23,10 +23,7 @@ distinct z. The post's per-point field files (`fields/<point>_field_NN.inflow.da
 from a pproc `[[probes]]` entry with `reusable_inflow = true`, see
 [sampled fields](sampled-fields.md)) are UNSTRUCTURED files of this form.
 
-**Units.** Metres and metres per second in the global frame, read and written
-as the files state them. Nothing is converted, rotated or interpolated. The
-row's `FREESTREAM_UNITS` states the units of the result as it states those of
-any file of the folder.
+**Units.** An undeclared `FREESTREAM_UNITS` uses the legacy no-conversion route; its coverage is unverified on MILLIMETER. `FREESTREAM_UNITS = "SI"` scales the file once into the simulation unit. `NATIVE` treats values as already in that unit. See [custom field units](custom-field-units.md).
 
 ## The operations
 

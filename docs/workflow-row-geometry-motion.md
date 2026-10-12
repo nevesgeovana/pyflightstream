@@ -106,7 +106,7 @@ TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {DISTANCE: -0
 ```
 
 Each record is ONE translation, and two records are two, in the order written.
-`DISTANCE` is in **metres**, as `ANGLE` is in degrees, and it moves the alias
+`DISTANCE` is in **metres**, as `ANGLE` is in degrees. The emitted surface move and frame origins carry an explicit `METER` unit and are converted from the simulation unit; a save whose unit cannot be read is refused. It moves the alias
 along ONE axis of the named frame, so a diagonal is two records. `AXIS` names a
 coordinate system and one of its axes exactly as a rotation's does, and `ALIAS`
 names exactly one word the reference declares. `AUX_FRAMES` names frames the

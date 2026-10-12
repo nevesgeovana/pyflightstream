@@ -179,11 +179,10 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
 
     PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
     same rule: the products are derived from the manifest and the collected
-    exports, so rewriting them after a resume adds the new points and can
-    destroy nothing, and a write error must not replace the campaign's own
-    outcome. ``pyfs-matrix post`` is the same writer run by hand; it archives
-    each existing product before rewriting it, and only ``--force-overwrite``
-    keeps no copy.
+    exports, so rewriting them after a resume adds the new points, and a write
+    error must not replace the campaign's own outcome. ``pyfs-matrix post`` is
+    the same writer run by hand; it writes no archive by default (FR-397), and
+    ``--archive`` opts into copying products before rewriting them.
     """
     where = workspace.products_dir(matrix_stem)
     try:

@@ -34,9 +34,7 @@ recorded for the run's last time step (`<point>_field_NN_step_<N>`, with
 `sampled_at = "last-time-step"` and the step in its provenance). Nothing is
 averaged over time. This serves an unsteady run without a rotor that settles
 to a steady regime, whose last time step gives a custom inflow for a
-quasi-steady rotor. The steady probe-point convention below was measured on a
-steady solve; its confirmation after an unsteady march is owed to a licensed
-run.
+quasi-steady rotor. RPT-153 measured the normal sample as the end-of-march state, within the vector criterion. It is not the step-N fluid-plot sample. The evidence covers 26.124 build 8172026 and 26.125 build 10052026, on twelve steps; no rotor-frame probe was tested.
 
 Each unsteady STEP of a fluid-plot entry produces a separate file. Positions in the resulting field
 are in REFERENCE coordinates and metres; velocity is absolute, in REFERENCE

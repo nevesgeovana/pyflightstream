@@ -39,9 +39,9 @@ code columns below are assigned here, densely from 1, so 999 is free in
 them by construction. The value columns are not ours: they carry
 iteration counts, angles and boundary indices, any of which can
 legitimately be 999, and read back a filled cell and a real setting
-equal to the fill are the same bytes. So an unknown flag is written as
-the provenance code `3` with the value columns EMPTY, and a caller may
-ask for empty CODE cells to be filled; asking to fill a value column is
+equal to the fill are the same bytes. A cell that does not apply is written
+`NA` by default. The `fill` option writes a numeric sentinel into code columns
+only; value columns are never filled, and asking to fill one is
 refused, naming the flags whose legal range contains the fill.
 
 ## Columns

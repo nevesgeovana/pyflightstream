@@ -1,9 +1,5 @@
 ## The additional post
 
-A scheduler submission is recorded as SUBMITTED, with no completed outputs.
-Collection requires stable exports and unchanged source/script hashes before
-recording EXTRACTED. Native scheduler logs remain native when EXPORT_LOG is
-disabled; scheduler acceptance text is never presented as a solver log.
 
 A row that names a second pproc, `ADDITIONAL_PPROC: p<id>`, has that pproc
 extracted from each recorded point's final saved simulation by
@@ -87,8 +83,7 @@ its old name and place included, is skipped `SCRIPT_DRIFT` naming the line
 distribution cited in it would be cut in the frame the file holds and not the
 one the pproc means. The boundaries are the run's and never today's file's:
 the names the run's record states or, when the record has no boundary names, the
-names read by the geometry's hash as the post's own tables read them (*The
-geometry's names*, above). A point whose row declares the boundaries in another order today is
+names read by the geometry's hash as the post's own tables read them ([the geometry's names](the-sections-table-and-which-row-is-which.md#the-geometrys-names)). A point whose row declares the boundaries in another order today is
 skipped `SCRIPT_DRIFT` naming both orders
 (`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`),
 and so is one whose names nothing on disk recovers while the geometry declares
