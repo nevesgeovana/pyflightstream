@@ -1642,12 +1642,29 @@ def test_products_re_exports_every_public_name_of_the_private_tables_module():
             elif isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
                 # A `try: import numpy` or an `if TYPE_CHECKING:` binds at
                 # module scope just as the top level does.
-                for attribute in ("body", "orelse", "finalbody", "handlers"):
-                    block = getattr(node, attribute, None) or []
-                    for item in block:
-                        inner = getattr(item, "body", None)
-                        found |= module_scope(inner if inner is not None else [item])
+                # EACH BLOCK IS A LIST OF STATEMENTS AT MODULE SCOPE: recursing on the
+                # statements, not on the ``body`` of each one, is what keeps a ``def`` or a
+                # ``class`` inside the block a name (and its locals not) (PFS-2135.030).
+                for attribute in ("body", "orelse", "finalbody"):
+                    found |= module_scope(getattr(node, attribute, None) or [])
+                for handler in getattr(node, "handlers", None) or []:
+                    found |= module_scope(handler.body)
         return found
+
+    planted = ast.parse(
+        "if True:\n"
+        "    def pub_fn():\n"
+        "        inner_local = 1\n"
+        "    class PubCls:\n"
+        "        pass\n"
+        "    PUB_OK = 1\n"
+        "try:\n"
+        "    pass\n"
+        "except ImportError:\n"
+        "    def in_handler():\n"
+        "        hidden = 2\n"
+    )
+    assert module_scope(planted.body) == {"pub_fn", "PubCls", "PUB_OK", "in_handler"}
 
     public = {name for name in module_scope(tree.body) if not name.startswith("_")}
     assert public, "the sweep found no public name at all, so it is measuring nothing"

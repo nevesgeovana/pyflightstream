@@ -847,8 +847,8 @@ def test_a_first_blade_off_the_four_anchor_angles_is_refused_with_its_angle():
         )
     message = str(raised.value)
     assert "37.0" in message
-    for anchor in ("0", "90", "180", "270"):
-        assert anchor in message
+    # The whole list, in the form the message prints: a bare "0" is inside "37.0".
+    assert "0.0, 90.0, 180.0, 270.0" in message, message
     assert script.render() == "\n", "the refusal must leave the script untouched"
 
 

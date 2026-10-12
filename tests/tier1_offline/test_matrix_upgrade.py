@@ -76,7 +76,9 @@ def test_upgrade_drops_fs_script_and_round_trips(tmp_path, source):
     workflow = before_header.index("WORKFLOW")
     for pol, cells in old_rows.items():
         row = after[pol]
-        assert row.pproc_code == "p" + cells[entry][1:] if cells[entry][:1] == "e" else cells[entry]
+        old_entry = cells[entry]
+        expected = ("p" + old_entry[1:]) if old_entry[:1] == "e" else old_entry
+        assert row.pproc_code == expected, (pol, old_entry, row.pproc_code)
         if cells[workflow] == "LEGACY":
             assert row.script_code == cells[script], "a LEGACY row keeps its recipe code"
             assert row.variables[RECIPE_VARIABLE] == cells[script]

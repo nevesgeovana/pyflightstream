@@ -114,16 +114,59 @@ def _callers(module: str) -> list[str]:
     )
 
 
+#: The two library functions of ``post.inflow_tools`` the section says no command calls. The
+#: module IS imported (by ``post/_installed_copies.py``, for the installed-frame functions), so
+#: the guard reads the CALLS of these names and not the import of the module (PFS-2135.072).
+HARMONICS_FUNCTIONS = ("blade_view_harmonics", "inflow_harmonics_map", "write_inflow_harmonics")
+
+
+def _called_names(source: str, names: tuple[str, ...]) -> set[str]:
+    """The names among ``names`` that ``source`` calls, as a bare name or an attribute."""
+    called: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            target = node.func
+            name = target.id if isinstance(target, ast.Name) else getattr(target, "attr", "")
+            if name in names:
+                called.add(name)
+    return called
+
+
+def _harmonics_callers() -> dict[str, list[str]]:
+    own = PACKAGE / "post" / "inflow_tools.py"
+    found: dict[str, list[str]] = {name: [] for name in HARMONICS_FUNCTIONS}
+    for path in sorted(PACKAGE.rglob("*.py")):
+        if path == own:
+            continue
+        for name in _called_names(path.read_text(encoding="utf-8"), HARMONICS_FUNCTIONS):
+            found[name].append(path.relative_to(PACKAGE).as_posix())
+    return found
+
+
 def test_a_module_with_no_caller_is_not_described_as_a_step_of_the_plan():
-    """P0320-ARCH-INFLOW: post.inflow_tools has no caller and the section says so."""
+    """P0320-ARCH-INFLOW: the harmonics functions have no caller and the section says so."""
     text = " ".join(_subsection("The inflow tools").split())
-    if _callers("post.inflow_tools"):
+    called = {name: files for name, files in _harmonics_callers().items() if files}
+    if called:
+        assert "no command calls them" not in text, (
+            f"the section says no command calls the harmonics functions, but {called} do"
+        )
         return
     assert "no command calls them" in text, (
-        "post.inflow_tools is imported by nothing in the package, and the section "
-        "describes its functions without saying that no command calls them"
+        "no package file calls the harmonics functions of post.inflow_tools, and the "
+        "section describes them without saying that no command calls them"
     )
     assert "The plan's inflow harmonics gain" not in text
+
+
+def test_the_harmonics_caller_reader_sees_a_call_and_ignores_an_import():
+    """P0320-ARCH-INFLOW: the control of the test above."""
+    source = "from pyflightstream.post.inflow_tools import inflow_harmonics_map\n"
+    assert _called_names(source, HARMONICS_FUNCTIONS) == set()
+    called = source + "def f(x):\n    return inflow_harmonics_map(x)\n"
+    assert _called_names(called, HARMONICS_FUNCTIONS) == {"inflow_harmonics_map"}
+    via_module = "def f(m, x):\n    return m.write_inflow_harmonics(x)\n"
+    assert _called_names(via_module, HARMONICS_FUNCTIONS) == {"write_inflow_harmonics"}
 
 
 def test_the_caller_detector_sees_a_caller():

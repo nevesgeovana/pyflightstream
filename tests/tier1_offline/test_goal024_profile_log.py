@@ -138,9 +138,14 @@ def test_goal024_profile_log_the_row_still_declares_its_log(tmp_path, meter_geom
     it is collected and how the run is judged; on such a machine the scheduler
     writes it and `collect` puts it there.
     """
+    from pyflightstream.cases import default_outputs
+
     case = _case("false", meter_geometry=meter_geometry)
-    assert case.outputs[-1].endswith("_log.txt")
     assert "EXPORT_LOG" not in _rendered(case)
+    # The declaration is the library's: the default outputs of a steady and of an
+    # unsteady row name the log whatever the row says about writing it.
+    for unsteady in (False, True):
+        assert "{name}_log.txt" in default_outputs(unsteady), unsteady
 
 
 def test_goal024_profile_log_export_log_false_with_no_native_log_is_refused(tmp_path):

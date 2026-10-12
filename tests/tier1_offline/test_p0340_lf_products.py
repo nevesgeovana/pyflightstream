@@ -712,7 +712,6 @@ def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
 
     receipt = snapshot_receipt()
     assert receipt["platforms"] == [_platform()]
-    assert _platform() in ("linux", "win32")
     assert receipt["line_ends_judged"] is True
     assert receipt["cr_files"] == 0
     assert receipt["differing"] == []
@@ -744,7 +743,7 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     lines = data.decode("utf-8").splitlines()
     fields = dict(line.split(": ", 1) for line in lines if ": " in line)
     assert lines[0].startswith("SHA: ") and len(lines[0]) == len("SHA: ") + 40
-    assert fields["PLATFORM"] in ("linux", "win32")
+    assert fields["PLATFORM"] == sys.platform
     assert int(fields["FILES_CHECKED"]) > 0 and int(fields["SCRIPTS_CHECKED"]) > 0
     assert fields["CR_FILES"] == "0"
     assert fields["GUARD_CONTROL"] == "caught 28 of 28"

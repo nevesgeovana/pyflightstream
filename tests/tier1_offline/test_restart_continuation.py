@@ -129,23 +129,66 @@ def test_goal020_restart_marches_the_remainder_and_not_the_rows_original_count()
     )
     script = Script("26.123")
     build_script(case, script)
-    text = script.render()
-    assert "120" in text
-    # The row's own count must NOT be what the solver is told to march.
-    assert "\n400\n" not in text
+    lines = script.render().splitlines()
+    # The count is the command's own argument: the remainder, never the row's 400.
+    assert "TIME_ITERATIONS 120" in lines, lines
+    assert not [line for line in lines if line.startswith("TIME_ITERATIONS 400")], lines
 
 
-def test_goal020_restart_imports_no_mesh_and_declares_no_boundaries():
-    """Everything the saved file carries is a line this script does not emit."""
-    case = _continuing_case(
-        "{ADDITIONAL_ITERS=120}",
-        **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
+def _over_a_raw_mesh(case: SimCase, tmp_path) -> SimCase:
+    """The same row over a raw mesh with its boundaries, which an ordinary row imports."""
+    from pyflightstream.cases import (
+        MeshImport,
+        RawMeshConditions,
+        TrailingEdgeMarking,
     )
+
+    return case.model_copy(
+        update={
+            "geometry": str(tmp_path / "rig.obj"),
+            "inventory": ("W", "B"),
+            "inventory_source": "sidecar",
+            "variables": {**case.variables, "LAST_ITERS_AVG": "100"},
+            "mesh_import": MeshImport(units="METER"),
+            "raw_mesh_conditions": RawMeshConditions(
+                trailing_edges=TrailingEdgeMarking(route="detect")
+            ),
+        }
+    )
+
+
+def test_goal020_restart_imports_no_mesh_and_declares_no_boundaries(tmp_path):
+    """Everything the saved file carries is a line this script does not emit.
+
+    The row carries a raw mesh. The CONTROL is the same row without the RESTART: it imports
+    the mesh, so the absence below is the continuation's and not the case's (PFS-2135.068).
+    """
+    continuing = _over_a_raw_mesh(
+        _continuing_case(
+            "{ADDITIONAL_ITERS=120}",
+            **{RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "120"},
+        ),
+        tmp_path,
+    )
+    ordinary = continuing.model_copy(
+        update={
+            "variables": {
+                key: value
+                for key, value in continuing.variables.items()
+                if key not in {RESTART_VARIABLE, RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE}
+            }
+        }
+    )
+    imported = Script("26.123")
+    build_script(ordinary, imported)
+    assert "IMPORT" in imported.render(), "the control row does not import its mesh"
+
     script = Script("26.123")
-    build_script(case, script)
+    build_script(continuing, script)
     text = script.render()
     assert "IMPORT" not in text
     assert "CREATE_NEW_COORDINATE_SYSTEM" not in text
+    assert SAVED in text
 
 
 def test_goal020_restart_refuses_a_row_with_nothing_to_continue():
