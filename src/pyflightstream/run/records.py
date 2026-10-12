@@ -222,10 +222,19 @@ def mark_failed(
 
     base = Path(root)
     manifest = base / DEFAULT_MANIFEST
+    # A BARE STRING IS REFUSED, NOT ITERATED (PFS-2089.009): "2006,2007" read
+    # character by character was refused as simulations 2, 0, 6.
+    if isinstance(sims, str):
+        raise RunsManifestError(
+            f'sims takes a list of ids, e.g. ["2006", "2007"] (CLI: --sims 2006,2007), '
+            f"not the string {sims!r}"
+        )
     ids = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
     only = {sim: tags for sim, tags in (points or {}).items() if sim not in ids}
     if not ids and not only:
-        raise RunsManifestError("name the simulations to mark, comma separated: 2006,2007")
+        raise RunsManifestError(
+            'name the simulations to mark in sims, e.g. ["2006", "2007"] (CLI: --sims 2006,2007)'
+        )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
 
