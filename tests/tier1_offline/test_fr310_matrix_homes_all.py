@@ -118,7 +118,7 @@ def test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup():
     assert _unresolved(parser) == {("collect", "baseline")}, requirement
 
 
-@pytest.mark.requirement("FR-380")
+@pytest.mark.requirement("FR-310")
 @pytest.mark.parametrize("layout", LAYOUTS)
 @pytest.mark.parametrize("command", sorted(MATRIX_ARGUMENTS))
 def test_fr310_each_command_resolves_its_matrix_over_both_homes(
@@ -185,10 +185,8 @@ def test_fr310_the_physics_matrix_of_qa_is_found_in_either_home(layout, tmp_path
 
 
 def test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control(tmp_path):
-    requirement = "FR-310"
     with pytest.raises(PhysicsEnvironmentError, match="holds no matrix"):
         physics_matrix(tmp_path)
-    assert requirement
 
 
 @pytest.mark.parametrize("named", [False, True], ids=["read-every-matrix", "--matrix"])
@@ -238,13 +236,11 @@ def test_fr310_rename_reads_the_matrix_from_either_home(layout, tmp_path):
 
 
 def test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control(tmp_path):
-    requirement = "FR-310"
     workspace, matrix, _ = _ran(tmp_path)
     _as_0_20(workspace, mach=0.2)
     shutil.move(matrix, tmp_path / "elsewhere.fs")
     with pytest.raises(WorkspaceError, match="inputs/matrices"):
         rename_workspace(_reopened(workspace), apply=False)
-    assert requirement
 
 
 def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
