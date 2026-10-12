@@ -20,7 +20,7 @@ record is ONE rotation and two records are two rotations in the order
 written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
 `PUSHER_SMRP-Y`, where the system is one the row's REFERENCE declares in
-its `[[frames]]` table (above) or one the package creates itself (`MRP` on
+its `[[frames]]` table ([reference frames](workflow-reference-artifact.md#the-reference-declares-the-studys-vocabulary)) or one the package creates itself (`MRP` on
 every run type; and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 
@@ -65,7 +65,7 @@ unaffected.
 The rotation is emitted after every frame exists and before any motion is
 created, on every run type. One row is one geometry, so the angles of a
 study are one row each, and the sweep column keeps its meaning: the
-reserved key `angle_sweep_deg` (the reserved-keys paragraph above) is
+reserved key `angle_sweep_deg` ([reserved keys](workflow-unsteady-rotor.md#a-rotor-row-states-the-decisions-and-the-arithmetic-is-derived)) is
 still read as a geometric rotation sweep of its own, and a row sweeping it
 beside an aerodynamic axis is refused as it always was; it is not the way
 to state the study's angles, `ROTATE` is.

@@ -7,8 +7,8 @@ What a reference artifact holds beyond the three lengths, the study's vocabulary
 The two reference files of [the input library](workflow-input-library.md) carry only the lengths the sweep table needed. A
 reference artifact also carries a FOURTH length for a propelled
 configuration, the moment point, and a `[rotor]` block. This is
-`inputs/references/r003.toml` in full, the same artifact the listing
-above summarises by its first three lengths:
+`inputs/references/r003.toml` in full, the same artifact the [input library's listing](workflow-input-library.md)
+summarises by its first three lengths:
 
 ```toml
 area_m2 = 10.0

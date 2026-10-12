@@ -1,6 +1,6 @@
 ## The solver's own plots
 
-A steady point, and an unsteady one (the first two),
+A steady point, and an unsteady one,
 saves the plots the solver draws of its own solve, next to its exports, one
 text file each:
 

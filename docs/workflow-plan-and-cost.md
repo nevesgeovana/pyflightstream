@@ -20,9 +20,9 @@ Warnings (2)
           (C:\cases\camp and C:\cases\camp\inputs\matrices): `sync` and the
           repeated-POL census do not see it. Move it into one of the two folders.
 
-[warning] helical Mach >= 1 on 2 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-          rotor PORT, M_hel 1.117; POL 9002 point M144RE438AL+000RPM06000, rotor PORT,
-          M_hel 1.117. ...
+[warning] advancing-tip Mach M_adv >= 1 on 2 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+          rotor PORT, M_adv 1.117 (M_hel 1.117); POL 9002 point M144RE438AL+000RPM06000,
+          rotor PORT, M_adv 1.117 (M_hel 1.117). ...
 
 Cases
   points: 0 ready, 4 blocked, 0 already recorded
@@ -36,11 +36,11 @@ Blocked points (4)
   ...
 
 Rotor Mach numbers
-  POL   point                    rotor       M_tip  M_hel
-  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
-  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
-  9002  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
-  9002  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+  POL   point                    rotor       M_tip  M_hel  M_adv
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
+  9002  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9002  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
 
 Solver setup per case
   POL 9001 (FlightStream 26.120, setup s002)
