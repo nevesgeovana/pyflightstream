@@ -18,9 +18,14 @@ Its first line is its header; the `ROTOR` column identifies the rotor on every r
 ### Where an unsteady point's numbers come from
 
 A steady point's row is built from the loads export. **An unsteady point's row
-is the average of the PLOTS history over the row's window**, the same window the
-unsteady polar and the reductions use, because the loads export of an unsteady
-run states the last time step, one instant of a cycle.
+is the average of the PLOTS history over the row's window**, because the loads
+export of an unsteady run states the last time step, one instant of a cycle.
+**Each rotor's table follows its own rotor's clock**, as each blade does
+([`per_blade`](per_blade.md#per_blade)): `LAST_REVS_AVG` counts that rotor's
+own revolutions, so on a row with several rotors turning at different rates
+each table averages over the stated number of its own revolutions, and its
+window in steps can differ from the clock rotor's, which the unsteady polar
+uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
 
 - **The history is the rotor's own six components in the global `MRP` frame**,
   `FX, FY, FZ, MX, MY, MZ` in Newtons, over the rotor's own families, general

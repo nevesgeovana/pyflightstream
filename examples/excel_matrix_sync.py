@@ -13,7 +13,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from pyflightstream.cases.matrix import _COLUMNS
+from pyflightstream.cases.matrix import MATRIX_COLUMNS
 from pyflightstream.workspace.excel import main
 from pyflightstream.workspace.excel_file import patch_cells, read_snapshot
 
@@ -22,13 +22,13 @@ def demonstrate(folder: Path) -> dict[str, Path]:
     """Create literal sample rows and exercise both explicit CLI transactions."""
     folder.mkdir(parents=True, exist_ok=True)
     source = folder / "demonstration.fs"
-    values = dict.fromkeys(_COLUMNS, "-")
+    values = dict.fromkeys(MATRIX_COLUMNS, "-")
     values.update(POL="001", RUN="1", DESCRIPTION="Before Excel edit", SWEEP_VALUES="0,2,4")
     source.write_text(
         "# Synthetic synchronization example; not a solver-ready campaign.\n"
-        + " | ".join(_COLUMNS)
+        + " | ".join(MATRIX_COLUMNS)
         + "\n"
-        + " | ".join(values[name] for name in _COLUMNS)
+        + " | ".join(values[name] for name in MATRIX_COLUMNS)
         + "\n",
         encoding="utf-8",
     )

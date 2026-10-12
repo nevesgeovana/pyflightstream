@@ -119,13 +119,19 @@ def test_a_boundary_cannot_be_assigned_twice_and_silently_renumber_ports(tmp_pat
 
 
 def test_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
+    """P0400-REMESH-INLET-LINE (PFS-2135.033): the remesh block names its own inlet."""
     case, _ = _port_case(tmp_path, remesh=True)
     script = _port_script()
     _setup_ports(case, script)
     text = script.render()
     assert text.index("CREATE_NEW_INLET") < text.index("REMESH_INLET")
     assert text.index("REMESH_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
-    assert "INLET 1" in text and "ELEMENTS 4" in text
+    # Read the lines after REMESH_INLET: "INLET 1" is also a substring of the
+    # CREATE_NEW_INLET line, so a search of the whole text cannot fail.
+    lines = text.splitlines()
+    at = lines.index("REMESH_INLET")
+    assert lines[at + 1] == "INLET 1"
+    assert lines[at + 3] == "ELEMENTS 4"
 
 
 @pytest.mark.parametrize("with_inlet, expected_index", [(True, 2), (False, 1)])

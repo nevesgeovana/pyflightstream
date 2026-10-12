@@ -57,7 +57,7 @@ build spells the same thing in its own vocabulary, the package writes
 that vocabulary, and the plan and the run record say what was chosen.
 What each run type does on each registered build:
 
-| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124 |
+| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124, 26.125 |
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
