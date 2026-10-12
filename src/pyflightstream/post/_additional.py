@@ -73,7 +73,7 @@ def _current_extraction(
             f"stale: the point's saved simulation {extraction.fsm} is "
             f"{(now or 'unrecorded')[:12]} in its record and the extraction opened "
             f"{extraction.fsm_sha256[:12]}; the point ran again, so extract it again "
-            "(pyfs-matrix post --additional-pproc)"
+            f"({_the_extraction_command(extraction)})"
         )
     folder = workspace.sim_dir(extraction.sim_id)
     saved = folder / extraction.fsm
@@ -89,8 +89,18 @@ def _current_extraction(
     # here is one the next --additional-pproc extracts again.
     changed = workspace.changed_extraction_file(extraction)
     if changed is not None:
-        return f"stale: {changed}; extract the point again (pyfs-matrix post --additional-pproc)"
+        return f"stale: {changed}; extract the point again ({_the_extraction_command(extraction)})"
     return None
+
+
+def _the_extraction_command(extraction: AdditionalRecord) -> str:
+    """Name the command that extracts a point again, its matrix included.
+
+    The CLI refuses ``--additional-pproc`` without the matrix (its rows carry the
+    ADDITIONAL_PPROC key), so a remedy that omits it names a command that fails.
+    """
+    matrix = extraction.matrix_stem or "<matrix>"
+    return f"pyfs-matrix post {matrix} --additional-pproc"
 
 
 def _additional_products(
