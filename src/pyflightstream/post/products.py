@@ -677,6 +677,7 @@ def write_campaign_products(
         **({"sims": sorted(selected)} if selected is not None else {}),
     }
     records: list[_LogRecord] = []
+    primary: BaseException | None = None
     token = _POST_REFUSES.set(check_frozen)
     verdict_token = _POST_VERDICTS.set({})
     caught: list[warnings.WarningMessage] = []
@@ -705,6 +706,7 @@ def write_campaign_products(
                     sims=selected,
                 )
             except BaseException as error:
+                primary = error
                 records.append(
                     _log_record(
                         "campaign",
@@ -746,11 +748,19 @@ def write_campaign_products(
                     # written from the same records, on a clean, a failed and
                     # an interrupted post alike, and even when the manifest
                     # cannot be read back, with what was collected before it.
-                    stream.writelines(_log_line(record) for record in records)
-                    _textio.write_text(
-                        out / _POST_LOG_JSON,
-                        json.dumps({**header, "records": records}, indent=1) + "\n",
-                    )
+                    # A LOG THAT CANNOT BE WRITTEN NEVER REPLACES THE ERROR THAT
+                    # STOPPED THE POST: a caller catching that error by its type
+                    # received an OSError instead. It rides on the error as a note.
+                    try:
+                        stream.writelines(_log_line(record) for record in records)
+                        _textio.write_text(
+                            out / _POST_LOG_JSON,
+                            json.dumps({**header, "records": records}, indent=1) + "\n",
+                        )
+                    except OSError as log_error:
+                        if primary is None:
+                            raise
+                        primary.add_note(f"the post log could not be written: {log_error}")
     finally:
         _POST_REFUSES.reset(token)
         _POST_VERDICTS.reset(verdict_token)
@@ -975,8 +985,16 @@ def _campaign_products(
             name: entry for name, entry in products_index.items() if (out / name).is_file()
         }
         manifest["products"] = products_index_on_disk
-        out.mkdir(parents=True, exist_ok=True)
-        _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
+        # The same rule as the post log: a manifest that cannot be rewritten is
+        # a note on the error that stopped the rebuild, never its replacement.
+        try:
+            out.mkdir(parents=True, exist_ok=True)
+            _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
+        except OSError as manifest_error:
+            error.add_note(
+                f"the interrupted manifest {out / PRODUCTS_MANIFEST} could not be written: "
+                f"{manifest_error}"
+            )
         raise
     return written
 
