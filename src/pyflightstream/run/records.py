@@ -284,13 +284,14 @@ def mark_failed(
     if not apply or not todo:
         return result
     workspace = CampaignWorkspace(base)
-    stamp = _now_stamp()
     at = dt.datetime.now(dt.UTC).isoformat()
     with manifest_lock(base):
         rows = read()
         todo, already = plan(rows)
         (base / ARCHIVE_DIR).mkdir(exist_ok=True)
-        archived = base / ARCHIVE_DIR / f"{manifest.stem}-{stamp}.json"
+        # THROUGH THE ONE HOME OF THE SPELLING (PFS-2096.006): a hand-built
+        # name overwrote an archive written within the same second.
+        archived = free_root_archive(base, DEFAULT_MANIFEST, _now_stamp())
         shutil.copy2(manifest, archived)
         for row in todo:
             row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
@@ -325,9 +326,10 @@ def restore(
 
     Exact and cheap: the archived bytes become the file again, unchanged. The
     archive forms read are ``archive/runs-<stamp>.json``, where ``sync``,
-    ``--force-rerun``, ``delete-sims`` and ``rename`` copy the manifest before
-    rewriting it; in the same form ``archive/storage_management-<stamp>.json``
-    and ``archive/additional-<stamp>.json``; and, beside a matrix's products,
+    ``--force-rerun``, ``delete-sims``, ``rename``, ``mark-failed`` and
+    ``mark-converged`` copy the manifest before rewriting it; in the same form
+    ``archive/storage_management-<stamp>.json`` and ``archive/additional-<stamp>.json``;
+    and, beside a matrix's products,
     ``post/<matrix>/archive/<stamp>/products.json`` and ``.../plan.json``.
     Every restore that applies archives the file it replaces in these forms.
     The writers of the storage record, the products record, the plan receipt
