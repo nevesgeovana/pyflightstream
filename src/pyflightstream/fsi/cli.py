@@ -150,7 +150,12 @@ def coupled_step(
         with _textio.open_text(cwd / ERROR_LOG, "a") as log:
             log.write(f"{stamp} coupled step failed in {cwd} ({argv_note})\n")
             log.write(traceback.format_exc() + "\n")
-        _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"failed_{stamp.replace(':', '-')}")
+        try:
+            _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"failed_{stamp.replace(':', '-')}")
+        except OSError as archive_error:
+            # Archival is evidence of this failure, not a replacement for it.
+            with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+                log.write(f"could not archive the failed call: {archive_error}\n")
         if echo_failure:
             _echo_failure(cwd, f"{type(exc).__name__}: {exc}")
         return 1

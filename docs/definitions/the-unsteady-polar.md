@@ -14,11 +14,8 @@
   row per point. Every file under `post/` comes from a sweep, so the name says
   what the file IS, the average of the unsteady history, and carries the `P`
   every per-point product carries. It was `<sim>_<name>_unsteady.csv` in 0.23.0.
-- **Each row opens with `POL`, then `FIRST_STEP`, `LAST_STEP`, `STEPS`**, the
-  window THAT point was averaged over, so the file says on its own that it is an
-  average and over what. The condition block follows, then `XMOM`, `YMOM`, `ZMOM`,
-  because the plots carry moments and a moment states nothing without its point.
-- **The super file's content is ADDED to this table**, after the plot columns:
+- **The columns are ordered once:** plots, eighteen axis coefficients per MRP group, `[equations]` columns, super-file content, then `MESH_FACES`. The window columns and condition context identify the averaged interval and point.
+- **The super file's content is ADDED to this table**, after the `[equations]` columns:
   the matrix row's cells, the record's scalars, each rotor's speed and diameter
   (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`), the solver
   flags. The super file is what the polar does not have; for an unsteady point it

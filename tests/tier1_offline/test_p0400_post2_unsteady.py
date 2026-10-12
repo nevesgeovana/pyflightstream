@@ -130,3 +130,9 @@ def test_p0400_frames_passages_of_unequal_phases_are_refused(steps):
 def test_p0400_frames_a_dividing_stride_keeps_its_windows():
     """P0400-FRAMES control: a stride dividing the passage cuts as before."""
     assert passage_windows(_series([0, 2, 4, 6, 8, 10]), period_steps=4) == [(0, 3), (4, 7)]
+
+
+def test_p0400_frames_a_zero_stride_is_a_catalogued_refusal():
+    """P0400-FRAMES: repeated step stamps cannot divide a passage into phases."""
+    with pytest.raises(MalformedOutputError, match="stride must be positive"):
+        passage_windows(_series([0, 0]), period_steps=1)

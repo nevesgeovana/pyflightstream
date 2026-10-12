@@ -1,5 +1,7 @@
 """The ``pyfs-matrix`` argument parser: every subcommand, option and help text.
 
+Size exemption: a declarative catalogue of command options and their argument readers.
+
 Private to :mod:`pyflightstream.run.cli`, which builds the parser through
 :func:`_build_parser` and dispatches the parsed command. The builders live
 apart from the commands they parse for so that the command line's own module
@@ -30,11 +32,14 @@ from typing import Any
 
 from pyflightstream._cli import for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
+    resolve_workflow,
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._cli_mesh import (
     add_degenerate_parser,
     add_inventory_parser,
@@ -47,8 +52,39 @@ from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_co
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
 from pyflightstream.workspace.costs import _SELECTED_COST_FILE
 from pyflightstream.workspace.hpc import _SELECTED_HPC
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
+
+
+def _whole_sims(args: argparse.Namespace) -> list[str]:
+    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
+    manifest = getattr(args, "runs", None) or "runs.json"
+    return split_typed_ids(
+        listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
+    )[0]
+
+
+def _parse_workflows(pairs: list[str]) -> dict[str, str]:
+    """Resolve repeated ``CODE=NAME`` options before any input file is opened."""
+    workflows: dict[str, str] = {}
+    for item in pairs:
+        code, separator, name = item.partition("=")
+        if not separator or not code.strip() or not name.strip():
+            raise CampaignConfigError(
+                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
+                f"maps to), got {item!r}; the registered types are "
+                f"{', '.join(workflow_names())}"
+            )
+        resolve_workflow(name.strip())
+        workflows[code.strip()] = name.strip()
+    return workflows
+
+
+def collect_interval_error(value: float | None) -> str | None:
+    """Return the refusal for an invalid settle interval from arguments or settings."""
+    if value is not None and not 0.0 < value < float("inf"):
+        return f"interval (CLI: --interval) takes a number of seconds above 0, not {value}"
+    return None
 
 
 def _a_word_that_means_false(word: str) -> bool:
@@ -1091,18 +1127,16 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="DESTROY an existing product instead of archiving it. Since v0.17.0 a "
-        "rebuild MOVES what is there into post/<matrix>/archive/<day and hour>/ and "
-        "then writes, so nothing is lost and nothing is refused; this is the escape "
-        "from that, it keeps no copy, and it asks for a confirmation first. Pass "
-        "--yes to answer that confirmation in a script",
+        help="Deprecated confirmation control. Rebuilds overwrite in place without an "
+        "archive by default; use --archive to keep a copy. This option adds an "
+        "explicit confirmation before rebuilding and does not change the archive policy. "
+        "Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",
         action="store_true",
-        help="answer the --force-overwrite confirmation. Only meaningful with it, and "
-        "refused without it: a flag that answers a question nobody asked is a flag "
-        "somebody will carry into the run that did ask",
+        help="Deprecated confirmation control for --force-overwrite. It confirms a "
+        "rebuild, whose default still writes no archive; --archive keeps a copy.",
     )
     post.add_argument(
         "--strict",

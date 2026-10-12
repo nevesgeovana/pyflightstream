@@ -10,7 +10,7 @@ slipstream_wake_stabilization = false
 ## Removing surfaces by name
 
 `delete_surfaces` lists the surfaces to remove. Each entry is a boundary name
-of the opened geometry, an alias of the row's setup, or a family (a name
+of the opened geometry, an alias of the row's reference, or a family (a name
 without its trailing number), and never an index. The workflow emits one
 `DELETE_SURFACES` per surface right after the geometry opens, before anything
 else cites a surface.

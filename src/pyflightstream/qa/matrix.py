@@ -677,18 +677,7 @@ def reduce_physics(
             f"({', '.join(versions)}), and a physics report is evidence of one build; two "
             "builds of one case set is a drift (pyfs-qa drift)."
         )
-    # PFS-2085.017. One version can be two programs: a rebuilt hotfix
-    # prints the same version, and a resumed run after the registry entry
-    # was repointed records the new binary beside the old one.
-    for field_name in ("fs_build", "fs_exe_sha256"):
-        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
-        if len(seen) > 1:
-            raise PhysicsEnvironmentError(
-                f"the records of {path.name} name {len(seen)} different {field_name} values "
-                f"({', '.join(seen)}) for FlightStream {versions[0]}, and a physics report "
-                "is evidence of one executable; two binaries of one case set is a drift "
-                "(pyfs-qa drift)."
-            )
+    _check_executable_records(records, path, versions[0])
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
     for case_id, case in PHYSICS_CASES.items():
@@ -753,6 +742,19 @@ def reduce_physics(
         executor=next((record.executor for record in records if record.executor), None),
         source=source or f"{path.name} in workspace {Path(workspace.root).name}",
     )
+
+
+def _check_executable_records(records: list[RunRecord], path: Path, version: str) -> None:
+    """Refuse records of distinct binaries even when their declared version agrees."""
+    for field_name in ("fs_build", "fs_exe_sha256"):
+        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
+        if len(seen) > 1:
+            raise PhysicsEnvironmentError(
+                f"the records of {path.name} name {len(seen)} different {field_name} values "
+                f"({', '.join(seen)}) for FlightStream {version}, and a physics report "
+                "is evidence of one executable; two binaries of one case set is a drift "
+                "(pyfs-qa drift)."
+            )
 
 
 def physics_from_workspace(
@@ -912,7 +914,15 @@ def drift_from_workspace(
         try:
             runs.append(
                 _run_one_side(
-                    root, path, side, canonical, exe, side_root, builds, name, references_dir
+                    root,
+                    path,
+                    side=side,
+                    canonical=canonical,
+                    exe=exe,
+                    side_root=side_root,
+                    builds=builds,
+                    name=name,
+                    references_dir=references_dir,
                 )
             )
         except (PyflightstreamError, OSError, ValueError) as error:
@@ -989,6 +999,7 @@ def drift_sides(
 def _run_one_side(
     root: str | Path,
     path: Path,
+    *,
     side: str,
     canonical: str,
     exe: str | Path,

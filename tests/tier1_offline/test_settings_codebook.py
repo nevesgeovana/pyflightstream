@@ -235,12 +235,12 @@ def test_asking_to_fill_a_value_column_is_refused_naming_the_flags():
 # --- the wide form ----------------------------------------------------------
 
 
-def test_the_wide_form_is_one_row_per_run_with_two_columns_per_flag():
+def test_the_wide_form_is_one_row_per_run_with_three_columns_per_flag():
     rows = settings_table([snapshot(), snapshot(aoa=2.0)], wide=True)
     assert len(rows) == 2
     columns = list(rows[0])
     assert columns[:2] == ["codebook_version", "run_index"]
-    assert len(columns) == 2 + 2 * len(FLAG_IDS)
+    assert len(columns) == 2 + 3 * len(FLAG_IDS)
 
     velocity = FLAG_IDS["SOLVER_SET_VELOCITY"]
     assert rows[0][f"f{velocity}_value"] == pytest.approx(30.0)

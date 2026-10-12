@@ -470,8 +470,10 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
             flat = _numbers(lines, size, "POLYGONS")
             try:
                 raw = np.asarray(flat, dtype=np.int64)
-            except ValueError as error:
-                raise MalformedOutputError(f"{path}'s POLYGONS hold a non-integer") from error
+            except (ValueError, OverflowError) as error:
+                raise MalformedOutputError(
+                    f"{path}'s POLYGONS hold an invalid or out-of-range integer"
+                ) from error
             starts: list[int] = []
             at = 0
             for _ in range(cells):
@@ -1177,6 +1179,24 @@ def _translate_surface_exports(
                         and aux.get("SOURCE_FRAME")
                         == f"the analysis loads frame, {placed.describe()}"
                     ):
+                        problems.append(
+                            f"{other} is preserved: source, frame or output provenance changed"
+                        )
+                        continue
+                    # Matching source metadata does not prove that the data
+                    # survived a partial write or a later edit. Reconstruct
+                    # the expected bytes without replacing the existing file.
+                    try:
+                        with tempfile.TemporaryDirectory(prefix="pyfs-surface-proof-") as scratch:
+                            expected = translate_vtk_surface(
+                                where / one,
+                                Path(scratch) / Path(other).name,
+                                frame=placed,
+                            )
+                    except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+                        problems.append(f"{other} is preserved: content proof failed: {error}")
+                        continue
+                    if expected["output_sha256"] != file_sha256(where / other):
                         problems.append(
                             f"{other} is preserved: source, frame or output provenance changed"
                         )

@@ -576,7 +576,12 @@ _CLOCKING_FRAME = re.compile(rf"^(?P<frame>.+){POSITION_SUFFIX.upper()}\d{{2}}$"
 
 
 def _radius_from_the_hub(
-    record: QsteadyRecord, frame: str | None, plane: str, offset: float
+    frame: str | None,
+    plane: str,
+    offset: float,
+    *,
+    hub_m: Sequence[float] | None,
+    axis_vector: Sequence[float] | None,
 ) -> float | None:
     """Return a station's ``Offset`` measured from the hub, or None where it cannot be placed.
 
@@ -595,8 +600,10 @@ def _radius_from_the_hub(
     normal = {"XZ": 1, "XY": 2}.get(str(plane).strip().upper())
     if name not in GEOMETRY_SECTION_FRAMES or normal is None:
         return offset
-    hub = [float(value) for value in record.hub_m]
-    axis = [float(value) for value in record.axis_vector]
+    if hub_m is None or axis_vector is None:
+        return None
+    hub = [float(value) for value in hub_m]
+    axis = [float(value) for value in axis_vector]
     unit = [0.0, 0.0, 0.0]
     unit[normal] = 1.0
     side = (
@@ -752,7 +759,13 @@ def add_reduced_frequency_to_sections(
     for row in rows:
         offset = _number(row[index["Offset"]])
         frame, family, plane = frame_of_row(row)
-        radius = None if offset is None else _radius_from_the_hub(record, frame, plane, offset)
+        radius = (
+            None
+            if offset is None
+            else _radius_from_the_hub(
+                frame, plane, offset, hub_m=record.hub_m, axis_vector=record.axis_vector
+            )
+        )
         if row[index["ROTOR"]] == alias and offset is not None and radius is None:
             unplaced = True
             notes.append(

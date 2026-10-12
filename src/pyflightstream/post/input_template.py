@@ -29,7 +29,7 @@ from typing import get_args
 
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases import FLAG_PHASES, RAW_PHASES, ActuatorBlock
-from pyflightstream.cases._setup_keys import TEMPLATE_SETTINGS_LEFT_OUT as _SETTINGS_LEFT_OUT
+from pyflightstream.cases import TEMPLATE_SETTINGS_LEFT_OUT as _SETTINGS_LEFT_OUT
 from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.matrix import COLUMN_MEANINGS
 from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS

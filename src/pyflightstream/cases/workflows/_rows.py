@@ -725,6 +725,105 @@ def rotor_mach_numbers(
     )
 
 
+def free_stream_direction(case: SimCase) -> tuple[float, float, float]:
+    """Return the unit vector of the point's free stream in the body frame.
+
+    ``(cos(alpha) cos(beta), -cos(alpha) sin(beta), sin(alpha))`` for the
+    incidence and sideslip the point resolves to (:func:`_angle`), the
+    convention every other reader of the free stream in this package uses;
+    both zero gives ``+X``.
+    """
+    return free_stream_direction_at(_angle(case, "alpha"), _angle(case, "beta"))
+
+
+def free_stream_direction_at(alpha_deg: float, beta_deg: float) -> tuple[float, float, float]:
+    """Return the unit free-stream vector for an incidence and sideslip in degrees."""
+    alpha = math.radians(alpha_deg)
+    beta = math.radians(beta_deg)
+    return (
+        math.cos(alpha) * math.cos(beta),
+        -math.cos(alpha) * math.sin(beta),
+        math.sin(alpha),
+    )
+
+
+def _unit_or_none(vector: tuple[float, float, float] | None) -> tuple[float, float, float] | None:
+    """Return ``vector`` scaled to length one, or None where it names no direction."""
+    if vector is None:
+        return None
+    length = math.sqrt(sum(component * component for component in vector))
+    if not math.isfinite(length) or length <= 1e-12:
+        return None
+    return (vector[0] / length, vector[1] / length, vector[2] / length)
+
+
+def advancing_tip_mach_number(
+    *,
+    rpm: float,
+    diameter_m: float,
+    velocity_m_per_s: float,
+    sonic_velocity_m_per_s: float,
+    flow_direction: tuple[float, float, float] | None = None,
+    axis: tuple[float, float, float] | None = None,
+) -> tuple[float, bool]:
+    """Return a rotor's advancing-tip Mach number and whether its axis was used (FR-176 R1).
+
+    The sibling of :func:`rotor_mach_numbers`, in the same home::
+
+        M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a
+
+    with ``V_ax`` the free-stream component along the rotor axis and
+    ``V_ip = |V - V_ax axis|`` the component in the rotor plane. It equals
+    ``M_hel`` in axial flow and ``(Omega R + V) / a`` edgewise. Where the
+    flow direction or the axis is not given (the row's rotor axis cannot be
+    resolved), it is the edgewise bound ``(Omega R + V) / a``, and the second
+    value is False so the plan can say so.
+
+    Parameters
+    ----------
+    rpm, diameter_m, velocity_m_per_s, sonic_velocity_m_per_s : float
+        As for :func:`rotor_mach_numbers`, with the same refusals.
+    flow_direction : tuple of float, optional
+        The free stream's direction, any non-zero length, in the frame of
+        ``axis`` (:func:`free_stream_direction`).
+    axis : tuple of float, optional
+        The rotor axis, any non-zero length, in the same frame.
+
+    Returns
+    -------
+    tuple
+        ``(M_adv, axis_used)``.
+
+    Raises
+    ------
+    CampaignConfigError
+        As :func:`rotor_mach_numbers`.
+
+    Examples
+    --------
+    >>> m_adv, used = advancing_tip_mach_number(
+    ...     rpm=3000.0, diameter_m=2.0, velocity_m_per_s=100.0, sonic_velocity_m_per_s=340.0,
+    ...     flow_direction=(1.0, 0.0, 0.0), axis=(0.0, 0.0, 1.0),
+    ... )
+    >>> round(m_adv, 4), used
+    (1.2181, True)
+    """
+    tip, _helical = rotor_mach_numbers(
+        rpm=rpm,
+        diameter_m=diameter_m,
+        velocity_m_per_s=velocity_m_per_s,
+        sonic_velocity_m_per_s=sonic_velocity_m_per_s,
+    )
+    tip_speed = tip * sonic_velocity_m_per_s
+    unit_axis = _unit_or_none(axis)
+    unit_flow = _unit_or_none(flow_direction)
+    if unit_axis is None or unit_flow is None:
+        return (tip_speed + velocity_m_per_s) / sonic_velocity_m_per_s, False
+    axial = velocity_m_per_s * sum(f * a for f, a in zip(unit_flow, unit_axis, strict=True))
+    in_plane = math.sqrt(max(velocity_m_per_s**2 - axial**2, 0.0))
+    return math.hypot(tip_speed + in_plane, axial) / sonic_velocity_m_per_s, True
+
+
 @dataclass(frozen=True)
 class RotorMach:
     """The tip and helical Mach numbers of one rotor or disc at one point, or why not.
@@ -749,6 +848,12 @@ class RotorMach:
     tip, helical : float or None
         ``M_tip`` and ``M_hel`` (:func:`rotor_mach_numbers`); None where
         ``note`` says why they are not known.
+    advancing : float or None
+        ``M_adv`` (:func:`advancing_tip_mach_number`, FR-176 R1); None where
+        ``tip`` is.
+    axis_resolved : bool
+        False where ``advancing`` is the edgewise bound ``(Omega R + V) / a``
+        because the row's rotor axis could not be resolved.
     note : str or None
         Why the two numbers are not known, naming the row; None where they are.
     kind : str
@@ -764,6 +869,8 @@ class RotorMach:
     helical: float | None
     note: str | None = None
     kind: str = "rotor"
+    advancing: float | None = None
+    axis_resolved: bool = False
 
     def record(self) -> dict[str, object]:
         """Return the JSON-ready entry the plan and the run record carry."""
@@ -775,6 +882,10 @@ class RotorMach:
             "sonic_velocity_m_per_s": self.sonic_velocity_m_per_s,
             "mach_tip": self.tip,
             "mach_helical": self.helical,
+            "mach_advancing": self.advancing,
+            "mach_advancing_bound": (
+                None if self.advancing is None else ("axis" if self.axis_resolved else "edgewise")
+            ),
             "note": self.note,
         }
 

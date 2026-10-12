@@ -30,7 +30,8 @@ import copy
 import math
 from collections.abc import Mapping
 
-from pyflightstream.cases import CampaignConfigError
+from pyflightstream._tokens import NOT_APPLICABLE
+from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.script._surface_averaging import (
     SurfaceAverageWindow,
     SurfaceAveragingWindow,
@@ -68,21 +69,25 @@ AZIMUTHAL = "azimuthal"
 
 def _positive(variables: Mapping[str, object], key: str) -> float | None:
     stated = variables.get(key)
-    if stated is None or isinstance(stated, bool):
+    if stated is None or str(stated).strip() in ("", "-", NOT_APPLICABLE):
         return None
     try:
-        value = float(str(stated).strip())
+        value = float(str(stated).strip()) if not isinstance(stated, bool) else math.nan
     except (TypeError, ValueError):
-        return None
-    return value if value > 0.0 else None
+        value = math.nan
+    if not math.isfinite(value) or value <= 0.0:
+        raise CampaignConfigError(
+            f"averaging window {key} = {stated!r} must be a finite positive number"
+        )
+    return value
 
 
 def stated_key(variables: Mapping[str, object]) -> tuple[str, float] | None:
     """Return ``(key, value)`` of the ONE averaging key the row states, or None.
 
-    None where the row states neither key, states one that is not a positive
-    number (the unstated cell ``-`` among them), or states BOTH: two ways to say
-    one window are a contradiction, and picking one would hide it.
+    None where the row states neither key (including the unstated cell ``-``).
+    An invalid value or both keys raise CampaignConfigError: picking a fallback
+    would hide a contradictory or invalid window.
 
     Parameters
     ----------
@@ -97,7 +102,13 @@ def stated_key(variables: Mapping[str, object]) -> tuple[str, float] | None:
     """
     revs = _positive(variables, LAST_REVS_AVG)
     iters = _positive(variables, LAST_ITERS_AVG)
-    if (revs is None) == (iters is None):
+    if revs is not None and iters is not None:
+        raise CampaignConfigError(
+            f"averaging window states both {LAST_REVS_AVG} = {revs:g} and "
+            f"{LAST_ITERS_AVG} = {iters:g}, two ways to say one window; "
+            "state only one averaging key"
+        )
+    if revs is None and iters is None:
         return None
     return (LAST_REVS_AVG, revs) if revs is not None else (LAST_ITERS_AVG, float(iters or 0.0))
 
@@ -121,17 +132,25 @@ def averaging_steps(variables: Mapping[str, object], *, per_revolution: float | 
     -------
     int or None
         The window's length in steps, at least 1, or None where the row states
-        no usable key or a count of revolutions meets no clock.
+        no key or a count of revolutions meets no clock. Invalid values and
+        windows shorter than one step raise CampaignConfigError.
     """
     stated = stated_key(variables)
     if stated is None:
         return None
     key, value = stated
-    if key == LAST_ITERS_AVG:
-        return max(int(round(value)), 1)
-    if per_revolution is None or per_revolution <= 0:
+    if key == LAST_REVS_AVG and (
+        per_revolution is None or not math.isfinite(per_revolution) or per_revolution <= 0
+    ):
         return None
-    return max(int(round(value * float(per_revolution))), 1)
+    length = value if key == LAST_ITERS_AVG else value * float(per_revolution or 0)
+    if not math.isfinite(length) or length < 1:
+        raise CampaignConfigError(
+            f"averaging window {key} = {value:g} spans {length:g} solver step(s), "
+            "which averages nothing or has no finite length. State a finite window "
+            "of at least one step."
+        )
+    return int(round(length))
 
 
 def averaging_span(

@@ -111,7 +111,7 @@ name in `boundaries`; the wing is always the first name.
 **`space = "REAL"` is refused when the row is planned.** Licensed round 2 on
 FlightStream 26.124 ran the same aileron in both forms: the PARAMETRIC form
 completed and its saved simulation differs from the wing without it, and the
-REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). No other
+REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). RPT-096 records the prior probe round. No other
 build measured it, so the plan refuses it on every build; write the limits as
 fractions of the span and leave `space` at `PARAMETRIC`. The round observed the
 PARAMETRIC aileron adding two boundaries after the wing's (`PYFS_AIL` and
@@ -172,5 +172,5 @@ fuselage saved simulations that differ in the per-face marks of the relaxed
 trailing edge. The eight-argument control-surface line was refused there, which
 is why the package writes all ten arguments. A run through a whole campaign row,
 the control surface in its ten-argument form and the effect of the shedding
-direction on a solution are still to be confirmed on a licensed run; the change
+direction on a solution were measured in RPT-126; the change
 log of the release says which of them were.

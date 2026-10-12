@@ -384,7 +384,7 @@
    "statements": 53,
    "positional": 2
   },
-  "probes/__init__.py:ProbeLattice._geometry_is_physical": {
+  "probes/lattice.py:ProbeLattice._geometry_is_physical": {
    "complexity": 11,
    "branches": 10,
    "statements": 20,
@@ -419,12 +419,6 @@
    "branches": 6,
    "statements": 21,
    "positional": 6
-  },
-  "qa/probes.py:_judge": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 21,
-   "positional": 5
   },
   "qa/probes.py:_run_probe": {
    "complexity": 2,
@@ -1403,10 +1397,8 @@
   "__init__.py": 9,
   "cases/__init__.py": 1128,
   "commands/__init__.py": 1199,
-  "farfield/__init__.py": 644,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "probes/__init__.py": 441,
   "script/__init__.py": 1954,
   "workspace/__init__.py": 2021
  },

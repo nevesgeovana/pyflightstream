@@ -34,8 +34,7 @@ ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
 
 `ACTUATOR` names the block; `ACTUATOR_RPM` is the speed in rev/min, a
 magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
-loading: `ACTUATOR_THRUST`, the net thrust in N (the ELLIPTICAL model, thrust
-given in NEWTONS as the manual recommends), or `PROFILE`, the stem of a file of
+loading: `ACTUATOR_THRUST`, the net thrust in the actuator block's `thrust_units` (default `NEWTONS`; the ELLIPTICAL model), or `PROFILE`, the stem of a file of
 the workspace's `inputs/profiles/` (the CUSTOM model). ONE DISC PER ROW. A
 reference declaring a disc changes nothing on a row that names none.
 
@@ -129,9 +128,8 @@ verified on 26.100 and 26.120 to 26.124; `SET_ACTUATOR_AXIS`,
 `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM` and `SET_PROP_ACTUATOR_SWIRL`
 are verified on 26.121 to 26.124, each by a probe reading the saved simulation.
 `SET_PROP_ACTUATOR_THRUST` and `ENABLE_ACTUATOR` ran without abort or logged
-error in the probes of 26.120 to 26.124, and their effect has never been
-observed, so they are documented only: a run can converge with the disc's
-thrust not applied and nothing here would say so. `SET_PROP_ACTUATOR_PROFILE`
+error in the probes of 26.120 to 26.124, and their effect is not promoted by a probe report. RPT-137 separately observed
+their wake effect on 26.124 in one case; the database statuses remain unchanged. `SET_PROP_ACTUATOR_PROFILE`
 ran on 26.124 under a licensed probe (RPT-070), which measured the file form
 above by reading the saved simulation, with no solve; it stays documented
 there, since what a profile the solver read does to the loads has not been
@@ -236,10 +234,10 @@ manual ties them:
 ```
 
 That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
-of z, over 16 m of span and 8 m of height. THE FILE IS IN METRES AND METRES PER
-SECOND, IN THE GLOBAL FRAME, as the simulation is: nothing is converted, and
-the rows are written to the solver as they are, which is how 26.124 reads them
-(the licensed probe T14, RPT-071, below).
+of z, over 16 m of span and 8 m of height. The unit behavior depends on `FREESTREAM_UNITS`: undeclared files use the legacy
+no-conversion route, whose MILLIMETER coverage is unverified; `SI` scales the
+file once into the simulation unit; `NATIVE` treats it as already in that unit.
+See [custom-field units](custom-field-units.md).
 
 THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
 custom field (T14), so a row stating one states `ALPHA` and `BETA` as 0, or

@@ -424,6 +424,11 @@ def _wheel_harmonics(
         blades=tuple((str(family),) for family in quasi.families_blades),
         diameter_m=float(quasi.diameter_m),
         azimuth_is_blade_one=False,
+        hub_m=quasi.hub_m,
+        axis_vector=quasi.axis_vector,
+        section_frames=_qsteady._section_frames(record.sections_layout)
+        if record.sections_layout is not None
+        else None,
     )
     return _write_harmonics(
         table,
@@ -487,6 +492,11 @@ def _harmonic_rotors(
                 blades=blades,
                 diameter_m=stated_diameter,
                 azimuth_is_blade_one=False,
+                hub_m=(block.x_m, block.y_m, block.z_m) if block is not None else None,
+                axis_vector=block.axis_vector if block is not None else None,
+                section_frames=_qsteady._section_frames(record.sections_layout)
+                if record.sections_layout is not None
+                else None,
             ),
             clock.get("steps_per_revolution"),
         )

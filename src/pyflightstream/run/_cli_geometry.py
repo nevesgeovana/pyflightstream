@@ -38,7 +38,11 @@ from pyflightstream.workspace._geometry_build import (
     plan_geometry_build,
     refuse_before_running,
 )
-from pyflightstream.workspace._geometry_convert import conversion_lines, instruction_from_sidecar
+from pyflightstream.workspace._geometry_convert import (
+    conversion_lines,
+    instruction_from_sidecar,
+    rows_for_built_geometries,
+)
 from pyflightstream.workspace.builds import resolve_build
 from pyflightstream.workspace.cli import register_command_group
 
@@ -124,6 +128,21 @@ def add_geometry_commands(subparsers: Any) -> None:
         metavar="TAG[,TAG...]",
         help="build only these variants of a [sweep], such as AIL+100",
     )
+    build.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        metavar="N",
+        help="run up to N variants of a [sweep] at once, 1 or 2 (default: 1); a variant "
+        "that fails beside another is run again alone",
+    )
+    build.add_argument(
+        "--rows",
+        metavar="POL",
+        help="print, per built geometry, the row POL of --matrix with its CONFIGURATION, "
+        "GEOMETRY and POL cells set for it; nothing is written into the matrix",
+    )
+    build.add_argument("--matrix", metavar="FILE", help="the run matrix --rows copies from")
     accept = verbs.add_parser(
         "accept",
         help="record that a built geometry was inspected",
@@ -213,11 +232,31 @@ def _runner(executable: Path):  # noqa: ANN202
     return run
 
 
+def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
+    """Print the matrix rows of --rows (FR-472 R5); refuse --rows without --matrix."""
+    if args.rows is None and args.matrix is None:
+        return
+    if args.rows is None or args.matrix is None:
+        raise InputArtifactError("--rows POL and --matrix FILE are given together")
+    cells = [
+        (
+            variant.tag,
+            f"{variant.instruction.name}."
+            + ("fsm" if "fsm" in variant.instruction.outputs else "obj"),
+        )
+        for variant in plan.variants
+    ]
+    print(f"rows copied from POL {args.rows} of {args.matrix} (place them yourself):")
+    for row in rows_for_built_geometries(args.matrix, args.rows, cells):
+        print(f"  {row}")
+
+
 def _cmd_build(args: argparse.Namespace) -> int:
     only = tuple(tag.strip() for tag in (args.only or "").split(",") if tag.strip())
     try:
         plan = plan_geometry_build(args.target, build=args.build, only=only)
         _print_plan(plan)
+        _print_rows(plan, args)
         if not args.apply:
             print("preview only: nothing was run and nothing was written; add --apply to build")
             return 0
@@ -233,6 +272,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
             overwrite=args.overwrite,
             png=args.png,
             package_version=_package_version(),
+            parallel=args.parallel,
         )
     except (InputArtifactError, ExecutorConfigurationError) as error:
         print(f"{error} {_NOTHING}", file=sys.stderr)
@@ -246,6 +286,8 @@ def _cmd_build(args: argparse.Namespace) -> int:
             f"built {item.folder.name}: {item.record.name}; open "
             f"{item.record.name.replace('.build.json', '.preview.vtk')} in ParaView"
         )
+        for note in item.notes:
+            print(f"  {note}")
         if not item.passed:
             print(f"  the audit failed: {', '.join(item.failed_gates)}", file=sys.stderr)
             status = 1

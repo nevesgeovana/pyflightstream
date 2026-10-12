@@ -187,8 +187,6 @@ def finish_extraction(workspace, record, context):
     (PFS-2103.008): a translation problem fails the extraction and the
     private copy is kept, whatever the declared files are.
     """
-    from pyflightstream.workspace import ExtractionStatus
-
     sim_dir, folder, original, copy = context
     relative = folder.relative_to(sim_dir).as_posix()
     completed = complete_extraction(
@@ -199,6 +197,28 @@ def finish_extraction(workspace, record, context):
         names=[f"{relative}/{name}" for name in record.declared_outputs],
         translations=record.surface_translations,
     )
+    return discard_extraction_copy(workspace, completed, copy)
+
+
+def discard_extraction_copy(
+    workspace: CampaignWorkspace, completed: AdditionalRecord, copy: Path
+) -> AdditionalRecord:
+    """Remove a successful extraction's private copy, recording cleanup failures as notes.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace holding the completed extraction.
+    completed : AdditionalRecord
+        The record already written; a failed extraction keeps its private copy.
+    copy : Path
+        The private saved simulation to remove after successful extraction.
+
+    Returns
+    -------
+    AdditionalRecord
+        The completed record, with a cleanup note when the copy remains.
+    """
     if completed.status is ExtractionStatus.EXTRACTED:
         # THE EXTRACTED ROW IS WRITTEN, so a copy that cannot be removed (a
         # file still held on a share) is a note on it, never a second row

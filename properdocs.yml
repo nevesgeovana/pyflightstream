@@ -189,6 +189,7 @@ nav:
               - Solver plots: definitions/the-solvers-own-plots.md
               - Boundary-layer profile: definitions/the-boundary-layer-profile-is-not-produced.md
               - Mesh face count: definitions/the-mesh-face-count.md
+              - Far-field family: definitions/the-far-field-family.md
           - Unsteady reductions:
               - Reductions: definitions/the-reductions-of-an-unsteady-point.md
               - time_average: definitions/time_average.md

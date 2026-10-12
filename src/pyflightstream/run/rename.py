@@ -711,18 +711,9 @@ def rename_workspace(
         return _rename_workspace_locked(workspace, apply=apply)
 
 
-def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
-    """Read, rename and replace while other manifest writers wait."""
-    report = RenameReport(applied=apply)
-    if not workspace.manifest_path.is_file():
-        raise WorkspaceError(
-            f"{workspace.manifest_path} is not there, so this is not a campaign workspace to "
-            "rename. Name the root that holds runs.json as workspace (CLI: --workspace)."
-        )
-    raw = workspace.read_raw_manifest()
-    report.records = len(raw)
+def _rename_plans(workspace, raw, report) -> list[_Plan | dict[str, Any]]:
+    """Plan every run in manifest order, retaining deletion notes as recorded."""
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
-    plans: list[_Plan] = []
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
     # EVERY ROW IN MANIFEST ORDER, a note as it is (PFS-2096.024): the
     # rewritten manifest was built from the plans alone, so every delete-sims
@@ -746,8 +737,22 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
             continue
         plan = _plan_record(record, row, report, claimed)
         if plan is not None:
-            plans.append(plan)
             ordered.append(plan)
+    return ordered
+
+
+def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
+    """Read, rename and replace while other manifest writers wait."""
+    report = RenameReport(applied=apply)
+    if not workspace.manifest_path.is_file():
+        raise WorkspaceError(
+            f"{workspace.manifest_path} is not there, so this is not a campaign workspace to "
+            "rename. Name the root that holds runs.json as workspace (CLI: --workspace)."
+        )
+    raw = workspace.read_raw_manifest()
+    report.records = len(raw)
+    ordered = _rename_plans(workspace, raw, report)
+    plans = [item for item in ordered if isinstance(item, _Plan)]
 
     if report.refusals:
         raise WorkspaceError(

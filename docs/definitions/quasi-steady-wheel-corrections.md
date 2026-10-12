@@ -29,8 +29,12 @@ point's `K_1P_MEAN` for a rotor component), and the coefficients `OFFSET_0P`,
 `GAIN_0P`, `GAIN_1P` and `PHASE_1P_DEG`. The rows of one component form a
 tensor grid over the axes whose values vary; an axis with one value is
 constant and constrains nothing. The coefficients are interpolated
-multilinearly inside the grid; a point outside it on a varying axis, or stating
-no value on one, is NEVER extrapolated: its corrected cells are `NA`, named in
+multilinearly inside the grid. `PHASE_1P_DEG` is unwrapped on the shorter arc
+before interpolation, using only corners with nonzero weight. If those phases
+do not fit within a common half-turn arc, the correction is refused with a
+reason; refine the grid to resolve the ambiguity. A point outside it on a
+varying axis, or stating no value on one, is NEVER extrapolated: its corrected
+cells are `NA`, named in
 `skipped` (`<corrected file>#point=<point>#component=<C>` for a rotor table or
 an average table, `<corrected harmonics>#component=<C>` for a station) and in a
 WARNING line of `post.log`. A file the post cannot read corrects nothing,

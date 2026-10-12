@@ -1001,7 +1001,10 @@ def solver_settings(
     jet_wake_decay_normalized_length : float, optional
         Distance at which a jet wake decays to a tenth of its initial
         strength, in MULTIPLES OF THE JET WAKE DIAMETER rather than in
-        length units. Solver default 100.0, minimum 1.0. Not available
+        length units. Solver default 100.0 through 26.124 and 10.0 on
+        26.125 (SRC-753 p.358), minimum 1.0. The 26.125 snapshot records
+        an omitted value as unknown until version defaults have a structured
+        database field. Not available
         on 26.100 (SRC-003 p.346).
     solver_stabilization : float, optional
         Maximum level of stabilization applied to the main convergence,
@@ -1556,9 +1559,9 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         identical lines and nothing anywhere recorded that only one
         survived (PFS-2011.02).
 
-        The message names BOTH call sites, because one naming only the
-        second sends the reader to the wrong line: the one they need to
-        change is usually the earlier one.
+        The message includes the earlier helper name stored by the script
+        and the conflicting path. The register does not store source file
+        names or line numbers.
 
     Notes
     -----

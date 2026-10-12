@@ -111,6 +111,10 @@ class RetiredName:
         One sentence of reason. It is part of the message because a
         rename with no reason reads as churn, and the next reader
         reverts it.
+    instead : str
+        The verb that introduces ``new`` in the message, ``Write`` unless
+        the replacement is not something to write (a name that left the
+        package says where it went).
     """
 
     owner: str
@@ -118,6 +122,7 @@ class RetiredName:
     new: str
     retired_in: str
     why: str
+    instead: str = "Write"
 
     def message(self, wrote: str | None = None) -> str:
         """Render the refusal text, which names the fix before the reason.
@@ -140,7 +145,7 @@ class RetiredName:
         said = wrote or self.old
         return (
             f"{said} of {self.owner} is no longer accepted since v{self.retired_in}. "
-            f"Write {self.new}. {self.why}"
+            f"{self.instead} {self.new}. {self.why}"
         )
 
 
@@ -281,6 +286,74 @@ RETIRED: tuple[RetiredName, ...] = (
 )
 
 
+#: THE FAR FIELD LEFT XARRAY IN 0.40.0 (FR-457, FR-458), by the decision of
+#: 2026-10-12 to break directly: a shim keeping these names alive would need
+#: the dependency that left. They are Python ATTRIBUTES, not spellings in a
+#: file, so they live here and not in :data:`RETIRED`, which the input readers
+#: match a file's text against; the module ``__getattr__`` of their owners asks
+#: :func:`retired_attribute` and raises :class:`RetiredAttributeError`.
+_THE_FAR_FIELD_IS_NUMPY = (
+    "The far field rests on numpy since v0.40.0 and xarray left the required "
+    "dependencies, so the xarray object this name dealt in has no shim."
+)
+_LEFT_FOR_ITACA = (
+    "It applies to an Euler CFD field, where total enthalpy and entropy exist, "
+    "and no FlightStream output carries either, so it left the package with no "
+    "deprecation release."
+)
+RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
+    "pyflightstream.farfield.lattice_dataset": RetiredName(
+        owner="pyflightstream.farfield",
+        old="lattice_dataset",
+        new=(
+            "pyflightstream.farfield.lattice_fields(lattice, fields), which returns the "
+            "numpy LatticeFields every far-field function takes"
+        ),
+        retired_in="0.40.0",
+        why=_THE_FAR_FIELD_IS_NUMPY,
+    ),
+    "pyflightstream.post.dataset_to_points": RetiredName(
+        owner="pyflightstream.post",
+        old="dataset_to_points",
+        new=(
+            "LatticeFields.points() of pyflightstream.farfield, which returns the same "
+            "(points, fields) pair"
+        ),
+        retired_in="0.40.0",
+        why=_THE_FAR_FIELD_IS_NUMPY,
+    ),
+    "pyflightstream.farfield.rothalpy": RetiredName(
+        owner="pyflightstream.farfield",
+        old="rothalpy",
+        new="ITACA, the sister library, where it was handed for evaluation",
+        retired_in="0.40.0",
+        why=_LEFT_FOR_ITACA,
+        instead="Look in",
+    ),
+    "pyflightstream.farfield.irreversible_deficit": RetiredName(
+        owner="pyflightstream.farfield",
+        old="irreversible_deficit",
+        new="ITACA, the sister library, where it was handed for evaluation",
+        retired_in="0.40.0",
+        why=_LEFT_FOR_ITACA,
+        instead="Look in",
+    ),
+}
+
+
+def retired_attribute(module: str, name: str) -> RetiredName | None:
+    """Return the retirement of a module attribute, or None.
+
+    Parameters
+    ----------
+    module : str
+        The ``__name__`` of the module asked.
+    name : str
+        The attribute asked for.
+    """
+    return RETIRED_ATTRIBUTES.get(f"{module}.{name}")
+
+
 def retired_key(key: str) -> RetiredName | None:
     """Return the retirement a top-level artifact key names, if any.
 
@@ -306,10 +379,12 @@ __all__ = [
     "REFERENCE_PROPELLER_DIAMETER",
     "REFERENCE_PROPELLER_TABLE",
     "RETIRED",
+    "RETIRED_ATTRIBUTES",
     "RETIRED_FRAME_CITATIONS",
     "RetiredAttributeError",
     "RetiredName",
     "WORKSPACE_ENGINE_POINT",
+    "retired_attribute",
     "retired_frame",
     "retired_key",
 ]

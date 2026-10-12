@@ -88,10 +88,10 @@ Coefficient normalization is a separate choice: `reference_velocity_m_per_s`,
 `reference_mach`, or the explicit `disable_reference_velocity = true` reset.
 Only one may be stated. With none present, the existing freestream reference
 velocity remains explicit. On 26.124/build 8172026, the measured reset changed
-a held 47.513 m/s reference to the 30 m/s freestream and then followed a subsequent
+a held 47.513 m/s reference to the 30 m/s freestream (RPT-081) and then followed a subsequent
 40 m/s freestream change. The saved override flag changed from true to false.
 
-The same build, at Mach 0.13, temperature 288.15 K and gamma 1.4, saved
+The same build (RPT-081), at Mach 0.13, temperature 288.15 K and gamma 1.4, saved
 44.2381515552 m/s through the Mach setter versus 44.2382184434 m/s through the
 velocity setter. The 1.51 ppm difference falls inside the 2 ppm acceptance bound
 for this control only. Mach and fluid inputs are not adjusted to hide native
@@ -105,6 +105,8 @@ in the existing free-variable cell:
 ```text
 ACTUATOR: {ACTUATOR: Left / ACTUATOR_RPM: 2000 / ACTUATOR_THRUST: 100}, {ACTUATOR: Right / ADVANCE_RATIO: 0.5 / ACTUATOR_THRUST: 200}
 ```
+
+Each referenced actuator block may state `thrust_units` and `wake_type`; `ACTUATOR_THRUST` uses that block's `thrust_units` (default `NEWTONS`).
 
 Each name selects its own reference actuator block. An advance ratio uses that
 block's diameter and the point velocity; RPM and loading belong to that record.

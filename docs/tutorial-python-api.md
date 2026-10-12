@@ -125,6 +125,7 @@ def steady_point(case, script):
         ref_length=1.0,
     )
     helpers.start_solver(script)
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
 ```
 
 ## 5. Declare the campaign
@@ -147,7 +148,7 @@ case = SimCase(
     geometry=str(geometry),
     sweep=SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
     recipe="tutorial:steady_point",
-    outputs=[],
+    outputs=["loads_{point}.txt"],
 )
 campaign = Campaign(
     name="polar",

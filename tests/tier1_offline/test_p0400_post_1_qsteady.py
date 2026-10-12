@@ -24,7 +24,9 @@ from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded,
 def test_p0400_clockingspeed_a_clocking_without_reference_velocity_is_named(tmp_path):
     """P0400-CLOCKINGSPEED: clocking 1 states no reference velocity; its point is left out."""
     workspace = _recorded_wheel(tmp_path)
-    (second,) = workspace.sim_dir("6001").rglob("*_qs01.txt")
+    record = next(record for record in workspace.read_manifest() if record.sim_id == "6001")
+    loads = workspace.sim_dir("6001") / record.outputs[0]
+    second = loads.with_name(f"{loads.stem}_qs01.txt")
     lines = second.read_text(encoding="utf-8").splitlines(keepends=True)
     second.write_text(
         "".join(line for line in lines if "Reference velocity" not in line), encoding="utf-8"

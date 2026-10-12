@@ -60,7 +60,15 @@ def test_p0400_probeplan_an_empty_plan_matches_an_empty_export_after_a_round_tri
 
 @pytest.mark.parametrize(
     ("spacing", "cells"),
-    [(0.7, 2), (0.4, 3), (0.5, 2), (0.1, 10), (1.5, 1)],
+    [
+        (0.7, 2),
+        (0.4, 3),
+        (0.5, 2),
+        (0.5 - 1e-10, 3),
+        (np.nextafter(0.5, 0.0), 3),
+        (0.1, 10),
+        (1.5, 1),
+    ],
 )
 def test_p0400_probeplan_spacing_never_exceeds_the_request(spacing, cells):
     """P0400-PROBEPLAN (PFS-2104.016) the snapped element size is at most the requested one."""

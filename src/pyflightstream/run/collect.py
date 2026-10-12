@@ -89,6 +89,7 @@ from pyflightstream.run._additional import (
     extraction_job_end,
     finish_extraction,
 )
+from pyflightstream.run._assessment import job_solver_identity
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._collect_logs import JOB_END_TAIL_LINES as JOB_END_TAIL_LINES
 from pyflightstream.run._collect_logs import LOG_SUFFIX as LOG_SUFFIX
@@ -1250,6 +1251,20 @@ def _sweep_point_entry(
     return entry, status, verdict, identity
 
 
+def _sweep_log_context(job_log: Path | None, sim_dir: Path) -> tuple[str | None, str | None]:
+    """Read the shared scheduler log and the provenance note for a steady job."""
+    if job_log is None:
+        return None, None
+    where = job_log.relative_to(sim_dir).as_posix() if job_log.is_relative_to(sim_dir) else job_log
+    note = (
+        "no solver log of its own: this machine's HPC profile states export_log = false, so "
+        f"the job's one log is the scheduler's, filed as {where} in the simulation folder, "
+        "where the job ran; each point is judged from its loads export"
+    )
+    text = job_log.read_text(encoding="utf-8", errors="replace") if job_log.is_file() else None
+    return note, text
+
+
 def _complete_sweep(
     workspace: CampaignWorkspace,
     record: RunRecord,
@@ -1277,7 +1292,6 @@ def _complete_sweep(
     ran, their files are on disk, and they are collected and judged.
     """
     from pyflightstream.run import worse_of
-    from pyflightstream.run._assessment import job_solver_identity
 
     submission = record.submission or {}
     by_point = submission["declared_by_point"]
@@ -1293,19 +1307,7 @@ def _complete_sweep(
     # (`_job_log_name`). No point is held to a log of its own, each is judged
     # from its loads export, and the job's log is read for the one import count
     # the job's script states. Every point, and the job, says where it is.
-    job_note: str | None = None
-    job_log_text: str | None = None
-    if job_log is not None:
-        where = (
-            job_log.relative_to(sim_dir).as_posix() if job_log.is_relative_to(sim_dir) else job_log
-        )
-        job_note = (
-            "no solver log of its own: this machine's HPC profile states export_log = false, so "
-            f"the job's one log is the scheduler's, filed as {where} in the simulation folder, "
-            "where the job ran; each point is judged from its loads export"
-        )
-        if job_log.is_file():
-            job_log_text = job_log.read_text(encoding="utf-8", errors="replace")
+    job_note, job_log_text = _sweep_log_context(job_log, sim_dir)
     for tag, owned in by_point.items():
         if job_log is not None:
             owned = [name for name in owned if not str(name).endswith(LOG_SUFFIX)]

@@ -99,7 +99,7 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
-from pyflightstream.run._additional import complete_extraction
+from pyflightstream.run._additional import complete_extraction, discard_extraction_copy
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
@@ -333,7 +333,11 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
             if not isinstance(helical, int | float):
                 unknown[str(mach.get("note"))] = None
                 continue
-            if helical < SONIC_HELICAL_MACH:
+            # FR-176 R1: the warning reads the advancing tip, which is M_hel in
+            # axial flow and the larger edgewise; a record without it reads M_hel.
+            advancing = mach.get("mach_advancing")
+            tip_mach = advancing if isinstance(advancing, int | float) else helical
+            if tip_mach < SONIC_HELICAL_MACH:
                 continue
             case = cases.get(entry.sim_id)
             try:
@@ -341,13 +345,18 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
             except CampaignConfigError:
                 name = entry.run_id
             kind = mach.get("kind") or "rotor"
-            sonic.append(f"POL {entry.sim_id} point {name}, {kind} {alias}, M_hel {helical:.3f}")
+            sonic.append(
+                f"POL {entry.sim_id} point {name}, {kind} {alias}, M_adv {tip_mach:.3f} "
+                f"(M_hel {helical:.3f})"
+            )
     if sonic:
         warn(
-            f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
-            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the geometric speed the blade tip "
-            "meets the flow at (free stream plus rotation, no induced velocity) over the "
-            "speed of sound, so at 1 or more the tip is sonic or supersonic. Nothing is "
+            f"advancing-tip Mach M_adv >= 1 on {len(sonic)} polar point(s): "
+            f"{'; '.join(sonic)}. "
+            "M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a is the speed the advancing "
+            "blade tip meets the flow at (free stream plus rotation, no induced velocity) "
+            "over the speed of sound, so at 1 or more the tip is sonic or supersonic; it "
+            "equals M_hel in axial flow and is larger in inclined flow. Nothing is "
             "refused; check these points before running them.",
             PyflightstreamWarning,
             stacklevel=3,
@@ -1415,6 +1424,8 @@ class AdditionalSkip(enum.StrEnum):
     SUPERSEDED = "SUPERSEDED"
     #: The point is still in a scheduler's queue.
     NOT_FINISHED = "NOT_FINISHED"
+    #: This point's additional extraction is still queued; collect it first.
+    EXTRACTION_SUBMITTED = "EXTRACTION_SUBMITTED"
     #: The record names no saved simulation, or the file it names is not there.
     NO_SAVED_SIMULATION = "NO_SAVED_SIMULATION"
     #: The file on disk does not hash as the record says, or the record holds no hash.
@@ -1486,6 +1497,22 @@ def _skipped(
         message=message,
         unsteady=str(point.recipe or "").startswith("unsteady"),
     )
+
+
+def _unfinished_extraction(point, done) -> tuple[AdditionalSkip, str] | None:
+    """Explain an unfinished solve or extraction without building another script."""
+    if point.status is RunStatus.SUBMITTED:
+        return (
+            AdditionalSkip.NOT_FINISHED,
+            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
+        )
+    if done is not None and done.status is ExtractionStatus.SUBMITTED:
+        return (
+            AdditionalSkip.EXTRACTION_SUBMITTED,
+            f"the extraction {done.extraction_id} is already submitted; "
+            "collect it (pyfs-matrix collect) before extracting again",
+        )
+    return None
 
 
 def _canonical(version: str) -> str:
@@ -1757,13 +1784,10 @@ def _plan_point(
             f"this run was continued by {superseded[point.run_id]}, whose saved simulation is "
             "the point's; that run is extracted instead",
         )
-    if point.status is RunStatus.SUBMITTED:
-        return _skipped(
-            point,
-            pid,
-            AdditionalSkip.NOT_FINISHED,
-            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
-        )
+    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
+    done = latest.get(extraction_id)
+    if (unfinished := _unfinished_extraction(point, done)) is not None:
+        return _skipped(point, pid, *unfinished)
     sim_dir = workspace.sim_dir(point.sim_id)
     fsm = classify_outputs(point.outputs).get("simulation")
     if fsm is None:
@@ -1795,8 +1819,6 @@ def _plan_point(
     artifact = resolved.additional_pprocs[pid]
     artifact_path = workspace.inputs_dir / "pproc" / f"{pid}.toml"
     pproc_sha256 = optional_file_sha256(artifact_path)
-    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
-    done = latest.get(extraction_id)
     if (
         done is not None
         and done.status is ExtractionStatus.EXTRACTED
@@ -2208,9 +2230,7 @@ def _extract(
         names=names,
         translations=translations if isinstance(translations, list) else None,
     )
-    if completed.status is ExtractionStatus.EXTRACTED:
-        copy.unlink(missing_ok=True)
-    return completed
+    return discard_extraction_copy(workspace, completed, copy)
 
 
 #: The suffix of a declared solver log, the log export kind's own.

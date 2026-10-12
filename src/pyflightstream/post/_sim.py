@@ -94,15 +94,14 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.custom_polar import write_custom_polar_format
+from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
     write_plots_table,
     write_probes_table,
     write_sections_table,
     write_unsteady_probes_table,
 )
-from pyflightstream.post.polar import (
-    POLAR_COLUMNS as POLAR_COLUMNS,
-)
+from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
     _unjudged_vorticity_drag,
@@ -228,6 +227,8 @@ class SimContext:
     )
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
+    #: FR-456 R9 (0.40.0): per point, the far-field cells of its super-file row.
+    farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
     #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
@@ -550,6 +551,7 @@ def _group_polars(ctx: SimContext) -> None:
     # table beside them is, with `kind: instant` and a line in post.log.
     instant = ctx.window is None and any(
         str(getattr(ctx.record_of.get(point.name), "recipe", "") or "").startswith("unsteady")
+        or str(point.loads.solver_mode).strip().casefold() == "unsteady"
         for point in ctx.points
     )
     if instant and groups:
@@ -922,10 +924,17 @@ def _probes_products(
     except ProductError as error:
         ctx.skipped[probe_relative] = str(error)
         return
-    if done is not None:
-        ctx.add(done, {"runs": ctx.sources[point.name]})
-        write_installed_probes(ctx, done, point.name)
-        _write_fields(ctx, done, point.name)
+    if done is None:
+        _retire_unwritten(
+            ctx,
+            probe_relative,
+            target,
+            "the probe points export declares no point, so no probes table is written",
+        )
+        return
+    ctx.add(done, {"runs": ctx.sources[point.name]})
+    write_installed_probes(ctx, done, point.name)
+    _write_fields(ctx, done, point.name)
 
 
 def _plots_products(
@@ -1416,6 +1425,9 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
+            # FR-456 R9 (0.40.0): the far-field TOTAL cells, after every other key.
+            for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
+                row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.
             row[MESH_FACES_COLUMN] = _mesh_faces_of(
                 ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0]), point.name
@@ -1447,6 +1459,8 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _rotor_table_products,
     _qsteady_rotor_products,
     _unsteady_polar_products,
+    # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
+    farfield_products,
     _superfile_drafts,
 )
 

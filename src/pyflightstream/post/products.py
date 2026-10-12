@@ -784,6 +784,15 @@ def write_campaign_products(
                         if primary is None:
                             raise
                         primary.add_note(f"the post log could not be written: {log_error}")
+    except (OSError, json.JSONDecodeError) as log_error:
+        # Buffered log writes can fail on context-manager exit, after the
+        # inner write guard has finished. A failed manifest rewrite can also
+        # leave partial JSON for the log reader. Keep the campaign's exception
+        # in both cases; a successful campaign still reports its log failure.
+        if primary is None or log_error is primary:
+            raise
+        primary.add_note(f"the post log could not be closed or read: {log_error}")
+        raise primary from None
     finally:
         _POST_REFUSES.reset(token)
         _POST_VERDICTS.reset(verdict_token)

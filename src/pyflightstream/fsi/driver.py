@@ -1006,13 +1006,13 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
                 f"the family map marks {len(wings)} structural families ({wings}); a "
                 "fixed-wing configuration is one cantilever, fed by one section distribution"
             )
-        ea_loads = to_elastic_axis(report.split(family_map)[wings[0]], cfg)
-        flap, torsion = _blade_densities(ea_loads, cfg.blade.station_radii_m)
-        total_normal_force = float(
-            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
+            report, family_map, wings, cfg
         )
         solution = wing.solve_wing_static(
-            cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion
+            cfg,
+            flap_load_n_per_m=flap_per_blade[0],
+            torsion_moment_n_m_per_m=torsion_per_blade[0],
         )
         return _StructuralSolve(
             solutions=(solution,),

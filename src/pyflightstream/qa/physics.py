@@ -1483,6 +1483,29 @@ def read_physics_report(path: str | Path) -> dict:
     return document
 
 
+def _refuse_unconverged_reference(case_id: str, case_body: dict, report_path: str | Path) -> None:
+    """Check historical as well as current reports before promoting steady evidence."""
+    # PHY-06 stores its paired polars as steady points followed by
+    # unsteady points (_reduce_case); only the steady half must converge.
+    points = case_body.get("points", [])
+    steady_points = points if case_id in {"PHY-01", "PHY-02"} else []
+    if case_id == "PHY-06":
+        if len(points) % 2:
+            raise QaEvidenceError(
+                f"{report_path} carries {len(points)} points for PHY-06, which requires "
+                "paired steady and unsteady polars; an incomplete pair cannot establish "
+                "which points are steady evidence. Write a complete report before "
+                "updating the reference"
+            )
+        steady_points = points[: len(points) // 2]
+    if any(point.get("converged") is not True for point in steady_points):
+        raise QaEvidenceError(
+            f"{report_path} carries an unconverged steady point for {case_id}; "
+            "references require converged steady evidence. Raise the iteration limit, "
+            "resume the run and write a new report before updating the reference"
+        )
+
+
 def update_reference(
     case_id: str,
     report_path: str | Path,
@@ -1540,7 +1563,8 @@ def update_reference(
         case, a metric it carries is neither in the existing
         reference nor declared by the case, the report lacks a metric
         the existing reference holds and ``drop`` does not name, or the
-        report lies outside ``repo_root``. A subclass of ``ValueError``,
+        report lies outside ``repo_root``, a steady point is unconverged,
+        or the resulting reference band is invalid. A subclass of ``ValueError``,
         so a caller written before the catalogue existed still catches
         it.
     """
@@ -1559,6 +1583,7 @@ def update_reference(
     case_body = report.get("cases", {}).get(case_id)
     if not case_body or not case_body.get("metrics"):
         raise QaEvidenceError(f"{report_path} carries no measured metrics for {case_id}")
+    _refuse_unconverged_reference(case_id, case_body, report_path)
     root = Path(repo_root).resolve()
     try:
         source_report = Path(report_path).resolve().relative_to(root).as_posix()
@@ -1600,7 +1625,10 @@ def update_reference(
                 f"metric {name!r} is neither in the existing reference nor declared "
                 f"by {case_id}; declare it in the case's metric specifications first"
             )
-        metrics[name] = {"value": float(value), "warn": warn, "fail": fail, "kind": kind}
+        # Validate before replacing the file: a zero-centred relative band
+        # must not be written successfully only to fail in load_reference.
+        band = ReferenceBand(value=float(value), warn=warn, fail=fail, kind=kind)
+        metrics[name] = {"value": band.value, "warn": warn, "fail": fail, "kind": kind}
     directory = Path(references_dir) if references_dir else _references_dir()
     if str(report["fs_version"]) == "26.125":
         directory = directory / "pressure-drag"

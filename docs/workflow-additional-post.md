@@ -148,7 +148,7 @@ already done and a continued run ask nothing
 **The executor is the one `run` would build**, so `--local` means the same
 thing. A submitting workspace records each extraction as
 `SUBMITTED`. The scheduler receives a separate working directory and a verified
-copy of the saved simulation. `pyfs-matrix collect <workspace>` waits for stable
+copy of the saved simulation. `pyfs-matrix collect --workspace <workspace>` waits for stable
 declared exports, checks the original simulation, script and private-copy hashes,
 translates the surface outputs, then records `EXTRACTED` and removes the copy.
 Submission alone never means extracted

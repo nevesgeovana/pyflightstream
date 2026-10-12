@@ -20,6 +20,8 @@ from pathlib import (
     Path,
 )
 
+import numpy as np
+
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
@@ -30,12 +32,19 @@ from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
 )
+from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
 )
 
 from ._export_first_step import (
     stated_threshold_keys,
+)
+from ._farfield import (
+    declared_lattices,
+    farfield_probes,
+    needs_fresh_probes,
+    warn_declared_inside,
 )
 from ._frames import (
     _pproc_frame,
@@ -169,6 +178,10 @@ def _pproc_probes(
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
+    # FR-455 (0.40.0): a steady point whose far field lays probes starts from
+    # none, as a sampled field does, so its export holds each point once.
+    sampled = sampled or (not unsteady and needs_fresh_probes(case))
+    declared: list[tuple[int, str, np.ndarray]] = []
     previous_layout = list(script.probe_field_layout)
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     for entry_number, probes in enumerate(pproc.probes, start=1):
@@ -201,6 +214,16 @@ def _pproc_probes(
                 )
         first_vertex = vertex + 1
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+        declared.append(
+            (
+                entry_number,
+                _the_probe_frame(case, probes.frame),
+                np.array(
+                    [p[1:4] for p in script.probe_points if first_vertex <= p[0] <= vertex],
+                    dtype=float,
+                ).reshape(-1, 3),
+            )
+        )
         if (probes.field_formats or probes.reusable_inflow) and vertex >= first_vertex:
             resolved_frame = _the_probe_frame(case, probes.frame)
             frame_index = (
@@ -233,6 +256,16 @@ def _pproc_probes(
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
+    # FR-455 and FR-459 R4 (0.40.0): the far field's plane and lattice after
+    # every declared point, then the inside-the-body check of the declared ones.
+    farfield_probes(
+        case,
+        script,
+        max((point[0] for point in script.probe_points), default=0),
+        unsteady=unsteady,
+        frames=frames,
+    )
+    warn_declared_inside(case, declared)
     if sampled and previous_layout and previous_layout != script.probe_field_layout:
         raise CampaignConfigError(
             "a steady job changed its sampled field layout between points; "
@@ -287,25 +320,14 @@ def _normal_probes_of(case: SimCase) -> bool:
         The pproc mixes the two kinds on this row, naming the entries of each.
     """
     pproc = case.pproc
-    if pproc is None or not pproc.probes:
+    if pproc is None:
         return False
-    normal = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind == "normal"]
-    if not normal:
-        return False
-    unsteady = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind != "normal"]
-    if pproc.volume_section is not None:
-        unsteady.append("[volume_section]")
-    if unsteady:
+    try:
+        return pproc.samples_normal_probes()
+    except CampaignConfigError as error:
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} mixes probe kinds "
-            f"on an unsteady row: unsteady (fluid plots at every time step) "
-            f"{', '.join(unsteady)}; normal (probe points at the last time step) "
-            f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
-            'way, an entry stating no kind counting as kind = "unsteady", and a '
-            "[volume_section] is sampled through fluid plots. State one kind on every "
-            "entry, or move the other entries to a second pproc on their own row."
-        )
-    return True
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} {error}"
+        ) from error
 
 
 #: FR-417: the commands that create the probe points of a normal entry.
@@ -440,93 +462,6 @@ PROBE_PROFILE_DIR = "profiles"
 PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
 
-def _rectangle_points(rectangle, scale: float) -> list[list[float]]:
-    """Lay out the grid of a rectangular probe plane, row by row (FR-79).
-
-    Three corners give two edge vectors from `origin`, and the grid runs along
-    both with BOTH ENDS INCLUDED, so a declaration of 3 by 4 is twelve points
-    and three of its corners are the three declared vertices. The order is v
-    fastest within u, which is the reading order of a row of stations.
-    """
-    origin = list(rectangle.origin)
-    edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
-    edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
-    out: list[list[float]] = []
-    for index_u in range(rectangle.points_u):
-        fraction_u = index_u / (rectangle.points_u - 1)
-        for index_v in range(rectangle.points_v):
-            fraction_v = index_v / (rectangle.points_v - 1)
-            out.append(
-                [
-                    round(
-                        (origin[axis] + edge_u[axis] * fraction_u + edge_v[axis] * fraction_v)
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
-def _circle_points(circle, scale: float) -> list[list[float]]:
-    """Lay out the polar grid of a circular probe plane (FR-79).
-
-    `points_radial` stations from the centre to the rim INCLUDING both, and
-    `points_azimuth` around. THE CENTRE APPEARS ONCE rather than once per
-    azimuth: a survey that sampled its own centre eight times would weight it
-    eight times in anything that averages the file.
-
-    The two in-plane axes are built from the normal by taking the world axis
-    least aligned with it, which is the standard way to get a stable basis and
-    avoids the degenerate cross product a fixed choice hits when the normal
-    happens to be that axis.
-    """
-    import math
-
-    normal = list(circle.normal)
-    length = math.sqrt(sum(value * value for value in normal))
-    normal = [value / length for value in normal]
-    least = min(range(3), key=lambda axis: abs(normal[axis]))
-    seed = [1.0 if axis == least else 0.0 for axis in range(3)]
-    first = [
-        seed[1] * normal[2] - seed[2] * normal[1],
-        seed[2] * normal[0] - seed[0] * normal[2],
-        seed[0] * normal[1] - seed[1] * normal[0],
-    ]
-    span = math.sqrt(sum(value * value for value in first))
-    first = [value / span for value in first]
-    second = [
-        normal[1] * first[2] - normal[2] * first[1],
-        normal[2] * first[0] - normal[0] * first[2],
-        normal[0] * first[1] - normal[1] * first[0],
-    ]
-
-    out: list[list[float]] = []
-    for index_r in range(circle.points_radial):
-        radius = circle.radius * index_r / (circle.points_radial - 1)
-        if radius == 0.0:
-            out.append([round(value * scale, 5) for value in circle.center])
-            continue
-        for index_a in range(circle.points_azimuth):
-            angle = 2.0 * math.pi * index_a / circle.points_azimuth
-            out.append(
-                [
-                    round(
-                        (
-                            circle.center[axis]
-                            + radius
-                            * (math.cos(angle) * first[axis] + math.sin(angle) * second[axis])
-                        )
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
 def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[float]]:
     """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.
 
@@ -595,7 +530,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 script, probes.resolved_points_file, units=script.simulation_length_unit
             )
             return vertex
-    if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
+    if not (
+        probes.points_file or probes.lines or probes.rectangles or probes.circles or probes.lattices
+    ):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -637,12 +574,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # simulation. Keep the recorded local points in native units, then
     # convert only this command boundary back to SI. Steady probes differ.
     for line in probes.lines:
-        for step in range(probes.points):
-            fraction = step / (probes.points - 1)
-            point = [
-                round((a + (b - a) * fraction) * scale, 5)
-                for a, b in zip(line.start, line.end, strict=True)
-            ]
+        for point in line_points(line.start, line.end, probes.points, scale):
             vertex += 1
             # FR-91. RECORDED BY THE LOOP THAT PLACES IT, so the position a
             # reader is given is the position the solver was given. It is
@@ -733,9 +665,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
     for rectangle in probes.rectangles:
-        lattice += _rectangle_points(rectangle, scale)
+        lattice += rectangle_points(rectangle, scale)
     for circle in probes.circles:
-        lattice += _circle_points(circle, scale)
+        lattice += circle_points(circle, scale)
+    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`.
+    lattice += declared_lattices(case, probes, native_per_m, unsteady=unsteady)
     for point in lattice:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one

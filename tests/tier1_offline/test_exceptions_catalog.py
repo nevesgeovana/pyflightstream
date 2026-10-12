@@ -803,7 +803,9 @@ _RATCHET = {
     # should raise a catalogued class, and when it does BOTH rows below
     # go, because the staleness guard will name them.
     "pyflightstream.run.cli._parse_recipes -> ValueError",
-    "pyflightstream.farfield._delta_psi -> ValueError",
+    # RE-KEYED in 0.40.0 (FR-457), not re-decided: the far field split into a
+    # numpy core and the azimuth check moved to `farfield.quadrature` with its site.
+    "pyflightstream.farfield.quadrature._delta_psi -> ValueError",
     "pyflightstream.fsi.driver._verified_layout -> ValueError",
     # RE-KEYED in 0.33.0 (AD-10, P0330-WP2), not re-decided: the parser moved
     # from `fsi.loads` to `results.sectional_loads` and the exemption followed
@@ -850,7 +852,7 @@ _RATCHET = {
 _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
-    "pyflightstream.farfield._delta_psi -> ValueError": 1,
+    "pyflightstream.farfield.quadrature._delta_psi -> ValueError": 1,
     "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,
     "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError": 2,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,

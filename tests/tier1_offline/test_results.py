@@ -980,10 +980,6 @@ _AD06_RESIDUALS = {
         "says the tables rest on pandas and that downstream code depends on the "
         "column schema rather than on the library holding the values"
     ),
-    ("pyflightstream.post.writers", "xarray"): (
-        "the labeled physical-field substrate (SRS AD-06); the writers take a "
-        "Dataset of sampled fields and flatten it to points"
-    ),
     ("pyflightstream.post.writers", "pydantic"): (
         "OutputProvenance is a validated model, and validation is a generic need "
         "the engineering policy sends to a public library; every layer of this "
@@ -1233,8 +1229,10 @@ def test_the_dependency_policy_admits_and_refuses_the_right_imports():
     pandas_source = "import pandas as pd\n"
     assert _unrecorded_third_party("pyflightstream.results.tables", pandas_source) == set()
     assert _unrecorded_third_party("pyflightstream.results.conditions", pandas_source) == {"pandas"}
+    # xarray left the runtime set in 0.40.0 (FR-457) and with it its residual:
+    # an import of it is refused in the module that held it, as anywhere.
     xarray_source = "import xarray as xr\n"
-    assert _unrecorded_third_party("pyflightstream.post.writers", xarray_source) == set()
+    assert _unrecorded_third_party("pyflightstream.post.writers", xarray_source) == {"xarray"}
     assert _unrecorded_third_party("pyflightstream.post.unsteady", xarray_source) == {"xarray"}
 
     # A fourth residual is refused wherever it lands.
