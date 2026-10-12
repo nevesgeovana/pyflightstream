@@ -270,6 +270,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--dir", type=Path, default=Path.cwd())
     p_step = sub.add_parser("step", help="execute one coupling step explicitly")
     p_step.add_argument("--dir", type=Path, default=Path.cwd())
+    p_external = sub.add_parser(
+        "external",
+        help=(
+            "run one coupling call of an external structural program: run it, archive "
+            "and validate the call (FR-462)"
+        ),
+    )
+    p_external.add_argument("--dir", type=Path, default=Path.cwd())
     return parser
 
 
@@ -293,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
         # FlightStream calls the executable bare: one coupling step,
         # coupled when the working directory carries a config.json.
         return _step(Path.cwd())
-    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
+    if argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
         # Unknown call convention: the Toolbox may pass arguments of its
         # own. Execute the coupling step anyway and record the arguments
         # as evidence instead of dying on argparse.
@@ -305,6 +313,10 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("a structural node list has at least one node")
         init_dummy(args.dir, args.node_count)
         return 0
+    if args.command == "external":
+        from pyflightstream.fsi.external import external_step
+
+        return external_step(args.dir)
     # The explicit step is run by a person at a console, so its failure is
     # also said there (PFS-2085.003); the bare call above is the solver's.
     return _step(args.dir, echo_failure=True)

@@ -219,8 +219,10 @@ from pyflightstream.cases.settings import (
     SolverToggle,
     point_state_key,
 )
+from pyflightstream.cases.sixdof import SixDofSpec
 from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 
@@ -949,6 +951,13 @@ class SimCase(BaseModel):
     solver: SolverSettings = Field(default_factory=SolverSettings)
     fsi: FsiConfig | None = None
     fsi_provenance: dict[str, Any] = Field(default_factory=dict)
+    #: FR-462 (0.40.0): the external structural program an FSI input of mode
+    #: "external" names, resolved and hashed by the plan; None otherwise. A
+    #: row couples a structure when this or ``fsi`` is set, never both.
+    fsi_external: ExternalStructure | None = None
+    #: FR-461 (0.40.0): the body a row's SIXDOF key frees, and its provenance.
+    sixdof: SixDofSpec | None = None
+    sixdof_provenance: dict[str, Any] = Field(default_factory=dict)
     recipe: str
     #: The row's own keys, and TWO THINGS THE RESOLVER WRITES beside them:
     #: a flat `ROTOR_ORIGIN` bound to a named reference point, and the

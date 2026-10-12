@@ -13,6 +13,8 @@ re-exports every one of them, so ``pyflightstream.cases.PprocSpec`` and
 ``pyflightstream.cases.pproc.PprocSpec`` are one class. This module imports
 :mod:`pyflightstream.cases.selection` for the family selectors and never the
 package root.
+
+Size exemption: one artifact schema, every table of the pproc file beside the model that reads it.
 """
 
 from __future__ import annotations
@@ -44,6 +46,11 @@ __all__ = [
     "EXPORT_KINDS",
     "EXPORT_KIND_MEANINGS",
     "EXPORT_KIND_SINCE",
+    "STREAMLINE_KINDS",
+    "TABLE_DECLARED_KINDS",
+    "StreamlineLine",
+    "StreamlineTube",
+    "StreamlinesSpec",
     "OPT_IN_EXPORT_KINDS",
     "PLOT_TYPES",
     "STEADY_ONLY_EXPORT_KINDS",
@@ -119,7 +126,24 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_sections_cp", "_plot_cp_sections.txt", "SAVE_PLOT_TO_FILE", False),
+    # FR-460 (0.40.0): the traced streamlines, declared only by a pproc's
+    # [streamlines] table. The surface file is written by the trace itself, in
+    # the analysis phase (its command is an analysis command); the off-body
+    # export is an export like the others.
+    ("streamlines_surface", "_sls.txt", "EXPORT_ALL_SURFACE_STREAMLINES", False),
+    ("streamlines_off_body", "_slo.txt", "EXPORT_ALL_OFF_BODY_STREAMLINES", False),
+    # FR-461 (0.40.0): a free body's trajectory, declared only by a row's SIXDOF
+    # input. Its command is a setup command, emitted with the motion it names.
+    ("trajectory_6dof", "_trajectory_6dof.txt", "EXPORT_6DOF_TRAJECTORY", True),
     ("log", "_log.txt", "EXPORT_LOG", False),
+)
+
+#: THE KINDS A TABLE OR AN INPUT DECLARES, never the default export set nor
+#: ``[exports]`` (0.40.0): the streamlines of a pproc's ``[streamlines]``
+#: (FR-460) and the trajectory of a row's ``SIXDOF`` input (FR-461). Each is
+#: written once, where its command sits, and never by a per-step action.
+TABLE_DECLARED_KINDS: frozenset[str] = frozenset(
+    {"streamlines_surface", "streamlines_off_body", "trajectory_6dof"}
 )
 
 #: The plot each solver-plot kind chooses with ``SET_PLOT_TYPE`` before its
@@ -157,6 +181,9 @@ EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
     "plot_residuals": (0, 27),
     "plot_loads": (0, 27),
     "plot_sections_cp": (0, 27),
+    "streamlines_surface": (0, 40),
+    "streamlines_off_body": (0, 40),
+    "trajectory_6dof": (0, 40),
 }
 
 
@@ -263,6 +290,7 @@ def default_outputs(
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady)
         and kind not in VOLUME_SECTION_KINDS.values()
+        and kind not in TABLE_DECLARED_KINDS
         and not (unsteady and not normal_probes and kind in STEADY_ONLY_EXPORT_KINDS)
         and wanted(kind)
     ]
@@ -1651,6 +1679,175 @@ class SurfaceProbeSpec(BaseModel):
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
 
+#: THE STREAMLINE KINDS (FR-460, 0.40.0): the surface friction lines and the
+#: off-body lines a ``[streamlines]`` table traces. Like the volume-section kinds
+#: they are not in the default export set and ``[exports]`` cannot name them: a
+#: point declares one only because its pproc traces it.
+STREAMLINE_KINDS: dict[str, str] = {
+    "surface": "streamlines_surface",
+    "off_body": "streamlines_off_body",
+}
+
+#: The broken single seed a streamline line of one would need (FR-460 R4):
+#: ``NEW_OFF_BODY_STREAMLINE`` aborts the script on 26.124 and exits with an
+#: access violation on 26.125 (the compatibility sweeps of the command database).
+BROKEN_SINGLE_SEED = "NEW_OFF_BODY_STREAMLINE"
+
+
+class StreamlineLine(BaseModel):
+    """A seed line of off-body streamlines, ``count`` of them from ``start`` to ``end``.
+
+    Attributes
+    ----------
+    frame : str
+        The frame the two vertices are stated in: one the run creates or the
+        reference declares, as ``[[probes]]`` names it.
+    start, end : tuple of three floats
+        The two vertices, in that frame and in ``scale``.
+    count : int
+        The number of streamlines, at least two; the solver seeds them evenly
+        from ``start`` to ``end`` (``NEW_STREAMLINE_DISTRIBUTION``, subdivisions
+        ``count + 1``).
+    scale : {'m', 'rotor_radius'}
+        The unit of the vertices, read as the ``[[probes]]`` table reads it.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    frame: str = "MRP"
+    start: tuple[float, float, float]
+    end: tuple[float, float, float]
+    count: int
+    scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
+
+    _frame_is_named = field_validator("frame")(_a_named_frame)
+
+    @field_validator("count")
+    @classmethod
+    def _two_or_more(cls, value: int) -> int:
+        if value < 2:
+            raise ValueError(
+                f"[[streamlines.lines]] count = {value}: a line seeds two streamlines or more. "
+                f"A single seed is {BROKEN_SINGLE_SEED}, recorded broken on 26.124 (the script "
+                "aborts at the command) and on 26.125 (an access violation), so it is never "
+                "emitted; state a line of two or more, from start to end"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _a_line_has_length(self) -> StreamlineLine:
+        if self.start == self.end:
+            raise ValueError(
+                f"[[streamlines.lines]] start and end are the same point {list(self.start)}: "
+                "a seed line needs two distinct vertices"
+            )
+        return self
+
+
+class StreamlineTube(BaseModel):
+    """A tube of off-body streamlines about one axis of a frame (``NEW_OFF_BODY_STREAMTUBE``).
+
+    Attributes
+    ----------
+    frame : str
+        The frame the tube is placed in; the solver takes its index.
+    axis : {'X', 'Y', 'Z'}
+        The axis of that frame the tube points along.
+    origin : tuple of three floats
+        The tube's centre, in that frame and in ``scale``.
+    radius : float
+        The tube's radius, in ``scale``, above zero.
+    radial, circular : int
+        The seed counts; the tube holds ``radial * circular`` streamlines.
+    scale : {'m', 'rotor_radius'}
+        The unit of ``origin`` and ``radius``.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    frame: str = "MRP"
+    axis: Literal["X", "Y", "Z"]
+    origin: tuple[float, float, float]
+    radius: float = Field(gt=0.0)
+    radial: int = Field(ge=1)
+    circular: int = Field(ge=1)
+    scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
+
+    _frame_is_named = field_validator("frame")(_a_named_frame)
+
+
+class StreamlinesSpec(BaseModel):
+    """The streamlines every point naming the artifact traces after its solve (FR-460).
+
+    Attributes
+    ----------
+    surface : bool
+        Trace the surface friction lines and export them.
+    direction : {'downstream', 'upstream'} or None
+        Which way every off-body streamline propagates; None leaves the solver's own.
+    length_m : float or None
+        How far every off-body streamline propagates, in metres.
+    unrestricted : bool
+        Propagate every off-body streamline until it leaves the domain.
+    vtk : bool
+        Write the package VTK polyline product of the off-body lines.
+    lines : list of StreamlineLine
+        The seed lines.
+    tubes : list of StreamlineTube
+        The seed tubes.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    surface: bool = Field(default=False, strict=True)
+    direction: Literal["downstream", "upstream"] | None = None
+    length_m: float | None = Field(default=None, gt=0.0)
+    unrestricted: bool = Field(default=False, strict=True)
+    vtk: bool = Field(default=True, strict=True)
+    lines: list[StreamlineLine] = Field(default_factory=list)
+    tubes: list[StreamlineTube] = Field(default_factory=list)
+
+    @property
+    def off_body(self) -> bool:
+        """Whether the table seeds any off-body streamline."""
+        return bool(self.lines or self.tubes)
+
+    def off_body_count(self) -> int:
+        """Return the number of off-body streamlines one point traces (FR-460 R3)."""
+        return sum(line.count for line in self.lines) + sum(
+            tube.radial * tube.circular for tube in self.tubes
+        )
+
+    @model_validator(mode="after")
+    def _a_table_that_traces(self) -> StreamlinesSpec:
+        if self.length_m is not None and self.unrestricted:
+            raise ValueError(
+                "[streamlines] states length_m and unrestricted = true, which the manual gives "
+                "as alternatives without saying what the solver does with both; state one"
+            )
+        if not (self.surface or self.off_body):
+            raise ValueError(
+                "[streamlines] traces nothing: state surface = true, a [[streamlines.lines]] "
+                "seed line or a [[streamlines.tubes]] tube"
+            )
+        stated = [
+            key
+            for key, value in (
+                ("direction", self.direction is not None),
+                ("length_m", self.length_m is not None),
+                ("unrestricted", self.unrestricted),
+            )
+            if value
+        ]
+        if stated and not self.off_body:
+            raise ValueError(
+                f"[streamlines] states {', '.join(stated)}, which apply to off-body "
+                "streamlines, and seeds none; add a [[streamlines.lines]] line or a "
+                "[[streamlines.tubes]] tube, or remove the key"
+            )
+        return self
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -1809,6 +2006,10 @@ class PprocSpec(BaseModel):
     #: Absent, the default, nothing is cut, declared or exported. An unsteady
     #: row naming an artifact that declares it is refused by its builder.
     volume_section: VolumeSectionSpec | None = None
+    #: FR-460 (0.40.0): the streamlines each point traces after its solve, the
+    #: surface friction lines and the off-body lines and tubes. Absent, the
+    #: default, nothing is traced, declared or exported.
+    streamlines: StreamlinesSpec | None = None
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
     #: FR-77: a LIST, so one artifact probes several frames on one row. It was
     #: a single table until 0.16.0 and a `[probes]` written that way is refused
@@ -1992,8 +2193,17 @@ class PprocSpec(BaseModel):
                 "by [volume_section] format, not by [exports]; a point exports the one "
                 "section its pproc declares, in the format that table names"
             )
+        traced = sorted(set(value) & TABLE_DECLARED_KINDS)
+        if traced:
+            raise ValueError(
+                f"[exports] names {', '.join(traced)}: a streamline export is declared by "
+                "the [streamlines] table (surface = true, a seed line or a tube) and the 6DOF "
+                "trajectory by the row's SIXDOF input, not by [exports]"
+            )
         kinds = [
-            kind for kind, _, _, _ in EXPORT_KINDS if kind not in VOLUME_SECTION_KINDS.values()
+            kind
+            for kind, _, _, _ in EXPORT_KINDS
+            if kind not in VOLUME_SECTION_KINDS.values() and kind not in TABLE_DECLARED_KINDS
         ]
         unknown = sorted(set(value) - set(kinds))
         if unknown:
@@ -2097,6 +2307,16 @@ class PprocSpec(BaseModel):
         for source in sources:
             if source not in names:
                 names.append(source)
+        if self.streamlines is not None:
+            # FR-460 R2: the files the traces are exported to.
+            suffix = {kind: end for kind, end, _, _ in EXPORT_KINDS}
+            traced = [STREAMLINE_KINDS["surface"]] if self.streamlines.surface else []
+            if self.streamlines.off_body:
+                traced.append(STREAMLINE_KINDS["off_body"])
+            for kind in traced:
+                name = f"{{name}}{suffix[kind]}"
+                if name not in names:
+                    names.append(name)
         return names
 
     def samples_normal_probes(self) -> bool:

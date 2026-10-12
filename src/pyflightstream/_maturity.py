@@ -49,6 +49,8 @@ MATURITY = {
     "pyflightstream.cases.selection": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.cases.settings": "provisional",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.cases.sixdof": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.cases.setup_surfaces": "provisional",
     # v0.30.0: cases/windows.py
@@ -87,6 +89,8 @@ MATURITY = {
     "pyflightstream.fsi.driver": "stable",
     # v0.30.0: fsi/errors.py
     "pyflightstream.fsi.errors": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.fsi.external": "provisional",
     # v0.30.0: fsi/kinematics.py
     "pyflightstream.fsi.kinematics": "stable",
     # v0.30.0: fsi/loads.py
@@ -159,6 +163,8 @@ MATURITY = {
     "pyflightstream.post.series": "stable",
     # v0.30.0: post/settings_table.py
     "pyflightstream.post.settings_table": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.post.streamlines": "provisional",
     # v0.30.0: post/superfile.py
     "pyflightstream.post.superfile": "stable",
     # v0.30.0: post/surfaces.py
@@ -297,6 +303,8 @@ MATURITY = {
     "pyflightstream.workspace.flight_condition": "stable",
     # v0.30.0: workspace/fsi_setup.py
     "pyflightstream.workspace.fsi_setup": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.workspace.fsi_external_setup": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.workspace.hpc": "provisional",
     # v0.30.0: workspace/inputs.py
@@ -319,6 +327,8 @@ MATURITY = {
     "pyflightstream.workspace.setup_standards": "stable",
     # Module path added after v0.30.0.
     "pyflightstream.workspace.sidecars": "provisional",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.workspace.sixdof_setup": "provisional",
     # v0.30.0: workspace/storage.py
     "pyflightstream.workspace.storage": "stable",
     # v0.30.0: workspace/trailing_edges.py

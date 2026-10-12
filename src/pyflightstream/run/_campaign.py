@@ -1601,7 +1601,9 @@ def _prepare_case(
                 None,
             )
         inputs_sha256 = {**inputs_sha256, field.name: file_sha256(field)}
-    if case.fsi is not None and case.fsi_provenance.get("source"):
+    if (case.fsi is not None or case.fsi_external is not None) and case.fsi_provenance.get(
+        "source"
+    ):
         source = Path(str(case.fsi_provenance["source"]))
         expected = case.fsi_provenance.get("source_sha256")
         if not source.is_file() or file_sha256(source) != expected:

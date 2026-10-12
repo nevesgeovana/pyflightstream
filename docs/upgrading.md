@@ -22,6 +22,19 @@ rule. Rebuild post products to apply the full span integration.
 This release also changes documentation page URLs. Old page links do not
 redirect and must be updated to the new site structure.
 
+New capabilities, nothing to migrate: a pproc may state `[streamlines]`
+([Streamlines from the pproc artifact](streamlines.md)); the `unsteady` row key
+`SIXDOF: d<id>` names a 6DOF input of `inputs/sixdof/`
+([One row: a body free to move](sixdof-motion.md)); an FSI input may state
+`mode = "external"` ([FSI with a structural program of your own](fsi-external.md))
+and `pyfs-fsi` gains the subcommand `external`. Output names ending in
+`_sls.txt`, `_slo.txt` or `_trajectory_6dof.txt` are read as streamline and
+trajectory exports; a row declaring its own outputs with those endings renames
+them. `plan.json` gains the key `streamlines` on a point whose pproc seeds
+off-body streamlines. The streamline and 6DOF commands are recorded from the
+manual only until the licensed probes run; on such a build a row reaching them
+is refused at plan, naming the command.
+
 ### The command that does it
 
 Run `pyfs-matrix post` to rebuild products from recorded solver exports.
