@@ -80,8 +80,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-43": "883cedfbb85f6121d26271efe4d636f7bf4733d8a6b90d9314928216e452d8bc",
     "FR-44": "7ef2451f1f1215fcb4a31c844aaac6db52098ab82687004cb14c9930a78f6515",
     "FR-45": "b3c7e4711b585b534344e4d55c03ec1825a2ccd3a9d67b4c92d889f3af780896",
-    # amended in 0.39.0 by FR-434 (MAX_ITER_REACHED joins the closed set), SRS 1.75.0
-    "FR-46": "e866584ed1fa07cf2888d35c87f520775f07532fc2e5f1129302ff7a1c44d70a",
+    # amended in 0.39.0 by FR-434 (MAX_ITER_REACHED joins the closed set), SRS 1.76.0
+    "FR-46": "8af17d50f8de84bda4a89becef2c1579e21f95b4dfad1fdd8ac790e83a789814",
     "FR-47": "79b6e547ac2465f4909928fe12fd1b8c9faaf48f3f358422b2c439059b270764",
     "FR-48": "5103a063d5b962358562031c69da755babc171f0e9ae3e49c2f9814d646bca63",
     "FR-49": "b8c4d1c27efe458ab545fc4369dc4cd3d6af65050e8ebcfac255b8c845cd06ac",
@@ -401,8 +401,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-410": "a5711be72694c5c38506bc01840f246e566c8d556e096473b571eac57f7cc220",
     "FR-411": "6b9a61ff17b400c53f32e079da127fcb68c9f46a8acf9a0e885cb16091f164f6",
     "FR-412": "377f03e01dab323e547726f542e434df73bff13a2d28f12205a0a61d5d595c47",
-    # amended in 0.39.0 by R8 (log names read from the job script), SRS 1.75.0
-    "FR-413": "ce5ed2e06ab381359f0e5763b23cf746c6df48edb95f9e2f31b31cae04bf4fb9",
+    # amended in 0.39.0 by R8 (log names read from the job script), SRS 1.76.0
+    "FR-413": "b63d6d3bf0f07e1c8d3a9b3f5c772d19999e2d89a9fc094eb78f04cdabee0927",
     "FR-414": "856398a4f6cb3c0d1e89e8df7fb7f43ab61a397db01f542259f73d7e13ce3c73",
     "FR-415": "d26bee038af4e273c8391aa7f328a36d7e89663f39291b936805184bb6f58f37",
     "FR-416": "eea7cfe0a9de5c234e4d21b1849bc65a24f2bba8d55c7cc9ed4bb1f176d13ebe",

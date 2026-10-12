@@ -3081,7 +3081,7 @@
   },
   {
    "id": "FR-413",
-   "text": "Plan: PFS-2078.01 (0.37.0); R8 PFS-2080.01 (0.39.0, pending).",
+   "text": "Plan: PFS-2078.01 (0.37.0); R8 PFS-2080.01 (0.39.0).",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner proposal of 2026-10-03 (a status RAN_MISSING_LOG could exist) and the rule of 2026-10-05 (the post does not refuse when the status is RAN_MISSING_LOG, it still runs), scope GOAL-044 item S1; amended by scope GOAL-049 item S1 (COLLECT-4023, R8). Verification: test, tests/tier1_offline/test_p0370_s1_ran_missing_log.py.*",
@@ -3219,57 +3219,57 @@
    "id": "FR-430",
    "text": "Plan: PFS-2080.02 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope decision of 2026-10-10, scope GOAL-049 item S2 (REF-FIRSTROW).*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-10, scope GOAL-049 item S2 (REF-FIRSTROW). Verification: test, tests/tier1_offline/test_p0390_firstrow.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-431",
    "text": "Plan: PFS-2080.03 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S3, a defect found after 0.38.0 on a multi-component panel mesh whose unselected cap families are two face layers deep; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names. Verification: test, tests/tier1_offline/test_p0390_bandswallow.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-432",
    "text": "Plan: PFS-2080.04 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package. The synthetic fixture the verification names shows the sizing that leads to it (the 0.38.0 target size at the shared curve) and writes no face of zero area; the faces of zero area are measured on the private multi-component mesh in RPT-164.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S4, a defect found after 0.38.0 on a multi-component panel mesh, where a family rebuilt at factor 1 beside a refined grid left faces under the zero-area threshold of gate G1; observed on the v0.38.0 package. The synthetic fixture the verification names shows the sizing that leads to it (the 0.38.0 target size at the shared curve) and writes no face of zero area; the faces of zero area are measured on the private multi-component mesh in RPT-164. Verification: test, tests/tier1_offline/test_p0390_zeroarea.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-433",
    "text": "Plan: PFS-2080.05 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S5, a defect found after 0.38.0 where a selection of twelve families gave a folder name past the Windows path limit and the refinement failed after all its work; observed on the v0.38.0 package and reproduced by the synthetic fixture the verification names. Verification: test, tests/tier1_offline/test_p0390_taglen.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-434",
    "text": "Plan: PFS-2080.06 (0.39.0; backlog PFS-2012.06 and PFS-2022.01.07).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S6; backlog items PFS-2012.06 (a run stopped at its iteration limit is called completed) and PFS-2022.01.07 (whether a further terminal status is worth amending the published vocabulary of FR-46 for, answered yes).*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S6; backlog items PFS-2012.06 (a run stopped at its iteration limit is called completed) and PFS-2022.01.07 (whether a further terminal status is worth amending the published vocabulary of FR-46 for, answered yes). Verification: test, tests/tier1_offline/test_p0390_iterlimit.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-435",
    "text": "Plan: PFS-2080.07 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S7; backlog entry R02 (input files reusable across the configurations of one aircraft, naming meshes or boundaries a given model does not carry), designed from a use case written as files before any code (decisions R02-D1 to R02-D8 of 2026-10-10: the study vocabulary declared in the reference). The precedent is the reading the reference aliases (FR-59) and the pproc family entries (FR-73, FR-320) already follow. AMENDS FR-275, 'A setup removes surfaces by name', whose refusal of a stated name that resolves to no surface becomes a skip where the study vocabulary holds the name, and FR-73, whose flag reaches the keys of R1. The 0.38.0 refusals the Need cites were observed on the v0.38.0 package and are reproduced by the synthetic workspace the verification names (prospective until it is built).*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S7; backlog entry R02 (input files reusable across the configurations of one aircraft, naming meshes or boundaries a given model does not carry), designed from a use case written as files before any code (decisions R02-D1 to R02-D8 of 2026-10-10: the study vocabulary declared in the reference). The precedent is the reading the reference aliases (FR-59) and the pproc family entries (FR-73, FR-320) already follow. AMENDS FR-275, 'A setup removes surfaces by name', whose refusal of a stated name that resolves to no surface becomes a skip where the study vocabulary holds the name, and FR-73, whose flag reaches the keys of R1. The 0.38.0 refusals the Need cites were observed on the v0.38.0 package and are reproduced by the synthetic workspace the verification names (prospective until it is built). Verification: test, tests/tier1_offline/test_p0390_r02.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-436",
    "text": "Plan: PFS-2080.08 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, a versioned file with a machine overlay read over it, and the acceptance stated by either of two routes.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, a versioned file with a machine overlay read over it, and the acceptance stated by either of two routes. Verification: test, tests/tier1_offline/test_p0390_r03.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
@@ -3659,17 +3659,17 @@
    "id": "NFR-45",
    "text": "Plan: PFS-2080.09 and PFS-2080.10 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 items S9 and S10; the registered rows of the 0.38.0 review record and the low items of the 0.37.0 release review.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 items S9 and S10; the registered rows of the 0.38.0 review record and the low items of the 0.37.0 release review. Verification: test, tests/tier1_offline/test_p0390_rev38_arch.py, tests/tier1_offline/test_p0390_rev38_mesh_cli.py, tests/tier1_offline/test_p0390_rev38_refine.py, tests/tier1_offline/test_p0390_rev37_cli.py, tests/tier1_offline/test_p0390_rev37_docs.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-46",
    "text": "Plan: PFS-2080.11 (0.39.0).",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: scope GOAL-049 item S11; the owed guide builds recorded at the 0.37.0 release review.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: scope GOAL-049 item S11; the owed guide builds recorded at the 0.37.0 release review. Verification: test, tests/tier1_offline/test_p0390_pdfs.py.*",
+   "verification": "test"
   }
  ]
 }

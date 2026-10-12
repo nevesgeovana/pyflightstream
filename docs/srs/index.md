@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.75.0 |
+| Version | 1.76.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -94,10 +94,17 @@ will use is already shipped (NFR-20 is the example: the deprecation
 ledger and its deadline guard exist, and the policy itself starts at
 1.0).
 
+A release promotes the requirements it owns in its own docs step, so that no requirement
+stays pending after the release that ships it. The release checker
+(`tests/tier1_offline/test_release_pending_requirements.py`) refuses a release while a
+requirement, or an amendment, whose plan line or amendment mark names the package version
+is still pending.
+
 ## Revision history
 
 | Version | Date | Change |
 |---|---|---|
+| 1.76.0 | 2026-10-12 | The requirements of 0.39.0 move to implemented: they shipped in 0.39.0 and were left pending by the release, whose docs step did not promote them. FR-430 to FR-436, NFR-45 and NFR-46 are implemented, each with its Evidence paragraph and its test files on the Origin line; FR-413 R8 and the FR-46 amendment lose their pending mark. FR-433 states that R2 has an open defect for a uniform automatic level tag, fixed in 0.40.0 (PFS-2081.02). From 0.40.0 on, a release promotes its own requirements in its own docs step, and the release checker (`tests/tier1_offline/test_release_pending_requirements.py`) refuses a release while a requirement or amendment owned by it is pending. |
 | 1.75.0 | 2026-10-10 | The 0.39.0 requirements (GOAL-049): FR-430 to FR-436, NFR-45 and NFR-46, FR-413 amended by R8 and FR-46 by FR-434, written before the first package commit, all pending, with their P0390 markers in `docs/srs/markers-0390.json`. |
 | 1.74.0 | 2026-10-06 | 0.38.0 additions: smooth tube, multiblock grid recovery, quad-dominant elements; the audit of component levels. FR-424 R6 measures its distance to the spline surface through the source's nodes, not to the source's panels, which a coarse curved source cannot meet (release review RV-04); the opening fraction of G3 (0.25) is named among the section's thresholds (RV-03). |
 | 1.73.0 | 2026-10-06 | The 0.38.0 boxes FR-424 to FR-429, NFR-43 and NFR-44 move to implemented, each with its Evidence paragraph and the test files on its Origin line; the section intro cites RPT-162 as the public report of the licensed comparison. |
