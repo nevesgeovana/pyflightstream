@@ -1,0 +1,28 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-02
+fs_version_basis: '26.125'
+updated: '2026-10-12'
+reason: 'initial 26.125 reference: first PHY-02 run on 26.125 build 10052026, both points converged; CDp
+  is the pressure drag 26.125 prints (SRC-753 p.229), seeded under the case''s declared 26.125 bands'
+source_report: reports/physics/PHY-26125_2026-10-12_pressure-drag.yaml
+metrics:
+  CL_full_a4:
+    value: 0.3385
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_half_a4:
+    value: 0.3404
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  delta_CL_a4:
+    value: 0.0018999999999999573
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CDp_a4:
+    value: 0.00010000000000000026
+    warn: 0.0005
+    fail: 0.002
+    kind: abs
