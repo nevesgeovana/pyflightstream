@@ -6,6 +6,8 @@ through the campaign loop and written back into the 0.20.x shape.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pyflightstream.run import records
 from pyflightstream.run import rename as rename_module
 from pyflightstream.run.rename import rename_workspace
@@ -46,6 +48,55 @@ def test_p0400_rename_keeps_a_delete_sims_note_and_writes_nothing_when_nothing_m
     rename_workspace(_reopened(workspace))
     assert workspace.manifest_path.read_bytes() == before
     assert not list((workspace.root / "archive").glob("runs-*.json"))
+
+
+def test_p0400_rename_rewrites_each_plan_entry_with_its_own_simulation_s_names(tmp_path):
+    """P0400-RENAME-PLAN-PER-SIM (PFS-2096.009): two rows at two Mach share the 0.20 tags.
+
+    One merged tag-to-name map gave every plan entry the last simulation's
+    names; each entry now takes the names of its own simulation's records.
+    """
+    import json
+    import shutil
+
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_goal024_point_name import _matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, WRITES_EVERY_EXPORT, CountingStub
+    from tests.tier1_offline.test_matrix_run import converged as assess
+
+    workspace, matrix = _matrix(
+        tmp_path, condition="MACH:0.2, REmi:2.3, ALPHA:sweep", values="-2.0,0.0"
+    )
+    lines = matrix.read_text(encoding="utf-8").splitlines()
+    second = lines[2].replace("3207", "3208", 1).replace("MACH:0.2", "MACH:0.3")
+    matrix.write_text("\n".join([*lines, second]) + "\n", encoding="utf-8")
+    matrix = Path(shutil.copy2(matrix, workspace.root / matrix.name))
+    ran = run_matrix(
+        matrix,
+        workspace,
+        name="named",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=assess,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    assert {record.sim_id for record in ran} == {"3207", "3208"}
+    assert all(record.status is RunStatus.CONVERGED for record in ran)
+    plan_file = workspace.plan_dir("named") / "plan.json"
+    expected = {
+        entry["run_id"]: entry["sim_id"]
+        for entry in json.loads(plan_file.read_text(encoding="utf-8"))["points"]
+    }
+    _as_0_20(workspace, mach=0.2)
+    rename_workspace(_reopened(workspace))
+    renamed = {
+        entry["run_id"]: entry["sim_id"]
+        for entry in json.loads(plan_file.read_text(encoding="utf-8"))["points"]
+    }
+    assert renamed == expected
 
 
 def test_p0400_rename_archives_in_local_time_so_restore_takes_the_newest(tmp_path, monkeypatch):

@@ -863,19 +863,27 @@ def _plan_changes(
     ``applied`` is False for the rehearsal, which reads the same files, decides
     the same way and writes nothing.
     """
-    every_identity: list[tuple[str, str]] = []
-    every_path: list[tuple[str, str]] = []
+    # PER SIMULATION (PFS-2096.009). A 0.20 tag names neither the simulation
+    # nor its fixed condition, so two rows at different Mach sweeping one alpha
+    # share a tag and take different new names; one merged map gave every plan
+    # entry the last simulation's names. A plan entry carries its sim_id, and
+    # takes the pairs of its own simulation's records; one without it takes
+    # the merged pairs, as before.
+    every_identity: dict[str | None, list[tuple[str, str]]] = {None: []}
+    every_path: dict[str | None, list[tuple[str, str]]] = {None: []}
     stems: set[str | None] = set()
     for plan in plans:
-        every_identity.extend(plan.identity_pairs())
-        every_path.extend(plan.path_pairs())
+        sim = str(plan.record.get("sim_id", ""))
+        for key in (None, sim):
+            every_identity.setdefault(key, []).extend(plan.identity_pairs())
+            every_path.setdefault(key, []).extend(plan.path_pairs())
         stems.add(plan.record.get("matrix_stem"))
     # BACK THROUGH `_usable`, because concatenating several plans' lists loses
     # the longest-first order each of them arrived in: one plan's point stem can
     # come before another plan's longer script stem, which is the same defect as
     # F1 one level up.
-    identity = _usable(every_identity)
-    paths = _usable(every_path)
+    identity = {key: _usable(pairs) for key, pairs in every_identity.items()}
+    paths = {key: _usable(pairs) for key, pairs in every_path.items()}
     changes: list[RenameChange] = []
     for stem in stems:
         plan_file = workspace.plan_dir(stem) / "plan.json"
@@ -889,8 +897,11 @@ def _plan_changes(
         for entry in payload.get("points", []) if isinstance(payload, dict) else []:
             if not isinstance(entry, dict):
                 continue
+            # A simulation no record of which is renamed keeps its entries.
+            of_sim = str(entry["sim_id"]) if entry.get("sim_id") is not None else None
             for key, value in entry.items():
-                entry[key] = _substitute(value, identity if key in IDENTITY_FIELDS else paths)
+                pairs = (identity if key in IDENTITY_FIELDS else paths).get(of_sim, ())
+                entry[key] = _substitute(value, pairs)
         after = json.dumps(payload, indent=2) + "\n"
         if after != before:
             if applied:
