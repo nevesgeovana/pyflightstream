@@ -37,6 +37,33 @@ def test_p0400_query_alias_survives_a_campaign_named_sim_something():
     assert _cli_query_point._annotate(plain, aliases)["run_id_alias"] == "2006_1"
 
 
+def test_p0400_plan_refuses_the_arguments_before_writing_anything(tmp_path, capsys):
+    """P0400-PLAN-ORDER (PFS-2096.023): a contradiction between two flags writes nothing.
+
+    The setup guides were written, and then the two spellings of the
+    missing-family choice refused the plan.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    before = sorted(p.relative_to(workspace.root) for p in workspace.root.rglob("*"))
+    argv = [
+        "plan",
+        str(workspace.root / "matrix.fs"),
+        "--workspace",
+        str(workspace.root),
+        "--setup-guidelines",
+        "--fs-version",
+        "26.120",
+        "--no-ignore-missing-families",
+        "--ignore-missing-families",
+        "false",
+    ]
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(argv)
+    assert stopped.value.code == 2
+    assert "were both stated" in capsys.readouterr().err
+    assert sorted(p.relative_to(workspace.root) for p in workspace.root.rglob("*")) == before
+
+
 _TRIANGLE_STL = (
     "solid wing\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\n"
     "vertex 0 1 0\nendloop\nendfacet\nendsolid wing\n"

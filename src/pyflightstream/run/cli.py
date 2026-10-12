@@ -1279,15 +1279,21 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
-    if getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False):
+    setup = getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False)
+    # EVERY REFUSAL THE ARGUMENTS ALONE DECIDE COMES BEFORE THE FIRST WRITE
+    # (PFS-2096.023): the setup guides and the --update-ids renumbering were
+    # written, and then a contradiction between two flags refused the plan.
+    if setup and args.fs_version is None:
+        print(
+            "setup generation requires --fs-version to identify the target build",
+            file=sys.stderr,
+        )
+        return 2
+    name, name_from = _campaign_name(args)
+    missing_families = _the_missing_family_choice(args)
+    if setup:
         from pyflightstream.workspace.setup_standards import write_setup_library
 
-        if args.fs_version is None:
-            print(
-                "setup generation requires --fs-version to identify the target build",
-                file=sys.stderr,
-            )
-            return 2
         try:
             generated = write_setup_library(
                 workspace.root,
@@ -1300,7 +1306,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             return 2
         for filename, status in generated.items():
             print(f"setup {status}: inputs/setups/{filename}")
-    name, name_from = _campaign_name(args)
     renumbered = 0
     if getattr(args, "update_ids", False):
         # PFS-2031.21. BEFORE the plan, so the receipt the plan writes is
@@ -1320,7 +1325,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 f"--update-ids: {matrix_name} row {change.row_number}: "
                 f"POL {change.old} -> {change.new}"
             )
-    missing_families = _the_missing_family_choice(args)
     # THE WARNINGS ARE HELD while the plan is made and printed as one titled
     # block after its header (0.31.0), because a reader could not tell what
     # the warnings were about when they arrived first, unannounced. They are released
