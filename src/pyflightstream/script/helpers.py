@@ -1556,9 +1556,9 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         identical lines and nothing anywhere recorded that only one
         survived (PFS-2011.02).
 
-        The message names BOTH call sites, because one naming only the
-        second sends the reader to the wrong line: the one they need to
-        change is usually the earlier one.
+        The message includes the earlier helper name stored by the script
+        and the conflicting path. The register does not store source file
+        names or line numbers.
 
     Notes
     -----
