@@ -61,6 +61,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     POINT_AXIS_KEYS,
     CampaignConfigError,
     SimCase,
@@ -344,13 +345,20 @@ def _stem_of(names: Sequence[str]) -> str:
     Every export of a point is ``<stem>`` plus a suffix that begins with ``.``
     or ``_`` (``.txt``, ``.dat``, ``_cp.txt``, ``_log.txt``), so the stem is
     the longest common prefix that every name continues with one of those two
-    characters. A single file therefore yields its own name without its
-    extension, which is the same string.
+    characters. A single file yields its name without the longest export
+    suffix it ends with (:data:`EXPORT_KINDS`), else without its extension:
+    a lone ``<stem>_log.txt`` taken whole as ``<stem>_log`` was renamed onto
+    the loads export's name ``<new stem>.txt`` (PFS-2096.007).
     """
     if not names:
         return ""
     if len(names) == 1:
-        return Path(names[0]).stem
+        name = names[0]
+        suffixes = [kind[1] for kind in EXPORT_KINDS if name.endswith(kind[1])]
+        longest = max(suffixes, key=len, default="")
+        if longest and len(name) > len(longest):
+            return name[: -len(longest)]
+        return Path(name).stem
     shortest = min(names, key=len)
     for size in range(len(shortest), 0, -1):
         head = shortest[:size]

@@ -12,6 +12,19 @@ from pyflightstream.run.rename import rename_workspace
 from tests.tier1_offline.test_goal024_rename_command import _as_0_20, _ran, _reopened
 
 
+def test_p0400_rename_takes_the_stem_of_a_lone_log_without_its_export_suffix():
+    """P0400-RENAME-LONE-LOG (PFS-2096.007): a record whose only output is its log.
+
+    ``Path.stem`` of ``<stem>_log.txt`` is ``<stem>_log``, and the move then
+    wrote ``<new stem>.txt``, the name of the loads export.
+    """
+    stem = "POLAR-3207_M20AL+000BE+000"
+    assert rename_module._stem_of([f"{stem}_log.txt"]) == stem
+    assert rename_module._stem_of([f"{stem}_cp.txt"]) == stem
+    assert rename_module._stem_of([f"{stem}.txt"]) == stem
+    assert rename_module._stem_of([f"{stem}.txt", f"{stem}_log.txt"]) == stem
+
+
 def test_p0400_rename_archives_in_local_time_so_restore_takes_the_newest(tmp_path, monkeypatch):
     """P0400-RENAME-ARCHIVE (PFS-2096.008, PFS-2096.006): rename stamps as every archiver does.
 
