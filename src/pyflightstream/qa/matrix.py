@@ -370,6 +370,12 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
     PointResult
         The point's angle of attack, its Total loads row, its iteration count, its label and its
         convergence word.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the record's point has no ``alpha`` axis: a point of unknown incidence
+        cannot be judged.
     """
     if "alpha" not in record.point:
         # PFS-2102.009. Defaulting to 0 deg judged an unknown incidence as
@@ -686,8 +692,8 @@ def reduce_physics(
         raise PhysicsEnvironmentError(
             f"the manifest {workspace.manifest_path} holds no record of {path.name} under "
             f"the campaign name {campaign!r}; run the matrix first (pyfs-qa physics runs "
-            "it, and pyfs-matrix run does), and reduce it under the name it ran with "
-            "(CLI: --name)."
+            "it, and pyfs-matrix run does), and reduce it under the name it ran with, "
+            "name (CLI: --name)."
         )
     records = [record for points in by_row.values() for record in points]
     versions = _require_one_build(records, path)

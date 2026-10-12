@@ -372,6 +372,7 @@ def _exited_pid() -> int:
         capture_output=True,
         text=True,
         check=True,
+        env=os.environ.copy(),
     )
     return int(done.stdout)
 

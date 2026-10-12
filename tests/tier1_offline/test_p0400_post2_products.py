@@ -20,7 +20,8 @@ def _refusing_writes(monkeypatch, name: str, armed=lambda: True):
     real = textio.write_text
 
     def write_text(path, *args, **kwargs):
-        if str(path).endswith(name) and armed():
+        # The manifest is staged as products.json.tmp and then replaced (PFS-2096.019).
+        if str(path).endswith((name, f"{name}.tmp")) and armed():
             raise OSError(f"{name} is locked")
         return real(path, *args, **kwargs)
 

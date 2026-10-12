@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, REQUIREMENTS_FRAGMENTS_DIR
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "assemble_srs.py"
 HEADING = "## 0.25.0 to 0.32.0 additions"
@@ -63,7 +65,7 @@ def _checkout(tmp_path: Path, page: str = PAGE, **fragments: str) -> Path:
     page_dir.mkdir(parents=True, exist_ok=True)
     (page_dir / "functional-requirements.md").write_text(page, encoding="utf-8")
     if fragments:
-        folder = srs / "fr.d"
+        folder = tmp_path / REQUIREMENTS_FRAGMENTS_DIR
         folder.mkdir()
         for stem, text in fragments.items():
             (folder / f"{stem}.md").write_text(text, encoding="utf-8")
@@ -71,9 +73,7 @@ def _checkout(tmp_path: Path, page: str = PAGE, **fragments: str) -> Path:
 
 
 def _page(repo: Path) -> str:
-    return (
-        repo / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
-    ).read_text(encoding="utf-8")
+    return (repo / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
 
 
 def test_fragments_fold_under_one_heading_in_package_order_and_are_deleted(tmp_path):
@@ -84,7 +84,7 @@ def test_fragments_fold_under_one_heading_in_package_order_and_are_deleted(tmp_p
     assert page.index("FR-1") < page.index(HEADING) < page.index("FR-112") < page.index("FR-150")
     assert page.startswith(PAGE.rstrip("\n"))
     assert report["fragments"] == ["k1.md", "k2.md"]
-    assert not (repo / "docs" / "srs" / "fr.d").exists()
+    assert not (repo / REQUIREMENTS_FRAGMENTS_DIR).exists()
 
 
 def test_running_again_changes_nothing(tmp_path):
@@ -100,7 +100,7 @@ def test_a_run_interrupted_before_the_deletion_can_be_repeated(tmp_path):
     repo = _checkout(tmp_path, k1=_box(112))
     _script().assemble(repo)
     once = _page(repo)
-    folder = repo / "docs" / "srs" / "fr.d"
+    folder = repo / REQUIREMENTS_FRAGMENTS_DIR
     folder.mkdir()
     (folder / "k1.md").write_text(_box(112), encoding="utf-8")
     _script().assemble(repo)
@@ -111,7 +111,7 @@ def test_a_run_interrupted_before_the_deletion_can_be_repeated(tmp_path):
 def test_a_later_fragment_joins_the_heading_already_there(tmp_path):
     repo = _checkout(tmp_path, k1=_box(112))
     _script().assemble(repo)
-    folder = repo / "docs" / "srs" / "fr.d"
+    folder = repo / REQUIREMENTS_FRAGMENTS_DIR
     folder.mkdir()
     (folder / "k2.md").write_text(_box(150), encoding="utf-8")
     _script().assemble(repo)
@@ -122,11 +122,11 @@ def test_a_later_fragment_joins_the_heading_already_there(tmp_path):
 
 def test_a_readme_in_the_folder_is_not_a_fragment(tmp_path):
     repo = _checkout(tmp_path, k1=_box(112))
-    (repo / "docs" / "srs" / "fr.d" / "README.md").write_text("Notes.\n", encoding="utf-8")
+    (repo / REQUIREMENTS_FRAGMENTS_DIR / "README.md").write_text("Notes.\n", encoding="utf-8")
     report = _script().assemble(repo)
     assert report["fragments"] == ["k1.md"]
     assert "Notes." not in _page(repo)
-    assert (repo / "docs" / "srs" / "fr.d" / "README.md").is_file()
+    assert (repo / REQUIREMENTS_FRAGMENTS_DIR / "README.md").is_file()
 
 
 @pytest.mark.parametrize(
@@ -144,7 +144,7 @@ def test_a_fragment_off_the_form_is_refused_and_nothing_is_written(tmp_path, fra
     with pytest.raises(_script().FragmentError, match=needle):
         _script().assemble(repo)
     assert _page(repo) == PAGE
-    assert (repo / "docs" / "srs" / "fr.d" / "k1.md").is_file()
+    assert (repo / REQUIREMENTS_FRAGMENTS_DIR / "k1.md").is_file()
 
 
 def test_the_command_line_refuses_with_exit_2_and_names_the_file(tmp_path, capsys):
@@ -189,7 +189,7 @@ def test_a_heading_already_there_is_extended_before_the_section_that_follows_it(
 
 def test_the_line_ends_of_the_page_are_kept(tmp_path):
     repo = _checkout(tmp_path, k1=_box(112))
-    page_path = repo / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
+    page_path = repo / FUNCTIONAL_REQUIREMENTS
     page_path.write_bytes(PAGE.replace("\n", "\r\n").encode("utf-8"))
     _script().assemble(repo)
     raw = page_path.read_bytes()

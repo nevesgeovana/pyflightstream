@@ -15,10 +15,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, REQUIREMENTS_FRAGMENTS_DIR
+
 REPO = Path(__file__).resolve().parents[2]
 CHANGELOG = REPO / "CHANGELOG.md"
-SRS = REPO / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
-FRAGMENT = REPO / "docs" / "srs" / "fr.d" / "k1.md"
+SRS = REPO / FUNCTIONAL_REQUIREMENTS
+FRAGMENT = REPO / REQUIREMENTS_FRAGMENTS_DIR / "k1.md"
 RELEASES = ("0.25.0", "0.25.1", "0.26.0", "0.27.0", "0.28.0")
 FIRST, LAST = 112, 149
 

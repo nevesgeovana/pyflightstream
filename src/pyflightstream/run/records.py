@@ -341,14 +341,15 @@ def mark_failed(
     # character by character was refused as simulations 2, 0, 6.
     if isinstance(sims, str):
         raise RunsManifestError(
-            f'sims takes a list of ids, e.g. ["2006", "2007"] (CLI: --sims 2006,2007), '
-            f"not the string {sims!r}"
+            f'sims takes a list of ids, e.g. ["2006", "2007"], not the string {sims!r}: '
+            'pass sims=["2006", "2007"], or --sims 2006,2007 on the command line'
         )
     ids = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
     only = {sim: tags for sim, tags in (points or {}).items() if sim not in ids}
     if not ids and not only:
         raise RunsManifestError(
-            'name the simulations to mark in sims, e.g. ["2006", "2007"] (CLI: --sims 2006,2007)'
+            'name the simulations to mark: pass sims=["2006", "2007"], or --sims 2006,2007 '
+            "on the command line"
         )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")

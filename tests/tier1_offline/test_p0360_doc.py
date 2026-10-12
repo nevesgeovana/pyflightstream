@@ -281,6 +281,8 @@ def test_definitions_split(tmp_path):
         for h in FIXTURE["definitions"]
         if h["level"] == 2 and h["slug"] != "contents"
     }
+    retained = set(site_pages(DOCS)) - set(site_pages(DOCS, in_nav=True))
+    expected = {name for name in expected if f"definitions/{name}" not in retained}
     assert {
         p.name for rel, p in site_pages(DOCS, in_nav=True).items() if rel.startswith("definitions/")
     } == expected

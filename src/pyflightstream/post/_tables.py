@@ -241,7 +241,7 @@ _DECIMALS = 5
 #: where that is the closer statement (:func:`write_csv_table`): the air's dynamic
 #: viscosity in Pa s, about 1.8e-5, and the solution time in seconds, whose step
 #: on a rotor is a few times 1e-5.
-SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset({"MU", "time_s"})
+_SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset({"MU", "time_s"})
 _SIGNIFICANT_DIGITS = 6
 
 
@@ -388,7 +388,7 @@ def write_csv_table(
     double quote, so nothing on any line is quoted.
 
     THE ONE COLUMN-AWARE RULE (PFS-2105.041): a column of
-    :data:`SIGNIFICANT_DIGIT_COLUMNS`, a physical quantity whose values five
+    :data:`_SIGNIFICANT_DIGIT_COLUMNS`, a physical quantity whose values five
     decimals cannot carry, is written at six significant digits wherever that
     states the value more closely than five decimals do. Sea-level viscosity
     was written ``0.00002`` (12 per cent off) and a time step of 2.78e-5 s
@@ -424,7 +424,7 @@ def write_csv_table(
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
             writer.writerow(
                 [
-                    _significant_cell(value) if name in SIGNIFICANT_DIGIT_COLUMNS else _cell(value)
+                    _significant_cell(value) if name in _SIGNIFICANT_DIGIT_COLUMNS else _cell(value)
                     for name, value in zip(columns, row, strict=True)
                 ]
             )
@@ -815,10 +815,10 @@ def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np
     """Return the exported clock where the table states one, the ordinal otherwise."""
     if _PLOTS_STEP_COLUMN not in columns or not n_rows:
         return np.arange(1, n_rows + 1, dtype=int)
-    return stated_steps(values[:, list(columns).index(_PLOTS_STEP_COLUMN)])
+    return _read_step_clock(values[:, list(columns).index(_PLOTS_STEP_COLUMN)])
 
 
-def stated_steps(cells: Sequence[object] | np.ndarray) -> np.ndarray:
+def _read_step_clock(cells: Sequence[object] | np.ndarray) -> np.ndarray:
     """Return the steps a plots table's ``Time-step`` cells state, the ordinal where they cannot.
 
     THE ONE READER OF THAT CLOCK (AD-10): the reductions, the probe table and

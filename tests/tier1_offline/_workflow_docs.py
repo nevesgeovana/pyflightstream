@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tests.tier1_offline._docs_site import definition_page
+
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 
 #: Every page the old single page was split into, and the page it left behind.
@@ -85,7 +87,7 @@ DEFINITION_DOCS = SplitDocs(
     "post-processing definitions (index and families)",
     ("post-processing-definitions.md",)
     + tuple(
-        f"definitions/{heading['slug']}.md"
+        definition_page(heading["slug"])
         for heading in _SLUGS["definitions"]
         if heading["level"] == 2 and heading["slug"] != "contents"
     ),

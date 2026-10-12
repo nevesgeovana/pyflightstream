@@ -58,6 +58,7 @@ from pyflightstream.post._condition import (
     _section_rotors,
     _simulation_metadata,
     _stated_window,
+    _unjudged_vorticity_drag,
     clock_rotor_facts,
     point_condition,
     row_rotor_speeds,
@@ -103,7 +104,6 @@ from pyflightstream.post.polar import (
 )
 from pyflightstream.post.polar import (
     PolarPoint,
-    _unjudged_vorticity_drag,
     drag_columned_rows,
     drag_columns_of,
     group_polar_rows,

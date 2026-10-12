@@ -210,7 +210,7 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
             replaced.append(path)
     except OSError as error:
         for path in replaced:
-            path.write_bytes(originals[path].encode("utf-8"))
+            _textio.write_text(path, originals[path])
         for temporary in pending.values():
             temporary.unlink(missing_ok=True)
         raise ManualDraftError(

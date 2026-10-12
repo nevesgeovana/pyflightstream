@@ -1239,8 +1239,14 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
     assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
-    # 33 since 0.40.0: thirteen gap probes cite the motion their prelude creates.
-    assert len(groups["needs_prelude"]) == 33, groups["needs_prelude"]
+    # 33 since 0.40.0: thirteen gap probes cite the motion their prelude creates;
+    # 32 once only a reference refusal counts as a prelude (PFS-2135.051): the
+    # wake-edge import's four tokens are refused by the 26.122 grammar's two, a
+    # CommandArgumentError the measurement now names in its own bucket.
+    assert len(groups["needs_prelude"]) == 32, groups["needs_prelude"]
+    assert groups["raised_something_else"] == [
+        "IMPORT_WAKE_EDGES_FROM_FILE (CommandArgumentError)"
+    ], groups["raised_something_else"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 

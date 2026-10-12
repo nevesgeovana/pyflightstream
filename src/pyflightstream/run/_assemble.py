@@ -543,7 +543,7 @@ def _assembled_record(
 ) -> RunRecord:
     """Assemble the record of one point from its loads export, or refuse it by name."""
     from pyflightstream.run import LoadsAssessor
-    from pyflightstream.run.collect import _RecordAsCase
+    from pyflightstream.run._record_as_case import _RecordAsCase
 
     export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
     try:

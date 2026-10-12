@@ -9,6 +9,7 @@ now exit 1 with no headline. mypy itself is replaced by canned final lines.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,7 @@ def _tracked() -> int:
         text=True,
         cwd=REPO,
         check=True,
+        env=os.environ.copy(),
     ).stdout
     return sum(1 for name in listed.splitlines() if name.endswith(".py"))
 

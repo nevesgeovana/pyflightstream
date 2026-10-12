@@ -89,9 +89,12 @@ import types
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = "scripts/check_parity.py"
-EXPORTED = ("src", "tests", "docs/srs", "docs/unpublished/requirements", "pyproject.toml")
+EXPORTED = ("src", "tests", "docs/srs", REQUIREMENTS_DIR.as_posix(), "pyproject.toml")
 PACKAGE = "pyflightstream"
 MATRIX_CONSOLE = "pyfs-matrix"
 
@@ -225,6 +228,26 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             "the plan's left-out line of a coupled steady or quasi-steady row names the "
             "remedy (run those rows point by point) and no longer cites a report id; the "
             "exclusion itself is FR-410's, unchanged"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*_rotor__*__26.100*",
+        # A rotor render on 26.100 is a refusal and nothing else: the whole
+        # release text is the refusal of the rotor rows on that build, whose
+        # angular-velocity unit is unmeasured (FR-101 as amended in 0.40.0,
+        # PFS-2088.010); any other text on either side stays unnamed.
+        "release_has": (
+            r"\AREFUSED CommandArgumentError\ncase '\d+': FlightStream 26\.100: rotary_motion, "
+            r"unsteady_rotor and rotor-speed rows are refused until the angular-velocity unit "
+            r"is measured\.[^\n]*\n?\Z"
+        ),
+        "requirement": "FR-101",
+        "since": "0.40.0",
+        "why": (
+            "a rotor row on 26.100 is refused by name until a rotation null probe measures "
+            "the unit of that build's angular velocity; 0.39.0 wrote the speed in rev/min as "
+            "a maintainer decision (RPT-051) where the manual tutorial gives rad/s"
         ),
     },
     {
@@ -1479,7 +1502,7 @@ def srs_ids(tree: Path) -> set[str]:
     """
     text = "\n".join(
         p.read_text(encoding="utf-8", errors="replace")
-        for folder in (tree / "docs" / "srs", tree / "docs" / "unpublished" / "requirements")
+        for folder in (tree / "docs" / "srs", tree / REQUIREMENTS_DIR)
         for p in folder.rglob("*.md")
     )
     return set(re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text))

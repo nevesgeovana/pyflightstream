@@ -7,6 +7,7 @@ interpret-trailers no longer read the Clean-room trailer above it.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -35,7 +36,10 @@ def _hook(tmp_path: Path, text: str) -> int:
     message = tmp_path / "COMMIT_EDITMSG"
     message.write_text(text, encoding="utf-8")
     return subprocess.run(
-        [sys.executable, str(HOOK), str(message)], capture_output=True, check=False
+        [sys.executable, str(HOOK), str(message)],
+        capture_output=True,
+        check=False,
+        env=os.environ.copy(),
     ).returncode
 
 

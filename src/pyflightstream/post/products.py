@@ -218,9 +218,6 @@ from pyflightstream.post.custom_polar import (
 )
 from pyflightstream.post.custom_polar import CustomPolarTable as CustomPolarTable
 from pyflightstream.post.custom_polar import (
-    _ascii_title as _ascii_title,  # noqa: F401
-)
-from pyflightstream.post.custom_polar import (
     custom_count as _custom_count,  # noqa: F401
 )
 from pyflightstream.post.custom_polar import (
@@ -651,15 +648,7 @@ def write_campaign_products(
 
     # THE MATRIX IS CHECKED BEFORE ITS FOLDER OR ITS LOG EXISTS: a typo in the
     # stem made post/<typo>/ with two log files and then refused.
-    everything = workspace.read_manifest()
-    _refuse_an_unknown_matrix(workspace, matrix_stem, everything)
-    selected: frozenset[str] | None = None
-    if sims is not None:
-        selected = selected_sims(
-            [record for record in everything if record.matrix_stem == matrix_stem],
-            sims,
-            scope=f"of matrix {matrix_stem!r}" if matrix_stem else "naming no matrix",
-        )
+    selected, early = _selection_before_the_log(workspace, matrix_stem, sims)
     stamp = archive_stamp or datetime.now()
     out = workspace.products_dir(matrix_stem)
     out.mkdir(parents=True, exist_ok=True)
@@ -689,6 +678,7 @@ def write_campaign_products(
             collecting_warnings() as caught,
             post_notes() as notes,
         ):
+            caught.extend(early)
             stream.write(
                 f"pyflightstream {header['version']} post\n"
                 f"workspace={header['workspace']}\nmatrix={header['matrix']}\n"
@@ -778,6 +768,38 @@ def write_campaign_products(
             from pyflightstream.post.diagnostics import report_post_warnings
 
             report_post_warnings(records, out / _POST_LOG_JSON)
+
+
+def _selection_before_the_log(
+    workspace: CampaignWorkspace, matrix_stem: str | None, sims: Collection[str] | None
+) -> tuple[frozenset[str] | None, list[warnings.WarningMessage]]:
+    """Check the matrix and the simulations named before the post's folder or log exists.
+
+    THE WARNINGS OF THAT FIRST READ ARE HELD FOR THE LOG, and returned with the
+    selection: records assembled from the simulation folders say what they
+    refused on their first read alone, and that read moved ahead of the log, so
+    ``post.log`` lost every refusal (P0320-POST-NO-MANIFEST). A refusal here
+    gives them to the caller as the post's own replay does.
+    """
+    with collecting_warnings() as early:
+        everything = workspace.read_manifest()
+    try:
+        _refuse_an_unknown_matrix(workspace, matrix_stem, everything)
+        if sims is None:
+            return None, early
+        selected = selected_sims(
+            [record for record in everything if record.matrix_stem == matrix_stem],
+            sims,
+            scope=f"of matrix {matrix_stem!r}" if matrix_stem else "naming no matrix",
+        )
+        return selected, early
+    except BaseException:
+        if post_warning_policy() is None:
+            for warning in early:
+                warnings.warn_explicit(
+                    warning.message, warning.category, warning.filename, warning.lineno
+                )
+        raise
 
 
 def _retire_previous_manifest(root: Path, previous: Path, *, matrix: str, archive: bool) -> None:
@@ -1462,7 +1484,8 @@ def _prepare_campaign_rebuild(
             # says the rebuild was interrupted, so the next post reads it.
             raise ProductError(
                 f"{previous} does not parse ({error}); it was cut off while it was written. "
-                "Post again without --sims to rebuild every product and the manifest."
+                "Post again without sims (CLI: --sims) to rebuild every product and the "
+                "manifest."
             ) from None
         # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
         # `restore products` has the file this rebuild replaces.

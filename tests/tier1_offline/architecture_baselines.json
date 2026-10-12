@@ -685,15 +685,9 @@
    "positional": 2
   },
   "script/helpers.py:analysis_setup": {
-   "complexity": 15,
-   "branches": 15,
+   "complexity": 14,
+   "branches": 13,
    "statements": 39,
-   "positional": 1
-  },
-  "script/helpers.py:rotary_motion": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 34,
    "positional": 1
   },
   "script/helpers.py:rotate_surfaces": {

@@ -813,11 +813,12 @@ def test_the_writer_replaces_its_own_file(tmp_path):
 def test_a_step_the_table_states_oddly_is_carried_and_never_invented(tmp_path):
     """The `Time-step` reader's three awkward inputs, pinned.
 
-    Measured sane and asserted by nothing until round two: a fractional step
-    is CARRIED rather than truncated, because a truncated 7.5 reads as the
-    step 7 that also exists; a cell that is not a number at all falls back to
-    the row's position rather than reaching the table as a NaN, which every
-    reader downstream would have to guess about.
+    A fractional step is never truncated, because a truncated 7.5 reads as the
+    step 7 that also exists; a cell that is not a number at all never reaches
+    the table as a NaN, which every reader downstream would have to guess
+    about. Since 0.40.0 (PFS-2088.014, one reader of the clock) a clock with
+    such a cell gives the WHOLE table its ordinal, as the reductions read it,
+    so a row's STEP is the step every product gives it.
     """
     recorded = read_probe_positions(positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, "MRP")]))
     plots = tmp_path / "p_plots.csv"
@@ -831,9 +832,9 @@ def test_a_step_the_table_states_oddly_is_carried_and_never_invented(tmp_path):
     assert written is not None
     _, rows = read_csv_table(written)
     steps = [row["STEP"] for row in rows]
-    assert float(steps[0]) == pytest.approx(7.5), "a fractional step was truncated"
-    # The second row states no number, so the ordinal stands: row two.
-    assert int(float(steps[1])) == 2
+    assert float(steps[0]) != 7.0, "a fractional step was truncated"
+    # The clock holds a fraction and a word, so the ordinal stands for every row.
+    assert [float(step) for step in steps] == [1.0, 2.0]
     assert "nan" not in " ".join(steps).lower()
 
 

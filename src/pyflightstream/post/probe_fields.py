@@ -9,16 +9,28 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
-from pyflightstream.post._tables import _PLOTS_STEP_COLUMN, stated_steps
+from pyflightstream.post._tables import _PLOTS_STEP_COLUMN, _read_step_clock
 from pyflightstream.post.field_frames import field_in_reference, native_velocity_proof
 from pyflightstream.post.writers import (
+    OutputExistsError,
     OutputProvenance,
-    _refuse_existing,
     provenance_path,
     write_output_pair,
     write_vtk_points,
 )
 from pyflightstream.script.motion import resolve_frame_motion
+
+
+def _refuse_existing(destination: Path, overwrite: bool) -> None:
+    """Refuse a destination that already exists (PFS-2011.02), as the writers refuse it."""
+    if destination.exists() and not overwrite:
+        raise OutputExistsError(
+            f"{destination} already exists. This writer replaced it silently before "
+            "v0.8.0, which is the shape PYFS-005 records: one point of a run "
+            "overwrote another's output while the run record listed both complete. "
+            "Pass overwrite=True to replace it deliberately, or write under a name "
+            "that carries the point."
+        )
 
 
 def _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow):
@@ -304,11 +316,11 @@ def write_recorded_probe_fields(
             raise ProductError(
                 "field products require the native Time-step column; no ordinal STEP"
             )
-        # READ BY THE ONE READER OF THAT CLOCK (`stated_steps`), and refused
+        # READ BY THE ONE READER OF THAT CLOCK (`_read_step_clock`), and refused
         # where it would fall back to the ordinal: a field is placed in time by
         # its step, so it takes the clock every other product reads or none.
         cells = [row[_PLOTS_STEP_COLUMN] for row in native_rows]
-        native_steps = [float(step) for step in stated_steps(cells)]
+        native_steps = [float(step) for step in _read_step_clock(cells)]
         if [_float_or_nan(cell) for cell in cells] != native_steps:
             raise ProductError(
                 "native STEP values must be finite, whole and strictly increasing, the "

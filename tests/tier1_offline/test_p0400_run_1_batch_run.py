@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.run import CampaignErrors
 from pyflightstream.run import _batch_run as batch_run
 from pyflightstream.run import _campaign as campaign_module
 from pyflightstream.run._batch_run import _job_root, _profile_for, job_values
@@ -85,7 +86,9 @@ def _failed_once(tmp_path: Path):
     )
     matrix = p0350._matrix(tmp_path)
     p0350._plan(workspace, matrix, mode="batch", batch=1)
-    p0350._run(workspace, matrix, executor=p0350._submitting(profile))
+    # A job that did not launch is a failure of the run (PFS-2094.031): recorded, then raised.
+    with pytest.raises(CampaignErrors):
+        p0350._run(workspace, matrix, executor=p0350._submitting(profile))
     assert [r.status for r in workspace.read_manifest()] == [RunStatus.FAILED_EXECUTION] * 3
     # The job folder is freed, as a new plan's batch would be, so the receipt admits a run.
     shutil.rmtree(workspace.root / "sims" / "batch" / f"{p0350.MATRIX}_b1")

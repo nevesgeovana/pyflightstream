@@ -72,6 +72,19 @@ def call(capsys, main, argv: list[str]) -> tuple[int, str, str]:
     return int(code or 0), out, err
 
 
+def profile_selected(argv: list[str], root: Path) -> str | None:
+    """The application id of the profile a command line and the files select.
+
+    A console command restores its selection when it ends (PFS-2094.008), so the
+    same line is parsed outside one, where the selection is set plainly.
+    """
+    from pyflightstream.run import cli
+
+    cli.parsed(_build_parser(), argv)
+    profile = resolve_hpc_profile(root / "inputs")
+    return None if profile is None else profile.application_id
+
+
 def plan_then_run(capsys, root: Path, *extra: str) -> tuple[int, str, str]:
     """Plan the matrix (the run needs the receipt), then run it; return the run's outcome."""
     call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root), *extra])
@@ -116,11 +129,12 @@ def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys):
         'cost_file = "c002"\naccept_unregistered_build = true\nlocal = true\n',
         encoding="utf-8",
     )
-    code, out, err = call(
-        capsys, matrix_main, ["plan", "polars.fs", "--cost", "--workspace", str(root)]
-    )
+    plan = ["plan", "polars.fs", "--cost", "--workspace", str(root)]
+    code, out, err = call(capsys, matrix_main, plan)
     assert code == 0, err
-    assert resolve_hpc_profile(root / "inputs").application_id == "app-h002"
+    assert profile_selected(plan, root) == "app-h002"
+    select_hpc_profile(None)
+    select_cost_file(None)
     written = plan_json(root)
     assert written["accept_unregistered_build"] is True
     assert written["settings_sources"] == {
@@ -185,10 +199,10 @@ def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
     )
     if local is not None:
         (root / "pyfs.local.toml").write_text(f'[defaults]\nhpc = "{local}"\n', encoding="utf-8")
-    argv = ["plan", "polars.fs", "--workspace", str(root)]
-    code, _out, err = call(capsys, matrix_main, argv + (["--hpc", typed] if typed else []))
+    argv = ["plan", "polars.fs", "--workspace", str(root)] + (["--hpc", typed] if typed else [])
+    code, _out, err = call(capsys, matrix_main, argv)
     assert code == 0, err
-    assert resolve_hpc_profile(root / "inputs").application_id == f"app-{selected}"
+    assert profile_selected(argv, root) == f"app-{selected}"
     assert plan_json(root)["settings_sources"].get("hpc") == source
 
 
@@ -626,6 +640,28 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
     return True
 
 
+#: The second admitted difference, named: plan.json gains the key ``planned_order``,
+#: each simulation's whole sweep in its planned order (PFS-2094.034, run-1 lane), which
+#: 0.38.0 did not write. Every other byte of plan.json is still that of 0.38.0.
+PLAN_JSON = "tree/post/polars/plan.json"
+
+
+def plan_order_admitted(new: str, captured: str) -> bool:
+    """Whether plan.json differs from its 0.38.0 capture by the planned_order block only."""
+    lines = new.split("\n")
+    try:
+        start = lines.index('  "planned_order": {')
+        end = lines.index("  },", start)
+    except ValueError:
+        return False
+    order = json.loads(new)["planned_order"]
+    if not order or not all(
+        isinstance(ids, list) and all(isinstance(i, str) for i in ids) for ids in order.values()
+    ):
+        return False
+    return "\n".join(lines[:start] + lines[end + 1 :]) == captured
+
+
 @pytest.mark.skipif(
     sys.platform != "win32",
     reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
@@ -654,6 +690,9 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         if name.endswith(SETTINGS_TABLE_SUFFIX):
             # The one admitted difference, named: PFS-2105.020's full-precision cells.
             assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
+            continue
+        if name == PLAN_JSON:
+            assert plan_order_admitted(text, captured[name].decode("utf-8")), name
             continue
         assert text.encode("utf-8") == captured[name], name
     scripts = [name for name in outputs if name.startswith("tree/sims/") and "/scripts/" in name]

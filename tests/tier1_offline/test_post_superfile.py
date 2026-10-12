@@ -298,9 +298,12 @@ def _post(workspace):
     written = write_campaign_products(workspace, matrix_stem="matriz", overwrite=True)
     # What `run` leaves beside the products (FR-90), written here because the
     # superfile cites it as one of its sources and the union below READS it.
+    # Rewritten on every post, as `run` rewrites it (write_table keeps an existing
+    # file unless told, PFS-2096.030).
     write_table(
         sweep_table(workspace, require_loads=False, matrix_stem="matriz"),
         workspace.sweep_dir("matriz") / "campaign_sweep.csv",
+        overwrite=True,
     )
     return written
 

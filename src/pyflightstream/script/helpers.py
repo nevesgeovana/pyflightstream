@@ -79,6 +79,7 @@ from pyflightstream.script import (
     UnsteadyActionUse,
 )
 from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
+    _unmarked_unit_refusal,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
@@ -127,7 +128,6 @@ from pyflightstream.script._wake_edge_file import (  # noqa: F401  (this module 
 from pyflightstream.script.rotor_vocabulary import (
     EUCLIDEAN_ROTOR_UNIT,
     UNMARKED_EUCLIDEAN_ROTOR_UNIT,
-    _unmarked_unit_refusal,
     euclidean_rotor,
     unmarked_euclidean_rotor,
 )
@@ -1405,6 +1405,12 @@ def export_results(
         that selection, so True without ``vtk_variables`` is refused.
     force_distributions : str, optional
         Path of the force distribution vectors export, all boundaries.
+
+    Raises
+    ------
+    CommandArgumentError
+        If ``vtk_wake`` is True without ``vtk_variables``, or a boundary or
+        variable selection is a bare label the command cannot take.
     """
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
     _reject_bare_label("export_results", "vtk_variables", vtk_variables, allows_all=True)

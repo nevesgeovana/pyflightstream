@@ -2,12 +2,23 @@
 
 import json
 import warnings
+from types import SimpleNamespace
 
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.post import products
 from pyflightstream.workspace import CampaignWorkspace
+
+
+def _recorded_matrix(workspace, monkeypatch) -> None:
+    """Give the workspace one run of matrix ``matrix``, so the post does not refuse it.
+
+    An unknown matrix is refused before the log exists (PFS-2096.020); the stage is
+    stubbed, so one record naming the matrix is all the post reads of the manifest.
+    """
+    record = SimpleNamespace(matrix_stem="matrix", run_id="run/one", warnings=[])
+    monkeypatch.setattr(workspace, "read_manifest", lambda: [record])
 
 
 @pytest.mark.requirement("FR-120")
@@ -33,6 +44,7 @@ def test_post_log_classifies_each_record_without_losing_detail(tmp_path, monkeyp
         return []
 
     monkeypatch.setattr(products, "_campaign_products", stage)
+    _recorded_matrix(workspace, monkeypatch)
     with warnings.catch_warnings(record=True):
         products.write_campaign_products(workspace, matrix_stem="matrix")
     document = json.loads((workspace.products_dir("matrix") / "post.log.json").read_text())
@@ -73,6 +85,7 @@ def test_cli_quiet_default_retains_all_warnings_and_opt_in_groups(
 
     monkeypatch.setattr(products, "_campaign_products", stage)
     workspace = CampaignWorkspace(tmp_path)
+    _recorded_matrix(workspace, monkeypatch)
 
     @cli_entrypoint
     def command(argv):

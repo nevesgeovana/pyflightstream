@@ -114,8 +114,7 @@
    "names": [
     "pyflightstream.script.helpers.export_probes",
     "pyflightstream.script.helpers.probe_line",
-    "pyflightstream.script.helpers.probe_points",
-    "pyflightstream.script.helpers.probes_from_file"
+    "pyflightstream.script.helpers.probe_points"
    ]
   },
   {
@@ -339,6 +338,7 @@
     "pyflightstream.qa.compat.classify_executable",
     "pyflightstream.qa.compat.licence_sensitive_candidates",
     "pyflightstream.qa.compat.read_executable_baseline",
+    "pyflightstream.qa.compat.resolve_commands_dir",
     "pyflightstream.qa.compat_report_paths",
     "pyflightstream.qa.contradicting_evidence",
     "pyflightstream.qa.cost_rows",
@@ -632,6 +632,16 @@
     "pyflightstream.workspace.setup_inspection.setup_inspection_summary",
     "pyflightstream.workspace.wake_edges.WakeEdgeImport",
     "pyflightstream.workspace.wake_edges.evidence_notice"
+   ]
+  },
+  {
+   "id": "RX-37",
+   "capability": "Library selection of a cost file and of an HPC profile, the Python form of the console flags --cost-file and --hpc",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the integfix lane after RX-36, its sibling among the workspace helpers; the owner confirms",
+   "names": [
+    "pyflightstream.workspace.costs.select_cost_file",
+    "pyflightstream.workspace.hpc.select_hpc_profile"
    ]
   }
  ]

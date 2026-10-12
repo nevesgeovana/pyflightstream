@@ -61,7 +61,7 @@ from typing import Any, cast
 import pyflightstream._textio as _textio
 import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
-from pyflightstream._errors import warn
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -713,7 +713,8 @@ def _restore_inputs_link(
             warn(
                 f"{folder}: the compacted simulation linked its inputs to {link}, and that "
                 f"link could not be made again in this workspace ({error}); inputs/ is an "
-                "empty folder. Stage the geometry under inputs/geometries and link it."
+                "empty folder. Stage the geometry under inputs/geometries and link it.",
+                PyflightstreamWarning,
             )
             return {"inputs_link_restored": False, "inputs_link_target": str(link)}
         return {"inputs_link_restored": True, "inputs_link_target": str(wanted)}

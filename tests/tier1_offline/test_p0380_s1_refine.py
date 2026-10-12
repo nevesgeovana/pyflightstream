@@ -1183,7 +1183,17 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
     assert _reaching(_file_imports(refine / "_audit.py"), PRIVATE) == []
     found = _file_imports(PACKAGE / "run" / "_cli_mesh.py")
     assert _reaching(found, (REFINE,)) == []
-    public = [m.rpartition(".")[2] for m in found if m.startswith("pyflightstream.workspace.")]
+    # The names bound from the package itself. The module also holds the inventory
+    # command (moved from run/cli.py by the 0.40.0 architecture ratchet), whose
+    # imports of workspace.inputs and workspace._geometry_clean reach no refinement
+    # module, which the _reaching check above already proves.
+    submodules = {p.stem for p in (PACKAGE / "workspace").iterdir()}
+    public = [
+        name
+        for m in found
+        if m.startswith("pyflightstream.workspace.") and m.count(".") == 2
+        if (name := m.rpartition(".")[2]) not in submodules
+    ]
     assert "refine_mesh" in public and "audit_mesh" in public
     assert all(name in workspace.__all__ and not name.startswith("_") for name in public)
     planted = _imports(

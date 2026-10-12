@@ -67,11 +67,11 @@ from pyflightstream.post._tables import (
     SECTION_COLUMNS,
     ProductError,
     ReferenceValues,
+    _read_step_clock,
     context_row,
     read_csv_table,
     renamed_columns,
     section_identity,
-    stated_steps,
     write_csv_table,
 )
 from pyflightstream.post.axes import blade_azimuth_deg
@@ -782,10 +782,10 @@ def write_unsteady_probes_table(
     # begin at one or does not step by one (the QA lens scoring M22,
     # 2026-09-11). A table with no such column falls back to the ordinal,
     # which is the only thing left, rather than refusing a product. THE ONE
-    # READER of that clock (`stated_steps`), so a row's STEP here is the step
+    # READER of that clock (`_read_step_clock`), so a row's STEP here is the step
     # the reductions and the series give it.
     steps = (
-        stated_steps([row.get(_PLOTS_STEP_COLUMN) or "" for row in rows])
+        _read_step_clock([row.get(_PLOTS_STEP_COLUMN) or "" for row in rows])
         if _PLOTS_STEP_COLUMN in present
         else np.arange(1, len(rows) + 1, dtype=int)
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fold the SRS fragments of ``docs/srs/fr.d/`` into the functional requirements.
+"""Fold the SRS fragments of ``docs/unpublished/requirements/fr.d/`` into the register.
 
     python scripts/assemble_srs.py
     python scripts/assemble_srs.py --repo <another checkout>
@@ -7,12 +7,12 @@
 WHY FRAGMENTS. The requirements of the releases 0.25.0 to 0.31.0 that the SRS
 never stated, and the ones 0.32.0 adds, were written by parallel work packages
 (K1, K2 and the packages that deliver a capability). Each writes
-``docs/srs/fr.d/<package>.md``, numbered inside its own range, so two packages
+``docs/unpublished/requirements/fr.d/<package>.md``, numbered inside its own range, so two packages
 merged one after the other never touch the same lines of
 ``docs/unpublished/requirements/functional-requirements.md``. This script folds them once, at
 integration, the way ``scripts/assemble_changelog.py`` folds the change log.
 
-WHAT IT DOES. Every ``docs/srs/fr.d/*.md`` except ``README.md`` is a fragment:
+WHAT IT DOES. Every ``docs/unpublished/requirements/fr.d/*.md`` except ``README.md`` is a fragment:
 requirement boxes in the form of ``functional-requirements.md``
 (``!!! requirement "FR-NNN <title> <span class='srs-implemented'>implemented</span>"``
 and its indented body), and no ``## `` heading of its own. The fragments, in
@@ -38,10 +38,16 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _requirements_paths import (  # noqa: E402
+    FUNCTIONAL_REQUIREMENTS,
+    REQUIREMENTS_FRAGMENTS_DIR,
+)
+
 REPO = Path(__file__).resolve().parents[1]
-FRAGMENTS_DIR = Path("docs") / "srs" / "fr.d"
+FRAGMENTS_DIR = REQUIREMENTS_FRAGMENTS_DIR
 README = "README.md"
-PAGE = Path("docs") / "unpublished" / "requirements" / "functional-requirements.md"
+PAGE = FUNCTIONAL_REQUIREMENTS
 HEADING = "## 0.25.0 to 0.32.0 additions"
 INTRO = (
     "Requirements written after the specification was last reconciled with the package: "

@@ -17,12 +17,12 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Mapping
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._selected import _SELECTED_HPC
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace.sidecars import load_toml
 
@@ -217,10 +217,6 @@ def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
     if not directory.is_dir():
         return []
     return sorted(directory.glob("*.toml"))
-
-
-#: The profile stem the invocation selected (``--hpc NAME``), or None.
-_SELECTED_HPC: ContextVar[str | None] = ContextVar("pyflightstream_selected_hpc", default=None)
 
 
 def select_hpc_profile(name: str | None) -> None:

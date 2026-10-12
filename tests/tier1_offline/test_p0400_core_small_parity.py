@@ -21,6 +21,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
+
 REPO = Path(__file__).resolve().parents[2]
 BASE = "SET_PROP_ACTUATOR_RPM 1 -500\n"
 REVERTED = "SET_PROP_ACTUATOR_RPM 1 500\n"
@@ -58,7 +60,7 @@ def test_p0400_parityscope_a_revert_against_a_later_base_is_unnamed() -> None:
 
 def test_p0400_parityscope_a_mention_is_not_a_definition(tmp_path: Path) -> None:
     """P0400-PARITYSCOPE: an id the SRS only mentions is not defined; a box defines it."""
-    srs = tmp_path / "docs" / "srs"
+    srs = tmp_path / REQUIREMENTS_DIR
     srs.mkdir(parents=True)
     (srs / "functional-requirements.md").write_text(
         '!!! requirement "FR-12 A box"\n\n    Text that mentions FR-331 in passing.\n',

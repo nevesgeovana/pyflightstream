@@ -123,8 +123,11 @@ ROOTS: tuple[tuple[str, str], ...] = (
 
 # The ratchet: the number of public paths the register names, and the
 # SHA-256 of their sorted list joined by newlines. A shrink lowers both.
-_REGISTER_CEILING = 315
-_REGISTER_DIGEST = "50617220ce727dc798709b0e6f630b389af928a31f76660d746d1aed0580e159"
+# 317 on the integration fix: probes_from_file left the register (now reached) and three
+# public names joined it (RX-22 resolve_commands_dir, RX-37 the two selectors), each
+# classified by the pattern of its siblings. The owner confirms the growth.
+_REGISTER_CEILING = 317
+_REGISTER_DIGEST = "6b877e333c811d797607bfecbf7c4e617e4a76e6957b6c9c3c1571012506094d"
 
 REASONS = (
     "routed later",

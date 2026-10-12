@@ -44,6 +44,7 @@ def _span_used(ctx, alias):
 
 @pytest.mark.parametrize(("alias", "span"), [("PUSH", "801 to 1000"), ("LIFT", "701 to 1000")])
 def test_p0400_rotorwindow_last_revs_avg_counts_each_rotors_own_turns(tmp_path, alias, span):
+    # Verifies FR-68.
     """P0400-ROTORWINDOW (PFS-2088.013): 2 turns are 200 steps of PUSH and 300 of LIFT."""
     assert _span_used(_ctx(tmp_path, {"LAST_REVS_AVG": "2"}), alias) == span
 

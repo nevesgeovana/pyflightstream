@@ -30,6 +30,7 @@ from typing import Any
 
 from pyflightstream._cli import for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
+from pyflightstream._selected import _SELECTED_COST_FILE, _SELECTED_HPC
 from pyflightstream.cases.workflows import (
     read_a_choice,
     workflow_names,
@@ -46,8 +47,12 @@ from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
-from pyflightstream.workspace.costs import _SELECTED_COST_FILE
-from pyflightstream.workspace.hpc import _SELECTED_HPC
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.workspace.costs import select_cost_file as select_cost_file
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.workspace.hpc import select_hpc_profile as select_hpc_profile
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 
@@ -94,10 +99,12 @@ def _rounds(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"--rounds takes a whole number, not {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"rounds (CLI: --rounds) takes a whole number, not {text!r}"
+        ) from None
     if value < 1:
         raise argparse.ArgumentTypeError(
-            f"--rounds takes a whole number of at least 1, not {value}"
+            f"rounds (CLI: --rounds) takes a whole number of at least 1, not {value}"
         )
     return value
 

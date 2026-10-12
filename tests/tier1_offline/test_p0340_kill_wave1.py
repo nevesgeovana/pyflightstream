@@ -148,6 +148,17 @@ def _current() -> dict[str, dict[str, dict]]:
 
 _GOLDEN_KEYS = [(p, k) for p, actions in sorted(_GOLDEN_0331.items()) for k in sorted(actions)]
 
+# Deliberate changes a later release made to a 0.33.1 action, each by its planning id:
+# (program, key) -> {field: (0.33.1 value, the value the release decided)}. Any other
+# difference, or a second field changed on an admitted action, still fails.
+_ADMITTED = {
+    # PFS-2097.009: --rounds and --top take a whole number of at least 1.
+    ("pyfs-matrix", "collect|rounds|--rounds"): {"type": ("int", "_rounds")},
+    ("pyfs-matrix", "space-in-use|top|--top"): {"type": ("int", "_top_rows")},
+    # PFS-2094.051: restore --matrix takes a matrix path or its stem.
+    ("pyfs-matrix", "restore|matrix|--matrix"): {"type": (None, "_matrix_stem")},
+}
+
 
 def test_the_golden_is_not_empty_and_covers_every_console_parser():
     # A golden that read nothing would pass every comparison below.
@@ -161,7 +172,10 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
     assert key in current, f"{program}: the 0.33.1 action {key!r} is gone"
-    want = _GOLDEN_0331[program][key]
+    want = dict(_GOLDEN_0331[program][key])
+    for field, (old, new) in _ADMITTED.get((program, key), {}).items():
+        assert want[field] == old, f"{program}: {key!r} admitted change of {field} is stale"
+        want[field] = new
     got = current[key]
     assert got == want, f"{program}: {key!r} changed from {want} to {got}"
 

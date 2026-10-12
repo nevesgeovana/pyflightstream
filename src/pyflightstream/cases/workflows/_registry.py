@@ -29,7 +29,7 @@ from pyflightstream.script import (
     CommandArgumentError,
     Script,
 )
-from pyflightstream.script.rotor_vocabulary import _unmarked_unit_refusal
+from pyflightstream.script._build_forms import _unmarked_unit_refusal
 
 from ._conventions import (
     _AVERAGE_ACTION,
@@ -283,6 +283,11 @@ def build_script(
     CampaignConfigError
         If the case names two builders or none, or if a value the run
         type needs is absent or unparsable.
+    CommandArgumentError
+        If the script targets build 26.100 and the case asks for a rotor
+        (an ``unsteady_rotor`` or ``qsteady_rotor`` run type, a motion or a
+        rotor-speed variable): the angular-velocity unit of that build is
+        not measured, so the case is refused by name.
     WorkflowCoverageError
         If the script's build is outside the workflow's derived
         coverage.

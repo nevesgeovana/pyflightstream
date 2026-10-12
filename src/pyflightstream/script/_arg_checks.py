@@ -5,7 +5,8 @@ and for the two refusals they raise, so that the builder itself holds the
 ledger and the emission order and nothing of the argument grammar. A value
 that would render as more than one physical line, a NaN or an infinity, an
 enum spelling that is not listed and a scalar or list of the wrong type are
-refused here with the command, the argument and the manual citation.
+refused here with the command, the argument and the citation of the entry (a
+manual page or a committed probe report).
 :func:`_bind_line_tokens` reads the tokens of one script line into the
 arguments the database declares, for :meth:`Script.emit_line`.
 
@@ -27,9 +28,9 @@ from pyflightstream.commands import ArgSpec, ArgType, CommandEntry
 class CommandArgumentError(PyflightstreamError, ValueError):
     """An emitted argument does not satisfy the database specification.
 
-    The message names the command, the argument, the expectation, and
-    the manual citation of the entry, so the fix can be checked against
-    the manual directly.
+    The message names the command, the argument, the expectation, and the
+    citation of the entry (a manual page or a committed probe report), so the
+    fix can be checked against its source directly.
     """
 
 
