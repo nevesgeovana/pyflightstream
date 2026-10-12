@@ -167,7 +167,13 @@ def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
             if str(row["status"]).startswith("FAILED")
         ]
         return [{"points": points, "failed": cards}]
-    card = _card(ledger, _resolve(ledger, target, label))
+    try:
+        run_id = _resolve(ledger, target, label)
+    except LookupError:
+        if args.point:
+            raise _no_such_point(ledger, args.target, args.point) from None
+        raise
+    card = _card(ledger, run_id)
     return [card] if card else []
 
 

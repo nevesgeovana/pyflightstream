@@ -413,7 +413,28 @@ def _read(manifest: Path) -> list[dict[str, Any]]:
         raise RunsManifestError(f"{manifest} is not a list of run records")
     if any(row.get("deleted_sim") is None and "run_id" not in row for row in rows):
         raise RunsManifestError(f"{manifest} holds a run record with no run_id")
+    for row in rows:
+        if row.get("deleted_sim") is None:
+            _validate_read_row(row)
     return rows
+
+
+def _validate_read_row(row: Mapping[str, Any]) -> None:
+    """Validate the verdict-bearing fields before planning a mark or archiving evidence."""
+    run_id = row.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        raise RunsManifestError(f"the record {run_id!r} holds no readable run_id")
+    _status_of(row, row.get("status"))
+    entries = row.get("points_ran")
+    if entries is None:
+        return
+    if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+        raise RunsManifestError(
+            f"the record {run_id!r} holds points_ran that is not a list of point records; "
+            "correct it or restore runs.json before marking"
+        )
+    for entry in entries:
+        _status_of(row, entry.get("status"))
 
 
 def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -> None:
