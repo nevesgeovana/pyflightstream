@@ -224,39 +224,51 @@ def transfer_moment_to_elastic_axis(
     ea_offset_chordwise_m: np.ndarray,
     ea_offset_normal_m: np.ndarray,
 ) -> np.ndarray:
-    """Transfer a sectional pitch-axis moment to the elastic axis.
+    """Transfer a sectional moment to the elastic axis.
 
-    M_EA = M_PA + e_c F_n - e_n F_c: the spanwise component of
-    M_PA + e x F for the section-plane offset e = (e_c, e_n) from the
-    pitch axis to the elastic axis and the section force
-    F = (F_c, F_n), in the right-handed blade triad of
-    :mod:`pyflightstream.fsi.config` (chordwise toward the leading
-    edge, normal completing the triad, moments positive nose up about
-    the spanwise axis). All inputs broadcast. The identity holds per
-    unit span exactly as for totals, so it applies unchanged to the
-    line densities of the sectional export (forces in N/m, moments in
-    N m / m, offsets in m).
+    M_EA = M_P + e_c F_n - e_n F_c: the spanwise component of
+    M_P + e x F, where F = (F_c, F_n) is the section force acting at a
+    point P, M_P the moment about P, and e = (e_c, e_n) the
+    section-plane offset FROM the elastic axis TO P, in the
+    right-handed blade triad of :mod:`pyflightstream.fsi.config`
+    (chordwise toward the leading edge, normal completing the triad,
+    moments positive nose up about the spanwise axis). All inputs
+    broadcast. The identity holds per unit span exactly as for
+    totals, so it applies unchanged to the line densities of the
+    sectional export (forces in N/m, moments in N m / m, offsets in m).
+
+    The direction of e is the whole content of the sign, so each call
+    site states its own vector. The aerodynamic loads act at the pitch
+    axis and the configuration's ``elastic_axis_offset_*`` runs from
+    the pitch axis to the elastic axis, so :func:`to_elastic_axis`
+    passes its negative. A wing's weight acts at the centre of gravity
+    and ``cg_offset_*`` already runs from the elastic axis to it
+    (:mod:`pyflightstream.fsi.wing`). Check: lift (F_n > 0) at a
+    pitch axis ahead of the elastic axis (e_c > 0 from the elastic
+    axis to it) twists the section nose up.
 
     Source: DLV-007 Section 4.3 (FSI-R04); pitch-axis moment reference
-    confirmed by the WP1 dry run (reports/RPT-005 finding 4).
+    confirmed by the WP1 dry run (reports/RPT-005 finding 4);
+    elementary statics, M_EA = M_P + (r_P - r_EA) x F.
 
     Parameters
     ----------
     moment_pa_nm : numpy.ndarray
-        The pitch-axis moment M_PA, positive nose up [N m, or N m / m for a density].
+        The moment M_P about the point the force acts at, positive nose up [N m, or N m / m
+        for a density].
     force_chordwise_n : numpy.ndarray
         The chordwise force F_c [N, or N/m].
     force_normal_n : numpy.ndarray
         The normal force F_n [N, or N/m].
     ea_offset_chordwise_m : numpy.ndarray
-        The chordwise offset e_c from the pitch axis to the elastic axis [m].
+        The chordwise offset e_c from the elastic axis to the point the force acts at [m].
     ea_offset_normal_m : numpy.ndarray
-        The normal offset e_n from the pitch axis to the elastic axis [m].
+        The normal offset e_n from the elastic axis to the point the force acts at [m].
 
     Returns
     -------
     numpy.ndarray
-        The elastic-axis moment M_EA = M_PA + e_c F_n - e_n F_c, in the unit of ``moment_pa_nm``.
+        The elastic-axis moment M_EA = M_P + e_c F_n - e_n F_c, in the unit of ``moment_pa_nm``.
     """
     return (
         np.asarray(moment_pa_nm, dtype=float)
@@ -386,8 +398,10 @@ class ElasticAxisLoads:
     moment_ea_nm_per_m : numpy.ndarray
         Moment densities about the elastic axis [N m / m] (FSI-R04).
     ea_offset_chordwise_m, ea_offset_normal_m : numpy.ndarray
-        Interpolated elastic-axis offsets e(r) [m] used in the
-        transfer.
+        Interpolated elastic-axis offsets e(r) [m], from the pitch
+        axis to the elastic axis as configured; the transfer uses
+        their negative, the offset from the elastic axis to the pitch
+        axis where the forces act.
     tributary_width_m : numpy.ndarray
         Spanwise width [m] of each section's midpoint strip;
         integrates the densities back to totals for cross-checks.
@@ -534,8 +548,12 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
         force_chordwise_n_per_m=chordwise,
         force_normal_n_per_m=normal,
         moment_pa_nm_per_m=moment_pa,
+        # The forces act at the pitch axis and e(r) runs from the pitch axis
+        # to the elastic axis, so the offset from the elastic axis to where
+        # they act is -e (PFS-2104.013: e itself was passed, which
+        # mis-signed both transfer terms).
         moment_ea_nm_per_m=transfer_moment_to_elastic_axis(
-            moment_pa, chordwise, normal, e_chordwise, e_normal
+            moment_pa, chordwise, normal, -e_chordwise, -e_normal
         ),
         ea_offset_chordwise_m=e_chordwise,
         ea_offset_normal_m=e_normal,

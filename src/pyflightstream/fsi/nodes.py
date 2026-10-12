@@ -45,7 +45,12 @@ elastic-axis chord fraction (:data:`ELASTIC_AXIS_FALLBACK_CHORD_FRACTION`
 when the configured one lies outside
 :data:`ELASTIC_AXIS_CHORD_FRACTION_WINDOW`), the leading-edge and
 trailing-edge nodes at :data:`LEADING_EDGE_NODE_CHORD_FRACTION` and
-:data:`TRAILING_EDGE_NODE_CHORD_FRACTION`. The embedding at the local
+:data:`TRAILING_EDGE_NODE_CHORD_FRACTION`. A node moved to the fallback
+is no longer on the elastic axis the beam is solved about, so the map
+then keeps the configured elastic axis
+(``NodeOrderingMap.ea_configured_chordwise_m``) and the node's flap is
+written as the rigid section moves it, w + theta (e_node - e_true)
+(``_elastic_axis_node_flap``). The embedding at the local
 twist is unchanged, and so are the node order, the roles and the row
 count, so the FSIDisp rows keep their meaning. A node set with any node
 outside its section, or inside it by less than
@@ -184,6 +189,15 @@ class NodeOrderingMap(BaseModel):
     origin_m : tuple of float or None
         The reference-frame point a ``wing_frame`` layout's stations are
         measured from; None is the origin, and is not serialised.
+    ea_configured_chordwise_m : list of float or None
+        The configured elastic axis's chordwise position per station
+        [m], stated when a section-generated layout moved an
+        elastic-axis node off it (a configured axis outside
+        :data:`ELASTIC_AXIS_CHORD_FRACTION_WINDOW`). The beam is solved
+        about the configured axis, so a moved node's flap is
+        w + theta (e_node - e_true) (``_elastic_axis_node_flap``).
+        None when every node sits on the configured axis, and is then
+        not serialised.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -201,6 +215,7 @@ class NodeOrderingMap(BaseModel):
     te_offset_normal_m: list[float] | None = None
     span_sign: Literal[-1, 1] | None = None
     origin_m: tuple[float, float, float] | None = None
+    ea_configured_chordwise_m: list[float] | None = None
 
     @model_serializer(mode="wrap")
     def _camber_offsets_only_when_present(
@@ -208,7 +223,13 @@ class NodeOrderingMap(BaseModel):
     ) -> dict[str, object]:
         """Serialise the per-role normal offsets and the wing placement only when set."""
         data: dict[str, object] = handler(self)
-        for optional in ("le_offset_normal_m", "te_offset_normal_m", "span_sign", "origin_m"):
+        for optional in (
+            "le_offset_normal_m",
+            "te_offset_normal_m",
+            "span_sign",
+            "origin_m",
+            "ea_configured_chordwise_m",
+        ):
             if data.get(optional) is None:
                 data.pop(optional, None)
         return data
@@ -374,6 +395,8 @@ def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
     le_n: list[float] = []
     te_c: list[float] = []
     te_n: list[float] = []
+    configured_c: list[float] = []
+    moved = False
     low, high = ELASTIC_AXIS_CHORD_FRACTION_WINDOW
     for station, contour in enumerate(contours):
         polygon = _polygon(contour, station)
@@ -384,8 +407,12 @@ def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
             ]
         )
         fraction = section_chord_fraction(polygon, configured)
+        configured_c.append(float(configured[0]))
         if not low <= fraction <= high:
+            # PFS-2104.014. The node moves; the beam's axis does not, so the
+            # map keeps the configured one for the encoding to measure from.
             fraction = ELASTIC_AXIS_FALLBACK_CHORD_FRACTION
+            moved = True
         points = [
             camber_point(polygon, s)[0]
             for s in (
@@ -411,7 +438,29 @@ def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
         **_embedding_fields(cfg, embedding),
         le_offset_normal_m=le_n,
         te_offset_normal_m=te_n,
+        ea_configured_chordwise_m=configured_c if moved else None,
     )
+
+
+def _elastic_axis_node_flap(
+    layout: NodeOrderingMap, flap_deflection_m: Sequence[float], elastic_twist_rad: Sequence[float]
+) -> np.ndarray:
+    """Return the flap translation of every station's elastic-axis node [m].
+
+    The beam's flap w is that of the configured elastic axis. A node moved
+    off it (``ea_configured_chordwise_m`` stated) translates as the rigid
+    section moves it, w + theta (e_node - e_true); every offset of the
+    layout is measured from the node, so encoding this flap places every
+    row of the station at w + theta (p - e_true), the rigid-section
+    displacement of its point p. Unmoved layouts return w unchanged.
+    """
+    flap = np.asarray(flap_deflection_m, dtype=float)
+    if layout.ea_configured_chordwise_m is None:
+        return flap
+    shift = np.asarray(layout.ea_offset_chordwise_m, dtype=float) - np.asarray(
+        layout.ea_configured_chordwise_m, dtype=float
+    )
+    return flap + np.asarray(elastic_twist_rad, dtype=float) * shift
 
 
 def _polygon(contour: Sequence[Sequence[float]], station: int) -> np.ndarray:
@@ -1025,8 +1074,8 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
     Raises
     ------
     FsiInputError
-        If a line does not hold three values, a field is empty, or ``expected_rows`` is given and
-        the row count differs.
+        If a line does not hold three values, a field is empty or not a number, or
+        ``expected_rows`` is given and the row count differs.
     """
     rows = []
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
@@ -1057,7 +1106,13 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
                 "dropped before the count, which let the next value slide into the "
                 "empty slot and applied a displacement to the wrong axis"
             )
-        rows.append([float(cell) for cell in cells])
+        try:
+            rows.append([float(cell) for cell in cells])
+        except ValueError as exc:
+            raise FsiInputError(
+                f"FSIDisp line {line_number} of {Path(path).name} holds a value that is not a "
+                f"number ({line.strip()!r}); every field is one of dx, dy, dz in metres"
+            ) from exc
     if expected_rows is not None and len(rows) != expected_rows:
         raise FsiInputError(
             f"FSIDisp holds {len(rows)} rows but the node map orders "
