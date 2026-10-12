@@ -559,10 +559,21 @@ def _free_stream(
             if custom.source_units == "NATIVE":
                 factor = _from_metres(case, script, "custom field extent")
                 grid = (grid[0] / factor, grid[1] / factor, grid[2] / factor, grid[3] / factor)
-            if custom.source_units is None and script.simulation_length_unit == "MILLIMETER":
+            # AN UNDECLARED UNIT IS METRES ONLY IN A METRE SIMULATION. It read as
+            # metres in every simulation but MILLIMETER, so an INCH, FEET or
+            # CENTIMETER grid was compared with the body as if it were metres
+            # and recorded within or beyond it (RPT-082: unknown units produce an
+            # explicit unknown result).
+            unit = script.simulation_length_unit
+            if custom.source_units is None and unit != "METER":
+                reason = (
+                    f"the field states no FREESTREAM_UNITS and the simulation is in "
+                    f"{unit or 'no recorded unit'}, so its grid has no known length unit"
+                )
+                script.custom_field_coverage = {"state": "unknown", "reason": reason}
                 warn(
-                    "Custom-field coverage is not checked: declare FREESTREAM_UNITS as SI "
-                    "or NATIVE for a MILLIMETER simulation.",
+                    f"Custom-field coverage is not checked: {reason}. Declare FREESTREAM_UNITS "
+                    "as SI or NATIVE.",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )

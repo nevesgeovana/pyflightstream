@@ -35,6 +35,7 @@ from pyflightstream.cases.workflows import (
     disc_speed_moves_with_the_point,
     with_tecplot_source,
 )
+from pyflightstream.cases.workflows._rows import _turning_rate
 from pyflightstream.run._alias import selection_with_aliases
 from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
@@ -299,12 +300,20 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     A SIXTH SINCE 0.30.0: the row couples a fixed wing (FSI-G). A steady
     coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
     is stopped once the analysis ends, so one script holds one point.
+
+    A SEVENTH SINCE 0.40.0: the body rate changes between points. A warm
+    sweep states its free stream once, so each different rate needs its own
+    job and its own rotational free stream.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
     if case.fsi is not None:
         return False
-    return not (_sweeps_the_flow(case) or disc_speed_moves_with_the_point(case))
+    rates = [
+        _turning_rate(case.model_copy(update={"point": point})) for point in case.sweep.points()
+    ]
+    rate_moves = any(rate != rates[0] for rate in rates[1:])
+    return not (_sweeps_the_flow(case) or disc_speed_moves_with_the_point(case) or rate_moves)
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:

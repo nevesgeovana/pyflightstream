@@ -65,9 +65,10 @@ def test_p0400_cw_timing_a_rotor_at_rest_on_the_explicit_clock_has_no_revolution
     The stationary-rotor refusal tells the user to write exactly this clock,
     and before the fix it raised a bare ZeroDivisionError from the property.
     """
+    requirement = "P0400-CW-TIMING"
     case = _case("unsteady_rotor", RPM="0")
     stepping = rotor_time_stepping(case)
-    assert stepping.rpm == 0.0
+    assert stepping.rpm == 0.0, requirement
     assert stepping.steps_per_revolution is None
     windows = reduction_windows(case)
     assert windows["steps_per_revolution"] is None
@@ -89,9 +90,11 @@ def test_p0400_cw_timing_a_rotor_at_rest_on_the_explicit_clock_has_no_revolution
 )
 def test_p0400_cw_timing_a_non_positive_explicit_clock_is_refused_by_name(workflow, key, value):
     """P0400-CW-TIMING (PFS-2097.005): both explicit branches bound the pair, naming the key."""
+    requirement = "P0400-CW-TIMING"
     case = _case(workflow, **{key: value})
     stepping = rotor_time_stepping if workflow == "unsteady_rotor" else unsteady_time_stepping
-    with pytest.raises(CampaignConfigError, match=f"'7001' declares {key} as"):
+    with pytest.raises(CampaignConfigError, match=f"'7001' declares {key} as") as refusal:
         stepping(case)
     with pytest.raises(CampaignConfigError, match=key):
         build_script(case, Script("26.124"))
+    assert str(refusal.value), requirement

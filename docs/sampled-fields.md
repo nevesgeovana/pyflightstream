@@ -153,7 +153,7 @@ records the comparison and its receipts.
 rotor turns one ring spacing per STEP, 30 degrees for a ring of twelve:
 
 ```text
-VELOCITY: 30.0 / RPM: 800 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 30 / REVOLUTIONS: 1
+RPM: 800 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 30 / REVOLUTIONS: 1
 ```
 
 Its pproc samples the same ring twice: once in the rotor's hub frame

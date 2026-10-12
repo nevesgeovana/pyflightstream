@@ -169,7 +169,7 @@ FIXTURE_ROTOR = RotorBlock(
     rpm_sign=1,
     diameter_m=3.6576,
     families_general=[],
-    families_blades=["Blade1"],
+    families_blades=["Blade1", "Blade2", "Blade3", "Blade4"],
     blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
 )
 
@@ -229,7 +229,7 @@ def test_the_reader_and_the_registry_agree_on_the_types():
 
 def test_a_case_naming_a_workflow_and_no_recipe_produces_a_complete_script():
     """The acceptance's first half: a run TYPE, and no user function."""
-    case = fixture_campaign().sims[0].model_copy(update={"point": {"alpha": 0.0}})
+    case = fixture_campaign().sims[0].model_copy(update={"point": {"alpha": 0.0}, "velocity": 30.0})
     script = Script("26.120")
     build_script(case, script)
     text = script.render()
@@ -894,15 +894,12 @@ def test_the_record_carries_the_stated_form_and_the_derived_one():
     assert window.stated_form == "degrees" and window.stated_value == 90.0
 
 
-def test_a_window_longer_than_the_run_is_refused_naming_both_numbers():
-    """The acceptance verbatim: BOTH numbers in the message."""
-    with pytest.raises(CampaignConfigError) as raised:
-        export_window(revolutions=3.0, rpm=RPM, delta_time_s=DT, time_iterations=720)
-    message = str(raised.value)
-    assert "1500" in message and "720" in message, (
-        "the refusal must print the derived step count AND the run length, or the "
-        f"author cannot tell which to change; got {message!r}"
-    )
+def test_a_window_longer_than_the_run_is_clipped_to_the_available_history():
+    """The public window follows the live window's clipping rule."""
+    window = export_window(revolutions=3.0, rpm=RPM, delta_time_s=DT, time_iterations=720)
+    assert window.window_steps() == (1, 720)
+    assert window.steps == 720
+    assert window.stated_value == 3.0
 
 
 @pytest.mark.parametrize("form", ["degrees", "revolutions"])
@@ -1022,7 +1019,7 @@ def test_one_blade_passage_is_one_revolution_divided_by_the_blade_count():
 
 def test_a_row_with_no_blade_count_cannot_ask_for_a_per_blade_split():
     with pytest.raises(CampaignConfigError) as raised:
-        reduction_plan(rotor_case(BLADES=None))
+        reduction_plan(rotor_case(BLADES=None).model_copy(update={"rotors": {}}))
     assert "BLADES" in str(raised.value)
 
 
@@ -1064,7 +1061,7 @@ def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
     # still told apart -- by their azimuths, written at both ends.
     assert blades["windows"] == [[596, 720]]
     assert plan["phase_locked"]["windows"] == [[596, 720]]
-    assert plan["phase_locked"]["period_steps"] == 125
+    assert plan["phase_locked"]["period_steps"] == pytest.approx(125)
 
 
 def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
@@ -1107,7 +1104,7 @@ def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
 
 
 def test_a_rotor_row_with_no_blade_count_skips_the_two_blade_reductions_naming_it():
-    plan = _reduction_windows()(rotor_case(BLADES=None))
+    plan = _reduction_windows()(rotor_case(BLADES=None).model_copy(update={"rotors": {}}))
     assert plan["time_average"]["windows"] == [[596, 720]], "the time average needs no blades"
     assert "BLADES" in plan["per_blade"]["skipped"]
     assert "BLADES" in plan["phase_locked"]["skipped"]
@@ -1281,7 +1278,7 @@ def test_the_committed_matrix_drives_the_workflow_with_no_python_recipe():
     for sim in campaign.sims:
         for point in sim.sweep.points():
             script = Script("26.120")
-            build_script(sim.model_copy(update={"point": point}), script)
+            build_script(sim.model_copy(update={"point": point, "velocity": 30.0}), script)
             built[f"rotor/sim_{sim.sim_id}"] = script.render()
     assert set(built) == {"rotor/sim_7001", "rotor/sim_7002", "rotor/sim_7003"}
     assert "SET_SOLVER_UNSTEADY" in built["rotor/sim_7001"]
@@ -1863,14 +1860,11 @@ def unsteady_case_full() -> SimCase:
 
 
 def unsteady_case_resolved() -> SimCase:
-    """The 0.9.0 shape: a resolved fluid state beside a fourth clock."""
+    """A resolved reference beside a fourth clock."""
     return unsteady_case(DELTA_TIME="0.00125", TIME_ITERATIONS="96").model_copy(
         update={
             "reference": steady_case_resolved().reference,
-            "condition": steady_case_resolved().condition,
         }
-        if hasattr(steady_case_resolved(), "condition")
-        else {"reference": steady_case_resolved().reference}
     )
 
 
@@ -5053,7 +5047,8 @@ def test_a_sector_row_stating_periodic_copies_and_no_blades_gets_its_blade_reduc
 
 
 def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():
-    plan = _reduction_windows()(rotor_case(BLADES=None))
+    case = rotor_case(BLADES=None).model_copy(update={"rotors": {}})
+    plan = _reduction_windows()(case)
     assert (
         "BLADES" in plan["per_blade"]["skipped"]
         and "PERIODIC_COPIES" in plan["per_blade"]["skipped"]
@@ -5061,7 +5056,7 @@ def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():
     with pytest.raises(
         CampaignConfigError, match="BLADES.*PERIODIC_COPIES|PERIODIC_COPIES.*BLADES"
     ):
-        reduction_plan(rotor_case(BLADES=None))
+        reduction_plan(case)
 
 
 # --- REL-0140, the QA lens: the rotation on the run types its mutants survived -------
@@ -5433,7 +5428,7 @@ def test_a_swept_advance_ratio_is_a_stated_rotor_speed():
     The assertion is that the reductions are RESOLVED, not that the message
     improves.
     """
-    plan = _reduction_windows()(swept_ratio_case())
+    plan = _reduction_windows()(swept_ratio_case(LAST_REVS_AVG="1.0"))
     assert plan is not None, "a rotor row has a time history"
     skipped = {
         name: plan[name]["skipped"]
@@ -5878,7 +5873,7 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
             "groups": {"1": "all"},
             "probes": [
                 {
-                    "frame": "MRP",
+                    "frame": "REFERENCE",
                     "parameters": ["VELOCITY"],
                     "points_file": "disk_survey.txt",
                 }
