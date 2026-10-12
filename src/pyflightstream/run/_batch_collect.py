@@ -39,6 +39,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, REINIT_VERB
 from pyflightstream.results.log import point_log_text, split_job_log
+from pyflightstream.run._collect_logs import _profile_glob
 from pyflightstream.run._pending import _walltime_stop
 from pyflightstream.workspace import (
     SIM_DATAPOINTS_DIR,
@@ -132,10 +133,7 @@ def _job_stem(job: JobEntry) -> str:
 
 def _formatted(pattern: str, job: JobEntry) -> str | None:
     """Format a profile glob with the job's values (reading 9); None when it names another key."""
-    try:
-        return pattern.format(**job["values"])
-    except (KeyError, IndexError, ValueError):
-        return None
+    return _profile_glob("profile glob", pattern, job["values"])[0]
 
 
 def _matches(folder: Path, pattern: str | None, job: JobEntry) -> list[Path]:

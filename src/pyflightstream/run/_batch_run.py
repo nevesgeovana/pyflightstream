@@ -55,7 +55,11 @@ from pyflightstream.run._batch_exec import (
     GroupingExecutor,
     JobCollector,
 )
-from pyflightstream.run._campaign import run_campaign
+from pyflightstream.run._campaign import (
+    _CampaignState,
+    _resolve_campaign_schedule,
+    run_campaign,
+)
 from pyflightstream.run._executors import (
     PROGRESS_EVERY_DEFAULT,
     ExecutionResult,
@@ -68,11 +72,7 @@ from pyflightstream.run._grouped import (
     read_receipt,
     refuse_grouped_options,
 )
-from pyflightstream.run._identity import (
-    _case_build,
-    _check_scheduled_builds,
-    entry_accepted_builds,
-)
+from pyflightstream.run._identity import _check_scheduled_builds, entry_accepted_builds
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
 from pyflightstream.run._plan import plan_campaign
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
@@ -546,9 +546,10 @@ def run_grouped_matrix(
 
     In order: the options a grouped run does not take are refused; the
     grouping receipt gates the run; the matrix is resolved and narrowed to the
-    receipt; points a previous job never started are superseded (D5); every
-    case loses its WALLTIME (the job's clock replaces the point's); the
-    campaign pre-flights; every job folder is created; the campaign loop runs
+    receipt; every case loses its WALLTIME (the job's clock replaces the
+    point's); the campaign pre-flights. Scheduling and identity checks pass
+    before failed receipt points are superseded (D5). Job folders are created
+    before the campaign loop runs
     with the grouping executor and the staging workspace, so every point is
     recorded SUBMITTED; then each job is assembled, checked and launched ONCE.
     Nothing is posted (FR-376).
@@ -614,15 +615,19 @@ def run_grouped_matrix(
     return _run_receipt(path, staging, receipt, resolved, kw, home=workspace)
 
 
-def _pending_sims(workspace: CampaignWorkspace, receipt: GroupingReceipt) -> set[str]:
-    """Return the simulations with a receipt point that has no record, or a FAILED_* one."""
-    effective = {record.run_id: record for record in workspace.read_manifest()}
-    return {
-        run_id.rsplit("/", 2)[-2].removeprefix("sim_")
-        for job in receipt.jobs
-        for run_id in job.points
-        if run_id not in effective or str(effective[run_id].status).startswith("FAILED")
-    }
+class _RetryPreviewWorkspace(BatchStagingWorkspace):
+    """Read the manifest as a grouped retry would, without retiring evidence."""
+
+    def __init__(self, workspace: BatchStagingWorkspace, receipt: GroupingReceipt) -> None:
+        super().__init__(workspace.root, workspace.naming, homes=workspace.homes)
+        self.retry_ids = {run_id for job in receipt.jobs for run_id in job.points}
+
+    def read_manifest(self) -> list[RunRecord]:
+        return [
+            record
+            for record in super().read_manifest()
+            if not (record.run_id in self.retry_ids and str(record.status).startswith("FAILED"))
+        ]
 
 
 def _run_receipt(
@@ -675,16 +680,30 @@ def _run_receipt(
     )
     inners = {job.label: _inner_of(job, context.cases, builds, grouping) for job in receipt.jobs}
     accepted = entry_accepted_builds(resolved, workspace, _default_version(kw), kw.get("fs_exe"))
-    # THE IDENTITY PRE-FLIGHT, HERE AND NOT IN run_campaign (PFS-2096.004): the
-    # failed records of the receipt's points are superseded only once it has
-    # passed, so a refusal leaves the workspace as it found it. It asks the
-    # builds of the simulations with a point still to run, as run_campaign's
-    # own pass two would, and run_campaign does not ask again.
-    pending = _pending_sims(home, receipt)
+    # Preview the SAME schedule the campaign will resolve after supersession.
+    # Only the read view omits failed receipt points: queued-work, partial-case
+    # and resume guards must all pass before the real manifest loses anything.
+    preview = _CampaignState(
+        campaign=campaign,
+        executor=grouping,
+        workspace=_RetryPreviewWorkspace(workspace, receipt),
+        assess=kw["assess"],
+        recipes=kw.get("recipe_registry"),
+        resume=bool(kw.get("resume")),
+        force_rerun=None,
+        preflight=False,
+        builds=builds,
+        name_from=kw.get("name_from"),
+        quiet=True,
+        accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
+        sweep_csv=None,
+        accepted_builds=accepted,
+    )
+    _resolve_campaign_schedule(preview)
     _check_scheduled_builds(
         campaign,
         grouping,
-        [(case, _case_build(case, builds)) for case in campaign.sims if case.sim_id in pending],
+        [(case, build) for case, build, _ in preview.scheduled],
         accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
         accepted_builds=accepted,
     )

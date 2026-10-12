@@ -594,15 +594,19 @@ def _unknown_submit_placeholders(profile, values: Mapping[str, object]) -> list[
     """Return the ``{name}`` of the profile's submit command that no run supplies."""
     known = _SUBMIT_VALUES | set(values)
     unknown: list[str] = []
-    for part in profile.submit:
+    pending = list(profile.submit)
+    while pending:
+        part = pending.pop()
         try:
-            fields = [field for _, field, _, _ in string.Formatter().parse(str(part))]
+            fields = list(string.Formatter().parse(str(part)))
         except ValueError:
             unknown.append(f"an unreadable brace in {part!r}")
             continue
-        for field in fields:
+        for _, field, spec, _ in fields:
             if field is None:
                 continue
+            if spec:
+                pending.append(spec)
             name = re.split(r"[.\[]", field, maxsplit=1)[0]
             if name not in known and f"{{{field}}}" not in unknown:
                 unknown.append(f"{{{field}}}")
@@ -927,7 +931,7 @@ class SubmittingExecutor:
                 part.format(descriptor_path=descriptor.as_posix(), **values)
                 for part in self.profile.submit
             ]
-        except (KeyError, IndexError, ValueError) as error:
+        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as error:
             # A name this point does not supply (a row stating no WALLTIME under
             # `{walltime}`), or a brace the format cannot read: refused by name,
             # as render_descriptor refuses a field, and the point records it.
