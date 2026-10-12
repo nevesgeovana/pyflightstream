@@ -469,6 +469,13 @@ def _find_assessment_outputs(job: _LoadsJudgment) -> Assessment | None:
         if own is not None and own.is_dir()
         else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
     )
+    # 0.40.0 (PFS-2103.017): a caller that FOUND the point's exports names their
+    # folder, and only that folder is judged. ``post --from-sims`` takes an
+    # export anywhere under the simulation folder, where none of the folders
+    # above need exist.
+    exports_dir = getattr(job.case, "exports_dir", None)
+    if exports_dir is not None:
+        folders = [str(exports_dir)]
     job.collected = []
     for folder in folders:
         found = sorted(
