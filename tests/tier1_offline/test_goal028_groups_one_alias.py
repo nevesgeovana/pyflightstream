@@ -29,6 +29,7 @@ import warnings
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.cases import PprocSpec, RotorBlock
@@ -66,7 +67,7 @@ def test_a_group_is_one_alias_written_as_a_string():
 )
 def test_the_list_form_is_refused_with_the_one_alias_line(members, replacement):
     """Since 0.26.0 every list is refused; the reference owns its members."""
-    with pytest.raises(InputArtifactError) as refused:
+    with pytest.raises(ValidationError) as refused:
         PprocSpec(groups={"PUSHER": members})
     assert replacement in str(refused.value)
 
@@ -149,7 +150,7 @@ def test_the_replacement_for_an_empty_list_selects_every_family():
     from pyflightstream.cases import select_group_members
 
     inventory = ["W", "B", "Blade1", "Blade2"]
-    with pytest.raises(InputArtifactError, match='TOTAL = "all"'):
+    with pytest.raises(ValidationError, match='TOTAL = "all"'):
         PprocSpec.model_validate({"groups": {"TOTAL": []}})
     written = PprocSpec.model_validate({"groups": {"TOTAL": "all"}})
     assert select_group_members(written.groups["TOTAL"], inventory) == inventory

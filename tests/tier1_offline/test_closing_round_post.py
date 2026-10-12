@@ -3,8 +3,9 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import PprocSpec, select_group_members
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.workspace import CampaignWorkspace
@@ -194,7 +195,7 @@ def test_r_each_uses_section_selector_semantics(tmp_path, monkeypatch):
 def test_t_empty_group_remedy_accounts_for_all_collision(shape):
     inventory = ["W", "B", "all"] if shape == "boundary" else ["W", "B"]
     aliases = {"whole_aircraft": inventory, **({"all": ["W"]} if shape == "alias" else {})}
-    with pytest.raises(InputArtifactError) as caught:
+    with pytest.raises(ValidationError) as caught:
         PprocSpec(groups={"TOTAL": []})
     message = str(caught.value)
     assert all(word in message for word in ("boundary", "alias", "all", "unique alias")), message

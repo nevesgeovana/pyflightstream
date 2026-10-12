@@ -48,6 +48,7 @@ from pyflightstream.cases._skipped_families import (
     SETUP_ARTIFACT,
     skips_a_name_the_model_lacks,
 )
+from pyflightstream.cases.selection import select_group_members
 from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import Script, helpers
 
@@ -119,14 +120,27 @@ def family_indices(
             f"not what a preset naming the key asked for: either name families, or "
             f"drop {preset_key} so {dropped}."
         )
+    # A NAME IS READ AS EVERY OTHER CITED NAME IS (select_group_members: an exact
+    # label, an alias, a case-folded family), and the indices are the union. The
+    # exact-label lookup alone dropped a family word, an alias or a case variant
+    # in silence whenever another name of the list resolved (PFS-2104.028).
+    labels = script.entities.labels("boundaries")
+    ordered = [label for label, _ in sorted(labels.items(), key=lambda item: item[1])]
     chosen: list[int] = []
     absent: list[str] = []
     for name in families:
+        found = select_group_members([name], ordered, case.aliases) if ordered else []
+        if found:
+            chosen.extend(labels[label] for label in found if labels[label] not in chosen)
+            continue
         try:
-            chosen.append(script.resolve_boundary(name, context=keyword))
+            index = script.resolve_boundary(name, context=keyword)
         except PyflightstreamError:
             absent.append(name)
             _judge_a_family_the_model_lacks(case, script, name, preset_key)
+            continue
+        if index not in chosen:
+            chosen.append(index)
     if not chosen:
         raise CampaignConfigError(
             # THE PRESET'S OWN SPELLING, not the helper keyword. This named
