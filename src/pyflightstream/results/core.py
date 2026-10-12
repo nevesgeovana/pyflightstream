@@ -24,6 +24,7 @@ its path of 0.32.0 (AD-11, since 0.33.0).
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -234,6 +235,11 @@ def parse_number(token: str) -> float:
         If the token is not a number (a ``ValueError``).
     """
     try:
+        if "_" in token:
+            # Python's digit separator: float() reads '1_000' as 1000.0,
+            # and no solver prints it, so a token carrying one is not a
+            # number of the export.
+            raise ValueError(token)
         return float(token)
     except ValueError as error:
         if match := _OMITTED_EXPONENT_MARKER.fullmatch(token.strip()):
@@ -387,10 +393,19 @@ def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iter
     Raises
     ------
     MalformedOutputError
-        If the token is not a number at all, is a number with a
-        fractional part, or is below ``minimum`` (a ``ValueError``).
+        If the token is not a number at all, is not finite, is a number
+        with a fractional part, or is below ``minimum`` (a
+        ``ValueError``).
     """
     value = parse_number(token)
+    if not math.isfinite(value):
+        # int() of a NaN raises a bare ValueError and of an infinity an
+        # OverflowError, which no caller's refusal catalogue names.
+        raise MalformedOutputError(
+            f"{label} printed {token!r}, which is not a finite number. This field "
+            f"counts {counts}, so the export is malformed or the label matched "
+            "the wrong line"
+        )
     whole = int(value)
     if value != whole:
         raise MalformedOutputError(
