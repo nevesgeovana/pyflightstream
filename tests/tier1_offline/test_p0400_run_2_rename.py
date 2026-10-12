@@ -60,7 +60,7 @@ def test_p0400_rename_rewrites_each_plan_entry_with_its_own_simulation_s_names(t
     import shutil
 
     from pyflightstream.cases.workflows import workflow_registry
-    from pyflightstream.run.matrix import run_matrix
+    from pyflightstream.run.matrix import plan_matrix, run_matrix
     from pyflightstream.workspace import RunStatus
     from tests.tier1_offline.test_goal024_point_name import _matrix
     from tests.tier1_offline.test_matrix_run import RECIPES, WRITES_EVERY_EXPORT, CountingStub
@@ -73,6 +73,14 @@ def test_p0400_rename_rewrites_each_plan_entry_with_its_own_simulation_s_names(t
     second = lines[2].replace("3207", "3208", 1).replace("MACH:0.2", "MACH:0.3")
     matrix.write_text("\n".join([*lines, second]) + "\n", encoding="utf-8")
     matrix = Path(shutil.copy2(matrix, workspace.root / matrix.name))
+    plan_matrix(
+        matrix,
+        workspace,
+        name="named",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+    )
     ran = run_matrix(
         matrix,
         workspace,
