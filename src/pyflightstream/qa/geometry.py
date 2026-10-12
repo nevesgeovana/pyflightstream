@@ -45,6 +45,27 @@ __all__ = [
 ]
 
 
+def _check_naca4(naca: str) -> None:
+    """Refuse a designation the 4-digit generator cannot build.
+
+    PFS-2102.005. A cambered code with a zero camber position (2012)
+    passed the four-digit check and divided by zero in the mesher: the
+    camber line is m / p**2 ahead of p, which needs p > 0
+    whenever m > 0.
+    """
+    if len(naca) != 4 or not naca.isdigit():
+        raise QaEvidenceError(
+            f"NACA designation {naca!r} is not four digits; the generator "
+            "implements the 4-digit family only"
+        )
+    if naca[0] != "0" and naca[1] == "0":
+        raise QaEvidenceError(
+            f"NACA designation {naca!r} has camber {naca[0]} with its position digit 0; "
+            "a 4-digit section places its maximum camber at a nonzero tenth of the chord "
+            "(the second digit, 1 to 9), so the camber line is undefined"
+        )
+
+
 @dataclass(frozen=True)
 class WingSpec:
     """A rectangular untwisted wing meshed from one NACA 4-digit section.
@@ -81,11 +102,7 @@ class WingSpec:
 
     def __post_init__(self) -> None:
         """Reject definitions outside the implemented 4-digit family."""
-        if len(self.naca) != 4 or not self.naca.isdigit():
-            raise QaEvidenceError(
-                f"NACA designation {self.naca!r} is not four digits; the generator "
-                "implements the 4-digit family only"
-            )
+        _check_naca4(self.naca)
         if self.chord_m <= 0 or self.span_m <= 0:
             raise QaEvidenceError("chord_m and span_m must be positive lengths in meters")
         if self.n_chord < 4 or self.n_span < 2:
@@ -409,11 +426,7 @@ class BladeSpec:
 
     def __post_init__(self) -> None:
         """Reject definitions the loft cannot mesh sensibly."""
-        if len(self.naca) != 4 or not self.naca.isdigit():
-            raise QaEvidenceError(
-                f"NACA designation {self.naca!r} is not four digits; the generator "
-                "implements the 4-digit family only"
-            )
+        _check_naca4(self.naca)
         if self.r_tip_m <= 0 or not 0.0 < self.hub_ratio < 1.0:
             raise QaEvidenceError("r_tip_m must be positive and hub_ratio inside (0, 1)")
         if self.chord_root_ratio <= 0 or self.chord_tip_ratio <= 0:

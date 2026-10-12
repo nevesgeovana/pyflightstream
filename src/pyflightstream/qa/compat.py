@@ -27,11 +27,13 @@ import yaml
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry, CommandRegistry, Status
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
+    load_yaml,
     public_executable_identity,
     refuse_existing_report,
     report_paths,
@@ -181,6 +183,10 @@ def write_compat_report(
             result.command: {
                 "outcome": result.outcome.value,
                 "detail": result.detail,
+                # PFS-2003.10.03: what the run read, apart from what the
+                # specification expected; None is a missing observation.
+                "expected": result.expected or None,
+                "observation": result.observation,
                 "signals": {
                     "sentinel_before": result.sentinel_before,
                     "sentinel_after": result.sentinel_after,
@@ -228,12 +234,20 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "",
         "## Evidence per command",
         "",
-        "| Command | Outcome | Evidence |",
-        "|---|---|---|",
+        "| Command | Outcome | Evidence | Expected effect | Observation |",
+        "|---|---|---|---|---|",
     ]
     for result in run.results:
         detail = result.detail.replace("|", "\\|")
-        lines.append(f"| {result.command} | {result.outcome.value} | {detail} |")
+        # PFS-2003.10.03. The observation is the run's reading or the word
+        # missing, never the specification's expectation in its place.
+        expected = (result.expected or NOT_APPLICABLE).replace("|", "\\|")
+        observation = (
+            "missing" if result.observation is None else result.observation.replace("|", "\\|")
+        )
+        lines.append(
+            f"| {result.command} | {result.outcome.value} | {detail} | {expected} | {observation} |"
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -248,15 +262,11 @@ def _load_yaml(path: Path) -> Any:
     which is not a ``ValueError``), and any unparsable file in the
     evidence directory. Each reached the operator as a stack that says
     nothing about whether the database was written.
+
+    The reader itself is :func:`pyflightstream.qa.reports.load_yaml`
+    since 0.40.0 (PFS-2102.010), shared with the physics evidence path.
     """
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except OSError as error:
-        raise QaEvidenceError(f"{path} cannot be read ({error}); nothing was written") from None
-    except yaml.YAMLError as error:
-        raise QaEvidenceError(
-            f"{path} is not parsable YAML ({error}); nothing was written"
-        ) from None
+    return load_yaml(path, consequence="nothing was written")
 
 
 def read_compat_report(path: str | Path) -> dict:
@@ -284,6 +294,25 @@ def read_compat_report(path: str | Path) -> dict:
             f"{path} is not a compat report (expected schema {COMPAT_SCHEMA!r}); "
             "apply-compat only promotes statuses from probe evidence"
         )
+    # PFS-2102.030. A hand-edited or partial report reached apply_compat
+    # and the CLI as a KeyError, TypeError or AttributeError.
+    if not isinstance(document.get("fs_version"), str):
+        raise QaEvidenceError(
+            f"{path} carries no fs_version string (found {document.get('fs_version')!r}); "
+            "a compat report names the version it judged"
+        )
+    commands = document.get("commands")
+    if not isinstance(commands, dict):
+        raise QaEvidenceError(
+            f"{path} carries no commands mapping (found {type(commands).__name__}); a compat "
+            "report maps each judged command to its outcome"
+        )
+    for name, body in commands.items():
+        if not isinstance(body, dict) or not isinstance(body.get("outcome"), str):
+            raise QaEvidenceError(
+                f"{path}: commands.{name} is not a mapping carrying an outcome (found "
+                f"{body!r}); nothing was written"
+            )
     return document
 
 
@@ -496,6 +525,54 @@ def contradicting_evidence(
     )
 
 
+def resolve_commands_dir(repo_root: str | Path, commands_dir: str | Path | None = None) -> Path:
+    """Return the command database a promotion writes, refusing one outside the repository.
+
+    PFS-2102.032, PFS-2088.016. The default used to be the installed
+    package's data, while the citation and the supersession index were
+    anchored on ``repo_root``; under a non-editable install, or from a
+    worktree whose editable install points at another checkout, the
+    promotions landed in a tree nobody named and the repository was
+    reported promoted.
+
+    Parameters
+    ----------
+    repo_root : str or Path
+        The repository root.
+    commands_dir : str or Path, optional
+        An explicit chapter directory. When left out,
+        ``<repo_root>/src/pyflightstream/commands`` if it exists, else
+        the installed package's data.
+
+    Returns
+    -------
+    Path
+        The resolved chapter directory, under ``repo_root``.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the directory is not under ``repo_root``.
+    """
+    root = Path(repo_root).resolve()
+    if commands_dir is None:
+        candidate = root / "src" / "pyflightstream" / "commands"
+        if candidate.is_dir():
+            commands_dir = candidate
+        else:
+            commands_dir = Path(str(resources.files("pyflightstream.commands")))
+    resolved = Path(commands_dir).resolve()
+    if not resolved.is_relative_to(root):
+        raise QaEvidenceError(
+            f"the command database {resolved} is not under the repository root {root}, so "
+            "the promotions would land in a tree the report citation does not name (an "
+            "installed copy, or another checkout); nothing was written. Pass the "
+            "repository as repo_root (CLI: --root), or a chapter directory under it as "
+            "commands_dir (CLI: --commands-dir)"
+        )
+    return resolved
+
+
 def apply_compat(
     report_path: str | Path,
     *,
@@ -525,9 +602,10 @@ def apply_compat(
         Repository root; the report citation written into the database
         is the report path relative to it, in POSIX form.
     commands_dir : str or Path, optional
-        Chapter YAML directory; defaults to the installed
-        ``pyflightstream.commands`` package data (the working tree in
-        an editable install). Tests point it at a copy.
+        Chapter YAML directory, which must lie under ``repo_root``;
+        defaults to ``<repo_root>/src/pyflightstream/commands`` when it
+        exists, else the installed ``pyflightstream.commands`` package
+        data (:func:`resolve_commands_dir`). Tests point it at a copy.
     reports_dir : str or Path, optional
         Directory of committed compat reports the incoming one is
         checked against for supersession; defaults to
@@ -546,8 +624,8 @@ def apply_compat(
     Raises
     ------
     QaEvidenceError
-        When the report is not a compat report, when it lies outside
-        ``repo_root``, when it names an unregistered version, when an
+        When the report is not a compat report, when it or the command
+        database lies outside ``repo_root``, when it names an unregistered version, when an
         explicitly given ``reports_dir`` is not a directory, when a
         judged command or its version line cannot be found, when a
         rewritten entry fails schema validation, when a report at least
@@ -570,9 +648,7 @@ def apply_compat(
             "database would not be a repository-relative path and no reader could "
             "follow it. Move the report under the repository first, or pass repo_root"
         ) from None
-    if commands_dir is None:
-        commands_dir = Path(str(resources.files("pyflightstream.commands")))
-    commands_dir = Path(commands_dir)
+    commands_dir = resolve_commands_dir(root, commands_dir)
     order = _release_order(commands_dir)
     if canonical not in order:
         raise QaEvidenceError(
@@ -902,6 +978,14 @@ def _rewritten_flow_entry(
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
         pairs["note"] = _one_line_note(str(body.get("detail", "")))
+        previous = str(existing.get("note") or "").strip()
+        if previous == pairs["note"] or previous.endswith(f"Probe: {pairs['note']}"):
+            pairs["note"] = previous  # the same measurement, promoted again
+        elif status == ProbeOutcome.BROKEN.value and previous:
+            # PFS-2102.031. The row's note is usually the edition's page
+            # citation, which nothing in this repository could put back,
+            # so a broken promotion keeps it and adds the measurement.
+            pairs["note"] = f"{previous} Probe: {pairs['note']}"
         owned.add("note")
     pairs.update({key: value for key, value in existing.items() if key not in owned})
     return f'{indent}"{canonical}": {_flow_mapping(pairs)}'
@@ -1369,7 +1453,27 @@ def classify_executable(
                 f"number is compared with the registry's. {common}"
             ),
         )
-    if resolved.build is not None and printed_build != resolved.build:
+    if resolved.build is None:
+        # PFS-2102.003. A registry with no build recorded has no number to
+        # match, so CONFIRMED named a match that did not exist.
+        return ExecutableIdentity(
+            verdict=ExecutableVerdict.UNKNOWN,
+            version=resolved.canonical,
+            fs_exe_name=name,
+            fs_exe_sha256=digest,
+            baseline_sha256=baseline_sha256,
+            printed_build=printed_build,
+            registry_build=None,
+            message=(
+                f"this binary prints build {printed_build}, and the registry holds no build "
+                f"for FlightStream {resolved.canonical} yet, so there is nothing to compare "
+                "it with. Record the build from a committed identity report "
+                f"(`pyfs-qa probe --fs-version {resolved.canonical} --fs-exe <path> "
+                "--identity-only`, then its solver_identity into the build field of "
+                f"commands/_meta.yaml) before any evidence is said to transfer. {common}"
+            ),
+        )
+    if printed_build != resolved.build:
         return ExecutableIdentity(
             verdict=ExecutableVerdict.MISMATCH,
             version=resolved.canonical,
