@@ -810,14 +810,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = coverage_against(manual, recorded=CommandRegistry.load().commands)
 
     if args.command == "coverage":
-        print(f"{args.source}: {report.summary()}")
-        for name in report.absent:
-            command = report.details[name]
-            layout, _why = propose_layout(command)
-            print(f"  ABSENT  p.{command.page:<4} {name:<48} {command.section or '?'} [{layout}]")
-        for name in report.undocumented:
-            print(f"  ONLY IN THE DATABASE   {name}")
-        return 0
+        return _print_coverage(args, report)
 
     wanted = [
         command
@@ -832,20 +825,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         wanted, source=args.source, versions=dict.fromkeys(args.versions, "documented")
     )
     if not args.write:
-        print(body)
-        # The CLI words its own closing line: write_chapter's dry-run
-        # sentence names the Python keyword `write=True`, which a
-        # command-line user cannot type, and printed the placeholder path
-        # as though it were a destination.
-        entries = body.count("\n  layout: ")
-        unanswered = body.count("???")
-        destination = f" --out {args.out}" if args.out else " --out PATH"
-        print(
-            f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
-            f"nothing written. Re-run with --write{destination} to write them."
-        )
-        return 0
+        return _print_dry_run(args, body)
     print(write_chapter(body, path=args.out, write=True))
+    return 0
+
+
+def _print_coverage(args: argparse.Namespace, report) -> int:
+    """Print the coverage of the manual against the database; return the exit code."""
+    print(f"{args.source}: {report.summary()}")
+    for name in report.absent:
+        command = report.details[name]
+        layout, _why = propose_layout(command)
+        print(f"  ABSENT  p.{command.page:<4} {name:<48} {command.section or '?'} [{layout}]")
+    for name in report.undocumented:
+        print(f"  ONLY IN THE DATABASE   {name}")
+    return 0
+
+
+def _print_dry_run(args: argparse.Namespace, body: str) -> int:
+    """Print the drafted chapter and the closing line of a dry run; return the exit code."""
+    print(body)
+    # The CLI words its own closing line: write_chapter's dry-run
+    # sentence names the Python keyword `write=True`, which a
+    # command-line user cannot type, and printed the placeholder path
+    # as though it were a destination.
+    entries = body.count("\n  layout: ")
+    unanswered = body.count("???")
+    destination = f" --out {args.out}" if args.out else " --out PATH"
+    print(
+        f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
+        f"nothing written. Re-run with --write{destination} to write them."
+    )
     return 0
 
 

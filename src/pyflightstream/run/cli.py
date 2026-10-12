@@ -88,7 +88,6 @@ from pyflightstream._progress import print_held_warnings as print_held_warnings
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
-    RAW_MESH_FORMATS,
     WorkflowCoverageError,
     resolve_workflow,
     workflow_names,
@@ -111,7 +110,14 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
-from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, parsed, resume_hint
+from pyflightstream.run._cli_parsers import (
+    GEOMETRY_COMMANDS,
+    _build_parser,
+    cmd_geometry,
+    cmd_mark_converged,
+    parsed,
+    resume_hint,
+)
 from pyflightstream.run._cli_print import (
     _print_collect,
     _print_delete_sims,
@@ -129,9 +135,11 @@ from pyflightstream.workspace import (
     InputArtifactError,
     RunStatus,
     WorkspaceError,
-    derive_thin_blade,
     post_diagnostics,
     selected_sims,
+)
+from pyflightstream.workspace import (
+    derive_thin_blade as derive_thin_blade,
 )
 from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
 from pyflightstream.workspace.ledger import listed_sims
@@ -292,8 +300,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_post(args)
         if args.subcommand == "collect":
             return _cmd_collect(args)
-        if args.subcommand in _GEOMETRY_COMMANDS:
-            return _cmd_geometry(args)
+        if args.subcommand in GEOMETRY_COMMANDS:
+            return cmd_geometry(args)
         if args.subcommand == "upgrade":
             return _cmd_upgrade(args)
         if args.subcommand == "rename":
@@ -1043,109 +1051,6 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
             )
         skipped += len(entries)
     return skipped
-
-
-def _cmd_inventory(args: argparse.Namespace) -> int:
-    """Write the boundary inventory sidecar of one saved simulation.
-
-    A saved simulation that carries unsteady solver actions is named on
-    standard error with each action and the ``--clean`` command, on every
-    call (FR-308); ``--clean`` reduces the file to its meshes and boundary
-    conditions first (FR-308, FR-312), and then an existing sidecar is kept,
-    since the boundaries it lists did not change.
-    """
-    from datetime import UTC, datetime
-
-    from pyflightstream.workspace._geometry_clean import saved_action_warning
-    from pyflightstream.workspace.inputs import (
-        OBJ_SUFFIX,
-        clean_saved_actions,
-        inventory_sidecar,
-        write_inventory,
-    )
-
-    geometry = Path(args.geometry)
-    # A RAW MESH IS EVERY FORMAT RAW_MESH_FORMATS NAMES, the STL as well as
-    # the OBJ (PFS-2094.036): an STL read as a saved simulation was warned
-    # about, or cleaned, before write_inventory refused it. Its refusal now
-    # comes first, and --clean on an OBJ is refused rather than ignored.
-    raw = geometry.suffix.lower() in RAW_MESH_FORMATS
-    if raw and args.clean and geometry.suffix.lower() == OBJ_SUFFIX:
-        print(
-            f"--clean reduces a saved simulation to its meshes and boundary conditions; "
-            f"{geometry.name} is a raw mesh, which carries no saved solver action. "
-            "Drop --clean to write its inventory.",
-            file=sys.stderr,
-        )
-        return 2
-    saved = geometry.is_file() and not raw
-    if saved and args.clean:
-        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        try:
-            cleaned = clean_saved_actions(geometry, stamp=stamp)
-        except (OSError, PyflightstreamError) as error:
-            print(str(error), file=sys.stderr)
-            return 2
-        said = [f"removed saved action {n} [{k}] {c}" for n, c, k in cleaned.actions]
-        said += [f"reset block {name} to its fresh-import content" for name in cleaned.blocks_reset]
-        said += [cleaned.note] if cleaned.note else []
-        said += [
-            f"the file as it was is {cleaned.backup.name}"
-            if cleaned.backup is not None
-            else f"{geometry.name} carries no saved unsteady solver action"
-            + ("" if cleaned.note else ", and each measured block holds its fresh-import content")
-        ]
-        for line in said:
-            print(line, file=sys.stderr)
-        if inventory_sidecar(geometry).exists() and not args.overwrite:
-            print(inventory_sidecar(geometry))
-            return 0
-    elif saved and (warning := saved_action_warning(geometry, args.geometry)) is not None:
-        print(f"warning: {warning}", file=sys.stderr)
-    try:
-        sidecar = write_inventory(args.geometry, overwrite=args.overwrite)
-    except (OSError, PyflightstreamError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    print(sidecar)
-    return 0
-
-
-#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
-#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
-_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
-
-
-def _cmd_geometry(args: argparse.Namespace) -> int:
-    """Run the geometry command ``args`` names."""
-    if (mesh_command := getattr(args, "mesh_command", None)) is not None:
-        return int(mesh_command(args))
-    return _cmd_degenerate(args) if args.subcommand == "degenerate" else _cmd_inventory(args)
-
-
-def _cmd_degenerate(args: argparse.Namespace) -> int:
-    """Derive the degenerate geometry of one blade mesh and write it beside it (FR-330).
-
-    The OBJ and its boundary inventory are named on standard output, one per
-    line; the offset used and a unit the source does not state are said on
-    standard error. A refusal names the file and the reason on standard error
-    and writes nothing.
-    """
-    try:
-        made = derive_thin_blade(
-            args.geometry,
-            root_offset=args.root_offset,
-            overwrite=args.overwrite,
-            boundary=args.boundary,
-        )
-    except (OSError, PyflightstreamError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    print(made.mesh)
-    print(made.sidecar)
-    unit = made.unit or "a length unit the source does not state"
-    print(f"the root moved outward by {made.root_offset!r} in {unit}", file=sys.stderr)
-    return 0
 
 
 def _notices_for(before: str) -> list[str]:

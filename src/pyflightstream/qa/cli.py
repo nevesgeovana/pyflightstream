@@ -679,7 +679,8 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     return 1 if counts["fail"] or aborted else 0
 
 
-def _cmd_drift(args: argparse.Namespace) -> int:
+def _drift_versions(args: argparse.Namespace) -> tuple[list[str], dict[str, str]] | None:
+    """Return the two canonical versions and the executable of each, or None after a report."""
     versions = [name.strip() for name in args.fs_versions.split(",") if name.strip()]
     if len(versions) != 2:
         print(
@@ -687,22 +688,22 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             "(for example --fs-versions 26.100,26.120)",
             file=sys.stderr,
         )
-        return 2
+        return None
     fs_exes: dict[str, str] = {}
     for item in args.fs_exe:
         version, separator, path = item.partition("=")
         if not separator or not path:
             print(f"--fs-exe expects VERSION=PATH, got {item!r}", file=sys.stderr)
-            return 2
+            return None
         canonical = _resolve_or_report(version.strip())
         if canonical is None:
-            return 2
+            return None
         fs_exes[canonical] = path.strip()
     canonicals = []
     for version in versions:
         canonical = _resolve_or_report(version)
         if canonical is None:
-            return 2
+            return None
         canonicals.append(canonical)
     missing = [canonical for canonical in canonicals if canonical not in fs_exes]
     if missing:
@@ -710,7 +711,34 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             f"no executable given for {', '.join(missing)}; pass --fs-exe VERSION=PATH",
             file=sys.stderr,
         )
+        return None
+    return canonicals, fs_exes
+
+
+def _print_drift_summary(run, yaml_path, md_path) -> int:
+    """Print the drift run's counts, aborts, identity and report paths; return the exit code."""
+    counts = run.verdict_counts()
+    print(
+        f"FlightStream {run.version_a} vs {run.version_b}: "
+        f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
+        f"{counts['no_reference']} without declared bands"
+    )
+    for result in run.results:
+        if result.error is not None:
+            print(f"{result.case_id} aborted: {result.error}", file=sys.stderr)
+    for line in run.solver_identity:
+        print(f"solver: {line}")
+    print(f"report: {yaml_path}")
+    print(f"report: {md_path}")
+    aborted = any(result.error is not None for result in run.results)
+    return 1 if counts["fail"] or aborted else 0
+
+
+def _cmd_drift(args: argparse.Namespace) -> int:
+    resolved = _drift_versions(args)
+    if resolved is None:
         return 2
+    canonicals, fs_exes = resolved
     try:
         physics_matrix(args.workspace, args.matrix)
         # PFS-2102.008. Both sides' executables and roots, before side A
@@ -750,21 +778,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         print(f"matrix not run: {error}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_drift_report(run, args.report_dir, date=date, label=args.label)
-    counts = run.verdict_counts()
-    print(
-        f"FlightStream {run.version_a} vs {run.version_b}: "
-        f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
-        f"{counts['no_reference']} without declared bands"
-    )
-    for result in run.results:
-        if result.error is not None:
-            print(f"{result.case_id} aborted: {result.error}", file=sys.stderr)
-    for line in run.solver_identity:
-        print(f"solver: {line}")
-    print(f"report: {yaml_path}")
-    print(f"report: {md_path}")
-    aborted = any(result.error is not None for result in run.results)
-    return 1 if counts["fail"] or aborted else 0
+    return _print_drift_summary(run, yaml_path, md_path)
 
 
 def _cmd_update_reference(args: argparse.Namespace) -> int:

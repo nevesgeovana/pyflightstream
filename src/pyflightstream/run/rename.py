@@ -711,16 +711,60 @@ def rename_workspace(
         return _rename_workspace_locked(workspace, apply=apply)
 
 
-def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
-    """Read, rename and replace while other manifest writers wait."""
-    report = RenameReport(applied=apply)
-    if not workspace.manifest_path.is_file():
-        raise WorkspaceError(
-            f"{workspace.manifest_path} is not there, so this is not a campaign workspace to "
-            "rename. Name the root that holds runs.json as workspace (CLI: --workspace)."
-        )
-    raw = workspace.read_raw_manifest()
-    report.records = len(raw)
+def _stage_plan(
+    workspace: CampaignWorkspace,
+    plan: _Plan,
+    report: RenameReport,
+    pending: list[tuple[Path, Path]],
+    destinations: _Destinations,
+) -> dict[str, Any]:
+    """Stage the moves of one planned record and return its rewritten manifest row."""
+    entry = dict(plan.record)
+    sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
+    if plan.moves:
+        report.renamed_records += 1
+    for move in plan.points:
+        folder = sim / DATAPOINTS_DIR / _folder_of_the_old_tag(move.old_tag)
+        # THE NEW FOLDER GOES THROUGH THE CHECKED RENDERER, which refuses a
+        # name that already carries the prefix or is not portable. The first
+        # writing concatenated, so the one command whose job is moving
+        # folders was the one place that gate did not fire (the architecture
+        # lens, 2026-09-16). The OLD side cannot: a 0.20 tag is not a
+        # PointName, which is why it has a named helper of its own.
+        target = sim / DATAPOINTS_DIR / datapoint_dir_name(PointName(move.new_name))
+        # THE FILES ARE READ BEFORE THE FOLDER MOVES and moved after it, so
+        # both halves of each pair name the NEW folder: a folder rename
+        # carries its contents, and a file move naming the old folder would
+        # then find nothing there.
+        inside = folder if folder.is_dir() else target
+        files = _files_to_move(inside, move.old_stem, move.new_stem)
+        if folder.is_dir() and folder != target and destinations.claim(folder, target):
+            pending.append((folder, target))
+            report.changes.append(RenameChange("datapoint", folder.name, target.name))
+        for before, after in files:
+            if destinations.claim(inside / before, target / after, now=inside / after):
+                pending.append((target / before, target / after))
+                report.changes.append(RenameChange("file", before, after))
+    old_stem, new_stem = plan.script
+    if old_stem and old_stem != new_stem:
+        before_path = sim / str(plan.record.get("script_path"))
+        after_path = before_path.with_name(f"{new_stem}{before_path.suffix}")
+        if before_path.is_file() and destinations.claim(before_path, after_path):
+            pending.append((before_path, after_path))
+            report.changes.append(RenameChange("script", before_path.name, after_path.name))
+    for name, value in list(entry.items()):
+        if name in KEPT_FIELDS:
+            continue
+        entry[name] = _rewrite_field(name, value, plan)
+    entry["point_name"] = plan.new_name
+    entry["sweep_name"] = plan.new_sweep
+    return entry
+
+
+def _plan_all_records(
+    workspace: CampaignWorkspace, raw: list[dict[str, Any]], report: RenameReport
+) -> tuple[list[_Plan], list[_Plan | dict[str, Any]]]:
+    """Plan every record in manifest order, a note as it is; refusals go to the report."""
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
     plans: list[_Plan] = []
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
@@ -748,6 +792,20 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
         if plan is not None:
             plans.append(plan)
             ordered.append(plan)
+    return plans, ordered
+
+
+def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
+    """Read, rename and replace while other manifest writers wait."""
+    report = RenameReport(applied=apply)
+    if not workspace.manifest_path.is_file():
+        raise WorkspaceError(
+            f"{workspace.manifest_path} is not there, so this is not a campaign workspace to "
+            "rename. Name the root that holds runs.json as workspace (CLI: --workspace)."
+        )
+    raw = workspace.read_raw_manifest()
+    report.records = len(raw)
+    plans, ordered = _plan_all_records(workspace, raw, report)
 
     if report.refusals:
         raise WorkspaceError(
@@ -762,47 +820,7 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
         if not isinstance(item, _Plan):
             rewritten.append(dict(item))
             continue
-        plan = item
-        entry = dict(plan.record)
-        sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
-        if plan.moves:
-            report.renamed_records += 1
-        for move in plan.points:
-            folder = sim / DATAPOINTS_DIR / _folder_of_the_old_tag(move.old_tag)
-            # THE NEW FOLDER GOES THROUGH THE CHECKED RENDERER, which refuses a
-            # name that already carries the prefix or is not portable. The first
-            # writing concatenated, so the one command whose job is moving
-            # folders was the one place that gate did not fire (the architecture
-            # lens, 2026-09-16). The OLD side cannot: a 0.20 tag is not a
-            # PointName, which is why it has a named helper of its own.
-            target = sim / DATAPOINTS_DIR / datapoint_dir_name(PointName(move.new_name))
-            # THE FILES ARE READ BEFORE THE FOLDER MOVES and moved after it, so
-            # both halves of each pair name the NEW folder: a folder rename
-            # carries its contents, and a file move naming the old folder would
-            # then find nothing there.
-            inside = folder if folder.is_dir() else target
-            files = _files_to_move(inside, move.old_stem, move.new_stem)
-            if folder.is_dir() and folder != target and destinations.claim(folder, target):
-                pending.append((folder, target))
-                report.changes.append(RenameChange("datapoint", folder.name, target.name))
-            for before, after in files:
-                if destinations.claim(inside / before, target / after, now=inside / after):
-                    pending.append((target / before, target / after))
-                    report.changes.append(RenameChange("file", before, after))
-        old_stem, new_stem = plan.script
-        if old_stem and old_stem != new_stem:
-            before_path = sim / str(plan.record.get("script_path"))
-            after_path = before_path.with_name(f"{new_stem}{before_path.suffix}")
-            if before_path.is_file() and destinations.claim(before_path, after_path):
-                pending.append((before_path, after_path))
-                report.changes.append(RenameChange("script", before_path.name, after_path.name))
-        for name, value in list(entry.items()):
-            if name in KEPT_FIELDS:
-                continue
-            entry[name] = _rewrite_field(name, value, plan)
-        entry["point_name"] = plan.new_name
-        entry["sweep_name"] = plan.new_sweep
-        rewritten.append(entry)
+        rewritten.append(_stage_plan(workspace, item, report, pending, destinations))
 
     # EVERY DESTINATION IS KNOWN TO BE FREE BEFORE THE FIRST MOVE (0.24.0), and
     # the rehearsal refuses what the run refuses. Until then the moves below ran

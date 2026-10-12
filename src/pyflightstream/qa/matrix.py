@@ -605,6 +605,30 @@ def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
     return by_case
 
 
+def _require_one_build(records: list, path: Path) -> list[str]:
+    """Return the one requested version of ``records``; refuse a drift of version or binary."""
+    versions = sorted({record.fs_version_requested for record in records})
+    if len(versions) != 1:
+        raise PhysicsEnvironmentError(
+            f"the records of {path.name} name {len(versions)} solver versions "
+            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
+            "builds of one case set is a drift (pyfs-qa drift)."
+        )
+    # PFS-2085.017. One version can be two programs: a rebuilt hotfix
+    # prints the same version, and a resumed run after the registry entry
+    # was repointed records the new binary beside the old one.
+    for field_name in ("fs_build", "fs_exe_sha256"):
+        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
+        if len(seen) > 1:
+            raise PhysicsEnvironmentError(
+                f"the records of {path.name} name {len(seen)} different {field_name} values "
+                f"({', '.join(seen)}) for FlightStream {versions[0]}, and a physics report "
+                "is evidence of one executable; two binaries of one case set is a drift "
+                "(pyfs-qa drift)."
+            )
+    return versions
+
+
 def reduce_physics(
     workspace: CampaignWorkspace,
     matrix: str | Path,
@@ -666,25 +690,7 @@ def reduce_physics(
             "(CLI: --name)."
         )
     records = [record for points in by_row.values() for record in points]
-    versions = sorted({record.fs_version_requested for record in records})
-    if len(versions) != 1:
-        raise PhysicsEnvironmentError(
-            f"the records of {path.name} name {len(versions)} solver versions "
-            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
-            "builds of one case set is a drift (pyfs-qa drift)."
-        )
-    # PFS-2085.017. One version can be two programs: a rebuilt hotfix
-    # prints the same version, and a resumed run after the registry entry
-    # was repointed records the new binary beside the old one.
-    for field_name in ("fs_build", "fs_exe_sha256"):
-        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
-        if len(seen) > 1:
-            raise PhysicsEnvironmentError(
-                f"the records of {path.name} name {len(seen)} different {field_name} values "
-                f"({', '.join(seen)}) for FlightStream {versions[0]}, and a physics report "
-                "is evidence of one executable; two binaries of one case set is a drift "
-                "(pyfs-qa drift)."
-            )
+    versions = _require_one_build(records, path)
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
     for case_id, case in PHYSICS_CASES.items():
@@ -908,7 +914,15 @@ def drift_from_workspace(
         try:
             runs.append(
                 _run_one_side(
-                    root, path, side, canonical, exe, side_root, builds, name, references_dir
+                    root,
+                    path,
+                    side,
+                    canonical,
+                    exe=exe,
+                    side_root=side_root,
+                    builds=builds,
+                    name=name,
+                    references_dir=references_dir,
                 )
             )
         except (PyflightstreamError, OSError, ValueError) as error:
@@ -987,6 +1001,7 @@ def _run_one_side(
     path: Path,
     side: str,
     canonical: str,
+    *,
     exe: str | Path,
     side_root: Path,
     builds: list[str],

@@ -221,6 +221,37 @@ _WORKFLOW_ENTRIES: dict[str, Workflow] = {
 WORKFLOWS.update(_WORKFLOW_ENTRIES)
 
 
+def _refuse_unaveragable_surface(
+    case: SimCase, script: Script, conventions: WorkflowConventions | None
+) -> None:
+    """Refuse a [time_averaging] the script's build or the point's exports cannot serve."""
+    if case.pproc is None or case.pproc.time_averaging is None:
+        return
+    # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from
+    # its per-step VTK exports; a point exporting no Tecplot has nothing to
+    # average into one.
+    names = list((conventions.outputs if conventions else None) or case.outputs)
+    if case.recipe in _UNSTEADY_RECIPES:
+        try:
+            script.entry(_AVERAGE_ACTION)
+        except CommandNotInVersionError as error:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc's [time_averaging] exports the surface "
+                f"at every step of its window through an unsteady solver action, and "
+                f"FlightStream {script.version.canonical} does not carry it: {error} Run "
+                "the row on a build that does, or remove [time_averaging]."
+            ) from error
+    if "tecplot" not in classify_outputs(names):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc's [time_averaging] asks for the surface "
+            "averaged over its window, which the package writes as a Tecplot from the "
+            "per-step VTK exports, and the point exports no Tecplot (its outputs "
+            f"{', '.join(names) or 'name none'}). Leave tecplot on under [exports], "
+            "the default, or remove [time_averaging]."
+        )
+    surface_time_averaging(case)
+
+
 def build_script(
     case: SimCase,
     script: Script,
@@ -293,30 +324,7 @@ def build_script(
     ):
         raise CommandArgumentError(f"case {case.sim_id!r}: " + _unmarked_unit_refusal("26.100"))
     require_coverage(workflow, script.version, registry=registry)
-    if case.pproc is not None and case.pproc.time_averaging is not None:
-        # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from
-        # its per-step VTK exports; a point exporting no Tecplot has nothing to
-        # average into one.
-        names = list((conventions.outputs if conventions else None) or case.outputs)
-        if case.recipe in _UNSTEADY_RECIPES:
-            try:
-                script.entry(_AVERAGE_ACTION)
-            except CommandNotInVersionError as error:
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: the pproc's [time_averaging] exports the surface "
-                    f"at every step of its window through an unsteady solver action, and "
-                    f"FlightStream {script.version.canonical} does not carry it: {error} Run "
-                    "the row on a build that does, or remove [time_averaging]."
-                ) from error
-        if "tecplot" not in classify_outputs(names):
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: the pproc's [time_averaging] asks for the surface "
-                "averaged over its window, which the package writes as a Tecplot from the "
-                "per-step VTK exports, and the point exports no Tecplot (its outputs "
-                f"{', '.join(names) or 'name none'}). Leave tecplot on under [exports], "
-                "the default, or remove [time_averaging]."
-            )
-        surface_time_averaging(case)
+    _refuse_unaveragable_surface(case, script, conventions)
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
     # once and before the first emission, so a refusal leaves nothing written.
     script.march_strategy = march_strategy(

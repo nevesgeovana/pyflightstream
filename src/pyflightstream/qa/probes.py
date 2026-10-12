@@ -1641,25 +1641,7 @@ def _judge(
             **common,
         )
     if artifacts.log_after is None:
-        if artifacts.log_before is None:
-            return ProbeResult(
-                outcome=ProbeOutcome.UNPROBED,
-                detail=(
-                    "the probe prelude did not reach the BEGIN sentinel although the "
-                    "baseline passed; the target was not judged. Inspect the prelude "
-                    f"and its support commands (return code {execution.return_code}). "
-                    + "; ".join(_scan_errors(execution.log_text or "", error_patterns)[:3])
-                ),
-                **common,
-            )
-        return ProbeResult(
-            outcome=ProbeOutcome.BROKEN,
-            detail=(
-                "script processing aborted at the command: the log exported before it "
-                "exists, the one after it never appeared (END sentinel missing)"
-            ),
-            **common,
-        )
+        return _judge_missing_end(artifacts, error_patterns, common)
     matches = _scan_errors(artifacts.target_region(), error_patterns)
     if matches:
         return ProbeResult(
@@ -1729,6 +1711,32 @@ def _judge(
             f"{reading}"
         ),
         effect=True,
+        **common,
+    )
+
+
+def _judge_missing_end(
+    artifacts: ProbeArtifacts, error_patterns: Sequence[str], common: dict[str, object]
+) -> ProbeResult:
+    """Judge a probe whose END sentinel never appeared: unreached prelude or aborted target."""
+    if artifacts.log_before is None:
+        execution = artifacts.execution
+        return ProbeResult(
+            outcome=ProbeOutcome.UNPROBED,
+            detail=(
+                "the probe prelude did not reach the BEGIN sentinel although the "
+                "baseline passed; the target was not judged. Inspect the prelude "
+                f"and its support commands (return code {execution.return_code}). "
+                + "; ".join(_scan_errors(execution.log_text or "", error_patterns)[:3])
+            ),
+            **common,
+        )
+    return ProbeResult(
+        outcome=ProbeOutcome.BROKEN,
+        detail=(
+            "script processing aborted at the command: the log exported before it "
+            "exists, the one after it never appeared (END sentinel missing)"
+        ),
         **common,
     )
 

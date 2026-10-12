@@ -13,6 +13,7 @@ import re
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -102,17 +103,11 @@ def owned_solver_dialogs(pid: int) -> tuple[str, ...]:
     return select_owned_dialogs(pid, _native_windows(pid))
 
 
-def _native_windows(pid: int) -> list[WindowDiagnostic]:
-    """Enumerate exact-owned windows with bounded cross-process text reads."""
-    # The platform check is written the way the type checker narrows it: on a
-    # non-Windows host the Windows-only ctypes names below do not exist.
-    if sys.platform != "win32":
-        return []
+def _declare_user32_signatures(user32: Any, callback_type: Any) -> None:
+    """Declare the argument and result types of the user32 calls the window walk makes."""
     import ctypes
     from ctypes import wintypes
 
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     user32.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
     user32.EnumWindows.restype = wintypes.BOOL
     user32.EnumChildWindows.argtypes = [wintypes.HWND, callback_type, wintypes.LPARAM]
@@ -139,6 +134,20 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
         ctypes.POINTER(ctypes.c_size_t),
     ]
     user32.SendMessageTimeoutW.restype = wintypes.LPARAM
+
+
+def _native_windows(pid: int) -> list[WindowDiagnostic]:
+    """Enumerate exact-owned windows with bounded cross-process text reads."""
+    # The platform check is written the way the type checker narrows it: on a
+    # non-Windows host the Windows-only ctypes names below do not exist.
+    if sys.platform != "win32":
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    _declare_user32_signatures(user32, callback_type)
     windows: list[WindowDiagnostic] = []
 
     def belongs(handle):
