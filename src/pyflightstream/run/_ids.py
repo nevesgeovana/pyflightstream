@@ -414,6 +414,16 @@ def _names_of(case: SimCase) -> list[str]:
     return [point_name(case, point) for point in case.sweep.points()]
 
 
+def whole_sweeps(resolved: ResolvedMatrix) -> dict[str, list[str]]:
+    """Return each simulation's point names in sweep order, the order aliases number (FR-395).
+
+    Read BEFORE :func:`narrow_to_selection`: a plan of a selection numbers its
+    aliases against the whole sweep (``plan_campaign(planned_order=...)``), as
+    the run reads them here.
+    """
+    return {case.sim_id: _names_of(case) for case in resolved.campaign.sims}
+
+
 def _only_these_points(case: SimCase, wanted: set[str]) -> SimCase | None:
     """Return the case reduced to the points ``wanted`` names, or None where it has none."""
     kept = [
@@ -469,7 +479,7 @@ def narrow_to_selection(
             sims,
             points,
             workspace.read_raw_manifest(),
-            {case.sim_id: _names_of(case) for case in resolved.campaign.sims},
+            whole_sweeps(resolved),
         )
     if not sims:
         if points:

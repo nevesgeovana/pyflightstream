@@ -17,7 +17,7 @@ from zipfile import BadZipFile
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.run._alias import alias_lines, planned_from_plan_files
+from pyflightstream.run._alias import alias_lines, planned_in_workspace
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
@@ -81,13 +81,12 @@ def _add_parsers(subparsers: Any) -> None:
 
 
 def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
-    planned = planned_from_plan_files(ledger.root)
+    rows = read_json_file(ledger.manifest, [])
+    rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    planned = planned_in_workspace(ledger.root, rows)
     for row in ledger.points():
         planned.setdefault(str(row["sim"]), [])
-    return {
-        alias: (sim, point)
-        for alias, sim, point in alias_lines(read_json_file(ledger.manifest, []), planned)
-    }
+    return {alias: (sim, point) for alias, sim, point in alias_lines(rows, planned)}
 
 
 def _resolve(ledger: Ledger, target: str) -> str:

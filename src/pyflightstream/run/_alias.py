@@ -172,6 +172,76 @@ def alias_lines(
     ]
 
 
+#: The ``plan.json`` key holding each simulation's WHOLE sweep, in sweep order (0.40.0).
+#: A plan of a selection (``--sims``/``--points``) lists only the selected points
+#: under ``points``; an alias is numbered against the whole sweep, as ``run``
+#: numbers it, so the plan writes the whole sweep here as well.
+PLANNED_ORDER_KEY = "planned_order"
+
+
+def _plan_order(payload: object) -> dict[str, list[str]]:
+    """Return one plan's point names per simulation: its whole sweep, else its points."""
+    if not isinstance(payload, Mapping):
+        return {}
+    found: dict[str, list[str]] = {}
+    whole = payload.get(PLANNED_ORDER_KEY)
+    if isinstance(whole, Mapping):
+        for sim, names in whole.items():
+            if isinstance(names, list):
+                found[str(sim)] = [str(name) for name in names]
+    points = payload.get("points", [])
+    for entry in points if isinstance(points, list) else []:
+        if isinstance(entry, Mapping) and isinstance(entry.get("run_id"), str):
+            tags = found.setdefault(str(entry.get("sim_id")), [])
+            tag = entry["run_id"].rsplit("/", 1)[-1]
+            if tag not in tags:
+                tags.append(tag)
+    return found
+
+
+def planned_by_sim(
+    rows: Iterable[Mapping[str, Any]], orders: Iterable[Mapping[str, Sequence[str]]]
+) -> dict[str, list[str]]:
+    """Return the planned point names of each simulation, the one reading every verb uses.
+
+    Parameters
+    ----------
+    rows : iterable of mapping
+        The manifest's rows; a simulation they record and no plan lists is known,
+        with no planned point.
+    orders : iterable of mapping of str to sequence of str
+        The plans' point names per simulation, first plan first; a later plan adds
+        only the names an earlier one lacks.
+
+    Returns
+    -------
+    dict of str to list of str
+        Per simulation, the point names in plan order.
+    """
+    found: dict[str, list[str]] = {}
+    for order in orders:
+        for sim, names in order.items():
+            tags = found.setdefault(str(sim), [])
+            tags.extend(name for name in names if name not in tags)
+    for row in rows:
+        if isinstance(row, Mapping):
+            found.setdefault(str(row.get("sim_id")), [])
+    return found
+
+
+def _plan_file_orders(root: str | Path) -> list[dict[str, list[str]]]:
+    """Return the point order of each readable ``plan.json`` of a workspace, root's first."""
+    base = Path(root)
+    orders: list[dict[str, list[str]]] = []
+    for plan_file in [base / "plan.json", *sorted(base.glob("post/*/plan.json"))]:
+        try:
+            payload = json.loads(plan_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        orders.append(_plan_order(payload))
+    return orders
+
+
 def planned_from_plan_files(root: str | Path) -> dict[str, list[str]]:
     """Return the points each simulation was planned with, read from the ``plan.json`` files.
 
@@ -183,23 +253,36 @@ def planned_from_plan_files(root: str | Path) -> dict[str, list[str]]:
     Returns
     -------
     dict of str to list of str
-        Per simulation, the point names in the order the (first) plan lists them; a
-        file that cannot be read is skipped.
+        Per simulation, the point names in the order the (first) plan lists them,
+        its whole sweep where the plan wrote one; a file that cannot be read is
+        skipped.
     """
-    base = Path(root)
-    found: dict[str, list[str]] = {}
-    for plan_file in [base / "plan.json", *sorted(base.glob("post/*/plan.json"))]:
-        try:
-            points = json.loads(plan_file.read_text(encoding="utf-8")).get("points", [])
-        except (OSError, ValueError, AttributeError):
-            continue
-        for entry in points if isinstance(points, list) else []:
-            if isinstance(entry, Mapping) and isinstance(entry.get("run_id"), str):
-                tags = found.setdefault(str(entry.get("sim_id")), [])
-                tag = entry["run_id"].rsplit("/", 1)[-1]
-                if tag not in tags:
-                    tags.append(tag)
-    return found
+    return planned_by_sim((), _plan_file_orders(root))
+
+
+def planned_in_workspace(
+    root: str | Path, rows: Iterable[Mapping[str, Any]]
+) -> dict[str, list[str]]:
+    """Return the planned point names of each simulation of a workspace (FR-395).
+
+    The ``plan.json`` files and the manifest's simulations, read by
+    :func:`planned_by_sim`: what ``show``, ``log``, ``trace``, ``mark-failed``,
+    ``mark-converged``, ``delete-sims`` and the failure lines of ``run`` number
+    aliases against.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    rows : iterable of mapping
+        The manifest's rows.
+
+    Returns
+    -------
+    dict of str to list of str
+        Per simulation, the point names in plan order.
+    """
+    return planned_by_sim(rows, _plan_file_orders(root))
 
 
 def resolve_alias(
@@ -365,8 +448,7 @@ def split_typed_ids(
     except (OSError, ValueError):
         rows = []
     rows = [row for row in rows if isinstance(row, Mapping)] if isinstance(rows, list) else []
-    known: dict[str, Sequence[str]] = {str(row.get("sim_id")): [] for row in rows}
-    known.update(planned_from_plan_files(root))
+    known = planned_in_workspace(root, rows)
     sims: list[str] = []
     points: dict[str, list[str]] = {}
     for text in items:
@@ -393,8 +475,14 @@ def _record_sim(record: Any) -> str:
     return parts[-2].removeprefix("sim_") if len(parts) > 1 else ""
 
 
-def failure_alias_lines(failures: Sequence[Any], rows: list[dict[str, Any]]) -> list[str]:
-    """Name the run id alias beside each failed run id (FR-395 R3), read from the records.
+def failure_alias_lines(
+    failures: Sequence[Any], rows: list[dict[str, Any]], root: str | Path | None = None
+) -> list[str]:
+    """Name the run id alias beside each failed run id (FR-395 R3).
+
+    Read as every other reader of an alias reads it (:func:`planned_in_workspace`),
+    so a failed point recorded out of its sweep order is named by the alias that
+    ``--points``, ``show`` and ``mark-failed`` resolve back to it.
 
     Parameters
     ----------
@@ -402,13 +490,16 @@ def failure_alias_lines(failures: Sequence[Any], rows: list[dict[str, Any]]) -> 
         The failed records (each with ``sim_id`` and ``run_id``).
     rows : list of dict
         The manifest rows, as ``CampaignWorkspace.read_raw_manifest`` returns them.
+    root : str or Path, optional
+        The workspace root, whose ``plan.json`` files give the sweep order; without
+        it the records alone are read, in the order they were recorded.
 
     Returns
     -------
     list of str
         ``"  alias <alias> = <run id>"`` for each failure that has an alias.
     """
-    sims: dict[str, list[str]] = {str(row.get("sim_id")): [] for row in rows}
+    sims = planned_in_workspace(root, rows) if root is not None else planned_by_sim(rows, ())
     found = {(sim, tag): alias for alias, sim, tag in alias_lines(rows, sims)}
     return [
         f"  alias {found[key]} = {record.run_id}"

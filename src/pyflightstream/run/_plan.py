@@ -64,6 +64,7 @@ from pyflightstream.cases.workflows._freestream import (
     planned_wake,
     wake_warnings,
 )
+from pyflightstream.run._alias import PLANNED_ORDER_KEY
 from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
     resolve_continuation,
@@ -748,6 +749,10 @@ class CampaignPlan:
     #: The grouping a ``plan --batch`` or ``--polar-sweep`` decided (FR-365); None for single
     #: points. LAST, for the reason of ``costs``.
     grouping: GroupingReceipt | None = None
+    #: Each simulation's WHOLE sweep, point names in sweep order (0.40.0, FR-395): what an
+    #: alias is numbered against, also for a plan of a ``--sims``/``--points`` selection,
+    #: whose ``points`` list only the selection. LAST, for the reason of ``costs``.
+    planned_order: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def blocked(self) -> list[PointPlan]:
@@ -1000,6 +1005,7 @@ def plan_campaign(
     setup_inspections: Sequence[dict[str, object]] | None = None,
     inflow_fft: bool = False,
     accepted_builds: Collection[str] = (),
+    planned_order: Mapping[str, Sequence[str]] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -1085,6 +1091,13 @@ def plan_campaign(
         the campaign's own. ``plan.json`` then states the acceptance, the
         builds it holds for and its file, as the run's records will. Default
         empty.
+    planned_order : mapping of str to sequence of str, optional
+        Per simulation id, the point names of its WHOLE sweep in sweep order,
+        for a campaign narrowed to a ``--sims``/``--points`` selection before
+        planning (FR-326): run id aliases are numbered against the whole sweep,
+        as ``run`` numbers them (FR-395). None reads it off ``campaign``, which
+        is the whole sweep when nothing was selected. Written into ``plan.json``
+        as ``planned_order`` and onto :attr:`CampaignPlan.planned_order`.
 
     Returns
     -------
@@ -1169,6 +1182,7 @@ def plan_campaign(
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
     _warn_on_short_wakes(points)
     groups = _build_groups(campaign)
+    order = _planned_order(campaign, planned_order)
     plan_file = None
     if write_plan:
         plan_file = workspace.plan_dir(campaign.matrix_stem) / "plan.json"
@@ -1180,6 +1194,8 @@ def plan_campaign(
             "build_groups": groups,
             "setup_inspections": list(setup_inspections or ()),
             "points": [_point_record(entry) for entry in points],
+            # FR-395 (0.40.0): the whole sweep, the order an alias is numbered against.
+            PLANNED_ORDER_KEY: order,
             # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
             # and then "plan, edit the matrix, run" passes a gate that read
@@ -1207,7 +1223,21 @@ def plan_campaign(
         plan_file=plan_file,
         build_groups=groups,
         setup_inspections=list(setup_inspections or ()),
+        planned_order=order,
     )
+
+
+def _planned_order(
+    campaign: Campaign, given: Mapping[str, Sequence[str]] | None
+) -> dict[str, list[str]]:
+    """Return each simulation's whole sweep: ``given`` where it names one, else the campaign's."""
+    order = {
+        case.sim_id: [point_name(case, point) for point in case.sweep.points()]
+        for case in campaign.sims
+    }
+    for sim, names in (given or {}).items():
+        order[sim] = list(names)
+    return order
 
 
 def _settings_provenance(
