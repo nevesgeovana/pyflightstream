@@ -31,6 +31,7 @@ quadrature accuracy and the FFT (DLV-006 Sec. 2.2).
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Mapping
 
 import numpy as np
@@ -260,7 +261,13 @@ def azimuthal_harmonics(da: xr.DataArray, *, m_max: int = 6) -> xr.DataArray:
     """
     _delta_psi(da)
     n = da.sizes["psi"]
-    if m_max >= n // 2:
+    if isinstance(m_max, bool) or not isinstance(m_max, numbers.Integral) or m_max < 0:
+        raise FarfieldInputError(
+            f"m_max={m_max!r} is not an azimuthal order; give a non-negative integer"
+        )
+    # Order m is unaliased while 2 m < n: an odd grid of n = 2 m + 1 azimuths
+    # carries order m, and an even grid's Nyquist order n/2 is refused.
+    if 2 * m_max >= n:
         raise FarfieldInputError(
             f"m_max={m_max} needs more than {2 * m_max} uniform azimuths to avoid "
             f"aliasing; this grid has {n}"
