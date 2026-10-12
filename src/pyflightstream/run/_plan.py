@@ -93,6 +93,7 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     NamingTemplateError,
     RunRecord,
+    RunStatus,
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
@@ -367,12 +368,27 @@ def _recorded_is_unsteady(record: dict) -> bool:
     return bool(record.get("reductions"))
 
 
+#: The statuses whose wall time is no sample of what a point costs (PFS-2094.014):
+#: a failure ended early or never ran, WALLTIME_REACHED would teach the estimate
+#: that a point costs exactly the clock it was given, SUBMITTED has not run here,
+#: and RAN_MISSING_LOG is no verdict. The set of qa/cost.py's _EXCLUDED_STATUSES,
+#: which run/ cannot import (qa imports run).
+_NOT_A_COST_SAMPLE = frozenset(
+    status.value
+    for status in RunStatus
+    if status.name.startswith("FAILED")
+    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
+)
+
+
 def _recorded_costs(workspace) -> list[dict]:
-    """Every recorded point that carries a wall time, as plain mappings.
+    """Every recorded point that carries a wall time and ran to an end, as plain mappings.
 
     The model's whole training set. A workspace that has run nothing produces
     an empty list, and every estimate below then reports `samples = 0`, which
-    the table prints as `unknown` rather than as a number.
+    the table prints as `unknown` rather than as a number. A record in a status
+    of :data:`_NOT_A_COST_SAMPLE` is left out, as restore-and-rebuild.md says
+    of FAILED_MARKED.
     """
     # READ THE MANIFEST BY ITS OWN READER, and let a missing FILE be the only
     # empty answer. The first version called `workspace.records()`, which does
@@ -389,6 +405,8 @@ def _recorded_costs(workspace) -> list[dict]:
     for record in records:
         data = record if isinstance(record, dict) else record.model_dump(mode="json")
         seconds = data.get("wall_time_s")
+        if str(data.get("status")) in _NOT_A_COST_SAMPLE:
+            continue
         if isinstance(seconds, (int, float)) and seconds > 0:
             out.append(data)
     return out
