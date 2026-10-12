@@ -559,11 +559,107 @@ _SRC = Path(pyflightstream.__file__).parent
 #: workspace layer the trailing-edge node file.
 #: `_textio` joined in 0.34.0 (NFR-32): the one LF write route every layer writes through.
 _UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_textio", "_tokens")
-_LAYER_ROW: dict[str, int] = (
+
+#: EVERY OTHER ROOT UNIT OF THE PACKAGE (PFS-2083.002, 0.40.0). Until 0.40.0
+#: twenty-five units of the package root had no row, and a unit with no row is
+#: not examined, so a ranked module that imported one which imported upward
+#: reached up with no guard firing (`exceptions`, which imports every layer,
+#: was the live instance). A row is a float: the integers are the core rows and
+#: the floor, and a `.5` or `.25` is a place BETWEEN two of them. Each unit is
+#: ranked from the imports it has, measured with an AST walk of every import
+#: (module level, deferred and `TYPE_CHECKING`): it sits one step above the
+#: highest row it imports and below nothing that imports it. The smaller the
+#: number, the higher the unit.
+#:
+#: - 7 (the floor): imports the errors, the standard library or nothing.
+#: - 6.5: `_deprecations` (imports `_retired_names`), `_progress` (imports
+#:   `_console` and `_textio`), `overview` (imports `_textio`).
+#: - 6.25: `_cli` (imports `_progress`).
+#: - 4.5: `utils`, `reference` (import `commands`).
+#: - 3.5: `probes`, `fsi`, `support` (import `script` or `results`, row 4, and
+#:   are imported by `cases`, row 3).
+#: - 3.25: `farfield` (imports `probes`).
+#: - 0: `exceptions`, which imports `post`, `qa`, `run`, `workspace` and the rest
+#:   and which NO module of `src/` imports, so nothing is a conduit through it:
+#:   a module that began to import it would be reaching UP (row 0 is the top).
+_ROOT_UNIT_ROWS: dict[str, float] = {
+    **dict.fromkeys(
+        (
+            "_console",
+            "_decimal",
+            "_digest",
+            "_fsi_calibration",
+            "_fsm",
+            "_fsm_fresh",
+            "_maturity",
+            "_mesh",
+            "_retired_names",
+            "_signature",
+            "_yamlflow",
+            "extras",
+            "options",
+            "testing",
+        ),
+        float(len(_CORE_LAYERS)),
+    ),
+    **dict.fromkeys(("_deprecations", "_progress", "overview"), len(_CORE_LAYERS) - 0.5),
+    "_cli": len(_CORE_LAYERS) - 0.75,
+    **dict.fromkeys(("utils", "reference"), 4.5),
+    **dict.fromkeys(("probes", "fsi", "support"), 3.5),
+    "farfield": 3.25,
+    "exceptions": 0.0,
+}
+
+#: THE NAMED, COUNTED EXCEPTIONS to "every root module has a row". The guard
+#: fails if this mapping grows. The package root `pyflightstream/__init__.py`
+#: is the one unit that cannot take a row: it imports `post` and `run.records`
+#: (and `_cli`, `options`, `overview`, `reference`, `support`) while `post`,
+#: `qa`, `results`, `run` and `workspace` import it back for the version and
+#: `_textio`, so any single row makes five of those edges upward. No code
+#: moves in 0.40.0; the cycle is the finding. A bare `import pyflightstream`
+#: has one dotted part and so resolves to no row, which is how the exception
+#: acts.
+_NAMED_UNRANKED_ROOT_UNITS: dict[str, str] = {
+    "__init__": "the package root imports post and run.records and is imported back by "
+    "post, qa, results, run and workspace (a cycle)"
+}
+_NAMED_UNRANKED_BUDGET = 1
+
+_LAYER_ROW: dict[str, float] = (
     {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
     | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}
     | {name: len(_CORE_LAYERS) for name in _UNDRAWN_FLOOR_MODULES}
+    | _ROOT_UNIT_ROWS
 )
+
+
+def _root_units(package: Path) -> list[str]:
+    """Names of the units of the package root: every module and every package."""
+    units = [p.stem for p in package.glob("*.py") if p.name != "__init__.py"]
+    units += [d.name for d in package.iterdir() if (d / "__init__.py").is_file()]
+    return sorted(units)
+
+
+def _unranked_root_units(package: Path, rows: dict[str, float] | None = None) -> list[str]:
+    """Root units of ``package`` that carry no layer row (the guard of PFS-2083.002)."""
+    table = _LAYER_ROW if rows is None else rows
+    return [name for name in _root_units(package) if name not in table]
+
+
+def test_every_root_module_has_a_layer_row_and_the_named_exceptions_do_not_grow():
+    """PFS-2083.002: no root unit is left without a row, and the exception list is counted."""
+    assert _unranked_root_units(_SRC) == [], (
+        "root units with no layer row (rank them in _ROOT_UNIT_ROWS from the imports "
+        "they have; a unit with no row is not examined and can be a conduit)"
+    )
+    assert len(_NAMED_UNRANKED_ROOT_UNITS) == _NAMED_UNRANKED_BUDGET, (
+        "the named exceptions to 'every root module has a row' may not grow"
+    )
+    # No row names a unit that does not exist (a row nothing reads).
+    stale = sorted(set(_ROOT_UNIT_ROWS) - set(_root_units(_SRC)))
+    assert not stale, f"rows for units that do not exist: {stale}"
+    assert (_SRC / "__init__.py").is_file()
+    assert set(_NAMED_UNRANKED_ROOT_UNITS) == {"__init__"}
 
 
 def test_the_undrawn_floor_modules_exist_and_have_the_floors_row():
@@ -574,7 +670,7 @@ def test_the_undrawn_floor_modules_exist_and_have_the_floors_row():
         assert _layer_row(f"pyflightstream.{name}") == len(_CORE_LAYERS)
 
 
-def _layer_row(dotted: str) -> int | None:
+def _layer_row(dotted: str) -> float | None:
     """Row of the module ``dotted`` names, or None when it has no layer."""
     parts = dotted.split(".")
     if len(parts) < 2 or parts[0] != "pyflightstream":
@@ -648,7 +744,7 @@ def _upward_function_body_imports(path: Path) -> list[str]:
             names = sorted(
                 target
                 for target in targets
-                if (_layer_row(target) is not None and _layer_row(target) < own)
+                if ((row := _layer_row(target)) is not None and row < own)
             )
             offenders.append(
                 f"{path.relative_to(_SRC).as_posix()}:{lineno} in {function}() imports "
@@ -799,10 +895,11 @@ def test_the_function_body_scanner_leaves_the_legitimate_shapes_alone():
     )
     assert _function_body_imports(same_layer, "pyflightstream.qa")
     assert _layer_row("pyflightstream.qa") == _layer_row("pyflightstream.post")
-    # A side branch has no row at all, so nothing about it can point "up".
-    assert _layer_row("pyflightstream.fsi") is None
-    assert _layer_row("pyflightstream.extras") is None
-    assert _layer_row("pyflightstream.utils") is None
+    # Since 0.40.0 (PFS-2083.002) a side branch has a row too: it sits between the
+    # rows its imports and its importers fix, so it can point up and be refused.
+    assert _layer_row("pyflightstream.fsi") == 3.5
+    assert _layer_row("pyflightstream.extras") == len(_CORE_LAYERS)
+    assert _layer_row("pyflightstream.utils") == 4.5
     # And the base-exception module is BELOW the stack rather than
     # outside it, which is a different thing and used to be conflated.
     # A floor gets the row after the last core row, so every package
@@ -810,12 +907,10 @@ def test_the_function_body_scanner_leaves_the_legitimate_shapes_alone():
     # discarding the file.
     assert _layer_row("pyflightstream._errors") == len(_CORE_LAYERS)
     assert _layer_row("pyflightstream._atmosphere") == len(_CORE_LAYERS)
-    # `_digest` is a floor by behaviour and is NOT a declared base layer,
-    # so it still resolves to no row and is still covered by its own
-    # hand-written guard in tests/tier1_offline/test_digest.py. Declaring it would
-    # change the published architecture table, which is a design call and
-    # is registered rather than taken here.
-    assert _layer_row("pyflightstream._digest") is None
+    # `_digest` is a floor by behaviour and, since 0.40.0, has the floor's row
+    # in _ROOT_UNIT_ROWS (it is still not a declared base layer of the
+    # overview table, which is a design call registered rather than taken).
+    assert _layer_row("pyflightstream._digest") == len(_CORE_LAYERS)
     # Third party and standard library resolve to no row either.
     assert _layer_row("trimesh") is None
     assert _layer_row("pathlib") is None
