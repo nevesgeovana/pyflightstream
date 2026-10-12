@@ -787,6 +787,12 @@ def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np
     return steps
 
 
+def _plotted_number(text: str | None) -> float:
+    """Read one plots-table cell as a number, its `NA` or blank as NaN."""
+    cell = (text or "").strip()
+    return math.nan if cell in ("", NOT_APPLICABLE) else float(cell)
+
+
 def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
     """Read a written plots table back as the series its reductions are taken over.
 
@@ -837,7 +843,13 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     """
     header, rows = read_csv_table(path)
     columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
-    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
+    # `NA` (or blank) READS BACK AS NaN. The table writes a NaN the export
+    # carried as `NA`, and `float` refused the table's own token, so a table
+    # holding one could not be read at all; the window's average decides
+    # whether the NaN matters.
+    values = np.asarray(
+        [[_plotted_number(row[name]) for name in columns] for row in rows], dtype=float
+    )
     return columns, TimestepSeries(
         steps=_stated_steps(columns, values, len(rows)),
         times_s=None,
