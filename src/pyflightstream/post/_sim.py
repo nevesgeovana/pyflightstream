@@ -223,6 +223,8 @@ class SimContext:
     #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
+    #: FR-460: each point's streamline exports, by kind.
+    streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -440,6 +442,7 @@ def _resolve(
         point_windows=admitted.point_windows,
         frozen_points=admitted.frozen_points,
         probe_positions=admitted.probe_positions,
+        streamlines=admitted.streamlines,
     )
 
 
@@ -651,6 +654,24 @@ def _point_products(ctx: SimContext) -> None:
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
+        _streamline_products(ctx, point)
+
+
+def _streamline_products(ctx: SimContext, point: PolarPoint) -> None:
+    """Write a point's streamline VTK from its off-body export (FR-460 R7)."""
+    from pyflightstream.post.streamlines import STREAMLINES_DIR, write_streamline_products
+
+    exported = ctx.streamlines.get(point.name, {})
+    spec = ctx.pproc.streamlines
+    if not exported or spec is None:
+        return
+    for relative, outcome in write_streamline_products(
+        exported, ctx.out, point.name, vtk=spec.vtk, target=ctx.target
+    ).items():
+        if isinstance(outcome, Path):
+            ctx.add(outcome, {"runs": ctx.sources[point.name], "kind": "instant"})
+        else:
+            ctx.skipped[f"{STREAMLINES_DIR}/{relative}"] = outcome
 
 
 def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | None) -> None:

@@ -180,6 +180,16 @@ def _additional_products(
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
+            if any(kind.startswith("streamlines_") for kind in classify_outputs(files)):
+                # FR-460 R6, the owner's decision of 2026-10-12: allowed, and said.
+                warn(
+                    f"point={extraction.run_id} product={prefix}: the streamlines were traced "
+                    "in the reopened saved simulation, not in the run; a reopened simulation "
+                    "may trace differently from the run (off-body probe values did not come "
+                    "back identical after reopening, up to 4 percent in speed, RPT-062).",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
             for kind, name in classify_outputs(extraction.outputs).items():
                 if kind not in _ADDITIONAL_NATIVE_KINDS:
                     continue

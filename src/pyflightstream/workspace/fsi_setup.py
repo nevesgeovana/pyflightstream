@@ -23,6 +23,7 @@ from pyflightstream.fsi.calibration import (
     PROPERTY_FACTORS,
 )
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
+from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.fsi.materials import (
     SHEAR_MODULUS_TABULATED,
     Material,
@@ -326,10 +327,22 @@ def load_fsi_setup(
     return resolve_fsi_setup(path, matrix_calibration=matrix_calibration).effective
 
 
+def _states_external_mode(path: Path) -> bool:
+    """Say whether an FSI input states ``mode = "external"`` (FR-462); unreadable is not."""
+    try:
+        data = tomllib.loads(path.read_bytes().decode("utf-8-sig"))
+    except (OSError, tomllib.TOMLDecodeError, UnicodeError):
+        return False
+    return data.get("mode") == "external"
+
+
 def resolve_row_fsi(
     inputs_dir: str | Path, variables: Mapping[str, Any]
-) -> ResolvedFsiSetup | None:
+) -> ResolvedFsiSetup | ExternalStructure | None:
     """Resolve ``FSI: f001`` and named factor keys from the matrix free cell.
+
+    An input of ``mode = "external"`` (FR-462) resolves to the
+    :class:`~pyflightstream.fsi.external.ExternalStructure` it names, hashed.
 
     Parameters
     ----------
@@ -340,7 +353,7 @@ def resolve_row_fsi(
 
     Returns
     -------
-    ResolvedFsiSetup or None
+    ResolvedFsiSetup, ExternalStructure or None
         The resolved input, or None when the row states no ``FSI``.
 
     Raises
@@ -370,6 +383,19 @@ def resolve_row_fsi(
     path = (root / f"{code}.toml").resolve()
     if path.parent != root:
         raise FsiSetupError(f"FSI {code}: input resolves outside {root}.")
+    if _states_external_mode(path):
+        # FR-462: the structural program is the user's, called through the
+        # archiving step; the package knows none of its properties.
+        stated = sorted(key for key, value in factor_cells.items() if str(value).strip() != "-")
+        if stated:
+            raise FsiSetupError(
+                f'FSI {code} is mode = "external" and the row states {", ".join(stated)}: '
+                "the package does not know the external model's properties, so a factor would "
+                "change nothing and say it did. Remove the factor keys."
+            )
+        from pyflightstream.workspace.fsi_external_setup import resolve_external_fsi
+
+        return resolve_external_fsi(path)
     factors = {}
     for key, value in factor_cells.items():
         if str(value).strip() in ("", "-"):

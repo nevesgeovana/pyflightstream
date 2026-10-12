@@ -241,6 +241,9 @@ from ._steady import (
 from ._steady import (
     refuse_an_untranslatable_surface,
 )
+from ._streamlines import (
+    streamline_count,
+)
 from ._timing import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
@@ -579,6 +582,7 @@ __all__ = [
     "normal_probe_creation",
     "unsteady_time_stepping",
     "select_workflow",
+    "streamline_count",
     "workflow_names",
     "workflow_registry",
     "PASSAGE_POSITIONS_VARIABLE",

@@ -27,6 +27,7 @@ from pyflightstream.cases._unsteady_actions import (
     WALLTIME_CLOCK_STATE,
     WALLTIME_STOP_SCRIPT,
 )
+from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
 from pyflightstream.script import (
     Script,
 )
@@ -254,6 +255,10 @@ def action_export_lines(
     # it; the builders refuse the table on these rows, and this is the second
     # half of that, so an action never exports a section nobody cut.
     for kind in VOLUME_SECTION_KINDS.values():
+        kinds.pop(kind, None)
+    # FR-460, FR-461: a trace or a trajectory is written once, where its
+    # command sits; an action never exports it.
+    for kind in TABLE_DECLARED_KINDS:
         kinds.pop(kind, None)
     lines: list[str] = []
     if any(kind in kinds for kind in _UPDATED_KINDS):

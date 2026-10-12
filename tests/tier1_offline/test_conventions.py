@@ -266,6 +266,8 @@ _DIMENSIONLESS_OR_DEBT = {
     # threshold, dimensionless as `convergence` is: the manual (SRC-753
     # p.390) states it with no unit, default 1E-3.
     "aeroelastic_convergence_threshold",  # SolverSettings
+    # 0.40.0 (FR-462): the same coupling threshold, stated by an external FSI input.
+    "convergence_threshold",  # ExternalStructure
     # A PERCENTAGE of the cross-section curve's length, a ratio, so no SI
     # suffix exists; `_pct` as in drift_limit_pct (SRC-753 p.298).
     "te_blend_length_pct",  # CcsImportOptions

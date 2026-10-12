@@ -227,6 +227,20 @@ def _write_pending_files(
                     f"case {case.sim_id}: {name} conflicts with the resolved FSI configuration."
                 )
             pending_inputs[name] = content
+    if case.fsi_external is not None:
+        # FR-462 R6: the external input itself is staged beside its manifest,
+        # under the digest the record states for it.
+        source = Path(case.fsi_external.source)
+        if not source.is_file() or file_sha256(source) != case.fsi_external.source_sha256:
+            raise CampaignConfigError(
+                f"case {case.sim_id}: FSI source {source} changed; resolve the matrix again."
+            )
+        original = source.read_bytes()
+        if pending_inputs.get(source.name, original) != original:
+            raise CampaignConfigError(
+                f"case {case.sim_id}: {source.name} conflicts with the FSI source artifact."
+            )
+        pending_inputs[source.name] = original
 
     def placed(name: str) -> Path:
         target = Path(name)

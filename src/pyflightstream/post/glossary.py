@@ -58,6 +58,7 @@ from pyflightstream.cases import (
     default_outputs,
 )
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, COLUMN_MEANINGS, FLIGHT_CONDITION_KEYS
+from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
 from pyflightstream.cases.workflows import (
     LOADS_SELECTION_KEYS,
     RATE_VARIABLES,
@@ -189,6 +190,10 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("PprocSpec", "sections"): "NEW_SURFACE_SECTION_DISTRIBUTION",
         ("PprocSpec", "volume_section"): (
             "CREATE_NEW_RECTANGLE_VOLUME_SECTION, CREATE_NEW_CIRCLE_VOLUME_SECTION"
+        ),
+        ("PprocSpec", "streamlines"): (
+            "GENERATE_ALL_SURFACE_STREAMLINES, NEW_STREAMLINE_DISTRIBUTION, "
+            "NEW_OFF_BODY_STREAMTUBE, GENERATE_ALL_OFF_BODY_STREAMLINES"
         ),
         ("PprocSpec", "plots"): "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
         ("PprocSpec", "probes"): "UNSTEADY_SOLVER_NEW_FLUID_PLOT, NEW_PROBE_POINT",
@@ -855,7 +860,8 @@ def _exports_table() -> GlossaryTable:
     """Build the table of the kinds ``[exports]`` may name, what each takes and where."""
     rows = []
     for kind, suffix, verb, only_unsteady in EXPORT_KINDS:
-        if kind in VOLUME_SECTION_KINDS.values():
+        if kind in VOLUME_SECTION_KINDS.values() or kind in TABLE_DECLARED_KINDS:
+            # Declared by their own tables (FR-460 streamlines, FR-461 trajectory).
             continue
         try:
             PprocSpec(exports={kind: False})

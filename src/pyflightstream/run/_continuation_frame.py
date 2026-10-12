@@ -142,7 +142,7 @@ def _input_hashes(record: RunRecord, case: SimCase, script: Script) -> dict[str,
                 record, path, record.inputs_sha256.get(path.name), f"input {path.name!r}"
             )
             current[path.name] = file_sha256(path)
-    if case.fsi is not None or script.pending_action_scripts:
+    if case.fsi is not None or case.fsi_external is not None or script.pending_action_scripts:
         _refuse(record, "the historical record cannot verify FSI or child-script dependencies")
     for name, content in script.pending_input_files.items():
         key = Path(name).name

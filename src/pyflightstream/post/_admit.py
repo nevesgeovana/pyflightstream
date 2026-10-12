@@ -72,6 +72,8 @@ class _Admitted:
     point_windows: dict[str, tuple[int, int]] = field(default_factory=dict)
     frozen_points: dict[str, FrozenSolve] = field(default_factory=dict)
     probe_positions: dict[int, tuple[float, float, float, str]] = field(default_factory=dict)
+    #: FR-460: each point's streamline exports, by kind.
+    streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
 
 
 # ------------------------------------------------------------------ admitting the records
@@ -213,6 +215,11 @@ def _admit_point(
     plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
     probes_path = by_name.get(kinds["probes"]) if "probes" in kinds else None
     admitted.exports[stem] = (sloads_path, plots_path, probes_path)
+    admitted.streamlines[stem] = {
+        kind: by_name[kinds[kind]]
+        for kind in ("streamlines_surface", "streamlines_off_body")
+        if kind in kinds and kinds[kind] in by_name
+    }
     return stem
 
 
