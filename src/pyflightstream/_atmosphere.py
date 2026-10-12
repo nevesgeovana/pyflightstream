@@ -61,7 +61,7 @@ about three solvers and needs the density read back on 26.100 and 26.101
 as well.
 
 What survives is still enough to decide the design, which is why the
-conclusion did not move: a command that is ``broken`` on three of nine
+conclusion did not move: a command that is ``broken`` on three of eleven
 registered builds is refused by the emitter unless a caller passes
 ``allow_broken``, and on 25.000 it takes a bare value read in FEET. So
 computing here and emitting explicit properties is the more robust route

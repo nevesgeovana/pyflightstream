@@ -58,7 +58,7 @@ def test_rejected_value_names_option_value_and_accepted_form():
     with pytest.raises(
         OptionError,
         match=r"option 'qa\.probe_timeout_s' rejects value -3\.0: a strictly "
-        r"positive number of seconds is required",
+        r"positive, finite number of seconds is required",
     ):
         set_option("qa.probe_timeout_s", -3.0)
 

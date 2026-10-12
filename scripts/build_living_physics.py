@@ -45,6 +45,8 @@ OLDEST_BUILD = "26.123"
 
 #: One per-build physics report, named for the build it measured.
 PHY_FILE = re.compile(r"^PHY-(\d{5})_.*\.yaml$")
+#: The date a report's name carries after the build.
+PHY_DATE = re.compile(r"^PHY-\d{5}_(\d{4}-\d{2}-\d{2})")
 
 
 def canonical(build: str) -> str:
@@ -55,10 +57,12 @@ def canonical(build: str) -> str:
 def builds_at_or_after(floor: str) -> dict[str, Path]:
     """Every per-build physics report the floor admits, newest last.
 
-    A build with SEVERAL reports keeps the last by file name, which is the
-    latest run of it: the name carries the date.
+    A build with SEVERAL reports keeps the one with the latest date in its
+    name. Two reports of one build on that same latest date are REFUSED:
+    they differ only by a label (a full run beside a targeted rerun), and
+    picking by label order let a rerun of a few cases replace the full run.
     """
-    found: dict[str, Path] = {}
+    by_build: dict[str, list[tuple[str, Path]]] = {}
     for path in sorted(PHYSICS.glob("PHY-*.yaml")):
         match = PHY_FILE.match(path.name)
         if not match:
@@ -66,7 +70,19 @@ def builds_at_or_after(floor: str) -> dict[str, Path]:
         build = canonical(match.group(1))
         if build < floor:
             continue
-        found[build] = path
+        dated = PHY_DATE.match(path.name)
+        by_build.setdefault(build, []).append((dated.group(1) if dated else "", path))
+    found: dict[str, Path] = {}
+    for build, reports in by_build.items():
+        newest = max(date for date, _ in reports)
+        latest = [path for date, path in reports if date == newest]
+        if len(latest) > 1:
+            raise ValueError(
+                f"build {build} has {len(latest)} physics reports dated {newest or 'nowhere'} "
+                f"({', '.join(path.name for path in latest)}), and nothing says which one "
+                "this page reads; date the rerun after the full run or fold it into one report"
+            )
+        found[build] = latest[0]
     return dict(sorted(found.items()))
 
 

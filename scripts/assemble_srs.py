@@ -93,6 +93,13 @@ def parse_fragment(path: Path) -> list[tuple[str, str]]:
     boxes = split_boxes(text)
     if not boxes:
         raise FragmentError(f"{path}: the fragment holds no requirement box")
+    first = _BOX_START.search(text)
+    assert first is not None
+    if text[: first.start()].strip():
+        raise FragmentError(f"{path}: non-box text before the first requirement would be lost")
+    for line in text[first.start() :].splitlines():
+        if line.strip() and not line.startswith(("!!! requirement ", "    ")):
+            raise FragmentError(f"{path}: non-box text must be inside an indented requirement body")
     return boxes
 
 
@@ -109,7 +116,7 @@ def fold_page(text: str, blocks: list[tuple[Path, list[tuple[str, str]]]]) -> tu
     for path, boxes in blocks:
         present = [rid in page_boxes for rid, _ in boxes]
         for rid, box in boxes:
-            if rid in page_boxes and box not in text:
+            if rid in page_boxes and page_boxes[rid] != box:
                 raise FragmentError(
                     f"{path}: {rid} is already in {PAGE.name} with another text; "
                     "a numbered requirement is never rewritten by a fragment"
