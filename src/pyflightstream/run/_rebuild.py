@@ -30,7 +30,8 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
+from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT, SCRIPT_ARGUMENT
 from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
@@ -628,6 +629,23 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
     return facts
 
 
+def _matrix_hidden(base: Path, stem: object) -> bool:
+    """Whether ``pyfs-matrix run`` ran the matrix's points windowless, by its HIDDEN column.
+
+    The rule of the run (``run.matrix``): windowless when every row says so, and when the
+    matrix has no row; a matrix that cannot be read here is taken as the default, hidden.
+    """
+    from pyflightstream.cases.matrix import read_matrix
+
+    if not stem:
+        return True
+    try:
+        rows = read_matrix(matrix_path(base, str(stem)))
+    except (PyflightstreamError, OSError, ValueError):
+        return True
+    return all(row.hidden for row in rows) if rows else True
+
+
 def _finalise(
     context: _Context,
     sim: str,
@@ -637,7 +655,6 @@ def _finalise(
     notes: Sequence[str],
 ) -> dict[str, Any]:
     """Put back what the shadow could not know, and say what was reconstructed."""
-    from pyflightstream.run import LocalExecutor
     from pyflightstream.run.collect import assessment_of_collected
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
@@ -679,21 +696,21 @@ def _finalise(
             record["submission"] = submission
         else:
             record["submission"] = None
-        posix = run_root.startswith("/")
         own_root = facts.get("run_root") is not None
         record["cwd"] = (
             _join_root(run_root, work_dir.relative_to(base)) if own_root else str(work_dir)
         )
         script_at_run = _join_root(run_root, script.relative_to(base)) if own_root else str(script)
-        try:
-            local = LocalExecutor(record["fs_exe"], hidden=True)
-            argv = [str(item) for item in local._argv(Path(script_at_run))]
-            if posix:
-                argv = [
-                    script_at_run if item == str(Path(script_at_run)) else item for item in argv
-                ]
-        except Exception:  # noqa: BLE001 - an executable not on this machine still has an argv
-            argv = [str(record.get("fs_exe")), "-script", script_at_run]
+        # ONE RECONSTRUCTION (PFS-2103.004), whether or not the executable is on
+        # this machine: the command line LocalExecutor writes, with the window
+        # the matrix's HIDDEN column gave the run (as `pyfs-matrix run` reads it).
+        hidden = _matrix_hidden(base, record.get("matrix_stem"))
+        argv = [
+            str(record.get("fs_exe")),
+            *(["-hidden"] if hidden else []),
+            SCRIPT_ARGUMENT,
+            script_at_run,
+        ]
         record["argv"] = argv
         record["executor"] = {"class_name": "LocalExecutor", "argv": argv}
         reconstructed += ["argv", "executor", "cwd"]

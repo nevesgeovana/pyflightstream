@@ -409,6 +409,31 @@ def _from_cells(
             f"cluster's max_walltime of {_minutes(max_walltime_s)}; write a cell the cluster "
             "grants, or BEST.",
         )
+    # A ROW THAT STATES NO WALL CLOCK AND IS NOT BEST adds nothing to the sum, so
+    # the sum would bound its points at zero seconds (PFS-2094.006): the job asks
+    # the profile's limit, said, or is refused where there is none.
+    unstated = [
+        unit.sim_id for unit in split.units if unit.walltime_cell_s is None and not unit.best
+    ]
+    if unstated:
+        names = ", ".join(unstated)
+        if max_walltime_s is None:
+            return (
+                None,
+                "none",
+                None,
+                None,
+                warnings,
+                f"rows {names} state no WALLTIME and are not BEST, and share a job with rows "
+                f"that state one ({', '.join(unit.sim_id for unit in cells)}), so the job's "
+                "walltime cannot budget their points and the profile states no max_walltime "
+                "to ask for; write a wall clock with its unit or BEST in those rows.",
+            )
+        warnings.append(
+            f"rows {names} state no WALLTIME and are not BEST, so the cells of the job do not "
+            "budget their points; the job asks the profile's max_walltime."
+        )
+        return int(max_walltime_s), "max_walltime", None, None, warnings, None
     seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
     for unit in split.units:
         if unit.best and unit.walltime_cell_s is None:

@@ -17,7 +17,7 @@ from zipfile import BadZipFile
 import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.run._alias import alias_lines, planned_from_plan_files
+from pyflightstream.run._alias import alias_lines, planned_in_workspace
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
@@ -81,16 +81,16 @@ def _add_parsers(subparsers: Any) -> None:
 
 
 def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
-    planned = planned_from_plan_files(ledger.root)
+    rows = read_json_file(ledger.manifest, [])
+    rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    planned = planned_in_workspace(ledger.root, rows)
     for row in ledger.points():
         planned.setdefault(str(row["sim"]), [])
-    return {
-        alias: (sim, point)
-        for alias, sim, point in alias_lines(read_json_file(ledger.manifest, []), planned)
-    }
+    return {alias: (sim, point) for alias, sim, point in alias_lines(rows, planned)}
 
 
-def _resolve(ledger: Ledger, target: str) -> str:
+def _resolve(ledger: Ledger, target: str, label: str = "run (CLI: --run)") -> str:
+    """Return the run id ``target`` names (a run id or an alias); ``label`` names the argument."""
     pair = _aliases(ledger).get(target)
     if pair is not None:
         matches = [row for row in ledger.points(sims=[pair[0]]) if row["point"] == pair[1]]
@@ -98,7 +98,22 @@ def _resolve(ledger: Ledger, target: str) -> str:
             return str(matches[0]["run_id"])
     if ledger.card(target) is not None:
         return target
-    raise LookupError(f"run (CLI: --run): {target!r} names no effective recorded point")
+    raise LookupError(f"{label}: {target!r} names no effective recorded point")
+
+
+def _no_such_point(ledger: Ledger, sim: str, point: str) -> LookupError:
+    """Return the refusal of a ``show SIM --point NAME`` whose simulation has no such point."""
+    aliases = {pair: alias for alias, pair in _aliases(ledger).items()}
+    names = [
+        f"{row['point']} ({aliases[(sim, str(row['point']))]})"
+        if (sim, str(row["point"])) in aliases
+        else str(row["point"])
+        for row in ledger.points(sims=[sim])
+    ]
+    return LookupError(
+        f"point (CLI: --point): simulation {sim!r} records no point {point!r}; it records "
+        f"{', '.join(names) or 'none'}"
+    )
 
 
 def _with_aliases(ledger: Ledger, value: Any) -> Any:
@@ -122,19 +137,23 @@ def _annotate(value: Any, aliases: dict[tuple[str, str], str]) -> Any:
 
 def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
     target = args.target
+    label = "target"
     if args.point:
-        target = (
-            f"{target}_{args.point}"
-            if args.point.isdigit()
-            else next(
+        label = "point (CLI: --point)"
+        if args.point.isdigit():
+            target = f"{target}_{args.point}"
+        else:
+            found = next(
                 (
                     str(row["run_id"])
                     for row in ledger.points(sims=[target])
                     if row["point"] == args.point
                 ),
-                "",
+                None,
             )
-        )
+            if found is None:
+                raise _no_such_point(ledger, args.target, args.point)
+            target = found
     elif not ledger.unmatched([target]):
         points = ledger.points(sims=[target])
         cards = [
@@ -143,7 +162,7 @@ def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
             if str(row["status"]).startswith("FAILED")
         ]
         return [{"points": points, "failed": cards}]
-    card = _card(ledger, _resolve(ledger, target))
+    card = _card(ledger, _resolve(ledger, target, label))
     return [card] if card else []
 
 

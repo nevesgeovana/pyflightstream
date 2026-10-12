@@ -21,7 +21,7 @@ from pyflightstream.run import (
     inflow_harmonics_line,
     qsteady_validity_line,
 )
-from pyflightstream.run._alias import alias_lines
+from pyflightstream.run._alias import alias_lines, planned_by_sim
 from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
 
@@ -273,14 +273,20 @@ def _blocked_block(plan: CampaignPlan) -> tuple[str, list[str]]:
 
 
 def _alias_block(plan: CampaignPlan, rows: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Return one line per planned point: its run id alias beside the point (FR-395 R3)."""
-    planned: dict[str, list[str]] = {}
+    """Return one line per planned point: its run id alias beside the point (FR-395 R3).
+
+    Numbered against each simulation's WHOLE sweep (:attr:`CampaignPlan.planned_order`),
+    as ``run --points`` reads an alias, and printed for the planned points only: a plan
+    of a selection prints the selection's aliases, never a renumbering of it.
+    """
+    selected: dict[str, list[str]] = {}
     for entry in plan.points:
-        planned.setdefault(entry.sim_id, []).append(_point_of(entry.run_id))
+        selected.setdefault(entry.sim_id, []).append(_point_of(entry.run_id))
+    planned = planned_by_sim((), [plan.planned_order, selected])
     return [
         f"  {alias}  POL {sim} {point}"
-        for alias, sim, point in alias_lines(rows, planned)
-        if point in planned[sim]
+        for alias, sim, point in alias_lines(rows, {sim: planned[sim] for sim in selected})
+        if point in selected[sim]
     ]
 
 

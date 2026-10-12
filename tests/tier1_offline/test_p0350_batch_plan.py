@@ -112,7 +112,8 @@ def test_p0350_plan_fr365_the_receipt_holds_every_field(tmp_path):
     _sample(workspace)
     plan = _plan(workspace, matrix)
     payload = json.loads(plan.plan_file.read_text(encoding="utf-8"))
-    assert set(payload) == KEYS_OF_034 | {"grouping"}
+    # 0.40.0 (PFS-2094.034): the plan also writes each simulation's whole sweep.
+    assert set(payload) == KEYS_OF_034 | {"grouping", "planned_order"}
     grouping = payload["grouping"]
     assert set(grouping) == RECEIPT_KEYS
     assert grouping["schema"] == "pyfs-grouping/1" and grouping["mode"] == "batch"

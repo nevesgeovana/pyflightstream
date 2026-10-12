@@ -15,6 +15,7 @@ import json
 import os
 import platform
 import re
+import string
 import subprocess
 import sys
 import time
@@ -529,13 +530,26 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
             ) from None
         rendered[key] = text
     if profile.descriptor_format == "json":
-        return json.dumps(rendered, indent=2) + "\n"
+        # THE YAML RULE, IN JSON (PFS-2094.009): a boolean is a JSON boolean and a
+        # single substitution of a number is a JSON number; the rest are strings.
+        typed: dict[str, object] = {}
+        for key, text in rendered.items():
+            template = profile.fields[key]
+            if isinstance(template, bool):
+                typed[key] = template
+            elif _numeric_field(template, values):
+                typed[key] = values[str(template).strip()[1:-1]]
+            else:
+                typed[key] = text
+        return json.dumps(typed, indent=2) + "\n"
     for key, text in rendered.items():
         template = profile.fields[key]
         if profile.descriptor_format == "text":
             lines.append(f"{key}: {text}")
         elif profile.descriptor_format == "toml":
-            lines.append(f"{key} = {text}" if isinstance(template, bool) else f'{key} = "{text}"')
+            # A boolean and a single substitution of a number are bare, as in yaml.
+            bare = _numeric_field(template, values)
+            lines.append(f"{key} = {text}" if bare else f'{key} = "{text}"')
         else:
             # yaml. A number stays bare and everything else is quoted, which
             # is what the predecessor's own descriptor does.
@@ -548,6 +562,51 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
             bare = _numeric_field(template, values)
             lines.append(f"{key}: {text}" if bare else f'{key}: "{text}"')
     return "\n".join(lines) + "\n"
+
+
+#: Every name a run can supply to a submit command beyond the executor's own
+#: values: the run's (``run_script``), a point's (:func:`bind_submission_values`)
+#: and a grouped job's (``job_values`` of the grouped run).
+_SUBMIT_VALUES = frozenset(
+    {
+        "application_id",
+        "script_path",
+        "work_dir",
+        "descriptor_path",
+        HPC_BUILD_ALIAS,
+        "sim",
+        "point",
+        "fs_build",
+        "ncpus",
+        "walltime",
+        "walltime_s",
+        "walltime_written",
+        "sims",
+        "first_sim",
+        "last_sim",
+        "batch",
+        "batch_id",
+    }
+)
+
+
+def _unknown_submit_placeholders(profile, values: Mapping[str, object]) -> list[str]:
+    """Return the ``{name}`` of the profile's submit command that no run supplies."""
+    known = _SUBMIT_VALUES | set(values)
+    unknown: list[str] = []
+    for part in profile.submit:
+        try:
+            fields = [field for _, field, _, _ in string.Formatter().parse(str(part))]
+        except ValueError:
+            unknown.append(f"an unreadable brace in {part!r}")
+            continue
+        for field in fields:
+            if field is None:
+                continue
+            name = re.split(r"[.\[]", field, maxsplit=1)[0]
+            if name not in known and f"{{{field}}}" not in unknown:
+                unknown.append(f"{{{field}}}")
+    return unknown
 
 
 def _names_the_build_alias(profile) -> bool:
@@ -749,6 +808,16 @@ class SubmittingExecutor:
                 "shape reads as no profile downstream, which is silently the "
                 "behaviour of the release before this one."
             )
+        # THE SUBMIT COMMAND'S PLACEHOLDERS, CHECKED HERE (PFS-2094.010): a name no
+        # run supplies (``{queue}``, a typo) was a KeyError at the first point,
+        # after earlier rows were already submitted.
+        unknown = _unknown_submit_placeholders(profile, values)
+        if unknown:
+            raise ExecutorConfigurationError(
+                f"the HPC profile {profile.path} writes {', '.join(unknown)} in its submit "
+                "command, and no run supplies it. What a run can supply: "
+                f"{', '.join(sorted(_SUBMIT_VALUES | set(values)))}."
+            )
         self.profile = profile
         #: What every point of this campaign shares, held apart so a
         #: per-point binding can REBUILD on it rather than merge into the
@@ -853,10 +922,19 @@ class SubmittingExecutor:
         descriptor.parent.mkdir(parents=True, exist_ok=True)
         _textio.write_text(descriptor, render_descriptor(self.profile, values))
         self.descriptor_path = descriptor
-        argv = [
-            part.format(descriptor_path=descriptor.as_posix(), **values)
-            for part in self.profile.submit
-        ]
+        try:
+            argv = [
+                part.format(descriptor_path=descriptor.as_posix(), **values)
+                for part in self.profile.submit
+            ]
+        except (KeyError, IndexError, ValueError) as error:
+            # A name this point does not supply (a row stating no WALLTIME under
+            # `{walltime}`), or a brace the format cannot read: refused by name,
+            # as render_descriptor refuses a field, and the point records it.
+            raise CampaignConfigError(
+                f"the HPC profile {self.profile.path} writes {error} in its submit command, "
+                f"and this point cannot supply it. What it can: {', '.join(sorted(values))}."
+            ) from None
         if not self.submit:
             # The switch the predecessor spells `esub`, and it gates the
             # CALL alone: the descriptor above is written either way.
@@ -893,6 +971,25 @@ class SubmittingExecutor:
                 # is a DECISION at this call rather than a default nobody
                 # chose.
                 env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired:
+            # THE SUBMIT COMMAND HUNG: this point's failure, as below (PFS-2094.010).
+            return ExecutionResult(
+                return_code=124,
+                stdout="",
+                stderr=(
+                    f"the submit command {argv[0]!r} did not return within {timeout_s} s; "
+                    f"the descriptor was written to {descriptor} and whether the scheduler "
+                    "took the job is not known."
+                ),
+                argv=tuple(argv),
+                cwd=str(working_dir),
+                timeout_s=timeout_s,
+                started_at=started,
+                finished_at=_utc_now(),
+                wall_time_s=0.0,
+                timed_out=True,
+                log_text=None,
             )
         except OSError as error:
             # THE SCHEDULER IS NOT ON THIS MACHINE, which is what a
@@ -1305,6 +1402,10 @@ class LocalExecutor:
             "cwd": str(working_dir),
             "timeout_s": timeout_s,
         }
+        # A FlightStreamLog.txt AN EARLIER ATTEMPT LEFT is not this run's log
+        # (PFS-2103.003): it is read after the run only if this run wrote it, which
+        # its size and modification time say. It is kept, as the earlier attempt's.
+        stale_log = _file_stamp(Path(working_dir) / _LOG_NAME)
         start = time.perf_counter()
         started_at = _utc_now()
         timed_out = False
@@ -1319,7 +1420,9 @@ class LocalExecutor:
             if getattr(self, "progress_every", 0) > 0
             else None
         )
-        if _a_steady_coupled_script(script_path):
+        # A RELATIVE SCRIPT PATH IS THE SOLVER'S, read from its working directory as
+        # the solver reads it (PFS-2094.011), never from this process's.
+        if _a_steady_coupled_script(Path(working_dir) / script_path):
             return_code, stdout, stderr, timed_out = _run_until_the_analysis_ends(
                 argv, Path(working_dir), timeout_s
             )
@@ -1362,7 +1465,7 @@ class LocalExecutor:
         finished_at = _utc_now()
         log_path = Path(working_dir) / _LOG_NAME
         log_text = None
-        if log_path.is_file():
+        if log_path.is_file() and _file_stamp(log_path) != stale_log:
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
         modal_log = Path(working_dir) / "pyfs-modal-error.log"
         if modal_log.is_file() and "solver modal/error detected" in stderr:
@@ -1378,6 +1481,15 @@ class LocalExecutor:
             finished_at=finished_at,
             **invocation,
         )
+
+
+def _file_stamp(path: Path) -> tuple[int, int] | None:
+    """Return a file's size and modification time in ns, or None where there is no file."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_size, stat.st_mtime_ns
 
 
 def _a_steady_coupled_script(script_path: Path) -> bool:
@@ -1521,9 +1633,11 @@ def export_surface_mesh(
         Target FlightStream version; emission is validated against it.
     executor : Executor, optional
         Executor to run the script with; alternatively give
-        ``fs_exe`` to build a :class:`LocalExecutor`.
+        ``fs_exe`` to build a :class:`LocalExecutor`. Given both, the
+        executor runs the script and ``fs_exe`` is not read.
     fs_exe : str or pathlib.Path, optional
-        FlightStream executable path (explicit input, never guessed).
+        FlightStream executable path (explicit input, never guessed),
+        read only when no ``executor`` is given.
     file_type : str
         Export format token, one of STL, TRI, OBJ (SRC-003 p.307);
         OBJ is the geometry gate default.
@@ -1573,11 +1687,12 @@ def export_surface_mesh(
 
     result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     if result.failed or not mesh_path.is_file():
-        outcome = "timed out" if result.timed_out else f"returned {result.return_code}"
-        log_excerpt = (result.log_text or "")[-2000:]
+        # THE ONE SENTENCE (ExecutionResult.diagnosis, PFS-2094.012): every captured
+        # channel, stdout included, which is the only one a failure before the
+        # script carries; the log alone was empty for exactly those.
         raise SurfaceMeshExportError(
-            f"the pre-processing run {outcome} and the mesh file "
-            f"{mesh_path.name} {'exists' if mesh_path.is_file() else 'was not written'}; "
-            f"check the simulation file and the log excerpt: {log_excerpt!r}"
+            f"the pre-processing run {result.diagnosis()}; the mesh file {mesh_path.name} "
+            f"{'exists' if mesh_path.is_file() else 'was not written'}. Check the "
+            "simulation file and what the run said."
         )
     return mesh_path

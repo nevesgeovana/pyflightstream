@@ -469,6 +469,13 @@ def _find_assessment_outputs(job: _LoadsJudgment) -> Assessment | None:
         if own is not None and own.is_dir()
         else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
     )
+    # 0.40.0 (PFS-2103.017): a caller that FOUND the point's exports names their
+    # folder, and only that folder is judged. ``post --from-sims`` takes an
+    # export anywhere under the simulation folder, where none of the folders
+    # above need exist.
+    exports_dir = getattr(job.case, "exports_dir", None)
+    if exports_dir is not None:
+        folders = [str(exports_dir)]
     job.collected = []
     for folder in folders:
         found = sorted(
@@ -786,7 +793,7 @@ def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
         _stamp_log(job, log_text, job.log_path.name)
         if job.clockings is not None:
             return _judge_the_clockings(
-                log_text, job.log_path, job.report, job.report_path, job.clockings, job.stamp
+                log_text, job.log_path, job.report, job.report_path, job.clockings, job
             )
         try:
             history = parse_residual_history(log_text)
@@ -1107,8 +1114,14 @@ def _judge_final_residuals(history: Sequence[ResidualSample], limit: float) -> _
 
 
 #: The order of badness of a clocking's verdict, worst last: the worst of a
-#: wheel's clockings is its point's status.
-_CLOCKING_SEVERITY = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.FAILED_DIVERGED)
+#: wheel's clockings is its point's status. In the order of :data:`_STATUS_SEVERITY`.
+_CLOCKING_SEVERITY = (
+    RunStatus.CONVERGED,
+    RunStatus.COMPLETED_MAX_ITER,
+    # FR-434: a clocking whose solve stopped at the requested limit, unsettled.
+    RunStatus.MAX_ITER_REACHED,
+    RunStatus.FAILED_DIVERGED,
+)
 
 
 def _wheel_clockings(
@@ -1159,18 +1172,19 @@ def _judge_the_clockings(
     report: LoadsReport,
     report_path: Path,
     clockings: Sequence[QsteadyClocking],
-    stamp: dict[str, Any],
+    job: _LoadsJudgment,
 ) -> Assessment:
     """Judge a quasi-steady wheel from the one log holding every clocking's solve.
 
     Each solve is judged as a point's one solve is
-    (:func:`_judge_final_residuals`); the point carries each verdict in
-    ``clocking_verdicts`` and the worst case in its status and residual. The
-    log's last solve is clocking 0's, whose loads export is the point's, so
-    it must end at the iteration that export was written at; each earlier
-    clocking's own loads export is held to its solve the same way where it
-    was collected.
+    (:func:`_judge_final_residuals`, then FR-434's :func:`_at_the_limit`); the
+    point carries each verdict in ``clocking_verdicts`` and the worst case in
+    its status and residual. The log's last solve is clocking 0's, whose loads
+    export is the point's, so it must end at the iteration that export was
+    written at; each earlier clocking's own loads export is held to its solve
+    the same way where it was collected.
     """
+    stamp = job.stamp
     try:
         solves = parse_residual_solves(log_text)
     except (IncompleteOutputError, ValueError) as exc:
@@ -1250,6 +1264,11 @@ def _judge_the_clockings(
                     f"export {exported.name} was written at iteration "
                     f"{own.current_iteration}, so the residual is not that export's"
                 )
+        note = judged.note
+        if status is RunStatus.COMPLETED_MAX_ITER and _at_the_limit(job, history[-1].iteration):
+            # FR-434, per clocking as for a point's one solve.
+            status = RunStatus.MAX_ITER_REACHED
+            note = _limit_note(note, report.requested_iterations, history[-1].iteration)
         verdict: dict[str, object] = {
             "index": index,
             "clocking_deg": clocking.clocking_deg,
@@ -1257,9 +1276,9 @@ def _judge_the_clockings(
             "iterations": history[-1].iteration,
             "residual": judged.residual,
         }
-        if judged.note:
-            verdict["note"] = judged.note
-            notes.append(f"clocking {index}: {judged.note}")
+        if note:
+            verdict["note"] = note
+            notes.append(f"clocking {index}: {note}")
         if error:
             verdict["error"] = error
             errors.append(f"clocking {index}: {error}")
@@ -1273,6 +1292,8 @@ def _judge_the_clockings(
         worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
     else:
         worst = max(statuses, key=_CLOCKING_SEVERITY.index)
+    if worst is RunStatus.MAX_ITER_REACHED:
+        stamp["iterations_requested"] = report.requested_iterations
     judged_residuals = [value for value in residuals if value is not None]
     return Assessment(
         status=worst,

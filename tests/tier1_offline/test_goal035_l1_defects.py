@@ -291,16 +291,20 @@ def test_a_wheel_is_judged_clocking_by_clocking_from_its_one_log(tmp_path):
 
 
 def test_the_worst_clocking_is_the_point_s_verdict(tmp_path):
-    """Clocking 1 of three stops above the limit: the point is COMPLETED_MAX_ITER, naming it."""
+    """Clocking 1 of three stops above the limit: the point is MAX_ITER_REACHED, naming it.
+
+    It stopped at the requested 500, so FR-434 applies to it (0.40.0, PFS-2103.018); it
+    was COMPLETED_MAX_ITER before.
+    """
     case, sim = _clocked_wheel(tmp_path, (4.0e-5, 2.0e-6, 3.0e-6), (500, 61, 70))
     assessment = LoadsAssessor()(case, None, sim)
-    assert assessment.status is RunStatus.COMPLETED_MAX_ITER, assessment.error
+    assert assessment.status is RunStatus.MAX_ITER_REACHED, assessment.error
     assert assessment.residual == pytest.approx(4.0e-5)
     assert assessment.iterations == 70
     verdicts = assessment.clocking_verdicts
     assert verdicts is not None
     assert [(v["index"], v["status"], v["iterations"]) for v in verdicts] == [
-        (1, "COMPLETED_MAX_ITER", 500),
+        (1, "MAX_ITER_REACHED", 500),
         (2, "CONVERGED", 61),
         (0, "CONVERGED", 70),
     ]

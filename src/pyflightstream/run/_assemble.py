@@ -20,6 +20,7 @@ import os
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+from zipfile import BadZipFile
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import (
@@ -53,6 +54,7 @@ from pyflightstream.workspace.naming import (
     datapoint_name_of,
     resolve_manifest,
 )
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 # ---------------------------------------------------------------------------
 # 0.32.0, work package B3: the post and the collect of other records.
@@ -324,9 +326,17 @@ def assemble_records(
     refusals: dict[str, str] = {}
     for row in read_matrix(matrix, active_only=False):
         sim_dir = workspace.root / "sims" / f"sim_{row.pol}"
+        where = f"sims/sim_{row.pol}"
+        try:
+            # A compacted simulation is read as if it never was, as post reads it.
+            ensure_sim_expanded(workspace, row.pol, reason="post --from-sims")
+        except (PyflightstreamError, OSError, BadZipFile) as error:
+            refusals[where] = (
+                f"the compacted simulation {where}.zip cannot be restored to be read ({error})"
+            )
+            continue
         if not sim_dir.is_dir():
             continue
-        where = f"sims/sim_{row.pol}"
         try:
             reference, pins, origin = _sims_row_inputs(workspace, row)
         except (PyflightstreamError, OSError, ValueError) as error:
@@ -488,6 +498,24 @@ def _the_point(row: MatrixRow, export: str, alpha: float, beta: float) -> dict[s
     )
 
 
+class _FoundExports:
+    """A record as the collect's assessor reads it, with the folder its exports were found in.
+
+    The assessor reads ``exports_dir`` where a caller names one and judges that
+    folder alone; every other field is the record's own, read through the
+    collect's :class:`~pyflightstream.run.collect._RecordAsCase`.
+    """
+
+    __slots__ = ("_case", "exports_dir")
+
+    def __init__(self, case: object, exports_dir: Path) -> None:
+        self._case = case
+        self.exports_dir = exports_dir
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._case, name)
+
+
 def _assembled_record(
     workspace: CampaignWorkspace,
     row: MatrixRow,
@@ -502,7 +530,8 @@ def _assembled_record(
     version: str,
 ) -> RunRecord:
     """Assemble the record of one point from its loads export, or refuse it by name."""
-    from pyflightstream.run.collect import assessment_of_collected
+    from pyflightstream.run import LoadsAssessor
+    from pyflightstream.run.collect import _RecordAsCase
 
     export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
     try:
@@ -573,7 +602,12 @@ def _assembled_record(
         warnings=[ASSEMBLED_NOTE],
     )
     try:
-        judged = assessment_of_collected(record, sim_dir)
+        # JUDGED IN THE FOLDER THE EXPORT WAS FOUND IN (PFS-2103.017): the
+        # collect's assessor reads a point's own datapoint folder, else outputs/
+        # and raw/, and an export elsewhere under the simulation folder read as
+        # no output at all.
+        case = _FoundExports(_RecordAsCase(record), loads.parent)
+        judged = LoadsAssessor()(case, None, sim_dir)  # type: ignore[arg-type]
     except (PyflightstreamError, OSError, ValueError) as error:
         raise WorkspaceError(
             f"the status: the collect's assessor cannot judge {export} ({error})"
