@@ -32,7 +32,8 @@ What this does NOT prove: that the solver reads an LF script. The licensed probe
 of RPT-070 found that line ends change nothing in the disc profile file, and the
 licensed runs of 0.34.0 are the confirmation (NFR-32 R6).
 """
-# The evidence line of this requirement cites this module (docs/srs/nonfunctional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/nonfunctional-requirements.md):
 
 from __future__ import annotations
 

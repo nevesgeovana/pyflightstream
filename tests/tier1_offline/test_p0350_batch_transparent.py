@@ -6,7 +6,8 @@ per command of section 11 of DESIGN-0350 (``status`` is the LEDGER+ST package's)
 workspaces are hand built in the layout of IMPL-0350 sections 4.2 and 4.3, with a
 control beside each refusal: the same workspace with the job's end record written.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

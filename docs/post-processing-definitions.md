@@ -101,7 +101,7 @@ centers. The linked definition states the rule for every block.
 
 <a id="probe-parameters"></a>
 
-[Probe parameters](definitions/probe-parameters.md#probe-parameters).
+[Probe parameters](definitions/the-probes-table.md#probe-parameters).
 
 <a id="the-averaging-window"></a>
 
@@ -157,7 +157,7 @@ centers. The linked definition states the rule for every block.
 
 <a id="the-mesh-face-count-since-0340"></a>
 
-[The mesh face count](definitions/the-mesh-face-count-since-0340.md#the-mesh-face-count-since-0340).
+[The mesh face count](definitions/the-mesh-face-count.md#the-mesh-face-count-since-0340).
 
 <a id="rotor-coefficients"></a>
 
@@ -229,8 +229,8 @@ centers. The linked definition states the rule for every block.
 
 <a id="the-post-of-other-records-since-0320"></a>
 
-[The post of other records](definitions/the-post-of-other-records-since-0320.md#the-post-of-other-records-since-0320).
+[The post of other records](definitions/the-post-of-other-records.md#the-post-of-other-records-since-0320).
 
 <a id="posting-and-collecting-some-simulations-since-0330"></a>
 
-[Posting and collecting some simulations](definitions/posting-and-collecting-some-simulations-since-0330.md#posting-and-collecting-some-simulations-since-0330).
+[Posting and collecting some simulations](definitions/posting-and-collecting-some-simulations.md#posting-and-collecting-some-simulations-since-0330).

@@ -24,7 +24,8 @@ recorded FAILED_INCOMPLETE_OUTPUT for it. The declaration now follows the
 builder's family selection over the row's geometry, and the export follows the
 declaration.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 # FR-55 and FR-51 (both amended 0.33.1).
 
 from __future__ import annotations

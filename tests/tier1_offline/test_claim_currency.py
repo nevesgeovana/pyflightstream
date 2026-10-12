@@ -436,7 +436,7 @@ _ALIAS_TALLY_HISTORY = {
     "CHANGELOG.md",
     # The SRS revision history, whose 1.23.0 and 1.26.0 rows exist
     # precisely to record that an enumeration moved.
-    "docs/srs/index.md",
+    "docs/unpublished/requirements/index.md",
 }
 
 

@@ -13,7 +13,7 @@ then `MTIP_<alias>` and `MHEL_<alias>`
 `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
 ([The in-plane coefficients](#the-in-plane-coefficients)). The column contract
 grows at its end only, so every earlier column keeps its position.
-Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../migrating-to-0.27.0.md) for older files with an alias line.
+Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.
 
 ### Where an unsteady point's numbers come from
 
@@ -40,7 +40,7 @@ uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
   and named in `products.json`, as the unsteady polar beside it does. The
   table's manifest entry states `source` and `window`.
 
-See [the rotor-table migration](../migrating-to-0.24.0.md) for the correction to historical unsteady tables.
+See [the rotor-table migration](../upgrading.md#older-layouts) for the correction to historical unsteady tables.
 
 ### `ETAW`
 

@@ -8,7 +8,8 @@ over every simulation of the matrix, are left as they were and named under
 SUBMITTED records of the named simulations. Every workspace is a real
 ``tmp_path`` tree built as a run leaves it.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

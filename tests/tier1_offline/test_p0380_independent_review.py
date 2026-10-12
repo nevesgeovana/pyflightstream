@@ -518,8 +518,8 @@ def test_ind07_the_limitations_say_when_the_audit_warns_and_never_by_constructio
         "CHANGELOG.md": _known_limitations(),
         "docs/mesh/how-to.md": (REPO / "docs/mesh/how-to.md").read_text(encoding="utf-8"),
         "docs/mesh/reference.md": (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8"),
-        "docs/srs/functional-requirements.md": (
-            REPO / "docs/srs/functional-requirements.md"
+        "docs/unpublished/requirements/functional-requirements.md": (
+            REPO / "docs/unpublished/requirements/functional-requirements.md"
         ).read_text(encoding="utf-8"),
     }
     for name, text in pages.items():

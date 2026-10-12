@@ -25,7 +25,7 @@ from tests.tier1_offline.test_p0330_no_executable_hash import scan
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports"
 RPT_131 = next(REPORTS.glob("RPT-131_*.md"))
-SRS = ROOT / "docs" / "srs" / "functional-requirements.md"
+SRS = ROOT / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
 
 COLUMNS = ["fact", "number", "date", "solver build", "command or script step"]
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

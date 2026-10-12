@@ -151,7 +151,7 @@ worse than no page at all.
   `IMPORT` converts the file's unit into the simulation's has been
   measured on no build. Its boundary names are the sidecar's, written by
   hand, and nothing checks them against the file before the run
-  ([mesh inputs](mesh-inputs.md)). The other mesh formats `IMPORT`
+  ([mesh inputs](mesh/how-to.md)). The other mesh formats `IMPORT`
   documents are refused by a workflow; a recipe of your own imports them,
   declaring the units itself.
 - **A raw mesh's trailing edge by file runs on 26.124 only, and its wake
@@ -161,7 +161,7 @@ worse than no page at all.
   `[wake_termination]` detection runs between two initializations of the
   solver, the order that marked a blade's root node on a steady point; an
   unsteady run takes the same order, not yet measured there
-  ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
+  ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
@@ -174,3 +174,18 @@ worse than no page at all.
 Where a capability above matters to you, the roadmap and the SRS
 requirement statuses are where its state is tracked, and the changelog
 is where it will be announced.
+
+
+## Workspace routes by study stage
+
+| Stage | Workspace route |
+|---|---|
+| Geometry and mesh | `pyfs-matrix mesh` and geometry input files |
+| Set up the study | Run matrix, input library, reference and setup files |
+| Choose the run type | Run type in each matrix row |
+| Plan and run | `pyfs-matrix plan` and `pyfs-matrix run` |
+| Post-process | `pyfs-matrix post` and the post-processing input |
+| Command reference | `pyfs-matrix`, `pyfs-workspace`, and related CLI tools |
+
+The generated [Python capability route map](workspace-route-map.md) shows the
+corresponding programmatic routes.

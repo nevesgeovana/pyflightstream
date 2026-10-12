@@ -224,7 +224,7 @@ says nothing (RPT-066, 26.124). A row naming the body therefore solves with no
 base region and no error; name the base boundary. A pproc's `base_regions`
 list follows the same rule. A raw mesh's sidecar can ask for the whole-mesh
 detection instead, `[base_regions] detect = "auto"`
-([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
+([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -402,7 +402,7 @@ Archiving writes the link as a one-line `inputs/STAGED_AS_LINK.txt` and
 never the library's bytes.
 
 The boundary order of a staged geometry is read from the file and written
-beside it, never stated in a setup (PFS-2029.06; `docs/mesh-inputs.md`),
+beside it, never stated in a setup (PFS-2029.06; `docs/mesh/how-to.md`),
 which puts it inside the geometry's folder when the geometry has one:
 
 ```text
@@ -410,7 +410,7 @@ pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.t
 ```
 
 An `.obj` gets its sidecar from its groups the same way, and from the plan
-itself when it has none (G30, `docs/mesh-inputs.md`).
+itself when it has none (G30, `docs/mesh/how-to.md`).
 
 A workspace using the retired artifact names moves in one command:
 
@@ -435,7 +435,7 @@ Two things about that conversion are worth knowing before you run it:
   the point names that end every `run_id` in `runs.json` are the ones the
   converted file plans under, and a `--resume` finds the records it has.
   (The 0.21.0 point NAME is a separate move, made once by `pyfs-matrix
-  rename`; see [migrating to 0.21.0](migrating-to-0.21.0.md).)
+  rename`; see [migrating to 0.21.0](upgrading.md#older-layouts).)
 * **It stops on a row that varies BOTH angles**, naming every such row.
   That row is one run per sideslip and each new row needs a POL of its
   own, which is run identity and not a converter's to invent. Split them
@@ -603,7 +603,7 @@ so the two agree by construction; a record written before the clock
 leaves the time unstated -- which the table writes as `NA` -- and reads the azimuth off its reductions plan. The
 loads series is wide, one row per step and one column per surface and
 coefficient (`Total_CL`, `Blade1_CMx`, ...); its moment columns are about
-the row's moment point, and historical unsteady loads series affected by the moment-origin defect need the correction described in [the migration](migrating-to-0.27.0.md) (RPT-064); the sections series (from
+the row's moment point, and historical unsteady loads series affected by the moment-origin defect need the correction described in [the migration](upgrading.md#older-layouts) (RPT-064); the sections series (from
 the sectional loads export, `_sloads`, the same export the sections
 table of the products reads) and the probes series are long, one row per
 step and section or probe, with the export's own columns. A kind with no

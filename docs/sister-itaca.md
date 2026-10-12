@@ -39,12 +39,12 @@ notes for anyone reading this page against the code:
   pandas and xarray and does not mention ITACA in any form, core or
   optional. The dependency is created in the migration commit, under
   the pin and Python-ceiling rules of
-  [NFR-22](srs/nonfunctional-requirements.md).
+  [NFR-22]().
 * The removal release NUMBER is unset (stated by
-  [NFR-06](srs/nonfunctional-requirements.md), its home of record;
+  [NFR-06](), its home of record;
   v0.5.0 shipped without the migration), and
   no deprecation cycle precedes it, because
-  [NFR-20](srs/nonfunctional-requirements.md) governs from 1.0. Users
+  [NFR-20]() governs from 1.0. Users
   of the far-field ledgers are affected as much as users of the tidy
   table, since xarray is in those public signatures; both find out on
   upgrade.
