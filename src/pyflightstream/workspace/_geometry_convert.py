@@ -22,13 +22,13 @@ from typing import Any
 from pyflightstream import _textio
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
-from pyflightstream.cases._geometry_instruction import INSTRUCTION_SUFFIX
+from pyflightstream.cases._geometry_instruction import GEOMETRY_PAGE, INSTRUCTION_SUFFIX
 from pyflightstream.cases.matrix import read_matrix
 from pyflightstream.workspace.sidecars import inventory_sidecar, load_toml
 
 __all__ = ["GeometryConversion", "instruction_from_sidecar"]
 
-_PAGE = "docs/geometry.md"
+_PAGE = GEOMETRY_PAGE
 _MOVED = ("scale", "rename", "mirror")
 _CAD = (".igs", ".iges")
 _RAW = (".obj", ".stl")
@@ -110,6 +110,103 @@ def _source_table(
     )
 
 
+def _locate(geometry: str | Path, root: Path) -> Path:
+    """Return the geometry file a cell names, refusing one outside a folder of its own."""
+    geometries = root / "inputs" / "geometries"
+    path = Path(geometry)
+    if not path.is_absolute():
+        candidates = [geometries / path.stem / path.name, geometries / path.name]
+        candidates += sorted(geometries.glob(f"*/{path.name}"))
+        path = next((c for c in candidates if c.is_file()), candidates[0])
+    if not path.is_file():
+        raise InputArtifactError(f"{geometry} is not a file of {geometries} ({_PAGE}).")
+    if path.parent == geometries:
+        raise InputArtifactError(
+            f"{path.name} lies flat in {geometries}, and an instruction lives in a geometry "
+            "folder of its own; run `pyfs-workspace migrate-geometries .` first, then this "
+            f"command again ({_PAGE})."
+        )
+    return path
+
+
+def _what_the_rows_say(
+    root: Path, name: str, build: str | None
+) -> tuple[str | None, str | None, list[str]]:
+    """Return the build id, the shedding direction and the notes the matrix rows give."""
+    rows = _rows_naming(root, name)
+    builds = sorted({row.fs_build.strip() for row in rows if row.fs_build.strip()})
+    sheds = sorted(
+        {
+            str(row.variables[CCS_SHEDDING_VARIABLE])
+            for row in rows
+            if row.variables.get(CCS_SHEDDING_VARIABLE)
+        }
+    )
+    notes: list[str] = []
+    if not build and len(builds) > 1:
+        notes.append(f"the rows naming {name} run on {', '.join(builds)}; fs_build is the newest")
+    if len(sheds) > 1:
+        notes.append(
+            f"the rows shed in {', '.join(sheds)}; this instruction uses {sheds[0]}, and each "
+            "other direction is an instruction of its own in a folder of its own"
+        )
+    return build or (builds[-1] if builds else None), sheds[0] if sheds else None, notes
+
+
+def _operations(sidecar: Mapping[str, Any]) -> tuple[list[dict[str, Any]], tuple[str, ...]]:
+    """Split the sidecar's operations: the ones that move to the instruction, the ones that stay."""
+    written = sidecar.get("import", {}).get("operations", [])
+    moved = [dict(op) for op in written if op.get("op") in _MOVED]
+    staying = tuple(
+        f"operation {position} ({op.get('op')})"
+        for position, op in enumerate(written, start=1)
+        if op.get("op") not in _MOVED
+    )
+    return moved, staying
+
+
+def _instruction_text(
+    sidecar_name: str,
+    name: str,
+    fs_build: str | None,
+    source: tuple[str, dict[str, Any]],
+    sidecar: Mapping[str, Any],
+) -> str:
+    kind, table = source
+    operations, _ = _operations(sidecar)
+    names = list(sidecar.get("boundaries", []))
+    for op in operations:
+        if op.get("op") == "rename" and op.get("surface") in names:
+            names[names.index(op["surface"])] = op["to"]
+    rows = [
+        f"# Written by pyfs-workspace geometry from-sidecar from {sidecar_name}; check it, "
+        "then build it.",
+        f'name = "{name}"',
+    ]
+    if fs_build:
+        rows.append(f'fs_build = "{fs_build}"')
+    rows += [f"boundaries = {_value(names)}", "", *_table(kind, table)]
+    for op in operations:
+        rows += ["", "[[operations]]", *(f"{key} = {_value(value)}" for key, value in op.items())]
+    if "trailing_edges" in sidecar and kind != "ccs":
+        rows += ["", *_table("trailing_edges", sidecar["trailing_edges"])]
+    return "\n".join(rows) + "\n"
+
+
+def _write_once(target: Path, text: str) -> None:
+    if target.exists():
+        raise InputArtifactError(
+            f"{target} exists; the converter never replaces an instruction ({_PAGE})."
+        )
+    others = sorted(target.parent.glob(f"*{INSTRUCTION_SUFFIX}"))
+    if others:
+        raise InputArtifactError(
+            f"{target.parent} already holds {others[0].name}; a folder holds one "
+            f"instruction ({_PAGE})."
+        )
+    _textio.write_text(target, text)
+
+
 def instruction_from_sidecar(
     geometry: str | Path, *, root: Path, build: str | None = None, apply: bool = False
 ) -> GeometryConversion:
@@ -132,88 +229,18 @@ def instruction_from_sidecar(
         A geometry not in a folder of its own (run ``pyfs-workspace
         migrate-geometries`` first), a sidecar missing, or an existing instruction.
     """
-    geometries = root / "inputs" / "geometries"
-    path = Path(geometry)
-    if not path.is_absolute():
-        candidates = [geometries / path.stem / path.name, geometries / path.name]
-        candidates += sorted(geometries.glob(f"*/{path.name}"))
-        path = next((c for c in candidates if c.is_file()), candidates[0])
-    if not path.is_file():
-        raise InputArtifactError(f"{geometry} is not a file of {geometries} ({_PAGE}).")
-    if path.parent == geometries:
-        raise InputArtifactError(
-            f"{path.name} lies flat in {geometries}, and an instruction lives in a geometry "
-            "folder of its own; run `pyfs-workspace migrate-geometries .` first, then this "
-            f"command again ({_PAGE})."
-        )
+    path = _locate(geometry, root)
     sidecar_path = inventory_sidecar(path)
     sidecar = load_toml(sidecar_path, "geometry sidecar") if sidecar_path.is_file() else {}
-    rows = _rows_naming(root, path.name)
-    builds = sorted({row.fs_build.strip() for row in rows if row.fs_build.strip()})
-    sheds = sorted(
-        {
-            str(row.variables[CCS_SHEDDING_VARIABLE])
-            for row in rows
-            if row.variables.get(CCS_SHEDDING_VARIABLE)
-        }
-    )
-    notes: list[str] = []
-    fs_build = build or (builds[-1] if builds else None)
-    if not build and len(builds) > 1:
-        notes.append(
-            f"the rows naming {path.name} run on {', '.join(builds)}; fs_build is the newest"
-        )
-    if len(sheds) > 1:
-        notes.append(
-            f"the rows shed in {', '.join(sheds)}; this instruction uses {sheds[0]}, and each "
-            "other direction is an instruction of its own in a folder of its own"
-        )
-    kind, table = _source_table(path, sidecar, sheds[0] if sheds else None)
-    operations = [
-        dict(op) for op in sidecar.get("import", {}).get("operations", []) if op.get("op") in _MOVED
-    ]
-    staying = tuple(
-        f"operation {position} ({op.get('op')})"
-        for position, op in enumerate(sidecar.get("import", {}).get("operations", []), start=1)
-        if op.get("op") not in _MOVED
-    )
-    names = list(sidecar.get("boundaries", []))
-    for op in operations:
-        if op.get("op") == "rename" and op.get("surface") in names:
-            names[names.index(op["surface"])] = op["to"]
-    name = path.stem if kind != "mesh" else f"{path.stem}_ops"
-    rows_out = [
-        "# Written by pyfs-workspace geometry from-sidecar from "
-        f"{sidecar_path.name}; check it, then build it.",
-        f'name = "{name}"',
-    ]
-    if fs_build:
-        rows_out.append(f'fs_build = "{fs_build}"')
-    rows_out += [f"boundaries = {_value(names)}", "", *_table(kind, table)]
-    for op in operations:
-        rows_out += [
-            "",
-            "[[operations]]",
-            *(f"{key} = {_value(value)}" for key, value in op.items()),
-        ]
-    if "trailing_edges" in sidecar and kind != "ccs":
-        rows_out += ["", *_table("trailing_edges", sidecar["trailing_edges"])]
-    text = "\n".join(rows_out) + "\n"
+    fs_build, shedding, notes = _what_the_rows_say(root, path.name, build)
+    source = _source_table(path, sidecar, shedding)
+    name = path.stem if source[0] != "mesh" else f"{path.stem}_ops"
+    text = _instruction_text(sidecar_path.name, name, fs_build, source, sidecar)
     target = path.parent / f"{path.stem}{INSTRUCTION_SUFFIX}"
-    built = f"{name}.obj" if kind == "mesh" else f"{name}.fsm"
     if apply:
-        if target.exists():
-            raise InputArtifactError(
-                f"{target} exists; the converter never replaces an instruction ({_PAGE})."
-            )
-        others = sorted(target.parent.glob(f"*{INSTRUCTION_SUFFIX}"))
-        if others:
-            raise InputArtifactError(
-                f"{target.parent} already holds {others[0].name}; a folder holds one "
-                f"instruction ({_PAGE})."
-            )
-        _textio.write_text(target, text)
-    return GeometryConversion(target, text, name, built, staying, tuple(notes))
+        _write_once(target, text)
+    built = f"{name}.obj" if source[0] == "mesh" else f"{name}.fsm"
+    return GeometryConversion(target, text, name, built, _operations(sidecar)[1], tuple(notes))
 
 
 def conversion_lines(conversion: GeometryConversion, rows: Sequence[str] = ()) -> list[str]:

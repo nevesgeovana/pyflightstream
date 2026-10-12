@@ -25,6 +25,7 @@ from typing import Any
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream.cases._ccs import CCS_FORMATS
+from pyflightstream.cases._geometry_instruction import BUILD_RECORD_SUFFIX, GEOMETRY_PAGE
 from pyflightstream.cases.mesh import MeshImport
 
 __all__ = [
@@ -35,7 +36,7 @@ __all__ = [
 ]
 
 #: The suffix of a build record, beside the body it describes.
-_RECORD_SUFFIX = ".build.json"
+_RECORD_SUFFIX = BUILD_RECORD_SUFFIX
 
 #: The geometry files a row names in 0.39.0 that the geometry stage now builds.
 IN_ROW_GEOMETRY_SUFFIXES = frozenset({*CCS_FORMATS, ".igs", ".iges", ".stl"})
@@ -43,7 +44,7 @@ IN_ROW_GEOMETRY_SUFFIXES = frozenset({*CCS_FORMATS, ".igs", ".iges", ".stl"})
 #: The sidecar operations that leave the run for the instruction file.
 MOVED_OPERATIONS = ("scale", "rename", "mirror")
 
-_PAGE = "docs/geometry.md"
+_PAGE = GEOMETRY_PAGE
 
 
 def build_record_of(geometry: Path) -> tuple[Path, dict[str, Any]] | None:

@@ -35,6 +35,8 @@ from pyflightstream.cases._ccs import CcsImportOptions
 from pyflightstream.cases.mesh import CadImportOptions, TrailingEdgeMarking
 
 __all__ = [
+    "BUILD_RECORD_SUFFIX",
+    "GEOMETRY_PAGE",
     "INSTRUCTION_SUFFIX",
     "SOLVED_QUANTITIES",
     "CadBodyOperation",
@@ -55,6 +57,12 @@ __all__ = [
 
 #: The suffix of an instruction file: ``<name>.geometry.toml``.
 INSTRUCTION_SUFFIX = ".geometry.toml"
+
+#: The suffix of the record of a build, beside the body: ``<name>.build.json``.
+BUILD_RECORD_SUFFIX = ".build.json"
+
+#: The page of the user documentation every refusal of the geometry stage names.
+GEOMETRY_PAGE = "docs/geometry.md"
 
 #: The thresholds a selection cannot read before the solver runs: the
 #: operations are emitted before any initialisation, so nothing is solved.
@@ -174,6 +182,13 @@ class GeometryOperation(BaseModel):
         for name in (self.to, self.name, *(self.names or ())):
             if name is not None:
                 _one_word(name, "the surface name")
+        self._check_surfaces_and_names()
+        if self.quantity is not None:
+            self._check_selection()
+        if self.op == "transform_nodes":
+            self._check_nodes()
+
+    def _check_surfaces_and_names(self) -> None:
         if self.op in ("rename", "mirror", "circular_copy", "linear_copy", "cut", "fill_holes"):
             if self.surface == _EVERY:
                 raise ValueError(
@@ -191,20 +206,19 @@ class GeometryOperation(BaseModel):
             raise ValueError(
                 "a cut leaves at least two surfaces; names lists the surfaces it leaves, in order"
             )
-        if self.quantity is not None:
-            self._check_selection()
-        if self.op == "transform_nodes":
-            assert self.mesh_sha256 is not None and self.nodes is not None
-            if len(self.mesh_sha256) != 64 or any(
-                c not in "0123456789abcdef" for c in self.mesh_sha256
-            ):
-                raise ValueError(
-                    "mesh_sha256 is the sha256 of the source mesh, 64 lower-case hex digits"
-                )
-            if not self.nodes or min(self.nodes) < 1:
-                raise ValueError(
-                    "nodes lists the 1-based node numbers of the source mesh, at least one"
-                )
+
+    def _check_nodes(self) -> None:
+        assert self.mesh_sha256 is not None and self.nodes is not None
+        if len(self.mesh_sha256) != 64 or any(
+            c not in "0123456789abcdef" for c in self.mesh_sha256
+        ):
+            raise ValueError(
+                "mesh_sha256 is the sha256 of the source mesh, 64 lower-case hex digits"
+            )
+        if not self.nodes or min(self.nodes) < 1:
+            raise ValueError(
+                "nodes lists the 1-based node numbers of the source mesh, at least one"
+            )
 
     def _check_selection(self) -> None:
         assert self.quantity is not None

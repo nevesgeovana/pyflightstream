@@ -81,15 +81,17 @@ def test_p0400_geom_sweep_values_that_cannot_name_their_folders_are_refused(tmp_
 
 
 @pytest.mark.requirement("FR-472")
-def test_p0400_geom_sweep_refuses_a_foreign_folder_of_a_variant_name(tmp_path, monkeypatch):
-    """P0400-GEOM-SWEEP (PFS-2081.41): R4, a foreign folder."""
-    import pyflightstream.cases._geometry_emit as geometry_emit
+def test_p0400_geom_sweep_refuses_a_foreign_folder_of_a_variant_name(tmp_path):
+    """P0400-GEOM-SWEEP (PFS-2081.41): R4, a foreign folder, even with --overwrite."""
+    from pyflightstream.workspace._geometry_build import refuse_before_running
+    from tests.tier1_offline.test_p0400_geometry_build import verified_registry
 
-    monkeypatch.setattr(geometry_emit, "_awaiting_evidence", lambda script, commands: ())
-    root, folder = _wing(tmp_path)
+    _, folder = _wing(tmp_path)
+    plan = plan_geometry_build("wing", cwd=folder.parent, registry=verified_registry())
+    refuse_before_running(plan, overwrite=True, png=False)
     (folder.parent / "wing_AIL+100").mkdir()
-    monkeypatch.chdir(folder.parent)
-    assert main(["geometry", "build", "wing", "--apply", "--overwrite"]) == 2
+    with pytest.raises(InputArtifactError, match="AIL\\+100.*was not built from this instruction"):
+        refuse_before_running(plan, overwrite=True, png=False)
 
 
 @pytest.mark.requirement("FR-472")

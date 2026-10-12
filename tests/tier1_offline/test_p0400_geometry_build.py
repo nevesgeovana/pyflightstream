@@ -19,14 +19,16 @@ from pathlib import Path
 
 import pytest
 
-import pyflightstream.cases._geometry_emit as geometry_emit
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import boundary_names, surface_mesh
+from pyflightstream.cases._geometry_emit import EVIDENCE_GATED
+from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.workspace._geometry_build import (
     GeometryBuildError,
     SolverOutcome,
     apply_geometry_build,
     plan_geometry_build,
+    refuse_before_running,
 )
 from pyflightstream.workspace.cli import main
 
@@ -72,23 +74,45 @@ def geometry(root: Path, folder: str, text: str, *, source: str | None = "src.ob
     return where
 
 
-def runner(saved: Path = WING_FSM, *, fail: bool = False) -> Callable[[Path, Path], SolverOutcome]:
-    """A runner doing what the build's script asks: save the body, export its mesh."""
+def runner(
+    saved: Path = WING_FSM, *, fail: bool = False, sliver: bool = False
+) -> Callable[[Path, Path], SolverOutcome]:
+    """A runner doing what the build's script asks: save the body, export its mesh.
+
+    ``sliver`` adds a face of zero area to the export, which audit gate G1 fails.
+    """
 
     def run(script: Path, work: Path) -> SolverOutcome:
         name = script.name.removesuffix(".build.txt")
         if not fail:
             shutil.copyfile(saved, work / f"{name}.fsm")
-            wing_obj(work / f"{name}.obj")
+            mesh = wing_obj(work / f"{name}.obj")
+            if sliver:
+                with mesh.open("a", encoding="utf-8") as handle:
+                    handle.write("f 1 1 2\n")
         return SolverOutcome(fail, 1 if fail else 0, 2.5, "solver log", "exited 1" if fail else "")
 
     return run
 
 
+def verified_registry() -> CommandRegistry:
+    """The command database with every gated command verified, as after the probe batch."""
+    base = CommandRegistry.load()
+    commands = dict(base.commands)
+    for name in EVIDENCE_GATED & set(commands):
+        entry = commands[name]
+        versions = {
+            key: status.model_copy(update={"status": Status.VERIFIED})
+            for key, status in entry.versions.items()
+        }
+        commands[name] = entry.model_copy(update={"versions": versions})
+    return CommandRegistry(commands=commands)
+
+
 @pytest.fixture
-def verified(monkeypatch):
-    """Every gated command counts as verified, as after the licensed probe batch."""
-    monkeypatch.setattr(geometry_emit, "_awaiting_evidence", lambda script, commands: ())
+def verified() -> CommandRegistry:
+    """Every gated command verified, handed to the plan as its command database."""
+    return verified_registry()
 
 
 @pytest.mark.requirement("FR-471")
@@ -158,7 +182,8 @@ def test_p0400_geom_build_writes_the_body_its_preview_and_its_record(tmp_path, v
     """P0400-GEOM-BUILD (PFS-2081.41): R3, R4, R6 and R7 on a body read back as stated."""
     root = workspace(tmp_path)
     folder = geometry(root, "wing", MESH_INSTRUCTION)
-    plan = plan_geometry_build(folder)
+    plan = plan_geometry_build(folder, registry=verified)
+    assert plan.awaiting_evidence == ()
     built = apply_geometry_build(plan, runner=runner(), package_version="0.40.0")
     assert [item.passed for item in built] == [True]
     for name in (
@@ -185,6 +210,8 @@ def test_p0400_geom_build_writes_the_body_its_preview_and_its_record(tmp_path, v
     vtk = (folder / "wing.preview.vtk").read_text(encoding="utf-8")
     assert "SCALARS boundary int 1" in vtk and "LINES 16 48" in vtk and "\nWing" in vtk
     assert not folder.with_name("wing.partial").exists()
+    mesh_record = json.loads((mesh / "wing_obj.build.json").read_text(encoding="utf-8"))
+    assert mesh_record["instruction"]["file"] == "../wing/wing.geometry.toml"
 
 
 @pytest.mark.requirement("FR-471")
@@ -199,7 +226,7 @@ def test_p0400_geom_build_fails_on_other_boundaries_and_promotes_nothing(tmp_pat
             '[[operations]]\nop = "rename"\nsurface = "Wing"\nto = "Body"\n[trailing_edges]',
         ),
     )
-    plan = plan_geometry_build(folder)
+    plan = plan_geometry_build(folder, registry=verified)
     with pytest.raises(GeometryBuildError, match="carries the boundaries Wing.*states Body"):
         apply_geometry_build(plan, runner=runner())
     assert not (folder / "wing.fsm").exists()
@@ -207,36 +234,44 @@ def test_p0400_geom_build_fails_on_other_boundaries_and_promotes_nothing(tmp_pat
 
 
 @pytest.mark.requirement("FR-471")
-def test_p0400_geom_build_a_failed_solver_exits_3_and_keeps_the_partial_folder(
-    tmp_path, verified, monkeypatch, capsys
+def test_p0400_geom_build_a_failed_solver_promotes_nothing_and_keeps_the_partial_folder(
+    tmp_path, verified
 ):
-    """P0400-GEOM-BUILD (PFS-2081.41): R8, exit 3 when the solver fails."""
-    import pyflightstream.run._cli_geometry as group
-
+    """P0400-GEOM-BUILD (PFS-2081.41): R3 and R8, the error the command exits 3 on."""
     root = workspace(tmp_path)
     folder = geometry(root, "wing", MESH_INSTRUCTION)
-    monkeypatch.setattr(group, "_runner", lambda executable: runner(fail=True))
-    monkeypatch.chdir(folder)
-    assert main(["geometry", "build", "--apply"]) == 3
-    assert "Nothing was promoted" in capsys.readouterr().err
+    plan = plan_geometry_build(folder, registry=verified)
+    with pytest.raises(GeometryBuildError, match="exited 1.*Nothing was promoted"):
+        apply_geometry_build(plan, runner=runner(fail=True))
     assert not (folder / "wing.fsm").exists()
+    partial = folder.with_name("wing.partial")
+    assert (partial / "wing.build.txt").is_file() and (partial / "wing.build.log").is_file()
 
 
 @pytest.mark.requirement("FR-471")
-def test_p0400_geom_build_refuses_existing_outputs_without_overwrite(
-    tmp_path, verified, monkeypatch, capsys
-):
-    """P0400-GEOM-BUILD (PFS-2081.41): R9, exit 2 on a second build, exit 0 with --overwrite."""
-    import pyflightstream.run._cli_geometry as group
-
+def test_p0400_geom_build_refuses_existing_outputs_without_overwrite(tmp_path, verified):
+    """P0400-GEOM-BUILD (PFS-2081.41): R9, a second build is refused until --overwrite."""
     root = workspace(tmp_path)
     folder = geometry(root, "wing", MESH_INSTRUCTION)
-    monkeypatch.setattr(group, "_runner", lambda executable: runner())
+    plan = plan_geometry_build(folder, registry=verified)
+    apply_geometry_build(plan, runner=runner())
+    with pytest.raises(InputArtifactError, match="--overwrite"):
+        refuse_before_running(plan, overwrite=False, png=False)
+    refuse_before_running(plan, overwrite=True, png=False)
+    assert apply_geometry_build(plan, runner=runner(), overwrite=True)[0].passed
+
+
+@pytest.mark.requirement("FR-471")
+def test_p0400_geom_build_apply_on_an_unprobed_build_exits_2(tmp_path, capsys, monkeypatch):
+    """P0400-GEOM-BUILD (PFS-2081.41): R9 at the command, before any executable is looked up."""
+    root = workspace(tmp_path)
+    (root / "inputs" / "executables.toml").unlink()
+    folder = geometry(root, "wing", MESH_INSTRUCTION)
     monkeypatch.chdir(folder)
-    assert main(["geometry", "build", "--apply"]) == 0
     assert main(["geometry", "build", "--apply"]) == 2
-    assert "--overwrite" in capsys.readouterr().err
-    assert main(["geometry", "build", "--apply", "--overwrite"]) == 0
+    err = capsys.readouterr().err
+    assert "EXPORT_SURFACE_MESH" in err and "Nothing was written." in err
+    assert not folder.with_name("wing.partial").exists()
 
 
 @pytest.mark.requirement("FR-471")
@@ -252,30 +287,14 @@ def test_p0400_geom_build_refuses_an_instruction_outside_a_workspace(tmp_path, c
 
 
 @pytest.mark.requirement("FR-471")
-def test_p0400_geom_build_a_failed_audit_gate_exits_1_and_keeps_the_files(
-    tmp_path, verified, monkeypatch
-):
-    """P0400-GEOM-BUILD (PFS-2081.41): R8, a failed gate is recorded and the files stay."""
-    import pyflightstream.run._cli_geometry as group
-    import pyflightstream.workspace._geometry_build as build
-
-    def audit(target):
-        return type(
-            "A",
-            (),
-            {
-                "passed": False,
-                "failures": (type("I", (), {"kind": "G1", "name": "faces_of_zero_area"})(),),
-            },
-        )()
-
+def test_p0400_geom_build_a_failed_audit_gate_keeps_the_files_and_says_so(tmp_path, verified):
+    """P0400-GEOM-BUILD (PFS-2081.41): R8, a zero-area face fails G1; the files stay, exit 1."""
     root = workspace(tmp_path)
     folder = geometry(root, "wing", MESH_INSTRUCTION)
-    monkeypatch.setattr(build, "audit_mesh", audit)
-    monkeypatch.setattr(group, "_runner", lambda executable: runner())
-    monkeypatch.chdir(folder)
-    assert main(["geometry", "build", "--apply"]) == 1
+    plan = plan_geometry_build(folder, registry=verified)
+    (built,) = apply_geometry_build(plan, runner=runner(sliver=True))
+    assert built.passed is False
     record = json.loads((folder / "wing.build.json").read_text(encoding="utf-8"))
     assert record["audit"]["passed"] is False
-    assert record["audit"]["failed"] == ["G1 faces_of_zero_area"]
+    assert any(gate.startswith("G1") for gate in record["audit"]["failed"]), record["audit"]
     assert (folder / "wing.fsm").is_file()

@@ -22,6 +22,7 @@ from tests.tier1_offline.test_p0400_geometry_build import (
     MESH_INSTRUCTION,
     geometry,
     runner,
+    verified_registry,
     workspace,
 )
 
@@ -29,14 +30,12 @@ INSTRUCTION = MESH_INSTRUCTION.replace('outputs = ["fsm", "obj"]', 'outputs = ["
 
 
 @pytest.fixture
-def built(tmp_path, monkeypatch):
+def built(tmp_path):
     """A built, unaccepted wing: (root, folder, the built FSM)."""
-    import pyflightstream.cases._geometry_emit as geometry_emit
-
-    monkeypatch.setattr(geometry_emit, "_awaiting_evidence", lambda script, commands: ())
     root = workspace(tmp_path)
     folder = geometry(root, "wing", INSTRUCTION)
-    apply_geometry_build(plan_geometry_build(folder), runner=runner())
+    plan = plan_geometry_build(folder, registry=verified_registry())
+    apply_geometry_build(plan, runner=runner())
     return root, folder, folder / "wing.fsm"
 
 

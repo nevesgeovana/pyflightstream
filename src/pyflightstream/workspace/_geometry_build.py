@@ -39,10 +39,13 @@ from pyflightstream._fsm import (
 )
 from pyflightstream.cases._geometry_emit import GeometryScript, render_geometry_script
 from pyflightstream.cases._geometry_instruction import (
+    BUILD_RECORD_SUFFIX,
+    GEOMETRY_PAGE,
     INSTRUCTION_SUFFIX,
     GeometryInstruction,
     variant_tag,
 )
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.versions import resolve
 from pyflightstream.workspace._geometry_instruction import (
     checked_trailing_edge_points,
@@ -68,14 +71,13 @@ __all__ = [
     "refuse_before_running",
 ]
 
-#: The record of a build: ``<name>.build.json``.
-BUILD_RECORD_SUFFIX = ".build.json"
+
 #: The schema of the record; a key removed or retyped needs a new one.
 BUILD_SCHEMA_VERSION = 1
 #: The folder a build works in, beside the folder it builds into.
 PARTIAL_SUFFIX = ".partial"
 
-_PAGE = "docs/geometry.md"
+_PAGE = GEOMETRY_PAGE
 
 
 class GeometryBuildError(PyflightstreamError, RuntimeError):
@@ -269,6 +271,7 @@ def plan_geometry_build(
     cwd: str | Path | None = None,
     build: str | None = None,
     only: Sequence[str] = (),
+    registry: CommandRegistry | None = None,
 ) -> GeometryBuildPlan:
     """Plan one build: find, read and check the instruction, and render its scripts (FR-471 R1).
 
@@ -299,7 +302,12 @@ def plan_geometry_build(
         if only:
             raise _refuse("--only chooses variants of a [sweep], and the instruction states none")
         script = render_geometry_script(
-            instruction, folder=folder, work=work, version=version, trailing_edge_points_m=points
+            instruction,
+            folder=folder,
+            work=work,
+            version=version,
+            trailing_edge_points_m=points,
+            registry=registry,
         )
         variants.append(GeometryVariant(None, None, instruction, folder, script, points))
     else:
@@ -328,6 +336,7 @@ def plan_geometry_build(
                 folder=folder,
                 work=out.with_name(out.name + PARTIAL_SUFFIX),
                 version=version,
+                registry=registry,
             )
             variants.append(GeometryVariant(tag, angle, variant, out, script))
     return GeometryBuildPlan(
@@ -470,7 +479,14 @@ def _build_one(
     mesh_name = name if instruction.outputs == ("obj",) else f"{name}_obj"
     mesh_dir = work / "mesh"
     mesh_dir.mkdir()
-    audited = _audit(variant, obj, mesh_dir, mesh_name, saved["midpoints"], saved["unit"])
+    audited = _audit(
+        variant,
+        obj,
+        mesh_dir=mesh_dir,
+        mesh_name=mesh_name,
+        midpoints=saved["midpoints"],
+        unit=saved["unit"],
+    )
     write_preview_vtk(
         work / f"{name}{PREVIEW_SUFFIX}",
         fsm=fsm,
@@ -482,13 +498,13 @@ def _build_one(
     record = _record(
         plan,
         variant,
-        outcome,
-        saved,
-        audited,
-        script_path,
-        package_version,
-        fsm,
-        mesh_dir / f"{mesh_name}.obj",
+        outcome=outcome,
+        saved=saved,
+        audit=audited,
+        script_path=script_path,
+        package_version=package_version,
+        fsm=fsm,
+        obj=mesh_dir / f"{mesh_name}.obj",
     )
     _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
     files = _promote(variant, work, mesh_dir, mesh_name, overwrite)
@@ -553,6 +569,7 @@ def _sidecar_text(names: Sequence[str], units: str | None, te_file: str | None) 
 def _audit(
     variant: GeometryVariant,
     obj: Path,
+    *,
     mesh_dir: Path,
     mesh_name: str,
     midpoints: tuple[tuple[float, float, float], ...] | None,
@@ -583,7 +600,7 @@ def _audit(
     return {
         "file": f"{variant.instruction.name}.audit.json",
         "passed": audit.passed,
-        "failed": [f"{item.kind} {item.name}" for item in audit.failures],
+        "failed": [f"{item.name} on {item.family}" for item in audit.failures],
     }
 
 
@@ -614,6 +631,7 @@ def _write_png(target: Path, obj: Path) -> None:
 def _record(
     plan: GeometryBuildPlan,
     variant: GeometryVariant,
+    *,
     outcome: SolverOutcome,
     saved: dict[str, Any],
     audit: dict[str, Any],
@@ -693,6 +711,20 @@ def _rebased(record: dict[str, Any], old: Path, new: Path) -> dict[str, Any]:
     }
 
 
+def _move_into(sources: list[Path], folder: Path, overwrite: bool) -> list[Path]:
+    """Move each existing file into a folder, replacing one there only with ``overwrite``."""
+    moved = []
+    for source in sources:
+        if not source.is_file():
+            continue
+        destination = folder / source.name
+        if destination.exists() and overwrite:
+            destination.unlink()
+        shutil.move(str(source), destination)
+        moved.append(destination)
+    return moved
+
+
 def _promote(
     variant: GeometryVariant, work: Path, mesh_dir: Path, mesh_name: str, overwrite: bool
 ) -> tuple[Path, ...]:
@@ -700,53 +732,41 @@ def _promote(
     name = variant.instruction.name
     folder = variant.folder
     folder.mkdir(parents=True, exist_ok=True)
-    moved: list[Path] = []
-    keep = [
-        f"{name}.build.txt",
-        f"{name}.build.log",
-        f"{name}{PREVIEW_SUFFIX}",
-        f"{name}{BUILD_RECORD_SUFFIX}",
-        f"{name}.preview.png",
-    ]
+    suffixes = [".build.txt", ".build.log", PREVIEW_SUFFIX, BUILD_RECORD_SUFFIX, ".preview.png"]
     audit = mesh_dir / f"{mesh_name}.audit.json"
     if audit.is_file():
         shutil.copyfile(audit, work / f"{name}.audit.json")
-        keep.append(f"{name}.audit.json")
+        suffixes.append(".audit.json")
     if "fsm" in variant.instruction.outputs:
-        keep.append(f"{name}.fsm")
         _textio.write_text(
             work / f"{name}.boundaries.toml",
             _sidecar_text(variant.instruction.boundaries, None, None),
         )
-        keep.append(f"{name}.boundaries.toml")
-    for file_name in keep:
-        source = work / file_name
-        if source.is_file():
-            destination = folder / file_name
-            if destination.exists() and overwrite:
-                destination.unlink()
-            shutil.move(str(source), destination)
-            moved.append(destination)
+        suffixes += [".fsm", ".boundaries.toml"]
+    moved = _move_into([work / f"{name}{suffix}" for suffix in suffixes], folder, overwrite)
+    return tuple(moved + _promote_mesh(variant, mesh_dir, mesh_name, overwrite))
+
+
+def _promote_mesh(
+    variant: GeometryVariant, mesh_dir: Path, mesh_name: str, overwrite: bool
+) -> list[Path]:
+    """Move the built mesh: into the folder when it is the one output, else into ``<name>_obj/``."""
+    folder = variant.folder
     if variant.instruction.outputs == ("obj",):
-        for source in mesh_dir.iterdir():
-            if source.name.endswith(".audit.json"):
-                continue
-            destination = folder / source.name
-            if destination.exists() and overwrite:
-                destination.unlink()
-            shutil.move(str(source), destination)
-            moved.append(destination)
-    elif "obj" in variant.instruction.outputs:
-        target = folder.with_name(mesh_name)
-        if target.exists() and overwrite:
-            shutil.rmtree(target)
-        shutil.move(str(mesh_dir), target)
-        record = json.loads((folder / f"{name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8"))
-        _textio.write_json(
-            target / f"{mesh_name}{BUILD_RECORD_SUFFIX}", _rebased(record, folder, target)
-        )
-        moved.append(target)
-    return tuple(moved)
+        sources = [s for s in sorted(mesh_dir.iterdir()) if not s.name.endswith(".audit.json")]
+        return _move_into(sources, folder, overwrite)
+    if "obj" not in variant.instruction.outputs:
+        return []
+    target = folder.with_name(mesh_name)
+    if target.exists() and overwrite:
+        shutil.rmtree(target)
+    shutil.move(str(mesh_dir), target)
+    name = variant.instruction.name
+    record = json.loads((folder / f"{name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8"))
+    _textio.write_json(
+        target / f"{mesh_name}{BUILD_RECORD_SUFFIX}", _rebased(record, folder, target)
+    )
+    return [target]
 
 
 def accept_geometries(

@@ -7,6 +7,8 @@ stay as aliases with the identical result and one warning.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from pyflightstream._errors import PyflightstreamWarning
@@ -16,18 +18,21 @@ from pyflightstream.workspace import cli as workspace_cli
 from tests.tier1_offline.test_p0400_geometry_build import wing_obj
 
 
+def _options(run, argv: list[str], capsys) -> set[str]:
+    """Return the options a command's --help lists."""
+    with pytest.raises(SystemExit):
+        run([*argv, "--help"])
+    return set(re.findall(r"(?<![\w-])--[a-z][a-z-]*", capsys.readouterr().out))
+
+
 @pytest.mark.requirement("FR-477")
-def test_p0400_geom_group_the_four_verbs_are_registered_with_their_options():
+@pytest.mark.parametrize(("name", "verb"), sorted(_cli_geometry.PYFS_MATRIX_ALIASES.items()))
+def test_p0400_geom_group_each_verb_takes_the_options_of_its_pyfs_matrix_name(name, verb, capsys):
     """P0400-GEOM-GROUP (PFS-2081.41): the group copies each pyfs-matrix parser."""
-    parser = workspace_cli._build_parser()
-    group = parser._subparsers._group_actions[0].choices["geometry"]
-    verbs = group._subparsers._group_actions[0].choices
-    assert set(verbs) == set(_cli_geometry.GEOMETRY_VERBS)
-    matrix = _cli_geometry._matrix_parsers()
-    for name, verb in _cli_geometry.PYFS_MATRIX_ALIASES.items():
-        ours = {a.dest for a in verbs[name]._actions}
-        theirs = {a.dest for a in matrix[verb]._actions}
-        assert ours == theirs, name
+    ours = _options(workspace_cli.main, ["geometry", name], capsys)
+    theirs = _options(matrix_main, [verb], capsys)
+    assert ours == theirs and ours, (ours, theirs)
+    assert set(_cli_geometry.matrix_parsers()) == set(_cli_geometry.PYFS_MATRIX_ALIASES.values())
 
 
 @pytest.mark.requirement("FR-477")

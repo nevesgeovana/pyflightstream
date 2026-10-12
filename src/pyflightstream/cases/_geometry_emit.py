@@ -46,7 +46,7 @@ from pyflightstream.cases._geometry_instruction import (
 )
 from pyflightstream.cases.ccs_wing import REFERENCE_FRAME, emit_ccs_geometry
 from pyflightstream.cases.mesh import MeshImport
-from pyflightstream.commands import Status
+from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import Script, helpers
 
 __all__ = [
@@ -151,6 +151,7 @@ def render_geometry_script(
     work: Path,
     version: str,
     trailing_edge_points_m: Sequence[Sequence[float]] = (),
+    registry: CommandRegistry | None = None,
 ) -> GeometryScript:
     """Render the build script of one instruction for one build.
 
@@ -167,6 +168,9 @@ def render_geometry_script(
     trailing_edge_points_m : sequence of (x, y, z)
         The points of a ``[trailing_edges]`` file route, in metres, already
         checked against the source mesh.
+    registry : CommandRegistry, optional
+        The command database the emission and the evidence gate read; the
+        package's own by default.
 
     Returns
     -------
@@ -179,7 +183,7 @@ def render_geometry_script(
         A source the run's emitter refuses, or a command the build's
         database does not carry.
     """
-    script = Script(version)
+    script = Script(version, registry)
     script.working_dir = str(work)
     names = source_names(instruction)
     steps = tuple(names_after(instruction, names))
@@ -438,6 +442,16 @@ def _emit_operation(
     script: Script, operation: GeometryOperation, names: Sequence[str], unit: str
 ) -> None:
     """Emit one operation of the instruction (FR-470 R3, FR-474)."""
+    if operation.op in ("scale", "rename", "mirror"):
+        _emit_sidecar_operation(script, operation, names)
+    else:
+        _emit_new_operation(script, operation, names, unit)
+
+
+def _emit_sidecar_operation(
+    script: Script, operation: GeometryOperation, names: Sequence[str]
+) -> None:
+    """Emit a scale, a rename or a mirror, the kinds the sidecar carried before 0.40.0."""
     op = operation.op
     if op == "scale":
         assert operation.factors is not None
@@ -462,7 +476,14 @@ def _emit_operation(
             combine_flag="TRUE",
             delete_source_flag="FALSE",
         )
-    elif op == "circular_copy":
+
+
+def _emit_new_operation(
+    script: Script, operation: GeometryOperation, names: Sequence[str], unit: str
+) -> None:
+    """Emit a mesh operation of FR-474: copies, cut, repair, selections, node moves."""
+    op = operation.op
+    if op == "circular_copy":
         assert operation.axis is not None
         script.emit(
             "SURFACE_CIRCULAR_COPY_PASTE",

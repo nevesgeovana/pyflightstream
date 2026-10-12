@@ -23,6 +23,11 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream.run._cli_mesh import (
+    add_degenerate_parser,
+    add_inventory_parser,
+    add_mesh_parsers,
+)
 from pyflightstream.run._executors import ExecutorConfigurationError, LocalExecutor
 from pyflightstream.workspace._geometry_build import (
     GeometryBuildError,
@@ -42,6 +47,7 @@ __all__ = [
     "PYFS_MATRIX_ALIASES",
     "add_geometry_commands",
     "alias_warning",
+    "matrix_parsers",
     "run_geometry",
 ]
 
@@ -62,16 +68,13 @@ _TIMEOUT_S = 1800.0
 _NOTHING = "Nothing was written."
 
 
-def _matrix_parsers() -> dict[str, argparse.ArgumentParser]:
-    """Build the four ``pyfs-matrix`` parsers once, to copy as parents."""
-    from pyflightstream.run._cli_mesh import add_mesh_parsers
-    from pyflightstream.run._cli_parsers import _add_degenerate_parsers, _add_workspace_parsers
-
+def matrix_parsers() -> dict[str, argparse.ArgumentParser]:
+    """Return the four ``pyfs-matrix`` geometry parsers, built afresh, to copy as parents."""
     holder = argparse.ArgumentParser(add_help=False)
     sub = holder.add_subparsers(dest="subcommand")
     add_mesh_parsers(sub)
-    _add_degenerate_parsers(sub)
-    _add_workspace_parsers(sub)
+    add_inventory_parser(sub)
+    add_degenerate_parser(sub)
     return dict(sub.choices)
 
 
@@ -147,7 +150,7 @@ def add_geometry_commands(subparsers: Any) -> None:
     convert.add_argument(
         "--workspace", default=".", help="the workspace root (default: the current directory)"
     )
-    for verb, source in _matrix_parsers().items():
+    for verb, source in matrix_parsers().items():
         name = next(
             (group for group, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb), None
         )
@@ -291,11 +294,10 @@ def run_geometry(args: argparse.Namespace) -> int:
         return _cmd_accept(args)
     if verb == "from-sidecar":
         return _cmd_from_sidecar(args)
-    from pyflightstream.run.cli import _cmd_geometry
-
+    # THE pyfs-matrix HANDLER ITSELF, named by the copied parser (FR-477).
     args.subcommand = PYFS_MATRIX_ALIASES[verb]
     try:
-        return _cmd_geometry(args)
+        return int(args.mesh_command(args))
     except PyflightstreamError as error:
         print(str(error), file=sys.stderr)
         return 2

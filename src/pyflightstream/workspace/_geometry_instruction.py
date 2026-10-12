@@ -21,6 +21,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases._ccs import CCS_FORMATS
 from pyflightstream.cases._geometry_instruction import (
+    GEOMETRY_PAGE,
     INSTRUCTION_SUFFIX,
     GeometryInstruction,
     source_names,
@@ -66,7 +67,7 @@ _SOURCE_SUFFIXES = {
 _STEP = (".step", ".stp")
 
 #: The page every refusal of the file points at.
-_PAGE = "docs/geometry.md"
+_PAGE = GEOMETRY_PAGE
 
 
 def instruction_stem(path: Path) -> str:
