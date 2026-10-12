@@ -10130,3 +10130,138 @@ The requirements of the command gap of 0.40.0 (planning nodes PFS-2081.15 to PFS
     Verification: test, `tests/tier1_offline/test_p0400_gaps_rt_fsiext.py`, carrying P0400-FSIEXT (FR-462): the input model and every refusal of R4; the emitted block against a golden (R5); the step run on a stand-in executable that writes the PyNite-format displacements, its archive and `call.json`, and each failure of R3 (nonzero code, a missing file, a wrong row count, a non-finite value, a changed digest), each returning nonzero with the error log written.
 
     Evidence: in `tests/tier1_offline/test_p0400_gaps_rt_fsiext.py`, `test_p0400_fsiext_resolves_and_hashes`, `test_p0400_fsiext_refusals_at_reading`, `test_p0400_fsiext_empty_node_file_is_refused`, `test_p0400_fsiext_factor_keys_are_refused`, `test_p0400_fsiext_steady_block_and_staged_files`, `test_p0400_fsiext_unsteady_couples_in_the_march`, `test_p0400_fsiext_refuses_symmetry_and_a_second_distribution`, `test_p0400_fsiext_step_archives_and_validates_a_call`, `test_p0400_fsiext_step_fails_each_defect`, `test_p0400_fsiext_step_refuses_a_changed_input`, `test_p0400_fsiext_a_previous_answer_is_not_passed_on`.
+
+## 0.40.0 the geometry stage
+
+The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh operations of PFS-2081.13 and the CAD bodies and solver-built geometry of PFS-2081.14 delivered through it), decided on 2026-10-12: a body is built outside the run matrix, once, by one command reading an instruction file, inspected before any run, and the matrix names the finished body, a saved simulation (`.fsm`) or a mesh (`.obj`). Translate and rotate stay where they are, in the sidecar of a mesh and in the row keys `TRANSLATE` and `ROTATE`. Every box is verified offline by the tier-1 tests it names, carrying the marker `P0400-GEOM-<NAME>`; the solver's answer to each command the stage emits is measured by the licensed probe batch of 0.40.0, and until a command is verified on a build the build refuses to run it there (FR-471 R9).
+
+!!! requirement "FR-470 A geometry is described by an instruction file, `<name>.geometry.toml`, with exactly one source <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, questions G-Q2 to G-Q4, G-Q12 to G-Q14). Verification: test, `tests/tier1_offline/test_p0400_geometry_instruction.py`.*
+
+    Need: A user whose body is not yet a file a run opens (a CCS file to loft, an IGES assembly to clean and convert, a body or wing the solver builds, a raw mesh to scale, rename, mirror, copy, cut or repair) states how it is made once, in a file beside its source, instead of in every row that names it.
+
+    Requirement: A geometry folder `inputs/geometries/<folder>/` may hold one instruction file `<name>.geometry.toml`; a second one in the same folder is refused, naming both.
+
+    - R1 Top-level keys: `fs_build` (the build id of `inputs/executables.toml`, required unless the command states `--build`), `boundaries` (the boundary names the saved body must carry, in order, required, no name with whitespace), `outputs` (`["fsm"]`, `["obj"]` or `["fsm", "obj"]`; default `["fsm"]` for the `ccs`, `cad` and `create` sources and `["obj"]` for `mesh`), and `name` (the stem of every built file; letters, digits, `_` and `-`; default the instruction's stem).
+    - R2 Exactly one source table: `[ccs]` (the keys of the sidecar's `[import.ccs]` with their values, defaults and refusals, plus `file`, `units` and `shedding`, which replaces the row key `CCS_SHEDDING` on `kind = "file"`), `[cad]` (the keys of `[import.cad]` plus `file` and `units = "FILE"`, and the CAD body operations of FR-475 as `[[cad.operations]]`), `[create]` (FR-475) or `[mesh]` (`file`, an `.obj` or `.stl`, and `units`). A source file is named by its file name and lies in the instruction's folder.
+    - R3 `[[operations]]` are applied in the order written after the source: `scale`, `rename` and `mirror` with the keys and rules of the sidecar's `[[import.operations]]`, and the kinds of FR-474. They are allowed after every source, since the saved boundaries are read back and compared with `boundaries` (FR-471 R5). `translate` and `rotate` are refused, naming the sidecar of the built mesh and the row keys `TRANSLATE` and `ROTATE` as their place.
+    - R4 `[trailing_edges]` has the routes and keys of the sidecar's table (`file`, `detect`, `none = true`, `type`, `tolerance`) and is read for the `mesh`, `cad` and `create.bodies` sources; beside a `[ccs]` source or a `create.loft`, which mark their own edges, it is refused.
+    - R5 `[sweep]` (FR-472) is read for a `[ccs]` wing only.
+    - R6 Each of these is refused before any solver starts, naming the file, the key and what to write instead: no source table or two; an unknown key at any level; a source file not in the folder, or written as a path; a key a source kind does not read; `outputs` empty, repeated or naming another format; `boundaries` empty or holding whitespace; a STEP file; `units = "OTHER"`; a control surface with `space = "REAL"`; `translate` or `rotate` in `[[operations]]`; a `[sweep]` on another source or naming a control surface the source does not declare.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_instruction.py`, carrying P0400-GEOM-FILE: `test_p0400_geom_file_each_source_reads_with_its_defaults`, `test_p0400_geom_file_the_source_names_are_the_boundaries_with_the_operations_undone`, `test_p0400_geom_file_every_refusal_names_the_file`, `test_p0400_geom_file_the_ccs_table_keeps_the_sidecars_refusals`, `test_p0400_geom_file_a_second_instruction_in_one_folder_is_refused`, `test_p0400_geom_file_the_variant_tag_keeps_tenths_and_a_sign`.
+
+!!! requirement "FR-471 `pyfs-workspace geometry build` previews a geometry and, with `--apply`, builds it in one solver execution with no solve <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q3 to G-Q8). Verification: test, `tests/tier1_offline/test_p0400_geometry_build.py`.*
+
+    Need: The user sees the body before any seat is spent on a point, and a defect of the geometry is caught at the build rather than read from a wrong polar.
+
+    Requirement: `pyfs-workspace geometry build [TARGET] [--apply] [--build ID] [--png] [--overwrite] [--only TAG[,TAG...]] [--fs-exe PATH]` builds the instruction `TARGET` names: an instruction file, a geometry folder, or nothing (the one instruction of the current directory).
+
+    - R1 Without `--apply` it runs no executable and writes nothing: it validates the instruction, hashes every input, renders the script for the build's version through the version-validated emitter, and prints the script, the boundaries after each operation, the files it would write and every refusal.
+    - R2 With `--apply` it runs the solver once per geometry, with no solve: the source, the operations, `SET_SIMULATION_LENGTH_UNITS METER`, the trailing edges, `SAVEAS <name>.fsm`, `EXPORT_SURFACE_MESH OBJ -1 <name>.obj`, `CLOSE_FLIGHTSTREAM`. The emission of the CCS source is the run's own emitter (FR-240 to FR-244).
+    - R3 The work happens in `<folder>.partial/`. After the solver returns the package reads the saved file's boundaries and fails the build when they differ from `boundaries` (R5), reads its trailing-edge mid-points, audits the exported mesh (FR-426), writes the preview (R6) and the record (R7), then moves the outputs into the geometry folder. An error at any step promotes nothing and keeps the partial folder with the script and the log.
+    - R4 The built folder holds `<name>.fsm` when `"fsm"` is an output; `<name>.obj` with its sidecar `<name>.boundaries.toml` (its inventory, `[import] units`, and `[trailing_edges] file = "<name>.te.txt"` when edges are marked) when `"obj"` is the only output; with both outputs the mesh is its own geometry `<name>_obj/` beside the folder; `<name>.audit.json`, `<name>.preview.vtk`, `<name>.build.txt` (the script), `<name>.build.log` and `<name>.build.json` always; `<name>.preview.png` only with `--png`.
+    - R5 A saved body whose boundary names differ from `boundaries` fails the build, naming both lists; nothing is promoted and the command exits 3. A body that declares marked trailing edges (a CCS wing or loft with `mark_trailing_edges = true`, or a `[trailing_edges]` route other than `none`) and saves none fails the same way.
+    - R6 `<name>.preview.vtk` is a legacy VTK polydata file: the surface with a cell array `boundary` (the boundary's position, counted from 1), the marked trailing edges as lines, and a field `names` listing the boundaries in order.
+    - R7 `<name>.build.json` (schema version 1) records the package version, the build id and solver version, the executable, the return code and the wall time, the instruction with its sha256 and, for a variant, the value it overrode, every input file with its role and sha256, the script with its sha256, every output with its sha256, its boundaries, its face count and its trailing-edge mid-point count, the audit (`passed`, the failed gates), and `inspected` (null until FR-473 R1). A key may be added without a new schema version; one removed or retyped needs one.
+    - R8 A failed audit gate keeps the files, records `"passed": false`, prints the gates and exits 1. Exit codes: 0 built and audited, 1 built with a failed gate, 2 refused with nothing written, 3 the solver failed or the read-back failed with nothing promoted.
+    - R9 It refuses, with exit 2, ending `Nothing was written.`: everything FR-470 refuses; an instruction outside `inputs/geometries/` of a workspace; a command the build needs whose status on the chosen build is not `verified` in the command database, for the commands the run did not already emit before 0.40.0 (the CCS lofts on a build where they are not verified, the commands of FR-474 and FR-475, `EXPORT_SURFACE_MESH`), naming the command, the build and that a licensed probe settles it (the preview still renders and names the refusal); an existing output or folder without `--overwrite`; a build id the workspace's executables files do not resolve, with `--apply`; `--png` without the plot extra installed.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_build.py`, carrying P0400-GEOM-BUILD: `test_p0400_geom_build_preview_runs_nothing_and_writes_nothing`, `test_p0400_geom_build_script_saves_after_the_export_and_the_marking`, `test_p0400_geom_build_refuses_a_command_awaiting_evidence_and_runs_nothing`, `test_p0400_geom_build_a_ccs_loft_waits_for_its_probe_on_26124_only`, `test_p0400_geom_build_writes_the_body_its_preview_and_its_record`, `test_p0400_geom_build_fails_on_other_boundaries_and_promotes_nothing`, `test_p0400_geom_build_a_failed_solver_promotes_nothing_and_keeps_the_partial_folder`, `test_p0400_geom_build_refuses_existing_outputs_without_overwrite`, `test_p0400_geom_build_apply_on_an_unprobed_build_exits_2`, `test_p0400_geom_build_refuses_an_instruction_outside_a_workspace`, `test_p0400_geom_build_a_failed_audit_gate_keeps_the_files_and_says_so`.
+
+!!! requirement "FR-472 A deflection sweep builds one sibling geometry per control-surface angle <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q9). Verification: test, `tests/tier1_offline/test_p0400_geometry_sweep.py`.*
+
+    Need: A user varying a control surface's deflection runs the build once from the level above the geometry folder and gets one body per angle, each lofted by the solver with its gap at that angle.
+
+    Requirement: `[sweep]` with `control_surface` (a name of `[[ccs.control_surfaces]]`) and `angle_deg` (a list of values) builds, from `inputs/geometries/`, one geometry per value in its own folder `inputs/geometries/<name>_<SURFACE><sign><ttt>/`, where `<ttt>` is the absolute angle in tenths of a degree on three digits and `<sign>` is `+` or `-` (`wing_AIL-100`, `wing_AIL+000`, `wing_AIL+100`); the base folder is not written.
+
+    - R1 Each variant replaces that surface's `angle_deg` and is built as FR-471 builds a geometry; its `build.json` records the base instruction's sha256 and the value it overrode.
+    - R2 `--only TAG[,TAG...]` builds the named variants only.
+    - R3 The build prints, per variant, the `CONFIGURATION` and `GEOMETRY` cells of a matrix row naming it; it writes nothing into a matrix.
+    - R4 Refused: a sweep run from inside its own folder (naming the command to run from the level above); an empty list, a repeated value, or two values with one tag; a second sweep key; a variant folder that exists and was not built from this instruction, even with `--overwrite`.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_sweep.py`, carrying P0400-GEOM-SWEEP: `test_p0400_geom_sweep_one_script_per_angle_into_sibling_folders`, `test_p0400_geom_sweep_only_builds_the_named_variants`, `test_p0400_geom_sweep_from_inside_its_folder_is_refused`, `test_p0400_geom_sweep_values_that_cannot_name_their_folders_are_refused`, `test_p0400_geom_sweep_refuses_a_foreign_folder_of_a_variant_name`, `test_p0400_geom_sweep_prints_the_matrix_cells_of_each_variant`.
+
+!!! requirement "FR-473 A built body is accepted after inspection, and the plan reads its record <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q6, G-Q7, G-Q8, G-Q11). Verification: test, `tests/tier1_offline/test_p0400_geometry_plan.py`.*
+
+    Need: A body that changed after it was built, or that nobody looked at, does not reach a run in silence.
+
+    Requirement: `pyfs-workspace geometry accept NAME[,NAME...]` records the inspection, and `pyfs-matrix plan` reads the `<stem>.build.json` beside the geometry a row names.
+
+    - R1 `accept` writes `inspected` (the time and the user name of the session) into each named geometry's `build.json`; a name with no `build.json` is refused with exit 2.
+    - R2 The plan refuses a row whose geometry's instruction or any recorded input no longer hashes as recorded, naming the file and the command that rebuilds it.
+    - R3 The plan warns, naming the row and the geometry: when the built file itself no longer hashes as recorded (saved again elsewhere); when the body was never accepted, naming the `accept` command; when its audit failed, naming the gates; when the row's `FS_BUILD` is not the build that made it.
+    - R4 A row whose geometry has no `build.json` is planned exactly as before.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_plan.py`, carrying P0400-GEOM-PLAN: `test_p0400_geom_plan_an_unaccepted_body_is_warned_until_accepted`, `test_p0400_geom_plan_accept_refuses_a_geometry_never_built`, `test_p0400_geom_plan_refuses_a_body_whose_inputs_changed`, `test_p0400_geom_plan_warns_on_a_resaved_body_a_failed_audit_and_another_build`, `test_p0400_geom_plan_a_body_without_a_record_is_planned_as_before`, `test_p0400_geom_plan_the_matrix_binding_reaches_the_judgement`.
+
+!!! requirement "FR-474 The mesh operations copy, cut, fill, clean, extract and move nodes in the instruction file <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.13 (0.40.0).
+
+    *Origin: scope decisions of 2026-10-12 (P1-Q1, P1-Q2, and the geometry stage that receives them). Verification: test, `tests/tier1_offline/test_p0400_geometry_operations.py`.*
+
+    Need: A wheel built from one blade, a mesh repaired before solving, and a surface split for separate loads, stated once and checked against the saved body.
+
+    Requirement: `[[operations]]` accepts the kinds below, each emitted by the typed emitter in the reference frame, in the order written. The boundary names after each one are the names it states, trusted at the emission and compared with the saved file at the build (FR-471 R5).
+
+    - R1 `circular_copy` (`surface`, `axis` X, Y or Z, `count` including the original, `angle_deg`, `names` of the `count - 1` new surfaces) emits `SURFACE_CIRCULAR_COPY_PASTE`; `linear_copy` (`surface`, `count`, `vector` in the source unit, `names`) emits `SURFACE_LINEAR_COPY_PASTE`.
+    - R2 `cut` (`surface`, `plane` XY, XZ or YZ, `offset`, `names` of the surfaces the cut leaves, replacing the cut surface) emits `SURFACE_CUT_BY_PLANE`.
+    - R3 `fill_holes` (`surface`) emits `SURFACE_AUTO_HOLE_FILL`; `delete_degenerate_faces` emits `DELETE_DEGENERATE_FACES`.
+    - R4 `extract_faces` (`quantity` X, Y, Z, AREA or QUALITY, `min` and/or `max`, optional `surface`, `name`) emits `SURFACE_SELECT_BY_ID` when a surface is named, `SURFACE_SELECT_BY_THRESHOLD` and `CREATE_NEW_SURFACE_FROM_SELECTION`, and appends `name`; `delete_faces` takes the same selection without `name` and emits `DELETE_SELECTED_FACES`.
+    - R5 `transform_nodes` (`mesh_sha256`, `nodes`, `vector`) emits `SELECT_MESH_NODE` per node and `TRANSFORM_SELECTED_NODES`; it is read for a `[mesh]` source only and refused, naming the file and both digests, when the source mesh no longer hashes as `mesh_sha256`.
+    - R6 Refused, naming the operation by position: `names` whose length differs from what the operation creates; a surface absent at its step; a solved quantity (`VELOCITY`, `VX`, `VY`, `VZ`, `CP`, `MACH`, `SOLVER_QUALITY`) as a threshold; `fill_holes` on every surface; a threshold with neither `min` nor `max`.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_operations.py`, carrying P0400-GEOM-P1OPS: `test_p0400_geom_p1ops_copies_cite_the_surface_and_count_the_original`, `test_p0400_geom_p1ops_cut_fill_and_clean`, `test_p0400_geom_p1ops_extract_selects_then_creates_on_consecutive_lines`, `test_p0400_geom_p1ops_node_moves_are_pinned_to_the_mesh`, `test_p0400_geom_p1ops_refusals_name_the_operation`.
+
+!!! requirement "FR-475 CAD bodies are edited before conversion, and the solver builds bodies and wings from a recipe <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.14 (0.40.0).
+
+    *Origin: scope decisions of 2026-10-12 (P2-Q1 to P2-Q4, and G-Q12 of the geometry stage). Verification: test, `tests/tier1_offline/test_p0400_geometry_cad.py`.*
+
+    Need: An IGES assembly with a sting or half a model, a canonical body for a closed-form check, and a wing lofted from section files, each made without the GUI.
+
+    Requirement: The `[cad]` and `[create]` sources of FR-470 are emitted as below.
+
+    - R1 `[[cad.operations]]`, applied in order between `IMPORT_CAD` and `CONVERT_CAD_TO_MESH`: `delete` (`body`) emits `CAD_BODY_DELETE`; `delete_by_threshold` (`axis`, `above_m` or `below_m`) emits `CAD_BODY_SELECT_BY_THRESHOLD` with the action `DELETE`; `mirror` (`body`, `plane`) emits `CAD_BODY_MIRROR`; `scale` (`body`, `factor` above zero) emits `CAD_BODY_SCALE`; `translate` (`body`, `vector_m`) emits `CAD_BODY_TRANSLATE` in metres; `rotate` (`body`, `axis`, `angle_deg`) emits `CAD_BODY_ROTATE`. A body is cited by its native index from 1.
+    - R2 `[create]` holds the CAD Create settings (`merge_tolerance_pct`, `spline_segments`, `spline_loft`, `curvature_points_per_circle`) emitted after `CAD_CREATE_INITIALIZE`, then either `[[create.bodies]]` (`shape` box, sphere, cylinder or sheet with its dimensions in metres) emitting `CAD_CREATE_<SHAPE>`, or `[[create.sections]]` (`file`, `format` txt, `units`, `chord_m`, `twist_deg`, `leading_edge_m`) with `[create.loft]` (the loft keys of `[import.ccs]` and `export_ccs`), emitting per section `CAD_CREATE_IMPORT_CURVE_TXT`, the selection, `CAD_CREATE_SCALE_CURVES`, `CAD_CREATE_ROTATE_CURVES` and `CAD_CREATE_TRANSLATE_CURVES`, then `CAD_CREATE_CURVE_SELECT -1`, `CAD_CREATE_CURVE_EXPORT_CCS` when `export_ccs` is true, and the CCS loft. Both `bodies` and `sections` in one table is refused.
+    - R3 `CAD_CREATE_MIRROR_CURVES` and the CAD Create curve-drawing commands (point, line, arc, connect, project, self-median) are not emitted; a key asking for one is refused.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_cad.py`, carrying P0400-GEOM-CAD: `test_p0400_geom_cad_body_operations_sit_between_import_and_conversion`, `test_p0400_geom_cad_a_sphere_is_built_by_the_solver`, `test_p0400_geom_cad_a_wing_is_lofted_from_its_sections`, `test_p0400_geom_cad_refusals`.
+
+!!! requirement "FR-476 The in-row geometry routes warn with their replacement, and a converter writes the instruction <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q1, option A). Verification: test, `tests/tier1_offline/test_p0400_geometry_migration.py`.*
+
+    Need: A matrix that works on 0.39.0 keeps working on 0.40.0, and the user meets the replacement in a warning one release before meeting it in a refusal.
+
+    Requirement: The routes that leave the run still run as on 0.39.0, and `pyfs-matrix plan` warns once per row naming them, with the exact replacement.
+
+    - R1 A row whose `GEOMETRY` names a CCS file (`.csv`, `.ccs`), an IGES file (`.igs`, `.iges`) or an STL file, and a sidecar whose `[[import.operations]]` state `scale`, `rename` or `mirror`, each warn, naming the row, the file, `pyfs-workspace geometry from-sidecar <file>`, the build command and the `GEOMETRY` cell to write after the build, and that 0.41.0 refuses the route. The script and the record of such a row are unchanged.
+    - R2 `pyfs-workspace geometry from-sidecar GEOMETRY [--apply]` reads the sidecar of a geometry of `inputs/geometries/` and prints the instruction that builds the same body: `[ccs]` from `[import.ccs]`, `[cad]` from `[import.cad]`, `[mesh]` for a raw mesh, `[[operations]]` from every `scale`, `rename` and `mirror`, `boundaries` as the renames leave them, `[trailing_edges]` carried over, `fs_build` from `--build` or the rows of the workspace's matrices that name the geometry. It names the `translate` and `rotate` operations that stay in the sidecar of the built mesh. With `--apply` it writes `<stem>.geometry.toml` in the geometry's folder and refuses an existing one; it never edits the sidecar or a matrix.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_migration.py`, carrying P0400-GEOM-MIGRATE: `test_p0400_geom_migrate_an_in_row_source_warns_with_the_replacement`, `test_p0400_geom_migrate_sidecar_operations_warn_and_translate_does_not`, `test_p0400_geom_migrate_the_plan_of_a_ccs_row_warns_and_still_binds`, `test_p0400_geom_migrate_the_converter_writes_an_instruction_that_reads`, `test_p0400_geom_migrate_the_converter_reads_a_ccs_sidecar`, `test_p0400_geom_migrate_the_converter_refuses_a_flat_geometry`.
+
+!!! requirement "FR-477 The geometry verbs of `pyfs-matrix` join the `pyfs-workspace geometry` group <span class='srs-implemented'>implemented</span>"
+    Plan: PFS-2081.41 (0.40.0).
+
+    *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q10). Verification: test, `tests/tier1_offline/test_p0400_geometry_group.py`.*
+
+    Need: One home for every command that makes or inspects a geometry.
+
+    Requirement: `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` and run the same handlers with the same results and exit codes.
+
+    - R1 The four `pyfs-matrix` names stay as aliases with the identical result and warn once per invocation that `pyfs-workspace geometry <verb>` is their home; they are removed with the in-row geometry routes.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_group.py`, carrying P0400-GEOM-GROUP: `test_p0400_geom_group_each_verb_takes_the_options_of_its_pyfs_matrix_name`, `test_p0400_geom_group_audit_gives_the_result_of_audit_mesh`, `test_p0400_geom_group_inventory_writes_what_pyfs_matrix_inventory_writes`.

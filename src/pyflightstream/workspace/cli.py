@@ -68,7 +68,7 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,10 +103,37 @@ __all__ = [
     "WITHHELD",
     "fill_from_settings",
     "main",
+    "register_command_group",
     "take_settings",
     "typed_value",
     "withhold_defaults",
 ]
+
+#: The command groups a higher layer registers, as (name, parser builder,
+#: handler): ``geometry`` (FR-471 to FR-477) runs the solver, which the run
+#: layer owns, so its group is registered from there at import, the way the post
+#: stages are, and this module never imports the run layer.
+_COMMAND_GROUPS: list[tuple[str, Callable[[Any], None], Callable[[argparse.Namespace], int]]] = []
+
+
+def register_command_group(
+    name: str,
+    add: Callable[[Any], None],
+    handler: Callable[[argparse.Namespace], int],
+) -> None:
+    """Register a command group of ``pyfs-workspace`` that a higher layer defines.
+
+    Parameters
+    ----------
+    name : str
+        The subcommand, such as ``geometry``.
+    add : callable
+        Adds the group's parser to the subparsers it is given.
+    handler : callable
+        Runs the parsed command and returns its exit code.
+    """
+    if all(entry[0] != name for entry in _COMMAND_GROUPS):
+        _COMMAND_GROUPS.append((name, add, handler))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -170,6 +197,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _add_field_commands(subparsers)
     _add_profile_commands(subparsers)
+    for _, add, _ in _COMMAND_GROUPS:
+        add(subparsers)
     return parser
 
 
@@ -464,6 +493,9 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_field(args)
         if args.subcommand == "profile":
             return _cmd_profile(args)
+        for name, _, handler in _COMMAND_GROUPS:
+            if args.subcommand == name:
+                return handler(args)
         return _cmd_init(args)
 
 

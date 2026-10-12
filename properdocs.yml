@@ -86,6 +86,7 @@ nav:
   - Workspace and Workflows:
       - The workspace and the workflow: workspace-and-workflows.md
       - 1. Geometry and mesh:
+          - "Geometry: build a body before the run": geometry.md
           - Prepare a mesh input: mesh/how-to.md
           - Mesh example: mesh/example.md
           - Runnable wing example: examples/obj_wing_trailing_edge_file.md

@@ -1,5 +1,11 @@
 # CCS geometry
 
+!!! note "Since 0.40.0: build the body first"
+    A CCS file is lofted once by the geometry stage, `[ccs]` in an instruction file with the
+    keys of `[import.ccs]` below, and the row names the built `.fsm`
+    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
+    runs in 0.40.0, warned at plan, and is refused from 0.41.0.
+
 A matrix row can name a CCS file (Component Cross-Section, the solver's
 parametric geometry format) in its `GEOMETRY` cell. The solver then makes the
 mesh itself, from the cross-sections of the file, with its CCS commands: a

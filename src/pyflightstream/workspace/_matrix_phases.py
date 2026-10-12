@@ -63,6 +63,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace._matrix_binding import (
     _bind_setup_ports,
     _Binding,
@@ -1549,6 +1550,14 @@ def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object])
         update["geometry"] = str(geometry_path)
         update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
         mesh_import = _mesh_import_of(geometry_path, row.pol)
+        # THE GEOMETRY STAGE (FR-473, FR-476): a built body's record, and the
+        # warning of a route the stage replaces.
+        judge_the_row_geometry(
+            geometry_path,
+            row.pol,
+            fs_build=row.fs_build.strip() or None,
+            mesh_import=mesh_import,
+        )
         update["mesh_import"] = mesh_import
         update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
             geometry_path, row.pol, mesh_import, cast(SolverSettings, update["solver"])
