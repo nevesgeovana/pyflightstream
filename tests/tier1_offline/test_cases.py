@@ -58,7 +58,7 @@ def test_load_campaign_reads_the_sad_shape(tmp_path):
 def test_load_campaign_without_campaign_table_is_didactic(tmp_path):
     path = tmp_path / "campaign.toml"
     path.write_text("[[sim]]\nsim_id = '1'\n", encoding="utf-8")
-    with pytest.raises(ValueError, match=r"no \[campaign\] table"):
+    with pytest.raises(ValueError, match=r"needs a \[campaign\] table"):
         load_campaign(path)
 
 

@@ -64,6 +64,22 @@ def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None
     pproc = case.pproc
     if pproc is None or not pproc.surface_probes:
         return
+    allowed = (
+        next(
+            arg.values
+            for arg in script.entry("NEW_UNSTEADY_SOLVER_SURFACE_PROBE").args
+            if arg.name == "parameter"
+        )
+        or ()
+    )
+    unavailable = [
+        probe.parameter for probe in pproc.surface_probes if probe.parameter not in allowed
+    ]
+    if unavailable:
+        raise CampaignConfigError(
+            f"surface_probes {', '.join(unavailable)} unavailable on FlightStream "
+            f"{script.version.canonical}; select parameters supported by this build"
+        )
     invalid = [
         probe.parameter for probe in pproc.surface_probes if probe.parameter.startswith("BL_")
     ]

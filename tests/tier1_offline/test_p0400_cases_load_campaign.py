@@ -28,7 +28,7 @@ def test_p0400_sims_key_in_campaign_table_is_refused_by_name(tmp_path):
     path.write_text(
         CAMPAIGN_TOML.replace('name = "wing', 'sims = []\nname = "wing'), encoding="utf-8"
     )
-    with pytest.raises(CampaignConfigError, match=r"\[\[sim\]\]"):
+    with pytest.raises(CampaignConfigError, match=r"'sims'.*\[\[sim\]\] entry per case"):
         load_campaign(path)
 
 
@@ -40,7 +40,7 @@ def test_p0400_validator_refusal_arrives_as_campaign_config_error(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(
-        CampaignConfigError, match=r"does not validate(.|\n)*not a point axis"
+        CampaignConfigError, match=r"does not load(.|\n)*not a point axis"
     ) as caught:
         load_campaign(path)
     assert str(path) in str(caught.value), "the refusal does not name the file"
@@ -50,6 +50,6 @@ def test_p0400_toml_syntax_error_arrives_as_campaign_config_error(tmp_path):
     """P0400-TOML-SYNTAX (PFS-2085.001): a TOMLDecodeError is re-raised naming path and line."""
     path = tmp_path / "campaign.toml"
     path.write_text(CAMPAIGN_TOML + "broken = \n", encoding="utf-8")
-    with pytest.raises(CampaignConfigError, match=r"not valid TOML.*line 16") as caught:
+    with pytest.raises(CampaignConfigError, match=r"does not load.*line 16") as caught:
         load_campaign(path)
     assert str(path) in str(caught.value), "the refusal does not name the file"

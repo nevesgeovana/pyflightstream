@@ -14,6 +14,7 @@ from pyflightstream.cases._matrix_layouts import (
     _LEGACY_COLUMNS_15,
     _LEGACY_COLUMNS_16,
     CODE_COLUMNS,
+    COLUMNS_NEW_AT_0_17_0,
     LEGACY_WORKFLOW,
     OUTPUTS_VARIABLE,
     RECIPE_VARIABLE,
@@ -33,6 +34,87 @@ def _peel_terminator(line: bytes) -> tuple[bytes, bytes]:
 
 def _header_names(parts: list[bytes]) -> tuple[str, ...]:
     return tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
+
+
+def _refuse_an_earlier_layout(header: tuple[str, ...], path: object) -> None:
+    """Refuse a header at a layout this package upgrades, naming the converter for it.
+
+    Read by :func:`pyflightstream.cases.matrix.read_matrix` before it reads a row:
+    every earlier layout is recognised by its header and answered with the
+    command that converts it, beside the stages that do the converting.
+    """
+    if header == _LEGACY_COLUMNS_15:
+        raise MatrixError(
+            f"{path} carries the {len(_LEGACY_COLUMNS_15)}-column layout that preceded "
+            f"the WORKFLOW column, so it is a run matrix written before v0.8.0 rather "
+            "than a file this reader cannot recognise. To upgrade it, pass "
+            "in_place=True to pyflightstream.cases.matrix.upgrade_matrix(path), or "
+            "run `pyfs-matrix upgrade <path> --in-place`. It "
+            f"inserts one {LEGACY_WORKFLOW!r} cell per row and folds RE and MACH "
+            "into a FLIGHT_CONDITION cell. Every VALUE moves across verbatim and "
+            "every other cell, separator and line ending is untouched."
+        )
+    if header == _LEGACY_COLUMNS_16:
+        raise MatrixError(
+            f"{path} carries the {len(_LEGACY_COLUMNS_16)}-column layout of v0.8.0 and "
+            "v0.8.1, which held RE and MACH as columns of their own. They are now two "
+            "keys of the FLIGHT_CONDITION cell, so that a row states its whole flow "
+            "condition in one place. To upgrade it, pass in_place=True to "
+            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It "
+            "replaces the two cells with one reading 'MACH:<mach>, REmi:<re>'. The "
+            "VALUES move across verbatim and every other cell, separator and line "
+            "ending is untouched; the two columns' own PADDING cannot survive, "
+            "because two cells become one and the widths are not recoverable from "
+            "the joined text. The conversion is lossless in content: those columns "
+            "carried exactly the two quantities those keys carry."
+        )
+    if header == _LAYOUT_0_9_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_9_0)}-column layout of v0.9.0 to "
+            "v0.10.1, with ENTRY and FS_SCRIPT. At v0.11.0 ENTRY became PPROC, naming "
+            "the post-processing artifact, and FS_SCRIPT went: a row naming a "
+            "registered run type in WORKFLOW names its builder already, and a LEGACY "
+            f"row carries its recipe code as {RECIPE_VARIABLE}: <code> among its "
+            "variables. To upgrade it, call "
+            "pyflightstream.cases.matrix.upgrade_matrix(path) with in_place (CLI: "
+            "--in-place) and move the groups library with "
+            "pyflightstream.workspace.migrate_groups_to_pproc, whose inputs (CLI: "
+            "--inputs) is the workspace inputs directory; the command is `pyfs-matrix "
+            "upgrade <path> --in-place --inputs <inputs dir>`. It "
+            "renames the column, drops the FS_SCRIPT cell of every "
+            "row, moves a LEGACY row's code into its variables, and takes OUTPUTS and "
+            "LOG_OUTPUT out of a workflow row's variables, whose export set the pproc "
+            "artifact now decides. Every other cell, separator and line ending is "
+            "untouched."
+        )
+    if header == _LAYOUT_0_11_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_11_0)}-column layout of v0.11.0 to "
+            "v0.14.0, with a SWEEP_TYPE column. At v0.15.0 the column went: a sweep is "
+            "applied to a variable that DEFINES the flight condition, and to exactly "
+            f"one, so the cell says which by carrying {SWEEP_WORD!r} where that key's "
+            "value would be, and a column naming the same variable a second time is a "
+            "second home for one fact. To upgrade it, pass in_place=True to "
+            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It "
+            f"drops the cell and writes ALPHA:{SWEEP_WORD} or BETA:{SWEEP_WORD} into "
+            "FLIGHT_CONDITION, with a paired code's held angle beside it as a number. "
+            "Every other cell, separator and line ending is untouched. THE ONE THING "
+            "IT WILL NOT DO is split a row that sweeps BOTH angles: that is one row "
+            "per sideslip, each needing a POL of its own, and a POL is run identity."
+        )
+    if header == _LAYOUT_0_15_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_15_0)}-column layout of v0.15.0 to "
+            f"v0.16.0. At v0.17.0 it gained six columns, {', '.join(COLUMNS_NEW_AT_0_17_0)}, "
+            "and HIDDEN and RUN moved to follow POL. To upgrade it, pass in_place=True "
+            "to pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It takes GEOMETRY and SYMMETRY "
+            "out of the row's own free cell and writes the unstated cell in the other "
+            "four, whose facts the cited setup still answers or no earlier row could "
+            "state. Every other cell, separator and line ending is untouched."
+        )
 
 
 def _insert_workflow_cell(data: bytes, source: str) -> bytes:

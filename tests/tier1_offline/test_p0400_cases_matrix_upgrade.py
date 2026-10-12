@@ -4,8 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import _matrix_upgrade
-from pyflightstream.cases._matrix_layouts import _LAYOUT_0_15_0
 from pyflightstream.cases.matrix import MATRIX_COLUMNS, MatrixError, upgrade_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -22,18 +20,20 @@ def test_p0400_upgrade_leaves_a_current_layout_file_unchanged(tmp_path):
     assert upgrade_matrix(path) == path.read_bytes()
 
 
-def test_p0400_geometry_stage_renames_only_the_geometry_pair_of_the_free_cell():
+def test_p0400_geometry_stage_renames_only_the_geometry_pair_of_the_free_cell(tmp_path):
     """P0400-GEOMETRY-ANCHOR (PFS-2096.001): on an older layout only the GEOMETRY key is renamed."""
-    cells = dict.fromkeys(_LAYOUT_0_15_0, "NA")
-    cells.update(
-        DESCRIPTION="see GEOMETRY: baseline",
-        VAR_NAMES_VALUES="NOTE_GEOMETRY: blade / GEOMETRY: wing / VELOCITY: 30.0",
+    lines = (FIXTURES / "pfs202609_matrix14.fs").read_text(encoding="utf-8").splitlines()
+    first = next(index for index, line in enumerate(lines) if line.startswith("9001"))
+    head, separator, tail = lines[first].rpartition("| ")
+    lines[first] = (head + separator + "NOTE_GEOMETRY: blade / GEOMETRY: wing / " + tail).replace(
+        "STEADY_POLAR_B45", "see GEOMETRY: baseline", 1
     )
-    data = (" | ".join(cells) + "\n" + " | ".join(cells.values()) + "\n").encode("utf-8")
-    renamed = _matrix_upgrade._name_geometry_files(data)
-    assert b"see GEOMETRY: baseline |" in renamed
+    path = tmp_path / "older.fs"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    renamed = upgrade_matrix(path)
+    assert b"see GEOMETRY: baseline " in renamed
     assert b"NOTE_GEOMETRY: blade /" in renamed
-    assert b"GEOMETRY: wing.fsm / VELOCITY" in renamed
+    assert b"| wing.fsm |" in renamed
 
 
 def test_p0400_layout_0_9_0_upgrade_counts_data_rows_from_one(tmp_path):

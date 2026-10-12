@@ -6,7 +6,6 @@ import pytest
 
 from pyflightstream.cases import load_campaign
 from pyflightstream.cases.matrix import (
-    _LAYOUT_0_15_0,
     MATRIX_COLUMNS,
     MatrixError,
     convert_matrix,
@@ -14,6 +13,11 @@ from pyflightstream.cases.matrix import (
     to_campaign,
 )
 
+#: The header of v0.15.0 to v0.16.0, as those releases wrote it.
+LAYOUT_0_15_0 = (
+    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET | PPROC "
+    "| FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES"
+)
 CAMPAIGN = {"name": "polar", "fs_version": "26.124", "fs_exe": "FlightStream.exe", "recipes": {}}
 
 
@@ -50,7 +54,7 @@ def test_p0400_run_and_hidden_cells_are_refused_naming_row_and_pol(tmp_path, col
 def test_p0400_layout_0_15_0_is_recognised_naming_its_converter(tmp_path):
     """P0400-LAYOUT-0150 (PFS-2095.037): the 13-column layout is not told to restore a backup."""
     path = tmp_path / "m016.fs"
-    path.write_text(" | ".join(_LAYOUT_0_15_0) + "\n", encoding="utf-8")
+    path.write_text(LAYOUT_0_15_0 + "\n", encoding="utf-8")
     with pytest.raises(MatrixError) as caught:
         read_matrix(path)
     text = str(caught.value)

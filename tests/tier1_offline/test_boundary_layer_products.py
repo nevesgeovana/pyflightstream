@@ -181,7 +181,8 @@ def test_requested_bl_adds_its_vtk_and_cut_source_exports():
         {
             "products": {"boundary_layer_integrals": True},
             "sections": {"distributions": [{"families": "all", "planes": ["XZ"]}]},
-            "exports": {"vtk": False, "sections": False},
+            # vtk is opt-in, so the product adds it; an explicit false is refused
+            # since 0.40.0 (PFS-2084.003, test_p0400_cases_pproc).
         }
     )
     assert "{name}.vtk" in spec.outputs(False)

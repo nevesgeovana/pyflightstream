@@ -130,8 +130,8 @@ def refuse_repeated_names(
         if name in seen:
             i, a = seen[name]
             raise error(
-                f"POL {pol}: SWEEP_VALUES repeats {a} (position {i}) and {b} (position {j}): "
-                f"both write the name {name}, so they would share one run_id and one "
+                f"POL {pol}: SWEEP_VALUES {a} (position {i}) and {b} (position {j}) round "
+                f"to the same name {name}, so they would share one run_id and one "
                 "datapoint folder; remove the repeat, or separate the values by 0.1 degree "
                 "for an angle or 0.01 for an advance ratio."
             )

@@ -323,7 +323,10 @@ def ccs_component_names(text: str) -> tuple[str, ...]:
         name the file route gives each boundary (round 1, C0 on 26.124).
     """
     names = []
-    for line in text.splitlines():
+    # A byte order mark opens the first line of a file saved as UTF-8 by a
+    # spreadsheet; read as part of the word, it hid the first Component line
+    # (PFS-2095.039). The text itself, and so the file restated, keeps it.
+    for line in text.removeprefix("﻿").splitlines():
         fields = [field.strip() for field in line.split(";")]
         if len(fields) >= 2 and fields[0].casefold() == "component":
             names.append(fields[1])
