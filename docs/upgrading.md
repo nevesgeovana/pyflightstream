@@ -1,44 +1,62 @@
 # Upgrading
 
-Read the migration records for the releases between your installed version and the version you are adopting. Each record states the changes a workspace needs.
+## Which version are you on
 
-For 0.40.0, integrated sectional loads extend the first and last strip by half
-their adjacent station spacing. `Strip_length`, `Fx_int`, `Fz_int` and `My_int`
-at the tips therefore increase; interior strip lengths keep the midpoint rule.
-Rebuild post products to apply the corrected full-span integration.
+Read the section for each release after the version used by the workspace, in
+ascending order. Use `pyfs-matrix upgrade` to convert workspace layouts and
+`pyfs-matrix rename` to update legacy names.
 
-- [Migrating to 0.39.0](migrating-to-0.39.0.md)
-- [Migrating to 0.38.0](migrating-to-0.38.0.md)
-- [Migrating to 0.37.0](migrating-to-0.37.0.md)
-- [Migrating to 0.36.0](migrating-to-0.36.0.md)
-- [Migrating to 0.35.1](migrating-to-0.35.1.md)
-- [Migrating to 0.35.0](migrating-to-0.35.0.md)
-- [Migrating to 0.34.0](migrating-to-0.34.0.md)
-- [Migrating to 0.33.1](migrating-to-0.33.1.md)
-- [Migrating to 0.33.0](migrating-to-0.33.0.md)
-- [Migrating to 0.32.0](migrating-to-0.32.0.md)
-- [Migrating to 0.31.0](migrating-to-0.31.0.md)
-- [Migrating to 0.30.0](migrating-to-0.30.0.md)
-- [Migrating to 0.29.0](migrating-to-0.29.0.md)
-- [Migrating to 0.28.0](migrating-to-0.28.0.md)
-- [Migrating to 0.27.0](migrating-to-0.27.0.md)
-- [Migrating to 0.26.0](migrating-to-0.26.0.md)
-- [Migrating to 0.25.0](migrating-to-0.25.0.md)
-- [Migrating to 0.24.0](migrating-to-0.24.0.md)
-- [Migrating to 0.23.0](migrating-to-0.23.0.md)
-- [Migrating to 0.22.0](migrating-to-0.22.0.md)
-- [Migrating to 0.21.0](migrating-to-0.21.0.md)
-- [Migrating to 0.19.0](migrating-to-0.19.0.md)
-- [Migrating to 0.18.0](migrating-to-0.18.0.md)
-- [Migrating to 0.17.0](migrating-to-0.17.0.md)
-- [Migrating to 0.16.0](migrating-to-0.16.0.md)
-- [Migrating to 0.15.0](migrating-to-0.15.0.md)
-- [Migrating to 0.14.0](migrating-to-0.14.0.md)
-- [Migrating to 0.13.0](migrating-to-0.13.0.md)
-- [Migrating to 0.11.0](migrating-to-0.11.0.md)
-- [Migrating to 0.10.1](migrating-to-0.10.1.md)
-- [Migrating to 0.10.0](migrating-to-0.10.0.md)
-- [Migrating to 0.8.1](migrating-to-0.8.1.md)
-- [Migrating to 0.5.0](migrating-to-0.5.0.md)
+## 0.40.0
 
-[Release notes](release-notes.md) carry the earlier release records.
+### Who is affected
+
+All workspaces with post products created by an earlier release.
+
+### What changes in a workspace
+
+Integrated sectional loads now extend the first and last strip by half their
+adjacent station spacing. Tip values for `Strip_length`, `Fx_int`, `Fz_int`,
+and `My_int` therefore change. Interior strip lengths retain the midpoint
+rule. Rebuild post products to apply the full span integration.
+
+This release also changes documentation page URLs. Old page links do not
+redirect and must be updated to the new site structure.
+
+### The command that does it
+
+Run `pyfs-matrix post` to rebuild products from recorded solver exports.
+
+## 0.39.0
+
+### Who is affected
+
+Workspaces adopting the 0.39.0 compatibility and workflow additions.
+
+### What changes in a workspace
+
+Review the 0.39.0 migration record in the repository changelog for any
+workspace-specific changes.
+
+### The command that does it
+
+Run `pyfs-matrix upgrade` when the workspace layout requires conversion.
+
+## 0.38.0
+
+### Who is affected
+
+Workspaces adopting the 0.38.0 release.
+
+### What changes in a workspace
+
+Review the 0.38.0 migration record in the repository changelog for any
+workspace-specific changes.
+
+### The command that does it
+
+Run `pyfs-matrix upgrade` when the workspace layout requires conversion.
+
+## Older layouts
+
+For releases before 0.38.0, use `pyfs-matrix upgrade` to convert earlier
+matrix layouts and `pyfs-matrix rename` to convert legacy 0.20.x names.

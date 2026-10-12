@@ -1099,9 +1099,9 @@ may have a different boundary convention from the geometry it samples:
 measured unsteady fluid-plot coordinates are SI, while native steady probe
 coordinates use the simulation length unit. Export-kind and build evidence
 must remain distinct. See [units and starts](../geometry-units-and-starts.md)
-and [simulation controls](../simulation-geometry-controls.md).
+and [simulation controls](../geometry-units-and-starts.md#simulation-geometry-controls).
 
-[Custom inflow](../custom-field-units.md) keeps the supplied physical
+[Custom inflow](../workflow-row-flow-inputs.md#custom-field-units) keeps the supplied physical
 orientation. Explicit SI input may produce a separate solver-unit copy,
 with both source and effective hashes; undeclared files keep their bytes.
 No automatic incidence/vector rotation is implied. Coverage uses the final

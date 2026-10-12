@@ -175,7 +175,7 @@ rotation about the block's `axis` by the right-hand rule, as for a rotor block.
 The script hands `SET_PROP_ACTUATOR_RPM` minus the block's sign times the
 row's speed, because a disc handed plus swirled against a rotor of the same
 `rpm_sign` on 26.124 and a disc handed minus swirled with it (RPT-137). The
-[migration record](migrating-to-0.34.0.md#an-actuator-disc-swirls-the-way-its-rotor-turns)
+[migration record](upgrading.md#older-layouts)
 explains how to update a study that used the older sign convention.
 
 **THE SWIRL IS ONE GLOBAL FACTOR.** The block's `swirl` is one global factor,
