@@ -304,7 +304,10 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
     2. An input the script does not name is the staged one when the staged
        inputs hold it (a recipe that never names its geometry), else the file
        the run wrote beside the script in the folder it ran in: the action
-       programs and the clock.
+       programs and the clock. A key with a folder part is relative to the
+       simulation folder (a continuation's inherited probe layout,
+       ``profiles/<sim>_probe_points.csv``) and is read there when it holds
+       it (PFS-2103.027).
     """
     wanted = Path(name).parts
     staged = sim / "inputs" / name
@@ -317,7 +320,11 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
             return path
     if by_script:
         return by_script[0]
-    return staged if staged.is_file() else work_dir / name
+    if staged.is_file():
+        return staged
+    if len(wanted) > 1 and (sim / name).is_file():
+        return sim / name
+    return work_dir / name
 
 
 @lru_cache(maxsize=1)
