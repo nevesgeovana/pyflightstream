@@ -80,7 +80,7 @@ from pathlib import Path
 # an unrowed module is not examined. So the guard's no-allowlist property is
 # weaker than it reads, because an unrowed module can be a conduit. Found by
 # the architect lens of the 0.18.0 release round, 2026-09-14.
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
@@ -148,6 +148,31 @@ DEFAULT_SETTLE_INTERVAL_S = 2.0
 #: thing it is waiting for is a solver run, and a sweep that finds nothing
 #: costs a directory listing per submitted point.
 DEFAULT_WATCH_INTERVAL_S = 60.0
+
+
+# THE CALLBACKS' REAL CONTRACT (PFS-2095.027). They were annotated without
+# ``sims`` and called with it under `type: ignore` when the collect is
+# scoped, so a callback written to the annotation crashed after the records
+# were written. The keyword is passed only when the collect is scoped.
+class _Post(Protocol):
+    """The ``post`` of :func:`collect_and_post`."""
+
+    def __call__(
+        self, workspace: CampaignWorkspace, /, *, sims: list[str] | None = None
+    ) -> None: ...
+
+
+class _PostMatrix(Protocol):
+    """The ``post_matrix`` of :func:`collect_and_post`."""
+
+    def __call__(
+        self,
+        workspace: CampaignWorkspace,
+        matrix_stem: str | None,
+        /,
+        *,
+        sims: list[str] | None = None,
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -1596,8 +1621,8 @@ def collect_and_post(
     watch_interval: float = DEFAULT_WATCH_INTERVAL_S,
     rounds: int | None = None,
     sleep: Callable[[float], None] = time.sleep,
-    post: Callable[[CampaignWorkspace], None] | None = None,
-    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None = None,
+    post: _Post | None = None,
+    post_matrix: _PostMatrix | None = None,
     # NAMED, NOT PASSED THROUGH `**kwargs`. These are the two injection points
     # of the primitive and they used to reach it as `object`, with a
     # `type: ignore` recording that the checker had refused: on a module this
@@ -1653,10 +1678,12 @@ def collect_and_post(
     sleep : callable, optional
         The clock, injected so a test runs with none.
     post : callable, optional
-        Called with the workspace once per sweep that collected or discarded something.
+        Called with the workspace once per sweep that collected or discarded something,
+        and with the keyword ``sims`` too when ``sims`` scopes the collect; it must take it.
     post_matrix : callable, optional
         Called once per matrix a sweep changed a record of, with the workspace and the matrix
-        stem.
+        stem, and with the keyword ``sims`` too when ``sims`` scopes the collect; it must
+        take it.
     observer : callable, optional
         Stamps the paths, :func:`observe` by default.
     assessor : callable, optional
@@ -1729,8 +1756,8 @@ def _post_sweep(
     report: CollectReport,
     *,
     selected: frozenset[str] | None,
-    post: Callable[[CampaignWorkspace], None] | None,
-    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None,
+    post: _Post | None,
+    post_matrix: _PostMatrix | None,
 ) -> None:
     """Post matrices changed by collection or discard after their records are written."""
     if not report.collected and not report.discarded:
@@ -1739,7 +1766,7 @@ def _post_sweep(
         if selected is None:
             post(workspace)
         else:
-            post(workspace, sims=sorted(selected))  # type: ignore[call-arg]
+            post(workspace, sims=sorted(selected))
     if post_matrix is None:
         return
     records = [outcome.record for outcome in report.collected if outcome.record is not None]
@@ -1750,4 +1777,4 @@ def _post_sweep(
             post_matrix(workspace, stem)
             continue
         of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
-        post_matrix(workspace, stem, sims=sorted(selected & of_matrix))  # type: ignore[call-arg]
+        post_matrix(workspace, stem, sims=sorted(selected & of_matrix))
