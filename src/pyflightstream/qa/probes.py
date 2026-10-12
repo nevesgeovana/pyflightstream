@@ -144,6 +144,16 @@ _UNRECOGNISED_COMMAND = re.compile(
     re.IGNORECASE,
 )
 
+#: The older wording, without the table: 26.100 (build #2122026) wrote
+#: ``Unrecognized command in script <path> at line 6: <the script line>``
+#: and nothing else (measured 2026-10-12 on DELETE_VALAREZO_CRITERION_BOUNDARIES
+#: and the FSI motion pair), so the table pattern alone recorded each name it
+#: refused as an abort, broken instead of removed.
+_UNRECOGNISED_COMMAND_UNTABLED = re.compile(
+    r"^\s*Unrecognized command in script .*? at line \d+:\s*(?P<line>\S.*)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 def unrecognised_commands(log_text: str | None) -> frozenset[str]:
     """Command names the solver refused as unrecognised, from its crash log.
@@ -177,10 +187,12 @@ def unrecognised_commands(log_text: str | None) -> frozenset[str]:
     if not log_text:
         return frozenset()
     names = set()
-    for match in _UNRECOGNISED_COMMAND.finditer(log_text.replace("\x00", "")):
-        tokens = match.group("line").split()
-        if tokens:
-            names.add(tokens[0].upper())
+    text = log_text.replace("\x00", "")
+    for pattern in (_UNRECOGNISED_COMMAND, _UNRECOGNISED_COMMAND_UNTABLED):
+        for match in pattern.finditer(text):
+            tokens = match.group("line").split()
+            if tokens:
+                names.add(tokens[0].upper())
     return frozenset(names)
 
 
@@ -1608,8 +1620,8 @@ def _judge(
     # solver's own wording NAMING THIS COMMAND: a prelude line the build
     # does not carry aborts the same script and says nothing about the
     # target.
-    solver_said = _solver_errors_text(execution)
-    refused = unrecognised_commands(solver_said)
+    refused = unrecognised_commands(_solver_errors_text(execution))
+    solver_said = _in_probe_folder(_solver_errors_text(execution), artifacts.workdir)
     if spec.expects_halt and not refused:
         return _judge_halt(spec, artifacts, common)
     if execution.timed_out and not refused:
@@ -1806,6 +1818,19 @@ def _solver_errors_text(execution: ExecutionResult) -> str:
     show for it.
     """
     return "\n".join(text for text in (execution.log_text, execution.stdout) if text)
+
+
+def _in_probe_folder(text: str, workdir: Path) -> str:
+    """Replace the probe folder's machine path in solver text with a fixed token.
+
+    The solver quotes the script it ran by its full path, and an abort's own
+    lines now reach the committed compat report, which carries no machine's
+    paths; the folder is the probe's, so the token loses nothing.
+    """
+    folder = Path(workdir).resolve()
+    for spelling in (str(folder), folder.as_posix(), str(workdir), Path(workdir).as_posix()):
+        text = text.replace(spelling, "<probe folder>")
+    return text
 
 
 def _scan_errors(region: str, error_patterns: Sequence[str]) -> list[str]:

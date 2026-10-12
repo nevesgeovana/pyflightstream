@@ -23,6 +23,7 @@ from pyflightstream.qa.probes import (
     ProbeSpec,
     _judge,
     generate_probe_script,
+    unrecognised_commands,
 )
 from pyflightstream.run import ExecutionResult
 
@@ -223,12 +224,35 @@ def test_p0400_probes_the_declined_surface_probe_and_its_control_build(build, tm
     assert lines["D-01"] != lines["D-01c"]
 
 
-def test_p0400_probes_the_sphere_is_closed():
-    """P0400-PROBES-SPHERE: every edge of the probe sphere is shared by two faces, none open."""
-    edges: dict[tuple, int] = {}
-    for triangle in kit.sphere_triangles():
-        corners = [tuple(round(float(c), 9) for c in corner) for corner in triangle]
-        for a, b in ((0, 1), (1, 2), (2, 0)):
-            key = tuple(sorted((corners[a], corners[b])))
-            edges[key] = edges.get(key, 0) + 1
-    assert edges and set(edges.values()) == {2}
+#: What 26.100 (build #2122026) wrote for a name it does not carry, measured on
+#: 2026-10-12: the older wording, with no table around it.
+LOG_26100 = (
+    "PYFS_PROBE_BEGIN_DELETE_VALAREZO_CRITERION_BOUNDARIES\n"
+    "Unrecognized command in script C:/runs/probe_script.txt at line 6: "
+    "DELETE_VALAREZO_CRITERION_BOUNDARIES\n"
+    "Error in script C:/runs/probe_script.txt at line 6: DELETE_VALAREZO_CRITERION_BOUNDARIES\n"
+)
+
+
+def test_p0400_probes_the_older_unrecognised_wording_is_read(tmp_path):
+    """P0400-PROBES-UNTABLED: 26.100's untabled refusal records removed, not broken."""
+    command = "DELETE_VALAREZO_CRITERION_BOUNDARIES"
+    assert unrecognised_commands(LOG_26100) == {command}
+    begin = f"PYFS_PROBE_BEGIN_{command}"
+    artifacts = ProbeArtifacts(
+        workdir=tmp_path,
+        log_before=f"setup\n{begin}\n",
+        log_after=None,
+        begin_marker=begin,
+        end_marker=f"PYFS_PROBE_END_{command}",
+        execution=ExecutionResult(
+            return_code=0,
+            wall_time_s=1.0,
+            timed_out=False,
+            log_text=LOG_26100,
+            stdout="",
+            stderr="",
+        ),
+    )
+    result = _judge(_spec(command), artifacts, DEFAULT_ERROR_PATTERNS, "x", 60)
+    assert result.outcome is ProbeOutcome.REMOVED, result.detail

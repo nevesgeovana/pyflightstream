@@ -668,7 +668,11 @@ def _calls_read(artifacts: ProbeArtifacts) -> str:
         if listing.is_file()
         else "no listing"
     )
-    return f"{len(lines)} calls; first: {lines[0][:200] if lines else ''}; files at call 1: {seen}"
+    first = lines[0][:200] if lines else ""
+    folder = artifacts.workdir.resolve()
+    for spelling in (str(folder), folder.as_posix()):
+        first = first.replace(spelling, "<probe folder>")
+    return f"{len(lines)} calls; first: {first}; files at call 1: {seen}"
 
 
 def _called(artifacts: ProbeArtifacts) -> bool | None:
@@ -1745,6 +1749,10 @@ def _sections_in_frame_then_start(frame: int) -> Build:
             plane="XZ",
             num_sections=8,
             plot_direction="1",
+            # The block stopped the script at its closing line without this
+            # keyword, in frame 2 and in frame 1 alike (third batch, both
+            # builds); the package's own section emission states it.
+            include_symmetry="DISABLE",
             surfaces=-1,
         )
         script.emit("START_SOLVER")
@@ -1773,42 +1781,17 @@ def _nothing_converted(name: str) -> Judge:
 # --- the declined surface of 26.125 (PFS-2085.021) -------------------------------------
 
 
-def sphere_triangles(
-    radius: float = 0.3, centre: tuple[float, float, float] = (3.0, 0.0, 0.0)
-) -> np.ndarray:
-    """Return a closed, smooth latitude-longitude sphere: a body with no trailing edge."""
-    rings, sectors = 8, 12
-    points = []
-    for i in range(rings + 1):
-        polar = math.pi * i / rings
-        for j in range(sectors):
-            azimuth = 2.0 * math.pi * j / sectors
-            points.append(
-                (
-                    centre[0] + radius * math.cos(polar),
-                    centre[1] + radius * math.sin(polar) * math.cos(azimuth),
-                    centre[2] + radius * math.sin(polar) * math.sin(azimuth),
-                )
-            )
-    triangles = []
-    for i in range(rings):
-        for j in range(sectors):
-            a = i * sectors + j
-            b = i * sectors + (j + 1) % sectors
-            c = (i + 1) * sectors + j
-            d = (i + 1) * sectors + (j + 1) % sectors
-            if i > 0:
-                triangles.append((points[a], points[b], points[d]))
-            if i < rings - 1:
-                triangles.append((points[a], points[d], points[c]))
-    return np.asarray(triangles, dtype=float)
-
-
 def _wing_and_sphere(script: Script, workdir: Path) -> None:
-    """Import the probe wing (trailing edges marked) and a sphere beside it (none)."""
+    """Import the probe wing (trailing edges marked) and mesh a sphere beside it (none).
+
+    The sphere is the solver's own (CAD_CREATE_SPHERE then the conversion, P2-11
+    verified on both builds), out of the wing's wake: a hand-written STL sphere,
+    behind the wing and then beside it, sent the solve to "Solver divergence
+    detected!" at iteration 3 on both builds (third and fourth batches).
+    """
     _import_wing()(script, workdir)
-    path = write_stl(sphere_triangles(), workdir / "sphere.stl", name="Sphere")
-    script.emit("IMPORT", "METER", "STL", path, clear=False)
+    script.emit("CAD_CREATE_SPHERE", 1, 0.5, 4.0, 0.0, 0.3)
+    script.emit("CONVERT_CAD_TO_MESH", -1)
     _units_and_edges(script, workdir)
 
 
@@ -1835,6 +1818,10 @@ def _sphere_row_read(artifacts: ProbeArtifacts) -> bool | None:
     """
     surfaces = _surface_drag(artifacts)
     if not surfaces:
+        return None
+    # A diverged solve still exports its table (the third batch printed a wing Cx
+    # of 4.3e11): a reading is kept only from a table whose numbers are a solution.
+    if any(abs(value) > 10.0 for columns in surfaces.values() for value in columns.values()):
         return None
     return True if any(name.lower().startswith("sphere") for name in surfaces) else None
 

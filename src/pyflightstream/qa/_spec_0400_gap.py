@@ -965,7 +965,7 @@ def _p3() -> list[GapProbe]:
     def _closed_tube(script: Script, workdir: Path) -> None:
         # Both axis forms read the next script line as a further argument (26.124:
         # "Unexpected argument PRINT"); a blank line closes a keyword block.
-        script.raw("NEW_OFF_BODY_STREAMTUBE 2 X -1.0 0.5 0.0 0.2 2 4\n")
+        script.raw("NEW_OFF_BODY_STREAMTUBE 2 X -1.0 0.5 0.0 0.2 2 4\n\n")
 
     framed = _seq(
         _import_wing(),

@@ -246,6 +246,10 @@ def test_every_catalog_spec_builds_a_validated_script(tmp_path):
             # FR-334) on the last build whose database holds it.
             in_26125 = spec.command in CommandRegistry.load().for_version("26.125")
             version = "26.125" if in_26125 else "26.101"
+            if spec.command not in CommandRegistry.load().for_version(version):
+                # A name only the 26.100 edition prints (the Valarezo erase,
+                # PFS-2135.061), built on that build.
+                version = "26.100"
         script = generate_probe_script(spec, version, workdir, fsm=fsm)
         assert not script.raw_flag, spec.command
         text = script.render()
@@ -1220,24 +1224,28 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 235 since 0.40.0 (PFS-2081.13 to .17): the 55 primary probes of the command gaps,
     # 42 rendering in isolation on 26.122 (28 with arguments) and 13 needing the motion
     # their prelude creates, so 185, 123 and 33.
-    assert len(PROBE_SPECS) == 235, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 235. Adding one is "
+    # 237 since the 0.40.0 probes lane (PFS-2135.060, .061): CREATE_BULK_SEPARATION,
+    # rendering on 26.122 with its arguments (186, 124), and
+    # DELETE_VALAREZO_CRITERION_BOUNDARIES, outside the 26.122 view (16).
+    assert len(PROBE_SPECS) == 237, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 237. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
-    assert renders == 185, (
-        f"{renders} specifications render their target line in isolation, not 185. This "
+    assert renders == 186, (
+        f"{renders} specifications render their target line in isolation, not 186. This "
         f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
         "promotion that removes a command from the view, or marks it broken, moves it"
     )
-    assert len(groups["with_arguments"]) == 123, (
-        f"{len(groups['with_arguments'])} carry arguments on the target line, not 123. "
+    assert len(groups["with_arguments"]) == 124, (
+        f"{len(groups['with_arguments'])} carry arguments on the target line, not 124. "
         "That is the population a bare-token detector would have missed (RPT-026)"
     )
     # Split by CAUSE, because one bucket called "needs prelude" hid
     # three: a command out of this build's view, one the emitter refuses
     # as broken, and one whose target cites an entity nothing created.
-    # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
-    assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
+    # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three; 16 since the
+    # 0.40.0 probes lane: the Valarezo erase of the 26.100 edition.
+    assert len(groups["not_in_this_view"]) == 16, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
     # 33 since 0.40.0: thirteen gap probes cite the motion their prelude creates.
     assert len(groups["needs_prelude"]) == 33, groups["needs_prelude"]
