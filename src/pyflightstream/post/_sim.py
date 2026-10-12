@@ -1011,6 +1011,7 @@ def _rotor_table_products(ctx: SimContext) -> None:
         aliases=ctx.aliases,
         frozen=ctx.frozen_points,
         skipped=ctx.skipped,
+        mach=ctx.mach,
     ):
         _rotor_table(ctx, target_path, alias, plan)
 
