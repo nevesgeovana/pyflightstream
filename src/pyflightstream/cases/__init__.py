@@ -109,6 +109,7 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -1406,8 +1407,10 @@ def load_campaign(path: str | Path) -> Campaign:
     Raises
     ------
     CampaignConfigError
-        No ``[campaign]`` table; or a generated campaign that has been
-        edited, or whose matrix has changed since the conversion.
+        Text that is not TOML; no ``[campaign]`` table, or one stating
+        ``sims``; a campaign or case that does not validate; or a
+        generated campaign that has been edited, or whose matrix has
+        changed since the conversion.
 
     Examples
     --------
@@ -1417,15 +1420,28 @@ def load_campaign(path: str | Path) -> Campaign:
     >>> campaign.source_path                        # doctest: +SKIP
     'campaign.toml'
     """
-    text = Path(path).read_text(encoding="utf-8")
-    with open(path, "rb") as handle:
-        data = tomllib.load(handle)
+    # One read serves the parse and the digest, so the two cannot see two
+    # different files; the digest keeps the universal newlines read_text gave it.
+    decoded = Path(path).read_bytes().decode("utf-8")
+    text = decoded.replace("\r\n", "\n").replace("\r", "\n")
+    try:
+        data = tomllib.loads(decoded)
+    except tomllib.TOMLDecodeError as error:
+        raise CampaignConfigError(f"{path} is not valid TOML: {error}") from error
     if "campaign" not in data:
         raise CampaignConfigError(
             f"{path} has no [campaign] table; campaign.toml needs [campaign] with "
             "name, fs_version, and fs_exe, plus one [[sim]] entry per case"
         )
-    campaign = Campaign(**data["campaign"], sims=data.get("sim", []))
+    if "sims" in data["campaign"]:
+        raise CampaignConfigError(
+            f"{path} states sims inside [campaign]; the cases are not a key of that "
+            "table, each one is its own [[sim]] entry after it"
+        )
+    try:
+        campaign = Campaign(**data["campaign"], sims=data.get("sim", []))
+    except ValidationError as error:
+        raise CampaignConfigError(f"{path} does not validate: {error}") from error
     campaign._source_path = str(path)
     if campaign.derived_from is not None:
         _refuse_an_edited_derived_campaign(campaign, path, text)

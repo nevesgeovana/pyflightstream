@@ -380,7 +380,7 @@ def test_the_refusal_reaches_a_campaign_file_as_it_loads(tmp_path):
         CAMPAIGN_TOML + f'{ROTATION_SWEEP_KEY} = "0.0,5.0"\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+    with pytest.raises(CampaignConfigError, match="asks for two sweeps at once"):
         load_campaign(path)
 
 
