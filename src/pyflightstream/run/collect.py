@@ -744,6 +744,19 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
         (report.collected if success else report.failed).append(outcome)
 
 
+def _refuse_a_string(sims: object) -> None:
+    """Refuse ``sims`` given as one string, which would be read character by character.
+
+    PFS-2089.009: ``"2006,2007"`` was refused as simulations 2, 0, 6, and
+    the message told a Python caller to write the ids comma separated.
+    """
+    if isinstance(sims, str):
+        raise WorkspaceError(
+            f'sims takes a list of ids, e.g. ["2006", "2007"] (CLI: --sims 2006,2007), '
+            f"not the string {sims!r}"
+        )
+
+
 def _run_label(record: RunRecord) -> str:
     """Return a record as the collect progress line names it (0.32.0)."""
     return record.run_id
@@ -838,15 +851,20 @@ def collect_once(
     WorkspaceError
         If the manifest cannot be read, or ``sims`` names a simulation no record holds.
     """
+    _refuse_a_string(sims)
     report = CollectReport()
     try:
-        records = _records_after_grouped_jobs(
-            workspace, report, sims=sims, interval=interval, sleep=sleep, observer=observer
-        )
+        recorded = workspace.read_manifest()
     except (WorkspaceError, CampaignConfigError) as error:
         raise WorkspaceError(f"the manifest could not be read: {error}") from error
-
-    selected = None if sims is None else selected_sims(records, sims, scope="in the manifest")
+    # THE SELECTION IS VALIDATED BEFORE THE GROUPED STEP (PFS-2096.005), as
+    # the docstring says: that step moves files home and writes failed
+    # records, and ran first on the unstripped ids, before an unknown one
+    # was refused. Its own refusals keep their own words.
+    selected = None if sims is None else selected_sims(recorded, sims, scope="in the manifest")
+    records = _records_after_grouped_jobs(
+        workspace, report, sims=selected, interval=interval, sleep=sleep, observer=observer
+    )
     submitted = [
         r for r in _of_the_simulations(records, selected) if r.status is RunStatus.SUBMITTED
     ]
@@ -1760,6 +1778,7 @@ def collect_and_post(
         The points every sweep collected, failed and discarded, and the points the last sweep
         left waiting or could not wait for.
     """
+    _refuse_a_string(sims)
     selected = None
     if sims is not None:
         # REFUSED BEFORE THE FIRST SWEEP, so a watch over a typo stops at once.

@@ -157,3 +157,42 @@ def test_p0400_a_watch_names_a_point_refused_without_a_record_once(tmp_path):
     assert [outcome.run_id for outcome in report.failed] == ["camp/sim_9001/AL+000"], [
         outcome.detail for outcome in report.failed
     ]
+
+
+def test_p0400_collect_refuses_a_bare_string_of_sims(tmp_path):
+    """P0400-SIMS-STRING (PFS-2089.009): collect refuses a str, never iterates it."""
+    import pytest
+
+    from pyflightstream.workspace import WorkspaceError
+    from tests.tier1_offline.test_collect_stage import _submitted_workspace
+
+    workspace, _sim = _submitted_workspace(tmp_path)
+    for call in (collect.collect_once, collect.collect_and_post):
+        with pytest.raises(WorkspaceError, match=r"sims takes a list of ids"):
+            call(workspace, sims="9001", interval=0, sleep=_no_sleep)
+
+
+def test_p0400_collect_refuses_an_unknown_sim_before_the_grouped_step(tmp_path):
+    """P0400-COLLECT-SIMS-FIRST (PFS-2096.005): nothing is moved before --sims is refused.
+
+    The grouped-job step moved a known simulation's points home and wrote
+    its records, and only then was the unknown id refused.
+    """
+    import pytest
+
+    from pyflightstream.workspace import WorkspaceError
+    from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace
+
+    workspace = grouped_workspace(tmp_path, mode="batch", collect=False)
+
+    def tree():
+        return sorted(
+            (p.relative_to(workspace.root).as_posix(), p.stat().st_size)
+            for p in workspace.root.rglob("*")
+            if p.is_file() and "logs" not in p.relative_to(workspace.root).parts
+        )
+
+    before = tree()
+    with pytest.raises(WorkspaceError, match="9999"):
+        collect.collect_once(workspace, sims=["7001", "9999"], interval=0, sleep=_no_sleep)
+    assert tree() == before
