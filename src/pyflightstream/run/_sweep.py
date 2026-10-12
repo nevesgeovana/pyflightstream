@@ -43,6 +43,7 @@ from pyflightstream.results import (
 )
 from pyflightstream.run._assessment import (
     OutcomeAssessor,
+    job_solver_identity,
     worse_of,
 )
 from pyflightstream.run._continuation import (
@@ -755,21 +756,13 @@ def _record_sweep_outcome(job: _SweepJob) -> RunRecord:
     # executable produced its evidence, and that is recorded as the job's
     # failure with the readings named rather than settled by picking one.
     # A point whose log stated no build is not a different build, and is left
-    # out of the comparison rather than counted as a disagreement.
-    for key, index in (("fs_build", 1), ("fs_version_reported", 2)):
-        readings = {entry[0]: entry[index] for entry in job.reported if entry[index] is not None}
-        if len(set(readings.values())) == 1:
-            job.base[key] = next(iter(readings.values()))
-        elif readings:
-            job.worst = worse_of(job.worst, RunStatus.FAILED_EXECUTION)
-            job.error_lines.append(
-                f"one process ran every point of this job, and its points read different "
-                f"{key} values ("
-                + ", ".join(f"{name}: {value!r}" for name, value in readings.items())
-                + "), so the record cannot say which solver build produced its evidence; "
-                "check that every point's log is this job's and not a leftover of another "
-                "run, then re-run the row"
-            )
+    # out of the comparison rather than counted as a disagreement. The rule is
+    # one helper, which the collect of a submitted sweep calls too.
+    agreed, disagreements = job_solver_identity(job.reported)
+    job.base.update(agreed)
+    if disagreements:
+        job.worst = worse_of(job.worst, RunStatus.FAILED_EXECUTION)
+        job.error_lines.extend(disagreements)
     return RunRecord(
         **job.base,
         status=job.worst,

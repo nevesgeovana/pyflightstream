@@ -1331,3 +1331,47 @@ def worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
 #: same rule and reaching into a sibling for an underscore name is the boundary
 #: the digest guard refuses. The private spelling stays for what already reads it.
 _worse_of = worse_of
+
+
+def job_solver_identity(
+    reported: Sequence[tuple[str, str | None, str | None]],
+) -> tuple[dict[str, str], list[str]]:
+    """Fold the solver build each point of one job read into the job's own.
+
+    One process ran every point of a steady job, so every point read the
+    same build; points that read different ones mean the record cannot say
+    which executable produced its evidence, which is the job's failure with
+    the readings named rather than settled by picking one. A point whose log
+    stated no build is left out of the comparison. The local sweep and the
+    collect of a submitted sweep both fold through here (PFS-2103.033): the
+    collect stamped neither field, and the post then could not state the
+    velocity convention of the job's sampled fields (post/field_frames.py).
+
+    Parameters
+    ----------
+    reported : sequence of (str, str or None, str or None)
+        Per point, its tag, the ``fs_build`` and the ``fs_version_reported``
+        its assessment read.
+
+    Returns
+    -------
+    tuple of (dict of str to str, list of str)
+        The fields every reading agrees on, to stamp on the job, and one
+        sentence per field whose readings disagree, each a failure of the job.
+    """
+    agreed: dict[str, str] = {}
+    disagreements: list[str] = []
+    for key, index in (("fs_build", 1), ("fs_version_reported", 2)):
+        readings = {entry[0]: entry[index] for entry in reported if entry[index] is not None}
+        if len(set(readings.values())) == 1:
+            agreed[key] = str(next(iter(readings.values())))
+        elif readings:
+            disagreements.append(
+                f"one process ran every point of this job, and its points read different "
+                f"{key} values ("
+                + ", ".join(f"{name}: {value!r}" for name, value in readings.items())
+                + "), so the record cannot say which solver build produced its evidence; "
+                "check that every point's log is this job's and not a leftover of another "
+                "run, then re-run the row"
+            )
+    return agreed, disagreements

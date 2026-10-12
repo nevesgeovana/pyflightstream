@@ -196,3 +196,28 @@ def test_p0400_collect_refuses_an_unknown_sim_before_the_grouped_step(tmp_path):
     with pytest.raises(WorkspaceError, match="9999"):
         collect.collect_once(workspace, sims=["7001", "9999"], interval=0, sleep=_no_sleep)
     assert tree() == before
+
+
+def test_p0400_a_collected_steady_job_records_its_solver_build(tmp_path):
+    """P0400-SWEEP-BUILD (PFS-2103.033): a collected sweep stamps the build its points read.
+
+    The local sweep stamped fs_build and fs_version_reported on the job; the
+    collect of a submitted sweep stamped neither, so the post could not state
+    the velocity convention of the job's sampled fields.
+    """
+    import json
+
+    from tests.tier1_offline.test_collect_stage import _submitted_sweep
+    from tests.tier1_offline.test_goal028_hpc_collect import _loads
+
+    workspace, sim = _submitted_sweep(tmp_path)
+    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows[0]["fs_build"] = None
+    rows[0]["fs_version_reported"] = None
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    (sim / "AL+000.txt").write_text(_loads(0.0), encoding="utf-8")
+    (sim / "AL+020.txt").write_text(_loads(2.0), encoding="utf-8")
+    collect.collect_once(workspace, interval=0, sleep=_no_sleep)
+    (record,) = workspace.read_manifest()
+    assert record.fs_build == "7012026", record.error
+    assert record.fs_version_reported, record.error

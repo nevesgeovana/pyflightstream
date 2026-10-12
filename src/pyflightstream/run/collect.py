@@ -1302,14 +1302,17 @@ def _sweep_point_entry(
     *,
     job_log_text: str | None,
     missing: Sequence[str],
-) -> tuple[dict[str, object], RunStatus, str | None]:
+) -> tuple[dict[str, object], RunStatus, str | None, tuple[str | None, str | None]]:
     """Assess one point of a submitted sweep: its ``points_ran`` entry, status and error.
 
     ``as_point`` is the point as a record of its own (its tag as its name, its
     own point and outputs), which is what both assessors are written against.
     A point whose own declared log is in ``missing`` (FR-413) is RAN_MISSING_LOG
     unless its outputs prove a failure, with no iteration count or residual.
+    The fourth answer is the solver build and version the point read (None
+    under an injected assessor), which the job folds (PFS-2103.033).
     """
+    identity: tuple[str | None, str | None] = (None, None)
     tag = str(as_point.point_name)
     point = dict(as_point.point)
     collected = list(as_point.outputs)
@@ -1319,6 +1322,7 @@ def _sweep_point_entry(
 
         shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
         assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
+        identity = (assessment.fs_build, assessment.fs_version_reported)
         status, verdict = _log_verdicts(
             record,
             sim_dir,
@@ -1349,7 +1353,7 @@ def _sweep_point_entry(
     entry.update(status=str(status), outputs=collected, **read)
     if note is not None:
         entry["residual_note"] = note
-    return entry, status, verdict
+    return entry, status, verdict, identity
 
 
 def _complete_sweep(
@@ -1379,6 +1383,7 @@ def _complete_sweep(
     ran, their files are on disk, and they are collected and judged.
     """
     from pyflightstream.run import worse_of
+    from pyflightstream.run._assessment import job_solver_identity
 
     submission = record.submission or {}
     by_point = submission["declared_by_point"]
@@ -1454,6 +1459,7 @@ def _complete_sweep(
     worst = RunStatus.CONVERGED
     collected_all: list[str] = []
     error_lines: list[str] = []
+    reported: list[tuple[str, str | None, str | None]] = []
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
@@ -1473,7 +1479,7 @@ def _complete_sweep(
                 "points_ran": [],
             }
         )
-        entry, status, verdict = _sweep_point_entry(
+        entry, status, verdict, (build, version) = _sweep_point_entry(
             record,
             as_point,
             sim_dir,
@@ -1481,6 +1487,7 @@ def _complete_sweep(
             job_log_text=job_log_text,
             missing=[name for name in missing_logs if name in by_point[tag]],
         )
+        reported.append((tag, build, version))
         if job_note is not None:
             entry["residual_note"] = job_note
         ran.append(entry)
@@ -1488,6 +1495,13 @@ def _complete_sweep(
         if str(status).startswith("FAILED"):
             error_lines.append(f"{tag}: {verdict or status}")
         worst = worse_of(worst, status)
+    # THE JOB'S SOLVER IDENTITY, by the local sweep's one rule (PFS-2103.033):
+    # this path stamped neither field, so the post could not state the
+    # velocity convention of the job's sampled fields.
+    identity, disagreements = job_solver_identity(reported)
+    if disagreements:
+        worst = worse_of(worst, RunStatus.FAILED_EXECUTION)
+        error_lines.extend(disagreements)
 
     try:
         sweep_digests = workspace.output_digests(record.sim_id, collected_all)
@@ -1501,6 +1515,7 @@ def _complete_sweep(
             "error": "; ".join(error_lines) or None,
             "warnings": job_warnings,
             "points_ran": ran,
+            **identity,
             **({"residual_note": job_note} if job_note is not None else {}),
         }
     )
