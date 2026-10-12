@@ -115,7 +115,7 @@ solver did, a missing precondition, a wrong argument, and a harness blind spot.
 
 Compat reports: `reports/compat/CMP-26124_2026-10-12_gap-probes.yaml`,
 `CMP-26125_2026-10-12_gap-probes.yaml` (the registered probes, the latest round
-of each), and `CMP-<build>_2026-10-12_licensed-items.yaml` for 26.100, 26.101,
+of each), and `CMP-<build>_2026-10-12_pfs2135-items.yaml` for 26.100, 26.101,
 26.120, 26.124 and 26.125.
 
 ## 7. Every probe, final verdict
