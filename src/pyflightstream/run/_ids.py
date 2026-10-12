@@ -36,7 +36,6 @@ from pyflightstream.cases.workflows import (
     disc_speed_moves_with_the_point,
     with_tecplot_source,
 )
-from pyflightstream.cases.workflows._rows import _turning_rate
 from pyflightstream.run._alias import selection_with_aliases
 from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
@@ -334,11 +333,26 @@ def _sweeps_a_body_rate(case: SimCase) -> bool:
 
 
 def _turning_rate_moves(case: SimCase) -> bool:
-    """Whether the resolved rotational free stream differs between the sweep's points."""
-    rates = [
-        _turning_rate(case.model_copy(update={"point": point})) for point in case.sweep.points()
-    ]
-    return any(rate != rates[0] for rate in rates[1:])
+    """Whether a body rate the sweep's points state differs between them.
+
+    A rate the row's cells state is one value for every point; only a rate a
+    POINT carries can move, and it is compared by value, so ``0`` and ``0.0``
+    are one rate. Read here through the public rate table rather than the
+    builder's private reader (the private-import ratchet, PFS-2098.005).
+    """
+    keys = [key for key, _ in RATE_VARIABLES if key not in case.variables]
+    stated = [tuple(_rate_value(point.get(key)) for key in keys) for point in case.sweep.points()]
+    return any(rates != stated[0] for rates in stated[1:])
+
+
+def _rate_value(value: object) -> object:
+    """Return a stated rate as a number when it reads as one, else as written."""
+    if value is None:
+        return None
+    try:
+        return float(str(value))
+    except ValueError:
+        return value
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:

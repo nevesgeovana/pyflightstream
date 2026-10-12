@@ -1029,6 +1029,36 @@ exit codes. A named difference needs its FR id and migration entry.
     comparisons must preserve product bytes as well as scripts,
     records, console text and exit codes.
 
+!!! decision "AD-24 Every root module is ranked, and private cross-package imports are frozen <span class='srs-implemented'>implemented</span>"
+    *0.40.0 (PFS-2083.002 and PFS-2098.005, marker P0400-PRIVATEIMPORT).
+    Evidence: `tests/tier1_offline/test_conventions.py`
+    (`_ROOT_UNIT_ROWS`, `test_every_root_module_has_a_layer_row_and_the_named_exceptions_do_not_grow`),
+    `tests/tier1_offline/test_p0400_every_root_module_ranked.py` and
+    `tests/tier1_offline/test_p0400_private_import_ratchet.py`.*
+
+    Layering section, rule one. Every module and every package of the
+    package root has a layer row in the layer rule of AD-01, and the layer
+    guards of NFR-23 (module level and function bodies) read all of them. A
+    unit with no row is not examined, so a ranked module that imported
+    one which imported upward would reach up with no guard firing; the
+    guard therefore fails on any root unit that has no row. A unit takes
+    the row one step above the highest row it imports (a floor module
+    that imports only the errors takes the floor), so a planted upward
+    import through any root module is refused. The one named exception,
+    counted and not allowed to grow, is the package root file
+    `pyflightstream/__init__.py`, which imports `post` and `run.records`
+    and is imported back by `post`, `qa`, `results`, `run` and
+    `workspace`, a cycle no single row can hold. `exceptions` takes the
+    top row because it imports every layer and no module imports it.
+
+    Layering section, rule two. A private module of one package is not
+    imported by another package. The pairs that exist at 0.40.0 (sixty-three
+    module pairs; `run` imports 11 private `workspace` modules and 8 private
+    `cases` modules, `workspace` imports 5 private `cases` modules) are
+    frozen in a tier-1 list that may only shrink: the test fails on any new
+    pair, and when a listed pair has gone it passes and tells the author to
+    remove the line from the list. No import is moved by this decision.
+
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`
