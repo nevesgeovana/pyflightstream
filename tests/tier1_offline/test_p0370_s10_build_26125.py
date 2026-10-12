@@ -315,4 +315,5 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
         assert "AUTO_DETECT" not in text, name
         built += 1
-    assert built == 175
+    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17).
+    assert built == 230
