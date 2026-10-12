@@ -1097,6 +1097,10 @@ def plan_campaign(
     ExecutorConfigurationError
         When a case names an ``fs_build`` that ``builds`` does not
         carry.
+    WorkspaceError
+        When :meth:`CampaignWorkspace.read_manifest` refuses a recorded
+        row, for example a surface averaging window that does not
+        validate.
 
     Warns
     -----

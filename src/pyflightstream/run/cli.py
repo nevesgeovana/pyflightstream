@@ -1313,7 +1313,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # then refuse it as a matrix edited after it was planned.
         try:
             changes = renumber_repeated_pols(args.matrix, workspace, in_place=True)
-        except (MatrixError, OSError) as error:
+        except (MatrixError, PyflightstreamError, OSError) as error:
             print(f"matrix not planned: {error}", file=sys.stderr)
             return 2
         matrix_name = Path(args.matrix).name
@@ -1354,7 +1354,11 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 sims=args.sims,  # FR-326
                 points=args.points,
             )
-    except (MatrixError, InputArtifactError, OSError, ValueError) as error:
+    # PyflightstreamError, AS `_cmd_run` CATCHES IT (PFS-2095.051): a
+    # WorkspaceError, the refusal read_manifest writes for a recorded defect,
+    # is neither a ValueError nor an OSError and reached the user as a
+    # traceback.
+    except (MatrixError, InputArtifactError, PyflightstreamError, OSError, ValueError) as error:
         release_warnings(held)
         print(f"matrix not planned: {error}", file=sys.stderr)
         if renumbered:

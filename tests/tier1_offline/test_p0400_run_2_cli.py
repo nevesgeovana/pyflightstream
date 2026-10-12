@@ -64,6 +64,25 @@ def test_p0400_plan_refuses_the_arguments_before_writing_anything(tmp_path, caps
     assert sorted(p.relative_to(workspace.root) for p in workspace.root.rglob("*")) == before
 
 
+def test_p0400_plan_reports_a_manifest_refusal_without_a_traceback(tmp_path, capsys, monkeypatch):
+    """P0400-PLAN-REFUSAL (PFS-2095.051): a WorkspaceError of read_manifest exits 2 with its text.
+
+    It is a PyflightstreamError and neither a ValueError nor an OSError, so
+    the plan let it through as a traceback, the defect ``run`` already fixed.
+    """
+    from pyflightstream.workspace import WorkspaceError
+    from tests.tier1_offline.test_fr313_plan_geometry_warning import _planned
+
+    workspace, matrix, _, _, _ = _planned(tmp_path, "unsteady", "clean")
+
+    def refused(self):
+        raise WorkspaceError("the recorded surface averaging window does not validate")
+
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", refused)
+    assert cli.main(["plan", str(matrix), "--workspace", str(workspace.root)]) == 2
+    assert "the recorded surface averaging window does not validate" in capsys.readouterr().err
+
+
 _TRIANGLE_STL = (
     "solid wing\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\n"
     "vertex 0 1 0\nendloop\nendfacet\nendsolid wing\n"
