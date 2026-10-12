@@ -28,6 +28,29 @@ def test_p0400_collect_and_post_declares_the_sims_keyword_of_its_callbacks():
     assert "type: ignore[call-arg]" not in source
 
 
+def test_p0400_library_post_refusal_names_the_records_already_written(tmp_path):
+    """P0400-COLLECT-POST-REFUSAL (PFS-2095.052): the library names the refused stage."""
+    import pytest
+
+    from pyflightstream._errors import ProductError
+    from pyflightstream.workspace import RunStatus, WorkspaceError
+    from tests.tier1_offline.test_goal028_hpc_collect import (
+        _loads,
+        _submitted_workspace,
+        _work_dir,
+    )
+
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt",))
+    (_work_dir(workspace, sim, alpha=2.0) / "loads.txt").write_text(_loads(2.0), "utf-8")
+
+    def refused(ws, matrix, *, sims=None):
+        raise ProductError("the probe plane lies outside the mesh")
+
+    with pytest.raises(WorkspaceError, match="records written; the post was refused"):
+        collect.collect_and_post(workspace, interval=0, sleep=_no_sleep, post_matrix=refused)
+    assert workspace.read_manifest()[0].status is RunStatus.CONVERGED
+
+
 # ------------------------------------------------------- submitted extractions
 
 

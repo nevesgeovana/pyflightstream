@@ -627,10 +627,6 @@ def _cmd_rename(args: argparse.Namespace) -> int:
     return 0
 
 
-class _PostRefusedError(Exception):
-    """The post stage of ``collect --post`` refused; its one argument is the stage's error."""
-
-
 def _cmd_collect(args: argparse.Namespace) -> int:
     """Sweep the submitted points and collect the ones whose outputs settled."""
     # A FLAG THAT BOUNDS A WATCH IS REFUSED WITHOUT THE WATCH, at parse time,
@@ -653,10 +649,9 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         )
         return 2
     # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (0.40.0, PFS-2081.28):
-    # zero takes both observations at one instant, so nothing is ever seen
-    # to settle, and a negative wait reached time.sleep mid-sweep. Checked
-    # here rather than by the parser, so a value from pyfs.toml is held to
-    # it too.
+    # zero takes both observations at one instant, so nothing is ever seen to
+    # settle, and a negative wait reached time.sleep mid-sweep. Checked here
+    # rather than by the parser, so a value from pyfs.toml is held to it too.
     if args.interval is not None and not 0.0 < args.interval < float("inf"):
         print(
             f"interval (CLI: --interval) takes a number of seconds above 0, not {args.interval}",
@@ -699,22 +694,19 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # second sweep of a watch among them, the stage refused them instead
         # of archiving them as the paragraph above says it does.
         note_post_ran()
-        try:
-            for stage in post_stages():
-                # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
-                # 0.25.1 takes no `check_frozen`, and the bare command must keep
-                # running it (the fourth independent reading of GitHub main).
-                stage(
-                    ws,
-                    overwrite=True,
-                    archive=True,
-                    matrix_stem=matrix,
-                    **({"check_frozen": True} if args.check_frozen else {}),
-                    # FR-307: the post of `collect --sims` is limited to the same simulations.
-                    **({"sims": sims} if sims is not None else {}),
-                )
-        except (OSError, PyflightstreamError) as error:
-            raise _PostRefusedError(error) from error
+        for stage in post_stages():
+            # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
+            # 0.25.1 takes no `check_frozen`, and the bare command must keep
+            # running it (the fourth independent reading of GitHub main).
+            stage(
+                ws,
+                overwrite=True,
+                archive=True,
+                matrix_stem=matrix,
+                **({"check_frozen": True} if args.check_frozen else {}),
+                # FR-307: the post of `collect --sims` is limited to the same simulations.
+                **({"sims": sims} if sims is not None else {}),
+            )
 
     # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
     # raise what `post` catches, and here it escaped as a traceback after the
@@ -732,13 +724,6 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 post_matrix=_post if args.post else None,
                 sims=None if args.sims is None else _listed_sims(args.sims),
             )
-    except _PostRefusedError as refused:
-        print(
-            "the points were collected and their records written; the post was refused: "
-            f"{refused.args[0]}",
-            file=sys.stderr,
-        )
-        return 2
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2

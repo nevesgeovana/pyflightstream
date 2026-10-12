@@ -32,3 +32,40 @@ def test_p0400_preflight_versions_follow_the_run_s_fallback_chain():
     assert run_matrix._row_versions(resolved, "26.123") == {"7001": "26.123", "7002": "26.123"}
     declared = _resolved({"26.120": "26.120.1", "26.124": None})
     assert run_matrix._row_versions(declared) == {"7001": "26.120.1", "7002": "26.124"}
+
+
+def test_p0400_a_local_extraction_with_a_translation_problem_fails_as_a_collected_one(
+    tmp_path, monkeypatch
+):
+    """P0400-EXTRACTION-ONE-RULE (PFS-2103.008): the local path refuses a translation problem.
+
+    The collected path fails an extraction whose stamped translation reports a
+    problem; the local path judged by file existence alone and recorded it
+    EXTRACTED, deleting the private copy first. Both now complete by one rule.
+    """
+    from pyflightstream.run import _additional
+    from tests.tier1_offline.test_additional_post import (
+        POST_ADDITIONAL_TOML,
+        a_recorded_campaign,
+        a_stub,
+        extract,
+    )
+
+    def refused(folder, translations):
+        for entry in translations:
+            (folder / str(entry["dat"])).write_text("preserved surface export", "utf-8")
+        return [
+            {**entry, "written": [], "problems": ["the frame changed"]} for entry in translations
+        ]
+
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    monkeypatch.setattr(_additional, "translate_surface_exports", refused)
+    monkeypatch.setattr(run_matrix, "translate_surface_exports", refused, raising=False)
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records and {record.status for record in records} == {"FAILED_EXECUTION"}, [
+        (record.status, record.error) for record in records
+    ]
+    assert all("the frame changed" in (record.error or "") for record in records)
+    for record in records:
+        folder = workspace.sim_dir(record.sim_id) / record.working_dir
+        assert list(folder.glob("*.reopened.fsm")), "the private copy was deleted"

@@ -1154,6 +1154,33 @@ _CLOCKING_SEVERITY = (
 )
 
 
+def _clocking_at_the_limit(
+    report: LoadsReport, judged: _ResidualJudgment, reached: int
+) -> tuple[RunStatus, str | None]:
+    """Return one wheel clocking's status and note under FR-434 R1 (PFS-2103.002).
+
+    A steady solve stopped at the requested iteration limit, unsettled and
+    not forced, is MAX_ITER_REACHED with the limit note; the clocking path
+    returned before the point's own promotion, so a wheel never was.
+    """
+    requested = report.requested_iterations
+    if (
+        judged.status is RunStatus.COMPLETED_MAX_ITER
+        and not report.forced_iterations
+        and requested > 0
+        and reached == requested
+    ):
+        return RunStatus.MAX_ITER_REACHED, _limit_note(judged.note, requested, reached)
+    return judged.status, judged.note
+
+
+def _requested_of(status: RunStatus, report: LoadsReport) -> dict[str, int]:
+    """Return ``iterations_requested`` for a MAX_ITER_REACHED status, else nothing (FR-434 R1)."""
+    if status is RunStatus.MAX_ITER_REACHED:
+        return {"iterations_requested": report.requested_iterations}
+    return {}
+
+
 def _wheel_clockings(
     loads_path: Path, *, quasi_steady: bool | None
 ) -> tuple[tuple[QsteadyClocking, ...] | None, str | None]:
@@ -1273,19 +1300,8 @@ def _judge_the_clockings(
     for clocking, history in zip(clockings, solves, strict=True):
         index = clocking.index
         judged = _judge_final_residuals(history, report.convergence_limit)
-        status, error, note = judged.status, judged.error, judged.note
-        # FR-434 R1 FOR EACH CLOCKING (PFS-2103.002): a steady solve stopped
-        # at the requested limit, unsettled and not forced, is MAX_ITER_REACHED;
-        # this path returned before the point's promotion and never was.
-        requested = report.requested_iterations
-        if (
-            status is RunStatus.COMPLETED_MAX_ITER
-            and not report.forced_iterations
-            and requested > 0
-            and history[-1].iteration == requested
-        ):
-            status = RunStatus.MAX_ITER_REACHED
-            note = _limit_note(note, requested, history[-1].iteration)
+        status, note = _clocking_at_the_limit(report, judged, history[-1].iteration)
+        error = judged.error
         loads = clocking.loads
         if index != 0:
             # EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE, held to it as
@@ -1328,8 +1344,7 @@ def _judge_the_clockings(
         worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
     else:
         worst = max(statuses, key=_CLOCKING_SEVERITY.index)
-    if worst is RunStatus.MAX_ITER_REACHED:
-        stamp["iterations_requested"] = report.requested_iterations  # FR-434 R1: its alone.
+    stamp.update(_requested_of(worst, report))  # FR-434 R1: written for MAX_ITER_REACHED alone.
     judged_residuals = [value for value in residuals if value is not None]
     return Assessment(
         status=worst,

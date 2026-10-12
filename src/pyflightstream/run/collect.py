@@ -82,8 +82,13 @@ from pathlib import Path
 # the architect lens of the 0.18.0 release round, 2026-09-14.
 from typing import TYPE_CHECKING, Protocol
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
+from pyflightstream.run._additional import (
+    extraction_context,
+    extraction_job_end,
+    finish_extraction,
+)
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._collect_logs import JOB_END_TAIL_LINES as JOB_END_TAIL_LINES
 from pyflightstream.run._collect_logs import LOG_SUFFIX as LOG_SUFFIX
@@ -559,125 +564,6 @@ def _copy_native_log(native: NativeLog) -> None:
         shutil.copy2(native.source, native.target)
 
 
-def _additional_context(workspace, record):
-    """Resolve contained extraction paths and verify immutable source evidence."""
-    from pyflightstream._digest import optional_file_sha256
-
-    sim_dir = workspace.sim_dir(record.sim_id)
-    root = sim_dir.resolve()
-    folder = (sim_dir / record.working_dir).resolve()
-    original = (sim_dir / record.fsm).resolve()
-    script = (sim_dir / record.script_path).resolve()
-    copy = folder / (record.reopened_copy or "")
-    names = record.declared_outputs
-    paths = [folder, original, script, copy, *(folder / name for name in names)]
-    if (
-        not names
-        or not record.reopened_copy
-        or any(not path.resolve().is_relative_to(root) for path in paths)
-    ):
-        raise WorkspaceError("submitted extraction has no safe declared outputs or private copy")
-    changed = [
-        label
-        for label, path, digest in (
-            ("original saved simulation", original, record.fsm_sha256),
-            ("saved extraction script", script, record.script_sha256),
-            ("private reopened simulation", copy, record.fsm_sha256),
-        )
-        if optional_file_sha256(path) != digest
-    ]
-    if changed:
-        raise WorkspaceError("changed or missing " + ", ".join(changed))
-    return sim_dir, folder, original, copy
-
-
-def _finish_additional(workspace, record, context):
-    """Translate settled exports and record their hashes before removing the copy."""
-    from pyflightstream.run.matrix import record_additional_extraction
-    from pyflightstream.workspace import ExtractionStatus
-
-    sim_dir, folder, original, copy = context
-    base = record.model_dump()
-    if record.surface_translations:
-        base["surface_translations"] = translate_surface_exports(
-            folder,
-            record.surface_translations,
-        )
-    # A TRANSLATION PROBLEM IS A FAILED EXTRACTION (Q0 CX-4), even where the
-    # declared `.dat` exists: a file whose source, frame or content proof no
-    # longer holds is preserved, not re-derived, and existence alone would
-    # record it EXTRACTED and delete the private copy it could be re-made from.
-    # The caller records this refusal as FAILED_EXECUTION and keeps the copy.
-    problems = [
-        str(problem)
-        for translation in base.get("surface_translations") or []
-        for problem in translation.get("problems") or []
-    ]
-    if problems:
-        raise WorkspaceError("surface translation failed: " + "; ".join(problems))
-    missing = [name for name in record.declared_outputs if not (folder / name).is_file()]
-    outputs = [
-        (folder / name).relative_to(sim_dir).as_posix()
-        for name in record.declared_outputs
-        if name not in missing
-    ]
-    completed = record_additional_extraction(
-        workspace,
-        base,
-        status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT if missing else ExtractionStatus.EXTRACTED,
-        error="missing extraction outputs: " + ", ".join(missing) if missing else None,
-        original=original,
-        outputs=outputs,
-    )
-    if completed.status is ExtractionStatus.EXTRACTED:
-        # THE EXTRACTED ROW IS WRITTEN, so a copy that cannot be removed (a
-        # file still held on a share) is a note on it, never a second row
-        # that re-records the extraction FAILED_EXECUTION (PFS-2103.005).
-        try:
-            copy.unlink(missing_ok=True)
-        except OSError as error:
-            said = (
-                f"the private copy {copy.name} could not be removed ({error}); "
-                "the extraction is complete, so remove it by hand"
-            )
-            note = f"{completed.note} {said}" if completed.note else said
-            completed = completed.model_copy(update={"note": note})
-            workspace.append_additional(completed)
-    return completed
-
-
-def _extraction_job_end(workspace, record, folder: Path) -> str | None:
-    """Say how a submitted extraction's job is known to have ended, or None while it may run.
-
-    The HPC profile's ``job_end_files`` all matching (FR-311), or the log
-    the scheduler writes (``native_log``) being there, ends the job.
-    """
-    profile = resolve_hpc_profile(workspace.inputs_dir)
-    point = record.point_name or ""
-    job = (record.submission or {}).get("scheduler_id") or "its job"
-    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
-    found: list[Path] = []
-    for pattern in patterns:
-        matched = [p for p in folder.glob(pattern.format(sim=record.sim_id, point=point))]
-        if not any(path.is_file() for path in matched):
-            found = []
-            break
-        found += [path for path in matched if path.is_file()]
-    native = getattr(profile, "native_log", None)
-    if not found and native:
-        found = [
-            path
-            for path in folder.glob(str(native).format(sim=record.sim_id, point=point))
-            if path.is_file()
-        ]
-    if not found:
-        return None
-    return (
-        f"the extraction job {job} ended without its outputs: "
-        f"{', '.join(sorted(p.name for p in found))} exist (the HPC profile's end of job)"
-    )
-
-
 def _collect_additional(workspace, report, *, interval, sleep, observer, sims=None) -> None:
     """Complete stable submitted extractions; retain pending jobs and native logs."""
     from pyflightstream.workspace import ExtractionStatus
@@ -693,7 +579,7 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
             # (PFS-2103.006): read zipped, its original and private copy were
             # "changed or missing" and the extraction failed for good.
             ensure_sim_expanded(workspace, record.sim_id, reason="collect")
-            context = _additional_context(workspace, record)
+            context = extraction_context(workspace, record)
             folder = context[1]
             generated = {str(item.get("dat")) for item in record.surface_translations or []}
             waited = [folder / name for name in record.declared_outputs if name not in generated]
@@ -705,7 +591,7 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
                 # A JOB THAT ENDED WITHOUT ITS OUTPUTS NEVER SETTLES
                 # (PFS-2085.008): counted outstanding, it kept a watch sweeping
                 # forever. The point path's job-end rule (FR-311) fails it.
-                ended = _extraction_job_end(workspace, record, folder) if missing else None
+                ended = extraction_job_end(workspace, record, folder) if missing else None
                 if ended is not None:
                     raise WorkspaceError(f"{ended}; absent: {', '.join(missing)}")
                 report.waiting.append(
@@ -721,7 +607,7 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
                     )
                 )
                 continue
-            completed = _finish_additional(workspace, record, context)
+            completed = finish_extraction(workspace, record, context)
         except (OSError, ValueError, WorkspaceError, CampaignConfigError) as error:
             completed = record.model_copy(
                 update={
@@ -1155,16 +1041,7 @@ def _complete(
         **_wall_time_update(record, _working_dir(workspace, record), stamped),
     }
     if missing_logs:
-        update["wall_time_s"] = None  # FR-413 R2: the solver clock is the log's; never estimated.
-        # AND THE BASIS SAYS SO (PFS-2103.007): it still named the clock file
-        # the nulled time had been measured from.
-        submission = update.get("submission")
-        job = submission.get("job") if isinstance(submission, dict) else None
-        if isinstance(job, dict):
-            job["wall_time_basis"] = (
-                "not recorded: the solver log is absent (FR-413 R2), and the solver "
-                "clock is the log's; a time is never estimated"
-            )
+        _no_time_without_the_log(update)
     _limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
@@ -1222,6 +1099,23 @@ def _action_counter(workspace: CampaignWorkspace, record: RunRecord) -> int | No
     except (OSError, ValueError, KeyError, TypeError):
         counter = None
     return record.action_count if counter is None else counter
+
+
+def _no_time_without_the_log(update: dict[str, object]) -> None:
+    """Null a point's wall time where its solver log is absent, and say why (FR-413 R2).
+
+    The solver clock is the log's, and a time is never estimated. The basis
+    says so too (PFS-2103.007): it still named the clock file the nulled time
+    had been measured from.
+    """
+    update["wall_time_s"] = None
+    submission = update.get("submission")
+    job = submission.get("job") if isinstance(submission, dict) else None
+    if isinstance(job, dict):
+        job["wall_time_basis"] = (
+            "not recorded: the solver log is absent (FR-413 R2), and the solver "
+            "clock is the log's; a time is never estimated"
+        )
 
 
 def _wall_time_update(
@@ -1854,6 +1748,27 @@ def _discard_walltime(
 
 
 def _post_sweep(
+    workspace: CampaignWorkspace,
+    report: CollectReport,
+    *,
+    selected: frozenset[str] | None,
+    post: _Post | None,
+    post_matrix: _PostMatrix | None,
+) -> None:
+    """Post the changed matrices; a refused post is said as the post's own (PFS-2095.052).
+
+    The records are written before the post runs, so a product stage's
+    refusal or an OSError is no collection failure: it reaches the caller as
+    one WorkspaceError saying so, where it escaped as a traceback.
+    """
+    try:
+        _post_each(workspace, report, selected=selected, post=post, post_matrix=post_matrix)
+    except (OSError, PyflightstreamError) as error:
+        said = "the points were collected and their records written; the post was refused"
+        raise WorkspaceError(f"{said}: {error}") from error
+
+
+def _post_each(
     workspace: CampaignWorkspace,
     report: CollectReport,
     *,

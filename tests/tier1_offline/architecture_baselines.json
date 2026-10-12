@@ -1635,6 +1635,7 @@
     "_collect_logs",
     "_record_files",
     "matrix",
+    "_additional",
     "__init__",
     "_grouped",
     "_campaign",
