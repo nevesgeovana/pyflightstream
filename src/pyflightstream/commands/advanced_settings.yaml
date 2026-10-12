@@ -617,6 +617,22 @@ SET_WAKE_RELAXATION:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+    "26.123":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
+        the native parser answered SET_WAKE_RELAXATION ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
+    "26.124":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
+        the native parser answered SET_WAKE_RELAXATION ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
 
 SET_WAKE_STREAMWISE_AGGLOMERATION:
   layout: inline
@@ -677,6 +693,22 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+    "26.123":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
+        the native parser answered SET_WAKE_STREAMWISE_AGGLOMERATION ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
+    "26.124":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
+        the native parser answered SET_WAKE_STREAMWISE_AGGLOMERATION ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
 
 SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
   layout: inline
@@ -738,6 +770,22 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+    "26.123":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
+        the native parser answered SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
+    "26.124":
+      status: removed
+      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      note: >-
+        Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
+        the native parser answered SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER ENABLE as an
+        unrecognised command and the run wrote no completion export,
+        while the positive control in the same probe was accepted.
 
 SOLVER_VORTEX_RING_NORMALIZATION:
   layout: inline

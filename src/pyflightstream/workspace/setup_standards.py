@@ -580,15 +580,6 @@ def _setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
     evidence = "no recorded evidence" if status is None else status.status.value
     citation = entry.manual_ref or entry.probe_ref
     report = "" if status is None else (status.report or status.probe_ref or "")
-    if version in {"26.123", "26.124"} and key in {
-        "wake_relaxation",
-        "wake_streamwise_agglomeration",
-        "adverse_gradient_boundary_layer",
-    }:
-        report += (
-            " Native parser reported Unrecognized command; no completion export. "
-            "Evidence: reports/compat/CMP-2026-09-27-setup-parser.md."
-        )
     default = "unknown" if entry.default is None else repr(entry.default)
     return available, (
         f"{command}; build {version}: {evidence}; documented default: {default} "
@@ -848,12 +839,6 @@ def render_guidelines(fs_version: str) -> str:
         ),
         "",
         "## Standards and one-setting studies",
-        "",
-        "Native parser-only observations for 26.123 and 26.124 reject the legacy wake "
-        "relaxation, streamwise agglomeration and adverse-gradient spellings. Numerical "
-        "wake relaxation, rotor blending, laminar separation and wake-decay specimens were "
-        "accepted without a mesh or solve. This is not operational or numerical validation "
-        "(reports/compat/CMP-2026-09-27-setup-parser.md).",
         "",
         "Unavailable selections are comments, never emitted substitutes. A study with "
         "an unavailable "
