@@ -13,6 +13,29 @@ from tests.support_helpers import grouped_plan_fixture
 from tests.tier1_offline.test_p0350_batch_plan import _plan
 
 
+def test_p0400_job_walltime_prices_a_row_that_states_no_walltime():
+    """P0400-JOB-WALLTIME (PFS-2094.007): a row with no WALLTIME is priced, not added as 0 s.
+
+    Beside a BEST polar the job asked no wall clock at all; beside a cell row
+    its five points added nothing, with no warning.
+    """
+    from pyflightstream.run._batch_split import JobSplit, job_walltime
+    from tests.tier1_offline.test_p0350_batch_split import _unit
+
+    best = _unit("7001", 1, 0.0, points=2, seconds=(100.0, 100.0))
+    silent = _unit("7002", 2, 0.0, points=5, best=False, seconds=(None,) * 5)
+    seconds, source, _fits, _short, warnings, refusal = job_walltime(
+        JobSplit((best, silent)), None, max_walltime_s=None
+    )
+    assert seconds is None and refusal is not None and "m/sim_7002/p0" in refusal
+    cell = _unit("7003", 1, 0.0, cell_s=600.0, cell_text="10m", best=False, seconds=(None,))
+    seconds, source, _fits, _short, warnings, refusal = job_walltime(
+        JobSplit((cell, silent)), None, max_walltime_s=7200.0
+    )
+    assert (seconds, source, refusal) == (7200, "max_walltime", None)
+    assert any("m/sim_7002/p4" in line for line in warnings), warnings
+
+
 def test_p0400_a_polar_with_a_blocked_point_is_left_out_by_name(tmp_path, monkeypatch):
     """P0400-GROUPED-BLOCKED (PFS-2094.005): the polar is named among the left out.
 
