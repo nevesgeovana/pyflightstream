@@ -565,7 +565,17 @@ def effective_fsi_config(case: SimCase) -> FsiConfig | None:
     """
     if case.fsi is None:
         return None
-    if select_workflow(case) != QSTEADY_ROTOR or qsteady_case_kind(case) != "sector":
+    workflow = select_workflow(case)
+    if workflow not in ("steady", "unsteady", QSTEADY_ROTOR):
+        # THE UNSTEADY WORKSPACE ROUTE (PFS-2088.004): the structural callback
+        # schedules its phases on the configured time increment, and without one
+        # on the loads header's three-decimal print of it. The staged
+        # configuration carries the resolved solver clock, the value the script
+        # marches on, so the schedule is exact.
+        if case.fsi.time_increment_s is None:
+            return case.fsi.model_copy(update={"time_increment_s": _rotor_clock(case).delta_time_s})
+        return case.fsi
+    if workflow != QSTEADY_ROTOR or qsteady_case_kind(case) != "sector":
         return case.fsi
     from ..fsi_workspace import quasi_steady_fsi_config
 
