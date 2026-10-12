@@ -19,16 +19,20 @@ from pathlib import Path
 from pyflightstream import _textio
 from pyflightstream._fsm import (
     MeshReadError,
+    boundary_names,
     boundary_owners,
     surface_mesh,
     trailing_edge_midpoints,
 )
 from pyflightstream.workspace._refine._obj import read_obj
 
-__all__ = ["PREVIEW_SUFFIX", "write_preview_vtk"]
+__all__ = ["PREVIEW_SUFFIX", "SWEEP_SUFFIX", "write_preview_vtk", "write_sweep_vtk"]
 
 #: The suffix of the preview file: ``<name>.preview.vtk``.
 PREVIEW_SUFFIX = ".preview.vtk"
+
+#: The suffix of the overlaid preview of a sweep: ``<name>.sweep.vtk``.
+SWEEP_SUFFIX = ".sweep.vtk"
 
 Point = tuple[float, float, float]
 
@@ -116,6 +120,78 @@ def write_preview_vtk(
         "FIELD names 1",
         f"names 1 {len(names)} string",
         *names,
+    ]
+    _textio.write_lines(target, rows)
+    return target
+
+
+def _surface_of(fsm: Path, surface: str) -> tuple[list[Point], list[tuple[int, ...]]]:
+    """Return the faces of the boundaries named after one control surface, and their vertices."""
+    vertices, triangles = surface_mesh(fsm)
+    names = boundary_names(fsm) or ()
+    owners = boundary_owners(fsm)
+    wanted = {
+        position
+        for position, name in enumerate(names, start=1)
+        if name == surface or name.startswith(surface + "_")
+    }
+    faces = [tuple(t) for t, owner in zip(triangles, owners, strict=False) if owner in wanted]
+    used = sorted({index for face in faces for index in face})
+    number = {index: new for new, index in enumerate(used)}
+    return [vertices[i] for i in used], [tuple(number[i] for i in face) for face in faces]
+
+
+def write_sweep_vtk(
+    target: Path, variants: Sequence[tuple[str, Path]], surface: str
+) -> Path | None:
+    """Overlay the control surface of every built variant in one file (FR-472 R7).
+
+    Parameters
+    ----------
+    target : Path
+        The ``<name>.sweep.vtk`` to write.
+    variants : sequence of (tag, saved simulation)
+        The variants built, in the order of ``angle_deg``.
+    surface : str
+        The swept control surface; its boundaries are those named after it.
+
+    Returns
+    -------
+    Path or None
+        The file, or None when no variant's saved file could be read.
+    """
+    points: list[Point] = []
+    faces: list[tuple[int, ...]] = []
+    owners: list[int] = []
+    tags: list[str] = []
+    for tag, fsm in variants:
+        try:
+            vertices, local = _surface_of(fsm, surface)
+        except MeshReadError:
+            continue
+        tags.append(tag)
+        offset = len(points)
+        points += vertices
+        faces += [tuple(offset + index for index in face) for face in local]
+        owners += [len(tags)] * len(local)
+    if not tags:
+        return None
+    rows = [
+        "# vtk DataFile Version 3.0",
+        f"pyflightstream sweep preview of {surface}",
+        "ASCII",
+        "DATASET POLYDATA",
+        f"POINTS {len(points)} double",
+        *(f"{x!r} {y!r} {z!r}" for x, y, z in points),
+        f"POLYGONS {len(faces)} {sum(len(face) + 1 for face in faces)}",
+        *(" ".join(str(value) for value in (len(face), *face)) for face in faces),
+        f"CELL_DATA {len(faces)}",
+        "SCALARS variant int 1",
+        "LOOKUP_TABLE default",
+        *(str(owner) for owner in owners),
+        "FIELD tags 1",
+        f"tags 1 {len(tags)} string",
+        *tags,
     ]
     _textio.write_lines(target, rows)
     return target

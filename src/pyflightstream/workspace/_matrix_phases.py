@@ -1556,6 +1556,7 @@ def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object])
             geometry_path,
             row.pol,
             fs_build=row.fs_build.strip() or None,
+            symmetry=str(row.variables.get("SYMMETRY", "")) or None,
             mesh_import=mesh_import,
         )
         update["mesh_import"] = mesh_import
