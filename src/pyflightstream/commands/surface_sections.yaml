@@ -277,16 +277,22 @@ EXPORT_SURFACE_SECTIONS:
   args:
     - name: index
       type: int
+    - name: filename
+      type: path
+      own_line: true
   manual_ref: "SRC-003 p.365"
   versions:
     "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
     "26.124": {status: documented, note: "SRC-752 p.371, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.125": {status: documented, note: "SRC-753 p.377; the previous probe consumed its END sentinel as the filename, so it does not verify this grammar. See RPT-036b finding 1."}
   notes: >
-    Exports one surface section by index (index greater than 0), with
-    no filename line documented (SRC-003 p.365). Added at 26.12; the
+    Exports one surface section by index (index greater than 0), with a
+    filename on the following line. SRC-003 p.365 names the command;
+    reports/RPT-036b_the-owed-export-capture_2026-08-20.md, finding 1,
+    records the following line being consumed as its filename. The corrected
+    script has not been verified by a new licensed run. Added at 26.12; the
     26.1 manual documents only the all-sections export, so a 26.1
     script exports everything through EXPORT_ALL_SURFACE_SECTIONS and
     filters afterwards (SRC-725 p.364).

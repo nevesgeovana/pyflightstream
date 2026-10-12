@@ -61,7 +61,7 @@ def test_fragments_fold_in_package_order_and_are_deleted(tmp_path):
         P0="## Changed\n\n- p0 changed.\n\n## Added\n\n- p0 added.\n",
         A="## Added\n\n- a added.\n- a second.\n\n## Fixed\n\n- a fixed.\n",
     )
-    report = _script().assemble(repo)
+    report = _script().assemble(repo, "docs/migrating-to-0.32.0.md")
     assert report["fragments"] == ["P0.md", "A.md", "B1.md"]
     text = (repo / "CHANGELOG.md").read_text(encoding="utf-8")
     unreleased, released = text.split("## [0.31.0]")
@@ -92,7 +92,7 @@ def test_folding_twice_changes_nothing(tmp_path):
     fragment = "## Added\n\n- d added.\n\n## Migration\n\nD migration words.\n"
     repo = _checkout(tmp_path, D=fragment)
     script = _script()
-    script.assemble(repo)
+    script.assemble(repo, "docs/migrating-to-0.32.0.md")
     changelog = (repo / "CHANGELOG.md").read_bytes()
     page = (repo / "docs" / "migrating-to-0.32.0.md").read_bytes()
     empty = script.assemble(repo)
@@ -100,7 +100,7 @@ def test_folding_twice_changes_nothing(tmp_path):
     # A run interrupted before the deletion leaves the fragment behind: folding
     # it again must not add its entries a second time.
     (repo / "changelog.d" / "D.md").write_text(fragment, encoding="utf-8")
-    again = script.assemble(repo)
+    again = script.assemble(repo, "docs/migrating-to-0.32.0.md")
     assert again["changelog_entries"] == 0 and again["migration_entries"] == 0
     assert (repo / "CHANGELOG.md").read_bytes() == changelog
     assert (repo / "docs" / "migrating-to-0.32.0.md").read_bytes() == page

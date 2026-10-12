@@ -1205,8 +1205,9 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     groups = module.classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
     where = f"{script.name}, VERSION = {module.VERSION}"
-    # 113 since 0.27.0 G02: the wake-edge import probe, which lands in
-    # needs_prelude on 26.122 because its line carries the 26.124 third token.
+    # 113 since 0.27.0 G02: the wake-edge import probe cannot render on
+    # 26.122 because its line carries the 26.124 third token. This is an
+    # argument error, not a missing entity prelude.
     # 167 since 0.34.0 (FR-333, FR-334, FR-335, FR-342): 54 entries for the CCS, acoustic,
     # surface-removal and rotation commands, 142 of them rendering in isolation, 94 with
     # arguments, and three outside the 26.122 view (SURFACE_ROTATE, VOLUME_SECTION_BOUNDARY_LAYER
@@ -1236,7 +1237,8 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
     assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
-    assert len(groups["needs_prelude"]) == 20, groups["needs_prelude"]
+    assert len(groups["needs_prelude"]) == 19, groups["needs_prelude"]
+    assert groups["raised_something_else"] == ["IMPORT_WAKE_EDGES_FROM_FILE (CommandArgumentError)"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 

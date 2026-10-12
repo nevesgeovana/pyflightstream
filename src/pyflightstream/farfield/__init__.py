@@ -378,6 +378,23 @@ def axial_flux(ds: xr.Dataset, rho: float, v_inf: float) -> xr.DataArray:
     return plane_integral(ds, rho * ds["u"] * (ds["u"] - v_inf) + ds["p_prime"])
 
 
+def _station_value(flux: xr.DataArray, station: float) -> xr.DataArray:
+    """Select one station, allowing floating-point roundoff but never guessing a plane."""
+    coordinates = np.asarray(flux.coords["station"], dtype=float)
+    exact = np.flatnonzero(coordinates == station)
+    matches = (
+        exact
+        if exact.size
+        else np.flatnonzero(np.isclose(coordinates, station, rtol=1e-12, atol=1e-12))
+    )
+    if matches.size != 1:
+        raise FarfieldInputError(
+            f"station {station!r} matches {matches.size} planes; available station coordinates "
+            f"are {coordinates.tolist()}. Give one existing station (tolerance 1e-12)."
+        )
+    return flux.isel(station=int(matches[0]))
+
+
 def axial_force(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float:
     """Axial force from the control volume between two stations (N).
 
@@ -401,7 +418,7 @@ def axial_force(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outle
         propulsive disk yields positive axial force.
     """
     flux = axial_flux(ds, rho, v_inf)
-    return float(flux.sel(station=outlet) - flux.sel(station=inlet))
+    return float(_station_value(flux, outlet) - _station_value(flux, inlet))
 
 
 def transverse_flux(
@@ -506,7 +523,7 @@ def transverse_force(
         ``plane_term``, ``lateral_term``, and ``total`` (N).
     """
     flux = transverse_flux(ds, rho, component=component)
-    plane_term = float(flux.sel(station=outlet) - flux.sel(station=inlet))
+    plane_term = float(_station_value(flux, outlet) - _station_value(flux, inlet))
     return xr.Dataset(
         {
             "plane_term": xr.DataArray(plane_term),
@@ -546,8 +563,10 @@ def in_plane_moment(
     output: the loading term is the order-1 cosine harmonic of the
     axial flux (the 1P loading asymmetry) and the moment-arm term
     carries the transverse flux; their ratio is the measured
-    disk-distortion versus tube-deflection split. ``axis="z"`` uses
-    ``y = r sin(psi)`` and ``v`` instead.
+    disk-distortion versus tube-deflection split. Both axes follow the
+    right-handed cross product: ``axis="z"`` gives
+    ``M_Z = x_p integral(rho u v dA) - integral(y g dA)``, with
+    ``y = r sin(psi)``.
 
     Parameters
     ----------
@@ -575,7 +594,7 @@ def in_plane_moment(
         lever = ds.coords["r"] * np.cos(ds.coords["psi"])
         component = "w"
     elif axis == "z":
-        lever = ds.coords["r"] * np.sin(ds.coords["psi"])
+        lever = -ds.coords["r"] * np.sin(ds.coords["psi"])
         component = "v"
     else:
         raise FarfieldInputError(f"axis must be 'y' or 'z', got {axis!r}")
@@ -587,16 +606,16 @@ def in_plane_moment(
     elif method == "harmonic":
         # sum_k cos(psi_k) g = N Re[g_hat_1]; sum_k sin(psi_k) g = -N Im[g_hat_1]
         g_hat_1 = azimuthal_harmonics(g, m_max=1).sel(m=1)
-        projected = np.real(g_hat_1) if axis == "y" else -np.imag(g_hat_1)
+        projected = np.real(g_hat_1) if axis == "y" else np.imag(g_hat_1)
         ring_area = ring_sample_weights(ds) * ds.sizes["psi"]
         loading = (projected * ds.coords["r"] * ring_area).sum("r", skipna=False) * tip**3
     else:
         raise FarfieldInputError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
 
     arm_flux = transverse_flux(ds, rho, component=component)
-    arm = -ds.coords["station"] * tip * arm_flux
-    loading_term = float(loading.sel(station=outlet) - loading.sel(station=inlet))
-    moment_arm_term = float(arm.sel(station=outlet) - arm.sel(station=inlet))
+    arm = (-1 if axis == "y" else 1) * ds.coords["station"] * tip * arm_flux
+    loading_term = float(_station_value(loading, outlet) - _station_value(loading, inlet))
+    moment_arm_term = float(_station_value(arm, outlet) - _station_value(arm, inlet))
     return xr.Dataset(
         {
             "loading_term": xr.DataArray(loading_term),
@@ -733,7 +752,7 @@ def irreversible_deficit(
     )
 
 
-def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float = 1.0) -> float:
+def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float:
     """Express a force delta in drag counts.
 
     One count is ``1e-4`` of the dynamic-pressure force scale:
@@ -748,8 +767,20 @@ def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float = 1.0)
     rho_inf, v_inf : float
         Free-stream density (kg/m3) and speed (m/s).
     s_ref : float
-        Reference area (m2); 1.0 by the literature convention.
+        Explicit reference area (m2), the same area used by the load coefficients.
+
+    Raises
+    ------
+    FarfieldInputError
+        If density, speed or area is not finite and strictly positive.
+        Dynamic-pressure counts are undefined in hover; retain dimensional loads there.
     """
+    for name, value in (("rho_inf", rho_inf), ("v_inf", v_inf), ("s_ref", s_ref)):
+        if not np.isfinite(value) or value <= 0:
+            raise FarfieldInputError(
+                f"{name}={value!r} must be finite and strictly positive for drag counts; "
+                "use dimensional loads when the dynamic-pressure scale vanishes"
+            )
     return 2.0 * delta / (rho_inf * v_inf**2 * s_ref) * 1.0e4
 
 
@@ -759,7 +790,7 @@ def spurious_diagnostic(
     *,
     rho_inf: float,
     v_inf: float,
-    s_ref: float = 1.0,
+    s_ref: float,
 ) -> float:
     """Near-field minus far-field load, in counts (gate G4).
 

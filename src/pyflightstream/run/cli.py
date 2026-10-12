@@ -81,6 +81,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
+    say_data,
     say_summary,
     stage_progress,
 )
@@ -844,7 +845,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            print(
+            say_data(
                 post_diagnostics(
                     [workspace.products_dir(matrix) / "post.log.json" for matrix in matrices]
                 )
