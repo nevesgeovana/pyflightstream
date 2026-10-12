@@ -118,6 +118,7 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.disc_maps",
     "pyflightstream.post.equations",
+    "pyflightstream.post.farfield_fields",
     "pyflightstream.post.farfield_products",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside

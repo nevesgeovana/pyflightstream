@@ -1,31 +1,31 @@
-"""The far-field product family: Trefftz-plane tables of one simulation (FR-456).
+"""The far-field product family: Trefftz-plane and balance tables of one simulation (FR-456).
 
-Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.csv``
-and the spanwise files ``sections/<point>_trefftz_<family>.csv`` from the
+Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.csv``,
+``farfield/<group>_ledgers.csv`` (``_instant`` and ``_average`` on an unsteady
+row) and the spanwise files ``sections/<point>_trefftz_<family>.csv`` from the
 exports a run recorded, through the numpy core of :mod:`pyflightstream.farfield`.
-It reads the exports with the ``results`` readers, turns every vector with
-:mod:`pyflightstream.post.axes` (FR-450 R3), and states every point an analysis
-cannot serve as a named skip in ``products.json`` and a WARNING in ``post.log``
-(FR-450 R5). A simulation whose pproc artifact has no ``[farfield]`` table
-writes nothing and logs nothing, so its products keep their bytes (FR-456 R8).
-
-This build serves variant A (``sections``) and variant B (``wake``) on steady
-rows; variant C and the ledgers are named skips until the plan lays their
-probes (FR-455).
+It reads the exports with the ``results`` readers, turns every vector to the
+far-field axes (FR-450 R3), and states every point an analysis cannot serve as
+a named skip in ``products.json`` and a WARNING in ``post.log`` (FR-450 R5).
+Which analysis applies to which row is the one function the plan uses
+(:func:`pyflightstream.cases.farfield_inputs.applies`). A simulation whose pproc
+artifact has no ``[farfield]`` table writes nothing and logs nothing, so its
+products keep their bytes (FR-456 R8).
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
-from pyflightstream.cases.farfield_inputs import applies
+from pyflightstream.cases.farfield_inputs import ROTOR_RUN_TYPES, UNSTEADY_RUN_TYPES, applies
 from pyflightstream.farfield import (
     TraceResult,
     calibration_scale,
@@ -33,13 +33,31 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._tables import CONTEXT_COLUMNS, context_row, write_csv_table
+from pyflightstream.post._condition import _section_rotors
+from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
+from pyflightstream.post.farfield_fields import (
+    LEDGER_COLUMNS,
+    ProbeSamples,
+    average_rows,
+    far_samples,
+    frame_lattice,
+    lattice_samples,
+    ledger_values,
+    native_per_m,
+    plane_values,
+    rotor_lattice,
+    rotor_values,
+    steady_samples,
+    unsteady_samples,
+)
 from pyflightstream.post.section_distributions import _distributions
+from pyflightstream.results.loads import parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 
 if TYPE_CHECKING:
+    from pyflightstream.cases._farfield_spec import FarfieldSpec, LedgersSpec, TrefftzSpec
     from pyflightstream.post._sim import SimContext
     from pyflightstream.post.polar import PolarPoint
 
@@ -99,6 +117,7 @@ _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: The measured strip bias of the discrete trace on an elliptic loading, in
 #: percent of E_T, at the station counts per side the definitions page states.
 _BIAS_PCT = {40: 1.05, 80: 0.52, 160: 0.26}
+_AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
 def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
@@ -110,6 +129,51 @@ def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
     frame's own (x aft, y right, z up).
     """
     return EXPORT_TO_BODY @ body_to_wind(alpha_deg, beta_deg) @ EXPORT_TO_BODY
+
+
+@dataclass
+class _Tables:
+    """The rows of one simulation's far-field files, by file suffix."""
+
+    rows: dict[str, list[tuple[object, ...]]] = field(default_factory=dict)
+    owners: dict[str, list[str]] = field(default_factory=dict)
+    runs: dict[str, list[str]] = field(default_factory=dict)
+    inputs: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+
+    def extend(self, suffix: str, point: str, runs: Sequence[str], rows: list) -> None:
+        if not rows:
+            return
+        self.rows.setdefault(suffix, []).extend(rows)
+        self.owners.setdefault(suffix, []).extend([point] * len(rows))
+        held = self.runs.setdefault(suffix, [])
+        held += [run for run in runs if run not in held]
+        self.inputs.setdefault(suffix, {}).setdefault(point, list(runs))
+
+    def super_rows(self) -> list[tuple[tuple[object, ...], str]]:
+        """Return the rows the super file reads: steady, else each point's average or instant."""
+        out = list(zip(self.rows.get("trefftz", []), self.owners.get("trefftz", []), strict=True))
+        averaged = set(self.owners.get("trefftz_average", []))
+        for suffix in ("trefftz_average", "trefftz_instant"):
+            pairs = zip(self.rows.get(suffix, []), self.owners.get(suffix, []), strict=True)
+            out += [
+                (row, point)
+                for row, point in pairs
+                if suffix == "trefftz_average" or point not in averaged
+            ]
+        return out
+
+
+def _spec(ctx: SimContext) -> FarfieldSpec:
+    """Return the simulation's ``[farfield]`` table; the step runs only where there is one."""
+    return cast("FarfieldSpec", ctx.pproc.farfield)
+
+
+def _trefftz(ctx: SimContext) -> TrefftzSpec:
+    return cast("TrefftzSpec", _spec(ctx).trefftz)
+
+
+def _ledgers(ctx: SimContext) -> LedgersSpec:
+    return cast("LedgersSpec", _spec(ctx).ledgers)
 
 
 def _skip(ctx: SimContext, key: str, point: str, reason: str) -> None:
@@ -139,78 +203,94 @@ def _selected(spec_families: str | Sequence[str], families: Sequence[str], alias
     return chosen
 
 
-def _point_state(point: PolarPoint) -> tuple[float, float]:
-    rho = float(getattr(point.state, "density_kg_m3", _NA) or _NA)
-    speed = float(point.loads.freestream_velocity_m_s)
-    return rho, speed
+def _flow(point: PolarPoint) -> tuple[float, float, float, float]:
+    """Return the density, the free-stream speed, alpha and beta (deg) of a point."""
+    state = point.state
+    rho = float(state.density_kg_m3) if state and state.density_kg_m3 else _NA
+    loads = point.loads
+    return rho, float(loads.freestream_velocity_m_s), loads.angle_of_attack_deg, loads.sideslip_deg
+
+
+def _q_ref(point: PolarPoint, rho: float) -> float:
+    """Return the dynamic pressure the export's ``Cp_ref`` and coefficients are taken on."""
+    loads = point.loads
+    v_ref = loads.reference_velocity_m_s or loads.freestream_velocity_m_s
+    return 0.5 * rho * float(v_ref) ** 2
 
 
 def _near_field(point: PolarPoint) -> tuple[float, float, float]:
-    """Return the solver's own CL and its pressure and vorticity induced drags (FR-456 R2)."""
+    """Return the solver's CL and its pressure and vorticity induced drags (FR-456 R2).
+
+    The solver prints one induced drag, ``CDi``: from the vorticity where the
+    run selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from
+    the surface pressures otherwise; the other column is ``NA``.
+    """
     total = point.loads.total
     cl = float(total.get("CL", _NA))
-    pressure = float(total["CDp"]) if "CDp" in total else _NA
-    vorticity = float(total["CDi"]) if "CDi" in total and "CDp" not in total else _NA
-    return cl, pressure, vorticity
+    cdi = float(total.get("CDi", _NA))
+    if point.vorticity_selection:
+        return cl, _NA, cdi
+    return cl, cdi, _NA
 
 
-def _rows_of(
+def _context(ctx: SimContext, point: PolarPoint) -> tuple[object, ...]:
+    return tuple(context_row(ctx.condition(point), ctx.reference.as_lengths()))
+
+
+def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, object]):
+    _cl, pressure, vorticity = _near_field(point)
+    merged = {"CDI_NEAR_PRESSURE": pressure, "CDI_NEAR_VORTICITY": vorticity, **values}
+    cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
+    return (ctx.sim_id, step, *_context(ctx, point), *cells)
+
+
+def _trace_rows(
     ctx: SimContext,
     point: PolarPoint,
-    variant: str,
-    result,
+    result: TraceResult,
     *,
+    variant: str,
     names: Sequence[str],
     factor: float,
-    q: float,
     extra: Mapping[str, float],
-    isolated: bool,
     blank: Sequence[str] = (),
 ) -> list[tuple[object, ...]]:
-    sref = float(ctx.reference.sref_m2 or _NA)
-    bref = float(ctx.reference.bref_m or _NA)
-    _cl_near, cdp_near, cdi_near = _near_field(point)
-    context = context_row(ctx.condition(point), ctx.reference.as_lengths())
-    rows = []
+    """Return the rows of one trace: each family where there are several, then TOTAL."""
+    rho, speed, _alpha, _beta = _flow(point)
+    q = 0.5 * rho * speed * speed
+    sref, bref = float(ctx.reference.sref_m2), float(ctx.reference.bref_m)
     entries = []
     if len(names) > 1:
         for index, name in enumerate(names):
+            count = int(np.count_nonzero(result.sheet == result.sheets[index]))
             entries.append(
                 (
                     name,
                     result.sheet_lift[index],
                     result.sheet_side_force[index],
                     result.sheet_drag_share[index],
-                    result.sheet_drag_isolated[index] if isolated else _NA,
-                    int(np.count_nonzero(result.sheet == result.sheets[index])),
+                    result.sheet_drag_isolated[index],
+                    count,
                 )
             )
     entries.append(
         ("TOTAL", result.lift, result.side_force, result.induced_drag, _NA, len(result.y))
     )
+    rows = []
     for name, lift, side, drag, alone, count in entries:
         c = trace_coefficients(
             lift * factor, side * factor, drag * factor, q=q, s_ref=sref, b_ref=bref
         )
-        cdi_alone = alone * factor / (q * sref) if math.isfinite(alone) and q * sref > 0 else _NA
-        values = {
+        values: dict[str, object] = {
             "FAMILY": name,
             "VARIANT": _VARIANT_NAMES[variant],
-            "CL_T": c["CL_T"],
-            "CDI_T": c["CDI_T"],
-            "CDI_T_ISOLATED": cdi_alone,
-            "CY_T": c["CY_T"],
-            "E_T": c["E_T"],
-            "AR": c["AR"],
+            **c,
+            "CDI_T_ISOLATED": alone * factor / (q * sref) if math.isfinite(alone) else _NA,
             "N_TRACE": count,
-            "CDI_NEAR_PRESSURE": cdp_near,
-            "CDI_NEAR_VORTICITY": cdi_near,
             **extra,
         }
         values.update({column: _NA for column in blank})
-        rows.append(
-            (ctx.sim_id, _NA, *context, *(values.get(column, _NA) for column in TREFFTZ_COLUMNS))
-        )
+        rows.append(_row(ctx, point, _NA, values))
     return rows
 
 
@@ -221,11 +301,10 @@ def _spanwise(
     variant: str,
     name: str,
     result: TraceResult,
-    flow: tuple[float, float],
     chords: np.ndarray | None,
 ) -> None:
     """Write ``sections/<point>_trefftz_<family>.csv``, the meshed strips of one sheet."""
-    rho, speed = flow
+    rho, speed, _alpha, _beta = _flow(point)
     q = 0.5 * rho * speed * speed
     keep = result.original
     w = result.downwash[keep]
@@ -256,6 +335,23 @@ def _spanwise(
     )
 
 
+def _sheet(result: TraceResult, index: int) -> TraceResult:
+    """Return the strips of one sheet of a trace, as a trace of its own for the spanwise file."""
+    pick = result.sheet == result.sheets[index]
+    return replace(
+        result,
+        y=result.y[pick],
+        z=result.z[pick],
+        dy=result.dy[pick],
+        dz=result.dz[pick],
+        ds=result.ds[pick],
+        gamma=result.gamma[pick],
+        normalwash=result.normalwash[pick],
+        sheet=result.sheet[pick],
+        original=result.original[pick],
+    )
+
+
 def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndarray] | None:
     """Return the sectional-load rows of each family cut in XZ of a reference frame, or skip."""
     sloads = ctx.exports.get(point.name, (None, None, None))[0]
@@ -277,10 +373,10 @@ def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndar
     blocks: dict[str, np.ndarray] = {}
     start = 0
     for block in layout:
-        count = int(block["count"])
+        count = int(str(block["count"]))
         rows = report.values[start : start + count]
         start += count
-        names = list(block.get("families") or [])
+        names = [str(name) for name in cast("list[object]", block.get("families") or [])]
         frame = str(block.get("frame") or "MRP").upper()
         if block.get("plane") == "XZ" and frame in ("MRP", "REFERENCE") and len(names) == 1:
             blocks.setdefault(names[0], rows[np.argsort(rows[:, 0], kind="stable")])
@@ -292,18 +388,17 @@ def _a_sheets(
     blocks: Mapping[str, np.ndarray],
     chosen: Sequence[str],
     *,
-    flow: tuple[float, float],
     stations: int,
     mirror: bool,
 ) -> tuple[list[np.ndarray], ...]:
     """Return per family the trace points, the circulation, the sheet labels and the chords."""
-    rho, speed = flow
+    rho, speed, alpha, _beta = _flow(point)
     ys, zs, gammas, sheets, chords = [], [], [], [], []
     for index, name in enumerate(chosen):
         rows = blocks[name]
         lift = np.array(
             [
-                wind_force_coefficients((fx, 0.0, fz), point.alpha_deg, 0.0)[2]
+                wind_force_coefficients((fx, 0.0, fz), alpha, 0.0)[2]
                 for fx, fz in zip(rows[:, 4], rows[:, 5], strict=True)
             ]
         )
@@ -325,10 +420,12 @@ def _a_sheets(
     return ys, zs, gammas, sheets, chords
 
 
-def _variant_a(ctx: SimContext, point: PolarPoint, families_word, stations: int) -> list:
+def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     """Trefftz A of one steady point (FR-451): rows, or a named skip."""
+    spec = _spec(ctx)
     key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=sections"
-    if abs(float(point.beta_deg)) > 0.0:
+    rho, speed, _alpha, beta = _flow(point)
+    if abs(float(beta)) > 0.0:
         _skip(
             ctx,
             key,
@@ -337,14 +434,13 @@ def _variant_a(ctx: SimContext, point: PolarPoint, families_word, stations: int)
             "reference XZ plane, and this point has sideslip; variants B and C serve it",
         )
         return []
-    rho, speed = _point_state(point)
     if not (math.isfinite(rho) and speed > 0.0):
         _skip(ctx, key, point.name, "the point states no density or free-stream speed")
         return []
     blocks = _a_blocks(ctx, point, key)
     if blocks is None:
         return []
-    chosen = _selected(families_word, list(blocks), ctx.aliases)
+    chosen = _selected(spec.families, list(blocks), ctx.aliases)
     if not chosen:
         _skip(
             ctx,
@@ -356,11 +452,21 @@ def _variant_a(ctx: SimContext, point: PolarPoint, families_word, stations: int)
         return []
     mirror, half = _symmetry(ctx)
     ys, zs, gammas, sheets, chords = _a_sheets(
-        point, blocks, chosen, flow=(rho, speed), stations=stations, mirror=mirror
+        point, blocks, chosen, stations=_trefftz(ctx).stations, mirror=mirror
     )
+    y = np.concatenate(ys)
+    if mirror and not (np.all(y > 0.0) or np.all(y < 0.0)):
+        _skip(
+            ctx,
+            key,
+            point.name,
+            "a half model's stations straddle the symmetry plane, so "
+            "the export cannot say which half was meant",
+        )
+        return []
     try:
         result = trace_forces(
-            np.concatenate(ys),
+            y,
             np.concatenate(zs),
             np.concatenate(gammas),
             rho=rho,
@@ -378,52 +484,37 @@ def _variant_a(ctx: SimContext, point: PolarPoint, families_word, stations: int)
             variant="sections",
             name=name,
             result=_sheet(result, index),
-            flow=(rho, speed),
             chords=chords[index],
         )
-    return _rows_of(
-        ctx,
-        point,
-        "sections",
-        result,
-        names=chosen,
-        factor=0.5 if half else 1.0,
-        q=0.5 * rho * speed * speed,
-        extra={"X_T_M": _NA},
-        isolated=True,
+    return _trace_rows(
+        ctx, point, result, variant="sections", names=chosen, factor=0.5 if half else 1.0, extra={}
     )
 
 
-def _sheet(result, index: int):
-    """Return the strips of one sheet of a trace, as a trace of its own for the spanwise file."""
-    from dataclasses import replace
-
-    pick = result.sheet == result.sheets[index]
-    return replace(
-        result,
-        y=result.y[pick],
-        z=result.z[pick],
-        dy=result.dy[pick],
-        dz=result.dz[pick],
-        ds=result.ds[pick],
-        gamma=result.gamma[pick],
-        normalwash=result.normalwash[pick],
-        sheet=result.sheet[pick],
-        original=result.original[pick],
-    )
-
-
-def _variant_b(ctx: SimContext, point: PolarPoint, distance_bref: float) -> list:
-    """Trefftz B of one steady point (FR-452): rows, or a named skip."""
-    key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake"
+def _output(ctx: SimContext, point: PolarPoint, kind: str) -> Path | None:
     record = ctx.record_of[point.name]
-    vtk = classify_outputs(list(record.outputs or ()), package_version=record.package_version).get(
-        "vtk"
+    outputs = [str(name) for name in record.outputs or ()]
+    names = [Path(name).name for name in outputs]
+    chosen = classify_outputs(names, package_version=record.package_version).get(kind)
+    sim_dir = ctx.workspace.sim_dir(ctx.sim_id)
+    return next((sim_dir / name for name in outputs if Path(name).name == chosen), None)
+
+
+def _per_m(ctx: SimContext, point: PolarPoint) -> float | None:
+    record = ctx.record_of[point.name]
+    return native_per_m(
+        ctx.workspace.sim_dir(ctx.sim_id),
+        [str(o) for o in record.outputs or ()],
+        record.package_version,
     )
-    wakes = None
-    if vtk:
-        stem = Path(str(vtk)).name[: -len(".vtk")]
-        wakes = ctx.workspace.sim_dir(ctx.sim_id) / f"{stem}_wakes.vtk"
+
+
+def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
+    """Trefftz B of one steady point (FR-452): rows, or a named skip."""
+    spec = _trefftz(ctx)
+    key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant=wake"
+    vtk = _output(ctx, point, "vtk")
+    wakes = None if vtk is None else vtk.with_name(vtk.stem + "_wakes.vtk")
     if wakes is None or not wakes.is_file():
         _skip(
             ctx,
@@ -433,16 +524,25 @@ def _variant_b(ctx: SimContext, point: PolarPoint, distance_bref: float) -> list
             "switches the wake on in the VTK export",
         )
         return []
-    rho, speed = _point_state(point)
-    bref = float(ctx.reference.bref_m or _NA)
+    per_m = _per_m(ctx, point)
+    if per_m is None:
+        _skip(
+            ctx,
+            key,
+            point.name,
+            "the point saved no simulation whose length unit the "
+            "package reads, so the wake coordinates cannot be put in metres",
+        )
+        return []
     try:
         wake = parse_wake_export(wakes.read_text(encoding="utf-8"))
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the wake export cannot be read: {error}")
         return []
-    turn = farfield_axes(point.alpha_deg, point.beta_deg)
-    lines = [line @ turn.T for line in wake.lines]
-    x_t = max(float(line[0, 0]) for line in lines) + distance_bref * bref
+    rho, speed, alpha, beta = _flow(point)
+    turn = farfield_axes(alpha, beta)
+    lines = [(line / per_m) @ turn.T for line in wake.lines]
+    x_t = max(float(line[0, 0]) for line in lines) + spec.distance_bref * ctx.reference.bref_m
     trace = wake_crossings(lines, wake.values, x_t=x_t)
     if trace.problem is not None:
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}")
@@ -453,91 +553,364 @@ def _variant_b(ctx: SimContext, point: PolarPoint, distance_bref: float) -> list
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
         return []
-    q = 0.5 * rho * speed * speed
     factor = 0.5 if half else 1.0
-    cl_near = _near_field(point)[0]
     k = calibration_scale(
-        raw.lift * factor, cl_near=cl_near, q=q, s_ref=float(ctx.reference.sref_m2 or _NA)
+        raw.lift * factor,
+        cl_near=_near_field(point)[0],
+        q=0.5 * rho * speed * speed,
+        s_ref=ctx.reference.sref_m2,
     )
-    result = raw.scaled(k) if math.isfinite(k) else raw
     calibrated = math.isfinite(k)
-    rows = _rows_of(
-        ctx,
-        point,
-        "wake",
-        result,
-        names=["TOTAL"],
-        factor=factor,
-        q=q,
-        extra={"X_T_M": x_t, "GAMMA_SCALE": k},
-        isolated=False,
-        blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
-    )
+    result = raw.scaled(k) if calibrated else raw
     if not calibrated:
         _skip(
             ctx,
             f"{key}#scale",
             point.name,
-            "the point has no near-field CL to calibrate the "
-            "wake values from, so E_T alone is written",
+            "the point has no near-field CL to calibrate "
+            "the wake values from, so E_T alone is written",
         )
-    _spanwise(
-        ctx, point, variant="wake", name="TOTAL", result=result, flow=(rho, speed), chords=None
+    _spanwise(ctx, point, variant="wake", name="TOTAL", result=result, chords=None)
+    return _trace_rows(
+        ctx,
+        point,
+        result,
+        variant="wake",
+        names=["TOTAL"],
+        factor=factor,
+        extra={"X_T_M": x_t, "GAMMA_SCALE": k},
+        blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
     )
+
+
+@dataclass(frozen=True)
+class _Instant:
+    """The probe values of one instant and the step they are of."""
+
+    samples: ProbeSamples
+    step: object
+
+
+def _instants(ctx: SimContext, point: PolarPoint, unsteady: bool) -> tuple[list[_Instant], str]:
+    """Return the instants a point's probes give: one steady, or every step of a window."""
+    _sloads, plots, probes = ctx.exports.get(point.name, (None, None, None))
+    try:
+        if not unsteady:
+            if probes is None:
+                return [], "the point exported no probe values"
+            return [_Instant(steady_samples(Path(probes).read_text(encoding="utf-8")), _NA)], ""
+        if plots is None:
+            return [], "the point exported no fluid plots"
+        series = parse_unsteady_plots(Path(plots).read_text(encoding="utf-8")).series_by_name()
+    except (PyflightstreamError, OSError) as error:
+        return [], f"the probe values cannot be read: {error}"
+    steps = series.get("Time-step")
+    count = len(next(iter(series.values()))) if series else 0
+    out = []
+    for row in range(count):
+        step = int(steps[row]) if steps is not None and math.isfinite(steps[row]) else row + 1
+        out.append(_Instant(unsteady_samples(series, ctx.probe_positions, row), step))
+    return out, "" if out else "the fluid plots hold no time step"
+
+
+def _lattice_of(ctx: SimContext, spec) -> tuple[Any, np.ndarray | None, str] | None:
+    if spec.ledgers is None:
+        return None
+    if spec.ledgers.rotor is None:
+        return frame_lattice(spec.ledgers)
+    rotor = (getattr(ctx.live, "rotors", None) or {}).get(spec.ledgers.rotor)
+    if rotor is None:
+        raise PyflightstreamError(
+            f"the reference names no rotor {spec.ledgers.rotor!r} to place the lattice on"
+        )
+    return rotor_lattice(spec.ledgers, rotor)
+
+
+def _plane_grid(ctx: SimContext, spec) -> tuple[float, float, float]:
+    half_width, half_height, spacing = spec.trefftz.plane_bref()
+    bref = float(ctx.reference.bref_m)
+    return half_width * bref, half_height * bref, spacing * bref
+
+
+def _plane_count(grid: tuple[float, float, float]) -> int:
+    return (2 * int(round(grid[0] / grid[2])) + 1) * (2 * int(round(grid[1] / grid[2])) + 1)
+
+
+@dataclass(frozen=True)
+class _Probe:
+    """Where a point's far-field probes are and how to read them."""
+
+    per_m: float
+    lattice: tuple[Any, np.ndarray | None, str] | None
+    plane_grid: tuple[float, float, float] | None
+    hub: tuple[float, np.ndarray, np.ndarray] | None
+
+
+def _hub(ctx: SimContext, point: PolarPoint, spec) -> tuple[float, np.ndarray, np.ndarray] | None:
+    """Return the frame speed, axis and origin a quasi-steady rotor's probes are read in."""
+    record = ctx.record_of[point.name]
+    if str(record.recipe or "") != "qsteady_rotor" or spec.ledgers is None:
+        return None
+    alias = spec.ledgers.rotor
+    rotor = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    rpm = (_section_rotors(ctx.live, ctx.aliases, record).get(alias) or {}).get("rpm")
+    if rotor is None or rpm is None:
+        raise PyflightstreamError(
+            f"the quasi-steady rotor {alias!r} states no speed in the point's record, so its "
+            "probes cannot be converted to the hub frame"
+        )
+    sense = float(getattr(rotor, "rpm_sign", 1) or 1)
+    axis = _AXES[str(rotor.axis).strip().upper()] * sense
+    origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m], dtype=float)
+    return 2.0 * math.pi * float(str(rpm)) / 60.0, axis, origin
+
+
+def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
+    per_m = _per_m(ctx, point)
+    if per_m is None:
+        raise PyflightstreamError(
+            "the point saved no simulation whose length unit the package reads, so its probe "
+            "positions cannot be matched in metres"
+        )
+    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
+    return _Probe(
+        per_m=per_m,
+        lattice=_lattice_of(ctx, spec),
+        plane_grid=_plane_grid(ctx, spec) if plane else None,
+        hub=_hub(ctx, point, spec),
+    )
+
+
+def _instant_values(
+    ctx: SimContext, point: PolarPoint, instant: _Instant, probe: _Probe, analyses: Sequence[str]
+) -> dict[str, Any]:
+    """Return the C values and the ledger rows of one instant, keyed by analysis."""
+    rho, speed, alpha, beta = _flow(point)
+    q_ref = _q_ref(point, rho)
+    lattice_m = probe.lattice[1] if probe.lattice is not None else None
+    count = _plane_count(probe.plane_grid) if probe.plane_grid else 0
+    tail = probe.lattice[0].point_count if probe.lattice and lattice_m is None else 0
+    lattice_at, plane_at, why = far_samples(
+        instant.samples,
+        lattice_m=lattice_m,
+        plane_count=count,
+        per_m=probe.per_m,
+        lattice_tail=tail,
+    )
+    if why:
+        raise PyflightstreamError(why)
+    out: dict[str, Any] = {}
+    if plane_at is not None and "trefftz:plane" in analyses:
+        out["plane"] = plane_values(
+            instant.samples,
+            plane_at,
+            flow=(rho, speed, alpha, beta),
+            grid=cast("tuple[float, float, float]", probe.plane_grid),
+            per_m=probe.per_m,
+        )
+    if lattice_at is None or probe.lattice is None:
+        return out
+    lattice, _points, axis = probe.lattice
+    hub = None
+    if probe.hub is not None:
+        hub = (probe.hub[0], probe.hub[1], probe.hub[2])
+    fields = lattice_samples(instant.samples, lattice_at, lattice, axis, q=q_ref, hub=hub)
+    if "trefftz:plane" in analyses and "plane" not in out:
+        station = _trefftz(ctx).station
+        station = float(lattice.stations[-1]) if station is None else float(station)
+        out["rotor"] = rotor_values(fields, rho=rho, speed=speed, station=station)
+    if "ledgers" in analyses:
+        near = (
+            -float(point.loads.total.get(f"C{axis.lower()}", _NA)) * q_ref * ctx.reference.sref_m2
+        )
+        out["ledgers"] = ledger_values(
+            fields, _ledgers(ctx), rho=rho, speed=speed, near=(near, ctx.reference.sref_m2)
+        )
+    return out
+
+
+def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: object):
+    rho, speed, _alpha, _beta = _flow(point)
+    qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    if "plane" in values:
+        plane = values["plane"]
+        cdi = plane["D"] / qs
+        cl = _near_field(point)[0]
+        aspect = float(ctx.reference.bref_m) ** 2 / float(ctx.reference.sref_m2)
+        e = cl * cl / (math.pi * aspect * cdi) if math.isfinite(cdi) and cdi else _NA
+        cells = {
+            "FAMILY": "TOTAL",
+            "VARIANT": "C",
+            "CDI_T": cdi,
+            "E_T": e,
+            "AR": aspect,
+            "N_TRACE": plane["N"],
+            "X_T_M": plane["X_T_M"],
+            "COVERAGE": plane["COVERAGE"],
+            "CDI_T_QERR": plane["D_QERR"] / qs,
+            "CDI_T_VORT": plane["D_VORT"] / qs,
+            "BERNOULLI_RESIDUAL": plane["RESIDUAL"] / qs,
+        }
+        return _row(ctx, point, step, cells)
+    rotor = values["rotor"]
+    cells = {"FAMILY": _ledgers(ctx).rotor, "VARIANT": "C", **rotor}
+    return _row(ctx, point, step, cells)
+
+
+def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: object):
+    name = _ledgers(ctx).rotor or _ledgers(ctx).frame
+    context = _context(ctx, point)
+    rows = []
+    for station in values["ledgers"]:
+        cells = {"LATTICE": name, **station}
+        rows.append((ctx.sim_id, step, *context, *(cells.get(c, _NA) for c in LEDGER_COLUMNS)))
     return rows
+
+
+def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], tables: _Tables):
+    """C and the ledgers of one point: steady, or instant and average (FR-38 R7, FR-456 R1)."""
+    spec = _spec(ctx)
+    record = ctx.record_of[point.name]
+    run_type = str(record.recipe or "steady")
+    unsteady = run_type in UNSTEADY_RUN_TYPES
+    key = f"{FARFIELD_DIR}/probes#point={point.name}"
+    rotor = run_type in ROTOR_RUN_TYPES
+    try:
+        probe = _locate(ctx, point, spec, rotor)
+        instants, why = _instants(ctx, point, unsteady)
+        if why:
+            raise PyflightstreamError(why)
+        if unsteady:
+            window = ctx.point_windows.get(point.name)
+            last = instants[-1]
+            chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
+        else:
+            last, chosen = instants[0], []
+        sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
+        averaged = [(i, _instant_values(ctx, point, i, probe, analyses)) for i in chosen]
+    except PyflightstreamError as error:
+        _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
+        return
+    runs = ctx.sources[point.name]
+    for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point):
+        c_rows = [
+            _c_row(ctx, point, values, inst.step)
+            for inst, values in group
+            if "plane" in values or "rotor" in values
+        ]
+        l_rows = [
+            _ledger_rows(ctx, point, values, inst.step)
+            for inst, values in group
+            if "ledgers" in values
+        ]
+        if suffix.endswith("average"):
+            c_rows = average_rows([[row] for row in c_rows], 2 + len(CONTEXT_COLUMNS) + 2)
+            l_rows = [average_rows(l_rows, 2 + len(CONTEXT_COLUMNS) + 1)] if l_rows else []
+        tables.extend(f"trefftz{suffix}", point.name, runs, c_rows)
+        tables.extend(f"ledgers{suffix}", point.name, runs, [r for rows in l_rows for r in rows])
+
+
+def _step(instant: _Instant) -> float:
+    step = instant.step
+    return float(step) if isinstance(step, int | float) else math.nan
+
+
+def _suffixes(unsteady: bool, sets: list, averaged: list, ctx: SimContext, point: PolarPoint):
+    if not unsteady:
+        return [("", sets)]
+    out = [("_instant", sets)]
+    if averaged:
+        out.append(("_average", averaged))
+    else:
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/average#point={point.name}",
+            point.name,
+            "the point has no "
+            "averaging window, or no plotted step inside it, so no average is written",
+        )
+    return out
+
+
+def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, str]]:
+    selected = []
+    if spec.trefftz is not None:
+        selected += [f"trefftz:{variant}" for variant in spec.trefftz.variant]
+    if spec.ledgers is not None:
+        selected.append("ledgers")
+    reasons = {a: applies(a, run_type, rotor=rotor) for a in selected}
+    return [a for a in selected if not reasons[a]], {a: r for a, r in reasons.items() if r}
+
+
+def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, dict[str, str]]:
+    """Return per point the super-file cells of its TOTAL rows, as the tables write them (R9)."""
+    first = 2 + len(CONTEXT_COLUMNS)
+    family = first + TREFFTZ_COLUMNS.index("FAMILY")
+    variant = first + TREFFTZ_COLUMNS.index("VARIANT")
+    out: dict[str, dict[str, str]] = {}
+    for row, point in rows:
+        if row[family] != "TOTAL":
+            continue
+        cells = out.setdefault(point, {})
+        for column in ("CL_T", "CDI_T", "E_T"):
+            cells[f"{column}_{row[variant]}"] = _cell(row[first + TREFFTZ_COLUMNS.index(column)])
+    return out
 
 
 def farfield_products(ctx: SimContext) -> None:
     """Write the far-field tables of one simulation (FR-456), or nothing without ``[farfield]``."""
     spec = getattr(ctx.pproc, "farfield", None)
-    if spec is None or spec.trefftz is None and spec.ledgers is None:
+    if spec is None:
         return
-    rows: list[tuple[object, ...]] = []
-    runs: list[str] = []
-    variants = list(spec.trefftz.variant) if spec.trefftz is not None else []
+    tables = _Tables()
     for point in ctx.points:
         record = ctx.record_of[point.name]
         run_type = str(record.recipe or "steady")
-        rotor = bool(getattr(ctx.live, "rotors", None)) and run_type != "steady"
-        before = len(rows)
-        for variant in variants:
-            why = applies(f"trefftz:{variant}", run_type, rotor=rotor)
-            key = f"{FARFIELD_DIR}/trefftz#point={point.name}#variant={variant}"
-            if why:
-                _skip(ctx, key, point.name, f"variant {variant} does not apply: {why}")
-            elif variant == "sections":
-                rows += _variant_a(ctx, point, spec.families, spec.trefftz.stations)
-            elif variant == "wake":
-                rows += _variant_b(ctx, point, spec.trefftz.distance_bref)
-            else:
-                _skip(
-                    ctx,
-                    key,
-                    point.name,
-                    "variant C reads the far-field plane the plan lays as "
-                    "probes, which this build does not lay yet",
-                )
-        if spec.ledgers is not None:
+        rotor = run_type in ROTOR_RUN_TYPES or (run_type == "steady" and _spins(ctx, record))
+        analyses, refused = _analyses(spec, run_type, rotor)
+        for analysis, reason in refused.items():
             _skip(
                 ctx,
-                f"{FARFIELD_DIR}/ledgers#point={point.name}",
+                f"{FARFIELD_DIR}/{analysis}#point={point.name}",
                 point.name,
-                "the balances read the survey lattice the plan lays as probes, which this "
-                "build does not lay yet",
+                f"{analysis} does not apply: {reason}",
             )
-        if len(rows) > before:
-            runs += [run for run in ctx.sources[point.name] if run not in runs]
-    if not rows:
-        return
-    path = ctx.target(ctx.out / FARFIELD_DIR / f"{ctx.sim_id}_{ctx.table_name}_trefftz.csv")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_csv_table(path, ("POL", "STEP", *CONTEXT_COLUMNS, *TREFFTZ_COLUMNS), rows)
-    ctx.add(
-        path,
-        {
-            "runs": runs,
-            "analysis": "trefftz",
-            "variants": variants,
-            "strip_rule": "extended",
-        },
-    )
+        runs = ctx.sources[point.name]
+        steady_rows = []
+        if "trefftz:sections" in analyses:
+            steady_rows += _variant_a(ctx, point)
+        if "trefftz:wake" in analyses:
+            steady_rows += _variant_b(ctx, point)
+        tables.extend("trefftz", point.name, runs, steady_rows)
+        if "trefftz:plane" in analyses or "ledgers" in analyses:
+            _probe_point(ctx, point, analyses, tables)
+    _write(ctx, spec, tables)
+    ctx.farfield_super.update(_super_cells(tables.super_rows()))
+
+
+def _spins(ctx: SimContext, record: object) -> bool:
+    """Whether a steady row turns a rotor: an ``RPM`` on its point, its row or a motion."""
+    stated = dict(getattr(ctx.matrix_row, "variables", None) or {})
+    stated.update(getattr(record, "point", None) or {})
+    return any(str(name).upper() in ("RPM", "MOTIONS") for name in stated)
+
+
+def _write(ctx: SimContext, spec, tables: _Tables) -> None:
+    variants = list(spec.trefftz.variant) if spec.trefftz is not None else []
+    for suffix, rows in tables.rows.items():
+        analysis = suffix.split("_")[0]
+        columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
+        path = ctx.target(ctx.out / FARFIELD_DIR / f"{ctx.sim_id}_{ctx.table_name}_{suffix}.csv")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_csv_table(path, ("POL", "STEP", *CONTEXT_COLUMNS, *columns), rows)
+        entry: dict[str, object] = {
+            "runs": tables.runs[suffix],
+            "analysis": analysis,
+            "variants": variants if analysis == "trefftz" else [],
+            "inputs": tables.inputs.get(suffix, {}),
+        }
+        if "_" in suffix:
+            entry["reduction"] = suffix.split("_")[1]
+        if analysis == "trefftz" and "sections" in variants:
+            entry["strip_rule"] = "extended"
+        ctx.add(path, entry)

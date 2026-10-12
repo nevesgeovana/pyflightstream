@@ -27,6 +27,8 @@ The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
 by it. A product family of the backlog joins as one more step here, reading
 the context and writing into its sinks.
+
+Size exemption: the one context and the one step table of the post; a family joins here.
 """
 
 from __future__ import annotations
@@ -219,6 +221,8 @@ class SimContext:
     )
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
+    #: FR-456 R9 (0.40.0): per point, the far-field cells of its super-file row.
+    farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
     #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
@@ -1329,6 +1333,9 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
+            # FR-456 R9 (0.40.0): the far-field TOTAL cells, after every other key.
+            for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
+                row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.
             row[MESH_FACES_COLUMN] = _mesh_faces_of(
                 ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0]), point.name

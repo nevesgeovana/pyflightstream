@@ -163,6 +163,8 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
 **Input.** The wake export `<name>_wakes.vtk`: the solver's wake lines, one per
 trailing-edge node, as chains of segments, each line carrying one value,
 proportional to the potential jump of its wake strip, constant along the line.
+Its coordinates are in the simulation's length unit, which post reads from the
+point's saved simulation; a point whose unit cannot be read is a named skip.
 
 **Trace.** The plane normal to the free stream at `distance_bref BREF` behind
 the most downstream point of the selected families. Each wake line is cut at its
@@ -206,7 +208,10 @@ rectangular grid normal to the free stream of each point (it turns with the
 angle of attack and the sideslip), centered on the free-stream line through the
 moment reference point, at `distance_bref BREF` behind the selected families;
 for a rotor, one station of its survey lattice. Velocities are turned to wind
-axes (wing) or lattice axes (rotor); the static pressure is `p - p_inf = Cp q`.
+axes (wing) or lattice axes (rotor); the static pressure is `p - p_inf = Cp_ref q_ref`,
+the export's coefficient on the reference velocity, which a rotor at rest still has
+(on a wing at speed with the reference velocity the free stream, `Cp q`). The
+probe positions are in the simulation's length unit, read as for Trefftz B.
 
 **Induced drag, the crossflow energy (Munk).**
 

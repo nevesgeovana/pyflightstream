@@ -171,6 +171,7 @@ MATURITY = {
     "pyflightstream.post.writers": "stable",
     # 0.40.0 (FR-456): the far-field product family.
     "pyflightstream.post.farfield_products": "provisional",
+    "pyflightstream.post.farfield_fields": "provisional",
     # v0.30.0: probes/__init__.py
     "pyflightstream.probes": "stable",
     # 0.40.0 (FR-459): the one home of probe geometry, split out of the root.

@@ -288,8 +288,15 @@ def test_p0400_rothalpy_the_two_functions_left_for_itaca(name):
 
 @pytest.mark.requirement("FR-458")
 def test_p0400_rothalpy_upgrading_names_both_functions_and_why():
-    """P0400-ROTHALPY (FR-458 R1): the upgrading page names both, the release and the reason."""
+    """P0400-ROTHALPY (FR-458 R1): the release's migration entries name both and the reason.
+
+    The entries ride in the change-log fragment until the release folds it
+    into the migration page; either place answers.
+    """
+    fragment = REPO / "changelog.d" / "farfield.md"
     page = (REPO / "docs" / "upgrading.md").read_text(encoding="utf-8")
+    if fragment.is_file():
+        page += fragment.read_text(encoding="utf-8")
     assert "rothalpy" in page and "irreversible_deficit" in page
     assert "ITACA" in page and "total enthalpy" in page
 
