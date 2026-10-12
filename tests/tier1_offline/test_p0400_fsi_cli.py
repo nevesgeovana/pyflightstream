@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_p0400_stepecho_an_explicit_step_says_why_it_failed(tmp_path, capsys):
     """P0400-STEPECHO: the console gets the cause and the log's path."""
     stage_run(tmp_path)  # no loads file: the coupled call fails
-    assert cli.main(["step", "--dir", str(tmp_path)]) == 1
+    assert cli.main(["step", "--out", str(tmp_path)]) == 1
     err = capsys.readouterr().err
     assert "pyfs-fsi step failed: FileNotFoundError" in err
     assert str(tmp_path / cli.ERROR_LOG) in err

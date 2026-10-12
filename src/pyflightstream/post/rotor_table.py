@@ -36,6 +36,8 @@ from pyflightstream.cases import (
     select_group_members,
 )
 from pyflightstream.cases.workflows import (
+    advancing_tip_mach_number,
+    free_stream_direction_at,
     rotor_mach_numbers,
 )
 from pyflightstream.post._tables import (
@@ -240,7 +242,10 @@ def rotor_shaft_loads(
     # from the documented static row. Every fixture used exact surface names, so
     # no test in the range could fail on it; a V&V round read it instead.
     families = [str(name) for name in getattr(rotor, "members", [])]
-    owned = {name.casefold() for name in select_group_members(families, list(surfaces), aliases)}
+    owned = {
+        name.casefold()
+        for name in select_group_members(families, list(surfaces), aliases, strict=False)
+    }
 
     force = [0.0, 0.0, 0.0]
     moment = [0.0, 0.0, 0.0]
@@ -745,6 +750,7 @@ def write_rotor_table(
         f"MTIP_{alias}",
         f"MHEL_{alias}",
         *(f"{name}_{alias}" for name in ROTOR_IN_PLANE_COLUMNS),
+        f"MADV_{alias}",
     )
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
     # 0.31.0 (G8): the rotor's (T, S, N) axes are the same for every row, so
@@ -923,10 +929,19 @@ def write_rotor_table(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+        eta = coefficients.get("ETA")
+        if isinstance(eta, int | float) and eta > 1:
+            warn(
+                f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias} "
+                f"efficiency ETA={eta:g} exceeds 1; check the wake and loads.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
         # 0.30.0 (M1): `NA` where the point's air did not resolve, never a guess.
         machs: tuple[float | None, float | None] = (None, None)
+        madv: float | None = None
         air = row.get("air")
         if (
             isinstance(air, tuple)
@@ -940,10 +955,24 @@ def write_rotor_table(
                     velocity_m_per_s=float(air[0]),
                     sonic_velocity_m_per_s=float(air[1]),
                 )
+                # FR-176 R1: the advancing tip, on the rotor's own axis and the
+                # row's attitude (an unstated angle is zero, as in the loads above).
+                madv = advancing_tip_mach_number(
+                    rpm=rpm,
+                    diameter_m=diameter,
+                    velocity_m_per_s=float(air[0]),
+                    sonic_velocity_m_per_s=float(air[1]),
+                    flow_direction=free_stream_direction_at(
+                        angles[0] if angles[0] is not None else 0.0,
+                        angles[1] if angles[1] is not None else 0.0,
+                    ),
+                    axis=shaft,
+                )[0]
             except ValueError:
                 # A speed of sound or a velocity that is not a positive
-                # finite number costs these two cells and never the row.
+                # finite number costs these cells and never the row.
                 machs = (None, None)
+                madv = None
         written.append(
             (
                 pol,
@@ -954,6 +983,7 @@ def write_rotor_table(
                 *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
                 *machs,
                 *(coefficients[name] for name in ROTOR_IN_PLANE_COLUMNS),
+                madv,
             )
         )
         emitted.append(run_id)

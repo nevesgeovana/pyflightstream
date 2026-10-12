@@ -29,6 +29,7 @@ from pyflightstream.results.core import (
 )
 
 __all__ = [
+    "lifting_log_warnings",
     "RESTART_MARKER",
     "FrozenSolve",
     "LogSegment",
@@ -550,6 +551,18 @@ def parse_log_times(text: str) -> LogTimes:
 _IMPORTED_TRAILING_EDGES_LINE = re.compile(
     r"^\s*(\d+) trailing edges? imported for boundary (.+?)\s*$", re.M
 )
+
+
+def lifting_log_warnings(log_text: str) -> list[str]:
+    """Name explicitly zero trailing-edge or growing-wake counts in a lifting log."""
+    messages = []
+    if re.search(r"(?im)^\s*0 trailing edges? (?:found|marked|created)\b", log_text):
+        messages.append(
+            "the solver reports zero trailing edges; check the lifting geometry and detection"
+        )
+    if re.search(r"(?im)\b0 (?:wake )?strands? marked for growth\b", log_text):
+        messages.append("the solver reports zero wake strands; check the lifting wake")
+    return messages
 
 
 def imported_trailing_edges(log_text: str) -> dict[str, int]:

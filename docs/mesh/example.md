@@ -138,10 +138,7 @@ coordinate line the solver consumes, and the eight points in metres:
 1.0,1.75,0.0
 ```
 
-**Read the unit once more before copying this.** The mesh is in millimetres,
-as a CAD export usually is, which puts the example on the one question above
-that no build has answered: whether `IMPORT` converts the body into metres. If
-it does not, the body the solver holds is not the one the node file describes,
+**Read the unit once more before copying this.** Conversion was measured on 26.124 with detected edges: the millimetre OBJ matched the metre version to the print (RPT-069). The millimetre file route and other builds are not measured. The file route in millimetres and other builds remain unmeasured.
 none of this example's points lies on it, and the count check records each
 point `FAILED_SCRIPT` rather than letting a solve of the wrong body pass.
 Written in metres, the mesh and the points file both, the example does not

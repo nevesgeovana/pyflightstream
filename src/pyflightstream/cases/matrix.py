@@ -1879,6 +1879,7 @@ def convert_matrix(
         # and the round trip through load_campaign stays lossless (FR-11).
         f"matrix_stem = {_toml_value(campaign.matrix_stem)}",
     ]
+    _refuse_unbound_conversion_builds(campaign, fs_version)
     for sim in campaign.sims:
         lines += [
             "",
@@ -1934,14 +1935,33 @@ def convert_matrix(
     return "\n".join(lines) + "\n"
 
 
+def _refuse_unbound_conversion_builds(campaign: Campaign, fs_version: str) -> None:
+    """Refuse per-row installations that a standalone conversion cannot bind."""
+    if not campaign.sims:
+        return
+    default_build = (
+        fs_version.strip() or str(campaign.sims[0].variables.get("matrix_fs_build", "")).strip()
+    )
+    for sim in campaign.sims:
+        build = str(sim.variables.get("matrix_fs_build", "")).strip()
+        if (
+            build not in (*UNSTATED_CELLS, default_build, campaign.fs_version)
+            and build.upper() != "MANUAL"
+        ):
+            raise MatrixError(
+                f"POL {sim.sim_id}: FS_BUILD {build!r} differs from campaign default "
+                f"{campaign.fs_version!r}; conversion cannot bind a per-row installation. "
+                "Run the matrix through its workspace build registry, or use one default build."
+            )
+
+
 def _record_tables(sim: SimCase) -> list[str]:
     """Return the arrays of tables of a case's record lists, in campaign.toml text.
 
     THE RECORD LISTS ARE PART OF THE CASE TOO (FR-11): the reader pops MOTIONS,
     ROTATE, TRANSLATE and RAW out of the variables, so a writer that stopped at
-    ``[sim.variables]`` dropped them. The row's build rides in the variables as
-    ``matrix_fs_build``; ``SimCase.fs_build`` is a workspace binding this
-    conversion does not set.
+    ``[sim.variables]`` dropped them. Conversion refuses a row build that
+    differs from the default because it cannot bind that installation.
     """
     records = [("motions", record) for record in sim.motions]
     records += [("rotations", record) for record in sim.rotations]

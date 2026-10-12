@@ -186,7 +186,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     steady = workflow in STEADY_RUN_TYPES
     if workflow not in UNSTEADY_WORKFLOWS and not steady:
         return LEFT_OUT_REASONS["run_type"].format(workflow=workflow or "LEGACY")
-    if case.fsi is not None and steady:
+    if (case.fsi is not None or case.fsi_external is not None) and steady:
         return LEFT_OUT_REASONS["coupled"]
     warm = _warm_steady(case, steady)
     if warm is not None:
@@ -396,7 +396,7 @@ def _job_of(
         walltime_s=walltime,
         walltime_written=walltime_text(walltime, split=split) if walltime is not None else "",
         walltime_source=source,
-        fits=fits is not False,
+        fits=fits,
         shortfall_s=short,
     )
     return job, warnings, refusal

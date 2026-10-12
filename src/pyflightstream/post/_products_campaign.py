@@ -22,8 +22,7 @@ from pyflightstream.post._settings_product import write_settings_product as writ
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
-from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix
-from pyflightstream.workspace._missing_log import missing_log_warning
+from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow

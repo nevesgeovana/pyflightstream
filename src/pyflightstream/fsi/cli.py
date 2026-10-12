@@ -150,7 +150,12 @@ def coupled_step(
         with _textio.open_text(cwd / ERROR_LOG, "a") as log:
             log.write(f"{stamp} coupled step failed in {cwd} ({argv_note})\n")
             log.write(traceback.format_exc() + "\n")
-        _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"failed_{stamp.replace(':', '-')}")
+        try:
+            _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"failed_{stamp.replace(':', '-')}")
+        except OSError as archive_error:
+            # Archival is evidence of this failure, not a replacement for it.
+            with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+                log.write(f"could not archive the failed call: {archive_error}\n")
         if echo_failure:
             _echo_failure(cwd, f"{type(exc).__name__}: {exc}")
         return 1
@@ -267,9 +272,25 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     p_init = sub.add_parser("init-dummy", help="write the dummy configuration into a run directory")
     p_init.add_argument("--node-count", type=int, required=True)
-    p_init.add_argument("--dir", type=Path, default=Path.cwd())
+    init_out = p_init.add_mutually_exclusive_group()
+    init_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    init_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
     p_step = sub.add_parser("step", help="execute one coupling step explicitly")
-    p_step.add_argument("--dir", type=Path, default=Path.cwd())
+    step_out = p_step.add_mutually_exclusive_group()
+    step_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    step_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
+    p_external = sub.add_parser(
+        "external",
+        help=(
+            "run one coupling call of an external structural program: run it, archive "
+            "and validate the call (FR-462)"
+        ),
+    )
+    external_out = p_external.add_mutually_exclusive_group()
+    external_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    external_out.add_argument(
+        "--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out"
+    )
     return parser
 
 
@@ -293,18 +314,31 @@ def main(argv: list[str] | None = None) -> int:
         # FlightStream calls the executable bare: one coupling step,
         # coupled when the working directory carries a config.json.
         return _step(Path.cwd())
-    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
+    if argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
         # Unknown call convention: the Toolbox may pass arguments of its
         # own. Execute the coupling step anyway and record the arguments
         # as evidence instead of dying on argparse.
         return _step(Path.cwd(), received_argv=tuple(argv))
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "legacy_dir", None) is not None:
+        from pyflightstream._errors import PyflightstreamWarning, warn
+
+        warn(
+            "--dir is deprecated since 0.40.0; use --out for the identical result.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        args.dir = args.legacy_dir
     if args.command == "init-dummy":
         if args.node_count < 1:
             parser.error("a structural node list has at least one node")
         init_dummy(args.dir, args.node_count)
         return 0
+    if args.command == "external":
+        from pyflightstream.fsi.external import external_step
+
+        return external_step(args.dir)
     # The explicit step is run by a person at a console, so its failure is
     # also said there (PFS-2085.003); the bare call above is the solver's.
     return _step(args.dir, echo_failure=True)

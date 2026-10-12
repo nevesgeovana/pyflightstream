@@ -308,12 +308,10 @@ def settings_table(
         ``run_index`` is the 0-based position in this sequence.
     wide : bool, keyword-only
         One row per run instead of one row per run and flag. Each flag
-        contributes ``f<id>_value`` and ``f<id>_prov``, never one column
-        doing both jobs. Two columns suffice here and three are needed
-        in the tidy form for a structural reason: a per-flag column is
-        monomorphic, so ``f15_value`` always holds an enumeration code
-        and ``f11_value`` always holds a count, whereas one shared
-        ``value`` column would hold both.
+        contributes ``f<id>_value``, ``f<id>_prov`` and ``f<id>_kind``.
+        The kind distinguishes enumeration codes from list lengths for
+        boundary flags that accept either ``all`` or a list of boundaries.
+        The code meanings remain those of codebook version 1.
     fill : int, optional
         NUMERIC value written into a CODE column that does not apply, for a
         tool that needs a number there rather than a token. 999 is the
@@ -327,7 +325,7 @@ def settings_table(
         no longer the answer to a blank; it is the answer to a tool that
         needs the column to stay NUMERIC, which `NA` does not satisfy and
         999 does. A caller who passed it to avoid blanks can stop. The wide
-        form has no code column, so the fill reaches nothing there.
+        form fills only an absent ``f<id>_kind``, never ``f<id>_value``.
     fill_values : bool, keyword-only
         Ask for the VALUE columns to be filled too. Always REFUSED, and
         the refusal names the flags whose legal range contains the fill:
@@ -363,7 +361,7 @@ def settings_table(
     if not wide:
         return [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, fill)]
     # THE WIDE FORM IS PROJECTED FROM THE UNFILLED ROWS (PFS-2105.019): it has
-    # no code column for the fill to reach, and its `f<id>_value` is a value
+    # `f<id>_value` is a value
     # column, which never carries the sentinel; filled first, a list-valued
     # flag's 999 code was carried into it in place of its length.
     tidy = [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, None)]
@@ -380,6 +378,7 @@ def settings_table(
             carried = row["value_count"]
         wide_row[f"f{flag_id}_value"] = carried
         wide_row[f"f{flag_id}_prov"] = row["provenance_code"]
+        wide_row[f"f{flag_id}_kind"] = row["value_kind"] if row["value_kind"] is not None else fill
     return [by_run[run] for run in sorted(by_run)]
 
 

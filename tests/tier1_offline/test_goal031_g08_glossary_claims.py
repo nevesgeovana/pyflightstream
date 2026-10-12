@@ -59,6 +59,7 @@ from pyflightstream.cases import (
     case_at_point,
 )
 from pyflightstream.cases.acoustics import with_acoustic_signals
+from pyflightstream.cases.sixdof import SixDofSpec
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -68,17 +69,23 @@ from pyflightstream.cases.workflows import (
     build_steady_sweep,
     covered_builds,
     select_workflow,
+    sixdof_commands,
 )
+from pyflightstream.commands import Status
 from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.run._ids import _is_cold_start
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import read_raw_mesh_conditions
 from pyflightstream.workspace.matrix import _bind_setup_ports
+from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
 from tests.tier1_offline.test_workflows import (
+    _case_for,
+    _wb_geometry,
+    _with_pproc,
     qsteady_case,
     rotor_case,
     steady_case,
@@ -340,6 +347,23 @@ def _fsi_factor(key: str) -> Variation:
     )
 
 
+def _sixdof(tmp: Path, mass_kg: float) -> SimCase:
+    """A body free in pitch (FR-461), as the plan resolves ``SIXDOF: d001``, at one mass."""
+    spec = SixDofSpec.model_validate(
+        {
+            "families": ["W"],
+            "frame": "MRP",
+            "mass": {"mass_kg": mass_kg, "inertia_kg_m2": [0.05, 0.31, 0.33, 0.0, 0.0, 0.0]},
+            "free": {"q": True},
+            "export": {"trajectory": False},
+        }
+    )
+    case = _with_pproc(_case_for("unsteady"), _wb_geometry(tmp), pproc=None)
+    return case.model_copy(
+        update={"sixdof": spec, "variables": {**case.variables, "SIXDOF": "d001"}}
+    )
+
+
 def _rows(
     make: Callable[..., SimCase], key: str, first: str, second: str, **context: str
 ) -> Variation:
@@ -464,6 +488,8 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda tmp: _fsi_row(tmp, _SUPPLIED), lambda tmp: _fsi_row(tmp, _SUPPLIED_STIFFER)
     ),
     **{key: _fsi_factor(key) for key in MATRIX_FACTORS},
+    # 0.40.0 (FR-461): the case field stands for the key, as for FSI.
+    "SIXDOF": Variation(lambda tmp: _sixdof(tmp, 4.2), lambda tmp: _sixdof(tmp, 5.0)),
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
     "COLD_START": Variation(
         lambda _: steady_case(COLD_START="false"),
@@ -903,7 +929,15 @@ class Outcome:
 
 
 def _render(case: SimCase, build: str, sweep: bool) -> tuple[str | None, str]:
-    script = Script(build)
+    # 0.40.0: the evidence gate of the command gap (FR-461 R-GATE) is held by its
+    # own tests; here a SIXDOF row is measured for what its value sets, so it is
+    # built against the database with its 6DOF commands recorded verified.
+    script = Script(
+        build,
+        None
+        if case.sixdof is None
+        else registry_with(sixdof_commands(case.sixdof), build, Status.VERIFIED),
+    )
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

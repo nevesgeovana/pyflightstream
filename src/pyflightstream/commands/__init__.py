@@ -224,6 +224,11 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
                 f"{name}: joins_previous requires a keyword_block layout and a "
                 "preceding argument line to append to"
             )
+        anchor = args[position - 1]
+        if anchor.is_list or anchor.type is ArgType.BOOL or anchor.on_command_line:
+            raise CommandDatabaseError(
+                f"{name}: {arg.name!r} joins {anchor.name!r}, which is not a scalar keyword line"
+            )
 
 
 class VersionStatus(BaseModel):
@@ -407,6 +412,8 @@ class CommandEntry(BaseModel):
         the loader and used to group the generated reference.
     layout : Layout
         Script layout grammar.
+    terminator : str, optional
+        Single keyword closing a keyword block, such as PHYSICS END.
     phase : Phase
         Emission phase used by the script builder's ordering check.
     args : tuple of ArgSpec
@@ -464,6 +471,7 @@ class CommandEntry(BaseModel):
     name: str
     chapter: str = ""
     layout: Layout
+    terminator: str | None = None
     phase: Phase
     args: tuple[ArgSpec, ...] = ()
     manual_ref: str = ""
@@ -472,6 +480,17 @@ class CommandEntry(BaseModel):
     notes: str | None = None
     default: int | float | str | tuple[int, ...] | None = None
     default_ref: str | None = None
+
+    @model_validator(mode="after")
+    def _terminator_closes_a_keyword_block(self) -> CommandEntry:
+        """Require a single keyword token closing a keyword block."""
+        if self.terminator is not None and (
+            self.layout is not Layout.KEYWORD_BLOCK
+            or not self.terminator
+            or not self.terminator.isidentifier()
+        ):
+            raise ValueError(f"{self.name}: terminator needs a keyword block and one keyword token")
+        return self
 
     @model_validator(mode="before")
     @classmethod

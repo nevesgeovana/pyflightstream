@@ -336,8 +336,6 @@ SET_OUTFLOW_TRAILING_EDGES:
   args:
     - name: base_region_boundary
       type: int
-      cites: boundaries
-      all_sentinel: -1
   manual_ref: "SRC-750 p.331"
   notes: >
     Marks the trailing edges of a base region as outflow edges,
@@ -387,8 +385,6 @@ SET_OUTLET_TRAILING_EDGES:
   args:
     - name: base_region_boundary
       type: int
-      cites: boundaries
-      all_sentinel: -1
   manual_ref: "SRC-751 p.331"
   notes: >
     Marks the trailing edges of a base region as outlet edges. The

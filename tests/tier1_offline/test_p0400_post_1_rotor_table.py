@@ -22,9 +22,7 @@ from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rot
 def _row(run_id: str = "camp/sim_1/P1", **update):
     row = {
         "run_id": run_id,
-        # A torque, so CP is not zero: a zero power is itself an NA efficiency,
-        # and ETAW would then read NA on every row for that reason instead.
-        "surfaces": _surfaces(Blade1={"Cz": 0.5, "Cx": 0.2, "CMz": 0.05}),
+        "surfaces": _surfaces(Blade1={"Cz": 0.5, "Cx": 0.2, "CMz": 0.1}),
         "condition": {"MACH": 0.15, "ALPHA": 0.0, "BETA": 0.0, "VINF": 40.0, "J": 0.5},
         "rpm": 3000.0,
         "density": 1.225,

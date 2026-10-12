@@ -70,7 +70,6 @@ from pyflightstream.run._continuation_frame import (
 from pyflightstream.run._executors import (
     Executor,
     SolverBuild,
-    Submitting,
     _clock,
 )
 from pyflightstream.run._identity import (
@@ -179,11 +178,10 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
 
     PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
     same rule: the products are derived from the manifest and the collected
-    exports, so rewriting them after a resume adds the new points and can
-    destroy nothing, and a write error must not replace the campaign's own
-    outcome. ``pyfs-matrix post`` is the same writer run by hand; it archives
-    each existing product before rewriting it, and only ``--force-overwrite``
-    keeps no copy.
+    exports, so rewriting them after a resume adds the new points, and a write
+    error must not replace the campaign's own outcome. ``pyfs-matrix post`` is
+    the same writer run by hand; it writes no archive by default (FR-397), and
+    ``--archive`` opts into copying products before rewriting them.
     """
     where = workspace.products_dir(matrix_stem)
     try:
@@ -939,7 +937,9 @@ def _start_campaign_progress(state: _CampaignState) -> None:
 def _prepare_campaign_case(state: _CampaignState) -> None:
     """Prepare campaign case."""
     state.case_executor = state.build.executor if state.build is not None else state.executor
-    state.runs_here = not isinstance(state.case_executor, Submitting)
+    from pyflightstream.run._executors import submits_jobs
+
+    state.runs_here = not submits_jobs(state.case_executor)
     state.case_version = (
         state.build.fs_version if state.build is not None else state.campaign.fs_version
     )
@@ -1601,7 +1601,9 @@ def _prepare_case(
                 None,
             )
         inputs_sha256 = {**inputs_sha256, field.name: file_sha256(field)}
-    if case.fsi is not None and case.fsi_provenance.get("source"):
+    if (case.fsi is not None or case.fsi_external is not None) and case.fsi_provenance.get(
+        "source"
+    ):
         source = Path(str(case.fsi_provenance["source"]))
         expected = case.fsi_provenance.get("source_sha256")
         if not source.is_file() or file_sha256(source) != expected:

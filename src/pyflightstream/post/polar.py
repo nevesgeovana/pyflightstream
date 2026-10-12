@@ -376,7 +376,7 @@ def group_coefficients(
     used: list[str] = []
     selected: list[str] = []
     if families or empty_is_every:
-        selected = select_group_members(families, list(loads.surfaces), aliases)
+        selected = select_group_members(families, list(loads.surfaces), aliases, strict=False)
     # THE SPLIT AS THE TABLE PRINTS IT (FR-423): ``CDi, CDo`` up to 26.124,
     # ``CDp, CDv`` on 26.125, never one read under the other's name.
     induced_key, profile_key = drag_pair(loads.total)

@@ -31,7 +31,6 @@ schema_version = 1
 [defaults]
 fs_version = "26.124"
 cost_file = "c001"
-accept_unregistered_build = true
 
 [log]
 console = "quiet"
@@ -44,6 +43,13 @@ hpc = "h001"
 
 ## What a file may set
 
+`runs` is per invocation and refused in both files. `fs_exe` and `local`
+are accepted only in `pyfs.local.toml`. Both files refuse
+even false: use an entry in
+`inputs/executables.local.toml` or the typed flag. Keys for console detail
+under `[defaults]` are refused with a `[log] console` remedy;
+`pproc_warnings` belongs under `[log]` too.
+
 A key of `[defaults]` is a long option without its leading dashes, inner
 dashes written as underscores (`--cost-file` is `cost_file`). It applies to
 every command that takes that option and is left unused by a command that
@@ -51,7 +57,7 @@ does not. Each value has the type its option takes.
 
 | table | keys |
 |---|---|
-| `[defaults]` | `fs_version`, `hpc`, `cost_file`, `runs`, `accept_unregistered_build`, `fs_exe`, `point_name`, `recipe`, `workflow`, `ignore_missing_families`, `check_frozen`, `progress_every`, `local` |
+| `[defaults]` | `fs_version`, `hpc`, `cost_file`,  `fs_exe`, `point_name`, `recipe`, `workflow`, `ignore_missing_families`, `check_frozen`, `progress_every`, `local` |
 | `[log]` | `console` (`"quiet"`, `"normal"` or `"verbose"`), `pproc_warnings` |
 
 Each of these is refused before any work, with a message naming the key (or
@@ -105,12 +111,9 @@ same activity log apart from its times.
 ## Accepting an unregistered build
 
 A run whose installed build differs from the registered one is refused unless
-the build is accepted. It is accepted by any of three routes:
+the build is accepted. It is accepted by either of two routes:
 
 - `--accept-unregistered-build` typed on the command;
-- the workspace acceptance: `accept_unregistered_build = true` in `[defaults]`,
-  once `pyfs.local.toml` is overlaid on `pyfs.toml` (so a `false` in
-  `pyfs.local.toml` withdraws a `true` in `pyfs.toml`);
 - the entry acceptance: `accept_unregistered_build = true` on the table-valued
   build entry of `inputs/executables.local.toml` that the row selects, which
   accepts the installed build of that entry only; a row naming another version
@@ -130,10 +133,8 @@ does, naming where the acceptance came from.
 `plan.json` and every run record carry `settings_sources`, an object mapping
 each option whose value was taken from a file to the file that supplied it,
 `"pyfs.toml"` or `"pyfs.local.toml"`. Its key `accept_unregistered_build` names
-the source of the acceptance: `"pyfs.toml"`, `"pyfs.local.toml"`,
-`"executables.local.toml"` or `"typed"`. When more than one route accepts, the
-source is the first that accepts of: typed, the workspace acceptance, the
-entry. For example:
+the source of the acceptance: `"executables.local.toml"` or `"typed"`. When more than one route accepts, the
+source is the first that accepts of: typed, then the entry. For example:
 
 ```json
 "settings_sources": {

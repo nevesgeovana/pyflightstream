@@ -235,7 +235,11 @@ def _plan_marking(
     already: list[str] = []
     for row in chosen:
         sim = str(row.get("sim_id"))
-        if sim in ids and row.get("status") == RunStatus.FAILED_MARKED:
+        if (
+            sim in ids
+            and not row.get("points_ran")
+            and row.get("status") == RunStatus.FAILED_MARKED
+        ):
             already.append(str(row["run_id"]))
             continue
         units = [
@@ -248,6 +252,19 @@ def _plan_marking(
         if marking:
             todo.append((row, marking))
     return todo, already
+
+
+def _marked_points(todo: list[_Marking], *, applied: bool = False) -> list[dict[str, Any]]:
+    """Describe the selected points with the status each had before marking."""
+    return [
+        {
+            "sim_id": str(row.get("sim_id")),
+            "run_id": run_id,
+            "from": unit["marked"]["from"] if applied else unit.get("status"),
+        }
+        for row, marking in todo
+        for run_id, unit in marking
+    ]
 
 
 def _read_manifest_rows(manifest: Path) -> list[dict[str, Any]]:
@@ -357,11 +374,7 @@ def mark_failed(
     todo, already = _plan_marking(_read_manifest_rows(manifest), manifest, ids, only)
     result: dict[str, Any] = {
         "applied": False,
-        "marked": [
-            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": unit.get("status")}
-            for row, marking in todo
-            for run_id, unit in marking
-        ],
+        "marked": _marked_points(todo),
         "already": already,
         "reason": reason,
     }
@@ -383,11 +396,7 @@ def mark_failed(
     result.update(
         applied=True,
         runs_archived_as=_relative(base, archived),
-        marked=[
-            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": unit["marked"]["from"]}
-            for row, marking in todo
-            for run_id, unit in marking
-        ],
+        marked=_marked_points(todo, applied=True),
         already=already,
     )
     return result

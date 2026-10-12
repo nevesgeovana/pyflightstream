@@ -380,15 +380,24 @@ class ComponentGrid:
         # 0 and not through 180 (PFS-2081.18); a cell whose phases lie within
         # half a turn of one another interpolates exactly as plain numbers do.
         corners = [
-            self._corner(brackets, corner)
+            (share, row)
             for corner in itertools.product((0, 1), repeat=len(brackets))
+            for share, row in [self._corner(brackets, corner)]
+            if share != 0.0
         ]
         reference = corners[0][1].phase_1p_deg
-        for share, row in corners:
-            if share == 0.0:
-                continue
+        phases = [_on_the_shorter_arc(row.phase_1p_deg, reference) for _, row in corners]
+        if max(phases) - min(phases) > 180.0:
+            return Lookup(
+                None,
+                cell,
+                reason=(
+                    f"the {self.component} calibration phase spans more than half a turn "
+                    "among contributing corners; refine the grid to state an unambiguous arc"
+                ),
+            )
+        for (share, row), nearest in zip(corners, phases, strict=True):
             offset, gain_0p, gain_1p, phase = row.coefficients()
-            nearest = _on_the_shorter_arc(phase, reference)
             for position, value in enumerate((offset, gain_0p, gain_1p, nearest)):
                 total[position] += share * value
         return Lookup((total[0], total[1], total[2], total[3]), cell)

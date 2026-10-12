@@ -469,8 +469,8 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     3. Failing both, None: the caller then averages over the window the record
        defaulted to (:func:`_defaulted_window`) and says so in a warning.
 
-    Returns None rather than raising for every shape it cannot resolve: a
-    malformed record costs this product and never the stage.
+    Returns None for a malformed record. An invalid stated matrix window raises
+    CampaignConfigError, which admission records as a named refusal for this run.
     """
     if matrix_row is None:
         return None

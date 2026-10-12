@@ -44,6 +44,7 @@ from pyflightstream.cases import (
     TrailingEdgeMarking,
 )
 from pyflightstream.cases._ccs import CCS_FORMATS
+from pyflightstream.cases._geometry_instruction import BUILD_RECORD_SUFFIX, INSTRUCTION_SUFFIX
 from pyflightstream.cases.workflows._vocabulary import (
     CAD_FORMATS,
     RAW_MESH_FORMATS,
@@ -113,10 +114,11 @@ INVENTORY_SUFFIX = ".boundaries.toml"
 #: its stem the same way. The package writes none: the tier-3 preparer and
 #: a user do, and the library carries it beside the file it describes.
 PROVENANCE_SUFFIX = ".provenance.toml"
-#: The two files that belong to a geometry and are never geometries
-#: themselves: the resolver leaves them out of what a cell could name and
-#: the layout migration moves them with their geometry (PFS-2032.05).
-SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX)
+#: The files that belong to a geometry and are never geometries themselves:
+#: the resolver leaves them out of what a cell could name and the layout
+#: migration moves them with their geometry (PFS-2032.05). Since 0.40.0 the
+#: geometry stage's instruction and build record are two of them (FR-470, FR-471).
+SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX, INSTRUCTION_SUFFIX, BUILD_RECORD_SUFFIX)
 #: The page ``init`` leaves in the geometry library saying where a mesh goes
 #: (PFS-2032.07). It lives HERE, beside the suffixes, rather than beside the
 #: text it names, because the resolver and the writer are the two ends of one

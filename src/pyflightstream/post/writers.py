@@ -41,13 +41,9 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
-
-if TYPE_CHECKING:
-    import xarray as xr
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
@@ -59,7 +55,6 @@ __all__ = [
     "PROVENANCE_SUFFIX",
     "OutputExistsError",
     "OutputProvenance",
-    "dataset_to_points",
     "provenance_path",
     "settings_records",
     "write_tecplot_points",
@@ -484,45 +479,3 @@ def write_tecplot_points(
     table = np.column_stack([values for _, values in columns])
     lines += [" ".join(_fmt(value) for value in row) for row in table]
     return write_output_pair(Path(path), "\n".join(lines) + "\n", provenance, overwrite=overwrite)
-
-
-def dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """Flatten a far-field ledger dataset into writer inputs.
-
-    Rebuilds Cartesian positions from the survey coordinates
-    (``x = station R``, ``y = r sin(psi) R``, ``z = r cos(psi) R``,
-    the convention of :mod:`pyflightstream.probes`) and flattens every
-    ``(station, r, psi)`` data variable in the dataset's order, so a
-    ledger dataset drops straight into :func:`write_vtk_points` or
-    :func:`write_tecplot_points`.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Ledger dataset with dims ``(station, r, psi)`` and the
-        ``tip_radius`` attribute, as built by
-        :func:`pyflightstream.farfield.lattice_dataset`.
-
-    Returns
-    -------
-    tuple
-        ``(points, fields)``: positions ``(n, 3)`` in simulation
-        length units and the flattened scalar fields.
-    """
-    tip = float(ds.attrs["tip_radius"])
-    station = np.asarray(ds.coords["station"])
-    r = np.asarray(ds.coords["r"])
-    psi = np.asarray(ds.coords["psi"])
-    x, rr, pp = np.meshgrid(station, r, psi, indexing="ij")
-    points = np.column_stack(
-        [
-            (x * tip).ravel(),
-            (rr * np.sin(pp) * tip).ravel(),
-            (rr * np.cos(pp) * tip).ravel(),
-        ]
-    )
-    fields = {}
-    for name, variable in ds.data_vars.items():
-        if variable.dims == ("station", "r", "psi"):
-            fields[name] = np.asarray(variable).ravel()
-    return points, fields

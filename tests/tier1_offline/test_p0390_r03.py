@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import difflib
 import json
 import random
 import re
@@ -72,19 +73,6 @@ def call(capsys, main, argv: list[str]) -> tuple[int, str, str]:
     return int(code or 0), out, err
 
 
-def profile_selected(argv: list[str], root: Path) -> str | None:
-    """The application id of the profile a command line and the files select.
-
-    A console command restores its selection when it ends (PFS-2094.008), so the
-    same line is parsed outside one, where the selection is set plainly.
-    """
-    from pyflightstream.run import cli
-
-    cli.parsed(_build_parser(), argv)
-    profile = resolve_hpc_profile(root / "inputs")
-    return None if profile is None else profile.application_id
-
-
 def plan_then_run(capsys, root: Path, *extra: str) -> tuple[int, str, str]:
     """Plan the matrix (the run needs the receipt), then run it; return the run's outcome."""
     call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root), *extra])
@@ -109,13 +97,27 @@ def tree(root: Path) -> dict[str, bytes]:
     }
 
 
+def _observe_profile(monkeypatch):
+    import pyflightstream.run.cli as run_cli
+
+    observed = []
+    original = run_cli._cmd_plan
+
+    def plan(args, recipes):
+        observed.append(resolve_hpc_profile(Path(args.workspace) / "inputs"))
+        return original(args, recipes)
+
+    monkeypatch.setattr(run_cli, "_cmd_plan", plan)
+    return observed
+
+
 SIGNATURE = "geoversegoddess sees you"
 
 
 # --- the acceptance: the scenario of the requirement's Need -------------------------
 
 
-def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys):
+def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys, monkeypatch):
     """P0390-R03 (FR-436 Requirement, R1, R3, R7): pyfs.toml gives plan --cost and run options.
 
     fs_version, hpc, cost_file and accept_unregistered_build are typed nowhere: the plan
@@ -123,33 +125,40 @@ def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys):
     plan.json and every record state the acceptance with pyfs.toml as its source. A
     reader that never reads the file gives the 0.38.0 refusal "Nothing ran".
     """
+    observed = _observe_profile(monkeypatch)
     root = make_workspace(tmp_path, profiles=True, costs=True)
     (root / "pyfs.toml").write_text(
-        'schema_version = 1\n[defaults]\nfs_version = "26.120"\nhpc = "h002"\n'
-        'cost_file = "c002"\naccept_unregistered_build = true\nlocal = true\n',
+        'schema_version = 1\n[defaults]\nfs_version = "26.120"\nhpc = "h002"\ncost_file = "c002"\n',
+        encoding="utf-8",
+    )
+    (root / "pyfs.local.toml").write_text("[defaults]\nlocal = true\n", encoding="utf-8")
+    (root / "inputs" / "executables.local.toml").write_text(
+        f'"26.120" = {{ path = "{Path(sys.executable).as_posix()}", '
+        "accept_unregistered_build = true }\n",
         encoding="utf-8",
     )
     plan = ["plan", "polars.fs", "--cost", "--workspace", str(root)]
     code, out, err = call(capsys, matrix_main, plan)
     assert code == 0, err
-    assert profile_selected(plan, root) == "app-h002"
-    select_hpc_profile(None)
-    select_cost_file(None)
+    assert observed[0].application_id == "app-h002"
     written = plan_json(root)
-    assert written["accept_unregistered_build"] is True
+    assert written["accepted_builds"] == ["26.120"]
     assert written["settings_sources"] == {
         "fs_version": "pyfs.toml",
         "hpc": "pyfs.toml",
         "cost_file": "pyfs.toml",
-        "accept_unregistered_build": "pyfs.toml",
+        "accept_unregistered_build": "executables.local.toml",
     }
-    with pytest.warns(VersionMismatchWarning, match=r"pyfs\.toml sets accept_unregistered_build"):
+    with pytest.warns(VersionMismatchWarning, match="executables.local.toml"):
         code, out, err = call(capsys, matrix_main, ["run", "polars.fs", "--workspace", str(root)])
     assert code == 0, err
     assert "Nothing ran" not in err
     rows = records(root)
     assert rows and all(row["accept_unregistered_build"] is True for row in rows)
-    assert all(row["settings_sources"]["accept_unregistered_build"] == "pyfs.toml" for row in rows)
+    assert all(
+        row["settings_sources"]["accept_unregistered_build"] == "executables.local.toml"
+        for row in rows
+    )
     assert all(row["settings_sources"]["fs_version"] == "pyfs.toml" for row in rows)
 
 
@@ -166,16 +175,16 @@ def test_p0390_r03_without_the_file_the_run_is_refused_as_in_0380(tmp_path, caps
 def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monkeypatch):
     """P0390-R03 (FR-436 R1): without --workspace the files are read in the current directory."""
     root = make_workspace(tmp_path)
-    (root / "pyfs.local.toml").write_text(
-        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n', encoding="utf-8"
-    )
+    (root / "pyfs.local.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     monkeypatch.chdir(root)
     call(capsys, matrix_main, ["plan", "polars.fs"])
     assert plan_json(root)["settings_sources"]["fs_version"] == "pyfs.local.toml"
-    with pytest.warns(VersionMismatchWarning, match=r"pyfs\.local\.toml sets"):
-        code, _out, err = call(capsys, matrix_main, ["run", "polars.fs"])
+    with pytest.warns(VersionMismatchWarning, match="accept-unregistered-build"):
+        code, _out, err = call(
+            capsys, matrix_main, ["run", "polars.fs", "--accept-unregistered-build"]
+        )
     assert code == 0, err
-    assert records(root)[0]["settings_sources"]["accept_unregistered_build"] == "pyfs.local.toml"
+    assert records(root)[0]["settings_sources"]["accept_unregistered_build"] == "typed"
 
 
 # --- precedence --------------------------------------------------------------------
@@ -190,9 +199,10 @@ def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monk
     ],
 )
 def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
-    tmp_path, capsys, local, typed, selected, source
+    tmp_path, capsys, monkeypatch, local, typed, selected, source
 ):
     """P0390-R03 (FR-436 Requirement, R1, R5): typed > pyfs.local.toml > pyfs.toml > default."""
+    observed = _observe_profile(monkeypatch)
     root = make_workspace(tmp_path, profiles=True)
     (root / "pyfs.toml").write_text(
         '[defaults]\nfs_version = "26.120"\nhpc = "h001"\n', encoding="utf-8"
@@ -202,7 +212,7 @@ def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
     argv = ["plan", "polars.fs", "--workspace", str(root)] + (["--hpc", typed] if typed else [])
     code, _out, err = call(capsys, matrix_main, argv)
     assert code == 0, err
-    assert profile_selected(argv, root) == f"app-{selected}"
+    assert observed[0].application_id == f"app-{selected}"
     assert plan_json(root)["settings_sources"].get("hpc") == source
 
 
@@ -226,9 +236,7 @@ def test_p0390_r03_a_typed_acceptance_is_named_typed_beside_a_file_value(tmp_pat
 def test_p0390_r03_the_typed_negation_wins_over_every_route(tmp_path, capsys):
     """P0390-R03 (FR-436 R5, R7): --no-accept-unregistered-build refuses whatever a route says."""
     root = make_workspace(tmp_path)
-    (root / "pyfs.toml").write_text(
-        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n', encoding="utf-8"
-    )
+    (root / "pyfs.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     exe = Path(sys.executable).as_posix()
     (root / "inputs" / "executables.local.toml").write_text(
         f'"26.120" = {{ path = "{exe}", accept_unregistered_build = true }}\n', encoding="utf-8"
@@ -243,24 +251,24 @@ def test_p0390_r03_the_typed_negation_wins_over_every_route(tmp_path, capsys):
 def test_p0390_r03_a_negation_beats_a_file_switch_on_its_command(tmp_path, capsys):
     """P0390-R03 (FR-436 R5, R8): each --no- form resolves its switch whatever the files say."""
     root = make_workspace(tmp_path)
-    (root / "pyfs.toml").write_text(
+    (root / "pyfs.local.toml").write_text(
         "[defaults]\ncheck_frozen = true\nlocal = true\n[log]\npproc_warnings = true\n",
         encoding="utf-8",
     )
     argv = ["post", "--workspace", str(root), "--log-level", "verbose"]
     _code, _out, err = call(capsys, matrix_main, argv)
     for key in ("check_frozen = true", "local = true", "log.pproc_warnings = true"):
-        assert f"{key}  (pyfs.toml)" in err
+        assert f"{key}  (pyfs.local.toml)" in err
     negated = ["--no-check-frozen", "--no-local", "--no-pproc-warnings"]
     _code, _out, err = call(capsys, matrix_main, argv + negated)
-    assert "(pyfs.toml)" not in err
+    assert "(pyfs.local.toml)" not in err
 
 
 def test_p0390_r03_a_file_value_post_does_not_use_is_left_unused(tmp_path, capsys):
     """P0390-R03 (FR-436 R2): plain post in a workspace whose file sets the run's options.
 
     fs_version, fs_exe, local and recipe mean something to post only with
-    --additional-pproc, and check_frozen nothing to --diagnostics: set in pyfs.toml,
+    --additional-pproc, and check_frozen nothing to --diagnostics: set in pyfs.local.toml,
     they are left unused and post rebuilds; typed, they are refused as in 0.38.0.
     """
     root = make_workspace(tmp_path)
@@ -268,7 +276,7 @@ def test_p0390_r03_a_file_value_post_does_not_use_is_left_unused(tmp_path, capsy
     code, _out, err = plan_then_run(capsys, root, "--fs-version", "26.120", accept)
     assert code == 0, err
     exe = Path(sys.executable).as_posix()
-    (root / "pyfs.toml").write_text(
+    (root / "pyfs.local.toml").write_text(
         f'[defaults]\nfs_version = "26.120"\nfs_exe = "{exe}"\nlocal = true\n'
         'recipe = ["001=m:f"]\ncheck_frozen = true\n',
         encoding="utf-8",
@@ -290,12 +298,12 @@ def test_p0390_r03_convert_takes_its_required_option_from_the_current_directory(
 ):
     """P0390-R03 (FR-436 R1, R3): convert, which takes no --workspace, reads the cwd's file.
 
-    Its required --fs-exe is supplied by pyfs.toml of the current directory; without
+    Its required --fs-exe is supplied by pyfs.local.toml of the current directory; without
     the file the parser refuses it as in 0.38.0.
     """
     root = make_workspace(tmp_path)
     exe = Path(sys.executable).as_posix()
-    (root / "pyfs.toml").write_text(
+    (root / "pyfs.local.toml").write_text(
         f'[defaults]\nfs_version = "26.120"\nfs_exe = "{exe}"\n', encoding="utf-8"
     )
     monkeypatch.chdir(root)
@@ -303,7 +311,7 @@ def test_p0390_r03_convert_takes_its_required_option_from_the_current_directory(
     code, out, err = call(capsys, matrix_main, argv)
     assert code == 0, err
     assert exe in out.replace("\\\\", "/").replace("\\", "/")
-    (root / "pyfs.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
+    (root / "pyfs.local.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     code, _out, err = call(capsys, matrix_main, argv)
     assert code == 2 and "--fs-exe" in err
 
@@ -331,7 +339,7 @@ def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_
 
     root = make_workspace(tmp_path)
     exe = Path(sys.executable).as_posix()
-    (root / "pyfs.toml").write_text(f'[defaults]\nfs_exe = "{exe}"\n', encoding="utf-8")
+    (root / "pyfs.local.toml").write_text(f'[defaults]\nfs_exe = "{exe}"\n', encoding="utf-8")
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
@@ -340,8 +348,8 @@ def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_
     assert args.fs_exe == exe
     args = contextvars.copy_context().run(parsed, parser(), ["go", f"--workspace={root}"])
     assert args.fs_exe == exe
-    (elsewhere / "pyfs.toml").write_text(f'[defaults]\nfs_exe = "{exe}"\n', encoding="utf-8")
-    (root / "pyfs.toml").unlink()
+    (elsewhere / "pyfs.local.toml").write_text(f'[defaults]\nfs_exe = "{exe}"\n', encoding="utf-8")
+    (root / "pyfs.local.toml").unlink()
     with pytest.raises(SystemExit) as refused:
         contextvars.copy_context().run(parsed, parser(), argv)
     assert refused.value.code == 2
@@ -350,11 +358,11 @@ def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_
 def test_p0390_r03_a_positional_of_a_key_name_takes_nothing_from_a_file(tmp_path, capsys):
     """P0390-R03 (FR-436 R2): the recipe id of free-space is a positional, never a file default.
 
-    recipe in pyfs.toml is the --recipe option of run and post; free-space typed without
+    recipe in pyfs.local.toml is the --recipe option of run and post; free-space typed without
     its recipe id is refused by the parser as in 0.38.0, and one typed is used as typed.
     """
     root = make_workspace(tmp_path)
-    (root / "pyfs.toml").write_text('[defaults]\nrecipe = ["001=m:f"]\n', encoding="utf-8")
+    (root / "pyfs.local.toml").write_text('[defaults]\nrecipe = ["001=m:f"]\n', encoding="utf-8")
     code, _out, err = call(capsys, matrix_main, ["free-space", "--workspace", str(root)])
     assert code == 2
     assert "the following arguments are required: recipe" in err
@@ -592,13 +600,13 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
     """P0390-R03 (FR-436 R9): pyfs-workspace takes [log] console and no [defaults] key."""
     root = make_workspace(tmp_path)
     (root / "pyfs.toml").write_text(
-        '[defaults]\nfs_version = "26.120"\nruns = "other.json"\n[log]\nconsole = "verbose"\n',
+        '[defaults]\nfs_version = "26.120"\ncost_file = "c001"\n[log]\nconsole = "verbose"\n',
         encoding="utf-8",
     )
     code, _out, err = call(capsys, workspace_main, ["init", str(root)])
     assert code == 0
     assert "log.console = verbose  (pyfs.toml)" in err
-    assert "fs_version" not in err and "runs" not in err
+    assert "fs_version" not in err and "cost_file" not in err
     (root / "pyfs.toml").write_text('[log]\nconsole = "quiet"\n', encoding="utf-8")
     code, out, err = call(capsys, workspace_main, ["init", str(root)])
     assert code == 0
@@ -640,28 +648,6 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
     return True
 
 
-#: The second admitted difference, named: plan.json gains the key ``planned_order``,
-#: each simulation's whole sweep in its planned order (PFS-2094.034, run-1 lane), which
-#: 0.38.0 did not write. Every other byte of plan.json is still that of 0.38.0.
-PLAN_JSON = "tree/post/polars/plan.json"
-
-
-def plan_order_admitted(new: str, captured: str) -> bool:
-    """Whether plan.json differs from its 0.38.0 capture by the planned_order block only."""
-    lines = new.split("\n")
-    try:
-        start = lines.index('  "planned_order": {')
-        end = lines.index("  },", start)
-    except ValueError:
-        return False
-    order = json.loads(new)["planned_order"]
-    if not order or not all(
-        isinstance(ids, list) and all(isinstance(i, str) for i in ids) for ids in order.values()
-    ):
-        return False
-    return "\n".join(lines[:start] + lines[end + 1 :]) == captured
-
-
 @pytest.mark.skipif(
     sys.platform != "win32",
     reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
@@ -685,16 +671,41 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         for path in sorted(V0380.rglob("*"))
         if path.is_file() and path.name != "README.md"
     }
+    # PFS-2135.058 corrects this serialized manual claim in 0.40.0.
+    # Preserve the historical fixture and apply only the reviewed text change.
+    plan_name = "tree/post/polars/plan.json"
+    captured[plan_name] = (
+        captured[plan_name]
+        .replace(
+            b"The values above are the vocabulary the emitter writes, deliberately the names "
+            b"only; whether that narrowing is the right house rule is open, since",
+            b"The values above include both the labels and their numeric spellings, as required "
+            b"by the accepted-vocabulary rule. Likewise",
+        )
+        .replace(
+            b"ROTATE_COORDINATE_SYSTEM take the opposite choice and carry both",
+            b"ROTATE_COORDINATE_SYSTEM also carry both",
+        )
+    )
+    # FR-395 now records the full matrix's stable alias order (PFS-2094.034).
+    captured[plan_name] = captured[plan_name].replace(
+        b'  "matrix_sha256":',
+        b'  "planned_order": {\n    "7002": [\n      "V0300RE120AL+000"\n    ]\n  },\n'
+        b'  "matrix_sha256":',
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name.endswith(SETTINGS_TABLE_SUFFIX):
             # The one admitted difference, named: PFS-2105.020's full-precision cells.
             assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
             continue
-        if name == PLAN_JSON:
-            assert plan_order_admitted(text, captured[name].decode("utf-8")), name
-            continue
-        assert text.encode("utf-8") == captured[name], name
+        assert text.encode("utf-8") == captured[name], (
+            name
+            + "\n"
+            + "\n".join(
+                difflib.unified_diff(captured[name].decode("utf-8").splitlines(), text.splitlines())
+            )
+        )
     scripts = [name for name in outputs if name.startswith("tree/sims/") and "/scripts/" in name]
     assert scripts and all("SOLVER_SET_AOA" in outputs[name] for name in scripts)
     assert any(name.startswith("tree/post/polars/polars/") for name in outputs)
@@ -726,8 +737,6 @@ SETTABLE = [
     ("fs_version", '"26.120"', "fs_version = 26.120", "plan", "defaults"),
     ("hpc", '"h001"', "hpc = h001", "plan", "defaults"),
     ("cost_file", '"c001"', "cost_file = c001", "plan", "defaults"),
-    ("runs", '"other.json"', "runs = other.json", "collect", "defaults"),
-    ("accept_unregistered_build", "true", "accept_unregistered_build = true", "plan", "defaults"),
     ("fs_exe", f'"{EXE}"', f"fs_exe = {EXE}", "plan", "defaults"),
     ("point_name", '"pt"', "point_name = pt", "plan", "defaults"),
     ("recipe", '["001=m:f"]', "recipe = 001=m:f", "plan", "defaults"),
@@ -764,6 +773,9 @@ def test_p0390_r03_every_settable_key_is_read_from_each_file(
     if key != "console":
         argv += ["--log-level", "verbose"]
     _code, _out, err = call(capsys, matrix_main, argv)
+    if key in {"fs_exe", "local"} and name == "pyfs.toml":
+        assert "pyfs.local.toml" in err
+        return
     assert f"{line}  ({name})" in err
     other = "pyfs.local.toml" if name == "pyfs.toml" else "pyfs.toml"
     assert f"({other})" not in err
@@ -773,7 +785,7 @@ def test_p0390_r03_every_settable_key_is_read_from_each_file(
     ("key", "value", "source"),
     [
         ("fs_version", '"26.120"', "pyfs.toml"),
-        ("accept_unregistered_build", "true", "pyfs.local.toml"),
+        ("fs_version", '"26.120"', "pyfs.local.toml"),
         ("point_name", '"pt"', "pyfs.toml"),
     ],
 )
@@ -838,6 +850,13 @@ def test_p0390_r03_every_negation_resolves_its_switch_to_false(
         text = f"[defaults]\n{key} = true\n"
     (root / name).write_text(text, encoding="utf-8")
     _code, _out, err = call(capsys, matrix_main, _negated_argv(root, command))
+    if key == "accept_unregistered_build" or (key == "local" and name == "pyfs.toml"):
+        assert (
+            "executables.local.toml" in err
+            if key == "accept_unregistered_build"
+            else "pyfs.local.toml" in err
+        )
+        return
     assert f"{line}  ({name})" in err
     _code, _out, err = call(capsys, matrix_main, _negated_argv(root, command, f"--no-{flag}"))
     assert f"({name})" not in err
@@ -1161,6 +1180,11 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
         warnings.simplefilter("always")
         code, _out, err = plan_then_run(capsys, root, *extra)
     warned = [w for w in caught if issubclass(w.category, VersionMismatchWarning)]
+    if workspace is not None or local is not None:
+        assert code == 2 and "executables.local.toml" in err
+        assert not (root / "post" / "polars" / "plan.json").exists()
+        assert records(root) == []
+        return
     written = plan_json(root)
     # The exact provenance of the row: fs_version from pyfs.toml, and the acceptance's
     # source where a file (or the typed flag beside it) stated one, nothing else.
@@ -1227,20 +1251,20 @@ def test_p0390_r03_a_continuation_that_cannot_start_records_its_sources(
 
     root = make_workspace(tmp_path)
     (root / WORKSPACE_FILE).write_text(
-        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n',
+        '[defaults]\nfs_version = "26.120"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr("pyflightstream.run._campaign.resolve_continuation", refused)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        plan_then_run(capsys, root)
+        plan_then_run(capsys, root, "--accept-unregistered-build")
     done = records(root)
     assert [row["status"] for row in done] == ["FAILED_SCRIPT"]
     assert "the continuation cannot start" in done[0]["error"]
     assert done[0]["accept_unregistered_build"] is True
     assert done[0]["settings_sources"] == {
         "fs_version": WORKSPACE_FILE,
-        "accept_unregistered_build": WORKSPACE_FILE,
+        "accept_unregistered_build": "typed",
     }
 
 
@@ -1253,13 +1277,12 @@ def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
     """
     root = make_workspace(tmp_path)
     (root / WORKSPACE_FILE).write_text(
-        '[defaults]\nfs_version = "26.120"\naccept_unregistered_build = true\n'
-        '[log]\nconsole = "quiet"\n',
+        '[defaults]\nfs_version = "26.120"\n[log]\nconsole = "quiet"\n',
         encoding="utf-8",
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        code, out, err = plan_then_run(capsys, root)
+        code, out, err = plan_then_run(capsys, root, "--accept-unregistered-build")
     assert code == 0, err
     assert re.fullmatch(r"1 point\(s\) in \S+: CONVERGED 1\n", out), out
     assert "sweep table" not in out and "[run] started" not in err and SIGNATURE in err

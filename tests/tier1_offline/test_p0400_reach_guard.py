@@ -123,11 +123,13 @@ ROOTS: tuple[tuple[str, str], ...] = (
 
 # The ratchet: the number of public paths the register names, and the
 # SHA-256 of their sorted list joined by newlines. A shrink lowers both.
-# 317 on the integration fix: probes_from_file left the register (now reached) and three
-# public names joined it (RX-22 resolve_commands_dir, RX-37 the two selectors), each
-# classified by the pattern of its siblings. The owner confirms the growth.
-_REGISTER_CEILING = 317
-_REGISTER_DIGEST = "6b877e333c811d797607bfecbf7c4e617e4a76e6957b6c9c3c1571012506094d"
+# 314 at the merge of release/0.40.0 into the integration fix: the integration fix's
+# three new public names stay (RX-22 resolve_commands_dir, RX-37 the two selectors), each
+# classified by the pattern of its siblings; probes_from_file left on the integration fix
+# and the three off-body streamline names (RX-16) left on the release, all now reached.
+# The owner confirms the growth over the release's 312.
+_REGISTER_CEILING = 314
+_REGISTER_DIGEST = "29d76b3477351ac265387a394f055eafc8743d1fdf50899b8b6fd2a4dd783b1d"
 
 REASONS = (
     "routed later",

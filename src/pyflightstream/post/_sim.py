@@ -27,6 +27,8 @@ The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
 by it. A product family of the backlog joins as one more step here, reading
 the context and writing into its sinks.
+
+Size exemption: one context and every product step of a simulation, each step one family.
 """
 
 from __future__ import annotations
@@ -93,15 +95,14 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.custom_polar import write_custom_polar_format
+from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
     write_plots_table,
     write_probes_table,
     write_sections_table,
     write_unsteady_probes_table,
 )
-from pyflightstream.post.polar import (
-    POLAR_COLUMNS as POLAR_COLUMNS,
-)
+from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
     drag_columned_rows,
@@ -114,6 +115,7 @@ from pyflightstream.post.polar import (
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import write_rotor_table
+from pyflightstream.post.streamlines import write_point_streamlines
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     plots_last_row,
@@ -225,9 +227,13 @@ class SimContext:
     )
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
+    #: FR-456 R9 (0.40.0): per point, the far-field cells of its super-file row.
+    farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
     #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
+    #: FR-460: each point's streamline exports, by kind.
+    streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -445,6 +451,7 @@ def _resolve(
         point_windows=admitted.point_windows,
         frozen_points=admitted.frozen_points,
         probe_positions=admitted.probe_positions,
+        streamlines=admitted.streamlines,
     )
 
 
@@ -544,6 +551,7 @@ def _group_polars(ctx: SimContext) -> None:
     # table beside them is, with `kind: instant` and a line in post.log.
     instant = ctx.window is None and any(
         str(getattr(ctx.record_of.get(point.name), "recipe", "") or "").startswith("unsteady")
+        or str(point.loads.solver_mode).strip().casefold() == "unsteady"
         for point in ctx.points
     )
     if instant and groups:
@@ -569,7 +577,7 @@ def _group_rows(
     absent: dict[str, str] = {}
     for point, condition in zip(ctx.points, ctx.conditions, strict=True):
         if families and not select_group_members(
-            list(families), list(point.loads.surfaces), ctx.aliases
+            list(families), list(point.loads.surfaces), ctx.aliases, strict=False
         ):
             absent[point.name] = (
                 f"point {point.name}: group {group!r} selects no surface of its loads "
@@ -616,7 +624,7 @@ def _group_polar(
     relative = f"{POLARS_DIR}/{swept_polar_file_name(ctx.sim_id, name=group_name, group=group)}"
     ctx.skipped.update({f"{relative}#{name}": reason for name, reason in absent.items()})
     if families and not any(
-        select_group_members(list(families), list(point.loads.surfaces), ctx.aliases)
+        select_group_members(list(families), list(point.loads.surfaces), ctx.aliases, strict=False)
         for point in ctx.points
     ):
         # A NAMED SKIP, NEVER A ROW OF ZEROS. A group whose alias selects no
@@ -710,6 +718,8 @@ def _point_products(ctx: SimContext) -> None:
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
+        # FR-460 R7: the streamline products of the point, from its exports.
+        write_point_streamlines(ctx, point.name)
 
 
 def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | None) -> None:
@@ -919,10 +929,17 @@ def _probes_products(
     except ProductError as error:
         ctx.skipped[probe_relative] = str(error)
         return
-    if done is not None:
-        ctx.add(done, {"runs": ctx.sources[point.name]})
-        write_installed_probes(ctx, done, point.name)
-        _write_fields(ctx, done, point.name)
+    if done is None:
+        _retire_unwritten(
+            ctx,
+            probe_relative,
+            target,
+            "the probe points export declares no point, so no probes table is written",
+        )
+        return
+    ctx.add(done, {"runs": ctx.sources[point.name]})
+    write_installed_probes(ctx, done, point.name)
+    _write_fields(ctx, done, point.name)
 
 
 def _plots_products(
@@ -1417,6 +1434,9 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
+            # FR-456 R9 (0.40.0): the far-field TOTAL cells, after every other key.
+            for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
+                row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.
             row[MESH_FACES_COLUMN] = _mesh_faces_of(
                 ctx.workspace, by_run.get((ctx.sources.get(point.name) or [""])[0]), point.name
@@ -1448,6 +1468,8 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _rotor_table_products,
     _qsteady_rotor_products,
     _unsteady_polar_products,
+    # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
+    farfield_products,
     _superfile_drafts,
 )
 

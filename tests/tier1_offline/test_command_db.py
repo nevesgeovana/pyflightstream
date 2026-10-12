@@ -1668,19 +1668,6 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         ("SELECT_GEOMETRY_BY_ID", "surface"),
         ("DELETE_SURFACES", "index"),
         ("EXPORT_SURFACE_MESH", "surface"),
-        # And the first one that is not a surface at all: a BASE REGION
-        # boundary, stated on SRC-750 p.331. The sentinel is declared
-        # here because it sits on an index that cites an inventory, and
-        # base regions are boundaries; the entry arrived with the 26.122
-        # edition, which is the first to document the command.
-        ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
-        # Its 26.123 spelling, and the pair is why this inventory is a
-        # set of tuples rather than a set of command names: a rename
-        # carried as two entries declares the same sentinel twice, on
-        # the same page (SRC-751 p.331), and both rows are real. Losing
-        # either would leave one of the two names refusing -1 while its
-        # own edition prints -1 in the sample.
-        ("SET_OUTLET_TRAILING_EDGES", "base_region_boundary"),
     }, (
         "every boundary index that states an all-form declares it, and no other does: "
         "absent means the page states none, so SURFACE_RENAME and SURFACE_MIRROR refuse "

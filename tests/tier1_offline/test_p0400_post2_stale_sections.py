@@ -9,10 +9,12 @@ sections between two posts.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pyflightstream.post.products import write_campaign_products
-from tests.tier1_offline.test_post_products import LOADS, SLOADS, _products_manifest
+from tests.tier1_offline.test_post_products import LOADS, PROBES, SLOADS, _products_manifest
 
 SECTIONS = "sections/AL-020_sections.csv"
 
@@ -26,7 +28,7 @@ def _no_sections() -> str:
     return "\n".join(line for line in text.splitlines() if not line.strip().startswith("-0.9"))
 
 
-def _workspace(tmp_path):
+def _workspace(tmp_path, *, include_probes=False):
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -37,6 +39,8 @@ def _workspace(tmp_path):
     raw.mkdir(parents=True)
     (raw / "AL-020.txt").write_text(LOADS, encoding="utf-8")
     (raw / "AL-020_sloads.txt").write_text(SLOADS, encoding="utf-8")
+    if include_probes:
+        (raw / "AL-020_probes.txt").write_text(PROBES, encoding="utf-8")
     workspace.append_record(
         RunRecord(
             run_id="camp/sim_3207/AL-020",
@@ -49,7 +53,8 @@ def _workspace(tmp_path):
             script_sha256="",
             raw_flag=False,
             status=RunStatus.CONVERGED,
-            outputs=["outputs/AL-020.txt", "outputs/AL-020_sloads.txt"],
+            outputs=["outputs/AL-020.txt", "outputs/AL-020_sloads.txt"]
+            + (["outputs/AL-020_probes.txt"] if include_probes else []),
             pproc="p001",
             description="STEADY_WB",
             mach=0.2,
@@ -70,3 +75,19 @@ def test_p0400_stalesect_a_lost_sections_table_is_retired(tmp_path, archive):
     write_campaign_products(workspace, overwrite=True, archive=archive)
     assert not (products / SECTIONS).exists()
     assert SECTIONS not in _products_manifest(workspace)["products"]
+
+
+@pytest.mark.parametrize("archive", [False, True], ids=["force-overwrite", "archive"])
+def test_p0400_stalesect_a_lost_probes_table_is_retired(tmp_path, archive):
+    """P0400-STALESECT: a zero-probe export retires the old table under both flags."""
+    workspace, sloads = _workspace(tmp_path, include_probes=True)
+    probes = sloads.with_name("AL-020_probes.txt")
+    write_campaign_products(workspace)
+    relative = "probes/AL-020_probes.csv"
+    target = workspace.products_dir(None) / relative
+    assert target.is_file()
+    empty = Path(__file__).parent / "fixtures" / "probe_points_zero_26.123.txt"
+    probes.write_bytes(empty.read_bytes())
+    write_campaign_products(workspace, overwrite=True, archive=archive)
+    assert not target.exists()
+    assert relative not in _products_manifest(workspace)["products"]

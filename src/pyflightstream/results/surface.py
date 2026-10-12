@@ -400,8 +400,10 @@ def _polygons(
     flat = _numbers(lines, size, "POLYGONS")
     try:
         raw = np.asarray(flat, dtype=np.int64)
-    except ValueError as error:
-        raise MalformedOutputError(f"{path}'s POLYGONS hold a non-integer") from error
+    except (ValueError, OverflowError) as error:
+        raise MalformedOutputError(
+            f"{path}'s POLYGONS hold an invalid or out-of-range integer"
+        ) from error
     starts: list[int] = []
     at = 0
     for _ in range(cells):
@@ -1141,6 +1143,20 @@ def _translate_pair(
             aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
             and aux.get("SOURCE_FRAME") == f"the analysis loads frame, {placed.describe()}"
         ):
+            return f"{other} is preserved: source, frame or output provenance changed", None
+        # Matching source metadata does not prove that the data
+        # survived a partial write or a later edit. Reconstruct
+        # the expected bytes without replacing the existing file.
+        try:
+            with tempfile.TemporaryDirectory(prefix="pyfs-surface-proof-") as scratch:
+                expected = translate_vtk_surface(
+                    where / one,
+                    Path(scratch) / Path(other).name,
+                    frame=placed,
+                )
+        except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+            return f"{other} is preserved: content proof failed: {error}", None
+        if expected["output_sha256"] != file_sha256(where / other):
             return f"{other} is preserved: source, frame or output provenance changed", None
         return None, None
     try:

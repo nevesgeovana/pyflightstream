@@ -40,6 +40,9 @@ from ._clock import (
 from ._conventions import (
     WorkflowConventions,
 )
+from ._exports import (
+    _declared_export_kinds,
+)
 from ._frames import (
     _flat_rotor_frames,
     _moment_frame,
@@ -74,6 +77,9 @@ from ._rows import (
     continuation_of,
     rotor_speed,
     row_walltime_s,
+)
+from ._sixdof import (
+    _sixdof_motion,
 )
 from ._skeleton import (
     _acoustic_setup,
@@ -248,6 +254,12 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # describes a run that starts from a mesh, and a continuation starts
     # from the state a stopped run saved.
     continuation = continuation_of(case)
+    if continuation is not None and case.sixdof is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a SIXDOF row cannot be continued from its saved state: "
+            "the body's position, attitude and rates when the march stopped are not a state "
+            "this package has measured a reopened simulation to restore (FR-461 R4)."
+        )
     if continuation is not None:
         _build_continuation(
             case,
@@ -281,6 +293,15 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     moved = {"MRP": frame, **rotor_frames, **setup_frames}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
+    # FR-461: the body the row's SIXDOF input frees, after every frame exists.
+    _sixdof_motion(
+        case,
+        script,
+        frames,
+        trajectory_file=_declared_export_kinds(conventions, case, unsteady=True)[1].get(
+            "trajectory_6dof"
+        ),
+    )
     _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)

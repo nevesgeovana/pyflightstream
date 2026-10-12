@@ -40,6 +40,7 @@ from pyflightstream.script._surface_averaging import SurfaceAverageWindow, Surfa
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, free_root_archive
 
 __all__ = [
+    "COST_EXCLUDED_STATUSES",
     "ADDITIONAL_MANIFEST",
     "ADDITIONAL_MANIFEST_SCHEMA",
     "AdditionalRecord",
@@ -200,6 +201,15 @@ class RunStatus(enum.StrEnum):
     #: named in ``residual_note`` as unavailable, and the point is never
     #: CONVERGED by assumption.
     RAN_MISSING_LOG = "RAN_MISSING_LOG"
+
+
+COST_EXCLUDED_STATUSES = frozenset(
+    status
+    for status in RunStatus
+    if status.name.startswith("FAILED")
+    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
+)
+"""Statuses whose wall clock is not a completed-run cost sample."""
 
 
 class ExecutorRecord(TypedDict):

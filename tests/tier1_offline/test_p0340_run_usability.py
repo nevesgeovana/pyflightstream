@@ -96,7 +96,9 @@ def test_fr326_a_simulation_and_a_point_are_planned_and_run_alone(tmp_path, monk
     chosen = names[1]
     before = matrix.read_bytes()
     assert cli.main(_argv("plan", workspace, matrix, "--sims", "5002", "--points", chosen)) == 0
-    planned = json.dumps(json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8")))
+    planned = json.dumps(
+        json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8"))["points"]
+    )
     assert chosen in planned and names[0] not in planned and "5001" not in planned, planned
     capsys.readouterr()
     status = cli.main(_argv("run", workspace, matrix, "--sims", "5002", "--points", chosen))

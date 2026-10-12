@@ -796,45 +796,25 @@ def _averaging_window(
     Without `steps_per_revolution` a count of revolutions has no length in steps,
     and the caller's own refusal path says so with the row named.
     """
-    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
-    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
-    if revs is not None and iters is not None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states both {LAST_REVS_AVG_VARIABLE} = {revs} and "
-            f"{LAST_ITERS_AVG_VARIABLE} = {iters}, and they are two ways to say one "
-            "window. State the revolutions on a row that turns a rotor and the "
-            "iterations on one that does not."
-        )
-    if revs is not None:
-        turns = _required_float(
-            case, LAST_REVS_AVG_VARIABLE, quantity="averaging window", unit="revolutions"
-        )
-        if per_revolution is None or per_revolution <= 0:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {LAST_REVS_AVG_VARIABLE} = {revs} and the row "
-                "states no rotor speed, so a count of revolutions has no length in solver "
-                f"steps. State the speed, or use {LAST_ITERS_AVG_VARIABLE}."
-            )
-        steps = int(round(turns * float(per_revolution)))
-        detail = f"{turns:g} revolution(s) of {per_revolution:g} steps"
-        key = LAST_REVS_AVG_VARIABLE
-    elif iters is not None:
-        steps = int(
-            round(
-                _required_float(
-                    case, LAST_ITERS_AVG_VARIABLE, quantity="averaging window", unit="iterations"
-                )
-            )
-        )
-        detail = f"{steps} iteration(s)"
-        key = LAST_ITERS_AVG_VARIABLE
-    else:
+    try:
+        stated = _windows.stated_key(case.variables)
+        steps = _windows.averaging_steps(case.variables, per_revolution=per_revolution)
+    except CampaignConfigError as error:
+        raise CampaignConfigError(f"case {case.sim_id!r}: {error}") from error
+    if stated is None:
         return None
-    if steps < 1:
+    key, value = stated
+    if steps is None:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} states an averaging window of {steps} solver step(s), "
-            "which averages nothing. State a window of at least one step."
+            f"case {case.sim_id!r} states {key} = {value:g} and the row "
+            "states no rotor speed, so a count of revolutions has no length in solver "
+            f"steps. State the speed, or use {LAST_ITERS_AVG_VARIABLE}."
         )
+    detail = (
+        f"{value:g} revolution(s) of {per_revolution:g} steps"
+        if key == LAST_REVS_AVG_VARIABLE
+        else f"{steps} iteration(s)"
+    )
     # LONGER THAN THE RUN IS THE WHOLE RUN, not a refusal. A row asking to
     # average the last four revolutions of a run that turned three has asked for
     # everything it has, and refusing there would discard the products of a

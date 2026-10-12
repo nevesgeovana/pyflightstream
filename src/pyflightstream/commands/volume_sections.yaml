@@ -266,7 +266,7 @@ VOLUME_SECTION_WIREFRAME:
 
 EXPORT_VOLUME_SECTION_2D_VTK:
   layout: inline
-  phase: analysis
+  phase: export
   args:
     - name: index
       type: int

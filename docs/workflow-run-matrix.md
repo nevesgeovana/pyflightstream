@@ -45,7 +45,7 @@ simulation of theirs is collected, and plans them as before
 whether the row takes part at all, and `HIDDEN` whether the solver shows a
 window.
 
-**SIX COLUMNS ARRIVED AT v0.17.0** and each of them was expressible before,
+**SIX ADDITIONAL COLUMNS** are expressible in the row and setup artifacts:
 four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
 `CONFIGURATION` is your own name for what is in the wind, beside
 `AIRCRAFT`; it labels and configures nothing, and it reaches two places you
@@ -75,7 +75,7 @@ NO geometry cannot say so in the `GEOMETRY` column, because `-` there means
 `GEOMETRY:` key in `VAR_NAMES_VALUES`, and the upgrade leaves such a key
 where it found it for exactly that reason.
 
-**A FACT MAY NOT BE STATED IN BOTH HOMES.** A row that puts one of the six
+**A FACT MAY NOT BE STATED IN BOTH MATRIX HOMES.** A row that puts one of the six
 in its column AND as a key of the free cell is refused naming both, because
 two homes for one fact is how the two come to disagree.
 
@@ -423,6 +423,27 @@ its own initial state, so it is its own job and its own record.
 Each record carries its terminal status, and there is no missing state: a
 point that did not finish says so rather than being absent.
 
+From the terminal, a matrix's whole study is one command:
+
+```text
+pyfs-matrix run workflow_rotor_matrix.fs \
+    --name rotor --workspace . \
+    --sweep-csv sweep.csv
+```
+
+No Python is written, no notebook is opened, and nothing sits between
+the file and the result. The sweep table lands as `campaign_sweep.csv`
+under `post/<matrix stem>/` in the workspace when you do not say where, so a
+second matrix of the same workspace keeps its own.
+
+**Each point keeps its outputs in its own folder**, and that is what lets
+a swept row be judged point by point. `run` judges each finished point
+with the standard assessor, which reads the loads spreadsheet that point
+exported, and finds it by CONTENT rather than by name, because a swept
+case names its outputs per point and no single literal could name them
+all. Each point collects into `sims/<sim>/datapoints/DP-<point>/`, so
+what the assessor reads is that point's evidence and nothing else.
+
 ## Redoing a point whose row was wrong
 
 A point already in the manifest is refused, because re-running a recorded point
@@ -479,7 +500,7 @@ file is not written. An id or a point the matrix does not carry is refused
 before anything runs, naming the ones that exist. A selected point that is
 already recorded follows the rules above (refused, `--resume`,
 `--force-rerun`). Without `--force-rerun-all`, `--sims` alone runs those
-simulations; in 0.33.0 that was refused.
+simulations;
 
 **A second run of the same matrix without `--resume`** is refused, as before,
 with exit status 2 and nothing run; the message says how many
@@ -490,15 +511,3 @@ with `--resume` added, ready to paste.
 is written by the row's `FLIGHT_CONDITION`, so correcting a value in that cell
 gives the point a new identity: it is simply a new point, and `--resume` runs it
 beside the old record.
-
-Three things are refused, each by name and with
-nothing written or deleted: a simulation the manifest does not record
-(`refusing to archive sim_8001: the manifest has no record of this
-simulation`), a campaign root without `runs.json`, and an archive name
-already taken, since writing it would replace an earlier archive and
-then delete the folder it came from. The Python surface is
-`CampaignWorkspace.archive_sim`, and this command does the same thing
-and nothing more; the suite runs the line above on a recorded
-simulation and on an unrecorded one
-(`test_workspace.py::test_archive_subcommand_zips_a_recorded_simulation`
-and the refusal beside it).

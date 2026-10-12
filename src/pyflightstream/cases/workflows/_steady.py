@@ -155,7 +155,7 @@ def build_steady_sweep(
             "with nothing to run and the campaign refuses it before this."
         )
     first = point_cases[0]
-    if first.fsi is not None:
+    if first.fsi is not None or first.fsi_external is not None:
         raise CampaignConfigError(
             f"case {first.sim_id!r} couples a fixed wing (FSI-G), and a steady coupled script "
             "ends at EXECUTE_AEROELASTIC_ANALYSIS, so one script cannot run a second point; "

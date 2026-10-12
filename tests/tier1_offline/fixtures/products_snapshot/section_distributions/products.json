@@ -86,9 +86,9 @@
     "step_deg": null
    },
    "sections_files": [
-    "sims/sim_7001/AL-020_cp_iteration=3.txt",
-    "sims/sim_7001/AL-020_cp_iteration=4.txt",
-    "sims/sim_7001/AL-020_cp_iteration=5.txt"
+    "../../sims/sim_7001/AL-020_cp_iteration=3.txt",
+    "../../sims/sim_7001/AL-020_cp_iteration=4.txt",
+    "../../sims/sim_7001/AL-020_cp_iteration=5.txt"
    ],
    "tecplot_files": [],
    "vtk_files": [],

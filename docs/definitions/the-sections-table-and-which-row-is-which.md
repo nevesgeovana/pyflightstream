@@ -156,6 +156,8 @@ the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
 block's set.
 
+<a id="the-geometrys-names"></a>
+
 **The geometry's names.** Each run records `inventory`, the
 geometry's boundary names in the solver's order as the script read them at
 `OPEN`. When the record carries no inventory, the post reads the names

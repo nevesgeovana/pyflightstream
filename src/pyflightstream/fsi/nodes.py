@@ -262,7 +262,11 @@ class NodeOrderingMap(BaseModel):
                     f"'{name}' has {len(getattr(self, name))} entries for {n} "
                     "stations; every per-station list must match station_radii_m"
                 )
-        for name in ("le_offset_normal_m", "te_offset_normal_m"):
+        for name in (
+            "le_offset_normal_m",
+            "te_offset_normal_m",
+            "ea_configured_chordwise_m",
+        ):
             values = getattr(self, name)
             if values is not None and len(values) != n:
                 raise ValueError(

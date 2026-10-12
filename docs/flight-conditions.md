@@ -68,7 +68,7 @@ one key. A key written twice is refused rather than taking the last one.
 
 ## The same cell carries the attitude
 
-The ten keys above are about the AIR. Three more are about what the
+The ten keys above are about the AIR. Seven more are about what the
 aircraft is doing in it, and the same cell carries them because a point
 is both (FR-69, FR-70):
 
@@ -86,6 +86,8 @@ They are parsed here and NEVER handed to the resolver above: an angle
 constrains no fluid property, and asking the resolver about one would be
 asking it a question it has no answer to. The reader splits the cell
 where it reads it, and the attitude rides on the row.
+
+The body rates `roll_rate`, `pitch_rate` and `yaw_rate` are sweepable row keys.
 
 **A ROW STATES THE ANGLE IT IS NOT SWEEPING.** Before this release there
 was nowhere to write one: a row sweeping the advance ratio reached the

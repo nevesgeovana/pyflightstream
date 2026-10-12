@@ -53,10 +53,7 @@ additional-post records their own lease too; while one of those leases is held
 (`runs.json.lock` is there, for example during a sync), the restore is refused
 and nothing changes.
 
-The writers of the storage record, the products record, the plan receipt and
-the additional-post record do not archive their file before rewriting it, so
-for those kinds the copies a restore finds are the ones an earlier restore
-made or copies you put there yourself.
+Every write archives `storage_management.json`, `plan.json` and `additional.json`. Products and post logs are archived only when `pyfs-matrix post --archive` is used (FR-397).
 
 ## Rebuild records from the simulation folders
 
@@ -147,7 +144,8 @@ Where the rebuilt records go:
 - `--out NAME` writes them to that file in the workspace root and never
   touches `runs.json`: the file holds the rows of `runs.json`, each rebuilt
   record in the place of the row with its run id, and the other rebuilt
-  records after them. A name that is `runs.json`, or a file that exists, is
+  records after them. With `--all-sims`, it holds only the rebuilt records.
+  A name that is `runs.json`, or a file that exists, is
   refused before any work.
 - `--all-sims` rebuilds every simulation folder on disk, recorded or not, to
   compare with `runs.json`, and requires `--out`.
@@ -214,9 +212,8 @@ Unlike `mark-failed`, it does not mark a run id alias (`2006_3`): the alias is
 read as `mark-failed` reads it and refused, and the refusal names the
 `--sims` and `--points` that select its point (`--sims 2006 --points AL+020`).
 
-All four commands (`mark-converged`, `mark-failed`, `rebuild`, `delete-sims`) take
-comma-separated, bracketed or blank-separated ids, quoted or not (`--sims 2006,2007`,
-`[2006,2007]`, `2006 2007`, `"2006 2007"`).
+`mark-failed` and `rebuild` take simulation ids with `--sims IDS` as one token.
+`delete-sims IDS` takes the ids as a positional argument. Its list may be comma-separated, bracketed or blank-separated, quoted or not.
 
 Each marked record becomes `CONVERGED` and keeps under `marked` the status it had
 (`from`), when (`at`), your reason (`reason`) and the verdict (`verdict`);

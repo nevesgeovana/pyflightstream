@@ -142,6 +142,10 @@ _AXIS_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "ADVANCE_RATIO": "J"}
 RPM_COLUMN = "RPM"
 
 
+#: The far-field super-file cells of FR-456 R9: ``CL_T_A``, ``CDI_T_B``, ``E_T_C``.
+_FARFIELD_COLUMN = re.compile(r"(CL_T|CDI_T|E_T)_[ABC]")
+
+
 def release_tag(version: str) -> str:
     """Return the release tag of ``version``: ``0.16.0.dev0`` becomes ``0160``.
 
@@ -754,6 +758,10 @@ def write_superfiles(
                 if key not in seen:
                     seen.add(key)
                     columns.append(key)
+    # FR-456 R9 (0.40.0): the far-field block after every other column of the
+    # campaign, whichever simulation brought it in.
+    farfield = [column for column in columns if _FARFIELD_COLUMN.fullmatch(column)]
+    columns = [column for column in columns if column not in farfield] + farfield
     if MESH_FACES_COLUMN in seen:
         # FR-348: LAST, whichever row brought it in, so a reader by position keeps every column.
         columns.remove(MESH_FACES_COLUMN)

@@ -345,9 +345,9 @@ def _owed_claim_names_the_debt(claim: str, version: str) -> bool:
     """
     lowered = claim.lower()
     return (
-        f"v{version}" in claim
-        and any(word in lowered for word in ("archive", "doi", "identifier"))
-        and any(word in lowered for word in ("owed", "owe", "not exist", "missing"))
+        re.search(rf"(?<!\w)v{re.escape(version)}(?![\w+-]|\.\w)", claim) is not None
+        and re.search(r"\b(?:archives?|dois?|identifiers?)\b", lowered) is not None
+        and re.search(r"\b(?:owe[ds]?|not\s+exist|missing)\b", lowered) is not None
     )
 
 

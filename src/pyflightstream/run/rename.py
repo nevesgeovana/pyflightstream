@@ -763,10 +763,9 @@ def _stage_plan(
 
 def _plan_all_records(
     workspace: CampaignWorkspace, raw: list[dict[str, Any]], report: RenameReport
-) -> tuple[list[_Plan], list[_Plan | dict[str, Any]]]:
+) -> list[_Plan | dict[str, Any]]:
     """Plan every record in manifest order, a note as it is; refusals go to the report."""
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
-    plans: list[_Plan] = []
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
     # EVERY ROW IN MANIFEST ORDER, a note as it is (PFS-2096.024): the
     # rewritten manifest was built from the plans alone, so every delete-sims
@@ -790,9 +789,8 @@ def _plan_all_records(
             continue
         plan = _plan_record(record, row, report, claimed)
         if plan is not None:
-            plans.append(plan)
             ordered.append(plan)
-    return plans, ordered
+    return ordered
 
 
 def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
@@ -805,7 +803,8 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
         )
     raw = workspace.read_raw_manifest()
     report.records = len(raw)
-    plans, ordered = _plan_all_records(workspace, raw, report)
+    ordered = _plan_all_records(workspace, raw, report)
+    plans = [item for item in ordered if isinstance(item, _Plan)]
 
     if report.refusals:
         raise WorkspaceError(

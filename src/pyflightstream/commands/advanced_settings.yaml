@@ -234,7 +234,7 @@ AEROELASTIC_RBF_TYPE:
   args:
     - name: rbf_type
       type: enum
-      values: [WENDLAND_C2, GAUSSIAN, THIN_PLATE_SPLINE, MULTI_QUADRATIC, INV_MULTI_QUADRATIC]
+      values: [WENDLAND_C2, GAUSSIAN, THIN_PLATE_SPLINE, MULTI_QUADRATIC, INV_MULTI_QUADRATIC, "1", "2", "3", "4", "5"]
   manual_ref: "SRC-003 pp.345-346"
   versions:
     "26.101": {status: documented, note: "SRC-725 pp.344-345, same grammar and same five options as 26.120"}
@@ -253,10 +253,10 @@ AEROELASTIC_RBF_TYPE:
     they exercise DIFFERENT options: the numeric one passes 3 and the
     label one passes INV_MULTI_QUADRATIC. Reading the adjacent pair as
     one setting spelled two ways gives 3 the wrong meaning. The values
-    above are the vocabulary the emitter writes, deliberately the names
-    only; whether that narrowing is the right house rule is open, since
+    above include both the labels and their numeric spellings, as required
+    by the accepted-vocabulary rule. Likewise
     the axis arguments of SET_MOTION_ROTOR_AXIS and
-    ROTATE_COORDINATE_SYSTEM take the opposite choice and carry both
+    ROTATE_COORDINATE_SYSTEM also carry both
     spellings (PLN-20260806-1120). Absent from 26.100, which has no
     aeroelastic scripting family at all.
 

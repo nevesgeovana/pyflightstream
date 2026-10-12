@@ -1126,18 +1126,18 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     if level == home:
         raise _refuse(
             str(folder),
-            "the level folder is the source's folder; choose another out_dir (CLI: --out-dir)",
+            "the level folder is the source's folder; choose another out_dir (CLI: --out)",
         )
     if home.is_relative_to(level):
         raise _refuse(
             str(folder),
-            "the level folder holds the source's folder; choose another out_dir (CLI: --out-dir)",
+            "the level folder holds the source's folder; choose another out_dir (CLI: --out)",
         )
     if level.is_relative_to(home):
         raise _refuse(
             str(folder),
             "the level folder lies inside the source's folder; choose an out_dir "
-            "(CLI: --out-dir) outside the source's folder",
+            "(CLI: --out) outside the source's folder",
         )
     if folder.exists() and not overwrite:
         raise _refuse(

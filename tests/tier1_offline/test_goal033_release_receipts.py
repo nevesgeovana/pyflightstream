@@ -721,8 +721,9 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
     26.124 row carries, each refused on 26.124). Every
     in-scope command with a script route is BUILT here, stated and control,
     and the stated script carries the command's block while the control does
-    not; the 12 whose operation is the native replay's carry that replay's
-    marker in its file. Every one of the 33 commands 26.124 lacks is refused
+    not; the 12 whose operation needs a native replay execute that replay.
+    Missing private receipts leave this gate explicitly unproven and skipped,
+    rather than passed by a comment tag. Every one of the 33 commands 26.124 lacks is refused
     by the emitter naming it, and the one the owner excluded appears in no
     script any route writes.
     """
@@ -780,6 +781,8 @@ def test_setup_bc_is_complete_every_in_scope_command_operational_the_rest_refuse
     assert not admitted, f"not refused by name: {admitted}"
     excluded = [line for line in written if line.split(" ", 1)[0] in setup.OWNER_EXCLUDED]
     assert not excluded, f"an owner-excluded command is written: {excluded[:3]}"
+    for path, commands in setup.PROVED_ELSEWHERE.items():
+        setup._prove_elsewhere(path, commands)
 
 
 # --- falsifiability: every validator accepts a valid receipt and refuses a wrong field ---

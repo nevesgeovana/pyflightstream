@@ -8,15 +8,9 @@ row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
 values it needs come off the row and nowhere else, and a row missing one
 of them is refused before anything runs, naming the row and the cell.
 
-That combination, periodic copies together with a rotary motion in an
-unsteady run, HAS been run on a licensed solver by this repository's own
-QA case PHY-05, on 26.120 and again on 26.123, inside its bands. Read
-that as evidence about the SOLVER and not about this workflow: PHY-05 is
-a hand-built script, and no script the `unsteady_rotor` workflow builds
-has run on a licensed solver. What is not established here is whether a
-`BLADES` count may divide the phase-locked averaging window on the
-strength of it, which is why the limits list still says `BLADES`
-configures no rotor.
+Workflow-built rotor scripts have run on licensed solvers: RPT-043 (26.120),
+RPT-073 and RPT-080 (26.124), and RPT-133 (26.124). Blade counts come from
+`families_blades`; `BLADES` applies only to a row that names no rotor.
 
 **A mean taken from few revolutions, or at a coarse time step, sits below
 the developed wake.** An `unsteady_rotor` point's thrust and torque are still
@@ -142,22 +136,9 @@ the decisions and the package derives the rest.
     diameter; and an axial velocity that is not positive (state
     `wake_termination_thrust_n` in the setup, or state `REVOLUTIONS`).
 
-* `LOG_OUTPUT: <n>` names WHICH of the row's own `OUTPUTS` is the solver
-  log, counted from 1, and the workflow then emits `EXPORT_LOG` for it.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` applies only to cases written in Python. A row declaring it is refused; use `pyfs-matrix upgrade <matrix> --in-place` to migrate the matrix.
 
-    **It is what makes a convergence verdict possible at all.** An
-    unsteady time loop always reaches its prescribed end, so the
-    iteration counter judges nothing, and without a log every unsteady
-    run is recorded `COMPLETED_MAX_ITER` whether it converged at every
-    time step or at none. That word is a statement about the evidence
-    and it reads as a statement about the solver. With a log the verdict
-    is the final residual against the row's own convergence limit.
-
-    It is a POSITION and not a file name because the names carry the
-    point placeholder in the cell and reach a builder already rendered:
-    the cell says `loads_{point}.txt` and the case carries
-    `loads_M200RE230AL+000.txt`, so a name could never match. Order survives
-    rendering; a name does not.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. Use `pyfs-matrix upgrade <matrix> --in-place` to migrate an older matrix.
 
 * `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
   <steps>`, at most one per row, is the step the PER-STEP exports begin
@@ -186,18 +167,25 @@ stream and speed of sound, one row per rotor per point under the title
 
 ```text
 Rotor Mach numbers
-  POL   point                    rotor       M_tip  M_hel
-  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
-  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+  POL   point                    rotor       M_tip  M_hel  M_adv
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
 ```
 
-and warns, naming each point, when a helical Mach number is 1 or more
-(`M_hel >= 1`, the tip sonic or supersonic):
+and warns, naming each point, when the advancing-tip Mach number is 1 or more
+(`M_adv >= 1`, the advancing tip sonic or supersonic):
 
 ```text
-helical Mach >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-rotor PORT, M_hel 1.117. ...
+advancing-tip Mach M_adv >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+rotor PORT, M_adv 1.117 (M_hel 1.117). ...
 ```
+
+`M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`, with `V_ax` the free-stream
+component along the rotor axis and `V_ip` the component in the rotor plane.
+`M_hel = sqrt(V^2 + (Omega R)^2) / a` bounds the tip only in axial flow, where
+`M_adv = M_hel` (the example above); in edgewise flow `M_adv = (Omega R + V) / a`
+is larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
+edgewise bound and the plan line says so.
 
 A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing for
 the warning. A rotor whose reference states no diameter for it has no known
@@ -206,14 +194,11 @@ definitions, and where else the two numbers appear (the run record, the
 rotor table), are in
 [the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
-**THE RESERVED NAMES ARE THESE, AND THE LIST HAS GROWN TWICE.**
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
-itself reads, and a cell of yours that already spells one of them is
-read by the package rather than ignored:
-
-The [input glossary](inputs.md) lists the current keys and their meanings.
-The [upgrade index](upgrading.md) links the release records for retired
-spellings and changes to their interpretation.
+itself reads, which the [input glossary](inputs.md#tables-and-reserved-keys)
+lists; a cell of yours that spells one of them is read by the package
+rather than ignored. The [upgrade index](upgrading.md) links the release
+records for retired spellings and changes to their interpretation.
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
 `DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
@@ -326,43 +311,6 @@ The `matrix_` prefix is the CONVERTER's rather than yours:
 `matrix_fs_build`, `matrix_hidden` and `matrix_workflow` are written
 over whatever your cell said, after your cell is read. A key of yours
 spelling one of those is not read by the package; it is replaced.
-
-**`REVOLUTIONS` AND `DELTA_THETA` ARE THE TWO TO CHECK FIRST**, because
-they are ordinary words a rotor study is likely to have already used for
-its own bookkeeping. A cell of yours spelling either is now the
-package's, so rename yours or adopt the meaning.
-
-The match is on the EXACT key, so a cell spelling it `SYMMETRY_TYPE` or
-`N_REVOLUTIONS` is untouched. The rows of [the run matrix](workflow-run-matrix.md) use `FSM_FILE`, a key of
-their own that nothing in the package reads; moving a row off `LEGACY`
-is the moment to rename it to `GEOMETRY`, and a row that stays on
-`LEGACY` keeps its recipe and its own key with nothing changed for it.
-
-v0.9.0 added a larger upgrade risk than any name, the removal of the
-`RE` and `MACH` columns, which is handled by
-`pyfs-matrix upgrade <path> --in-place` and described on
-[the flight-condition page](flight-conditions.md).
-
-A row that names none of the three behaves exactly as it did before, and
-that is measured rather than promised, in two separate ways because they
-are two separate claims.
-
-Going forward, every workflow crossed with three case shapes and every
-build it covers is pinned as a committed golden under
-`tests/tier1_offline/goldens/workflows/` and compared byte for byte on every run of the
-suite. On one of the workflow-and-build pairs, `steady` on FlightStream
-25.000, the builder refuses instead of rendering, and both of that pair's
-goldens pin the refusal text; the changelog's "Known gaps" says why.
-
-Looking back, the same four case shapes were rendered against a worktree
-at the `v0.8.0` tag: every render came out byte for byte identical, and
-the two refusals matched their text as well. That is the half the goldens
-cannot prove on their own, since they were generated from this release.
-The receipt is committed beside them.
-
-Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
-anything is written, and that is deliberate: naming is the workspace's
-job.
 
 ## One row, several rotors
 
@@ -503,9 +451,7 @@ the two registrations above, whose program counts the time steps and
 writes nothing else, so no exports file exists and no exports action runs.
 The record names the program as `action_program` and keeps `action_count`,
 with no `action_script` and no `export_window`, and the progress bar of a
-local run reads that count, as it reads it on a row with exports. That the
-counter leaves the results unchanged is owed by the licensed round of
-0.33.0.
+local run reads that count, as it reads it on a row with exports. RPT-112 measured the no-effect result on 26.124, build 8172026, for its tested unsteady counter case.
 
 What is exported per step is read from the row's outputs and nowhere
 else: the loads table, the surface (the VTK, from which the run writes each
@@ -517,8 +463,6 @@ threshold beyond the run is refused naming both numbers; the revolutions
 form on `unsteady` is refused naming the iterations form that would work,
 because a run that turns nothing has no revolution to count.
 
-This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
-exports: the exports begin AFTER a threshold, in the reference definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 

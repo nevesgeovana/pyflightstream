@@ -524,6 +524,7 @@ MARK_WAKE_TERMINATION_NODES:
 
 PHYSICS:
   layout: keyword_block
+  terminator: END
   phase: setup
   args:
     - name: auto_trail_edges

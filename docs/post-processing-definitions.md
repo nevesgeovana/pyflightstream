@@ -63,6 +63,38 @@ centers. The linked definition states the rule for every block.
 
 [The probes table](definitions/the-probes-table.md#the-probes-table).
 
+<a id="the-far-field-family"></a>
+
+[The far-field family](definitions/the-far-field-family.md#the-far-field-family).
+
+<a id="the-discrete-trace"></a>
+
+[The discrete trace (shared by Trefftz A and B)](definitions/the-far-field-family.md#the-discrete-trace).
+
+<a id="trefftz-a"></a>
+
+[Trefftz A, from the section loads](definitions/the-far-field-family.md#trefftz-a).
+
+<a id="trefftz-b"></a>
+
+[Trefftz B, from the solver's wake](definitions/the-far-field-family.md#trefftz-b).
+
+<a id="trefftz-c"></a>
+
+[Trefftz C, from a plane of probes](definitions/the-far-field-family.md#trefftz-c).
+
+<a id="the-balances"></a>
+
+[The balances on the survey lattice](definitions/the-far-field-family.md#the-balances).
+
+<a id="the-survey-lattice"></a>
+
+[The survey lattice and the far-field plane are probes](definitions/the-far-field-family.md#the-survey-lattice).
+
+<a id="what-the-plan-adds"></a>
+
+[What the far-field plan adds](definitions/the-far-field-family.md#what-the-plan-adds).
+
 <a id="the-reductions-of-an-unsteady-point"></a>
 
 [The reductions of an unsteady point](definitions/the-reductions-of-an-unsteady-point.md#the-reductions-of-an-unsteady-point).

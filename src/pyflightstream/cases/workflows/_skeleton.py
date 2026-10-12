@@ -46,6 +46,7 @@ from ._conventions import (
     select_workflow,
 )
 from ._exports import (
+    _declared_export_kinds,
     _export_block,
     _export_surface_vtk,
     _export_updates,
@@ -84,6 +85,10 @@ from ._rows import (
 from ._solver_settings import (
     _analysis,
     _raw_commands,
+)
+from ._streamlines import (
+    _pproc_streamlines,
+    refuse_streamlines_where_they_cannot_run,
 )
 from ._vocabulary import (
     PERIODIC_COPIES_VARIABLE,
@@ -335,6 +340,18 @@ def _script_tail(
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
     """
+    if case.pproc is not None and case.pproc.streamlines is not None:
+        # FR-460 R5, before the first line of the tail: a coupled steady row
+        # never reaches the trace, and must not reach its exports either.
+        refuse_streamlines_where_they_cannot_run(case, case.pproc.streamlines)
+    if case.sixdof is not None and case.recipe != "unsteady":
+        # FR-461 R4, for a case built without the matrix: the matrix refuses it
+        # when the row binds, and a case authored in Python meets it here.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
+            f"case runs {case.recipe}; a free body needs the time march, and a free body with "
+            "a rotor turning is outside this route."
+        )
     _script_init(
         case,
         script,
@@ -343,7 +360,7 @@ def _script_tail(
         reopens_a_saved_state=reopens_a_saved_state,
         conventions=conventions,
     )
-    if case.fsi is not None and not unsteady:
+    if (case.fsi is not None or case.fsi_external is not None) and not unsteady:
         # FSI-G: A STEADY COUPLED SCRIPT ENDS AT THE ANALYSIS. It returns at once
         # in a script, so a line after it would run before it iterates (an
         # export of the rigid surface) or end it (CLOSE_FLIGHTSTREAM). The
@@ -403,6 +420,8 @@ def _script_init(
     clocked quasi-steady wheel creates them at each clocking, in the pose that
     clocking holds (0.31.0, :func:`_build_qsteady_rotor`).
     """
+    # FR-462: the external structural program, refused before any line.
+    _validate_the_external_structure(case, script, continuation=reopens_a_saved_state)
     if case.fsi is not None:
         from ..fsi_workspace import validate_workspace_fsi
 
@@ -456,7 +475,8 @@ def _script_init(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
-    coupled_surfaces: list[dict[str, object]] = []
+    # FR-462: an external structure's coupling, empty where the row states none.
+    coupled_surfaces = _wire_the_external_structure(case, script, frames, conventions)
     workflow = select_workflow(case) if case.fsi is not None else None
     if case.fsi is not None and workflow in ("steady", "unsteady"):
         coupled_surfaces = _wire_the_fixed_wing(case, script, workflow, frames, conventions)
@@ -532,6 +552,58 @@ def _wire_the_fixed_wing(
             _export_surface_vtk(post, case, DEFORMED_SURFACE_FILE)
 
     return wire_fixed_wing_fsi(
+        case,
+        script,
+        workflow=workflow,
+        interpreter=_action_interpreter(sys.executable),
+        exports=exports,
+        updates=updates,
+    )
+
+
+def _validate_the_external_structure(case: SimCase, script: Script, *, continuation: bool) -> None:
+    """Refuse a row the external FSI route cannot couple (FR-462 R4); nothing where none."""
+    if case.fsi_external is None:
+        return
+    from .._fsi_external import validate_external_fsi
+
+    validate_external_fsi(case, script, workflow=select_workflow(case), continuation=continuation)
+
+
+def _wire_the_external_structure(
+    case: SimCase,
+    script: Script,
+    frames: Frames | None,
+    conventions: WorkflowConventions | None,
+) -> list[dict[str, object]]:
+    """Wire an external structural program's coupling (FR-462), as the fixed wing's.
+
+    The exports follow the fixed-wing rule: on a steady row the whole export
+    block runs in the post-processing script; on an unsteady row that script
+    exports the deformed surface after every call. Empty where the row states
+    no external structure; the run type was judged by
+    :func:`_validate_the_external_structure`.
+    """
+    if case.fsi_external is None:
+        return []
+    from .._fsi_external import wire_external_fsi
+    from ..fsi_workspace import DEFORMED_SURFACE_FILE
+
+    workflow = select_workflow(case)
+    if frames is None:
+        raise CampaignConfigError("FSI requires the initial wing/frame mapping.")
+    exports: Callable[[Script], None]
+    updates: Callable[[Script], None] | None = None
+    if workflow == "steady":
+        _refuse_what_a_steady_coupled_run_cannot_export(case)
+        exports_of = conventions or WorkflowConventions.for_case(case)
+        exports, updates = _coupled_export_block(exports_of, case)
+    else:
+
+        def exports(post: Script) -> None:
+            _export_surface_vtk(post, case, DEFORMED_SURFACE_FILE)
+
+    return wire_external_fsi(
         case,
         script,
         workflow=workflow,
@@ -724,6 +796,16 @@ def _script_solve_and_export(
         unsteady=unsteady,
         frames=frames,
         from_metres=lambda what: _from_metres(case, script, what),
+    )
+    # FR-460: the pproc's streamlines, traced in the analysis phase after the
+    # solve (after the march on an unsteady row), before the exports.
+    _pproc_streamlines(
+        case,
+        script,
+        frames if frames is not None else script.frames_by_name,
+        surface_file=_declared_export_kinds(conventions, case, unsteady=unsteady)[1].get(
+            "streamlines_surface"
+        ),
     )
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)

@@ -391,6 +391,10 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
         iterations=report.current_iteration,
         converged=record.status is RunStatus.CONVERGED,
         label=f"sim_{record.sim_id}/{record.run_id.rsplit('/', 1)[-1]}",
+        minimum_cp=(record.solver_setup or {})
+        .get("flags", {})
+        .get("SOLVER_MINIMUM_CP", {})
+        .get("value"),
     )
 
 
@@ -623,15 +627,7 @@ def _require_one_build(records: list, path: Path) -> list[str]:
     # PFS-2085.017. One version can be two programs: a rebuilt hotfix
     # prints the same version, and a resumed run after the registry entry
     # was repointed records the new binary beside the old one.
-    for field_name in ("fs_build", "fs_exe_sha256"):
-        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
-        if len(seen) > 1:
-            raise PhysicsEnvironmentError(
-                f"the records of {path.name} name {len(seen)} different {field_name} values "
-                f"({', '.join(seen)}) for FlightStream {versions[0]}, and a physics report "
-                "is evidence of one executable; two binaries of one case set is a drift "
-                "(pyfs-qa drift)."
-            )
+    _check_executable_records(records, path, versions[0])
     return versions
 
 
@@ -709,7 +705,7 @@ def reduce_physics(
         try:
             _one_row_each(case_id, case_rows)
             points, metrics = _reduce_case(case_id, case_rows, workspace, by_row, steady_rows, path)
-            reference = load_reference(case_id, references_dir)
+            reference = load_reference(case_id, references_dir, fs_version=versions[0])
         except QaEvidenceError as error:
             results.append(
                 CaseResult(case_id=case_id, title=case.title, geometry=geometry, error=str(error))
@@ -761,6 +757,19 @@ def reduce_physics(
         executor=next((record.executor for record in records if record.executor), None),
         source=source or f"{path.name} in workspace {Path(workspace.root).name}",
     )
+
+
+def _check_executable_records(records: list[RunRecord], path: Path, version: str) -> None:
+    """Refuse records of distinct binaries even when their declared version agrees."""
+    for field_name in ("fs_build", "fs_exe_sha256"):
+        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
+        if len(seen) > 1:
+            raise PhysicsEnvironmentError(
+                f"the records of {path.name} name {len(seen)} different {field_name} values "
+                f"({', '.join(seen)}) for FlightStream {version}, and a physics report "
+                "is evidence of one executable; two binaries of one case set is a drift "
+                "(pyfs-qa drift)."
+            )
 
 
 def physics_from_workspace(
@@ -922,8 +931,8 @@ def drift_from_workspace(
                 _run_one_side(
                     root,
                     path,
-                    side,
-                    canonical,
+                    side=side,
+                    canonical=canonical,
                     exe=exe,
                     side_root=side_root,
                     builds=builds,
@@ -1005,9 +1014,9 @@ def drift_sides(
 def _run_one_side(
     root: str | Path,
     path: Path,
+    *,
     side: str,
     canonical: str,
-    *,
     exe: str | Path,
     side_root: Path,
     builds: list[str],

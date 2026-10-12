@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.77.0 |
+| Version | 1.82.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-436, each with origin, status, and evidence.
+   FR-477, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-46.
 8. [Standards alignment](standards.md): the external practices this
@@ -104,8 +104,13 @@ is still pending.
 
 | Version | Date | Change |
 |---|---|---|
-| 1.77.0 | 2026-10-12 | FR-101 amended: a rotor row on 26.100 is refused at plan time by name until a rotation null probe measures the unit of that build's angular velocity, where it was written in rev/min as a maintainer decision (RPT-051); the refusal shipped in 0.40.0 (PFS-2088.010). |
-| 1.76.0 | 2026-10-12 | The requirements of 0.39.0 move to implemented: they shipped in 0.39.0 and were left pending by the release, whose docs step did not promote them. FR-430 to FR-436, NFR-45 and NFR-46 are implemented, each with its Evidence paragraph and its test files on the Origin line; FR-413 R8 and the FR-46 amendment lose their pending mark. FR-433 states that R2 has an open defect for a uniform automatic level tag, fixed in 0.40.0 (PFS-2081.02). Each release now promotes its own requirements in its own docs step, and the release checker (`tests/tier1_offline/test_release_pending_requirements.py`) refuses a release while a requirement or amendment owned by it is pending. |
+| 1.82.0 | 2026-10-12 | FR-101 amended: a rotor row on 26.100 is refused at plan time by name until a rotation null probe measures the unit of that build's angular velocity, where it was written in rev/min as a maintainer decision (RPT-051); the refusal shipped in 0.40.0 (PFS-2088.010). |
+| 1.81.0 | 2026-10-12 | FR-176 amended by R1 (PFS-2113.031): the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` joins `M_tip` and `M_hel` in the plan, the run record and the rotor table, and the plan warns on `M_adv >= 1`; `M_hel` is unchanged; implemented with P0400-MADV. |
+| 1.80.0 | 2026-10-12 | The geometry stage completes the accepted design: FR-471 gains R10 (a rebuilt mesh's sidecar carries over the operations and tables the run reads), FR-472 gains R5 to R7 (`--rows`, `--parallel` and the overlaid sweep preview) and FR-473 gains R5 (the warning on a mirrored row whose body carries a deflected control surface). No other requirement changes. |
+| 1.79.0 | 2026-10-12 | The 0.40.0 far-field family and probes home (PFS-2139.001, PFS-2140.001): FR-450 to FR-459, FR-38 amended (the workspace route of the ledgers, the rothalpy ledger leaves) and FR-79 amended (the layouts move to `probes`), written before the first package commit of the family, all pending, with their P0400 markers in `docs/srs/markers-0400.json`. |
+| 1.78.0 | 2026-10-12 | The geometry stage of 0.40.0: FR-470 to FR-477, written before the code and implemented with their tier-1 tests in the same release (the solver's answer to each gated command is owed to the licensed probe batch, and the build refuses those commands until then), for PFS-2081.41 with the mesh operations of PFS-2081.13 and the CAD bodies and solver-built geometry of PFS-2081.14: the instruction file (FR-470), `pyfs-workspace geometry build` with its preview, its one solver execution, the read-back, the audit, the preview file and the record (FR-471), the deflection sweep (FR-472), the acceptance and the plan's reading of the record (FR-473), the mesh operations (FR-474), the CAD bodies and the solver-built geometry (FR-475), the warnings of the in-row routes and the converter (FR-476) and the geometry verbs in one group (FR-477). No existing requirement changes its statement or its status. |
+| 1.77.0 | 2026-10-12 | The command-gap requirements of 0.40.0: FR-460 (streamlines from a pproc table), FR-461 (a body free to move, by the SIXDOF row key) and FR-462 (an external structural program behind the FSI input), written before the first package commit and promoted to implemented in the same lane with their tests (P0400-STREAMLINES, P0400-SIXDOF, P0400-FSIEXT). |
+| 1.76.0 | 2026-10-12 | The requirements of 0.39.0 move to implemented: they shipped in 0.39.0 and were left pending by the release, whose docs step did not promote them. FR-430 to FR-436, NFR-45 and NFR-46 are implemented, each with its Evidence paragraph and its test files on the Origin line; FR-413 R8 and the FR-46 amendment lose their pending mark. FR-433 states that R2 has an open defect for a uniform automatic level tag, fixed in 0.40.0 (PFS-2081.02). From 0.40.0 on, a release promotes its own requirements in its own docs step, and the release checker (`tests/tier1_offline/test_release_pending_requirements.py`) refuses a release while a requirement or amendment owned by it is pending. |
 | 1.75.0 | 2026-10-10 | The 0.39.0 requirements (GOAL-049): FR-430 to FR-436, NFR-45 and NFR-46, FR-413 amended by R8 and FR-46 by FR-434, written before the first package commit, all pending, with their P0390 markers in `docs/srs/markers-0390.json`. |
 | 1.74.0 | 2026-10-06 | 0.38.0 additions: smooth tube, multiblock grid recovery, quad-dominant elements; the audit of component levels. FR-424 R6 measures its distance to the spline surface through the source's nodes, not to the source's panels, which a coarse curved source cannot meet (release review RV-04); the opening fraction of G3 (0.25) is named among the section's thresholds (RV-03). |
 | 1.73.0 | 2026-10-06 | The 0.38.0 boxes FR-424 to FR-429, NFR-43 and NFR-44 move to implemented, each with its Evidence paragraph and the test files on its Origin line; the section intro cites RPT-162 as the public report of the licensed comparison. |

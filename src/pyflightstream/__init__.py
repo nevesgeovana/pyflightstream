@@ -94,6 +94,7 @@ import pyflightstream.post  # noqa: E402, F401
 # for (P0320-SYNC-RESTORE-OPTIN): the storage layer sits BELOW the run since
 # 0.33.0 (AD-09) and calls whatever is registered, so no import points upward.
 import pyflightstream.run.records  # noqa: E402, F401
+from pyflightstream._cli import cli_entrypoint as cli_entrypoint  # noqa: E402
 from pyflightstream.options import (  # noqa: E402
     describe_option,
     get_option,
@@ -117,6 +118,7 @@ from pyflightstream.support import (  # noqa: E402
 )
 
 __all__ = [
+    "cli_entrypoint",
     "SupportLevel",
     "__version__",
     "describe_option",

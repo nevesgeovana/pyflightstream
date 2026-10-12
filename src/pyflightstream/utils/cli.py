@@ -112,6 +112,15 @@ def _parser() -> argparse.ArgumentParser:
             "explicitly, it is never guessed, and nothing from it is copied "
             "into anything this writes."
         ),
+        epilog=(
+            "coverage and draft require --manual PDF, --source ID and --chapter-pages "
+            "FIRST-LAST. Find the scripting reference range and optional --index-pages "
+            "range in that edition's table of contents; use one-based PDF page numbers, "
+            "inclusive. The source ID is its bibliography citation (for example SRC-753). "
+            "Example for the 26.121 edition: pyfs-manual coverage --manual manual.pdf "
+            "--source SRC-740 --chapter-pages 284-379. "
+            "Install pyflightstream[manual] to read PDFs."
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -750,6 +759,19 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 0
 
 
+def _manual_extra_error() -> str | None:
+    """Return the installation remedy when PDF support is unavailable."""
+    try:
+        import pypdf  # noqa: F401
+    except ImportError:
+        from pyflightstream.extras import missing_extra
+
+        return str(
+            missing_extra("manual", package="pypdf", purpose="reading a FlightStream manual pdf")
+        )
+    return None
+
+
 @cli_entrypoint
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
@@ -767,6 +789,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     parser = _parser()
     args = parser.parse_args(argv)
+    if remedy := _manual_extra_error():
+        print(remedy, file=sys.stderr)
+        return 2
 
     if args.command == "sweep":
         return _sweep(parser, args)

@@ -744,11 +744,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         # PFS-2102.008. Both sides' executables and roots, before side A
         # spends a seat on a run that side B's typo would then discard.
         drift_sides(canonicals[0], canonicals[1], fs_exes=fs_exes, workroot=args.workroot)
-    except PhysicsEnvironmentError as error:
-        print(f"nothing run: {error}", file=sys.stderr)
-        return 2
-    date = resolve_report_date()
-    try:
+        date = resolve_report_date()
         paths = drift_report_paths(
             args.report_dir,
             version_a=canonicals[0],
@@ -756,7 +752,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             date=date,
             label=args.label,
         )
-    except QaEvidenceError as error:
+    except (PhysicsEnvironmentError, QaEvidenceError) as error:
         print(f"nothing run: {error}", file=sys.stderr)
         return 2
     if _refuse_before_the_solver(paths):

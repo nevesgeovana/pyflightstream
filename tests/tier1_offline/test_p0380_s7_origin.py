@@ -138,7 +138,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-98": "8740e50d259e8a5587385e9b7f460bf18a13931e1e8fd7b7007681ae511fc310",
     "FR-99": "8564186343eecb44bd657873b316c6c6432e14d889f956bb564f71c5217248f5",
     "FR-100": "c022ade873871d034b4826375d411504072104949d99fa28cf6c8c618aa0a89e",
-    # amended in 0.40.0 (the 26.100 rotor row refused, PFS-2088.010), SRS 1.77.0
+    # amended in 0.40.0 (the 26.100 rotor row refused, PFS-2088.010), SRS 1.82.0
     "FR-101": "2c5c6eb4ccf4a3fee9686bf511b91d419663fa8db601db6b03041e9f7e6a6a33",
     "FR-102": "5f96430ec764fc320b9183dc926beaa2df485dd2d0504839a5ee743e5a918772",
     "FR-103": "f8d9d12281b5edbbe8b11b2bf48fef2e115c64e6980765a772b408d279064fdc",

@@ -321,7 +321,7 @@ DELETE_ALL_SURFACE_STREAMLINES:
 
 EXPORT_ALL_SURFACE_STREAMLINES:
   layout: inline
-  phase: analysis
+  phase: export
   args:
     - name: file
       type: path

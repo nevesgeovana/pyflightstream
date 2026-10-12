@@ -324,7 +324,7 @@ def _sources() -> dict[str, str]:
 
 def test_the_root_keeps_its_all_in_content_and_order():
     # P0340-CASES-CUT (AD-16): the root's __all__ is v0.33.0's, name for name.
-    assert list(cases.__all__) == _ORIGINAL_ALL
+    assert list(cases.__all__) == [*_ORIGINAL_ALL, "TEMPLATE_SETTINGS_LEFT_OUT"]
 
 
 @pytest.mark.parametrize(("module", "name"), _MOVED_PAIRS)

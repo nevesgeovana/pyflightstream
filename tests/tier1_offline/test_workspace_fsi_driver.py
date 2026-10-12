@@ -72,7 +72,7 @@ def test_workspace_config_reaches_real_driver_and_displacement_archive(tmp_path,
     nodes.write_node_file(layout, run_dir / "structural_nodes.csv")
     for iteration in (100, 140):
         write_loads(run_dir, iteration)
-        assert cli.main(["step", "--dir", str(run_dir)]) == 0
+        assert cli.main(["step", "--out", str(run_dir)]) == 0
     state = load_state(run_dir / driver.STATE_FILE)
     assert state.call_count == state.step_count == 2
     assert state.phase == 2 and state.config_sha256 == config_sha256(staged)

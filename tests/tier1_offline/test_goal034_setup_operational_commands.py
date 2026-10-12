@@ -20,9 +20,11 @@ obligations' business.
 
 from __future__ import annotations
 
+import ast
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -849,7 +851,8 @@ SETUP_CHAPTERS = (
     "aeroelastic_coupling",
 )
 
-#: In-scope commands whose operation is held by the recorded native replays elsewhere.
+#: In-scope commands requiring private native replays. They are unproven in CI when those
+#: receipts are absent; the gates below execute the replay instead of accepting its tag.
 PROVED_ELSEWHERE = {
     "tests/tier1_offline/test_fsi_native_interface_evidence.py": (
         "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
@@ -915,6 +918,32 @@ def tag_holders(source: str) -> dict[str, str]:
             "ok" if asserts and calls & REPLAY_READERS else "no assertion on a replayed receipt"
         )
     return found
+
+
+def _prove_elsewhere(path: str, commands: tuple[str, ...]) -> None:
+    """Execute each tagged replay; absent evidence skips the gate as explicitly unproven."""
+    root = Path(__file__).resolve().parents[2]
+    source = (root / path).read_text(encoding="utf-8")
+    lines = source.splitlines()
+    tree = ast.parse(source)
+    module = import_module(path.removesuffix(".py").replace("/", "."))
+    for command in commands:
+        tag = f"GOAL033:setup_bc:operational_commands:{command}"
+        owners = [
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name.startswith("test_")
+            and any(
+                line.strip().removeprefix("#").strip() == tag
+                for line in lines[node.lineno - 1 : node.end_lineno]
+            )
+        ]
+        assert len(owners) == 1, (path, command, owners)
+        try:
+            getattr(module, owners[0])()
+        except pytest.skip.Exception as absent:
+            pytest.skip(f"operational evidence unproven for {command}: {absent}")
 
 
 #: Every setup/BC command the emitter refuses on 26.124, by the error it refuses with:
@@ -1034,6 +1063,8 @@ def test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refu
             continue
         admitted.append(command)
     assert not admitted, f"{BUILD} admits a command recorded absent: {admitted}"
+    for path, commands in PROVED_ELSEWHERE.items():
+        _prove_elsewhere(path, commands)
 
 
 # --- settings that act on one another ------------------------------------------------

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream import cli_entrypoint
 from pyflightstream.post import OutputProvenance, write_probe_field
 from pyflightstream.script import Script, helpers
 

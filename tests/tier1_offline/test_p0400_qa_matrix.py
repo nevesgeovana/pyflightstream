@@ -227,9 +227,16 @@ def test_p0400_physrun_a_missing_executable_is_refused_without_a_traceback(tmp_p
     assert "nothing run" in capsys.readouterr().err
 
 
-def test_p0400_physrun_a_label_that_is_no_file_name_is_refused_before_the_run(tmp_path, capsys):
+@pytest.mark.parametrize("label", ["pilot/2", "pilot" + chr(0), "pilot" + chr(1)])
+def test_p0400_physrun_a_label_that_is_no_file_name_is_refused_before_the_run(
+    tmp_path, capsys, label, monkeypatch
+):
     """P0400-PHYSRUN (PFS-2102.015) pilot/2 is refused at the pre-flight, not at the write."""
     from pyflightstream.qa.reports import report_paths
+
+    monkeypatch.setattr(
+        "pyflightstream.qa.cli.probe_version", lambda *a, **k: pytest.fail("a seat was spent")
+    )
 
     with pytest.raises(QaEvidenceError, match="file-name token"):
         report_paths(tmp_path, series="PHY", versions=["26.120"], date="2026-10-12", label="10:30")
@@ -241,7 +248,7 @@ def test_p0400_physrun_a_label_that_is_no_file_name_is_refused_before_the_run(tm
             "--fs-exe",
             sys.executable,
             "--label",
-            "pilot/2",
+            label,
             "--workroot",
             str(tmp_path / "work"),
             "--report-dir",

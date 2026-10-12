@@ -528,6 +528,8 @@ class Script:
         # :attr:`periodic_copies`; the solver's surface exports hold one zone
         # per copy, so the run needs the count to read them.
         self._periodic_copies: int | None = None
+        self._periodic_symmetry = False
+        self._incidence: dict[str, float] = {}
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
@@ -889,13 +891,28 @@ class Script:
         self._check_not_a_model_replacement(entry)
         self._check_label_applies(entry, label)
         bound = self._bind(entry, args, kwargs)
+        if entry.name == _INITIALIZATION_COMMAND:
+            periodic = (
+                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
+            )
+            if periodic and any(self._incidence.values()):
+                raise CommandArgumentError(
+                    "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
+                    "incidence is incompatible with rotational periodicity"
+                )
+        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
+            if self._periodic_symmetry and float(bound["angle"]) != 0:
+                raise CommandArgumentError(
+                    f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
+                    "incompatible with rotational periodicity"
+                )
         phase = self._check_phase(entry)
         self._check_references(entry, bound)
         block, multiline = self._render_command(entry, bound)
         exports = [
             str(bound[argument.name])
             for argument in entry.args
-            if entry.name.startswith("EXPORT_")
+            if "EXPORT" in entry.name.split("_")
             and argument.type is ArgType.PATH
             and argument.name in bound
         ]
@@ -960,15 +977,26 @@ class Script:
             self.custom_field_coverage = None
             self._minimum_cp_emitted = False
             self._unsteady_regime = None
+            self._incidence.clear()
+            self._periodic_symmetry = False
         if entry.name == _INITIALIZATION_COMMAND:
+            periodic = (
+                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
+            )
             self._initialized_at = len(self._lines) + 1
             self._reinitialization_owed = None
-            copies = bound.get("symmetry_copies")
+            copies = bound.get("symmetry_copies", bound.get("symmetry_periodicity"))
+            self._periodic_symmetry = periodic
             self._periodic_copies = (
                 int(copies)  # type: ignore[call-overload]
-                if str(bound.get("symmetry", "")).upper() == "PERIODIC" and copies is not None
+                if periodic and copies is not None
                 else None
             )
+            if "load_frame" in bound:
+                self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
+                self._sets_loads_frame = True
+        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
+            self._incidence[entry.name] = float(bound["angle"])  # type: ignore[arg-type]
 
     def _follow_emitted(
         self, entry: CommandEntry, bound: Mapping[str, object], block: list[str], multiline: bool
@@ -1755,6 +1783,12 @@ class Script:
         return None
 
     def _check_references(self, entry: CommandEntry, bound: dict[str, object]) -> None:
+        if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
+            raise CommandArgumentError(
+                "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
+                "be deleted. Select a local frame with an index greater than 1 "
+                f"({entry.citation})"
+            )
         for spec in entry.args:
             if spec.name not in bound:
                 continue
@@ -1800,6 +1834,14 @@ class Script:
         return [joiner.join(rendered)]
 
     def _render_command(self, entry: CommandEntry, bound: dict) -> tuple[list[str], bool]:
+        for position, spec in enumerate(entry.args):
+            if spec.joins_previous and spec.name in bound:
+                anchor = entry.args[position - 1]
+                if anchor.name not in bound:
+                    raise CommandArgumentError(
+                        f"{entry.name}: {spec.name} needs {anchor.name}, the preceding "
+                        f"argument it joins ({entry.citation})"
+                    )
         provided = [(spec, bound[spec.name]) for spec in entry.args if spec.name in bound]
         if entry.layout is Layout.BARE:
             return [entry.name], False
@@ -1852,4 +1894,6 @@ class Script:
                 lines[-1] += f" {self._format_scalar(value)}"
             else:
                 lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
+        if entry.terminator is not None:
+            lines.append(entry.terminator)
         return lines, True

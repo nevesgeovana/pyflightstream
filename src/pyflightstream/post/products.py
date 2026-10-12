@@ -579,6 +579,9 @@ def write_campaign_products(
 ) -> list[Path]:
     """Write campaign products, post.log and its JSON; refuse doubts only with check_frozen=True.
 
+    A simulation selection rewrites only its products; archiving is opt-in
+    through archive=True (CLI: --archive), as for a whole post (FR-397).
+
     The log is beside products.json, even on a clean or interrupted post. It
     records every named skip and every warning the package raises during the
     post, collected in a sink of this thread's own, so two posts in two
@@ -721,6 +724,24 @@ def write_campaign_products(
                             _log_record(run_record.run_id, "run-status", message, None)
                             for message in run_record.warnings
                         )
+                        if selected is None or run_record.sim_id in selected:
+                            from pyflightstream.results.log import lifting_log_warnings
+
+                            for output in run_record.outputs:
+                                if str(output).endswith("_log.txt") or str(output).endswith(".log"):
+                                    log = workspace.sim_dir(run_record.sim_id) / output
+                                    try:
+                                        messages = lifting_log_warnings(
+                                            log.read_text(encoding="utf-8", errors="replace")
+                                        )
+                                    except OSError:
+                                        continue
+                                    records.extend(
+                                        _log_record(
+                                            run_record.run_id, "lifting-wake", message, None
+                                        )
+                                        for message in messages
+                                    )
                 manifest_path = out / PRODUCTS_MANIFEST
                 try:
                     if manifest_path.is_file():
@@ -753,6 +774,15 @@ def write_campaign_products(
                         if primary is None:
                             raise
                         primary.add_note(f"the post log could not be written: {log_error}")
+    except (OSError, json.JSONDecodeError) as log_error:
+        # Buffered log writes can fail on context-manager exit, after the
+        # inner write guard has finished. A failed manifest rewrite can also
+        # leave partial JSON for the log reader. Keep the campaign's exception
+        # in both cases; a successful campaign still reports its log failure.
+        if primary is None or log_error is primary:
+            raise
+        primary.add_note(f"the post log could not be closed or read: {log_error}")
+        raise primary from None
     finally:
         _POST_REFUSES.reset(token)
         _POST_VERDICTS.reset(verdict_token)

@@ -237,11 +237,96 @@ _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CDP_", "CDV_", "CD_")
 #: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
 
-#: The physical columns written at significant digits rather than five decimals
-#: where that is the closer statement (:func:`write_csv_table`): the air's dynamic
-#: viscosity in Pa s, about 1.8e-5, and the solution time in seconds, whose step
-#: on a rotor is a few times 1e-5.
-_SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset({"MU", "time_s"})
+#: Dimensional columns whose small values need significant digits. Include the
+#: native plots clock and the physical quantities of sections and probe exports,
+#: not only the series clock and viscosity. Coefficients keep five decimals.
+_SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset(
+    {
+        "MU",
+        "time_s",
+        "Time (sec)",
+        "Time",
+        "ALPHA",
+        "BETA",
+        "AZIMUTH",
+        "AZIMUTH_START",
+        "AZIMUTH_END",
+        "VINF",
+        "VREF",
+        "ALT",
+        "RHO",
+        "TEMP",
+        "SREF",
+        "CREF",
+        "BREF",
+        "XMOM",
+        "YMOM",
+        "ZMOM",
+        "X",
+        "Y",
+        "Z",
+        "Offset",
+        "Chord",
+        "X_QC",
+        "Z_QC",
+        "Fx",
+        "Fz",
+        "Moment",
+        "Strip_length",
+        "Fx_int",
+        "Fz_int",
+        "My_int",
+        "vx",
+        "vy",
+        "vz",
+        "vtot",
+        "s_len",
+        "momentum_thickness",
+        "disp_thick",
+        "thickness",
+        "STATION_R_M",
+        "H0",
+        "H1_AMP",
+        "H2_AMP",
+        "H1_PHASE_DEG",
+        "H2_PHASE_DEG",
+        "RESIDUAL_RMS",
+        "RPM",
+        "DIAMETER",
+        "THRUST",
+        "TORQUE",
+        "POWER",
+        "FX",
+        "FY",
+        "FZ",
+        "MX",
+        "MY",
+        "MZ",
+        "VELOCITY",
+        "VELOCITY_X",
+        "VELOCITY_Y",
+        "VELOCITY_Z",
+        "VX",
+        "VY",
+        "VZ",
+        "BL_MOMENTUM_THICKNESS",
+        "BL_DISPLACEMENT_THICKNESS",
+        "BL_TOTAL_THICKNESS",
+    }
+)
+_DIMENSIONAL_PREFIXES = (
+    "RPM_",
+    "DIAMETER_",
+    "THRUST_",
+    "TORQUE_",
+    "POWER_",
+    "FX_",
+    "FY_",
+    "FZ_",
+    "MX_",
+    "MY_",
+    "MZ_",
+)
 _SIGNIFICANT_DIGITS = 6
 
 
@@ -393,7 +478,11 @@ def write_csv_table(
     states the value more closely than five decimals do. Sea-level viscosity
     was written ``0.00002`` (12 per cent off) and a time step of 2.78e-5 s
     made consecutive rows read ``0.00003, 0.00006, 0.00008``; a value five
-    decimals already hold exactly is written as it always was.
+    decimals already hold exactly is written as it always was. Dimensional
+    force, moment, rotor speed and diameter columns keep this rule when a
+    group or rotor alias is appended to their name. Fluid velocity histories
+    keep it when a probe number is appended. Dimensionless coefficients and
+    unknown columns retain the reference precision.
 
     Parameters
     ----------
@@ -424,7 +513,16 @@ def write_csv_table(
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
             writer.writerow(
                 [
-                    _significant_cell(value) if name in _SIGNIFICANT_DIGIT_COLUMNS else _cell(value)
+                    _significant_cell(value)
+                    if (
+                        name in _SIGNIFICANT_DIGIT_COLUMNS
+                        or name.startswith(_DIMENSIONAL_PREFIXES)
+                        or re.fullmatch(
+                            r"(?:VELOCITY|V[XYZ]|BL_(?:MOMENTUM|DISPLACEMENT|TOTAL)_THICKNESS)\d+",
+                            name,
+                        )
+                    )
+                    else _cell(value)
                     for name, value in zip(columns, row, strict=True)
                 ]
             )

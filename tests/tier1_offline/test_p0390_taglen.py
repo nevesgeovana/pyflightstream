@@ -50,7 +50,7 @@ def _parts(names, factor: float = 2.0) -> list[str]:
     return [f"{n}{_factor(i, factor):g}" for i, n in enumerate(names)]
 
 
-def _toml(names, factor: float = 2.0, keep: set[str] = frozenset()) -> str:
+def _toml(names, factor: float = 2.0, keep: set[str] | frozenset[str] = frozenset()) -> str:
     lines = []
     for i, n in enumerate(names):
         lines += [f"[families.{n}]", f"factor = {_factor(i, factor)}"]

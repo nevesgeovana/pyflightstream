@@ -364,15 +364,28 @@ def _point_of(run_id: str) -> str:
 
 def _rotor_mach_block(plan: CampaignPlan) -> list[str]:
     """Return one aligned row per rotor per point, then each rotor the plan could not compute."""
-    rows = [["POL", "point", "rotor", "M_tip", "M_hel"]]
+    rows = [["POL", "point", "rotor", "M_tip", "M_hel", "M_adv"]]
     unknown: list[str] = []
+    edgewise = False
     for entry in plan.points:
         for alias, mach in entry.rotor_mach.items():
             rotor = f"{mach.get('kind') or 'rotor'} {alias}"
             tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
             if isinstance(tip, int | float) and isinstance(helical, int | float):
+                advancing = mach.get("mach_advancing")
+                said = f"{advancing:.3f}" if isinstance(advancing, int | float) else "NA"
+                if mach.get("mach_advancing_bound") == "edgewise":
+                    said += "*"
+                    edgewise = True
                 rows.append(
-                    [entry.sim_id, _point_of(entry.run_id), rotor, f"{tip:.3f}", f"{helical:.3f}"]
+                    [
+                        entry.sim_id,
+                        _point_of(entry.run_id),
+                        rotor,
+                        f"{tip:.3f}",
+                        f"{helical:.3f}",
+                        said,
+                    ]
                 )
             else:
                 unknown.extend(
@@ -382,4 +395,9 @@ def _rotor_mach_block(plan: CampaignPlan) -> list[str]:
                         first="  ",
                     )
                 )
-    return [*(table(rows) if len(rows) > 1 else []), *unknown]
+    note = (
+        ["  * rotor axis not resolved: M_adv is the edgewise bound (Omega R + V) / a"]
+        if edgewise
+        else []
+    )
+    return [*(table(rows) if len(rows) > 1 else []), *note, *unknown]

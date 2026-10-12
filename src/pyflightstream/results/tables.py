@@ -6,10 +6,10 @@ is installed, the sectional loads report of
 :mod:`pyflightstream.fsi.loads`) into tidy :class:`pandas.DataFrame`
 tables, then assembles run-level and sweep-level tables by joining the
 campaign manifest records with the parsed coefficient tables. Tables
-rest on pandas today and labeled physical fields on xarray in
-:mod:`pyflightstream.farfield`; both substrates leave the runtime set
-at the release SRS NFR-06 names (SRS AD-06, which replaced the division
-this docstring used to state as permanent). Downstream code should
+rest on pandas today, which leaves the runtime set at the release SRS
+NFR-06 names (SRS AD-06, which replaced the division this docstring used
+to state as permanent); the far field of :mod:`pyflightstream.farfield`
+rests on plain numpy arrays. Downstream code should
 depend on the documented column schema (SRS NFR-19), not on the
 library holding the values.
 

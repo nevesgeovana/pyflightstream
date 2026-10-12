@@ -33,12 +33,14 @@ import csv
 import io
 import math
 import re
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import negated_text
+from pyflightstream._deprecations import INFLOW_STATION_HARMONICS
 from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
@@ -55,7 +57,8 @@ __all__ = [
     "HARMONIC_SHARES",
     "ColumnClassification",
     "HarmonicsMap",
-    "StationHarmonics",
+    "InflowStationHarmonics",
+    "StationHarmonics",  # noqa: F822 - the deprecated name is served by __getattr__
     "blade_view_harmonics",
     "inflow_harmonics_map",
     "installed_frame_columns",
@@ -110,6 +113,11 @@ AZIMUTH_COLUMNS: tuple[str, ...] = (
 _FLIP = re.compile(r"^(" + "|".join(FLIPPED_COLUMNS) + r")(?=_|\d|$)", re.IGNORECASE)
 _AZIMUTH = re.compile(r"^(" + "|".join(AZIMUTH_COLUMNS) + r")$", re.IGNORECASE)
 
+#: The phases ending in ``_PHASE_DEG`` that are NOT angles in azimuth: the
+#: Theodorsen and Sears phases are functions of the reduced frequency alone,
+#: so the mirror keeps them. Every other ``*_PHASE_DEG`` column maps as an azimuth.
+_FREQUENCY_PHASES = frozenset({"C_PHASE_DEG", "S_PHASE_DEG"})
+
 #: How many harmonics ``share_n1 ... share_nN`` the blade-view tables carry.
 HARMONIC_SHARES = 8
 
@@ -160,7 +168,12 @@ def installed_frame_columns(
             f"the table (columns: {', '.join(columns)})."
         )
     flipped = tuple(c for c in columns if _FLIP.match(c) or c.upper() in wanted)
-    mapped = tuple(c for c in columns if _AZIMUTH.match(c))
+    mapped = tuple(
+        c
+        for c in columns
+        if _AZIMUTH.match(c)
+        or (c.upper().endswith("_PHASE_DEG") and c.upper() not in _FREQUENCY_PHASES)
+    )
     return ColumnClassification(flipped, mapped)
 
 
@@ -183,7 +196,9 @@ def to_installed_frame(
     columns of :data:`FLIPPED_COLUMNS` (and those named in ``flip``) change
     sign (a position along y, a polar vector's y component, an axial vector's x
     and z components), the azimuths and harmonic phases of :data:`AZIMUTH_COLUMNS` map
-    ``psi -> -psi mod 360``, every other cell is copied as written. The list
+    ``psi -> -psi mod 360``, as do the other ``*_PHASE_DEG`` columns except the
+    Theodorsen and Sears phases ``C_PHASE_DEG`` and ``S_PHASE_DEG``; every other
+    cell is copied as written. The list
     holds the ``Y`` position, ``VY`` and the vorticity's x and z columns, so a
     table carrying them is mirrored there too. Blade and family names do not
     change: blade ``k`` of the image wheel (at ``+(k - 1) 60`` degrees on a
@@ -244,7 +259,7 @@ def to_installed_frame(
 
 
 @dataclass(frozen=True)
-class StationHarmonics:
+class InflowStationHarmonics:
     """The harmonic content of the angle of attack one blade meets at one radius.
 
     Attributes
@@ -270,6 +285,13 @@ class StationHarmonics:
     shares: tuple[float, ...]
     k_1p: float | None
     k_eff: float | None
+
+
+def __getattr__(name: str) -> object:
+    if name == "StationHarmonics":
+        warnings.warn(INFLOW_STATION_HARMONICS.message(), DeprecationWarning, stacklevel=2)
+        return InflowStationHarmonics
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _refuse_a_wrong_axis(axis: Sequence[float]) -> None:
@@ -298,7 +320,7 @@ def blade_view_harmonics(
     radii_m: Sequence[float],
     chords_m: Sequence[float] | None = None,
     samples: int = AZIMUTH_SAMPLES,
-) -> tuple[StationHarmonics, ...]:
+) -> tuple[InflowStationHarmonics, ...]:
     """Return the harmonic content of a custom inflow as one blade meets it, per radius.
 
     The blade turns once round the disc through the field (blade 1 along +Z at
@@ -329,7 +351,7 @@ def blade_view_harmonics(
 
     Returns
     -------
-    tuple of StationHarmonics
+    tuple of InflowStationHarmonics
         One entry per radius, in the order given: ``n95``, the per-harmonic shares, the
         perturbation's size and, with chords, ``k_1p`` and ``k_eff``.
 
@@ -366,7 +388,7 @@ def blade_view_harmonics(
                 )
             k_1p = abs(omega_rad_s) * chord / (2.0 * mean_relative)
         stations.append(
-            StationHarmonics(
+            InflowStationHarmonics(
                 radius_m=float(radius),
                 chord_m=chord,
                 dalpha_rms_deg=float(np.sqrt(np.mean(dalpha**2))),
@@ -386,7 +408,7 @@ class HarmonicsMap:
 
     Attributes
     ----------
-    stations : tuple of (float, StationHarmonics)
+    stations : tuple of (float, InflowStationHarmonics)
         ``(J, station)``, advance ratio major, radius minor.
     diameter_m, v_inf_m_s : float
         The rotor diameter and the fixed speed ``J`` is read against.
@@ -394,7 +416,7 @@ class HarmonicsMap:
         ``N``.
     """
 
-    stations: tuple[tuple[float, StationHarmonics], ...]
+    stations: tuple[tuple[float, InflowStationHarmonics], ...]
     diameter_m: float
     v_inf_m_s: float
     blades: int
@@ -469,7 +491,7 @@ def inflow_harmonics_map(
             "refused: a J map needs a positive diameter and free-stream speed, at least one "
             "blade and at least one advance ratio."
         )
-    stations: list[tuple[float, StationHarmonics]] = []
+    stations: list[tuple[float, InflowStationHarmonics]] = []
     for j in advance_ratios:
         if j <= 0.0:
             raise ProductError(f"refused: an advance ratio is positive; got {j!r}.")

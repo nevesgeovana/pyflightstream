@@ -128,7 +128,7 @@ def test_grid_emission_goes_through_the_documented_import(tmp_path):
     # registered build documents this command since 2026-08-10.
     silent = registry_without("PROBE_POINTS_IMPORT")
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
-        emit_probe_import(Script(version="26.120", registry=silent), csv)
+        emit_probe_import(Script(version="26.120", registry=silent), csv, units="METER")
 
 
 def test_coordinate_frame_helper_mirrors_the_frame_definition():

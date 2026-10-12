@@ -1171,7 +1171,17 @@ def export(sha: str, tree: Path) -> None:
     if tree.exists():
         shutil.rmtree(tree)
     tree.mkdir(parents=True)
-    data = git("archive", "--format=tar", sha, "--", *EXPORTED, binary=True)
+    # Requirements moved between releases. Git archive refuses an absent
+    # pathspec, so select each revision's actual paths before exporting it.
+    present = git("ls-tree", "-r", "--name-only", sha).splitlines()
+    exported = [
+        path
+        for path in EXPORTED
+        if any(name == path or name.startswith(path + "/") for name in present)
+    ]
+    if not exported:
+        raise ValueError(f"no parity source paths exist at {sha}")
+    data = git("archive", "--format=tar", sha, "--", *exported, binary=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as archive:
         archive.extractall(tree, filter="data")
 

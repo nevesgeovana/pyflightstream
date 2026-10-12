@@ -140,12 +140,12 @@ def test_the_plan_names_only_the_point_whose_helical_mach_reaches_one(tmp_path):
         )
     assert slow["mach_helical"] < 1.0 < fast["mach_helical"]
 
-    sonic = [line for line in said if line.startswith("helical Mach >= 1")]
+    sonic = [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")]
     assert len(sonic) == 1, said
     assert "on 1 polar point(s)" in sonic[0]
     assert "M144RE438AL+000RPM06000" in sonic[0]
     assert "M144RE438AL+000RPM03000" not in sonic[0]
-    assert f"M_hel {fast['mach_helical']:.3f}" in sonic[0]
+    assert f"M_adv {fast['mach_helical']:.3f}" in sonic[0]
     assert "Nothing is refused" in sonic[0]
 
     # The summary states both points' numbers, one line per rotor per point.
@@ -184,7 +184,7 @@ def test_a_row_whose_rotor_has_no_radius_is_named_and_never_guessed(tmp_path):
     unknown = [line for line in said if line.startswith("helical Mach not known")]
     assert len(unknown) == 1, said
     assert "POL 3207" in unknown[0] and "no known radius" in unknown[0]
-    assert not [line for line in said if line.startswith("helical Mach >= 1")], said
+    assert not [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")], said
     assert "M_tip and M_hel not computed: POL 3207" in plan.summary()
 
 
@@ -327,13 +327,14 @@ def test_the_rotor_table_states_both_numbers_last(tmp_path):
     columns, rows = read_csv_table(written)
     # 0.31.0 (G8): the owner's requirement puts the four in-plane coefficients
     # after the two Mach numbers, which stay last of every column 0.30.0 wrote.
-    assert tuple(columns[-6:]) == (
+    assert tuple(columns[-7:]) == (
         "MTIP_PUSHER",
         "MHEL_PUSHER",
         "CN_PUSHER",
         "CS_PUSHER",
         "CMN_PUSHER",
         "CMS_PUSHER",
+        "MADV_PUSHER",
     ), columns
     assert float(rows[0]["MTIP_PUSHER"]) == pytest.approx(100.0 * math.pi / 340.0, abs=1e-5)
     assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(
@@ -492,7 +493,7 @@ def test_a_steady_row_stating_rpm_gets_the_numbers_and_only_the_sonic_point_is_n
         assert mach["mach_helical"] == pytest.approx(
             math.hypot(velocity, tip_speed) / SEA_LEVEL_SOUND, rel=1e-6
         )
-    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    (sonic,) = [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")]
     assert "on 1 polar point(s)" in sonic
     assert "M144RE438AL+000RPM06000, rotor PORT" in sonic
     assert "RPM03000" not in sonic
@@ -531,7 +532,7 @@ def test_at_zero_free_stream_the_helical_number_is_the_tips(tmp_path):
         assert mach["velocity_m_per_s"] == 0.0
         assert mach["mach_tip"] == pytest.approx(tip_speed / SEA_LEVEL_SOUND, rel=1e-6)
         assert mach["mach_helical"] == mach["mach_tip"]
-    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    (sonic,) = [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")]
     assert "V0000AL+000RPM06000" in sonic and "RPM03000" not in sonic
 
 
@@ -650,9 +651,9 @@ def test_a_disc_at_its_stated_speed_and_only_the_sonic_point_is_named(tmp_path):
         assert mach["mach_tip"] == pytest.approx(tip, rel=1e-6)
         assert mach["mach_helical"] == pytest.approx(math.hypot(flight, tip), rel=1e-6)
     assert tip == pytest.approx(0.923200, abs=1e-6)
-    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    (sonic,) = [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")]
     assert "on 1 polar point(s)" in sonic
-    assert "M900RE230AL+000, actuator PROP, M_hel 1.289" in sonic
+    assert "M900RE230AL+000, actuator PROP, M_adv 1.289" in sonic
     assert "M200RE230AL+000" not in sonic
     assert "actuator PROP M_tip 0.923, M_hel 0.945" in plan.summary()
 
@@ -677,7 +678,7 @@ def test_a_disc_turning_at_the_speed_its_advance_ratio_works_out_to(tmp_path):
         # The derived speed is rounded to four decimals of a rev/min, as emitted.
         assert mach["mach_tip"] == pytest.approx(tip, rel=1e-6)
         assert mach["mach_helical"] == pytest.approx(math.hypot(0.2, tip), rel=1e-6)
-    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    (sonic,) = [line for line in said if line.startswith("advancing-tip Mach M_adv >= 1")]
     assert "J+050, actuator PROP" in sonic and "J+100" not in sonic
 
 
@@ -739,7 +740,7 @@ def test_a_point_exactly_at_a_helical_mach_of_one_is_named_and_one_just_below_is
 
     resolved = SimpleNamespace(campaign=SimpleNamespace(sims=[]))
     plan = SimpleNamespace(points=[entry("AT", 1.0), entry("BELOW", 1.0 - 1e-12)])
-    with pytest.warns(PyflightstreamWarning, match="helical Mach >= 1") as caught:
+    with pytest.warns(PyflightstreamWarning, match="M_adv >= 1") as caught:
         _warn_when_a_helical_mach_may_reach_one(resolved, plan)  # type: ignore[arg-type]
     text = " ".join(str(w.message) for w in caught)
     assert "point AT," in text

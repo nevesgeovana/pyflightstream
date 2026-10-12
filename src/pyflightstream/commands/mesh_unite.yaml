@@ -64,6 +64,7 @@ BOOLEAN_UNITE_MESH:
           type: int
         - name: body_unite_types
           type: str_list
+          separator: newline
           required: false
     "25.100":
       status: documented
@@ -73,6 +74,7 @@ BOOLEAN_UNITE_MESH:
           type: int
         - name: body_unite_types
           type: str_list
+          separator: newline
           required: false
     "26.000":
       status: documented
@@ -82,6 +84,7 @@ BOOLEAN_UNITE_MESH:
           type: int
         - name: body_unite_types
           type: str_list
+          separator: newline
           required: false
     "26.100": {status: documented, note: "SRC-741 p.311, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}

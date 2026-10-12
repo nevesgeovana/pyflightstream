@@ -38,6 +38,7 @@ PUBLIC_MODULES = [
     # its calibration file. PUBLIC deliberately: a user writing or checking a
     # calibration reads it with `read_calibration` here.
     "pyflightstream.cases.corrections",
+    "pyflightstream.cases.farfield_inputs",
     "pyflightstream.cases.field_coverage",
     "pyflightstream.cases.freestream",
     "pyflightstream.cases.fsi_workspace",
@@ -60,6 +61,8 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.settings",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.setup_surfaces",
+    # 0.40.0: the 6DOF input model (FR-461).
+    "pyflightstream.cases.sixdof",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who
     # recomputes a window off a recorded plan calls `averaging_steps` here.
@@ -69,6 +72,10 @@ PUBLIC_MODULES = [
     "pyflightstream.exceptions",
     "pyflightstream.extras",
     "pyflightstream.farfield",
+    "pyflightstream.farfield.balances",
+    "pyflightstream.farfield.fields",
+    "pyflightstream.farfield.quadrature",
+    "pyflightstream.farfield.trefftz",
     "pyflightstream.fsi",
     "pyflightstream.fsi.beam",
     "pyflightstream.fsi.calibration",
@@ -77,6 +84,7 @@ PUBLIC_MODULES = [
     "pyflightstream.fsi.config",
     "pyflightstream.fsi.driver",
     "pyflightstream.fsi.errors",
+    "pyflightstream.fsi.external",
     "pyflightstream.fsi.kinematics",
     "pyflightstream.fsi.loads",
     # 0.28.0 (G41): the versioned materials database and the solid-section
@@ -113,6 +121,8 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.disc_maps",
     "pyflightstream.post.equations",
+    "pyflightstream.post.farfield_fields",
+    "pyflightstream.post.farfield_products",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
     # her pproc is who calls it. It lives in `post` and not in `workspace`
@@ -152,6 +162,7 @@ PUBLIC_MODULES = [
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",
     "pyflightstream.post.settings_table",
+    "pyflightstream.post.streamlines",
     "pyflightstream.post.superfile",
     # G25 of 0.28.0: the surface averaged by the package over a window of per-step
     # exports. PUBLIC deliberately: the average a campaign writes is one a user can
@@ -163,6 +174,8 @@ PUBLIC_MODULES = [
     "pyflightstream.probes",
     "pyflightstream.probes.errors",
     "pyflightstream.probes.geometry",
+    "pyflightstream.probes.lattice",
+    "pyflightstream.probes.layouts",
     "pyflightstream.probes.planar",
     "pyflightstream.qa",
     "pyflightstream.qa.cli",
@@ -199,6 +212,7 @@ PUBLIC_MODULES = [
     "pyflightstream.results.sectional_loads",
     "pyflightstream.results.surface",
     "pyflightstream.results.tables",
+    "pyflightstream.results.wake",
     "pyflightstream.run",
     "pyflightstream.run.cli",
     # FR-99 at 0.18.0. PUBLIC deliberately: the collect stage is a thing a
@@ -249,6 +263,7 @@ PUBLIC_MODULES = [
     # same reason `storage` is public.
     "pyflightstream.workspace.fields",
     "pyflightstream.workspace.flight_condition",
+    "pyflightstream.workspace.fsi_external_setup",
     "pyflightstream.workspace.fsi_setup",
     # 0.33.0 (AD-11): the HPC profile, cut out of workspace.inputs, which
     # re-exports every public name of it at its 0.32.0 path.
@@ -277,6 +292,7 @@ PUBLIC_MODULES = [
     # 0.33.0 (AD-11): the geometry sidecars, cut out of workspace.inputs,
     # which re-exports every public name of them at their 0.32.0 path.
     "pyflightstream.workspace.sidecars",
+    "pyflightstream.workspace.sixdof_setup",
     # 0.30.0: the four `pyfs-matrix` storage commands (space-in-use,
     # free-space, delete-sims, sync). PUBLIC deliberately: it is the home of
     # the storage/sync functions a script calls directly, the same reason

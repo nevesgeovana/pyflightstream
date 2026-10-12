@@ -89,6 +89,7 @@ from pyflightstream.run._additional import (
     extraction_job_end,
     finish_extraction,
 )
+from pyflightstream.run._assessment import job_solver_identity
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._collect_logs import JOB_END_TAIL_LINES as JOB_END_TAIL_LINES
 from pyflightstream.run._collect_logs import LOG_SUFFIX as LOG_SUFFIX
@@ -1135,7 +1136,6 @@ def _complete_sweep(
     ran, their files are on disk, and they are collected and judged.
     """
     from pyflightstream.run import worse_of
-    from pyflightstream.run._assessment import job_solver_identity
 
     submission = record.submission or {}
     by_point = submission["declared_by_point"]

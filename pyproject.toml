@@ -42,9 +42,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-# xarray confirmed as a runtime dependency by the author's far-field
-# extraction instruction of 2026-07-21 (PLN-006 closed): the farfield
-# ledgers live on labeled (station, r, psi) arrays.
+# xarray LEFT the runtime set in 0.40.0 (FR-457, NFR-06 amended): the far
+# field it carried since the instruction of 2026-07-21 (PLN-006) rests on
+# plain numpy arrays, and no module imports it.
 # trimesh was PROMOTED out of the [geom] extra on 2026-08-19 (design note
 # DD-27, closing PFS-2025.20), making the runtime set six. It is the mesh
 # reader the trailing-edge extraction reads a blade surface through
@@ -71,18 +71,13 @@ classifiers = [
 # requires-python above); neither is above the version this tree runs
 # with, which tests/tier1_offline/test_support_window.py measures. pydantic
 # is not a SPEC 0 project: its floor is the major whose API this package
-# is written against (field_validator, model_validator). xarray is a SPEC 0
-# project and carries no floor yet: its oldest in-window release on the
-# computed date (2024.9.0) leaves the window two days later, so the floor
-# would be stale before the release shipped; it is set when the date
-# above next moves.
+# is written against (field_validator, model_validator).
 dependencies = [
     "numpy>=2.2",
     "pandas>=2.3",
     "pydantic>=2",
     "pyyaml",
     "trimesh>=4.12,<6",
-    "xarray",
 ]
 
 [project.optional-dependencies]
@@ -175,7 +170,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "pyflightstream.commands" = ["*.yaml"]
-"pyflightstream.qa" = ["references/*.yaml"]
+"pyflightstream.qa" = ["references/*.yaml", "references/pressure-drag/*.yaml"]
 
 # NEVER SHIPPED, whatever a package-data pattern or a stray file says
 # (GEO-060 M6). The retired workbook macro left MatrixSync.bas/.bin and

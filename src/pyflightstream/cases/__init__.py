@@ -120,6 +120,9 @@ from pyflightstream._retired_names import retired_frame
 # The setup keys' command table and the tables FR-319 added; its module imports
 # only pydantic and the command database, so the package may import it while it loads.
 from pyflightstream.cases._setup_keys import SOLVER_SETTING_COMMANDS
+from pyflightstream.cases._setup_keys import (
+    TEMPLATE_SETTINGS_LEFT_OUT as TEMPLATE_SETTINGS_LEFT_OUT,
+)
 from pyflightstream.cases.mesh import (
     EVERY_SURFACE,
     BaseRegionOperation,
@@ -219,8 +222,10 @@ from pyflightstream.cases.settings import (
     SolverToggle,
     point_state_key,
 )
+from pyflightstream.cases.sixdof import SixDofSpec
 from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 
@@ -309,6 +314,7 @@ __all__ = [
     "point_tag",
     "sweep_name",
     "resolve_recipe",
+    "TEMPLATE_SETTINGS_LEFT_OUT",
 ]
 
 
@@ -949,6 +955,13 @@ class SimCase(BaseModel):
     solver: SolverSettings = Field(default_factory=SolverSettings)
     fsi: FsiConfig | None = None
     fsi_provenance: dict[str, Any] = Field(default_factory=dict)
+    #: FR-462 (0.40.0): the external structural program an FSI input of mode
+    #: "external" names, resolved and hashed by the plan; None otherwise. A
+    #: row couples a structure when this or ``fsi`` is set, never both.
+    fsi_external: ExternalStructure | None = None
+    #: FR-461 (0.40.0): the body a row's SIXDOF key frees, and its provenance.
+    sixdof: SixDofSpec | None = None
+    sixdof_provenance: dict[str, Any] = Field(default_factory=dict)
     recipe: str
     #: The row's own keys, and TWO THINGS THE RESOLVER WRITES beside them:
     #: a flat `ROTOR_ORIGIN` bound to a named reference point, and the

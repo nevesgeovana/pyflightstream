@@ -129,6 +129,10 @@ matrix workflows read without importing the structural side branch.
     deleted, because a decision that changes content is only readable
     against what it replaced.
 
+    Amended for 0.40.0 (0.40.0, pending): xarray leaves the runtime set in release
+    0.40.0 (FR-457), the far field resting on plain numpy arrays, so the transition
+    below concerns pandas alone from that release.
+
     Transition, stated because the code and this decision do not yet
     agree. pandas and xarray are still declared and still imported at
     three sites in `src/` (`results/tables.py`, `farfield/__init__.py`,
@@ -1025,6 +1029,36 @@ exit codes. A named difference needs its FR id and migration entry.
     comparisons must preserve product bytes as well as scripts,
     records, console text and exit codes.
 
+!!! decision "AD-24 Every root module is ranked, and private cross-package imports are frozen <span class='srs-implemented'>implemented</span>"
+    *0.40.0 (PFS-2083.002 and PFS-2098.005, marker P0400-PRIVATEIMPORT).
+    Evidence: `tests/tier1_offline/test_conventions.py`
+    (`_ROOT_UNIT_ROWS`, `test_every_root_module_has_a_layer_row_and_the_named_exceptions_do_not_grow`),
+    `tests/tier1_offline/test_p0400_every_root_module_ranked.py` and
+    `tests/tier1_offline/test_p0400_private_import_ratchet.py`.*
+
+    Layering section, rule one. Every module and every package of the
+    package root has a layer row in the layer rule of AD-01, and the layer
+    guards of NFR-23 (module level and function bodies) read all of them. A
+    unit with no row is not examined, so a ranked module that imported
+    one which imported upward would reach up with no guard firing; the
+    guard therefore fails on any root unit that has no row. A unit takes
+    the row one step above the highest row it imports (a floor module
+    that imports only the errors takes the floor), so a planted upward
+    import through any root module is refused. The one named exception,
+    counted and not allowed to grow, is the package root file
+    `pyflightstream/__init__.py`, which imports `post` and `run.records`
+    and is imported back by `post`, `qa`, `results`, `run` and
+    `workspace`, a cycle no single row can hold. `exceptions` takes the
+    top row because it imports every layer and no module imports it.
+
+    Layering section, rule two. A private module of one package is not
+    imported by another package. The pairs that exist at 0.40.0 (sixty-three
+    module pairs; `run` imports 11 private `workspace` modules and 8 private
+    `cases` modules, `workspace` imports 5 private `cases` modules) are
+    frozen in a tier-1 list that may only shrink: the test fails on any new
+    pair, and when a listed pair has gone it passes and tells the author to
+    remove the line from the list. No import is moved by this decision.
+
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`
@@ -1449,8 +1483,9 @@ byte (the manifest, the storage record, the additional-post record, a
 matrix's products record or its plan receipt), previewing until applied,
 archiving the current file first so a restore can be undone, and writing
 under the leases a sync holds, refusing while one writes. The writers of
-the storage record, the additional-post record, the plan receipt and the
-products record archive the previous file first, through the one home of the
+the storage record, the additional-post record and the plan receipt archive the
+previous file on every write. Products are archived only with `post --archive`
+(FR-397), through the one home of the
 archive names (`workspace.naming.archive_previous`), so each kind has a copy
 to restore; a failed copy warns and never blocks the write (FR-291 to
 FR-294). `pyfs-matrix

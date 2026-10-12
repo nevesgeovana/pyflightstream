@@ -1,5 +1,7 @@
 """The ``pyfs-matrix`` argument parser: every subcommand, option and help text.
 
+Size exemption: a declarative catalogue of command options and their argument readers.
+
 Private to :mod:`pyflightstream.run.cli`, which builds the parser through
 :func:`_build_parser` and dispatches the parsed command. The builders live
 apart from the commands they parse for so that the command line's own module
@@ -31,13 +33,20 @@ from typing import Any
 from pyflightstream._cli import for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
 from pyflightstream._selected import _SELECTED_COST_FILE, _SELECTED_HPC
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
+    resolve_workflow,
     workflow_names,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._cli_mesh import GEOMETRY_COMMANDS as GEOMETRY_COMMANDS
-from pyflightstream.run._cli_mesh import add_mesh_parsers
+from pyflightstream.run._cli_mesh import (
+    add_degenerate_parser,
+    add_inventory_parser,
+    add_mesh_parsers,
+)
 from pyflightstream.run._cli_mesh import cmd_geometry as cmd_geometry
 from pyflightstream.run._cli_parsers_storage import (
     add_storage_parsers as _add_storage_parsers,
@@ -53,8 +62,39 @@ from pyflightstream.workspace.costs import select_cost_file as select_cost_file
 
 # Kept importable from here as in 0.39.0 (release parity, api).
 from pyflightstream.workspace.hpc import select_hpc_profile as select_hpc_profile
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
+
+
+def _whole_sims(args: argparse.Namespace) -> list[str]:
+    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
+    manifest = getattr(args, "runs", None) or "runs.json"
+    return split_typed_ids(
+        listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
+    )[0]
+
+
+def _parse_workflows(pairs: list[str]) -> dict[str, str]:
+    """Resolve repeated ``CODE=NAME`` options before any input file is opened."""
+    workflows: dict[str, str] = {}
+    for item in pairs:
+        code, separator, name = item.partition("=")
+        if not separator or not code.strip() or not name.strip():
+            raise CampaignConfigError(
+                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
+                f"maps to), got {item!r}; the registered types are "
+                f"{', '.join(workflow_names())}"
+            )
+        resolve_workflow(name.strip())
+        workflows[code.strip()] = name.strip()
+    return workflows
+
+
+def collect_interval_error(value: float | None) -> str | None:
+    """Return the refusal for an invalid settle interval from arguments or settings."""
+    if value is not None and not 0.0 < value < float("inf"):
+        return f"interval (CLI: --interval) takes a number of seconds above 0, not {value}"
+    return None
 
 
 def _a_word_that_means_false(word: str) -> bool:
@@ -504,92 +544,12 @@ def _add_workspace_parsers(subparsers: Any) -> None:
         "before the workspace is rewritten",
     )
 
-    inventory = subparsers.add_parser(
-        "inventory",
-        help=(
-            "write <stem>.boundaries.toml beside a saved simulation, from its mesh block, "
-            "or beside an OBJ, from its groups"
-        ),
-        description=(
-            "Reads the mesh block of a saved simulation and writes its boundary order as "
-            "a sidecar beside it; a run whose sidecar disagrees with the file is refused "
-            "before the solver starts. Needs no executable (PFS-2029.06.02). For an OBJ "
-            "the order is its groups that hold a face, in the order of the file, which is "
-            "what a plan writes when the OBJ has no sidecar (G30, RPT-078); an OBJ's "
-            "existing sidecar is never rewritten."
-        ),
-    )
-    inventory.add_argument("geometry", help="a saved simulation or an OBJ under inputs/geometries/")
-    inventory.add_argument(
-        "--overwrite",
-        action="store_true",
-        help=(
-            "rewrite a saved simulation's sidecar that already exists; without it an "
-            "existing one is refused"
-        ),
-    )
-    inventory.add_argument(
-        "--clean",
-        action="store_true",
-        help=(
-            "remove the unsteady solver actions saved in the simulation, which inventory "
-            "otherwise names as a warning, keeping a copy <file>.bak-<stamp> beside it; an "
-            "existing sidecar is then kept unless --overwrite (FR-308)"
-        ),
-    )
+    add_inventory_parser(subparsers)
 
 
 def _add_degenerate_parsers(subparsers: Any) -> None:
     """Add the subcommand that derives a degenerate geometry from a mesh: degenerate (FR-330)."""
-    degenerate = subparsers.add_parser(
-        "degenerate",
-        help=(
-            "derive a degenerate geometry, the thin blade first, from a blade mesh and write "
-            "it beside the source"
-        ),
-        description=(
-            "Derives the thin blade of a blade mesh, the sheet midway between its two sides "
-            "from the root to the tip, with the root moved outward along the span by "
-            "--root-offset so it does not cross the spinner, and writes it beside the source "
-            "as <stem>_thin_blade.obj with its boundary inventory "
-            "<stem>_thin_blade.boundaries.toml. The root is the end of the blade nearer the "
-            "origin of the mesh's own coordinates. The source is read only; a file holding "
-            "more than one boundary needs --boundary. The derived geometry is a modelling "
-            "choice: a run confirms what the solver makes of it. Needs no executable."
-        ),
-    )
-    degenerate.add_argument("geometry", help="a blade mesh: a saved simulation or an OBJ")
-    degenerate.add_argument(
-        "--kind",
-        choices=["thin-blade"],
-        default="thin-blade",
-        help="the degenerate geometry to derive; thin-blade is the one kind of 0.34.0 "
-        "(default: %(default)s)",
-    )
-    degenerate.add_argument(
-        "--root-offset",
-        type=float,
-        required=True,
-        metavar="LENGTH",
-        help="how far the root of the thin blade is moved outward along the span, a positive "
-        "length in the mesh's own unit, shorter than the blade",
-    )
-    degenerate.add_argument(
-        "--boundary",
-        metavar="NAME",
-        help=(
-            "the boundary (an OBJ's group) that is the blade, for a file that also holds a "
-            "spinner, a nacelle or other bodies; only its faces are read and the output is "
-            "named <stem>_<NAME>_thin_blade; without it a file holding more than one "
-            "boundary is refused"
-        ),
-    )
-    degenerate.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="rewrite a thin blade and its inventory that already exist; without it an "
-        "existing one is refused",
-    )
+    add_degenerate_parser(subparsers)
 
 
 def _add_convert_parsers(subparsers: Any) -> None:
@@ -605,9 +565,13 @@ def _add_convert_parsers(subparsers: Any) -> None:
         help="explicit path of the FlightStream executable (never guessed)",
     )
     convert.add_argument(
+        "--out",
+        help="write the campaign.toml here instead of standard output",
+    )
+    convert.add_argument(
         "-o",
         "--output",
-        help="write the campaign.toml here instead of standard output",
+        help="deprecated alias of --out, with the identical result",
     )
 
 
@@ -1038,18 +1002,16 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="DESTROY an existing product instead of archiving it. Since v0.17.0 a "
-        "rebuild MOVES what is there into post/<matrix>/archive/<day and hour>/ and "
-        "then writes, so nothing is lost and nothing is refused; this is the escape "
-        "from that, it keeps no copy, and it asks for a confirmation first. Pass "
-        "--yes to answer that confirmation in a script",
+        help="Deprecated confirmation control. Rebuilds overwrite in place without an "
+        "archive by default; use --archive to keep a copy. This option adds an "
+        "explicit confirmation before rebuilding and does not change the archive policy. "
+        "Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",
         action="store_true",
-        help="answer the --force-overwrite confirmation. Only meaningful with it, and "
-        "refused without it: a flag that answers a question nobody asked is a flag "
-        "somebody will carry into the run that did ask",
+        help="Deprecated confirmation control for --force-overwrite. It confirms a "
+        "rebuild, whose default still writes no archive; --archive keeps a copy.",
     )
     post.add_argument(
         "--strict",
@@ -1082,7 +1044,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         metavar="IDS",
         help="rebuild only these simulations' products of the matrix, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
-        "archived and rewritten, every other simulation's files and products.json entries "
+        "rewritten (archived only with --archive), every other simulation's files and "
+        "products.json entries "
         "stay as they were, and the super files, whose columns are the union over every "
         "simulation, are left as the last whole post wrote them and named under "
         "partial.not_rebuilt in products.json and in post.log. An id with no record of the "

@@ -1,0 +1,1145 @@
+{
+ "captured_at": "cb6e3efd",
+ "cases": {
+  "even": {
+   "axial_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.81ebcecc804b0p+11",
+     "0x1.4ce6dc517a756p+11",
+     "0x1.3c9e12d99aa72p+11",
+     "0x1.6882ddbf966cap+11"
+    ]
+   },
+   "axial_force": "-0x1.1536efcb968f8p+9",
+   "azimuthal_harmonics.u.6": {
+    "dtype": "complex128",
+    "sha256": "42d1c3e5bb99f6a25c9fe5221472376790cca43e0caa8af3d6a0e3ee31101403",
+    "shape": [
+     4,
+     5,
+     7
+    ]
+   },
+   "azimuthal_harmonics.w.3": {
+    "dtype": "complex128",
+    "sha256": "6ff3cb5861dc377fd38e530bb8d086aa80343e8771d3b9fcca5972df902219eb",
+    "shape": [
+     4,
+     5,
+     4
+    ]
+   },
+   "crossflow_kinetic_energy.induced": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.543e676eb31d3p+9",
+     "0x1.317c0fa13f4c8p+9",
+     "0x1.7a2583ad2f60cp+9",
+     "0x1.91e14ac9f4cbap+9"
+    ]
+   },
+   "crossflow_kinetic_energy.swirl": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.8ed1be20e360ap+0",
+     "0x1.1b23130489e3ep+6",
+     "0x1.fe8f573f660a6p+3",
+     "0x1.6812a14922e27p+3"
+    ]
+   },
+   "crossflow_kinetic_energy.total": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5505d04dc38eep+9",
+     "0x1.54e07201d0890p+9",
+     "0x1.821fc10a2cf8fp+9",
+     "0x1.9781954f19573p+9"
+    ]
+   },
+   "cylindrical.v_r": {
+    "dtype": "float64",
+    "sha256": "42587abaf03aff70c99b4a83571fa4335a9c94924b994d44e8373f8584b27a76",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "cylindrical.v_theta": {
+    "dtype": "float64",
+    "sha256": "3455a4bb865c2eebcdb74f672b710ac99d78bcd57cc455d48cc5f2e53a4f49f0",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "in_plane_moment.y.harmonic.loading_term": "-0x1.d5f005fbedbe4p+9",
+   "in_plane_moment.y.harmonic.moment_arm_term": "0x1.94198cd675a78p+8",
+   "in_plane_moment.y.harmonic.total": "-0x1.0be33f90b2ea8p+9",
+   "in_plane_moment.y.quadrature.loading_term": "-0x1.d5f005fbedbe3p+9",
+   "in_plane_moment.y.quadrature.moment_arm_term": "0x1.94198cd675a78p+8",
+   "in_plane_moment.y.quadrature.total": "-0x1.0be33f90b2ea7p+9",
+   "in_plane_moment.z.harmonic.loading_term": "-0x1.d46af489e60a4p+9",
+   "in_plane_moment.z.harmonic.moment_arm_term": "-0x1.4d36a1b4df6cep+8",
+   "in_plane_moment.z.harmonic.total": "-0x1.3d8322b22ae06p+10",
+   "in_plane_moment.z.quadrature.loading_term": "-0x1.d46af489e60a5p+9",
+   "in_plane_moment.z.quadrature.moment_arm_term": "-0x1.4d36a1b4df6cep+8",
+   "in_plane_moment.z.quadrature.total": "-0x1.3d8322b22ae06p+10",
+   "mass_closure.mdot": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.58deff3419428p+10",
+     "0x1.565e63c659dcdp+10",
+     "0x1.5534b3f857694p+10",
+     "0x1.5755f5869a21dp+10"
+    ]
+   },
+   "mass_closure.relative_spread": "0x1.700024c6e308ap-8",
+   "mass_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.58deff3419428p+10",
+     "0x1.565e63c659dcdp+10",
+     "0x1.5534b3f857694p+10",
+     "0x1.5755f5869a21dp+10"
+    ]
+   },
+   "plane_integral.p_prime": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.e87fe7387ee18p+4",
+     "-0x1.bd3f32b41d352p+6",
+     "-0x1.5847b8ecb10a6p+6",
+     "-0x1.222d422d273d9p+5"
+    ]
+   },
+   "plane_integral.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.1f647f56150ccp+10",
+     "0x1.1d4ea87aa0381p+10",
+     "0x1.1c5695f99e2d0p+10",
+     "0x1.1e1cf74580719p+10"
+    ]
+   },
+   "ring_sample_weights": {
+    "shape": [
+     5
+    ],
+    "values": [
+     "0x1.921fb54442d18p-6",
+     "0x1.921fb54442d18p-5",
+     "0x1.ea16a4eb316f5p-4",
+     "0x1.f6a7a2955385ep-3",
+     "0x1.1abe4b73fefb5p-1"
+    ]
+   },
+   "sample_coverage.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "sample_coverage.w": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "shaft_torque": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.031a4695a2420p+5",
+     "-0x1.e471f928c223ap+9",
+     "-0x1.bd7f0f8a442dfp+8",
+     "-0x1.19a77603d12abp+8"
+    ]
+   },
+   "spurious_diagnostic": "0x1.284bda12f684cp+3",
+   "symmetry_floor.u": "0x1.495453daa0e70p-1",
+   "symmetry_floor.v_theta.4": "0x1.8bccee9c9a688p-2",
+   "to_counts": "0x1.03425ed097b42p+5",
+   "transverse_flux.v.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.61fa8a41da35ap+6",
+     "-0x1.578564bfbbb16p+2",
+     "-0x1.1c8ff9d4718a4p+7",
+     "0x1.8f21b0eed7638p+7"
+    ]
+   },
+   "transverse_flux.v.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.61fa8a41da35ap+6",
+     "-0x1.578564bfbbb24p+2",
+     "-0x1.1c8ff9d4718a4p+7",
+     "0x1.8f21b0eed7637p+7"
+    ]
+   },
+   "transverse_flux.w.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.e2916205a488dp+5",
+     "-0x1.3d570ce750174p+8",
+     "0x1.215de3a525f35p+8",
+     "-0x1.29840ac5ca9adp+6"
+    ]
+   },
+   "transverse_flux.w.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.e2916205a488dp+5",
+     "-0x1.3d570ce750174p+8",
+     "0x1.215de3a525f38p+8",
+     "-0x1.29840ac5ca9aep+6"
+    ]
+   },
+   "transverse_force.v.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.v.plane_term": "-0x1.ae4ad2ce11bdcp+5",
+   "transverse_force.v.total": "-0x1.ab55103eb594dp+5",
+   "transverse_force.w.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.w.plane_term": "0x1.5db00fe5da84ap+8",
+   "transverse_force.w.total": "0x1.5e0ec837c609cp+8",
+   "trig.cos_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea964p-2",
+     "0x1.1a62633145c07p-54",
+     "-0x1.87de2a6aea962p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d46p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d47p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96dp-2",
+     "-0x1.a79394c9e8a0ap-53",
+     "0x1.87de2a6aea967p-2",
+     "0x1.6a09e667f3bcbp-1",
+     "0x1.d906bcf328d44p-1"
+    ]
+   },
+   "trig.sin_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x0.0p+0",
+     "0x1.87de2a6aea963p-2",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.d906bcf328d46p-1",
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea965p-2",
+     "0x1.1a62633145c07p-53",
+     "-0x1.87de2a6aea961p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d44p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d45p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96ep-2"
+    ]
+   }
+  },
+  "holed": {
+   "axial_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5f480a6651264p+11",
+     "nan",
+     "0x1.6bbc71f26e0fep+11",
+     "0x1.57e264a21162cp+11"
+    ]
+   },
+   "axial_force": "0x1.8e8cf1839d340p+6",
+   "azimuthal_harmonics.u.6": {
+    "dtype": "complex128",
+    "sha256": "b66070db32d5afd59b1b57170825a48a5bdec52d2b0aa92b212ab0b20a5d54cb",
+    "shape": [
+     4,
+     5,
+     7
+    ]
+   },
+   "azimuthal_harmonics.w.3": {
+    "dtype": "complex128",
+    "sha256": "7f930edac5ee80fd3356e4b5bec1b77ef59c2b84f99b57e167f3ccbd9ce483d2",
+    "shape": [
+     4,
+     5,
+     4
+    ]
+   },
+   "crossflow_kinetic_energy.induced": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.6950654a8bbfap+9",
+     "nan",
+     "nan",
+     "0x1.875bad4f7e409p+9"
+    ]
+   },
+   "crossflow_kinetic_energy.swirl": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.75d35fb638936p+3",
+     "nan",
+     "nan",
+     "0x1.05798f7127a01p+1"
+    ]
+   },
+   "crossflow_kinetic_energy.total": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.6f27b2c964a1fp+9",
+     "nan",
+     "nan",
+     "0x1.886126deef683p+9"
+    ]
+   },
+   "cylindrical.v_r": {
+    "dtype": "float64",
+    "sha256": "e148d309c62d172beb158d709eec31fb90156ed29a5d587a4198419f0a71ae3c",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "cylindrical.v_theta": {
+    "dtype": "float64",
+    "sha256": "b9aa1cda4d4e8a29d6982e03a98302bb24a0a646045cc9bbd4c7e24c106b33a7",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "in_plane_moment.y.harmonic.loading_term": "0x1.cbb085c7f0e50p+5",
+   "in_plane_moment.y.harmonic.moment_arm_term": "0x1.dfa25a52523e0p+7",
+   "in_plane_moment.y.harmonic.total": "0x1.29473de2273bap+8",
+   "in_plane_moment.y.quadrature.loading_term": "0x1.cbb085c7f0e70p+5",
+   "in_plane_moment.y.quadrature.moment_arm_term": "0x1.dfa25a52523e0p+7",
+   "in_plane_moment.y.quadrature.total": "0x1.29473de2273bep+8",
+   "in_plane_moment.z.harmonic.loading_term": "-0x1.da7051ea6f4f0p+5",
+   "in_plane_moment.z.harmonic.moment_arm_term": "0x1.591d9b89e8140p+7",
+   "in_plane_moment.z.harmonic.total": "0x1.c5030e1e98808p+6",
+   "in_plane_moment.z.quadrature.loading_term": "-0x1.da7051ea6f4f4p+5",
+   "in_plane_moment.z.quadrature.moment_arm_term": "0x1.591d9b89e8140p+7",
+   "in_plane_moment.z.quadrature.total": "0x1.c5030e1e98806p+6",
+   "mass_closure.mdot": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5671a1ba42868p+10",
+     "nan",
+     "0x1.561db1001f8b0p+10",
+     "0x1.564595fa35a3dp+10"
+    ]
+   },
+   "mass_closure.relative_spread": "nan",
+   "mass_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5671a1ba42868p+10",
+     "nan",
+     "0x1.561db1001f8b0p+10",
+     "0x1.564595fa35a3dp+10"
+    ]
+   },
+   "plane_integral.p_prime": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.12d321546765ep+5",
+     "0x1.62f7e459233a3p+3",
+     "0x1.3275083cfa4dap+7",
+     "-0x1.3d07e72a423a3p+3"
+    ]
+   },
+   "plane_integral.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.1d5eb1708cc57p+10",
+     "nan",
+     "0x1.1d18be2ac4f3fp+10",
+     "0x1.1d39fcfb2cb33p+10"
+    ]
+   },
+   "ring_sample_weights": {
+    "shape": [
+     5
+    ],
+    "values": [
+     "0x1.921fb54442d18p-6",
+     "0x1.921fb54442d18p-5",
+     "0x1.ea16a4eb316f5p-4",
+     "0x1.f6a7a2955385ep-3",
+     "0x1.1abe4b73fefb5p-1"
+    ]
+   },
+   "sample_coverage.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.f99999999999ap-1",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "sample_coverage.w": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.f99999999999ap-1",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "shaft_torque": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.2f5ba09abf66ap+8",
+     "nan",
+     "nan",
+     "-0x1.0e4c08a1f2fb4p+5"
+    ]
+   },
+   "spurious_diagnostic": "0x1.284bda12f684cp+3",
+   "symmetry_floor.u": "nan",
+   "symmetry_floor.v_theta.4": "nan",
+   "to_counts": "0x1.03425ed097b42p+5",
+   "transverse_flux.v.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.dc11ee78445dbp+6",
+     "nan",
+     "0x1.a9697d5127c7cp+6",
+     "0x1.ebfc62e3534c1p+5"
+    ]
+   },
+   "transverse_flux.v.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.dc11ee78445ddp+6",
+     "nan",
+     "0x1.a9697d5127c7cp+6",
+     "0x1.ebfc62e3534bap+5"
+    ]
+   },
+   "transverse_flux.w.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.2285cccbb6aa2p+8",
+     "nan",
+     "nan",
+     "0x1.a52ad0d151ea5p+7"
+    ]
+   },
+   "transverse_flux.w.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.2285cccbb6aa3p+8",
+     "nan",
+     "nan",
+     "0x1.a52ad0d151ea5p+7"
+    ]
+   },
+   "transverse_force.v.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.v.plane_term": "0x1.c2bdb5e4b612cp+7",
+   "transverse_force.v.total": "0x1.c37b26888d1d0p+7",
+   "transverse_force.w.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.w.plane_term": "nan",
+   "transverse_force.w.total": "nan",
+   "trig.cos_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea964p-2",
+     "0x1.1a62633145c07p-54",
+     "-0x1.87de2a6aea962p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d46p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d47p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96dp-2",
+     "-0x1.a79394c9e8a0ap-53",
+     "0x1.87de2a6aea967p-2",
+     "0x1.6a09e667f3bcbp-1",
+     "0x1.d906bcf328d44p-1"
+    ]
+   },
+   "trig.sin_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x0.0p+0",
+     "0x1.87de2a6aea963p-2",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.d906bcf328d46p-1",
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea965p-2",
+     "0x1.1a62633145c07p-53",
+     "-0x1.87de2a6aea961p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d44p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d45p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96ep-2"
+    ]
+   }
+  },
+  "holed_transverse": {
+   "axial_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.9cc2a52d835f3p+11",
+     "0x1.3d0d13164c650p+11",
+     "0x1.719e783fdb613p+11",
+     "0x1.8cfac3eaa1baep+11"
+    ]
+   },
+   "axial_force": "-0x1.5921676d3ff00p+8",
+   "azimuthal_harmonics.u.6": {
+    "dtype": "complex128",
+    "sha256": "b54e7f68af7da548e7f412f796fd257812cb4d4cb208311e743398036ab8e122",
+    "shape": [
+     4,
+     5,
+     7
+    ]
+   },
+   "azimuthal_harmonics.w.3": {
+    "dtype": "complex128",
+    "sha256": "f492334d2bb67cd4fc710d539dcd134e6566056276f0d2e3e371252cb19cc4d8",
+    "shape": [
+     4,
+     5,
+     4
+    ]
+   },
+   "crossflow_kinetic_energy.induced": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.60480601ac130p+9",
+     "nan",
+     "0x1.834c8b93de0cdp+9",
+     "0x1.a4c89dfab3fd5p+9"
+    ]
+   },
+   "crossflow_kinetic_energy.swirl": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.d94fe0ddf2650p+4",
+     "nan",
+     "0x1.faa3cfe7e0da6p+4",
+     "0x1.36fe0f6cf6601p+5"
+    ]
+   },
+   "crossflow_kinetic_energy.total": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.6f1285089ba62p+9",
+     "nan",
+     "0x1.9321aa131d13ap+9",
+     "0x1.b8387ef183635p+9"
+    ]
+   },
+   "cylindrical.v_r": {
+    "dtype": "float64",
+    "sha256": "f1a78d4b71df1aa5f7c87d8fe2e0a2d0502dad7c30f7124175ddbd44f47b65cb",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "cylindrical.v_theta": {
+    "dtype": "float64",
+    "sha256": "e16900e40167a6b95f121091dd3b8907c0595ec9700057b302aa6a5cd4af9e24",
+    "shape": [
+     4,
+     5,
+     16
+    ]
+   },
+   "in_plane_moment.y.harmonic.loading_term": "0x1.770818c0980e0p+5",
+   "in_plane_moment.y.harmonic.moment_arm_term": "0x1.eab7c39707a74p+4",
+   "in_plane_moment.y.harmonic.total": "0x1.3631fd460df0dp+6",
+   "in_plane_moment.y.quadrature.loading_term": "0x1.770818c0980e0p+5",
+   "in_plane_moment.y.quadrature.moment_arm_term": "0x1.eab7c39707a74p+4",
+   "in_plane_moment.y.quadrature.total": "0x1.3631fd460df0dp+6",
+   "in_plane_moment.z.harmonic.loading_term": "0x1.e628eb9fd2260p+7",
+   "in_plane_moment.z.harmonic.moment_arm_term": "0x1.a7b07721c3291p+8",
+   "in_plane_moment.z.harmonic.total": "0x1.4d627678d61e0p+9",
+   "in_plane_moment.z.quadrature.loading_term": "0x1.e628eb9fd2252p+7",
+   "in_plane_moment.z.quadrature.moment_arm_term": "0x1.a7b07721c3291p+8",
+   "in_plane_moment.z.quadrature.total": "0x1.4d627678d61ddp+9",
+   "mass_closure.mdot": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5910cc2c011d9p+10",
+     "0x1.552126cd1b24ep+10",
+     "0x1.58bfdd998b730p+10",
+     "0x1.5816b8f918a6cp+10"
+    ]
+   },
+   "mass_closure.relative_spread": "0x1.f52d2c3e7d1d7p-8",
+   "mass_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5910cc2c011d9p+10",
+     "0x1.552126cd1b24ep+10",
+     "0x1.58bfdd998b730p+10",
+     "0x1.5816b8f918a6cp+10"
+    ]
+   },
+   "plane_integral.p_prime": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.1c962582ab666p+7",
+     "-0x1.5476e0369a768p+6",
+     "-0x1.0bafc1959471ep+7",
+     "0x1.4a03abd671001p+7"
+    ]
+   },
+   "plane_integral.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.1f8dff7a00edfp+10",
+     "0x1.1c464b0041497p+10",
+     "0x1.1f4a8dfff4353p+10",
+     "0x1.1ebd9a24e9e05p+10"
+    ]
+   },
+   "ring_sample_weights": {
+    "shape": [
+     5
+    ],
+    "values": [
+     "0x1.921fb54442d18p-6",
+     "0x1.921fb54442d18p-5",
+     "0x1.ea16a4eb316f5p-4",
+     "0x1.f6a7a2955385ep-3",
+     "0x1.1abe4b73fefb5p-1"
+    ]
+   },
+   "sample_coverage.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "sample_coverage.w": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.f99999999999ap-1",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "shaft_torque": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.ec58b1899507bp+7",
+     "nan",
+     "-0x1.3f176e2f77285p+8",
+     "0x1.0d9320ec39081p+8"
+    ]
+   },
+   "spurious_diagnostic": "0x1.284bda12f684cp+3",
+   "symmetry_floor.u": "0x1.51f7ace16ef9fp-1",
+   "symmetry_floor.v_theta.4": "nan",
+   "to_counts": "0x1.03425ed097b42p+5",
+   "transverse_flux.v.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.9628e7bee5a75p+5",
+     "nan",
+     "0x1.6850616c9a47cp+7",
+     "-0x1.69d6d5a2e6b87p+6"
+    ]
+   },
+   "transverse_flux.v.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.9628e7bee5a72p+5",
+     "nan",
+     "0x1.6850616c9a47ep+7",
+     "-0x1.69d6d5a2e6b88p+6"
+    ]
+   },
+   "transverse_flux.w.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5d26e52f62e76p+4",
+     "nan",
+     "-0x1.6c0b621d7e19ap+7",
+     "-0x1.005cbddb880f1p+5"
+    ]
+   },
+   "transverse_flux.w.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5d26e52f62e70p+4",
+     "nan",
+     "-0x1.6c0b621d7e19ap+7",
+     "-0x1.005cbddb880f6p+5"
+    ]
+   },
+   "transverse_force.v.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.v.plane_term": "0x1.cdda9b5c53b1ap+7",
+   "transverse_force.v.total": "0x1.ce980c002abbep+7",
+   "transverse_force.w.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.w.plane_term": "-0x1.97b03ec36a768p+7",
+   "transverse_force.w.total": "-0x1.96f2ce1f936c4p+7",
+   "trig.cos_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea964p-2",
+     "0x1.1a62633145c07p-54",
+     "-0x1.87de2a6aea962p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d46p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d47p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96dp-2",
+     "-0x1.a79394c9e8a0ap-53",
+     "0x1.87de2a6aea967p-2",
+     "0x1.6a09e667f3bcbp-1",
+     "0x1.d906bcf328d44p-1"
+    ]
+   },
+   "trig.sin_psi": {
+    "shape": [
+     16
+    ],
+    "values": [
+     "0x0.0p+0",
+     "0x1.87de2a6aea963p-2",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.d906bcf328d46p-1",
+     "0x1.0000000000000p+0",
+     "0x1.d906bcf328d46p-1",
+     "0x1.6a09e667f3bcdp-1",
+     "0x1.87de2a6aea965p-2",
+     "0x1.1a62633145c07p-53",
+     "-0x1.87de2a6aea961p-2",
+     "-0x1.6a09e667f3bccp-1",
+     "-0x1.d906bcf328d44p-1",
+     "-0x1.0000000000000p+0",
+     "-0x1.d906bcf328d45p-1",
+     "-0x1.6a09e667f3bcep-1",
+     "-0x1.87de2a6aea96ep-2"
+    ]
+   }
+  },
+  "odd": {
+   "axial_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.53ca178399f4fp+11",
+     "0x1.5d13db0707ac2p+11",
+     "0x1.6fa784469fe46p+11",
+     "0x1.3805169f7b26ap+11"
+    ]
+   },
+   "axial_force": "0x1.bdd6cc305ef70p+7",
+   "azimuthal_harmonics.u.6": {
+    "dtype": "complex128",
+    "sha256": "e46637127ab484aa5e1aa31c8f9a6c8d96d4dee3d270dbe3cfc136128a465bb5",
+    "shape": [
+     4,
+     5,
+     7
+    ]
+   },
+   "azimuthal_harmonics.w.3": {
+    "dtype": "complex128",
+    "sha256": "4be264ba02d554fbcd27091297d5b915b6dcc057e047c22fae1632fdfac7213e",
+    "shape": [
+     4,
+     5,
+     4
+    ]
+   },
+   "crossflow_kinetic_energy.induced": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5c4d9a3a4040dp+9",
+     "0x1.6d74946bb5b83p+9",
+     "0x1.49afcee754ad7p+9",
+     "0x1.9a2734cd81524p+9"
+    ]
+   },
+   "crossflow_kinetic_energy.swirl": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.10d081ef6df2fp+5",
+     "0x1.927b4957a4a56p+5",
+     "0x1.6772ea29fc70ep+4",
+     "0x1.bd7c97ed882eep+3"
+    ]
+   },
+   "crossflow_kinetic_energy.total": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.6d5aa25937200p+9",
+     "0x1.869c490130028p+9",
+     "0x1.54eb6638a490fp+9",
+     "0x1.a11d272d37730p+9"
+    ]
+   },
+   "cylindrical.v_r": {
+    "dtype": "float64",
+    "sha256": "9c222be1773f9dfcfd4211c6c832dd802c82dbe72151e412a87eb7449be07fd5",
+    "shape": [
+     4,
+     5,
+     15
+    ]
+   },
+   "cylindrical.v_theta": {
+    "dtype": "float64",
+    "sha256": "a349aa5a775271b1651ff105d0a898abf82c912cdf0d3c0266cd9491e4003518",
+    "shape": [
+     4,
+     5,
+     15
+    ]
+   },
+   "in_plane_moment.y.harmonic.loading_term": "0x1.a3aa99fcc3f40p+9",
+   "in_plane_moment.y.harmonic.moment_arm_term": "-0x1.6637bb2ce8d34p+6",
+   "in_plane_moment.y.harmonic.total": "0x1.76e3a29726d9ap+9",
+   "in_plane_moment.y.quadrature.loading_term": "0x1.a3aa99fcc3f47p+9",
+   "in_plane_moment.y.quadrature.moment_arm_term": "-0x1.6637bb2ce8d34p+6",
+   "in_plane_moment.y.quadrature.total": "0x1.76e3a29726da0p+9",
+   "in_plane_moment.z.harmonic.loading_term": "0x1.6dac0a6c9c6fap+8",
+   "in_plane_moment.z.harmonic.moment_arm_term": "0x1.669de6cdaec6cp+9",
+   "in_plane_moment.z.harmonic.total": "0x1.0eb9f601fe7f4p+10",
+   "in_plane_moment.z.quadrature.loading_term": "0x1.6dac0a6c9c6f7p+8",
+   "in_plane_moment.z.quadrature.moment_arm_term": "0x1.669de6cdaec6cp+9",
+   "in_plane_moment.z.quadrature.total": "0x1.0eb9f601fe7f4p+10",
+   "mass_closure.mdot": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5516ba5f59848p+10",
+     "0x1.56d02b34124b1p+10",
+     "0x1.57a55507c2212p+10",
+     "0x1.53d319d881ffdp+10"
+    ]
+   },
+   "mass_closure.relative_spread": "0x1.82f880cd32f07p-8",
+   "mass_flux": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.5516ba5f59848p+10",
+     "0x1.56d02b34124b1p+10",
+     "0x1.57a55507c2212p+10",
+     "0x1.53d319d881ffdp+10"
+    ]
+   },
+   "plane_integral.p_prime": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.9cf47e2c20e0ap+6",
+     "-0x1.712e68d1518a9p+5",
+     "-0x1.4b3cbe0d2404ap+4",
+     "0x1.120a44c522007p+6"
+    ]
+   },
+   "plane_integral.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.1c3d9b4f7543cp+10",
+     "0x1.1dad79560f3eap+10",
+     "0x1.1e5f1c3121c65p+10",
+     "0x1.1b2feadf16ffdp+10"
+    ]
+   },
+   "ring_sample_weights": {
+    "shape": [
+     5
+    ],
+    "values": [
+     "0x1.acee9f37bebd5p-6",
+     "0x1.acee9f37bebd5p-5",
+     "0x1.05616905f83b6p-3",
+     "0x1.0c152382d7365p-2",
+     "0x1.2d97c7f3321d2p-1"
+    ]
+   },
+   "sample_coverage.u": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "sample_coverage.w": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0",
+     "0x1.0000000000000p+0"
+    ]
+   },
+   "shaft_torque": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.3c1044fd95590p+9",
+     "-0x1.57011923e655ep+9",
+     "0x1.4c4c53a8e55d2p+7",
+     "0x1.fc49727835026p+2"
+    ]
+   },
+   "spurious_diagnostic": "0x1.284bda12f684cp+3",
+   "symmetry_floor.u": "0x1.5da46af57c08bp-1",
+   "symmetry_floor.v_theta.4": "0x1.d9d840de4e52bp-2",
+   "to_counts": "0x1.03425ed097b42p+5",
+   "transverse_flux.v.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.a6f5b10b2e3d8p+6",
+     "0x1.fefec654126ccp+2",
+     "-0x1.8d884742297d2p+6",
+     "-0x1.0aad05e1fc950p+7"
+    ]
+   },
+   "transverse_flux.v.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "-0x1.a6f5b10b2e3d6p+6",
+     "0x1.fefec654126d9p+2",
+     "-0x1.8d884742297d3p+6",
+     "-0x1.0aad05e1fc950p+7"
+    ]
+   },
+   "transverse_flux.w.harmonic": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.c0e65c059987ap+6",
+     "-0x1.4fdffa1428ed3p+8",
+     "0x1.395c9aad156d0p+6",
+     "-0x1.497e72f6a141ap+6"
+    ]
+   },
+   "transverse_flux.w.quadrature": {
+    "shape": [
+     4
+    ],
+    "values": [
+     "0x1.c0e65c0599880p+6",
+     "-0x1.4fdffa1428ed2p+8",
+     "0x1.395c9aad156d0p+6",
+     "-0x1.497e72f6a1419p+6"
+    ]
+   },
+   "transverse_force.v.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.v.plane_term": "0x1.96d69c904c030p+2",
+   "transverse_force.v.total": "0x1.ae84b10b2d4abp+2",
+   "transverse_force.w.lateral_term": "0x1.7ae147ae147aep-2",
+   "transverse_force.w.plane_term": "-0x1.0f1382b108360p+5",
+   "transverse_force.w.total": "-0x1.0c1dc021ac0d1p+5",
+   "trig.cos_psi": {
+    "shape": [
+     15
+    ],
+    "values": [
+     "0x1.0000000000000p+0",
+     "0x1.d3bc3aeff7f95p-1",
+     "0x1.5698496e20bd8p-1",
+     "0x1.3c6ef372fe950p-2",
+     "-0x1.ac2609b3c5762p-4",
+     "-0x1.ffffffffffffcp-2",
+     "-0x1.9e3779b97f4a7p-1",
+     "-0x1.f4cfc327a0080p-1",
+     "-0x1.f4cfc327a0080p-1",
+     "-0x1.9e3779b97f4a8p-1",
+     "-0x1.0000000000004p-1",
+     "-0x1.ac2609b3c57a3p-4",
+     "0x1.3c6ef372fe94cp-2",
+     "0x1.5698496e20bdap-1",
+     "0x1.d3bc3aeff7f96p-1"
+    ]
+   },
+   "trig.sin_psi": {
+    "shape": [
+     15
+    ],
+    "values": [
+     "0x0.0p+0",
+     "0x1.a07f921061ad0p-2",
+     "0x1.7c7d7a833bec1p-1",
+     "0x1.e6f0e134454ffp-1",
+     "0x1.fd31f94f867c7p-1",
+     "0x1.bb67ae8584cabp-1",
+     "0x1.2cf2304755a5fp-1",
+     "0x1.a9cd9ac4258f5p-3",
+     "-0x1.a9cd9ac4258ecp-3",
+     "-0x1.2cf2304755a5dp-1",
+     "-0x1.bb67ae8584ca9p-1",
+     "-0x1.fd31f94f867c6p-1",
+     "-0x1.e6f0e13445500p-1",
+     "-0x1.7c7d7a833bec0p-1",
+     "-0x1.a07f921061ad0p-2"
+    ]
+   }
+  }
+ },
+ "rho": 1.2,
+ "v_inf": 30.0
+}

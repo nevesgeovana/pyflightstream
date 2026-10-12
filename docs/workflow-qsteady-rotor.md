@@ -181,44 +181,20 @@ passage, in which the rotor's total repeats.
 
 **The limits.** Axisymmetric, isolated rotors only. At an angle, the
 in-plane loads are quasi-steady ESTIMATES: on the measured propeller the
-side force and the yawing moment came out with the opposite sign to the
+side force and the pitching moment (My) came out with the opposite sign to the
 unsteady rotor's and the normal force 20 % lower, whatever the clocking
 count. At 0 deg of angle and 10 deg per step, the quasi-steady thrust was
 9.2 % above the unsteady rotor's after three revolutions and 7.5 % after
 six, and the torque 7.1 % and 5.75 % above (RPT-089 section 3). A finer unsteady step
 closes part of that: at 5 deg per step and six revolutions the thrust gap was
 3.6 % at 5 deg of angle and 3.9 % at 0 deg, the normal force was 11.7 % and
-`Mz` 8.2 % away, and the side force and the yawing moment kept their
-opposite sign. That measurement is of hand-built scripts of the same
+`Mz` 8.2 % away, and the side force and the pitching moment (My) kept their
+opposite sign; Mz, the yawing moment, was 8.2 % away. That measurement is of hand-built scripts of the same
 commands, which clocked the wheel from a new simulation per clocking rather
 than by rotating its surfaces between solves. The scripts this run type
 builds have since run on 26.124: a sector coupled with FSI (RPT-090) and a
 wheel at 5 deg clocked by rotating its surfaces inside one launch
 (RPT-091).
-
-From the terminal, that whole study is one command:
-
-```text
-pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --workspace . \
-    --sweep-csv sweep.csv
-```
-
-No Python is written, no notebook is opened, and nothing sits between
-the file and the result. The sweep table lands as `campaign_sweep.csv`
-under `post/<matrix stem>/` in the workspace when you do not say where, so a
-second matrix of the same workspace keeps its own.
-
-**Each point keeps its outputs in its own folder**, and that is what lets
-a swept row be judged point by point. `run` judges each finished point
-with the standard assessor, which reads the loads spreadsheet that point
-exported, and finds it by CONTENT rather than by name, because a swept
-case names its outputs per point and no single literal could name them
-all. Each point collects into `sims/<sim>/datapoints/DP-<point>/`, so
-what the assessor reads is that point's evidence and nothing else. The
-matrix printed on [the workflows page](workspace-and-workflows.md) runs as printed, row 7002's two alphas included,
-and that is what the acceptance case in the suite does with the
-committed fixture unmodified.
 
 **A missing output strands nothing** (0.27.0). A point one of whose
 declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
