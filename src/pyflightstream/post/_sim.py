@@ -103,6 +103,7 @@ from pyflightstream.post.polar import (
 )
 from pyflightstream.post.polar import (
     PolarPoint,
+    _unjudged_vorticity_drag,
     drag_columned_rows,
     drag_columns_of,
     group_polar_rows,
@@ -490,6 +491,21 @@ def _group_polars(ctx: SimContext) -> None:
     """Write the polar of each boundary group, its custom-format twin and its superfile rows."""
     if not ctx.pproc.products.polars:
         return
+    for point in ctx.points:
+        # THE DECLINED-DRAG RULE IS UNMEASURED ON 26.125 (FR-423): said once per
+        # point whose record lists vorticity-drag surfaces, never left silent.
+        unjudged = _unjudged_vorticity_drag(point.loads, point.vorticity_selection)
+        if unjudged:
+            warn(
+                f"point={point.name} product=polars: {', '.join(unjudged)} "
+                f"{'is' if len(unjudged) == 1 else 'are'} on the vorticity induced-drag list "
+                "(SET_VORTICITY_DRAG_BOUNDARIES) and the export prints the 26.125 split "
+                "(CDp, CDv), for which no run has measured what a listed surface without a "
+                "trailing edge prints; the declined-drag rule is not applied, so their axis "
+                "drag columns are written as numbers nothing judged.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
     # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
     # group polars below are NOT written for it: the native coefficient export
     # states the LAST TIME STEP, which on an oscillating rotor is one instant of

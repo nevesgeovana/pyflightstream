@@ -13,11 +13,14 @@ import warnings
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+
 from pyflightstream.post._rotor_products import _acoustic_products
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from tests.tier1_offline.test_goal036_harmonics import _post, _unsteady
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-ACOUSTICSKIP")])
 def test_p0400_acousticskip_each_point_keeps_its_own_reason(tmp_path):
     """P0400-ACOUSTICSKIP: two unreadable exports leave two named skips."""
     skipped: dict[str, str] = {}
@@ -43,6 +46,7 @@ def test_p0400_acousticskip_each_point_keeps_its_own_reason(tmp_path):
     assert "P2_acoustic_signals" in skipped["acoustics/P2_acoustics_summary.csv"]
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-WALLTIMEREV")])
 def test_p0400_walltimerev_the_fit_ends_where_the_series_ends(tmp_path, monkeypatch):
     """P0400-WALLTIMEREV: planned 20 steps, stopped at 14: the fit reads 7 to 12, not 13 to 18."""
     workspace = _unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)

@@ -1091,8 +1091,12 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
             "\nCompatibility note: [pproc/INPUTS.md](pproc/INPUTS.md) is preserved "
             "unchanged as legacy content. This file is the generated input glossary.\n"
         )
-    block = begin + b"\n" + generated.encode("utf-8") + end + b"\n"
     before = page.read_bytes() if page.is_file() else b""
+    # THE PAGE'S OWN LINE ENDINGS: a checkout that turned the page CRLF held
+    # an LF block that never compared equal, so every plan and post rewrote
+    # it, mixed. The block takes the ending the page already has.
+    newline = b"\r\n" if b"\r\n" in before else b"\n"
+    block = (begin + b"\n" + generated.encode("utf-8") + end + b"\n").replace(b"\n", newline)
     if begin in before or end in before:
         if before.count(begin) != 1 or before.count(end) != 1:
             raise InputArtifactError(
@@ -1103,9 +1107,9 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
             raise InputArtifactError(
                 f"{page}: reversed generated glossary markers; preserve and repair them"
             )
-        after = before[:first] + block.rstrip(b"\n") + before[last + len(end) :]
+        after = before[:first] + block.rstrip(b"\r\n") + before[last + len(end) :]
     else:
-        after = before + (b"\n\n" if before else b"") + block
+        after = before + (newline * 2 if before else b"") + block
     if before != after:
         page.write_bytes(after)
         if changed is not None:

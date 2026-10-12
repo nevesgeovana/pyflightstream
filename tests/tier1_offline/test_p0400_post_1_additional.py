@@ -10,9 +10,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+
 from pyflightstream.post._additional import _current_extraction
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-STALEREMEDY")])
 def test_p0400_staleremedy_names_the_matrix() -> None:
     """P0400-STALEREMEDY: a rerun point's remedy names its matrix stem."""
     extraction = SimpleNamespace(

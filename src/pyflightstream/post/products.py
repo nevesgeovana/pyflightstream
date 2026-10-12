@@ -101,6 +101,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pyflightstream._textio as _textio  # the LF route (NFR-32), counted as what it is (G4)
 import pyflightstream.post._stage as _stage  # noqa: F401  # existing private path
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import file_sha256 as file_sha256
@@ -171,11 +172,9 @@ from pyflightstream.post._stage import (
     post_notes,
 )
 from pyflightstream.post._stage import freeze_of_log as freeze_of_log
-from pyflightstream.post._tables import _DECIMALS as _DECIMALS
 from pyflightstream.post._tables import (
     _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN,  # noqa: F401  # the 0.32 import path
 )
-from pyflightstream.post._tables import _REFERENCE_COLUMNS as _REFERENCE_COLUMNS
 
 # The post's one CSV reader and the plots-table readers (`read_csv_table`,
 # `plots_table_series` and the step column) are defined in `post._tables`
@@ -204,10 +203,6 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
-
-# The LF route (NFR-32) is reached through the module that already imports it: this
-# module's fan-out is over its cap (G4) and may only fall.
-from pyflightstream.post._tables import _textio as _textio
 from pyflightstream.post._tables import polar_file_name as polar_file_name
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
@@ -651,10 +646,14 @@ def write_campaign_products(
     """
     import pyflightstream
 
+    # THE MATRIX IS CHECKED BEFORE ITS FOLDER OR ITS LOG EXISTS: a typo in the
+    # stem made post/<typo>/ with two log files and then refused.
+    everything = workspace.read_manifest()
+    _refuse_an_unknown_matrix(workspace, matrix_stem, everything)
     selected: frozenset[str] | None = None
     if sims is not None:
         selected = selected_sims(
-            [record for record in workspace.read_manifest() if record.matrix_stem == matrix_stem],
+            [record for record in everything if record.matrix_stem == matrix_stem],
             sims,
             scope=f"of matrix {matrix_stem!r}" if matrix_stem else "naming no matrix",
         )
@@ -858,16 +857,7 @@ def _campaign_products(
     # post restores `sims/sim_<id>.zip` in place before it reads anything.
     for sim_id in sorted({record.sim_id for record in records} if sims is None else sims):
         ensure_sim_expanded(workspace, sim_id, reason="post")
-    if matrix_stem is not None and not records:
-        # The same refusal sweep_table gives the same keyword (PFS-2031.04):
-        # a stem the manifest never recorded is a typo or a matrix not yet
-        # run, and an empty product folder would say neither.
-        stems = sorted({r.matrix_stem for r in everything if r.matrix_stem})
-        raise ProductError(
-            f"the manifest of {workspace.root} holds no record of matrix {matrix_stem!r}; the "
-            f"matrices it names are {', '.join(stems) if stems else 'none'}. Run that matrix "
-            "first, or name one of those."
-        )
+    _refuse_an_unknown_matrix(workspace, matrix_stem, everything)
     out = workspace.products_dir(matrix_stem)
     by_sim: dict[str, list[RunRecord]] = {}
     # THE END OF A CONTINUATION CHAIN (0.24.0). Expanded first, because a chain
@@ -923,18 +913,20 @@ def _campaign_products(
     # `ValueError` from a malformed export, an `OSError`, the memory watchdog) left
     # the PREVIOUS manifest naming files the archiver had just moved away. The old
     # one is invalidated first and the new one is written in a `finally`, saying it
-    # is incomplete and why.
-    previous_products, partial = _prepare_campaign_rebuild(
-        workspace,
-        out,
-        records=records,
-        sims=sims,
-        matrix_stem=matrix_stem,
-        archive=archive,
-        products_index=products_index,
-        manifest=manifest,
-    )
+    # is incomplete and why. THE INVALIDATION IS INSIDE THE TRY: it ran before it,
+    # so a refusal after the old manifest was removed left no manifest at all.
+    partial: _PartialPost | None = None
     try:
+        previous_products, partial = _prepare_campaign_rebuild(
+            workspace,
+            out,
+            records=records,
+            sims=sims,
+            matrix_stem=matrix_stem,
+            archive=archive,
+            products_index=products_index,
+            manifest=manifest,
+        )
         _write_the_products(
             workspace,
             records,
@@ -966,7 +958,7 @@ def _campaign_products(
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
         carry_marks(products_index, points)  # FR-414 R3
-        _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
+        _write_manifest(out, manifest)
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"
@@ -976,9 +968,43 @@ def _campaign_products(
         }
         manifest["products"] = products_index_on_disk
         out.mkdir(parents=True, exist_ok=True)
-        _textio.write_text(out / PRODUCTS_MANIFEST, json.dumps(manifest, indent=1) + "\n")
+        _write_manifest(out, manifest)
         raise
     return written
+
+
+def _refuse_an_unknown_matrix(
+    workspace: CampaignWorkspace, matrix_stem: str | None, everything: Sequence[RunRecord]
+) -> None:
+    """Refuse a matrix stem the manifest never recorded.
+
+    The same refusal sweep_table gives the same keyword (PFS-2031.04): a stem
+    the manifest never recorded is a typo or a matrix not yet run, and an empty
+    product folder would say neither.
+    """
+    if matrix_stem is None or any(r.matrix_stem == matrix_stem for r in everything):
+        return
+    stems = sorted({r.matrix_stem for r in everything if r.matrix_stem})
+    raise ProductError(
+        f"the manifest of {workspace.root} holds no record of matrix {matrix_stem!r}; the "
+        f"matrices it names are {', '.join(stems) if stems else 'none'}. Run that matrix "
+        "first, or name one of those."
+    )
+
+
+def _write_manifest(out: Path, manifest: Mapping[str, object]) -> None:
+    """Write ``products.json`` whole or not at all: a temporary file, then a replace.
+
+    Written in place, a kill during the write (the memory watchdog) left a
+    truncated manifest that every later post then failed to read.
+    """
+    target = out / PRODUCTS_MANIFEST
+    staged = target.with_name(f"{target.name}.tmp")
+    try:
+        _textio.write_text(staged, json.dumps(manifest, indent=1) + "\n")
+        staged.replace(target)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def _sim_label(item: tuple[str, object]) -> str:
@@ -1218,7 +1244,7 @@ def _finish_campaign_products(ctx: _CampaignProducts) -> None:
     )
     ctx.manifest["complete"] = True
     ctx.out.mkdir(parents=True, exist_ok=True)
-    _textio.write_text(ctx.out / PRODUCTS_MANIFEST, json.dumps(ctx.manifest, indent=1) + "\n")
+    _write_manifest(ctx.out, ctx.manifest)
 
 
 def _validate_simulation_references(
@@ -1407,7 +1433,16 @@ def _prepare_campaign_rebuild(
     previous = out / PRODUCTS_MANIFEST
     previous_document: dict[str, Any] = {}
     if previous.is_file():
-        previous_document = json.loads(previous.read_text(encoding="utf-8"))
+        try:
+            previous_document = json.loads(previous.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            # A MANIFEST CUT OFF MID-WRITE, named with its remedy rather than a
+            # bare JSONDecodeError; the manifest this post writes in its place
+            # says the rebuild was interrupted, so the next post reads it.
+            raise ProductError(
+                f"{previous} does not parse ({error}); it was cut off while it was written. "
+                "Post again without --sims to rebuild every product and the manifest."
+            ) from None
         # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
         # `restore products` has the file this rebuild replaces.
         _retire_previous_manifest(workspace.root, previous, matrix=out.name, archive=archive)

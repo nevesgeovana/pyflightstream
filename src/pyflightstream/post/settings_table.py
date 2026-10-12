@@ -325,7 +325,8 @@ def settings_table(
         the problem `NA` now solves for every product at once. So `fill` is
         no longer the answer to a blank; it is the answer to a tool that
         needs the column to stay NUMERIC, which `NA` does not satisfy and
-        999 does. A caller who passed it to avoid blanks can stop.
+        999 does. A caller who passed it to avoid blanks can stop. The wide
+        form has no code column, so the fill reaches nothing there.
     fill_values : bool, keyword-only
         Ask for the VALUE columns to be filled too. Always REFUSED, and
         the refusal names the flags whose legal range contains the fill:
@@ -358,9 +359,13 @@ def settings_table(
     """
     if fill_values:
         _refuse_a_value_fill(fill)
-    tidy = [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, fill)]
     if not wide:
-        return tidy
+        return [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, fill)]
+    # THE WIDE FORM IS PROJECTED FROM THE UNFILLED ROWS (PFS-2105.019): it has
+    # no code column for the fill to reach, and its `f<id>_value` is a value
+    # column, which never carries the sentinel; filled first, a list-valued
+    # flag's 999 code was carried into it in place of its length.
+    tidy = [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, None)]
 
     by_run: dict[int, Row] = {}
     for row in tidy:

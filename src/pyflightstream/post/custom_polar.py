@@ -97,12 +97,17 @@ def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -
     mach : float
         The Mach number, written as its two-digit code.
     group : str or int
-        The plot group's number.
+        The plot group's number, as an int or as the text of one.
 
     Returns
     -------
     str
         The ``.dat`` file name beside the polar table.
+
+    Raises
+    ------
+    ProductError
+        If ``group`` is a name: the convention states a group by number.
     """
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
@@ -121,6 +126,29 @@ def custom_field(value: object) -> str:
         The value as text, right-aligned to the format's width.
     """
     return f"{value!s:>{CUSTOM_WIDTH}}"
+
+
+def _bounded_field(value: float, decimals: int | None = None) -> str:
+    """Write one number in a field that keeps a blank before it, or refuse it by value.
+
+    A field is CUSTOM_WIDTH characters, right-aligned, and a reader splits a
+    line on blanks: text as wide as the field fuses with its left neighbour,
+    and text wider overflows it. So a number keeps its own spelling (``repr``,
+    or ``decimals`` fixed decimals) where that leaves a blank, and gives up
+    decimals, then significant digits, until it does.
+    """
+    room = CUSTOM_WIDTH - 1
+    if decimals is None:
+        spellings = [str(value), *(f"{value:.{digits}g}" for digits in range(room, 0, -1))]
+    else:
+        spellings = [f"{value:.{places}f}" for places in range(decimals, -1, -1)]
+    for text in spellings:
+        if len(text) <= room:
+            return f"{text:>{CUSTOM_WIDTH}}"
+    raise ProductError(
+        f"{value!r} does not fit the custom polar format's {CUSTOM_WIDTH}-character field "
+        "with a blank before it"
+    )
 
 
 def group_number(group: str | int, *, position: int | None = None) -> int:
@@ -263,7 +291,8 @@ def write_custom_polar_format(
     Raises
     ------
     ProductError
-        If a row is not twenty-four values wide.
+        If a row is not twenty-four values wide, or a value does not fit a
+        field with a blank before it even with no decimals.
     """
     # FR-94. THE CONFIGURATION GOES ON LINE 1 AND NOWHERE ELSE, because
     # the format has exactly nine header lines and the reader counts them:
@@ -279,7 +308,7 @@ def write_custom_polar_format(
         date if date is not None else datetime.now().strftime(CUSTOM_DATE_FORMAT),
         f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, position=group_number):02d}",
         "".join(custom_field(name) for name in CUSTOM_REFERENCE_COLUMNS),
-        "".join(custom_field(float(value)) for value in (mach, *reference.as_row())),
+        "".join(_bounded_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
         f"{len(columns):03d}",
         "".join(custom_field(name) for name in columns),
@@ -287,7 +316,7 @@ def write_custom_polar_format(
     for row in rows:
         if len(row) != len(columns):
             raise ProductError(f"a polar row has {len(row)} values, not {len(columns)}")
-        lines.append("".join(f"{float(value):{CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
+        lines.append("".join(_bounded_field(float(value), _DECIMALS) for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(target, "\n".join(lines) + "\n", encoding="ascii")
@@ -326,6 +355,16 @@ def custom_count(line: str, path: Path, number: int, what: str) -> int:
         ) from None
 
 
+def _numbers(cells: Sequence[str], path: Path, number: int) -> list[float]:
+    """Read a line's cells as numbers, refusing a cell that is not one by its line."""
+    try:
+        return [float(cell) for cell in cells]
+    except ValueError:
+        raise ProductError(
+            f"{path} line {number} should hold numbers; it reads {' '.join(cells)!r}"
+        ) from None
+
+
 def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     """Read a custom polar format file back, as :func:`write_custom_polar_format` specifies it.
 
@@ -351,7 +390,13 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
         If the file does not have the shape the writer's docstring states.
     """
     target = Path(path)
-    lines = target.read_text(encoding="ascii").split("\n")
+    try:
+        lines = target.read_text(encoding="ascii").split("\n")
+    except UnicodeDecodeError as error:
+        raise ProductError(
+            f"{target} is not in the custom polar format: it holds a byte that is not ASCII "
+            f"at offset {error.start}"
+        ) from None
     if lines and lines[-1] == "":
         lines.pop()
     if len(lines) < 9 or not lines[0].startswith(CUSTOM_TITLE_PREFIX):
@@ -372,7 +417,13 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"{target} line 4 should be the reference count and the group number; "
             f"it reads {lines[3]!r}"
         )
-    reference_count, group = int(counts[0]), int(counts[1])
+    try:
+        reference_count, group = int(counts[0]), int(counts[1])
+    except ValueError:
+        raise ProductError(
+            f"{target} line 4 should be the reference count and the group number as digits; "
+            f"it reads {lines[3]!r}"
+        ) from None
     names = tuple(lines[4].split())
     values = lines[5].split()
     if len(names) != reference_count or len(values) != reference_count:
@@ -380,7 +431,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"{target} line 4 states {reference_count} reference columns and lines 5 and 6 "
             f"carry {len(names)} names and {len(values)} values"
         )
-    reference_values = dict(zip(names, (float(v) for v in values), strict=True))
+    reference_values = dict(zip(names, _numbers(values, target, 6), strict=True))
     row_count = custom_count(lines[6], target, 7, "data rows")
     column_count = custom_count(lines[7], target, 8, "data columns")
     columns = tuple(lines[8].split())
@@ -400,7 +451,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             raise ProductError(
                 f"{target} line {number} carries {len(cells)} values for {column_count} columns"
             )
-        rows.append(dict(zip(columns, (float(c) for c in cells), strict=True)))
+        rows.append(dict(zip(columns, _numbers(cells, target, number), strict=True)))
     mach = reference_values.pop("MNOM", None)
     if mach is None:
         raise ProductError(f"{target} line 5 names no MNOM column; it names {names}")

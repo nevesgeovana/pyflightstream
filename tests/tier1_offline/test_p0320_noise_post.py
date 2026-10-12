@@ -273,7 +273,7 @@ def test_p0320_noise_post_the_post_stage_hook_fr_264(tmp_path):
     assert names["acoustics/P1_acoustics_summary.csv"]["runs"] == ["run-1"]
     assert all(path.is_file() for path in files)
     bpf = _rows(out / "acoustics" / "P1_acoustics_bpf.csv")
-    assert bpf[0]["ROTOR"] == "main" and bpf[0]["FREQUENCY_HZ"] == "40.00000"
+    assert bpf[0]["ROTOR"] == "main" and bpf[0]["FREQUENCY_HZ"] == "40.0"  # P0400: round trip
     assert not any("blade-passage harmonics are NA" in str(w.message) for w in caught)
 
 

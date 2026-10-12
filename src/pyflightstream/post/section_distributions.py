@@ -57,8 +57,10 @@ __all__ = ["write_section_distributions"]
 def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
     """Integrate one instant/block in its export axes about each quarter chord.
 
-    Strip edges are the endpoint stations and the intervening midpoints.
-    Positive lengths tile only the interval between the first and last Offset.
+    Strip edges are the midpoints between stations and, at each end, half a
+    spacing beyond the end station (the extended rule, PFS-2081.40): the
+    export places its end stations at strip centers, so edges AT them left half
+    a strip out at each end. One block at a time, never across a boundary.
     Forces are N/m and Moment is N m/m; the added columns are m, N, N, N m.
     """
     if len(values) < 2:
@@ -70,9 +72,9 @@ def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
         raise ProductError("integration needs strictly monotonic Offset in each block")
     halves = [abs(gap) / 2 for gap in gaps]
     lengths = [
-        halves[0],
+        2 * halves[0],
         *(a + b for a, b in zip(halves[:-1], halves[1:], strict=True)),
-        halves[-1],
+        2 * halves[-1],
     ]
     result = [
         (length, *(row[i] * length for i in (4, 5, 6)))
@@ -663,16 +665,18 @@ def _matching_distributions(
             )
             frames = {str(b.get("frame", "")): 1 for b in record.sections_layout or []}
             try:
-                emissions = pproc_emissions(
-                    case,
-                    entry.frame,
-                    entry.families,
-                    inventory,
-                    pproc.is_blade,
-                    f"section distribution {k}",
-                    frames,
-                    blades_only=True,
-                )
+                # The builder's own warnings are not the post's (PFS-2100.014).
+                with collecting_warnings():
+                    emissions = pproc_emissions(
+                        case,
+                        entry.frame,
+                        entry.families,
+                        inventory,
+                        pproc.is_blade,
+                        f"section distribution {k}",
+                        frames,
+                        blades_only=True,
+                    )
             except PyflightstreamError:
                 # An invalid current selector cannot cost recorded raw columns.
                 emissions = []
@@ -686,12 +690,13 @@ def _matching_distributions(
             ):
                 return True
             return False
-        expanded_families = select_families(
-            entry.families,
-            inventory,
-            pproc.is_blade,
-            record.aliases if aliases is None else aliases,
-        )
+        with collecting_warnings():
+            expanded_families = select_families(
+                entry.families,
+                inventory,
+                pproc.is_blade,
+                record.aliases if aliases is None else aliases,
+            )
         expanded = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
             "RMRP": r".+_RMRP",
@@ -879,16 +884,17 @@ def _matching_distributions(
         )
         frames = {str(b.get("frame", "")): 1 for b in record.sections_layout or []}
         try:
-            emissions = pproc_emissions(
-                case,
-                entry.frame,
-                entry.families,
-                inventory,
-                pproc.is_blade,
-                f"section distribution {k}",
-                frames,
-                blades_only=True,
-            )
+            with collecting_warnings():
+                emissions = pproc_emissions(
+                    case,
+                    entry.frame,
+                    entry.families,
+                    inventory,
+                    pproc.is_blade,
+                    f"section distribution {k}",
+                    frames,
+                    blades_only=True,
+                )
         except PyflightstreamError:
             return True
         if not emissions:
@@ -901,7 +907,8 @@ def _matching_distributions(
             # builder would; then the block has to lie inside the selection,
             # or Blade2 would be a possible owner of every Blade1 block.
             try:
-                groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
+                with collecting_warnings():
+                    groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
             except PyflightstreamError:
                 return True
             held = set(cast(list[str], block["families"]))
@@ -1196,6 +1203,16 @@ def write_section_distributions(
                 int(record.export_window["first_step"]),
                 int(record.export_window["time_iterations"]) + 1,
             )
+            # THE RECORD'S WINDOW AND NOTHING ELSE, as the point series beside
+            # these tables keeps it: a stamped file of another run (a later
+            # threshold left the earlier files in the folder) is named, not tabled.
+            for outside in [current for current, _ in files if current not in expected]:
+                for relative in relatives.values():
+                    skipped[f"{relative}#step={outside}"] = (
+                        f"{stem}_{kind}_iteration={outside}.txt is outside the record's export "
+                        f"window, steps {expected.start} to {expected.stop - 1}, and is not tabled"
+                    )
+            files = [(current, path) for current, path in files if current in expected]
             present = {current for current, _ in files}
             # A STEP FREE-SPACE DELETED REFUSES THE KIND BY NAME (0.30.0), where a
             # step never exported is a per-step skip and the table is written.

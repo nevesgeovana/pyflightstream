@@ -16,6 +16,8 @@ import json
 import warnings
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.post import _rotor_plan
 from pyflightstream.post.products import read_csv_table
 from pyflightstream.workspace import RunRecord
@@ -116,6 +118,7 @@ def _campaign(
     )
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-ROTORPRODUCT")])
 def test_p0400_rotorproduct_judgement_names_the_sanitised_path(tmp_path, monkeypatch):
     """P0400-ROTORPRODUCT: the product a frozen-window warning names is the file written."""
     judged: list[str] = []
@@ -132,6 +135,7 @@ def test_p0400_rotorproduct_judgement_names_the_sanitised_path(tmp_path, monkeyp
     assert set(judged) == set(tables), (judged, tables)
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-CLOCKFOLD")])
 def test_p0400_clockfold_mismatch_warns_for_a_case_folded_clock(tmp_path):
     """P0400-CLOCKFOLD: CLOCK_MOTION 'pusher' names rotor PUSHER of a two-rotor reference."""
     _written, _manifest, caught = _campaign(
@@ -140,6 +144,7 @@ def test_p0400_clockfold_mismatch_warns_for_a_case_folded_clock(tmp_path):
     assert any("ran at J_PUSHER" in message for message in caught), caught
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-NOCOEFFINSTANT")])
 def test_p0400_nocoeffinstant_leaves_the_point_out(tmp_path, monkeypatch):
     """P0400-NOCOEFFINSTANT: no coefficients from the average means no row, and a reason."""
     monkeypatch.setattr(_rotor_plan, "_rotor_coefficients_from_newtons", lambda *a, **k: {})
@@ -149,6 +154,7 @@ def test_p0400_nocoeffinstant_leaves_the_point_out(tmp_path, monkeypatch):
     assert reasons and "cannot be made coefficients" in reasons[0], manifest["skipped"]
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-ROTORMACH")])
 def test_p0400_rotormach_a_record_without_mach_takes_the_simulations(tmp_path):
     """P0400-ROTORMACH: the second point states no Mach; its row carries 0.1441, never 0."""
     written, _manifest, _caught = _campaign(tmp_path, window=False, second_point_without_mach=True)

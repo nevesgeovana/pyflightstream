@@ -25,6 +25,7 @@ from tests.tier1_offline.test_goal028_rotor_table_average import REFERENCE, _ppr
 from tests.tier1_offline.test_post_superfile import _MATRIX, _PLOTS, _post, _workspace
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-OBJREMEDY")])
 @pytest.mark.parametrize(("name", "overwrite"), [("wing.obj", False), ("wing.fsm", True)])
 def test_p0400_objremedy_names_a_remedy_that_runs(tmp_path, monkeypatch, name, overwrite):
     """P0400-OBJREMEDY: an OBJ is never told --overwrite; a saved simulation still is."""
@@ -74,6 +75,7 @@ def _without_a_window(tmp_path: Path, *, plots: str | None = None) -> tuple[dict
     return json.loads(manifest.read_text(encoding="utf-8")), [str(w.message) for w in caught]
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-INSTANTGROUPS")])
 def test_p0400_instantgroups_are_marked_and_said(tmp_path):
     """P0400-INSTANTGROUPS: every group polar of 6002 is kind: instant, and post.log says why."""
     manifest, caught = _without_a_window(tmp_path)
@@ -91,6 +93,7 @@ def test_p0400_instantgroups_are_marked_and_said(tmp_path):
     assert any("simulation 6002" in m and "LAST TIME STEP" in m for m in caught), caught
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0400-EMPTYPLOTS")])
 def test_p0400_emptyplots_says_the_export_holds_no_step(tmp_path):
     """P0400-EMPTYPLOTS: the export is on disk; the skip says it holds no time step."""
     # The header and the column line, written before the first step was.
