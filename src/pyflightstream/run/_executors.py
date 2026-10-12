@@ -910,7 +910,14 @@ class SubmittingExecutor:
         started = _utc_now()
         try:
             descriptor, argv = self._prepared(script_path, working_dir)
-        except (CampaignConfigError, KeyError, ValueError, IndexError) as error:
+        except (
+            CampaignConfigError,
+            KeyError,
+            ValueError,
+            IndexError,
+            AttributeError,
+            TypeError,
+        ) as error:
             said = f"the placeholder {{{error.args[0]}}}" if isinstance(error, KeyError) else error
             return _unsubmitted(
                 (), working_dir, timeout_s, started, f"nothing was submitted: {said}", code=2
