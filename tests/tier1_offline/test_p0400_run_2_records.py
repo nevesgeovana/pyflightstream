@@ -58,6 +58,64 @@ def test_p0400_mark_failed_refuses_a_named_point_no_record_holds(tmp_path):
     assert workspace.manifest_path.read_bytes() == before
 
 
+def _job_workspace(tmp_path):
+    """A workspace holding one steady job of three CONVERGED points, beside other records."""
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_mark_failed import _record, _workspace
+
+    workspace = _workspace(tmp_path)
+    job = _record("5001", "camp/sim_5001/sweep", RunStatus.CONVERGED)
+    ran = [{"tag": tag, "status": "CONVERGED"} for tag in ("AL+000", "AL+005", "AL+010")]
+    workspace.append_record(job.model_copy(update={"points_ran": ran}))
+    return workspace
+
+
+def _points_of(workspace, sim):
+    return {
+        point.run_id: point.status.value
+        for record in workspace.read_manifest()
+        if record.sim_id == sim
+        for point in record.as_points()
+    }
+
+
+def test_p0400_mark_failed_marks_every_point_of_a_job_marked_whole(tmp_path):
+    """P0400-MARK-JOB (PFS-2103.010): each points_ran entry of a job marked whole is FAILED_MARKED.
+
+    The post reads each point's status from its entry (as_points), so a job
+    marked at its top alone kept every point CONVERGED and admitted.
+    """
+    from pyflightstream.post._products_campaign import _ADMITTED_WHEN_CHECKING
+    from pyflightstream.workspace import RunStatus
+
+    workspace = _job_workspace(tmp_path)
+    entry = records.mark_failed(workspace.root, ["5001"], reason="wrong mesh", apply=True)
+    points = _points_of(workspace, "5001")
+    assert set(points.values()) == {"FAILED_MARKED"}, points
+    assert RunStatus.FAILED_MARKED not in _ADMITTED_WHEN_CHECKING
+    assert sorted(item["run_id"] for item in entry["marked"]) == sorted(points)
+    (row,) = [r for r in workspace.read_raw_manifest() if r.get("sim_id") == "5001"]
+    assert row["status"] == "FAILED_MARKED" and row["marked"]["from"] == "CONVERGED"
+    assert all(e["marked"]["reason"] == "wrong mesh" for e in row["points_ran"])
+
+
+def test_p0400_mark_failed_marks_the_one_point_of_a_job_an_alias_names(tmp_path):
+    """P0400-MARK-JOB (PFS-2103.009): an alias of one job point marks that entry alone.
+
+    row_selected takes the whole job row when any of its points matches, so
+    every point of the job was marked FAILED_MARKED.
+    """
+    workspace = _job_workspace(tmp_path)
+    records.mark_failed(workspace.root, [], points={"5001": ["AL+005"]}, apply=True)
+    assert _points_of(workspace, "5001") == {
+        "camp/sim_5001/AL+000": "CONVERGED",
+        "camp/sim_5001/AL+005": "FAILED_MARKED",
+        "camp/sim_5001/AL+010": "CONVERGED",
+    }
+    (row,) = [r for r in workspace.read_raw_manifest() if r.get("sim_id") == "5001"]
+    assert "marked" not in row  # the person judged one point, not the job
+
+
 @pytest.mark.parametrize("sims", ["2006,2007", "2006"])
 def test_p0400_mark_failed_refuses_a_bare_string_of_ids(tmp_path, sims):
     """P0400-SIMS-STRING (PFS-2089.009): a str is refused in Python terms, never iterated.

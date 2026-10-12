@@ -110,6 +110,7 @@ from pyflightstream.run._assemble import ManifestWorkspace as ManifestWorkspace
 from pyflightstream.run._assemble import assemble_records as assemble_records
 from pyflightstream.run._assemble import from_sims_workspace as from_sims_workspace
 from pyflightstream.run._assemble import manifest_workspace as manifest_workspace
+from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._mark_converged import mark_converged as mark_converged
 from pyflightstream.run._rebuild import QUIET_WINDOW_S as QUIET_WINDOW_S
 from pyflightstream.run._rebuild import REBUILT as REBUILT
@@ -175,6 +176,23 @@ from pyflightstream.workspace.storage import register_records_rebuild
 # ---------------------------------------------------------------------------
 
 
+#: One record to mark: the row, and (run id, the dict holding its status) of each point marked.
+_Marking = tuple[dict[str, Any], list[tuple[str, dict[str, Any]]]]
+
+
+def _point_units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
+    """Return a record's points as (point tag, run id, the dict holding its status).
+
+    A steady job is one record over several points (``points_ran``); each
+    point is its own unit, its entry holding its status.
+    """
+    entries = row.get("points_ran") or []
+    if not entries:
+        return [(str(row["run_id"]).rsplit("/", 1)[-1], str(row["run_id"]), row)]
+    prefix = str(row["run_id"]).rsplit("/", 1)[0]
+    return [(str(entry.get("tag")), f"{prefix}/{entry.get('tag')}", entry) for entry in entries]
+
+
 def mark_failed(
     root: str | Path,
     sims: Sequence[str],
@@ -190,6 +208,9 @@ def mark_failed(
     status becomes ``FAILED_MARKED``, and ``marked`` keeps the status it
     had, when it was marked and the reason given, so the post, the cost
     estimate and delete-sims treat it as any failure and the history stays.
+    A steady job is marked per point: each ``points_ran`` entry marked takes
+    the status and its own ``marked``, and the job takes its worst point's
+    status; a job marked whole keeps ``marked`` at its top as well.
 
     Parameters
     ----------
@@ -209,9 +230,10 @@ def mark_failed(
     Returns
     -------
     dict
-        ``applied``, ``marked`` (per record: ``sim_id``, ``run_id``,
-        ``from``), ``already`` (the run ids already FAILED_MARKED, left as
-        they are) and, when applied, ``runs_archived_as``.
+        ``applied``, ``marked`` (per point: ``sim_id``, ``run_id``, ``from``;
+        a point of a steady job by its own run id), ``already`` (the run ids
+        already FAILED_MARKED, left as they are) and, when applied,
+        ``runs_archived_as``.
 
     Raises
     ------
@@ -239,7 +261,7 @@ def mark_failed(
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
 
-    def plan(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+    def plan(rows: list[dict[str, Any]]) -> tuple[list[_Marking], list[str]]:
         known = {str(row.get("sim_id")) for row in rows if row.get("deleted_sim") is None}
         unknown = [sim for sim in [*ids, *only] if sim not in known]
         if unknown:
@@ -268,10 +290,28 @@ def mark_failed(
                 "; ".join(f"no record of point {tag} in simulation {sim}" for sim, tag in missing)
                 + "; nothing was marked"
             )
-        already = [
-            str(row["run_id"]) for row in chosen if row.get("status") == RunStatus.FAILED_MARKED
-        ]
-        todo = [row for row in chosen if row.get("status") != RunStatus.FAILED_MARKED]
+        # A STEADY JOB IS MARKED PER POINT (PFS-2103.010, PFS-2103.009): the
+        # post reads each point's status from its points_ran entry, so a job
+        # marked at its top level alone kept every point CONVERGED; and an
+        # alias of one point marks that entry alone, not the whole job.
+        todo: list[_Marking] = []
+        already: list[str] = []
+        for row in chosen:
+            sim = str(row.get("sim_id"))
+            if sim in ids and row.get("status") == RunStatus.FAILED_MARKED:
+                already.append(str(row["run_id"]))
+                continue
+            units = [
+                (run_id, unit)
+                for tag, run_id, unit in _point_units(row)
+                if sim in ids or tag in only[sim]
+            ]
+            already += [r for r, unit in units if unit.get("status") == RunStatus.FAILED_MARKED]
+            marking = [
+                (r, unit) for r, unit in units if unit.get("status") != RunStatus.FAILED_MARKED
+            ]
+            if marking:
+                todo.append((row, marking))
         return todo, already
 
     def read() -> list[dict[str, Any]]:
@@ -284,12 +324,9 @@ def mark_failed(
     result: dict[str, Any] = {
         "applied": False,
         "marked": [
-            {
-                "sim_id": str(row.get("sim_id")),
-                "run_id": str(row["run_id"]),
-                "from": row.get("status"),
-            }
-            for row in todo
+            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": unit.get("status")}
+            for row, marking in todo
+            for run_id, unit in marking
         ],
         "already": already,
         "reason": reason,
@@ -306,21 +343,30 @@ def mark_failed(
         # name overwrote an archive written within the same second.
         archived = free_root_archive(base, DEFAULT_MANIFEST, _now_stamp())
         shutil.copy2(manifest, archived)
-        for row in todo:
-            row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
-            row["status"] = str(RunStatus.FAILED_MARKED)
-            row.pop("iterations_requested", None)  # FR-434 R1: written for MAX_ITER_REACHED alone.
+        for row, marking in todo:
+            if str(row.get("sim_id")) in ids and marking[0][1] is not row:
+                # A job marked whole keeps the person's verdict at its top too.
+                row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
+            for _run_id, unit in marking:
+                unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
+                unit["status"] = str(RunStatus.FAILED_MARKED)
+                unit.pop("iterations_requested", None)  # FR-434 R1: for MAX_ITER_REACHED alone.
+            # A job's status is its worst point's, by the one order (worse_of).
+            worst = RunStatus.FAILED_MARKED
+            for entry in row.get("points_ran") or []:
+                if entry.get("status"):
+                    worst = worse_of(worst, RunStatus(entry["status"]))
+            row["status"] = str(worst)
+            if worst is not RunStatus.MAX_ITER_REACHED:
+                row.pop("iterations_requested", None)
         workspace._replace_manifest(rows)
     result.update(
         applied=True,
         runs_archived_as=_relative(base, archived),
         marked=[
-            {
-                "sim_id": str(row.get("sim_id")),
-                "run_id": str(row["run_id"]),
-                "from": row["marked"]["from"],
-            }
-            for row in todo
+            {"sim_id": str(row.get("sim_id")), "run_id": run_id, "from": unit["marked"]["from"]}
+            for row, marking in todo
+            for run_id, unit in marking
         ],
         already=already,
     )
