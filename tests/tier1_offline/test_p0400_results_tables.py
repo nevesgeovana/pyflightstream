@@ -22,7 +22,8 @@ from pyflightstream.results import (
     write_table,
 )
 from pyflightstream.results.core import MalformedOutputError
-from tests.tier1_offline.test_tables import build_sweep_workspace
+from pyflightstream.workspace import CampaignWorkspace
+from tests.tier1_offline.test_tables import collect_text, make_record
 
 FIXTURES = Path(__file__).parent / "fixtures"
 pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
@@ -41,7 +42,8 @@ def _unsteady(text: str) -> str:
 
 def test_p0400_results_a_recorded_unsteady_loads_export_is_labelled_last_step(tmp_path):
     """P0400-RESULTS (PFS-2105.043, PFS-2105.046): the recorded unsteady export, read back."""
-    report = parse_loads(_fixture("loads_unsteady_26.120.txt"))
+    # Actual RPT-133 arm B output, with its recorded coefficient values.
+    report = parse_loads(_fixture("rpt133/B_final.txt"))
     assert report.solver_mode.strip().lower() == "unsteady", "the control: a recorded unsteady run"
     back = pd.read_csv(to_csv(report, tmp_path / "loads.csv"))
     assert set(zip(back["reduction"], back["reduction_window"], strict=True)) == {
@@ -49,8 +51,8 @@ def test_p0400_results_a_recorded_unsteady_loads_export_is_labelled_last_step(tm
     }
 
 
-def test_p0400_results_a_recorded_unsteady_sectional_export_is_labelled_last_step():
-    """P0400-RESULTS (PFS-2105.043): the recorded unsteady sectional loads of 26.125."""
+def test_p0400_results_an_unsteady_sectional_export_is_labelled_last_step():
+    """P0400-RESULTS (PFS-2105.043): the synthetic unsteady sectional loads of 26.125."""
     frame = to_table(parse_sectional_loads(_fixture("s10_26125/sloads_26.125.txt")))
     assert set(zip(frame["reduction"], frame["reduction_window"], strict=True)) == {
         ("last_step", "last_time_step")
@@ -94,6 +96,17 @@ def test_p0400_results_the_last_step_tokens_are_appended_and_paired(tmp_path):
 
 def test_p0400_results_a_sweep_labels_its_recorded_unsteady_loads_last_step(tmp_path):
     """P0400-RESULTS-TABLES (PFS-2105.046): a sweep row is the native export's instant."""
-    table = sweep_table(build_sweep_workspace(tmp_path))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    outputs = collect_text(workspace, "9001", tmp_path, "loads.txt", _fixture("rpt133/B_final.txt"))
+    workspace.append_record(
+        make_record(
+            run_id="camp/sim_9001/AL+000",
+            point_name="AL+000",
+            point={"alpha": 0.0},
+            fs_version_requested="26.124",
+            outputs=outputs,
+        )
+    )
+    table = sweep_table(workspace)
     row = table.loc[table["run_id"] == "camp/sim_9001/AL+000"].iloc[0]
     assert (row["reduction"], row["reduction_window"]) == ("last_step", "last_time_step")
