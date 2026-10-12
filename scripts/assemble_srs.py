@@ -9,7 +9,7 @@ never stated, and the ones 0.32.0 adds, were written by parallel work packages
 (K1, K2 and the packages that deliver a capability). Each writes
 ``docs/srs/fr.d/<package>.md``, numbered inside its own range, so two packages
 merged one after the other never touch the same lines of
-``docs/srs/functional-requirements.md``. This script folds them once, at
+``docs/unpublished/requirements/functional-requirements.md``. This script folds them once, at
 integration, the way ``scripts/assemble_changelog.py`` folds the change log.
 
 WHAT IT DOES. Every ``docs/srs/fr.d/*.md`` except ``README.md`` is a fragment:
@@ -41,7 +41,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 FRAGMENTS_DIR = Path("docs") / "srs" / "fr.d"
 README = "README.md"
-PAGE = Path("docs") / "srs" / "functional-requirements.md"
+PAGE = Path("docs") / "unpublished" / "requirements" / "functional-requirements.md"
 HEADING = "## 0.25.0 to 0.32.0 additions"
 INTRO = (
     "Requirements written after the specification was last reconciled with the package: "

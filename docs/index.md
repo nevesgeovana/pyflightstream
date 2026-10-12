@@ -3,6 +3,12 @@
 pyflightstream builds and checks FlightStream solver inputs, manages workspace
 campaigns, and reads recorded results.
 
+## Where to start
+
+Half an hour, and no solver until the last step.
+The [first campaign](getting-started.md) covers the command-line route; the
+following tracks select the entry page for each task.
+
 ## Choose a reading track
 
 | Track | Start here |
@@ -23,3 +29,11 @@ The [PDF guides](guides.md) add a structured walkthrough to the task pages.
 The [workspace and workflow](workspace-and-workflows.md) page describes the
 main campaign route. The website and its examples are the maintained technical
 reference.
+
+The [PDF guide folder](https://github.com/nevesgeovana/pyflightstream/tree/main/guide)
+contains the decks and their sources.
+
+## Evidence discipline
+
+See [Evidence discipline](srs/philosophy.md#evidence-discipline) for the rule
+behind solver claims.

@@ -18,4 +18,4 @@ independent validation.
 The [workspace and workflow](../workspace-and-workflows.md) page explains the
 complete route. See [the vocabulary](../definitions/the-vocabulary.md) for
 terms used throughout the documentation and the relevant
-[PDF guide](../../guide/).
+[PDF guide](https://github.com/nevesgeovana/pyflightstream/tree/main/guide).

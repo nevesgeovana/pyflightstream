@@ -17,7 +17,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 CHANGELOG = REPO / "CHANGELOG.md"
-SRS = REPO / "docs" / "srs" / "functional-requirements.md"
+SRS = REPO / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
 FRAGMENT = REPO / "docs" / "srs" / "fr.d" / "k1.md"
 RELEASES = ("0.25.0", "0.25.1", "0.26.0", "0.27.0", "0.28.0")
 FIRST, LAST = 112, 149

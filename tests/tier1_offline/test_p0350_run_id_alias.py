@@ -10,7 +10,8 @@ plan reading disagree is refused naming both.
 
 What it does NOT check: a solver. A stub stands in for the executor.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

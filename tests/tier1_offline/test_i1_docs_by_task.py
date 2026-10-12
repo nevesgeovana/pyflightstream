@@ -1,14 +1,8 @@
-"""Tier 1, 0.32.0 package I1: the documentation site is organized by task.
+"""Tier 1: the approved 0.40.0 documentation structure and local links.
 
-GEO-066 2.1: the workspace and workflow guide is one page per run type or
-topic with each fact in one home, and the definition of record is one page.
-The top of the nav was the five task groups of 0.32.0 (Getting started,
-Workflows, Post-processing, Reference, Migration) until 0.33.0, when the
-a decision of the 0.33 scope (NFR-29 R1) grouped it by Diataxis quadrant
-with the SRS under a Project group; the expectations below moved with it:
-the five groups are the quadrants and Project, every migration page is under
-Project, the definition of record is under Reference and every run-type page
-under How-to guides. Nothing else these tests hold changed.
+Workspace and Workflows precedes the Python API. Each reference belongs to
+its reader section, upgrading guidance belongs to Help, and configured
+repository-only pages are excluded from publication checks.
 """
 
 from __future__ import annotations
@@ -23,11 +17,11 @@ import pytest
 import yaml
 from markdown.extensions.toc import slugify
 
+from tests.tier1_offline._docs_site import GROUPS, definition_page, site_pages
 from tests.tier1_offline._workflow_docs import WORKFLOW_PAGE_NAMES
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-GROUPS = ["Tutorials", "How-to guides", "Reference", "Explanation", "Project"]
 
 
 def _nav() -> list:
@@ -54,28 +48,30 @@ def _group(name: str) -> list[str]:
 
 
 @pytest.mark.requirement("NFR-29")
-def test_the_nav_has_exactly_the_five_groups_in_order():
+def test_the_nav_has_exactly_the_eight_groups_in_order():
     names = [next(iter(item)) for item in _nav()]
     assert names == GROUPS, names
 
 
-def test_every_migration_page_is_listed_under_project():
-    listed = _group("Project")
-    on_disk = sorted(path.name for path in DOCS.glob("migrating-to-*.md"))
-    assert on_disk, "no migration page on disk: the check would prove nothing"
-    assert set(on_disk) <= set(listed), sorted(set(on_disk) - set(listed))
-    assert not [p for p in _pages(_nav()) if p.startswith("migrating-to-") and p not in listed]
+def test_upgrade_guidance_is_consolidated_under_help():
+    assert "upgrading.md" in _group("Help")
+    assert not [p for p in _pages(_nav()) if p.startswith("migrating-to-")]
+    assert (DOCS / "upgrading.md").is_file()
 
 
 def test_the_definition_of_record_is_an_index_under_reference():
     assert "post-processing-definitions.md" in _group("Reference")
     text = (DOCS / "post-processing-definitions.md").read_text(encoding="utf-8")
-    families = sorted(DOCS.glob("definitions/*.md"))
+    families = sorted(
+        path
+        for rel, path in site_pages(DOCS, in_nav=True).items()
+        if rel.startswith("definitions/")
+    )
     fixture = json.loads(
         (Path(__file__).parent / "data/p0360_doc_slugs.json").read_text(encoding="utf-8")
     )
     expected = {
-        heading["slug"] + ".md"
+        Path(definition_page(heading["slug"])).name
         for heading in fixture["definitions"]
         if heading["level"] == 2 and heading["slug"] != "contents"
     }
@@ -90,7 +86,7 @@ def test_the_definition_of_record_is_an_index_under_reference():
 def test_the_workspace_guide_is_an_index_and_each_run_type_has_a_page():
     index = (DOCS / "workspace-and-workflows.md").read_text(encoding="utf-8")
     assert len(index.splitlines()) < 1000
-    workflows = _group("How-to guides")
+    workflows = _group("Workspace and Workflows")
     for run_type, page in (
         ("steady", "workflow-steady.md"),
         ("unsteady", "workflow-unsteady.md"),
@@ -107,12 +103,7 @@ def test_the_workspace_guide_is_an_index_and_each_run_type_has_a_page():
 def test_every_hand_written_page_is_in_the_nav():
     """A page nobody can navigate to is not published."""
     listed = set(_pages(_nav()))
-    missing = sorted(
-        path.relative_to(DOCS).as_posix()
-        for path in DOCS.rglob("*.md")
-        if path.relative_to(DOCS).as_posix() not in listed
-        and not path.relative_to(DOCS).as_posix().startswith("srs/")
-    )
+    missing = sorted(rel for rel in site_pages(DOCS, in_nav=True) if rel not in listed)
     assert not missing, missing
 
 
@@ -134,7 +125,7 @@ def test_no_second_home_for_a_fact_no_heading_repeats_across_the_workflow_pages(
 
 def test_every_link_between_pages_resolves_to_a_page_and_an_anchor():
     """The split moved sections; a link that still names the old page is broken."""
-    pages = {p.relative_to(DOCS).as_posix(): p for p in DOCS.rglob("*.md")}
+    pages = site_pages(DOCS)
     anchors: dict[str, set[str]] = {}
     for rel, path in pages.items():
         found: set[str] = set()

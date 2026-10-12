@@ -1,6 +1,7 @@
 """Tier 1: a matrix row states native setup keys over its preset (FR-316).
 
-The evidence line of FR-316 cites this module (docs/srs/functional-requirements.md).
+The evidence line of FR-316 cites this module
+(docs/unpublished/requirements/functional-requirements.md).
 
 The rule under test: ``plan`` warns for every row that writes setup keys,
 naming the row and the keys; a key the preset does not state is added for that

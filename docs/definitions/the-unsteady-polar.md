@@ -26,7 +26,7 @@
   written a second time.
 - **The last column is `MESH_FACES`**, after the super file's
   content: the face count of the point's geometry as its inventory states it,
-  or `NA` ([the mesh face count](the-mesh-face-count-since-0340.md#the-mesh-face-count-since-0340)).
+  or `NA` ([the mesh face count](the-mesh-face-count.md#the-mesh-face-count-since-0340)).
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
   polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
   `CDB .. CNB25`, each suffixed with its plot group's WHOLE name

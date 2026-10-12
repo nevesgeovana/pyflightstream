@@ -224,7 +224,7 @@ says nothing (RPT-066, 26.124). A row naming the body therefore solves with no
 base region and no error; name the base boundary. A pproc's `base_regions`
 list follows the same rule. A raw mesh's sidecar can ask for the whole-mesh
 detection instead, `[base_regions] detect = "auto"`
-([mesh inputs](mesh/how-to.md#the-boundary-conditions-of-a-raw-mesh)).
+([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in

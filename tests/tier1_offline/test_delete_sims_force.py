@@ -4,7 +4,8 @@ A simulation with a run still SUBMITTED is refused by ``delete-sims``; with
 ``--force`` it is deleted whatever the status of its records. Every workspace
 is a real ``tmp_path`` tree.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

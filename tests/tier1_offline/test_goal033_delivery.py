@@ -36,6 +36,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.tier1_offline._docs_site import site_pages
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -334,7 +336,7 @@ def test_every_documented_page_is_built_and_reachable():
     """
     targets = _nav_targets(_config()["nav"])
     generated = _generated_pages()
-    committed = {p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")}
+    committed = set(site_pages(DOCS, in_nav=True))
     unresolved = [
         target
         for target in targets
@@ -351,8 +353,9 @@ def test_every_documented_page_is_built_and_reachable():
         re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
     )
     assert f"migrating-to-{RELEASED}.md" in cited
-    absent = sorted(page for page in cited if page not in targets)
-    assert not absent, f"pages the {RELEASED} notes cite that the menu lacks: {absent}"
+    built = set(site_pages(DOCS)) | generated
+    absent = sorted(page for page in cited if page not in built)
+    assert not absent, f"pages the {RELEASED} notes cite that the site lacks: {absent}"
 
 
 #: Each reader-facing change of the CHANGELOG's ``### Changed`` list, by its

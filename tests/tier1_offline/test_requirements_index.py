@@ -101,7 +101,7 @@ def test_the_committed_index_is_what_the_srs_generates() -> None:
         env=os.environ.copy(),
     )
     assert done.returncode == 0, (
-        "reports/requirements-index.json no longer matches docs/srs. Run "
+        "reports/requirements-index.json no longer matches docs/unpublished/requirements. Run "
         "`python scripts/gen_requirements_index.py` and commit the result, "
         f"in the same change that moved the SRS.\n{done.stdout}\n{done.stderr}"
     )
@@ -123,7 +123,7 @@ def test_the_index_holds_every_requirement_box_the_srs_declares() -> None:
     same reason the generator excludes them.
     """
     declared: set[str] = set()
-    for page in sorted((REPO / "docs" / "srs").glob("*.md")):
+    for page in sorted((REPO / "docs" / "unpublished" / "requirements").glob("*.md")):
         for line in page.read_text(encoding="utf-8").splitlines():
             if not line.startswith('!!! requirement "'):
                 continue

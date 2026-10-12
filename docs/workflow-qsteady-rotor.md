@@ -269,7 +269,7 @@ differ, whatever its convergence; with no solver log to read it is recorded
 `FAILED_INCOMPLETE_OUTPUT`. The count is read from the exported log, so a
 raw-mesh row on the file route declares one among its outputs (a run type's
 default outputs do), and a row that declares none is refused when its script
-is built ([mesh inputs](mesh/how-to.md#the-boundary-conditions-of-a-raw-mesh)).
+is built ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **Name your outputs per point.** The folders no longer collide, but the
 PRODUCTS do: a point's polar, plots and probe tables are named after the

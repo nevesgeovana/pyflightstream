@@ -101,7 +101,7 @@ centers. The linked definition states the rule for every block.
 
 <a id="probe-parameters"></a>
 
-[Probe parameters](definitions/the-probes-table.md#probe-parameters#probe-parameters).
+[Probe parameters](definitions/the-probes-table.md#probe-parameters).
 
 <a id="the-averaging-window"></a>
 

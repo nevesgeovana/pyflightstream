@@ -80,7 +80,7 @@ HISTORICAL = (
     "CHANGELOG.md",
     "changelog.d/",
     *(f"docs/migrating-to-0.{minor}." for minor in range(21, 34)),
-    "docs/srs/functional-requirements.md",
+    "docs/unpublished/requirements/functional-requirements.md",
     "reports/",
     "tests/tier1_offline/test_goal033_delivery.py",
 )
@@ -262,14 +262,14 @@ def test_no_tracked_file_names_pyfts_guide_00_outside_the_historical_records():
         ("CHANGELOG.md", OLD_OVERVIEW),
         ("docs/migrating-to-0.31.0.md", OLD_OVERVIEW),
         ("docs/migrating-to-0.34.0.md", OLD_OVERVIEW),
-        ("docs/srs/index.md", OLD_OVERVIEW),
+        ("docs/unpublished/requirements/index.md", OLD_OVERVIEW),
     ]
     assert _naming_old_overview(planted) == sorted(
         [
             "guide/x.md",
             f"guide/{OLD_OVERVIEW}-x.pdf",
             "docs/migrating-to-0.34.0.md",
-            "docs/srs/index.md",
+            "docs/unpublished/requirements/index.md",
         ]
     )
 

@@ -4,12 +4,17 @@ The PDF guides provide a linear walkthrough. The website provides linked
 reference pages and runnable examples. Use both when a task benefits from a
 guided sequence and a precise reference.
 
-| Track | Guide |
+| Guide | What it covers |
 |---|---|
-| Install and first campaign | Guide 1 |
-| Geometry and inputs | Guides 2 and 3 |
-| Run and post-process | Guides 4 through 8 |
-| Offline installation | Guide 9 |
+| [1, FlightStream overview](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-01-fts-overview.pdf) | Overview: what FlightStream is, how a panel method solves steady, unsteady and rotating flows, how pyflightstream carries the workflow in a workspace, and the order to read the other guides in |
+| [2, Workspaces](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-02-workspaces.pdf) | The workspace tree and its input files, choosing a workflow, running, what a run and its post leave, a workstation and a cluster kept together by sync |
+| [3, From the GUI to pyfs](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-03-gui-to-pyfs.pdf) | Every step of a FlightStream GUI session, and the key that takes it in a workspace |
+| [4, Cheatsheet](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-04-cheatsheet.pdf) | Ten pages: every command and option of every console tool, then one page for each of the eight stages of the campaign workflow, with its commands, the files it reads and writes, its common errors and a figure |
+| [5, References](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-05-references.pdf) | The reference file: lengths, the moment point, aliases, frames, rotors and actuator discs |
+| [6, Solver setup](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-06-solver-setup.pdf) | The setup file, its keys and the solver commands behind them |
+| [7, Post-processing definitions](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-07-pproc-definitions.pdf) | What every post-processing product, reduction and window means |
+| [8, FSI](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-08-fsi.pdf) | Fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
+| [9, An offline Python environment](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-09-python-environment-offline.pdf) | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
 The PDFs are in the repository's `guide/` directory. The website is the
 maintained source for technical details and code examples.

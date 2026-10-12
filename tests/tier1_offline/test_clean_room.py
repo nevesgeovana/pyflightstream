@@ -429,7 +429,9 @@ def test_the_declaration_says_what_fr08_says():
     Without this the declaration could drift into something weaker while
     every commit still carried a trailer and the test still passed.
     """
-    requirement = (REPO / "docs" / "srs" / "functional-requirements.md").read_text(encoding="utf-8")
+    requirement = (
+        REPO / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
+    ).read_text(encoding="utf-8")
     start = requirement.index('!!! requirement "FR-08 ')
     body = requirement[start : requirement.index("\n!!! requirement", start + 10)]
     # Collapsed, because the requirement is hard-wrapped: "official

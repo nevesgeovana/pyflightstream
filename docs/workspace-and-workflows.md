@@ -161,7 +161,7 @@ worse than no page at all.
   `[wake_termination]` detection runs between two initializations of the
   solver, the order that marked a blade's root node on a steady point; an
   unsteady run takes the same order, not yet measured there
-  ([mesh inputs](mesh/how-to.md#the-boundary-conditions-of-a-raw-mesh)).
+  ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is

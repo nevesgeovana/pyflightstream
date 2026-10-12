@@ -94,7 +94,6 @@ nav:
           - CCS geometry: ccs-geometry.md
           - Removing surfaces: removing-surfaces.md
           - Geometry units and starts: geometry-units-and-starts.md
-          - Geometry command stage: geometry-command-stage.md
       - 2. Set up the study:
           - Matrix, library and presets:
               - Run matrix: workflow-run-matrix.md
@@ -136,8 +135,6 @@ nav:
       - 5. Post-process:
           - Post-processing artifact: pproc-artifact.md
           - Probes: probes.md
-          - Far-field analyses: farfield.md
-          - Far-field example: examples/farfield_wing.md
           - Additional post: workflow-additional-post.md
           - Additional post example: examples/additional_post.md
           - Unsteady post-processing: unsteady-postprocessing.md
@@ -188,12 +185,6 @@ nav:
               - Solver plots: definitions/the-solvers-own-plots.md
               - Boundary-layer profile: definitions/the-boundary-layer-profile-is-not-produced.md
               - Mesh face count: definitions/the-mesh-face-count.md
-          - Far-field family:
-              - Shared far-field rules: definitions/the-farfield-family.md
-              - Variant A: definitions/farfield-variant-a.md
-              - Variant B: definitions/farfield-variant-b.md
-              - Variant C: definitions/farfield-variant-c.md
-              - Balances: definitions/farfield-balances.md
           - Unsteady reductions:
               - Reductions: definitions/the-reductions-of-an-unsteady-point.md
               - time_average: definitions/time_average.md
@@ -239,3 +230,18 @@ nav:
       - House conventions: conventions.md
       - Standards alignment: srs/standards.md
       - Roadmap: srs/roadmap.md
+
+# Requirement registers and release history remain repository material.
+exclude_docs: |
+  /unpublished/
+  /requirement-mapping.md
+  /release-notes.md
+
+# Retained legacy URLs are not part of the reader navigation.
+not_in_nav: |
+  /migrating-to-*.md
+  /custom-field-units.md
+  /mesh-inputs.md
+  /simulation-geometry-controls.md
+  /sync-folders-and-matrix-homes.md
+  /definitions/probe-parameters.md
