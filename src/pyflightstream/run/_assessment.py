@@ -738,6 +738,8 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
         ]
         if len(candidates) == 1:
             job.log_path = candidates[0]
+        elif not candidates and (refusal := _miscounted_log(job, solves, record_warning)):
+            return refusal
         elif len(candidates) > 1:
             # SEVERAL IS A REFUSAL, exactly as it is for the loads
             # table one branch up, and for the same reason: choosing
@@ -777,6 +779,42 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
             )
         job.log_path = matches[0]
     return None
+
+
+def _miscounted_log(
+    job: _LoadsJudgment, solves: int, record_warning: str | None
+) -> Assessment | None:
+    """Refuse a collected log that holds another number of solves than the point solved.
+
+    PFS-2103.021: such a file is not "no log". A quasi-steady wheel whose
+    record could not be read is judged as one solve, its log of k solves was
+    then not taken as its log, and the point was recorded CONVERGED from its
+    iteration count with an unsettled clocking unread. None when no
+    collected file reads as a log of another count.
+    """
+    found: list[tuple[Path, int]] = []
+    for path in job.collected:
+        if path == job.report_path:
+            continue
+        try:
+            count = len(parse_residual_solves(path.read_text(encoding="utf-8", errors="replace")))
+        except (OSError, IncompleteOutputError, ValueError):
+            continue
+        if count and count != solves:
+            found.append((path, count))
+    if not found:
+        return None
+    said = ", ".join(f"{path.name} holds {count}" for path, count in found)
+    return Assessment(
+        status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+        iterations=job.report.current_iteration,
+        error=(
+            f"a collected solver log holds another number of solves than this point "
+            f"solved ({solves}): {said}, so which solve is the point's cannot be told"
+            + (f"; {record_warning}" if record_warning else "")
+        ),
+        **job.stamp,
+    )
 
 
 def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
@@ -1108,7 +1146,12 @@ def _judge_final_residuals(history: Sequence[ResidualSample], limit: float) -> _
 
 #: The order of badness of a clocking's verdict, worst last: the worst of a
 #: wheel's clockings is its point's status.
-_CLOCKING_SEVERITY = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.FAILED_DIVERGED)
+_CLOCKING_SEVERITY = (
+    RunStatus.CONVERGED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.MAX_ITER_REACHED,  # FR-434, as in _STATUS_SEVERITY (PFS-2103.002)
+    RunStatus.FAILED_DIVERGED,
+)
 
 
 def _wheel_clockings(
@@ -1230,7 +1273,19 @@ def _judge_the_clockings(
     for clocking, history in zip(clockings, solves, strict=True):
         index = clocking.index
         judged = _judge_final_residuals(history, report.convergence_limit)
-        status, error = judged.status, judged.error
+        status, error, note = judged.status, judged.error, judged.note
+        # FR-434 R1 FOR EACH CLOCKING (PFS-2103.002): a steady solve stopped
+        # at the requested limit, unsettled and not forced, is MAX_ITER_REACHED;
+        # this path returned before the point's promotion and never was.
+        requested = report.requested_iterations
+        if (
+            status is RunStatus.COMPLETED_MAX_ITER
+            and not report.forced_iterations
+            and requested > 0
+            and history[-1].iteration == requested
+        ):
+            status = RunStatus.MAX_ITER_REACHED
+            note = _limit_note(note, requested, history[-1].iteration)
         loads = clocking.loads
         if index != 0:
             # EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE, held to it as
@@ -1257,9 +1312,9 @@ def _judge_the_clockings(
             "iterations": history[-1].iteration,
             "residual": judged.residual,
         }
-        if judged.note:
-            verdict["note"] = judged.note
-            notes.append(f"clocking {index}: {judged.note}")
+        if note:
+            verdict["note"] = note
+            notes.append(f"clocking {index}: {note}")
         if error:
             verdict["error"] = error
             errors.append(f"clocking {index}: {error}")
@@ -1273,6 +1328,8 @@ def _judge_the_clockings(
         worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
     else:
         worst = max(statuses, key=_CLOCKING_SEVERITY.index)
+    if worst is RunStatus.MAX_ITER_REACHED:
+        stamp["iterations_requested"] = report.requested_iterations  # FR-434 R1: its alone.
     judged_residuals = [value for value in residuals if value is not None]
     return Assessment(
         status=worst,
