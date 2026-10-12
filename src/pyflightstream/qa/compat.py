@@ -977,18 +977,21 @@ def _rewritten_flow_entry(
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
-        pairs["note"] = _one_line_note(str(body.get("detail", "")))
-        previous = str(existing.get("note") or "").strip()
-        if previous == pairs["note"] or previous.endswith(f"Probe: {pairs['note']}"):
-            pairs["note"] = previous  # the same measurement, promoted again
-        elif status == ProbeOutcome.BROKEN.value and previous:
-            # PFS-2102.031. The row's note is usually the edition's page
-            # citation, which nothing in this repository could put back,
-            # so a broken promotion keeps it and adds the measurement.
-            pairs["note"] = f"{previous} Probe: {pairs['note']}"
+        pairs["note"] = _promoted_note(existing.get("note"), body.get("detail", ""), status)
         owned.add("note")
     pairs.update({key: value for key, value in existing.items() if key not in owned})
     return f'{indent}"{canonical}": {_flow_mapping(pairs)}'
+
+
+def _promoted_note(previous: object, detail: object, status: str) -> str:
+    """Preserve edition evidence and keep repeated broken promotions idempotent."""
+    note = _one_line_note(str(detail))
+    previous = str(previous or "").strip()
+    if previous == note or previous.endswith(f"Probe: {note}"):
+        return previous
+    if status == ProbeOutcome.BROKEN.value and previous:
+        return f"{previous} Probe: {note}"
+    return note
 
 
 #: The renderer of a promoted value, which THIS MODULE NO LONGER OWNS.

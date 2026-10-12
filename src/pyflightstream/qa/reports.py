@@ -353,10 +353,11 @@ def report_paths(
         # reason the date is: a label carrying a separator or a character
         # Windows forbids passed the collision check against a path that
         # cannot exist, and the write failed after the licensed run.
-        if not is_portable_name(label):
+        if not is_portable_name(label) or any(ord(character) < 32 for character in label):
             raise QaEvidenceError(
                 f"the label {label!r} is not a plain file-name token (no separators, no "
-                'whitespace, none of <>:"/\\|?*), and it becomes part of the report stem; '
+                'whitespace or control characters, none of <>:"/\\|?*), and it becomes '
+                "part of the report stem; "
                 "choose a label such as pilot-2"
             )
         stem += f"_{label}"

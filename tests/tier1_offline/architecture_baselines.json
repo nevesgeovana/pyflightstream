@@ -420,12 +420,6 @@
    "statements": 21,
    "positional": 6
   },
-  "qa/probes.py:_judge": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 21,
-   "positional": 5
-  },
   "qa/probes.py:_run_probe": {
    "complexity": 2,
    "branches": 1,

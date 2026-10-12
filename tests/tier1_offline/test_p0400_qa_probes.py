@@ -34,7 +34,7 @@ from pyflightstream.qa.probes import (
 )
 from pyflightstream.run import ExecutionResult
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.versions import resolve
+from pyflightstream.versions import known_versions, resolve
 
 
 def _states(before: str, after: str):
@@ -78,6 +78,32 @@ def test_p0400_probeharness_a_refused_prelude_line_downgrades_its_tier(tmp_path)
     )
     assert Requires.SOLVER in failures
     assert "cannot be emitted" in failures[Requires.SOLVER]
+
+
+@pytest.mark.parametrize("version", known_versions(), ids=str)
+@pytest.mark.parametrize("tier", [tier for tier in Requires if tier is not Requires.NONE])
+def test_p0400_probeharness_each_registered_prelude_builds_or_downgrades(tmp_path, version, tier):
+    """P0400-PROBEHARNESS (PFS-2102.033) every edition and tier reaches a verdict."""
+    emitted = []
+
+    def run_script(script_path, **kwargs):
+        emitted.append(script_path.read_text(encoding="utf-8"))
+        return SimpleNamespace(diagnosis=lambda: "offline instrument has no log")
+
+    failures = _validate_tiers(
+        [SimpleNamespace(requires=tier)],
+        version,
+        SimpleNamespace(run_script=run_script),
+        tmp_path,
+        tmp_path / "x.fsm",
+        60.0,
+        None,
+    )
+    assert tier in failures
+    if not emitted:
+        assert "cannot be emitted" in failures[tier]
+    else:
+        assert "prelude did not reach its sentinel" in failures[tier]
 
 
 def test_p0400_probeharness_the_dumps_bracket_the_target_from_outside(tmp_path):
