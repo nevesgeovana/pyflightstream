@@ -630,8 +630,52 @@ def _finish_additional(workspace, record, context):
         outputs=outputs,
     )
     if completed.status is ExtractionStatus.EXTRACTED:
-        copy.unlink()
+        # THE EXTRACTED ROW IS WRITTEN, so a copy that cannot be removed (a
+        # file still held on a share) is a note on it, never a second row
+        # that re-records the extraction FAILED_EXECUTION (PFS-2103.005).
+        try:
+            copy.unlink(missing_ok=True)
+        except OSError as error:
+            said = (
+                f"the private copy {copy.name} could not be removed ({error}); "
+                "the extraction is complete, so remove it by hand"
+            )
+            note = f"{completed.note} {said}" if completed.note else said
+            completed = completed.model_copy(update={"note": note})
+            workspace.append_additional(completed)
     return completed
+
+
+def _extraction_job_end(workspace, record, folder: Path) -> str | None:
+    """Say how a submitted extraction's job is known to have ended, or None while it may run.
+
+    The HPC profile's ``job_end_files`` all matching (FR-311), or the log
+    the scheduler writes (``native_log``) being there, ends the job.
+    """
+    profile = resolve_hpc_profile(workspace.inputs_dir)
+    point = record.point_name or ""
+    job = (record.submission or {}).get("scheduler_id") or "its job"
+    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
+    found: list[Path] = []
+    for pattern in patterns:
+        matched = [p for p in folder.glob(pattern.format(sim=record.sim_id, point=point))]
+        if not any(path.is_file() for path in matched):
+            found = []
+            break
+        found += [path for path in matched if path.is_file()]
+    native = getattr(profile, "native_log", None)
+    if not found and native:
+        found = [
+            path
+            for path in folder.glob(str(native).format(sim=record.sim_id, point=point))
+            if path.is_file()
+        ]
+    if not found:
+        return None
+    return (
+        f"the extraction job {job} ended without its outputs: "
+        f"{', '.join(sorted(p.name for p in found))} exist (the HPC profile's end of job)"
+    )
 
 
 def _collect_additional(workspace, report, *, interval, sleep, observer, sims=None) -> None:
@@ -645,6 +689,10 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
         if sims is not None and record.sim_id not in sims:
             continue  # FR-307: another simulation's extraction is left as it is.
         try:
+            # A COMPACTED SIMULATION IS EXPANDED FIRST, as the point path does
+            # (PFS-2103.006): read zipped, its original and private copy were
+            # "changed or missing" and the extraction failed for good.
+            ensure_sim_expanded(workspace, record.sim_id, reason="collect")
             context = _additional_context(workspace, record)
             folder = context[1]
             generated = {str(item.get("dat")) for item in record.surface_translations or []}
@@ -654,6 +702,12 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
             second = observer(waited)
             if not settled(first, second):
                 missing = [Path(name).name for name, stamp in second.items() if stamp is None]
+                # A JOB THAT ENDED WITHOUT ITS OUTPUTS NEVER SETTLES
+                # (PFS-2085.008): counted outstanding, it kept a watch sweeping
+                # forever. The point path's job-end rule (FR-311) fails it.
+                ended = _extraction_job_end(workspace, record, folder) if missing else None
+                if ended is not None:
+                    raise WorkspaceError(f"{ended}; absent: {', '.join(missing)}")
                 report.waiting.append(
                     CollectOutcome(
                         run_id=record.extraction_id,
@@ -1084,6 +1138,15 @@ def _complete(
     }
     if missing_logs:
         update["wall_time_s"] = None  # FR-413 R2: the solver clock is the log's; never estimated.
+        # AND THE BASIS SAYS SO (PFS-2103.007): it still named the clock file
+        # the nulled time had been measured from.
+        submission = update.get("submission")
+        job = submission.get("job") if isinstance(submission, dict) else None
+        if isinstance(job, dict):
+            job["wall_time_basis"] = (
+                "not recorded: the solver log is absent (FR-413 R2), and the solver "
+                "clock is the log's; a time is never estimated"
+            )
     _limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
