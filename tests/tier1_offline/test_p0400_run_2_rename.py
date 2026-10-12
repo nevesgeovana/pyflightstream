@@ -25,6 +25,29 @@ def test_p0400_rename_takes_the_stem_of_a_lone_log_without_its_export_suffix():
     assert rename_module._stem_of([f"{stem}.txt", f"{stem}_log.txt"]) == stem
 
 
+def test_p0400_rename_keeps_a_delete_sims_note_and_writes_nothing_when_nothing_moves(tmp_path):
+    """P0400-RENAME-NOTES (PFS-2096.024): a note row is carried through, in its place.
+
+    The rewritten manifest was built from the plans alone, so a manifest
+    holding a delete-sims note always differed from it and lost the note.
+    """
+    workspace, _, _ = _ran(tmp_path)
+    rows = workspace.read_raw_manifest()
+    note = {
+        "run_id": "deleted/sim_9999/20261012-120000",
+        "deleted_sim": "9999",
+        "deleted_at": "2026-10-12T12:00:00+00:00",
+        "deleted_run_ids": ["named/sim_9999/M200RE230AL+000"],
+        "note": "this simulation id belonged to a simulation deleted by pyfs-matrix delete-sims",
+        "storage_entry": 0,
+    }
+    workspace._replace_manifest([rows[0], note, *rows[1:]])
+    before = workspace.manifest_path.read_bytes()
+    rename_workspace(_reopened(workspace))
+    assert workspace.manifest_path.read_bytes() == before
+    assert not list((workspace.root / "archive").glob("runs-*.json"))
+
+
 def test_p0400_rename_archives_in_local_time_so_restore_takes_the_newest(tmp_path, monkeypatch):
     """P0400-RENAME-ARCHIVE (PFS-2096.008, PFS-2096.006): rename stamps as every archiver does.
 

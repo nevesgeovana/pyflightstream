@@ -724,10 +724,15 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
     plans: list[_Plan] = []
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
+    # EVERY ROW IN MANIFEST ORDER, a note as it is (PFS-2096.024): the
+    # rewritten manifest was built from the plans alone, so every delete-sims
+    # note was dropped from runs.json.
+    ordered: list[_Plan | dict[str, Any]] = []
 
     for record in raw:
         if record.get("deleted_sim") is not None:
-            continue  # a delete-sims note names no run to rename (0.30.0)
+            ordered.append(record)  # a delete-sims note names no run to rename (0.30.0)
+            continue
         stem = record.get("matrix_stem")
         if stem not in rows_by_stem:
             rows_by_stem[stem] = _rows_of(workspace.root, stem)
@@ -742,6 +747,7 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
         plan = _plan_record(record, row, report, claimed)
         if plan is not None:
             plans.append(plan)
+            ordered.append(plan)
 
     if report.refusals:
         raise WorkspaceError(
@@ -752,7 +758,11 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
     rewritten: list[dict[str, Any]] = []
     pending: list[tuple[Path, Path]] = []
     destinations = _Destinations()
-    for plan in plans:
+    for item in ordered:
+        if not isinstance(item, _Plan):
+            rewritten.append(dict(item))
+            continue
+        plan = item
         entry = dict(plan.record)
         sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
         if plan.moves:
