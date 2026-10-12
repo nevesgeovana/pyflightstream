@@ -962,7 +962,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
 
 
 def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
-    """The default stays what this module always did; the refusal is opt-in."""
+    """The default preserves an existing file; replacement is deliberate."""
     frame = pd.DataFrame(
         {
             "CL": [0.4],
@@ -973,7 +973,7 @@ def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
     )
     target = tmp_path / "polar.csv"
     write_table(frame, target)
-    assert write_table(frame, target).is_file()  # overwrite=True by default
+    assert write_table(frame, target, overwrite=True).is_file()
     with pytest.raises(MalformedOutputError, match="already exists"):
         write_table(frame, target, overwrite=False)
 

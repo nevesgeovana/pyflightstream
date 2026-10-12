@@ -16,13 +16,16 @@ from pyflightstream.results import (
     parse_loads,
     parse_off_body_streamlines,
     parse_surface_sections,
+    sweep_table,
     to_csv,
     to_table,
     write_table,
 )
 from pyflightstream.results.core import MalformedOutputError
+from tests.tier1_offline.test_tables import build_sweep_workspace
 
 FIXTURES = Path(__file__).parent / "fixtures"
+pytestmark = pytest.mark.requirement("P0400-RESULTS-TABLES")
 
 
 def _fixture(name: str) -> str:
@@ -34,9 +37,6 @@ def _unsteady(text: str) -> str:
     moved, count = re.subn(r"(Solver mode:\s+)Steady", r"\1Unsteady", text)
     assert count == 1, "the fixture must print exactly one steady solver mode"
     return moved
-
-
-# --- PFS-2105.043 and PFS-2105.046: an unsteady export is its last time step ---
 
 
 def test_p0400_results_a_recorded_unsteady_loads_export_is_labelled_last_step(tmp_path):
@@ -90,3 +90,10 @@ def test_p0400_results_the_last_step_tokens_are_appended_and_paired(tmp_path):
         )
         with pytest.raises(MalformedOutputError, match="last_step with last_time_step"):
             write_table(frame, tmp_path / f"{reduction}.csv")
+
+
+def test_p0400_results_a_sweep_labels_its_recorded_unsteady_loads_last_step(tmp_path):
+    """P0400-RESULTS-TABLES (PFS-2105.046): a sweep row is the native export's instant."""
+    table = sweep_table(build_sweep_workspace(tmp_path))
+    row = table.loc[table["run_id"] == "camp/sim_9001/AL+000"].iloc[0]
+    assert (row["reduction"], row["reduction_window"]) == ("last_step", "last_time_step")

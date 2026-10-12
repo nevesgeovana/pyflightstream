@@ -257,12 +257,25 @@ def _phase_locked_table(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
 
 
 def _additional(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
+    from dataclasses import replace
+
     from tests.tier1_offline.test_additional_post import (
         POST_ADDITIONAL_TOML,
         a_recorded_campaign,
         a_stub,
         extract,
     )
+    from tests.tier1_offline.test_matrix_run import CountingStub
+
+    # This campaign executes a stub, whose elapsed time becomes a sweep
+    # column at 0.40.0. Pin the input result, so the byte comparison keeps
+    # judging every numeric cell rather than normalising a product value.
+    run_script = CountingStub.run_script
+
+    def timed_stub(self, *args, **kwargs):
+        return replace(run_script(self, *args, **kwargs), wall_time_s=1.25)
+
+    mp.setattr(CountingStub, "run_script", timed_stub)
 
     workspace, matrix = a_recorded_campaign(tmp, additional=POST_ADDITIONAL_TOML)
     extract(workspace, matrix, a_stub(tmp))

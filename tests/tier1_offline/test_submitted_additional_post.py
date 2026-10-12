@@ -82,18 +82,15 @@ def test_a_translation_problem_refuses_the_extraction_and_keeps_the_copy(tmp_pat
     folder = sim_dir / "work"
     folder.mkdir(parents=True)
     (folder / "surface.dat").write_text("stale", encoding="utf-8")
+    from tests.tier1_offline.test_p0400_results_surface import TRANSLATIONS, VTK
+
+    (folder / "surface.vtk").write_text(VTK, encoding="utf-8")
     copy = folder / "point.reopened.fsm"
     copy.write_text("private copy", encoding="utf-8")
     record = SimpleNamespace(
-        surface_translations=[{"vtk": "surface.vtk", "dat": "surface.dat"}],
+        surface_translations=TRANSLATIONS,
         declared_outputs=["surface.dat"],
         model_dump=lambda: {},
-    )
-    problem = "surface.dat is preserved: source, frame or output provenance changed"
-    monkeypatch.setattr(
-        collect,
-        "translate_surface_exports",
-        lambda where, translations: [{**translations[0], "written": [], "problems": [problem]}],
     )
     recorded = []
     monkeypatch.setattr(

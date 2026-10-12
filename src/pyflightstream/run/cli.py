@@ -1501,7 +1501,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PyflightstreamWarning)
             table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
-        write_table(table, target)
+        write_table(table, target, overwrite=True)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

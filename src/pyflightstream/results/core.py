@@ -30,7 +30,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.versions import FsVersion, known_versions, resolve
+from pyflightstream.versions import (
+    AmbiguousVersionAliasError,
+    FsVersion,
+    UnknownVersionError,
+    known_versions,
+    resolve,
+)
 
 __all__ = [
     "DATA_ORIGIN_CODES",
@@ -1077,8 +1083,26 @@ def cross_check_version(
     reported_build : str, optional
         Build number printed in the same footer, without the leading
         ``#``. When absent, only the version string is checked.
+
+    Notes
+    -----
+    A requested version the registry cannot resolve, such as the
+    ``unstated`` a record carries when its matrix named no build, is
+    warned about rather than raised: a mismatch is a warning (FR-18), and
+    raising here discarded a readable export as no loads at all.
     """
-    version = resolve(requested)
+    try:
+        version = resolve(requested)
+    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
+        warn(
+            f"the run requested FlightStream {str(requested)!r}, which could not be resolved "
+            f"to a registered version ({error}), so the output's version {reported!r} and "
+            f"build #{reported_build or 'not printed'} could not be checked against it. The "
+            "reported string and build are recorded verbatim in the manifest (FR-18).",
+            VersionMismatchWarning,
+            stacklevel=3,
+        )
+        return
     if version.build is not None and reported_build is not None:
         if reported_build != version.build:
             warn(

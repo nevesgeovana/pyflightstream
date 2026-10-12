@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from pyflightstream.results.conditions import bind_conditions
+
+pytestmark = pytest.mark.requirement("P0400-RESULTS-CONDITIONS")
 
 
 @dataclass

@@ -6,6 +6,8 @@ import pytest
 
 from pyflightstream.results.core import MalformedOutputError, parse_count, parse_number
 
+pytestmark = pytest.mark.requirement("P0400-RESULTS-NUMBERS")
+
 
 @pytest.mark.parametrize("token", ["nan", "inf", "-Infinity", "NaN"])
 def test_p0400_results_parse_count_refuses_a_non_finite_value(token):
