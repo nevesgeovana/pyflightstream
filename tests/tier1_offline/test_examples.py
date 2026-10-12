@@ -99,7 +99,7 @@ GATED_SUBPACKAGES = {
 SCRATCH_ROOTS = ("runs", "site_check")
 
 
-def _root_artifacts() -> list[str]:
+def _root_artifacts(root: Path = REPO) -> list[str]:
     """Names of everything at the repository root that nothing accounts for.
 
     DERIVED, not enumerated. The first version listed the artifact kinds
@@ -116,10 +116,14 @@ def _root_artifacts() -> list[str]:
     else is something a run left behind, whatever it is called. That
     also means a genuinely new file must be added or ignored
     deliberately, which is the same discipline applied to the tree.
+
+    ``root`` is the repository's by default; the witness below drives the
+    detector against a temporary git tree, so it never plants anything at
+    the root the guard reads while another worker runs it.
     """
     tracked = subprocess.run(
         ["git", "ls-files", "-z", "--", ":(top)*"],
-        cwd=REPO,
+        cwd=root,
         capture_output=True,
         text=True,
         check=True,
@@ -128,12 +132,12 @@ def _root_artifacts() -> list[str]:
     known = {name.split("/", 1)[0] for name in tracked if name}
 
     found = []
-    for path in sorted(REPO.iterdir()):
+    for path in sorted(root.iterdir()):
         if path.name in known or path.name == ".git":
             continue
         ignored = subprocess.run(
             ["git", "check-ignore", "-q", path.name],
-            cwd=REPO,
+            cwd=root,
             capture_output=True,
             env=os.environ.copy(),
         )
@@ -147,7 +151,7 @@ def _root_artifacts() -> list[str]:
     # root is the evidence that one did. Dropping these when the closure
     # above arrived would have traded a specific catch for a general
     # one, so both questions are asked.
-    found += [name for name in SCRATCH_ROOTS if (REPO / name).exists()]
+    found += [name for name in SCRATCH_ROOTS if (root / name).exists()]
     return sorted(found)
 
 
@@ -434,7 +438,7 @@ def test_nothing_leaves_an_artifact_in_the_repository_root():
     )
 
 
-def test_the_cleanliness_detector_can_actually_see_an_artifact():
+def test_the_cleanliness_detector_can_actually_see_an_artifact(tmp_path):
     """The guard above is a negative assertion, so it needs a witness.
 
     In CI both of its halves are green by construction: the docs blocks
@@ -465,27 +469,32 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
     # So the witness is a name that cannot collide, and it is removed
     # only if this test made it. `runs` stays in the detector's scope,
     # which is what the assertion below actually checks.
-    witness_dir = REPO / "_guard_witness_runs"
-    assert not witness_dir.exists(), (
-        f"{witness_dir.name} exists before the test made it, so removing it would "
-        "delete something this test does not own"
-    )
-    made = []
-    try:
-        (REPO / "_guard_witness.png").write_bytes(b"")
-        made.append(REPO / "_guard_witness.png")
-        witness_dir.mkdir()
-        made.append(witness_dir)
-        found = _root_artifacts()
-        assert "_guard_witness.png" in found, found
-        assert witness_dir.name in found, found
-    finally:
-        for path in made:
-            if path.is_dir():
-                path.rmdir()
-            elif path.exists():
-                path.unlink()
-    assert witness_dir.name not in _root_artifacts()
+    #
+    # P0400-ROOT-WITNESS (PFS-2135.065): and it is no longer planted at the
+    # repository root either. Under `pytest -n auto` the guard above can run
+    # on another worker while the witness files exist, and then reports
+    # them. The witness builds its own git tree in `tmp_path`, with a
+    # tracked file, an ignored file, an ignored scratch root and the two
+    # leftovers, and drives the detector there: only the leftovers and the
+    # scratch root are findings.
+    tree = tmp_path / "tree"
+    tree.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", *args], cwd=tree, capture_output=True, check=True, env=os.environ.copy()
+        )
+
+    git("init", "-q")
+    (tree / ".gitignore").write_text("ignored.txt\nruns/\n", encoding="utf-8")
+    (tree / "tracked.txt").write_text("x\n", encoding="utf-8")
+    git("add", ".gitignore", "tracked.txt")
+    (tree / "ignored.txt").write_text("x\n", encoding="utf-8")
+    assert _root_artifacts(tree) == []
+    (tree / "runs").mkdir()
+    (tree / "_guard_witness.png").write_bytes(b"")
+    (tree / "_guard_witness_runs").mkdir()
+    assert _root_artifacts(tree) == ["_guard_witness.png", "_guard_witness_runs", "runs"]
 
 
 # ---------------------------------------------------------------------------
