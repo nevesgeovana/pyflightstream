@@ -96,6 +96,7 @@ nav:
           - The unsteady rotor workflow: workflow-unsteady-rotor.md
           - The quasi-steady rotor: workflow-qsteady-rotor.md
       - Geometry:
+          - "Geometry: build a body before the run": geometry.md
           - Mesh inputs and GUI-only operations: mesh-inputs.md
           - Prepare a mesh input: mesh/how-to.md
           - Mesh sidecar reference: mesh/reference.md

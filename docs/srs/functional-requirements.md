@@ -10061,7 +10061,7 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
 The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh operations of PFS-2081.13 and the CAD bodies and solver-built geometry of PFS-2081.14 delivered through it), decided on 2026-10-12: a body is built outside the run matrix, once, by one command reading an instruction file, inspected before any run, and the matrix names the finished body, a saved simulation (`.fsm`) or a mesh (`.obj`). Translate and rotate stay where they are, in the sidecar of a mesh and in the row keys `TRANSLATE` and `ROTATE`. Every box is verified offline by the tier-1 tests it names, carrying the marker `P0400-GEOM-<NAME>`; the solver's answer to each command the stage emits is measured by the licensed probe batch of 0.40.0, and until a command is verified on a build the build refuses to run it there (FR-471 R9).
 
-!!! requirement "FR-470 A geometry is described by an instruction file, `<name>.geometry.toml`, with exactly one source <span class='srs-pending'>pending</span>"
+!!! requirement "FR-470 A geometry is described by an instruction file, `<name>.geometry.toml`, with exactly one source <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, questions G-Q2 to G-Q4, G-Q12 to G-Q14). Verification: test, `tests/tier1_offline/test_p0400_geometry_instruction.py`.*
@@ -10077,7 +10077,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R5 `[sweep]` (FR-472) is read for a `[ccs]` wing only.
     - R6 Each of these is refused before any solver starts, naming the file, the key and what to write instead: no source table or two; an unknown key at any level; a source file not in the folder, or written as a path; a key a source kind does not read; `outputs` empty, repeated or naming another format; `boundaries` empty or holding whitespace; a STEP file; `units = "OTHER"`; a control surface with `space = "REAL"`; `translate` or `rotate` in `[[operations]]`; a `[sweep]` on another source or naming a control surface the source does not declare.
 
-!!! requirement "FR-471 `pyfs-workspace geometry build` previews a geometry and, with `--apply`, builds it in one solver execution with no solve <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_instruction.py`, carrying P0400-GEOM-FILE: `test_p0400_geom_file_each_source_reads_with_its_defaults`, `test_p0400_geom_file_the_source_names_are_the_boundaries_with_the_operations_undone`, `test_p0400_geom_file_every_refusal_names_the_file`, `test_p0400_geom_file_the_ccs_table_keeps_the_sidecars_refusals`, `test_p0400_geom_file_a_second_instruction_in_one_folder_is_refused`, `test_p0400_geom_file_the_variant_tag_keeps_tenths_and_a_sign`.
+
+!!! requirement "FR-471 `pyfs-workspace geometry build` previews a geometry and, with `--apply`, builds it in one solver execution with no solve <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q3 to G-Q8). Verification: test, `tests/tier1_offline/test_p0400_geometry_build.py`.*
@@ -10096,7 +10098,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R8 A failed audit gate keeps the files, records `"passed": false`, prints the gates and exits 1. Exit codes: 0 built and audited, 1 built with a failed gate, 2 refused with nothing written, 3 the solver failed or the read-back failed with nothing promoted.
     - R9 It refuses, with exit 2, ending `Nothing was written.`: everything FR-470 refuses; an instruction outside `inputs/geometries/` of a workspace; a command the build needs whose status on the chosen build is not `verified` in the command database, for the commands the run did not already emit before 0.40.0 (the CCS lofts on a build where they are not verified, the commands of FR-474 and FR-475, `EXPORT_SURFACE_MESH`), naming the command, the build and that a licensed probe settles it (the preview still renders and names the refusal); an existing output or folder without `--overwrite`; a build id the workspace's executables files do not resolve, with `--apply`; `--png` without the plot extra installed.
 
-!!! requirement "FR-472 A deflection sweep builds one sibling geometry per control-surface angle <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_build.py`, carrying P0400-GEOM-BUILD: `test_p0400_geom_build_preview_runs_nothing_and_writes_nothing`, `test_p0400_geom_build_script_saves_after_the_export_and_the_marking`, `test_p0400_geom_build_refuses_a_command_awaiting_evidence_and_runs_nothing`, `test_p0400_geom_build_a_ccs_loft_waits_for_its_probe_on_26124_only`, `test_p0400_geom_build_writes_the_body_its_preview_and_its_record`, `test_p0400_geom_build_fails_on_other_boundaries_and_promotes_nothing`, `test_p0400_geom_build_a_failed_solver_promotes_nothing_and_keeps_the_partial_folder`, `test_p0400_geom_build_refuses_existing_outputs_without_overwrite`, `test_p0400_geom_build_apply_on_an_unprobed_build_exits_2`, `test_p0400_geom_build_refuses_an_instruction_outside_a_workspace`, `test_p0400_geom_build_a_failed_audit_gate_keeps_the_files_and_says_so`.
+
+!!! requirement "FR-472 A deflection sweep builds one sibling geometry per control-surface angle <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q9). Verification: test, `tests/tier1_offline/test_p0400_geometry_sweep.py`.*
@@ -10110,7 +10114,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R3 The build prints, per variant, the `CONFIGURATION` and `GEOMETRY` cells of a matrix row naming it; it writes nothing into a matrix.
     - R4 Refused: a sweep run from inside its own folder (naming the command to run from the level above); an empty list, a repeated value, or two values with one tag; a second sweep key; a variant folder that exists and was not built from this instruction, even with `--overwrite`.
 
-!!! requirement "FR-473 A built body is accepted after inspection, and the plan reads its record <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_sweep.py`, carrying P0400-GEOM-SWEEP: `test_p0400_geom_sweep_one_script_per_angle_into_sibling_folders`, `test_p0400_geom_sweep_only_builds_the_named_variants`, `test_p0400_geom_sweep_from_inside_its_folder_is_refused`, `test_p0400_geom_sweep_values_that_cannot_name_their_folders_are_refused`, `test_p0400_geom_sweep_refuses_a_foreign_folder_of_a_variant_name`, `test_p0400_geom_sweep_prints_the_matrix_cells_of_each_variant`.
+
+!!! requirement "FR-473 A built body is accepted after inspection, and the plan reads its record <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q6, G-Q7, G-Q8, G-Q11). Verification: test, `tests/tier1_offline/test_p0400_geometry_plan.py`.*
@@ -10124,7 +10130,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R3 The plan warns, naming the row and the geometry: when the built file itself no longer hashes as recorded (saved again elsewhere); when the body was never accepted, naming the `accept` command; when its audit failed, naming the gates; when the row's `FS_BUILD` is not the build that made it.
     - R4 A row whose geometry has no `build.json` is planned exactly as before.
 
-!!! requirement "FR-474 The mesh operations copy, cut, fill, clean, extract and move nodes in the instruction file <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_plan.py`, carrying P0400-GEOM-PLAN: `test_p0400_geom_plan_an_unaccepted_body_is_warned_until_accepted`, `test_p0400_geom_plan_accept_refuses_a_geometry_never_built`, `test_p0400_geom_plan_refuses_a_body_whose_inputs_changed`, `test_p0400_geom_plan_warns_on_a_resaved_body_a_failed_audit_and_another_build`, `test_p0400_geom_plan_a_body_without_a_record_is_planned_as_before`, `test_p0400_geom_plan_the_matrix_binding_reaches_the_judgement`.
+
+!!! requirement "FR-474 The mesh operations copy, cut, fill, clean, extract and move nodes in the instruction file <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.13 (0.40.0).
 
     *Origin: scope decisions of 2026-10-12 (P1-Q1, P1-Q2, and the geometry stage that receives them). Verification: test, `tests/tier1_offline/test_p0400_geometry_operations.py`.*
@@ -10140,7 +10148,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R5 `transform_nodes` (`mesh_sha256`, `nodes`, `vector`) emits `SELECT_MESH_NODE` per node and `TRANSFORM_SELECTED_NODES`; it is read for a `[mesh]` source only and refused, naming the file and both digests, when the source mesh no longer hashes as `mesh_sha256`.
     - R6 Refused, naming the operation by position: `names` whose length differs from what the operation creates; a surface absent at its step; a solved quantity (`VELOCITY`, `VX`, `VY`, `VZ`, `CP`, `MACH`, `SOLVER_QUALITY`) as a threshold; `fill_holes` on every surface; a threshold with neither `min` nor `max`.
 
-!!! requirement "FR-475 CAD bodies are edited before conversion, and the solver builds bodies and wings from a recipe <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_operations.py`, carrying P0400-GEOM-P1OPS: `test_p0400_geom_p1ops_copies_cite_the_surface_and_count_the_original`, `test_p0400_geom_p1ops_cut_fill_and_clean`, `test_p0400_geom_p1ops_extract_selects_then_creates_on_consecutive_lines`, `test_p0400_geom_p1ops_node_moves_are_pinned_to_the_mesh`, `test_p0400_geom_p1ops_refusals_name_the_operation`.
+
+!!! requirement "FR-475 CAD bodies are edited before conversion, and the solver builds bodies and wings from a recipe <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.14 (0.40.0).
 
     *Origin: scope decisions of 2026-10-12 (P2-Q1 to P2-Q4, and G-Q12 of the geometry stage). Verification: test, `tests/tier1_offline/test_p0400_geometry_cad.py`.*
@@ -10153,7 +10163,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R2 `[create]` holds the CAD Create settings (`merge_tolerance_pct`, `spline_segments`, `spline_loft`, `curvature_points_per_circle`) emitted after `CAD_CREATE_INITIALIZE`, then either `[[create.bodies]]` (`shape` box, sphere, cylinder or sheet with its dimensions in metres) emitting `CAD_CREATE_<SHAPE>`, or `[[create.sections]]` (`file`, `format` txt, `units`, `chord_m`, `twist_deg`, `leading_edge_m`) with `[create.loft]` (the loft keys of `[import.ccs]` and `export_ccs`), emitting per section `CAD_CREATE_IMPORT_CURVE_TXT`, the selection, `CAD_CREATE_SCALE_CURVES`, `CAD_CREATE_ROTATE_CURVES` and `CAD_CREATE_TRANSLATE_CURVES`, then `CAD_CREATE_CURVE_SELECT -1`, `CAD_CREATE_CURVE_EXPORT_CCS` when `export_ccs` is true, and the CCS loft. Both `bodies` and `sections` in one table is refused.
     - R3 `CAD_CREATE_MIRROR_CURVES` and the CAD Create curve-drawing commands (point, line, arc, connect, project, self-median) are not emitted; a key asking for one is refused.
 
-!!! requirement "FR-476 The in-row geometry routes warn with their replacement, and a converter writes the instruction <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_cad.py`, carrying P0400-GEOM-CAD: `test_p0400_geom_cad_body_operations_sit_between_import_and_conversion`, `test_p0400_geom_cad_a_sphere_is_built_by_the_solver`, `test_p0400_geom_cad_a_wing_is_lofted_from_its_sections`, `test_p0400_geom_cad_refusals`.
+
+!!! requirement "FR-476 The in-row geometry routes warn with their replacement, and a converter writes the instruction <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q1, option A). Verification: test, `tests/tier1_offline/test_p0400_geometry_migration.py`.*
@@ -10165,7 +10177,9 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     - R1 A row whose `GEOMETRY` names a CCS file (`.csv`, `.ccs`), an IGES file (`.igs`, `.iges`) or an STL file, and a sidecar whose `[[import.operations]]` state `scale`, `rename` or `mirror`, each warn, naming the row, the file, `pyfs-workspace geometry from-sidecar <file>`, the build command and the `GEOMETRY` cell to write after the build, and that 0.41.0 refuses the route. The script and the record of such a row are unchanged.
     - R2 `pyfs-workspace geometry from-sidecar GEOMETRY [--apply]` reads the sidecar of a geometry of `inputs/geometries/` and prints the instruction that builds the same body: `[ccs]` from `[import.ccs]`, `[cad]` from `[import.cad]`, `[mesh]` for a raw mesh, `[[operations]]` from every `scale`, `rename` and `mirror`, `boundaries` as the renames leave them, `[trailing_edges]` carried over, `fs_build` from `--build` or the rows of the workspace's matrices that name the geometry. It names the `translate` and `rotate` operations that stay in the sidecar of the built mesh. With `--apply` it writes `<stem>.geometry.toml` in the geometry's folder and refuses an existing one; it never edits the sidecar or a matrix.
 
-!!! requirement "FR-477 The geometry verbs of `pyfs-matrix` join the `pyfs-workspace geometry` group <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_migration.py`, carrying P0400-GEOM-MIGRATE: `test_p0400_geom_migrate_an_in_row_source_warns_with_the_replacement`, `test_p0400_geom_migrate_sidecar_operations_warn_and_translate_does_not`, `test_p0400_geom_migrate_the_plan_of_a_ccs_row_warns_and_still_binds`, `test_p0400_geom_migrate_the_converter_writes_an_instruction_that_reads`, `test_p0400_geom_migrate_the_converter_reads_a_ccs_sidecar`, `test_p0400_geom_migrate_the_converter_refuses_a_flat_geometry`.
+
+!!! requirement "FR-477 The geometry verbs of `pyfs-matrix` join the `pyfs-workspace geometry` group <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2081.41 (0.40.0).
 
     *Origin: scope decision of 2026-10-12 (the geometry stage, G-Q10). Verification: test, `tests/tier1_offline/test_p0400_geometry_group.py`.*
@@ -10175,3 +10189,5 @@ The requirements of the geometry stage of 0.40.0 (PFS-2081.41, with the mesh ope
     Requirement: `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take the arguments of `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` and run the same handlers with the same results and exit codes.
 
     - R1 The four `pyfs-matrix` names stay as aliases with the identical result and warn once per invocation that `pyfs-workspace geometry <verb>` is their home; they are removed with the in-row geometry routes.
+
+    Evidence: in `tests/tier1_offline/test_p0400_geometry_group.py`, carrying P0400-GEOM-GROUP: `test_p0400_geom_group_each_verb_takes_the_options_of_its_pyfs_matrix_name`, `test_p0400_geom_group_audit_gives_the_result_of_audit_mesh`, `test_p0400_geom_group_inventory_writes_what_pyfs_matrix_inventory_writes`.
