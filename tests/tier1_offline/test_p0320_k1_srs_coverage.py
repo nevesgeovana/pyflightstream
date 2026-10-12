@@ -15,8 +15,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[2]
 CHANGELOG = REPO / "CHANGELOG.md"
 SRS = REPO / "docs" / "srs" / "functional-requirements.md"
@@ -67,7 +65,7 @@ def _boxes(text: str) -> dict[str, tuple[str, str]]:
 
 
 def _known_ids() -> set[str]:
-    return set(_boxes(SRS.read_text(encoding="utf-8"))) | set(_boxes(_fragment_text()))
+    return set(_boxes(SRS.read_text(encoding="utf-8")))
 
 
 def test_the_scope_holds_the_bullets_the_scope_report_counted():
@@ -108,37 +106,51 @@ def test_a_reason_for_none_is_a_reason_and_not_a_placeholder():
             assert len(reason.split()) >= 3, f"{release} line {number}: {reason!r}"
 
 
-@pytest.mark.skipif(not FRAGMENT.is_file(), reason="the fragment is folded into the SRS already")
-class TestTheFragment:
-    def test_each_new_requirement_is_numbered_inside_the_range_and_implemented(self):
-        boxes = _boxes(_fragment_text())
-        assert boxes, "the fragment holds no requirement"
-        for rid, (_, status) in boxes.items():
-            number = int(re.sub(r"\D", "", rid))
-            assert FIRST <= number <= LAST, f"{rid} is outside FR-{FIRST}..FR-{LAST}"
-            assert status == "implemented", f"{rid} is {status}"
-        assert len(boxes) == len(re.findall(r"^!!! requirement", _fragment_text(), re.M))
+def _srs_boxes() -> dict[str, str]:
+    """Return each requirement box of the SRS by id (the whole box, up to the next one)."""
+    text = SRS.read_text(encoding="utf-8")
+    starts = [m.start() for m in _BOX.finditer(text)] + [len(text)]
+    return {
+        _BOX.match(text[begin:end])["id"]: text[begin:end]  # type: ignore[index]
+        for begin, end in zip(starts, starts[1:], strict=False)
+    }
 
-    def test_each_new_requirement_is_cited_by_a_bullet_and_names_its_release_and_its_tests(self):
-        cited = {
-            rid
-            for _, _, text in _bullets()
-            for match in [_TRAILER.search(text)]
-            if match
-            for rid in match["ids"].split(", ")
-        }
-        text = _fragment_text()
-        starts = [m.start() for m in _BOX.finditer(text)] + [len(text)]
-        for begin, end in zip(starts, starts[1:], strict=False):
-            box = text[begin:end]
-            rid = _BOX.match(box)["id"]  # type: ignore[index]
-            assert rid in cited, f"{rid} is written and no bullet cites it"
-            assert re.search(r"0\.(25|26|27|28)\.\d", box), f"{rid} names no release"
-            paths = re.findall(r"tests/tier1_offline/[\w./-]+\.py", box)
-            assert paths, f"{rid} names no test"
-            for path in paths:
-                assert (REPO / path).is_file(), f"{rid} traces to {path}, which does not exist"
 
-    def test_the_fragment_has_no_dash_the_house_style_forbids(self):
-        text = _fragment_text()
-        assert chr(0x2014) not in text and chr(0x2013) not in text
+def _cited_in_k1_range() -> list[str]:
+    cited = {
+        rid
+        for _, _, text in _bullets()
+        for match in [_TRAILER.search(text)]
+        if match
+        for rid in match["ids"].split(", ")
+    }
+    return sorted(rid for rid in cited if FIRST <= int(re.sub(r"\D", "", rid)) <= LAST)
+
+
+_RELEASE = re.compile(r"0\.(25|26|27|28)\.\d")
+_TEST_PATH = re.compile(r"tests/tier1_offline/[\w./-]+\.py")
+
+
+def test_the_k1_requirements_are_implemented_and_name_their_release_and_their_tests():
+    """The checks of the K1 fragment, now on the SRS the fragment was folded into."""
+    boxes = _srs_boxes()
+    cited = _cited_in_k1_range()
+    assert len(cited) >= 20, f"the bullets cite only {len(cited)} requirements in the K1 range"
+    for rid in cited:
+        assert rid in boxes, f"{rid} is cited and not written"
+        box = boxes[rid]
+        assert _BOX.match(box)["status"] == "implemented", rid  # type: ignore[index]
+        assert _RELEASE.search(box), f"{rid} names no release"
+        paths = _TEST_PATH.findall(box)
+        assert paths, f"{rid} names no test"
+        for path in paths:
+            assert (REPO / path).is_file(), f"{rid} traces to {path}, which does not exist"
+
+
+def test_the_k1_readers_tell_a_traced_box_from_a_bare_one():
+    """The control of the test above: the two patterns refuse a box without either trace."""
+    head = "!!! requirement \"FR-112 T <span class='srs-implemented'>x</span>\"\n"
+    traced = head + "    0.25.0 tests/tier1_offline/a.py\n"
+    assert _RELEASE.search(traced) and _TEST_PATH.findall(traced)
+    bare = head + "    nothing here\n"
+    assert not _RELEASE.search(bare) and not _TEST_PATH.findall(bare)
