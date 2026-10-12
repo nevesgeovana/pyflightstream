@@ -77,6 +77,13 @@ unit. CDp and CDv physics metrics use independent pressure-drag references,
 seeded through update-reference from a measured 26.125 report; old induced-drag
 references are never substituted. Explicit zero wake or trailing-edge counts
 and rotor efficiency above 1 warn in post.log and leave run status unchanged.
+The maintenance programs `tests/tier3_licensed/actions_probe.py`, `duct.py`,
+`mesh_routes.py` and `rotation_null.py` change behaviour: `actions_probe.py`
+and `duct.py` start as scripts from any working directory with no `PYTHONPATH`
+setting; `mesh_routes.py` applies a relative `1e-9` rounding slack to its
+unit-conversion verdict and route comparisons, so a gap of one printed unit
+reports `IMPORT CONVERTS`; `rotation_null.py` resolves the simulation ID from
+the leading token of each point name, for both angle signs.
 
 ### The command that does it
 

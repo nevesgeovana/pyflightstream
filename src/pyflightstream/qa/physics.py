@@ -1506,6 +1506,30 @@ def _refuse_unconverged_reference(case_id: str, case_body: dict, report_path: st
         )
 
 
+def _refuse_lost_metrics(
+    case_id: str,
+    report_path: str | Path,
+    existing: CaseReference | None,
+    measured: Mapping[str, object],
+    dropped: set[str],
+) -> None:
+    """Refuse an update that would delete curated bands of metrics the report lacks (PFS-2102.011).
+
+    The file is replaced whole, so a reference metric the report lacks
+    (CL_a6 from a sweep without 6 deg) used to vanish with its curated bands.
+    """
+    if existing is None:
+        return
+    lost = sorted(name for name in existing.metrics if name not in measured and name not in dropped)
+    if lost:
+        raise QaEvidenceError(
+            f"{report_path} does not carry {', '.join(lost)}, which the {case_id} "
+            "reference holds with curated bands; updating from it would delete them. "
+            "Use a report that measures them, or name them in drop (CLI: --drop) to "
+            "remove them deliberately"
+        )
+
+
 def update_reference(
     case_id: str,
     report_path: str | Path,
@@ -1595,23 +1619,7 @@ def update_reference(
             "the report under the repository first, or pass repo_root (CLI: --root)"
         ) from None
     existing = load_reference(case_id, references_dir, fs_version=str(report["fs_version"]))
-    dropped = set(drop)
-    if existing is not None:
-        # PFS-2102.011. The file is replaced whole, so a reference metric the
-        # report lacks (CL_a6 from a sweep without 6 deg) used to vanish with
-        # its curated bands.
-        lost = sorted(
-            name
-            for name in existing.metrics
-            if name not in case_body["metrics"] and name not in dropped
-        )
-        if lost:
-            raise QaEvidenceError(
-                f"{report_path} does not carry {', '.join(lost)}, which the {case_id} "
-                "reference holds with curated bands; updating from it would delete them. "
-                "Use a report that measures them, or name them in drop (CLI: --drop) to "
-                "remove them deliberately"
-            )
+    _refuse_lost_metrics(case_id, report_path, existing, case_body["metrics"], set(drop))
     specs = case.specs_for_version(str(report["fs_version"]))
     metrics: dict[str, dict] = {}
     for name, value in case_body["metrics"].items():

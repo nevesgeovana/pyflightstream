@@ -264,13 +264,12 @@ def _check_fixed_length(entry: CommandEntry, spec: ArgSpec, items: list) -> None
         )
 
 
-def _check_text_items(entry: CommandEntry, spec: ArgSpec, items: list, value: object) -> list:
-    """Check each item of a STR_LIST argument is a one-line string."""
+def _check_text_items(entry: CommandEntry, spec: ArgSpec, items: list, value: object) -> None:
+    """Refuse a STR_LIST item that is not a string or that breaks the line."""
     for item in items:
         if not isinstance(item, str):
             _type_error(entry, spec, "a sequence of strings", value)
         _reject_line_break(entry, spec, item)
-    return items
 
 
 def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
@@ -292,7 +291,8 @@ def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
             _reject_non_finite(entry, spec, float(item))
         return items
     if spec.type is ArgType.STR_LIST:
-        return _check_text_items(entry, spec, items, value)
+        _check_text_items(entry, spec, items, value)
+        return items
     return [_match_enum(entry, spec, item) for item in items]
 
 

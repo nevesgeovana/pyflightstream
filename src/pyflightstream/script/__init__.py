@@ -77,8 +77,6 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
     ArgSpec,
@@ -115,7 +113,9 @@ from pyflightstream.script._ledger_tables import (
     _VOLUME_SECTION_DELETE,
     _VOLUME_SECTION_DELETE_ALL,
     LENGTH_UNIT_COMMAND,
+    BrokenCommandUse,
     FramePlacement,
+    UnsteadyActionUse,
     _placed_by_origin,
     _reference_kind,
 )
@@ -220,156 +220,6 @@ class BrokenCommandError(PyflightstreamError, RuntimeError):
     their case. :meth:`Script.allow_broken` is that answer, and it
     records what it waived (see :class:`BrokenCommandUse`).
     """
-
-
-class BrokenCommandUse(BaseModel):
-    """One command emitted although its record in this version is broken.
-
-    Provenance, not configuration: the script collects one of these per
-    waived command and the run manifest carries them, so a run that
-    depended on a command known not to work says so in its own record
-    instead of looking like every other run (the same promise
-    ``raw_flag`` makes for unvalidated text, FR-07).
-
-    Attributes
-    ----------
-    command : str
-        Command name as emitted.
-    version : str
-        Canonical identifier of the build the script was written for,
-        which is what it has always held. Unchanged deliberately: it
-        travels inside ``RunRecord.waived_commands``, every row carries a
-        manifest stamp, and that identifier's own rule is that it bumps
-        when a field CHANGES MEANING. Redefining this one would have made
-        a reader of an existing manifest read two meanings under one key
-        with nothing to tell them apart, which is the defect this release
-        is named for, on the one surface that cannot be regenerated.
-
-        The stamp itself is no longer a single value and this sentence
-        used to name one: it said "every row is stamped
-        ``pyfs-manifest/1``", which stopped being true on 2026-08-19 when
-        ``source_version`` below became required and the stamp moved to
-        ``pyfs-manifest/2`` (PFS-2012.03). What did NOT change is this
-        field, which is the point of the paragraph.
-    source_version : str
-        Canonical identifier of the version whose record is broken,
-        which differs from ``version`` when a hotfix build inherits its
-        base release's record. That is the build the cited ``report``
-        was run on.
-
-        **Required since 2026-08-19** (PFS-2012.03, manifest schema
-        ``pyfs-manifest/2``). It was ``str | None`` with a None default,
-        and the default was the only route to an empty one: the single
-        construction site has always passed the evidence's own source,
-        which the command database types as a plain ``str``. So the
-        optionality described no live path and only left room for a
-        waiver record that cites a report without saying which build the
-        report was run on, which is a provenance row asserting nothing.
-        A row that predates the field is refused on read by
-        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
-        naming the manifest and the stamp it was written under, rather
-        than loading with the field empty.
-
-        THE EMPTY STRING IS REFUSED TOO, by ``min_length=1``, and that is
-        not decoration. Requiredness alone still admits ``""``, and the
-        manifest reader treats an empty ``source_version`` exactly as it
-        treats a missing one, so without this the model would ACCEPT a
-        value its own reader refuses: the row would be written, and the
-        manifest it landed in would be unreadable by the release that
-        wrote it. The constraint is on this field alone rather than on
-        every ``str`` here because this is the one whose emptiness the
-        reader is known to refuse; widening it is a separate decision
-        with its own evidence.
-
-        AND SO IS THE BLANK STRING, by the ``pattern`` beside it, which
-        is the hostile pass's finding against the line above rather than
-        a second thought: ``min_length=1`` accepts ``" "``, and a waiver
-        naming a build of one space satisfies every check while saying
-        exactly as much as the empty one it replaced. The pattern demands
-        one non-whitespace character and nothing more. It deliberately
-        does NOT strip the value: a stored identifier is evidence, and
-        silently rewriting evidence to make it pass is the failure mode
-        this field exists to prevent. What a version identifier may
-        otherwise look like belongs to :mod:`pyflightstream.versions`,
-        not here.
-    report : str
-        Repository-relative path of the committed probe report that
-        recorded the breakage. Never optional: ``broken`` cannot exist
-        without it (evidence rule, CONTRIBUTING.md invariant 3).
-    note : str, optional
-        The database's paraphrase of what the probe observed, when the
-        record carries one.
-    reason : str
-        The caller's justification, as passed to
-        :meth:`Script.allow_broken`. This is the field no automated
-        check can supply, which is why the method demands it.
-    first_line : str
-        The script line the first waived emission rendered. The reason
-        is written for a particular call, and a script-lifetime waiver
-        covers every later one, so a reader who has only the reason
-        cannot tell which emission it was written for: the QA prelude's
-        justification, for instance, holds at an altitude of zero and
-        nowhere else. This is the fact that lets them check.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    command: str
-    version: str
-    source_version: str = Field(min_length=1, pattern=r"\S")
-    report: str
-    note: str | None = None
-    reason: str
-    first_line: str = ""
-
-
-class UnsteadyActionUse(BaseModel):
-    """One action the solver runs after each unsteady time step.
-
-    Provenance, like :class:`BrokenCommandUse`: the script collects one
-    per registered action so the run record can say what ran beside the
-    solver, under which name, and on what evidence.
-
-    THE EVIDENCE FIELD IS THE POINT. SET_NEW_UNSTEADY_SOLVER_ACTION is
-    documented on the two newest builds and PROBED ON NONE, so a
-    workflow resting on it rests on a page rather than on a run. The
-    status is read from the command database at the moment the action is
-    registered and carried here, so it is stated once, at build time,
-    instead of being assumed by every reader downstream.
-
-    Attributes
-    ----------
-    name : str
-        Action name as registered, unique within one script.
-    kind : str
-        ``SCRIPT`` for a FlightStream script, ``COMMAND_LINE`` for a
-        shell command.
-    filename : str
-        The path the registration line names, exactly as passed. WHAT IT
-        IS RELATIVE TO IS UNSTATED BY BOTH EDITIONS: no manual page says
-        which working directory the solver runs an action from
-        (RPT-030), so this library records the caller's own string and
-        claims nothing about how the solver resolves it. On 26.123 the
-        action was measured to run from the simulation folder (RPT-041, the
-        script-action re-read probe).
-    evidence : str or None
-        Recorded status of the command on the script's build
-        (``documented``, ``verified``, ``broken``), or None where the
-        database holds no record for it.
-    inherited : bool
-        Whether that status was recorded for this build or inherited
-        from its base release. An inherited status is an assumption, and
-        a record that cannot show the difference presents one as a
-        measurement.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    name: str
-    kind: str
-    filename: str
-    evidence: str | None = None
-    inherited: bool = False
 
 
 class Script:
@@ -481,42 +331,7 @@ class Script:
         # delta_time), for the snapshot of a settings call that states no mode
         # (PFS-2103.037); None while no such call ran.
         self._unsteady_regime: tuple[int, float] | None = None
-        #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
-        #: point in creation order: the vertex number, its x, y and z as
-        #: emitted, and the NAME of the frame they are measured in.
-        #:
-        #: The vertex number is the suffix an unsteady fluid plot carries
-        #: in its own name, so `MACH7` in a plots export is entry 7 here.
-        #: That is the join a reader of an unsteady probe table has no
-        #: other way to make: the export writes the numbers and never the
-        #: positions.
-        #:
-        #: Filled by the loop that EMITS the point, so the coordinates
-        #: recorded cannot drift from the coordinates emitted. Empty for a
-        #: script whose row declares no probes, and empty for one whose
-        #: entry cites a user's points file, since the package does not
-        #: parse a survey the user wrote.
-        self.probe_points: list[tuple[int, float, float, float, str]] = []
-        #: Exact sample IDs, field requests and native-to-SI conversion per entry.
-        self.probe_field_layout: list[dict[str, object]] = []
-        #: Native surface-property plot identities, separate from off-body velocity samples.
-        self.surface_probe_layout: list[dict[str, object]] = []
-        #: Surface averaging window emitted by the workflow, for run provenance.
-        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
-        #: a continuation carries the one its stopped run recorded.
-        self.surface_time_averaging: SurfaceAveragingWindow | None = None
-        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
-        #: where the workflow resolves the pproc's ``[time_averaging]``. No
-        #: command carries it: the run exports the surface at every step of it
-        #: and the post averages those exports.
-        self.surface_average_window: SurfaceAverageWindow | None = None
-        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
-        #: per Tecplot output the script exports, filled by the workflow that
-        #: emits the VTK in its place, for the reason ``section_blocks`` is
-        #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
-        #: and ``frame``, the loads frame the VTK is written in as this script
-        #: placed it (:meth:`loads_frame_record`).
-        self.surface_translations: list[dict[str, object]] = []
+        self._init_probe_and_surface_records()
         # THE ANALYSIS LOADS FRAME, as far as THIS SCRIPT set it (G45), read
         # through :attr:`loads_frame`; the reference frame until a
         # SET_SOLVER_ANALYSIS_LOADS_FRAME says otherwise, which is the solver's
@@ -638,6 +453,45 @@ class Script:
         # are: the script layer is text-only, and the file lands through the
         # run layer's writer before the solver starts.
         self._pending_input_files: dict[str, str | bytes] = {}
+
+    def _init_probe_and_surface_records(self) -> None:
+        """Create the empty probe and surface records the workflows fill."""
+        #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
+        #: point in creation order: the vertex number, its x, y and z as
+        #: emitted, and the NAME of the frame they are measured in.
+        #:
+        #: The vertex number is the suffix an unsteady fluid plot carries
+        #: in its own name, so `MACH7` in a plots export is entry 7 here.
+        #: That is the join a reader of an unsteady probe table has no
+        #: other way to make: the export writes the numbers and never the
+        #: positions.
+        #:
+        #: Filled by the loop that EMITS the point, so the coordinates
+        #: recorded cannot drift from the coordinates emitted. Empty for a
+        #: script whose row declares no probes, and empty for one whose
+        #: entry cites a user's points file, since the package does not
+        #: parse a survey the user wrote.
+        self.probe_points: list[tuple[int, float, float, float, str]] = []
+        #: Exact sample IDs, field requests and native-to-SI conversion per entry.
+        self.probe_field_layout: list[dict[str, object]] = []
+        #: Native surface-property plot identities, separate from off-body velocity samples.
+        self.surface_probe_layout: list[dict[str, object]] = []
+        #: Surface averaging window emitted by the workflow, for run provenance.
+        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
+        #: a continuation carries the one its stopped run recorded.
+        self.surface_time_averaging: SurfaceAveragingWindow | None = None
+        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
+        #: where the workflow resolves the pproc's ``[time_averaging]``. No
+        #: command carries it: the run exports the surface at every step of it
+        #: and the post averages those exports.
+        self.surface_average_window: SurfaceAverageWindow | None = None
+        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
+        #: per Tecplot output the script exports, filled by the workflow that
+        #: emits the VTK in its place, for the reason ``section_blocks`` is
+        #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
+        #: and ``frame``, the loads frame the VTK is written in as this script
+        #: placed it (:meth:`loads_frame_record`).
+        self.surface_translations: list[dict[str, object]] = []
 
     @property
     def unsteady_actions(self) -> tuple[UnsteadyActionUse, ...]:
@@ -1846,35 +1700,59 @@ class Script:
         if entry.layout is Layout.BARE:
             return [entry.name], False
         if entry.layout is Layout.INLINE:
-            inline_parts = [entry.name]
-            tail_lines: list[str] = []
-            for spec, value in provided:
-                if spec.own_line:
-                    tail_lines.append(self._format_scalar(value))
-                elif spec.is_list:
-                    inline_parts.append(" ".join(self._format_scalar(item) for item in value))
-                else:
-                    inline_parts.append(self._format_scalar(value))
-            return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
+            return self._render_inline(entry, provided)
         if entry.layout is Layout.PAYLOAD_LINES:
-            inline_parts = [entry.name]
-            tail_lines = []
-            for spec, value in provided:
-                if spec.is_list:
-                    tail_lines.extend(self._list_lines(spec, value))
-                else:
-                    inline_parts.append(self._format_scalar(value))
-            return [" ".join(inline_parts), *tail_lines], True
+            return self._render_payload_lines(entry, provided)
         if entry.layout is Layout.PARAM_LINES:
-            lines = [entry.name]
-            for spec, value in provided:
-                if spec.is_list:
-                    lines.extend(self._list_lines(spec, value))
-                elif spec.type is ArgType.PATH:
-                    lines.append(self._format_scalar(value))
-                else:
-                    lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
-            return lines, True
+            return self._render_param_lines(entry, provided)
+        return self._render_keyword_block(entry, provided)
+
+    def _render_inline(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render an inline command: its values on one line, own-line values after it."""
+        inline_parts = [entry.name]
+        tail_lines: list[str] = []
+        for spec, value in provided:
+            if spec.own_line:
+                tail_lines.append(self._format_scalar(value))
+            elif spec.is_list:
+                inline_parts.append(" ".join(self._format_scalar(item) for item in value))  # type: ignore[attr-defined]
+            else:
+                inline_parts.append(self._format_scalar(value))
+        return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
+
+    def _render_payload_lines(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a payload-lines command: scalars inline, each list on lines after it."""
+        inline_parts = [entry.name]
+        tail_lines: list[str] = []
+        for spec, value in provided:
+            if spec.is_list:
+                tail_lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
+            else:
+                inline_parts.append(self._format_scalar(value))
+        return [" ".join(inline_parts), *tail_lines], True
+
+    def _render_param_lines(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a param-lines command: one ``NAME value`` line per argument."""
+        lines = [entry.name]
+        for spec, value in provided:
+            if spec.is_list:
+                lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
+            elif spec.type is ArgType.PATH:
+                lines.append(self._format_scalar(value))
+            else:
+                lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
+        return lines, True
+
+    def _render_keyword_block(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a keyword-block command: values on its line first, then one keyword per line."""
         lines = [entry.name]
         for spec, value in provided:
             if spec.on_command_line:
@@ -1884,7 +1762,7 @@ class Script:
                 # so lines[0] is still the command name here.
                 lines[0] += f" {self._format_scalar(value)}"
             elif spec.is_list:
-                lines.extend(self._list_lines(spec, value))
+                lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
             elif spec.type is ArgType.BOOL:
                 # Presence keyword (SRC-003 p.307): True is the bare keyword
                 # line, False emits nothing.

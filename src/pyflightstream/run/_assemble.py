@@ -33,6 +33,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, UNSTATED_CELLS, MatrixRow, read_matrix
 from pyflightstream.cases.windows import LAST_REVS_AVG, replan, stated_key
 from pyflightstream.results import parse_loads, parse_unsteady_plots
+from pyflightstream.run._collect_notes import _RecordAsCase
 from pyflightstream.workspace import (
     AdditionalRecord,
     CampaignWorkspace,
@@ -543,7 +544,6 @@ def _assembled_record(
 ) -> RunRecord:
     """Assemble the record of one point from its loads export, or refuse it by name."""
     from pyflightstream.run import LoadsAssessor
-    from pyflightstream.run._record_as_case import _RecordAsCase
 
     export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
     try:

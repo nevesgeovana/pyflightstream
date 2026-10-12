@@ -55,6 +55,7 @@ from pyflightstream.commands._schema import (
     ListSeparator,
     Phase,
     Status,
+    _check_layout_rules,
 )
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -153,82 +154,6 @@ def _override_citation(entry: CommandEntry, source: str, note: str | None) -> st
     found = _NOTE_CITATION.search(note or "") if entry.manual_ref else None
     cited = found.group(0) if found else entry.citation
     return f"{cited}, the {source} grammar"
-
-
-def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) -> None:
-    """Reject an argument tuple that contradicts its command's layout.
-
-    Shared between the entry-level ``args`` and every per-version
-    override, so an override cannot smuggle in a grammar the layout
-    renderer does not support.
-    """
-    if layout is Layout.BARE and args:
-        raise CommandDatabaseError(f"{name} has layout bare and must not declare arguments")
-    if layout is not Layout.INLINE and any(arg.own_line for arg in args):
-        raise CommandDatabaseError(f"{name}: own_line only applies to inline commands")
-    if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
-        raise CommandDatabaseError(
-            f"{name}: bool arguments are bare presence keywords of a "
-            "keyword_block (SRC-003 p.307); other layouts spell their toggles "
-            "as ENABLE/DISABLE enums"
-        )
-    if layout is Layout.INLINE:
-        for arg in args:
-            if arg.is_list and arg.separator is not ListSeparator.SPACE:
-                raise CommandDatabaseError(
-                    f"{name}: the inline list {arg.name!r} declares separator "
-                    f"{arg.separator.value!r}, and the inline renderer joins a list "
-                    "with a space and cannot do otherwise. Declare 'space', which is "
-                    "the grammar every inline list sample in the manual shows. The "
-                    "declaration is refused rather than ignored because the two "
-                    "SWEEPER sweep commands sat for a release declaring 'comma' and "
-                    "rendering spaces, which was right by accident and unreadable as "
-                    "a statement of the grammar"
-                )
-    for position, arg in enumerate(args):
-        if not arg.on_command_line:
-            continue
-        if layout is not Layout.KEYWORD_BLOCK:
-            raise CommandDatabaseError(
-                f"{name}: {arg.name!r} declares on_command_line, which only a "
-                "keyword_block needs. Every other layout already writes its "
-                "arguments on the command line or on a payload line of its own"
-            )
-        if any(not earlier.on_command_line for earlier in args[:position]):
-            raise CommandDatabaseError(
-                f"{name}: {arg.name!r} declares on_command_line but a keyword line "
-                "precedes it. The command line is written first and cannot be "
-                "appended to once a keyword line has been emitted, so the "
-                "on_command_line arguments must be the leading ones"
-            )
-        if not arg.required:
-            # The command line is POSITIONAL: these are appended in
-            # order with no keyword naming them, so an omitted one moves
-            # every argument after it one place left and the solver
-            # reads a well-formed line meaning something else. That is
-            # the failure this whole field was added to prevent, on the
-            # axis the ordering rule above does not cover, so it is
-            # closed while both users of the field are required.
-            raise CommandDatabaseError(
-                f"{name}: {arg.name!r} is optional and sits on the command line, "
-                "where arguments are positional and unnamed. Omitting it would "
-                "shift the arguments after it into its place and the solver would "
-                "read the line without complaint. Make it required, or move it "
-                "into the keyword block where its name travels with its value"
-            )
-    for position, arg in enumerate(args):
-        if not arg.joins_previous:
-            continue
-        if layout is not Layout.KEYWORD_BLOCK or position == 0:
-            raise CommandDatabaseError(
-                f"{name}: joins_previous requires a keyword_block layout and a "
-                "preceding argument line to append to"
-            )
-        anchor = args[position - 1]
-        if anchor.is_list or anchor.type is ArgType.BOOL or anchor.on_command_line:
-            raise CommandDatabaseError(
-                f"{name}: {arg.name!r} joins {anchor.name!r}, which is not a scalar keyword line"
-            )
 
 
 class VersionStatus(BaseModel):

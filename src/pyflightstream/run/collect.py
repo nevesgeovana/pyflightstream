@@ -100,6 +100,9 @@ from pyflightstream.run._collect_logs import (
     observed_paths,
 )
 from pyflightstream.run._collect_notes import (
+    _datapoint_of,
+    _declared_outputs,
+    _RecordAsCase,
     is_a_sweep_job,
     job_log_note,
     limit_for_its_word,
@@ -107,7 +110,6 @@ from pyflightstream.run._collect_notes import (
     note_untranslated,
     refused_entry,
 )
-from pyflightstream.run._record_as_case import _datapoint_of, _declared_outputs, _RecordAsCase
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace._missing_log import (

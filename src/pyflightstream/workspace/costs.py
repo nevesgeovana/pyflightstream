@@ -31,8 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeGuard
 
+from pyflightstream._cli import _SELECTED_COST_FILE
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream._selected import _SELECTED_COST_FILE
 from pyflightstream.workspace.sidecars import load_toml
 
 __all__ = [

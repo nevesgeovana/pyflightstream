@@ -19,6 +19,7 @@ import json
 import os
 import shutil
 from collections.abc import Callable, Iterable, Iterator
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,16 @@ def _sha256(path: Path) -> str:
 
 def _now() -> _dt.datetime:
     return _dt.datetime.now(_dt.UTC)
+
+
+def _version() -> str:
+    try:
+        return metadata.version("pyflightstream")
+    except metadata.PackageNotFoundError:
+        # Same fallback as pyflightstream/__init__.py's own __version__: a
+        # source tree imported without an installation has no distribution
+        # metadata, so the version is honestly unknown rather than stale.
+        return "0.0.0+uninstalled"
 
 
 def _walk_files(root: Path) -> Iterator[Path]:

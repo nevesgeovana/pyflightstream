@@ -63,6 +63,7 @@ from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
     CITATION_REACH_OUTCOMES,
     EditionVerdict,
+    ManualCommand,
     SurfaceChange,
     SweptCommand,
     citation_reach,
@@ -814,24 +815,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not Path(args.manual).is_file():
         parser.error(f"--manual {args.manual} is not a file; give the path of the manual pdf")
 
-    # A library refusal is a usage error when it arrives here: the caller
-    # typed a page range or a manual path. Letting it escape delivered
-    # the two failure modes of one flag two different ways, a parser
-    # error for a malformed range and a traceback for an out-of-range
-    # one.
-    try:
-        index = (
-            parse_script_index(
-                read_pdf_pages(args.manual, first=index_range[0], last=index_range[1])
-            )
-            if index_range is not None
-            else {}
-        )
-        manual = parse_signatures(
-            read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
-        )
-    except ManualDraftError as error:
-        parser.error(str(error))
+    manual = _read_manual(parser, args, (chapter_first, chapter_last), index_range)
     report = coverage_against(manual, recorded=CommandRegistry.load().commands)
 
     if args.command == "coverage":
@@ -853,6 +837,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _print_dry_run(args, body)
     print(write_chapter(body, path=args.out, write=True))
     return 0
+
+
+def _read_manual(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    chapter_range: tuple[int, int],
+    index_range: tuple[int, int] | None,
+) -> dict[str, ManualCommand]:
+    """Return the signatures parsed from the manual, a library refusal being a usage error.
+
+    A library refusal is a usage error when it arrives here: the caller
+    typed a page range or a manual path. Letting it escape delivered
+    the two failure modes of one flag two different ways, a parser
+    error for a malformed range and a traceback for an out-of-range
+    one.
+    """
+    try:
+        index = (
+            parse_script_index(
+                read_pdf_pages(args.manual, first=index_range[0], last=index_range[1])
+            )
+            if index_range is not None
+            else {}
+        )
+        return parse_signatures(
+            read_pdf_pages(args.manual, first=chapter_range[0], last=chapter_range[1]),
+            sections=index,
+        )
+    except ManualDraftError as error:
+        parser.error(str(error))
 
 
 def _print_coverage(args: argparse.Namespace, report) -> int:

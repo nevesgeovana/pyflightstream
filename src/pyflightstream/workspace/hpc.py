@@ -20,9 +20,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import InputArtifactError
-from pyflightstream._selected import _SELECTED_HPC
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace.sidecars import load_toml
 
@@ -365,6 +365,33 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
                         )
 
 
+def _read_log_table(
+    target: Path, table: Mapping[str, object]
+) -> tuple[Mapping[str, object], bool, str | None]:
+    """Return the ``[log]`` table of a profile with its export_log and native_log, or refuse it."""
+    log = table.get("log") or {}
+    if not isinstance(log, Mapping):
+        raise InputArtifactError(
+            f"the HPC profile {target} has a log entry that is not a table. Write it as "
+            "[log], with export_log and native_log under it."
+        )
+    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
+    export_log = _export_log(target, log)
+    native_log = str(log.get("native_log") or "").strip() or None
+    if native_log is not None:
+        _log_pattern(target, "native_log", native_log)
+    if not export_log and native_log is None:
+        raise InputArtifactError(
+            f"the HPC profile {target} states export_log = false and no native_log, which "
+            "asks for a run with no log at all. This package judges an unsteady run BY its "
+            "log -- the time loop always reaches its prescribed end, so without one every "
+            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
+            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
+            "or leave export_log alone and let the script write it."
+        )
+    return log, export_log, native_log
+
+
 def read_hpc_profile(path: str | Path) -> HpcProfile:
     """Read one HPC profile, refusing what it cannot act on.
 
@@ -443,26 +470,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         )
     _refuse_unknown_keys(target, table, HPC_PROFILE_KEYS, "at its top level")
     _refuse_a_misplaced_key(target, table)
-    log = table.get("log") or {}
-    if not isinstance(log, Mapping):
-        raise InputArtifactError(
-            f"the HPC profile {target} has a log entry that is not a table. Write it as "
-            "[log], with export_log and native_log under it."
-        )
-    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
-    export_log = _export_log(target, log)
-    native_log = str(log.get("native_log") or "").strip() or None
-    if native_log is not None:
-        _log_pattern(target, "native_log", native_log)
-    if not export_log and native_log is None:
-        raise InputArtifactError(
-            f"the HPC profile {target} states export_log = false and no native_log, which "
-            "asks for a run with no log at all. This package judges an unsteady run BY its "
-            "log -- the time loop always reaches its prescribed end, so without one every "
-            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
-            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
-            "or leave export_log alone and let the script write it."
-        )
+    log, export_log, native_log = _read_log_table(target, table)
     return HpcProfile(
         walltime_arithmetic=arithmetic,
         export_log=export_log,

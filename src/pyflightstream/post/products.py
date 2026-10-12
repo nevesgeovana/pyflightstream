@@ -103,7 +103,6 @@ from typing import TYPE_CHECKING, Any
 
 import pyflightstream._textio as _textio  # the LF route (NFR-32), counted as what it is (G4)
 import pyflightstream.post._stage as _stage  # noqa: F401  # existing private path
-from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import (
     ProductArgumentError,
@@ -133,15 +132,18 @@ from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_fact
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
 from pyflightstream.post._products_campaign import (
-    INSTALLED_KIND,
-    SETTINGS_KIND,
     _admit_campaign_records,
     _CampaignProducts,
     _index_record_surfaces,
+    _retire_campaign_products,
     _warn_unreadable_matrix,
     carry_marks,
     write_settings_product,
 )
+from pyflightstream.post._products_campaign import (
+    products_kept_after_pruning as products_kept_after_pruning,
+)
+from pyflightstream.post._products_campaign import products_to_retire as products_to_retire
 from pyflightstream.post._products_campaign import (
     surface_export_metadata as surface_export_metadata,
 )
@@ -162,11 +164,15 @@ from pyflightstream.post._stage import (
     PROBES_DIR,
     PRODUCTS_MANIFEST,
     SECTIONS_DIR,
+    _hand_back_warnings,
     _log_line,
     _log_record,
     _LogRecord,
+    _manifest_skip_records,
     _partial_post,
     _PartialPost,
+    _replay_held_warnings,
+    _run_log_records,
     _surface_export_skip,
     _warning_record,
     post_notes,
@@ -343,16 +349,15 @@ from pyflightstream.workspace import (
     selected_sims,
 )
 from pyflightstream.workspace.naming import (
-    ADDITIONAL_DIR,
-    archive_previous,
-)
-from pyflightstream.workspace.naming import (
     ARCHIVE_DIR as ARCHIVE_DIR,
 )
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP as ARCHIVE_STAMP,
 )
-from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED, ensure_sim_expanded
+from pyflightstream.workspace.naming import (
+    archive_previous,
+)
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -484,86 +489,6 @@ def _sweep_rows(
         if run_id is not None:
             rows[str(run_id)] = row
     return rows
-
-
-def products_to_retire(
-    skipped: Mapping[str, str],
-    previous_products: Mapping[str, Mapping[str, object]],
-) -> set[str]:
-    """Return every product of a previous post that this post's refusals retire.
-
-    A refused rebuild MUST retire the product it refuses. The manifest stops
-    naming it, and a file left beside the new ones is read as current: the
-    numbers in it are the ones the refusal says cannot be trusted.
-
-    A skip is named after what was refused
-    and that is not always a file:
-
-    * ``polars/<file>.csv`` -- the file itself, with or without a ``#marker``.
-    * ``sections/<stem>#distributions`` -- a family of files that share a stem.
-    * ``runs/<run_id>`` -- previous entries whose ``runs`` include this point.
-      The caller keeps files regenerated from surviving points or independent exports.
-    * ``polars/<sim>#rotor_tables`` -- the rotor tables of ONE SIMULATION, whose
-      files are ``polars/P<sim>-<alias>_rotor.csv`` and share no prefix with the
-      skip key at all. They were not retired until the independent review of
-      GitHub main found the stale file still current (2026-09-20); the previous
-      manifest records each product's ``sim_id``, so the identity is read rather
-      than parsed out of a name.
-    """
-    refused = {name.split("#", 1)[0] for name in skipped}
-    refused.update(
-        name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
-    )
-    refused_runs = {name.removeprefix("runs/") for name in skipped if name.startswith("runs/")}
-    refused.update(
-        name
-        for name, entry in previous_products.items()
-        if isinstance(runs := entry.get("runs"), list) and any(run in refused_runs for run in runs)
-    )
-    distribution_prefixes = [
-        name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
-    ]
-    refused.update(
-        name
-        for name in previous_products
-        if any(name.startswith(prefix) for prefix in distribution_prefixes)
-    )
-    refused.update(
-        name
-        for name, entry in previous_products.items()
-        if name.endswith(ROTOR_TABLE_SUFFIX)
-        and f"{POLARS_DIR}/{entry.get('sim_id')}#rotor_tables" in skipped
-    )
-    return refused
-
-
-def products_kept_after_pruning(
-    skipped: Mapping[str, str],
-    previous_products: Mapping[str, Mapping[str, object]],
-    out: Path,
-) -> dict[str, dict[str, object]]:
-    """Return the previous products a refusal for a pruned step keeps, with their entries.
-
-    A PRODUCT MADE BEFORE ``free-space`` PRUNED ITS STEPS STAYS (0.30.0). The
-    refusal is about rebuilding it, not about the file already made from
-    every step: that file stays in its folder and its previous entry stays in
-    the manifest, marked ``kept_after_pruning`` with the refusal. A refusal
-    opens with :data:`~pyflightstream.workspace.storage.STEP_EXPORTS_PRUNED`
-    and is keyed by the product's own name; a product sharing that name's
-    stem (the VTK beside an averaged Tecplot) is kept with it. Only a file
-    still on disk is kept.
-    """
-    kept: dict[str, dict[str, object]] = {}
-    for key, reason in skipped.items():
-        if not str(reason).startswith(STEP_EXPORTS_PRUNED):
-            continue
-        base = key.split("#", 1)[0]
-        family = base.rsplit(".", 1)[0]
-        for name, entry in previous_products.items():
-            same = name == base or name.rsplit(".", 1)[0] == family
-            if same and (out / name).is_file():
-                kept[name] = {**entry, "kept_after_pruning": reason}
-    return kept
 
 
 @workspace_activity("post")
@@ -714,48 +639,10 @@ def write_campaign_products(
                 raise
             finally:
                 records.extend([*(_warning_record(str(w.message)) for w in caught), *notes])
-                try:
-                    status_records = workspace.read_manifest()
-                except (OSError, ValueError):
-                    status_records = []
-                for run_record in status_records:
-                    if run_record.matrix_stem == matrix_stem:
-                        records.extend(
-                            _log_record(run_record.run_id, "run-status", message, None)
-                            for message in run_record.warnings
-                        )
-                        if selected is None or run_record.sim_id in selected:
-                            from pyflightstream.results.log import lifting_log_warnings
-
-                            for output in run_record.outputs:
-                                if str(output).endswith("_log.txt") or str(output).endswith(".log"):
-                                    log = workspace.sim_dir(run_record.sim_id) / output
-                                    try:
-                                        messages = lifting_log_warnings(
-                                            log.read_text(encoding="utf-8", errors="replace")
-                                        )
-                                    except OSError:
-                                        continue
-                                    records.extend(
-                                        _log_record(
-                                            run_record.run_id, "lifting-wake", message, None
-                                        )
-                                        for message in messages
-                                    )
+                records.extend(_run_log_records(workspace, matrix_stem, selected))
                 manifest_path = out / PRODUCTS_MANIFEST
                 try:
-                    if manifest_path.is_file():
-                        document = json.loads(manifest_path.read_text(encoding="utf-8"))
-                        for name, reason in document.get("skipped", {}).items():
-                            records.append(
-                                _log_record(
-                                    name,
-                                    name,
-                                    " ".join(str(reason).splitlines()),
-                                    "restore the required data or correct the stated "
-                                    "inputs and post again.",
-                                )
-                            )
+                    records.extend(_manifest_skip_records(manifest_path))
                 finally:
                     # ONE LIST, TWO RENDERINGS: the lines and the JSON are
                     # written from the same records, on a clean, a failed and
@@ -789,15 +676,7 @@ def write_campaign_products(
         # THE REPLAY IS OUTSIDE THE SINK, which the `with` above has already
         # reset, and never through `warn`: it reaches the caller's filters and
         # no campaign's log.
-        if post_warning_policy() is None:
-            for warning in caught:
-                warnings.warn_explicit(
-                    warning.message, warning.category, warning.filename, warning.lineno
-                )
-        else:
-            from pyflightstream.post.diagnostics import report_post_warnings
-
-            report_post_warnings(records, out / _POST_LOG_JSON)
+        _hand_back_warnings(caught, records, out / _POST_LOG_JSON)
 
 
 def _selection_before_the_log(
@@ -824,11 +703,7 @@ def _selection_before_the_log(
         )
         return selected, early
     except BaseException:
-        if post_warning_policy() is None:
-            for warning in early:
-                warnings.warn_explicit(
-                    warning.message, warning.category, warning.filename, warning.lineno
-                )
+        _replay_held_warnings(early)
         raise
 
 
@@ -1415,80 +1290,6 @@ def _write_simulation_series(
                 ctx.skipped[name] = reason
                 continue
             ctx.products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
-
-
-def _retire_campaign_products(
-    out: Path,
-    *,
-    skipped: dict[str, str],
-    previous_products: Mapping[str, dict[str, Any]],
-    products_index: dict[str, dict[str, object]],
-    by_sim: Mapping[str, list[RunRecord]],
-    archive: bool,
-    archive_stamp: datetime,
-) -> None:
-    # 0.30.0: what a previous post made from steps free-space has since
-    # pruned stays, file and entry, and is therefore not retired below.
-    """Retire campaign products."""
-    for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
-        products_index.setdefault(name, entry)
-    # Retire refused generated tables under both rebuild policies. Native exports
-    # outside this folder remain evidence and are never removed here.
-    for name, entry in previous_products.items():
-        if (
-            name.startswith(f"{POLARS_DIR}/")
-            and entry.get("sim_id") in by_sim
-            and name not in products_index
-        ):
-            skipped.setdefault(
-                name,
-                f"retired previous table of simulation {entry['sim_id']}: no current "
-                "product uses this name; polar names follow contributing records",
-            )
-    # G12: an additional product no current extraction supplies is retired,
-    # archived like a refused table, rather than left in its folder unnamed.
-    for name in previous_products:
-        if name.startswith(f"{ADDITIONAL_DIR}/") and name not in products_index:
-            skipped.setdefault(
-                name,
-                "retired previous additional product: no current extraction supplies this file",
-            )
-    _retire_optional_products(skipped, previous_products, products_index)
-    refused = products_to_retire(skipped, previous_products)
-    for name in refused - products_index.keys():
-        if name in previous_products:
-            skipped.setdefault(
-                name, "retired previous product; its inputs no longer supply this file"
-            )
-        path = out / name
-        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
-            _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
-            if not archive:
-                path.unlink()
-
-
-def _retire_optional_products(
-    skipped: dict[str, str],
-    previous_products: Mapping[str, dict[str, Any]],
-    products_index: Mapping[str, dict[str, object]],
-) -> None:
-    """Retire a previous optional product that the pproc no longer asks for (FR-419).
-
-    A table the pproc stopped requesting is not rewritten, and a file left beside
-    the new products is read as current; each is named in ``skipped`` so the
-    retirement below archives or removes it, as it does for a refused table.
-    """
-    for name, entry in previous_products.items():
-        if entry.get("kind") in _OPTIONAL_KINDS and name not in products_index:
-            skipped.setdefault(
-                name,
-                "retired previous product; this post no longer writes it "
-                "([products] key, or no snapshot)",
-            )
-
-
-#: The ``kind`` of the products a pproc key switches on and off (FR-419).
-_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND)
 
 
 def _prepare_campaign_rebuild(

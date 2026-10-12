@@ -30,9 +30,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from pyflightstream._cli import for_this_invocation
+from pyflightstream._cli import _SELECTED_COST_FILE, _SELECTED_HPC, for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
-from pyflightstream._selected import _SELECTED_COST_FILE, _SELECTED_HPC
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,

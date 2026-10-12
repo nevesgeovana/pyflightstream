@@ -16,14 +16,7 @@
    "node": "PFS-2139.008",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.farfield.axial_flux",
-    "pyflightstream.farfield.axial_force",
-    "pyflightstream.farfield.crossflow_kinetic_energy",
-    "pyflightstream.farfield.in_plane_moment",
-    "pyflightstream.farfield.mass_closure",
-    "pyflightstream.farfield.mass_flux",
-    "pyflightstream.farfield.shaft_torque",
-    "pyflightstream.farfield.transverse_flux",
+    "pyflightstream.farfield.TransverseForce",
     "pyflightstream.farfield.transverse_force"
    ]
   },
@@ -34,27 +27,7 @@
    "node": "PFS-2139.005",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.exceptions.FarfieldInputError",
-    "pyflightstream.farfield.azimuthal_harmonics",
-    "pyflightstream.farfield.cylindrical_components",
-    "pyflightstream.farfield.lattice_dataset",
-    "pyflightstream.farfield.plane_integral",
-    "pyflightstream.farfield.ring_sample_weights",
-    "pyflightstream.farfield.sample_coverage",
-    "pyflightstream.farfield.spurious_diagnostic",
-    "pyflightstream.farfield.symmetry_floor",
-    "pyflightstream.farfield.to_counts"
-   ]
-  },
-  {
-   "id": "RX-03",
-   "capability": "Rothalpy and the irreversible deficit (Euler-side channel), which leave the package",
-   "reason": "routed later",
-   "node": "PFS-2139.009",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.farfield.irreversible_deficit",
-    "pyflightstream.farfield.rothalpy"
+    "pyflightstream.farfield.sample_coverage"
    ]
   },
   {
@@ -64,10 +37,7 @@
    "node": "PFS-2140.001",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.post.dataset_to_points",
     "pyflightstream.post.write_tecplot_points",
-    "pyflightstream.probes.ProbeLattice",
-    "pyflightstream.probes.build_lattice",
     "pyflightstream.probes.emit_probe_export",
     "pyflightstream.probes.emit_probe_points",
     "pyflightstream.probes.write_points_csv",
@@ -81,7 +51,6 @@
    "node": "PFS-2140.001",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.exceptions.ProbeGeometryError",
     "pyflightstream.probes.AxisSpec",
     "pyflightstream.probes.FrameDefinition",
     "pyflightstream.probes.GeometryGateReport",
@@ -97,11 +66,8 @@
    "node": "PFS-2140.001",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.exceptions.GeometryEngineMissingError",
-    "pyflightstream.exceptions.OpenMeshError",
     "pyflightstream.exceptions.SurfaceMeshExportError",
     "pyflightstream.probes.geometry.apply_geometry_gate",
-    "pyflightstream.probes.geometry.load_surface_mesh",
     "pyflightstream.run.export_surface_mesh"
    ]
   },
@@ -190,7 +156,7 @@
    "release": "0.42.0",
    "names": [
     "pyflightstream.post.inflow_tools.HarmonicsMap",
-    "pyflightstream.post.inflow_tools.StationHarmonics",
+    "pyflightstream.post.inflow_tools.InflowStationHarmonics",
     "pyflightstream.post.inflow_tools.blade_view_harmonics",
     "pyflightstream.post.inflow_tools.inflow_harmonics_map",
     "pyflightstream.post.inflow_tools.write_inflow_harmonics"
@@ -214,8 +180,7 @@
    "node": "PFS-2140.004",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.post.axes.stability_force_coefficients",
-    "pyflightstream.post.axes.wind_force_coefficients"
+    "pyflightstream.post.axes.stability_force_coefficients"
    ]
   },
   {

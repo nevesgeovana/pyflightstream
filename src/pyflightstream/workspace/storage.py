@@ -83,6 +83,7 @@ from pyflightstream.workspace._free_space import (
     _sha256,
     _sim_folder,
     _size,
+    _version,
     _walk_files,
     _zip_path,
 )
@@ -162,18 +163,6 @@ def _stamp() -> str:
     # restore takes the newest by stamp, so a UTC stamp here sorted a storage
     # copy hours away from the copies made beside it.
     return _dt.datetime.now().strftime(ARCHIVE_STAMP)
-
-
-def _version() -> str:
-    from importlib import metadata
-
-    try:
-        return metadata.version("pyflightstream")
-    except metadata.PackageNotFoundError:
-        # Same fallback as pyflightstream/__init__.py's own __version__: a
-        # source tree imported without an installation has no distribution
-        # metadata, so the version is honestly unknown rather than stale.
-        return "0.0.0+uninstalled"
 
 
 def human_bytes(count: float) -> str:

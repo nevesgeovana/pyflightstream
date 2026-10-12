@@ -128,8 +128,8 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # classified by the pattern of its siblings; probes_from_file left on the integration fix
 # and the three off-body streamline names (RX-16) left on the release, all now reached.
 # The owner confirms the growth over the release's 312.
-_REGISTER_CEILING = 314
-_REGISTER_DIGEST = "29d76b3477351ac265387a394f055eafc8743d1fdf50899b8b6fd2a4dd783b1d"
+_REGISTER_CEILING = 288
+_REGISTER_DIGEST = "f423979639508662b15ffa38e28c31b22b6a01fdba39a747a774c62a706b1165"
 
 REASONS = (
     "routed later",
@@ -884,8 +884,9 @@ def test_p0400_reach_guard_sees_the_workspace_routes(
 
 def test_p0400_reach_guard_says_no_where_the_audit_confirmed_no(verdict: Verdict) -> None:
     """P0400-REACH-NO: names the audit of 2026-10-12 confirmed unreached by grep are unreached."""
+    # farfield.mass_flux left this list: the far-field lane (FR-450 to FR-459) routed the
+    # conservation ledgers through the workspace, so the audit's NO became reached (rule (a)).
     confirmed = (
-        "pyflightstream.farfield.mass_flux",
         "pyflightstream.post.corrections.sector_offset_calibration",
         "pyflightstream.workspace.rename_groups.rename_group_products",
         "pyflightstream.fsi.centrifugal.campbell_sweep",

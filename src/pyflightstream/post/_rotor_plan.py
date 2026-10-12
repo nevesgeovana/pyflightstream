@@ -357,6 +357,7 @@ def _rotor_tables(
     reference: ReferenceValues,
     matrix_row: MatrixRow | None,
     out: Path,
+    *,
     plots: Mapping[str, Path] | None = None,
     window: tuple[int, int] | None = None,
     pproc: object | None = None,

@@ -34,7 +34,7 @@ def test_p0400_groupkey_one_groups_failure_is_keyed_under_its_polar(monkeypatch)
     def refuse(*_args, **_kwargs):
         raise ProductError("no Reynolds number")
 
-    monkeypatch.setattr(sim, "select_group_members", lambda *_args: True)
+    monkeypatch.setattr(sim, "select_group_members", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(sim, "group_polar_rows", refuse)
     ctx = _ctx()
     group_points, _conditions, rows, absent = sim._group_rows(ctx, "1", ["W"])
@@ -49,7 +49,7 @@ def test_p0400_groupkey_a_point_failing_every_group_is_skipped_per_group(monkeyp
     def refuse(_points, families, **_kwargs):
         raise ProductError(f"group {families[0]} has no Reynolds number")
 
-    monkeypatch.setattr(sim, "select_group_members", lambda *_args: True)
+    monkeypatch.setattr(sim, "select_group_members", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(sim, "group_polar_rows", refuse)
     ctx = _ctx()
     reasons = {group: sim._group_rows(ctx, group, [group])[3] for group in ("WING", "TAIL")}

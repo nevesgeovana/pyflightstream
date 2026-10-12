@@ -28,7 +28,9 @@ the names its own stage code reads.
 
 from __future__ import annotations
 
+import json
 import re
+import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -36,6 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.cases.workflows import ROTORS_KEY
@@ -501,6 +504,78 @@ def _log_line(record: _LogRecord) -> str:
         f"{str(record['severity']).upper()} point={record['point']} product={record['product']}: "
         f"{record['message']}{remedy}\n"
     )
+
+
+def _run_log_records(
+    workspace: CampaignWorkspace, matrix_stem: str | None, selected: frozenset[str] | None
+) -> list[_LogRecord]:
+    """Return the log records the matrix's recorded runs carry: warnings and wake notes."""
+    records: list[_LogRecord] = []
+    try:
+        status_records = workspace.read_manifest()
+    except (OSError, ValueError):
+        status_records = []
+    for run_record in status_records:
+        if run_record.matrix_stem != matrix_stem:
+            continue
+        records.extend(
+            _log_record(run_record.run_id, "run-status", message, None)
+            for message in run_record.warnings
+        )
+        if selected is None or run_record.sim_id in selected:
+            from pyflightstream.results.log import lifting_log_warnings
+
+            for output in run_record.outputs:
+                if str(output).endswith("_log.txt") or str(output).endswith(".log"):
+                    log = workspace.sim_dir(run_record.sim_id) / output
+                    try:
+                        messages = lifting_log_warnings(
+                            log.read_text(encoding="utf-8", errors="replace")
+                        )
+                    except OSError:
+                        continue
+                    records.extend(
+                        _log_record(run_record.run_id, "lifting-wake", message, None)
+                        for message in messages
+                    )
+    return records
+
+
+def _manifest_skip_records(manifest_path: Path) -> list[_LogRecord]:
+    """Return one log record per skip the written ``products.json`` names."""
+    if not manifest_path.is_file():
+        return []
+    document = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return [
+        _log_record(
+            name,
+            name,
+            " ".join(str(reason).splitlines()),
+            "restore the required data or correct the stated inputs and post again.",
+        )
+        for name, reason in document.get("skipped", {}).items()
+    ]
+
+
+def _replay_held_warnings(held: Sequence[warnings.WarningMessage]) -> None:
+    """Give the warnings held for the log to the caller's filters, unless a CLI reports them."""
+    if post_warning_policy() is None:
+        for warning in held:
+            warnings.warn_explicit(
+                warning.message, warning.category, warning.filename, warning.lineno
+            )
+
+
+def _hand_back_warnings(
+    caught: Sequence[warnings.WarningMessage], records: list[_LogRecord], log_json: Path
+) -> None:
+    """Replay the post's warnings to the caller, or report their totals under a CLI policy."""
+    if post_warning_policy() is None:
+        _replay_held_warnings(caught)
+    else:
+        from pyflightstream.post.diagnostics import report_post_warnings
+
+        report_post_warnings(records, log_json)
 
 
 @dataclass

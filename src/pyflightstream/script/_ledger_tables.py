@@ -10,15 +10,18 @@ and the state, and nothing of the tables it consults.
   table a reader can diff against the database is the one a guard can check.
 * The frame placement ledger (FR-100) says what an explicit coordinate-system
   command states about where a frame sits, and which commands it follows.
-  :class:`FramePlacement` keeps ``pyflightstream.script`` as its module, where
-  it is documented and imported.
+* The provenance records the builder collects, :class:`BrokenCommandUse` for a
+  waived broken command and :class:`UnsteadyActionUse` for a registered action.
+
+:class:`FramePlacement` and the two records keep ``pyflightstream.script`` as
+their module, where they are documented and imported.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from pyflightstream.commands import ArgSpec
 
@@ -376,3 +379,157 @@ _FRAME_FOLLOWERS = {
 _FOLLOWED_FRAME_COMMANDS = frozenset(_FRAME_FOLLOWERS)
 
 FramePlacement.__module__ = "pyflightstream.script"
+
+
+class BrokenCommandUse(BaseModel):
+    """One command emitted although its record in this version is broken.
+
+    Provenance, not configuration: the script collects one of these per
+    waived command and the run manifest carries them, so a run that
+    depended on a command known not to work says so in its own record
+    instead of looking like every other run (the same promise
+    ``raw_flag`` makes for unvalidated text, FR-07).
+
+    Attributes
+    ----------
+    command : str
+        Command name as emitted.
+    version : str
+        Canonical identifier of the build the script was written for,
+        which is what it has always held. Unchanged deliberately: it
+        travels inside ``RunRecord.waived_commands``, every row carries a
+        manifest stamp, and that identifier's own rule is that it bumps
+        when a field CHANGES MEANING. Redefining this one would have made
+        a reader of an existing manifest read two meanings under one key
+        with nothing to tell them apart, which is the defect this release
+        is named for, on the one surface that cannot be regenerated.
+
+        The stamp itself is no longer a single value and this sentence
+        used to name one: it said "every row is stamped
+        ``pyfs-manifest/1``", which stopped being true on 2026-08-19 when
+        ``source_version`` below became required and the stamp moved to
+        ``pyfs-manifest/2`` (PFS-2012.03). What did NOT change is this
+        field, which is the point of the paragraph.
+    source_version : str
+        Canonical identifier of the version whose record is broken,
+        which differs from ``version`` when a hotfix build inherits its
+        base release's record. That is the build the cited ``report``
+        was run on.
+
+        **Required since 2026-08-19** (PFS-2012.03, manifest schema
+        ``pyfs-manifest/2``). It was ``str | None`` with a None default,
+        and the default was the only route to an empty one: the single
+        construction site has always passed the evidence's own source,
+        which the command database types as a plain ``str``. So the
+        optionality described no live path and only left room for a
+        waiver record that cites a report without saying which build the
+        report was run on, which is a provenance row asserting nothing.
+        A row that predates the field is refused on read by
+        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
+        naming the manifest and the stamp it was written under, rather
+        than loading with the field empty.
+
+        THE EMPTY STRING IS REFUSED TOO, by ``min_length=1``, and that is
+        not decoration. Requiredness alone still admits ``""``, and the
+        manifest reader treats an empty ``source_version`` exactly as it
+        treats a missing one, so without this the model would ACCEPT a
+        value its own reader refuses: the row would be written, and the
+        manifest it landed in would be unreadable by the release that
+        wrote it. The constraint is on this field alone rather than on
+        every ``str`` here because this is the one whose emptiness the
+        reader is known to refuse; widening it is a separate decision
+        with its own evidence.
+
+        AND SO IS THE BLANK STRING, by the ``pattern`` beside it, which
+        is the hostile pass's finding against the line above rather than
+        a second thought: ``min_length=1`` accepts ``" "``, and a waiver
+        naming a build of one space satisfies every check while saying
+        exactly as much as the empty one it replaced. The pattern demands
+        one non-whitespace character and nothing more. It deliberately
+        does NOT strip the value: a stored identifier is evidence, and
+        silently rewriting evidence to make it pass is the failure mode
+        this field exists to prevent. What a version identifier may
+        otherwise look like belongs to :mod:`pyflightstream.versions`,
+        not here.
+    report : str
+        Repository-relative path of the committed probe report that
+        recorded the breakage. Never optional: ``broken`` cannot exist
+        without it (evidence rule, CONTRIBUTING.md invariant 3).
+    note : str, optional
+        The database's paraphrase of what the probe observed, when the
+        record carries one.
+    reason : str
+        The caller's justification, as passed to
+        :meth:`Script.allow_broken`. This is the field no automated
+        check can supply, which is why the method demands it.
+    first_line : str
+        The script line the first waived emission rendered. The reason
+        is written for a particular call, and a script-lifetime waiver
+        covers every later one, so a reader who has only the reason
+        cannot tell which emission it was written for: the QA prelude's
+        justification, for instance, holds at an altitude of zero and
+        nowhere else. This is the fact that lets them check.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    command: str
+    version: str
+    source_version: str = Field(min_length=1, pattern=r"\S")
+    report: str
+    note: str | None = None
+    reason: str
+    first_line: str = ""
+
+
+class UnsteadyActionUse(BaseModel):
+    """One action the solver runs after each unsteady time step.
+
+    Provenance, like :class:`BrokenCommandUse`: the script collects one
+    per registered action so the run record can say what ran beside the
+    solver, under which name, and on what evidence.
+
+    THE EVIDENCE FIELD IS THE POINT. SET_NEW_UNSTEADY_SOLVER_ACTION is
+    documented on the two newest builds and PROBED ON NONE, so a
+    workflow resting on it rests on a page rather than on a run. The
+    status is read from the command database at the moment the action is
+    registered and carried here, so it is stated once, at build time,
+    instead of being assumed by every reader downstream.
+
+    Attributes
+    ----------
+    name : str
+        Action name as registered, unique within one script.
+    kind : str
+        ``SCRIPT`` for a FlightStream script, ``COMMAND_LINE`` for a
+        shell command.
+    filename : str
+        The path the registration line names, exactly as passed. WHAT IT
+        IS RELATIVE TO IS UNSTATED BY BOTH EDITIONS: no manual page says
+        which working directory the solver runs an action from
+        (RPT-030), so this library records the caller's own string and
+        claims nothing about how the solver resolves it. On 26.123 the
+        action was measured to run from the simulation folder (RPT-041, the
+        script-action re-read probe).
+    evidence : str or None
+        Recorded status of the command on the script's build
+        (``documented``, ``verified``, ``broken``), or None where the
+        database holds no record for it.
+    inherited : bool
+        Whether that status was recorded for this build or inherited
+        from its base release. An inherited status is an assumption, and
+        a record that cannot show the difference presents one as a
+        measurement.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    kind: str
+    filename: str
+    evidence: str | None = None
+    inherited: bool = False
+
+
+BrokenCommandUse.__module__ = "pyflightstream.script"
+UnsteadyActionUse.__module__ = "pyflightstream.script"
