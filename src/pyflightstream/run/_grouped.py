@@ -15,8 +15,7 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
-import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -168,10 +167,6 @@ def read_receipt(workspace: CampaignWorkspace, matrix_stem: str) -> GroupingRece
     return _read_grouping(workspace, matrix_stem)[0]
 
 
-#: What a grouped run says of a ``grouping`` block it cannot read (PFS-2095.049).
-_UNREADABLE = "the plan holds no readable grouping ({}): plan it again with the same {}."
-
-
 def _read_grouping(
     workspace: CampaignWorkspace, matrix_stem: str
 ) -> tuple[GroupingReceipt | None, str | None]:
@@ -181,21 +176,9 @@ def _read_grouping(
     None with no reason (the caller says the plan holds no grouping); a block
     of another shape or schema is None with the reason, never a traceback.
     """
-    plan_file = workspace.plan_dir(matrix_stem) / "plan.json"
-    try:
-        payload = json.loads(plan_file.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None, None
-    block = payload.get("grouping") if isinstance(payload, Mapping) else None
-    if block is None:
-        return None, None
-    try:
-        if not isinstance(block, Mapping):
-            raise TypeError(f"a {type(block).__name__}, not a table")
-        return GroupingReceipt.from_json(block), None
-    except (ValueError, KeyError, TypeError, AttributeError) as error:
-        reason = f"{type(error).__name__}: {error}"
-        return None, _UNREADABLE.format(reason, "--batch or --polar-sweep")
+    from pyflightstream.workspace import _batches
+
+    return _batches.read_grouping(workspace.plan_dir(matrix_stem) / "plan.json")
 
 
 def _job_ran(root: Path, job: GroupedJob, *, mode: str) -> bool:

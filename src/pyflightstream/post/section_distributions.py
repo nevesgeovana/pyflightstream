@@ -547,7 +547,11 @@ def _matching_distributions(
             try:
                 with collecting_warnings():
                     read = select_families(
-                        [word] if listed else word, inventory, pproc.is_blade, vocabulary
+                        [word] if listed else word,
+                        inventory,
+                        pproc.is_blade,
+                        vocabulary,
+                        strict=False,
                     )
             except PyflightstreamError:
                 met["uncertain"] = True
@@ -696,6 +700,7 @@ def _matching_distributions(
                 inventory,
                 pproc.is_blade,
                 record.aliases if aliases is None else aliases,
+                strict=False,
             )
         expanded = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
@@ -908,7 +913,9 @@ def _matching_distributions(
             # or Blade2 would be a possible owner of every Blade1 block.
             try:
                 with collecting_warnings():
-                    groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
+                    groups = select_families(
+                        entry.families, inventory, pproc.is_blade, vocabulary, strict=False
+                    )
             except PyflightstreamError:
                 return True
             held = set(cast(list[str], block["families"]))

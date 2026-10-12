@@ -267,9 +267,13 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     p_init = sub.add_parser("init-dummy", help="write the dummy configuration into a run directory")
     p_init.add_argument("--node-count", type=int, required=True)
-    p_init.add_argument("--dir", type=Path, default=Path.cwd())
+    init_out = p_init.add_mutually_exclusive_group()
+    init_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    init_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
     p_step = sub.add_parser("step", help="execute one coupling step explicitly")
-    p_step.add_argument("--dir", type=Path, default=Path.cwd())
+    step_out = p_step.add_mutually_exclusive_group()
+    step_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    step_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
     return parser
 
 
@@ -300,6 +304,15 @@ def main(argv: list[str] | None = None) -> int:
         return _step(Path.cwd(), received_argv=tuple(argv))
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "legacy_dir", None) is not None:
+        from pyflightstream._errors import PyflightstreamWarning, warn
+
+        warn(
+            "--dir is deprecated since 0.40.0; use --out for the identical result.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        args.dir = args.legacy_dir
     if args.command == "init-dummy":
         if args.node_count < 1:
             parser.error("a structural node list has at least one node")

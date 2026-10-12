@@ -88,13 +88,14 @@ def add_mesh_parsers(subparsers: Any) -> None:
 
 
 def _chosen(
-    args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str]
+    args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str], *, since: str = "0.39.0"
 ) -> tuple[str | None, str, str | None]:
     """Return an option's value, the flag that gave it, and a refusal (NFR-45 R2).
 
     ``new`` and ``old`` are each ``(flag, dest)``: the option's name and its
     deprecated alias. The alias gives the identical value and warns once
     that it is deprecated; both together are refused, naming both.
+    ``since`` is the release that deprecated the alias.
     """
     value, alias = getattr(args, new[1]), getattr(args, old[1])
     if alias is None:
@@ -107,7 +108,7 @@ def _chosen(
             f"{new[0]}. Give {new[0]} alone and run again. Nothing was written.",
         )
     warn(
-        f"{old[0]} is deprecated since 0.39.0 and will be removed; it is an alias of "
+        f"{old[0]} is deprecated since {since} and will be removed; it is an alias of "
         f"{new[0]}, which gives the identical result: write {new[0]} {alias}.",
         PyflightstreamWarning,
         stacklevel=2,
@@ -311,7 +312,8 @@ def _add_refine_parser(subparsers: Any) -> None:
     refine.add_argument(
         "--out",
         metavar="DIR",
-        help="where the level folder goes (default: the parent of the source's folder)",
+        help="where the level folder goes (Python: out_dir; "
+        "default: the parent of the source's folder)",
     )
     refine.add_argument(
         "--out-dir",

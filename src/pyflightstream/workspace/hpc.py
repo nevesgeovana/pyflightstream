@@ -456,6 +456,8 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
     _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
     export_log = _export_log(target, log)
     native_log = str(log.get("native_log") or "").strip() or None
+    if native_log is not None:
+        _log_pattern(target, "native_log", native_log)
     if not export_log and native_log is None:
         raise InputArtifactError(
             f"the HPC profile {target} states export_log = false and no native_log, which "
@@ -553,11 +555,34 @@ def _job_root(target: Path, stated: object) -> str:
     return text
 
 
+def _log_pattern(target: Path, key: str, pattern: str) -> str:
+    """Validate the placeholders both log patterns can fill at collection."""
+    if not isinstance(pattern, str):
+        raise InputArtifactError(
+            f"the HPC profile {target} states {key} = {pattern!r}; write a string pattern"
+        )
+    try:
+        fields = {name for _, name, _, _ in string.Formatter().parse(pattern) if name is not None}
+        allowed = _JOB_ROOT_FIELDS | {"point"}
+        unknown = fields - allowed
+        if unknown:
+            raise ValueError(f"unknown placeholder(s): {', '.join(sorted(unknown))}")
+        pattern.format(**dict.fromkeys(allowed, "value"))
+        if not pattern.strip():
+            raise ValueError("an empty pattern")
+    except (KeyError, IndexError, ValueError) as error:
+        raise InputArtifactError(
+            f"the HPC profile {target} states {key} = {pattern!r}: {error}. "
+            "Use {work_dir}, {batch}, {sim} or {point}."
+        ) from error
+    return pattern.strip()
+
+
 def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
     """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
     try:
         valid = isinstance(ends, list) and all(
-            str(pattern.format(sim="s", point="p")).strip() for pattern in ends
+            _log_pattern(target, "job_end_files", pattern) for pattern in ends
         )
     except (AttributeError, IndexError, KeyError, ValueError):
         valid = False

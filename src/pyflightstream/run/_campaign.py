@@ -70,7 +70,6 @@ from pyflightstream.run._continuation_frame import (
 from pyflightstream.run._executors import (
     Executor,
     SolverBuild,
-    Submitting,
     _clock,
 )
 from pyflightstream.run._identity import (
@@ -935,7 +934,9 @@ def _start_campaign_progress(state: _CampaignState) -> None:
 def _prepare_campaign_case(state: _CampaignState) -> None:
     """Prepare campaign case."""
     state.case_executor = state.build.executor if state.build is not None else state.executor
-    state.runs_here = not isinstance(state.case_executor, Submitting)
+    from pyflightstream.run._executors import submits_jobs
+
+    state.runs_here = not submits_jobs(state.case_executor)
     state.case_version = (
         state.build.fs_version if state.build is not None else state.campaign.fs_version
     )

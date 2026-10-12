@@ -544,7 +544,11 @@ def _dests(sub: argparse.ArgumentParser) -> dict[str, argparse.Action]:
     for action in sub._actions:
         # Options only: a positional sharing a key's name (the recipe id of
         # `free-space`) is never typed as an option, so no file answers for it.
-        if action.option_strings and action.dest in {*DEFAULT_KEYS, *_CONSOLE_OPTIONS}:
+        if action.option_strings and action.dest in {
+            *DEFAULT_KEYS,
+            *_CONSOLE_OPTIONS,
+            "accept_unregistered_build",
+        }:
             found.setdefault(action.dest, action)
     return found
 

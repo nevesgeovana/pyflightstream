@@ -449,7 +449,7 @@ def emit_probe_import(
     script: Script,
     path: str | Path,
     *,
-    units: str = "METER",
+    units: str,
     frame: int | str = 1,
 ) -> None:
     """Emit PROBE_POINTS_IMPORT for a csv written by :func:`write_probe_csv`.
@@ -465,7 +465,7 @@ def emit_probe_import(
         csv that :func:`write_probe_csv` and :func:`write_points_csv`
         write is in the case's simulation length unit (the lattice is
         scaled by ``tip_radius``), so pass that unit's token; the
-        default ``METER`` is right only for a case set up in meters.
+        unit must be stated explicitly.
     frame : int or str
         Coordinate system of the csv coordinates; index 1 is the
         reference frame, and created frames may be cited by their

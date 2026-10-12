@@ -58,11 +58,33 @@ def warn_a_selector_that_guesses(word: str) -> NoReturn:
     raise CampaignConfigError(refusal_text(_SELECTORS_THAT_GUESS[word]))
 
 
+def _literal_names(token: str, inventory: Sequence[str]) -> list[str]:
+    """Resolve a numbered token exactly, and an unnumbered token as a family."""
+    if token not in inventory and re.search(r"\d+$", token):
+        return []
+    return names_of(token, inventory)
+
+
+def _family_names(token: str, inventory: Sequence[str], *, strict: bool) -> list[str]:
+    if token not in inventory and re.search(r"\d+$", token):
+        reason = (
+            f"the geometry lacks boundary {token!r}; existing boundaries: "
+            f"{', '.join(inventory)}. Select the family by its unnumbered name."
+        )
+        if strict:
+            raise CampaignConfigError(reason)
+        warn(reason, PyflightstreamWarning, stacklevel=3)
+        return []
+    return _literal_names(token, inventory)
+
+
 def select_families(
     selection: str | Sequence[str],
     inventory: Sequence[str],
     is_blade: Callable[[str], bool],
     aliases: Mapping[str, Sequence[str]] | None = None,
+    *,
+    strict: bool = True,
 ) -> list[list[str]]:
     """Expand one families entry over the geometry's inventory, in inventory order.
 
@@ -91,6 +113,8 @@ def select_families(
         Whether a boundary name is a blade's.
     aliases : mapping of str to sequence of str, optional
         The ``[aliases]`` table of the row's setup.
+    strict : bool, optional
+        Refuse absent numbered boundaries at plan; False warns and skips in post.
 
     Returns
     -------
@@ -100,7 +124,7 @@ def select_families(
     """
     blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
-        aliased = resolve_alias(selection, inventory, aliases)
+        aliased = resolve_alias(selection, inventory, aliases, strict=strict)
         if aliased is not None:
             return [aliased] if aliased else []
         if selection == "all":
@@ -118,11 +142,11 @@ def select_families(
             return [[name] for name in blades]
         # A bare word outside the five and the aliases is a family (the reference
         # p001 of 2026-09-09); one the inventory lacks is an empty result.
-        names = names_of(selection, inventory)
+        names = _family_names(selection, inventory, strict=strict)
         return [names] if names else []
     chosen: list[str] = []
     for item in selection:
-        aliased = resolve_alias(item, inventory, aliases)
+        aliased = resolve_alias(item, inventory, aliases, strict=strict)
         if aliased is not None:
             names = aliased
         elif item in _SELECTORS_THAT_GUESS:
@@ -137,7 +161,7 @@ def select_families(
             # fallback included (the interface lens of 2026-09-09: the
             # same word selected six blades written alone and nothing
             # written in a list).
-            names = names_of(str(item), inventory)
+            names = _family_names(str(item), inventory, strict=strict)
         chosen.extend(name for name in names if name not in chosen)
     return [chosen] if chosen else []
 
@@ -197,7 +221,11 @@ BoundaryAliases = Annotated[dict[str, list[str]], AfterValidator(_check_aliases)
 
 
 def resolve_alias(
-    token: str, inventory: Sequence[str], aliases: Mapping[str, Sequence[str]] | None
+    token: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None,
+    *,
+    strict: bool = True,
 ) -> list[str] | None:
     """Resolve one cited name as an alias of the setup, or None when it is not one.
 
@@ -226,6 +254,8 @@ def resolve_alias(
         The boundary names the row's geometry carries.
     aliases : mapping of str to sequence of str or None
         The ``[aliases]`` table of the row's setup.
+    strict : bool, optional
+        Refuse absent numbered members at plan; False warns and skips in post.
 
     Returns
     -------
@@ -248,7 +278,7 @@ def resolve_alias(
     key = _alias_key(token, aliases)
     if key is None:
         return None
-    return _resolve_alias_key(key, inventory, aliases, seen=())
+    return _resolve_alias_key(key, inventory, aliases, seen=(), strict=strict)
 
 
 def _alias_key(token: str, aliases: Mapping[str, Sequence[str]]) -> str | None:
@@ -264,6 +294,7 @@ def _resolve_alias_key(
     aliases: Mapping[str, Sequence[str]],
     *,
     seen: tuple[str, ...],
+    strict: bool = True,
 ) -> list[str]:
     """Resolve one alias to boundary names, following members that are aliases.
 
@@ -311,9 +342,9 @@ def _resolve_alias_key(
                 "ring has no end; break it in the reference"
             )
         resolved = (
-            _resolve_alias_key(nested, inventory, aliases, seen=path)
+            _resolve_alias_key(nested, inventory, aliases, seen=path, strict=strict)
             if nested is not None
-            else names_of(token, inventory)
+            else _family_names(token, inventory, strict=strict)
         )
         for name in resolved:
             if name not in names:
@@ -388,7 +419,7 @@ def _absent_members(
             for pair in _absent_members(nested, inventory, aliases, seen=path):
                 if pair not in absent:
                     absent.append(pair)
-        elif not names_of(token, inventory) and (key, token) not in absent:
+        elif not _literal_names(token, inventory) and (key, token) not in absent:
             absent.append((key, token))
     return absent
 
@@ -402,6 +433,8 @@ def select_group_members(
     members: Sequence[int | str],
     inventory: Sequence[str],
     aliases: Mapping[str, Sequence[str]] | None = None,
+    *,
+    strict: bool = True,
 ) -> list[str]:
     """Resolve one ``[groups]`` entry's members against an inventory, in member order.
 
@@ -427,6 +460,9 @@ def select_group_members(
         The names the caller judges by.
     aliases : mapping of str to sequence of str, optional
         The ``[aliases]`` table of the row's setup.
+    strict : bool, optional
+        Refuse an absent numbered boundary during planning. Post-processing
+        passes False to warn and leave that member out instead.
 
     Returns
     -------
@@ -440,9 +476,13 @@ def select_group_members(
         if isinstance(member, int):
             continue
         token = str(member)
-        names = [token] if token in inventory else resolve_alias(token, inventory, aliases)
+        names = (
+            [token]
+            if token in inventory
+            else resolve_alias(token, inventory, aliases, strict=strict)
+        )
         if names is None:
-            names = names_of(token, inventory)
+            names = _family_names(token, inventory, strict=strict)
         if not names and token == EVERY_FAMILY:
             # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE (0.24.0).
             # A group is ONE alias as a string, an empty list was every family, and

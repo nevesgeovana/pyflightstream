@@ -240,7 +240,10 @@ def rotor_shaft_loads(
     # from the documented static row. Every fixture used exact surface names, so
     # no test in the range could fail on it; a V&V round read it instead.
     families = [str(name) for name in getattr(rotor, "members", [])]
-    owned = {name.casefold() for name in select_group_members(families, list(surfaces), aliases)}
+    owned = {
+        name.casefold()
+        for name in select_group_members(families, list(surfaces), aliases, strict=False)
+    }
 
     force = [0.0, 0.0, 0.0]
     moment = [0.0, 0.0, 0.0]
@@ -920,6 +923,14 @@ def write_rotor_table(
                 "reference frame's up direction (+z), so it has no normal and no side "
                 f"axis, and CN_{alias}, CS_{alias}, CMN_{alias} and CMS_{alias} read NA "
                 "on every row of this table.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        eta = coefficients.get("ETA")
+        if isinstance(eta, int | float) and eta > 1:
+            warn(
+                f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias} "
+                f"efficiency ETA={eta:g} exceeds 1; check the wake and loads.",
                 PyflightstreamWarning,
                 stacklevel=2,
             )

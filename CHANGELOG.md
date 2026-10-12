@@ -560,6 +560,14 @@ FlightStream versions.
 
 ### Fixed
 
+Correction recorded 2026-10-12: the five fixes below shipped in 0.37.0.
+
+- Normalize the 26.125 pressure and viscous drag plots to the free stream before averaging, with the same velocity ratio as the other coefficient plots (FR-423).
+- Resolve a positive `RUN_WAKE_LENGTH_R` to at least one solver step, including targets smaller than the wake conversion's roundoff tolerance (FR-422).
+- Refuse truncated, malformed, or nonfinite direct-morphing aerodynamic node tables before computing displacement rows; require the declared vertex count and preserve file order (FR-341).
+- Include the S6 direct-morphing command in the integrated 26.125 command census test (FR-423).
+- Compute the super file's drag column union once per group, keeping the post assembly within its architecture size limit (FR-423).
+
 - `pyfs-matrix rebuild` no longer refuses every simulation of a matrix kept in
   `inputs/matrices/` that has a `RUN 0` row as being in both homes of the
   workspace with different content (FR-411).

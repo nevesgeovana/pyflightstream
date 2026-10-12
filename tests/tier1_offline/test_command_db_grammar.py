@@ -40,7 +40,7 @@ from pyflightstream.commands import CommandRegistry
 # Three more value deltas were missing from the table entirely, so the
 # claim below that this is the review record of every pair of pages read
 # twice was false while it was being made.
-PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
+PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
     "CREATE_NEW_MOTION": {
         "25.100": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
         "26.000": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
@@ -379,7 +379,7 @@ _FORCE_SPLIT_125 = (
     "MOMENT_Z",
 )
 _TE_GEOMETRIES_125 = ("SHARP", "BLUNT", "BLEND", "ROUNDED_BLEND", "OPEN")
-PER_VERSION_GRAMMAR_26125: dict[str, dict[str, tuple]] = {
+PER_VERSION_GRAMMAR_26125: dict[str, dict[str, object]] = {
     "CAD_CREATE_WING_MESH_FROM_CCS": {"enum:te_geometry": _TE_GEOMETRIES_125},
     "EXPORT_WING_CCS_FILE": {"enum:te_geometry": _TE_GEOMETRIES_125},
     "CREATE_AIRFOIL_SEPARATION": {
@@ -502,7 +502,8 @@ def _layout_delta(command: str, version: str, arg: str, field: str) -> bool:
     if field == "all_sentinel":
         return f"sentinel:{arg}" in delta
     if field == "on_command_line":
-        return arg in delta.get("command_line", ())
+        command_line = delta.get("command_line", ())
+        return isinstance(command_line, tuple) and arg in command_line
     return False
 
 
@@ -952,7 +953,7 @@ def _axis_enums() -> dict[tuple[str, str], tuple[str, ...]]:
     }
 
 
-def test_the_only_enums_mixing_names_and_digits_are_the_axis_family():
+def test_the_enums_mixing_names_and_digits_are_pinned():
     """The measurement the rule rests on, re-taken on every run."""
     registry = CommandRegistry.load()
     mixed = {
@@ -963,9 +964,10 @@ def test_the_only_enums_mixing_names_and_digits_are_the_axis_family():
         and any(v.isdigit() for v in arg.values)
         and any(not v.isdigit() for v in arg.values)
     }
-    assert mixed == AXIS_WITH_INDEX_FORM, (
-        "an enum outside the axis family now mixes names and digits, or an axis "
-        f"row moved: {sorted(mixed ^ AXIS_WITH_INDEX_FORM)}. Read the rule in "
+    expected = AXIS_WITH_INDEX_FORM | {("AEROELASTIC_RBF_TYPE", "rbf_type")}
+    assert mixed == expected, (
+        "an enum outside the pinned axis and RBF families mixes names and digits: "
+        f"{sorted(mixed ^ expected)}. Read the rule in "
         "docs/srs/data-model.md and pin the new member here"
     )
 

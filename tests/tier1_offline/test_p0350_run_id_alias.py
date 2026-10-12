@@ -114,7 +114,9 @@ def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, cap
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_2")) == 0
-    planned = json.dumps(json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8")))
+    planned = json.dumps(
+        json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8"))["points"]
+    )
     assert names[1] in planned and names[0] not in planned and "5001" not in planned, planned
     capsys.readouterr()
     assert cli.main(_argv("plan", workspace, matrix, "--sims", "5001", "--points", "5002_2")) == 2

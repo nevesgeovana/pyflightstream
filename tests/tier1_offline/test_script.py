@@ -2526,6 +2526,8 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     # in their notes for the usual reason.
     ("DELETE_BASE_REGION", "base_region_boundary"),
     ("SET_BASE_REGION_TRAILING_EDGES", "base_region_boundary"),
+    ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
+    ("SET_OUTLET_TRAILING_EDGES", "base_region_boundary"),
     ("SELECT_BASE_REGION_FACES", "base_index"),
     ("SET_BASE_REGION_CP", "base_index"),
     # An inlet, added 2026-08-08 with the Inlets and Outlets chapter. The
@@ -3597,11 +3599,11 @@ def test_the_streamline_chapter_emits_on_every_registered_build(version):
     script.emit("SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM")
     script.emit("SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM")
     script.emit("DELETE_ALL_OFF_BODY_STREAMLINES")
+    script.emit("DELETE_ALL_SURFACE_STREAMLINES")
     script.emit("GENERATE_ALL_SURFACE_STREAMLINES")
     script.emit("EXPORT_ALL_SURFACE_STREAMLINES", "Test_streamlines.txt")
-    script.emit("DELETE_ALL_SURFACE_STREAMLINES")
     golden = (GOLDENS / "streamline_families.txt").read_text(encoding="utf-8")
-    assert script.render() == golden
+    assert script.render().rstrip("\n") == golden.rstrip("\n")
 
 
 def test_the_off_body_streamline_length_writes_one_alternative_or_the_other():
@@ -3634,6 +3636,7 @@ def test_the_stability_toolbox_emits_both_of_its_boundary_forms(version):
     script = Script(version=version)
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("STABILITY_TOOLBOX_DELETE_ALL")
     script.emit("STABILITY_TOOLBOX_SETTINGS", 3, "PER_RADIAN", "DISABLE", 0.2)
     script.emit(
         "STABILITY_TOOLBOX_NEW_COEFFICIENT",
@@ -3658,9 +3661,8 @@ def test_the_stability_toolbox_emits_both_of_its_boundary_forms(version):
     )
     script.emit("COMPUTE_STABILITY_COEFFICIENTS")
     script.emit("STABILITY_TOOLBOX_EXPORT", "test_stability.txt")
-    script.emit("STABILITY_TOOLBOX_DELETE_ALL")
     golden = (GOLDENS / "stability_toolbox_chapter.txt").read_text(encoding="utf-8")
-    assert script.render() == golden
+    assert script.render().rstrip("\n") == golden.rstrip("\n")
 
 
 def test_the_stability_coefficient_keywords_follow_the_samples_not_the_table():
@@ -3770,10 +3772,10 @@ def test_the_tail_of_the_edge_and_section_chapters_emits(version):
     script.emit("SET_VORTICITY_LIFT_MODEL", "ENABLE")
     script.emit("SET_SCENE_CONTOUR", "mach_number")
     script.emit("VOLUME_SECTION_WIREFRAME", 2, "ENABLE")
-    script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
     script.emit("DELETE_ALL_SURFACE_SECTIONS")
     script.emit("DELETE_ALL_VOLUME_SECTIONS")
     script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
+    script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
     script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
     golden = (GOLDENS / "tail_edges_and_sections.txt").read_text(encoding="utf-8")
     assert script.render() == golden

@@ -279,6 +279,7 @@ class PointResult:
     iterations: int
     converged: bool
     label: str = ""
+    minimum_cp: float | None = None
 
 
 @dataclass(frozen=True)
@@ -380,7 +381,10 @@ def _total_metrics(total: Mapping[str, float]) -> dict[str, float]:
 
 
 def _induced_name(total: Mapping[str, float]) -> str:
-    """Return the induced drag column a Total row prints: ``CDi``, or ``CDp`` on 26.125."""
+    """Return the printed drag name: induced CDi, or pressure CDp on 26.125.
+
+    Selecting a column preserves its name and makes no claim of equivalence.
+    """
     return next((pair[0] for pair in DRAG_PAIRS if pair[0] in total), DRAG_PAIRS[0][0])
 
 
@@ -612,11 +616,21 @@ class PhysicsCase:
     title: str
     metric_specs: tuple[MetricSpec, ...]
     minimum_version: str | None = None
+    pressure_metric_specs: tuple[MetricSpec, ...] = ()
 
     @property
     def specs_by_name(self) -> dict[str, MetricSpec]:
         """The metric specifications keyed by metric name."""
-        return {spec.name: spec for spec in self.metric_specs}
+        return {spec.name: spec for spec in (*self.metric_specs, *self.pressure_metric_specs)}
+
+    def specs_for_version(self, version: str) -> dict[str, MetricSpec]:
+        """Return specs for one drag vocabulary, preserving the distinct quantities."""
+        excluded = ("CDi", "CDo") if version == "26.125" else ("CDp", "CDv")
+        return {
+            name: spec
+            for name, spec in self.specs_by_name.items()
+            if not any(token in name for token in excluded)
+        }
 
     def supports(self, canonical: str) -> bool:
         """Whether the case's command set has evidence for ``canonical``.
@@ -741,6 +755,9 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
                 fail=0.15,
             ),
         ),
+        pressure_metric_specs=(
+            MetricSpec("CDp_a4", "pressure drag coefficient at 4 deg", warn=0.05, fail=0.15),
+        ),
     ),
     "PHY-02": PhysicsCase(
         case_id="PHY-02",
@@ -761,6 +778,15 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             MetricSpec(
                 "delta_CDi_a4",
                 "CDi(half) - CDi(full) at 4 deg; zero in exact equivalence",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
+        pressure_metric_specs=(
+            MetricSpec(
+                "delta_CDp_a4",
+                "CDp(half) - CDp(full) pressure drag at 4 deg",
                 kind="abs",
                 warn=0.0005,
                 fail=0.002,
@@ -800,6 +826,16 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             ),
         ),
         minimum_version="26.120",
+        pressure_metric_specs=(
+            MetricSpec("CDp", "pressure drag coefficient at the final step", warn=0.01, fail=0.03),
+            MetricSpec(
+                "CDv",
+                "viscous drag coefficient at the final step; near zero",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
@@ -949,7 +985,27 @@ def smi_metrics(point: PointResult) -> dict[str, float]:
 
 def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:
     """One SMI entry; the title names the local simulation file the case opens."""
-    return PhysicsCase(case_id=case_id, title=title, metric_specs=_smi_metric_specs(band_kind))
+    return PhysicsCase(
+        case_id=case_id,
+        title=title,
+        metric_specs=_smi_metric_specs(band_kind),
+        pressure_metric_specs=(
+            MetricSpec(
+                "CDp",
+                "aggregated pressure drag coefficient at 2 deg",
+                kind=band_kind,
+                warn=0.002,
+                fail=0.01,
+            ),
+            MetricSpec(
+                "CDv",
+                "aggregated viscous drag coefficient at 2 deg",
+                kind=band_kind,
+                warn=0.002,
+                fail=0.01,
+            ),
+        ),
+    )
 
 
 #: The two local cases: ``28_B.fsm`` (SMI-01) and ``31_WBH_IH0.fsm`` (SMI-02),
@@ -975,7 +1031,9 @@ def _references_dir() -> Path:
     return Path(str(resources.files("pyflightstream.qa"))) / "references"
 
 
-def load_reference(case_id: str, references_dir: str | Path | None = None) -> CaseReference | None:
+def load_reference(
+    case_id: str, references_dir: str | Path | None = None, *, fs_version: str | None = None
+) -> CaseReference | None:
     """Load the committed reference of one case, when it exists.
 
     Parameters
@@ -985,6 +1043,9 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
     references_dir : str or Path, optional
         Alternative directory, used by tests; defaults to the package
         data directory ``qa/references/``.
+    fs_version : str, optional
+        Build whose reference to read. 26.125 uses the independent
+        pressure-drag reference directory; no induced-drag reference is substituted.
 
     Returns
     -------
@@ -997,6 +1058,8 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
         If the file exists and does not carry the physics reference schema.
     """
     directory = Path(references_dir) if references_dir else _references_dir()
+    if fs_version == "26.125":
+        directory = directory / "pressure-drag"
     path = directory / f"{case_id}.yaml"
     if not path.is_file():
         return None
@@ -1294,6 +1357,7 @@ def write_physics_report(
                         "alpha_deg": point.alpha_deg,
                         "iterations": point.iterations,
                         "converged": point.converged,
+                        "minimum_cp": point.minimum_cp,
                         "total": {key: float(value) for key, value in point.total.items()},
                     }
                     for point in result.points
@@ -1354,6 +1418,12 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
             lines.extend([f"Case aborted: {result.error}", ""])
             continue
         lines.extend([result.geometry, ""])
+        lines.extend(
+            f"Minimum Cp clip for {point.label or f'a{point.alpha_deg:g}'}: "
+            f"{point.minimum_cp if point.minimum_cp is not None else 'not recorded'}."
+            for point in result.points
+        )
+        lines.append("")
         if result.points:
             # PFS-2102.035. The drag column under the name the point's table
             # prints: CDi up to 26.124, CDp on 26.125 (FR-423), which was a
@@ -1499,7 +1569,7 @@ def update_reference(
             "committed reference would be a machine's path no reader could follow. Move "
             "the report under the repository first, or pass repo_root (CLI: --root)"
         ) from None
-    existing = load_reference(case_id, references_dir)
+    existing = load_reference(case_id, references_dir, fs_version=str(report["fs_version"]))
     dropped = set(drop)
     if existing is not None:
         # PFS-2102.011. The file is replaced whole, so a reference metric the
@@ -1517,7 +1587,7 @@ def update_reference(
                 "Use a report that measures them, or name them in drop (CLI: --drop) to "
                 "remove them deliberately"
             )
-    specs = case.specs_by_name
+    specs = case.specs_for_version(str(report["fs_version"]))
     metrics: dict[str, dict] = {}
     for name, value in case_body["metrics"].items():
         if existing is not None and name in existing.metrics:
@@ -1532,6 +1602,8 @@ def update_reference(
             )
         metrics[name] = {"value": float(value), "warn": warn, "fail": fail, "kind": kind}
     directory = Path(references_dir) if references_dir else _references_dir()
+    if str(report["fs_version"]) == "26.125":
+        directory = directory / "pressure-drag"
     directory.mkdir(parents=True, exist_ok=True)
     document = {
         "schema": REFERENCE_SCHEMA,

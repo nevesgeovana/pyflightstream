@@ -104,7 +104,7 @@ from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
 from pyflightstream.run._identity import entry_accepted_builds
-from pyflightstream.run._ids import narrow_to_selection
+from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -769,6 +769,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    planned_order = whole_sweeps(resolved)
     resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
@@ -789,6 +790,7 @@ def plan_matrix(
         name_from=name_from,
         versions=row_versions,
         setup_inspections=inspections,
+        planned_order=planned_order,
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
         inflow_fft=inflow_fft,

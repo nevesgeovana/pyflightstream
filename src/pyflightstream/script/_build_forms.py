@@ -10,8 +10,8 @@ stops printing ``AUTO_DETECT_TRAILING_EDGES``, ``AUTO_DETECT_BASE_REGIONS`` and
 ``AUTO_DETECT_WAKE_TERMINATION_NODES`` and documents, in their place, the -1
 (every boundary) form of the three ``DETECT_*_BY_SURFACE`` commands
 (SRC-753 pp.327, 329, 331). A build that carries the automatic command
-emits it, so every script for 26.124 and earlier is byte-identical; a build
-that does not emits the -1 form.
+emits it. On 26.125 trailing-edge detection uses a counted inventory:
+the solver has been measured to mark zero edges with the -1 form.
 
 THE WAKE-EDGE IMPORT TOKEN. 26.124 was measured to require a third token on
 ``IMPORT_WAKE_EDGES_FROM_FILE`` and to read the node list from the next line
@@ -147,13 +147,27 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     --------
     >>> from pyflightstream.script import Script
     >>> old, new = Script(version="26.124"), Script(version="26.125")
+    >>> new.declare_existing(boundaries=2)
     >>> detect_every_boundary(old, "trailing_edges"), detect_every_boundary(new, "trailing_edges")
     ('AUTO_DETECT_TRAILING_EDGES', 'DETECT_TRAILING_EDGES_BY_SURFACE')
     >>> print(new.render().strip())
     DETECT_TRAILING_EDGES_BY_SURFACE
-    SURFACES -1
+    SURFACES 2
+    1,2
     """
-    command, arguments = every_boundary_detection(script, kind)
+    command, all_arguments = every_boundary_detection(script, kind)
+    arguments: tuple[object, ...] = all_arguments
+    if kind == "trailing_edges" and script.version.canonical == "26.125":
+        from pyflightstream.script import CommandArgumentError
+
+        count = script.num_boundaries
+        if not count:
+            raise CommandArgumentError(
+                "automatic trailing-edge detection on 26.125 needs a declared boundary "
+                "inventory; the solver has marked zero edges with SURFACES -1. "
+                "Declare the boundaries or select explicit surface indices"
+            )
+        arguments = (count, list(range(1, count + 1)))
     script.emit(command, *arguments)
     return command
 

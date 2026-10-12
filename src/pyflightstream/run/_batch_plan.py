@@ -396,7 +396,7 @@ def _job_of(
         walltime_s=walltime,
         walltime_written=walltime_text(walltime, split=split) if walltime is not None else "",
         walltime_source=source,
-        fits=fits is not False,
+        fits=fits,
         shortfall_s=short,
     )
     return job, warnings, refusal
