@@ -1765,6 +1765,10 @@ def collect_and_post(
         # REFUSED BEFORE THE FIRST SWEEP, so a watch over a typo stops at once.
         selected = selected_sims(workspace.read_manifest(), sims, scope="in the manifest")
     total = CollectReport()
+    # ONE FAILED OUTCOME PER POINT, the latest (PFS-2103.032): a refusal that
+    # writes no record leaves the point SUBMITTED, so a watch kept going by
+    # other points refused it again each sweep and piled up its outcome.
+    failed: dict[str, CollectOutcome] = {}
     swept = 0
     while True:
         report = collect_once(
@@ -1779,7 +1783,8 @@ def collect_and_post(
             report.discarded = _discard_walltime(workspace, selected)
         total.discarded.extend(report.discarded)
         total.collected.extend(report.collected)
-        total.failed.extend(report.failed)
+        failed.update((outcome.run_id, outcome) for outcome in report.failed)
+        total.failed = list(failed.values())
         total.waiting = list(report.waiting)
         total.unknown = list(report.unknown)
         swept += 1

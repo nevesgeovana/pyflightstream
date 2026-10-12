@@ -132,3 +132,28 @@ def test_p0400_a_grouped_point_missing_its_log_says_why_it_has_no_time(tmp_path)
         basis = row["submission"]["job"]["wall_time_basis"]
         assert row["wall_time_s"] is None
         assert "solver log is absent" in basis and "clock file" not in basis, basis
+
+
+def test_p0400_a_watch_names_a_point_refused_without_a_record_once(tmp_path):
+    """P0400-WATCH-FAILED-ONCE (PFS-2103.032): one failed outcome per point, the latest.
+
+    A native-log refusal writes no record, so the point stays SUBMITTED; a
+    watch kept going by another waiting point refused it again each sweep
+    and its outcome piled up in the report.
+    """
+    import json
+
+    from tests.tier1_offline.test_collect_stage import _submitted_workspace
+    from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _write_profile
+
+    workspace, _sim = _submitted_workspace(tmp_path, declared=("loads.txt",))
+    _write_profile(workspace, LOG_TABLE)
+    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    waiting = {**rows[0], "run_id": "camp/sim_9001/AL+020", "point_name": "AL+020"}
+    declared = ["loads.txt", "P9001-AL+020_log.txt"]
+    waiting["submission"] = {**rows[0]["submission"], "declared_outputs": declared}
+    workspace.manifest_path.write_text(json.dumps([rows[0], waiting], indent=2), "utf-8")
+    report = collect.collect_and_post(workspace, watch=True, rounds=3, interval=0, sleep=_no_sleep)
+    assert [outcome.run_id for outcome in report.failed] == ["camp/sim_9001/AL+000"], [
+        outcome.detail for outcome in report.failed
+    ]
