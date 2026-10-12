@@ -79,6 +79,8 @@ from pyflightstream.run._points import (
     _reference_block,
     _sections_layout,
     _translation_problems,
+    staging_provenance,
+    waived_record,
 )
 from pyflightstream.run._step_exports import untranslated_surfaces
 from pyflightstream.run._wake_edge_verdict import (
@@ -289,7 +291,10 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "viscosity_pa_s": None if job.case.fluid is None else job.case.fluid.viscosity_pa_s,
         "density_source": None if job.case.fluid is None else job.case.fluid.source,
         "reference_length_m": None if job.case.fluid is None else job.case.fluid.reference_length_m,
+        # Filled from the built script below, as the point path fills it (PFS-2103.026).
         "waived_commands": [],
+        # How the geometry was staged, as on a point's record (PFS-2103.026).
+        **staging_provenance(job.workspace, job.case.sim_id, job.staged_geometry),
         "raw_commands": [entry.model_dump(mode="json") for entry in job.case.raw_commands],
         "aliases": {name: list(members) for name, members in job.case.aliases.items()},
         # Both are REQUIRED on a record and both are only known once the
@@ -337,6 +342,8 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
     try:
         with collecting_the_study_skips() as skipped:
             build_steady_sweep([pc for _, _, pc in job.point_cases], job.script, cold=job.cold)
+        # FR-48: the waivers the job's script carries, recorded as a point's are.
+        job.base["waived_commands"] = waived_record(job.script)
         # FR-435 R11: the names the row skipped, once each; recorded only where there is one.
         job.base["skipped_names"] = [skip.record() for skip in skipped] or None
         # G02: the switch is the row's, so the first point's case states it.
