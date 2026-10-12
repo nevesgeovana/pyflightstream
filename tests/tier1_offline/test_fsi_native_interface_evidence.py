@@ -181,3 +181,74 @@ def test_immediate_close_does_not_prove_steady_coupling_completion():
     before = _block("steady")
     after = _block("steady", "final.fsm")
     assert [before[5 + i * 5] for i in range(27)] == [after[5 + i * 5] for i in range(27)]
+
+
+# --- what runs on every machine -------------------------------------------------
+# The replays above run only where the private receipts are supplied (the two
+# environment variables). The release gates that list this file as the proof of
+# ten commands read the GOAL033 tags as text, so the tags are held here, by a
+# test that runs everywhere, to sit inside a test of this file that replays a
+# receipt and asserts on it; a tag left in a stray comment proves nothing.
+TAG = "GOAL033:setup_bc:operational_commands:"
+
+
+def _tagged_tests(source):
+    import ast
+
+    tree = ast.parse(source)
+    found = {}
+    for number, line in enumerate(source.splitlines(), start=1):
+        if TAG not in line or not line.lstrip().startswith("#"):
+            continue
+        owner = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef)
+                and node.name.startswith("test_")
+                and node.lineno < number <= (node.end_lineno or 0)
+            ),
+            None,
+        )
+        command = line.split(TAG, 1)[1].strip()
+        if owner is None:
+            found[command] = "not inside a test function"
+            continue
+        calls = {
+            call.func.id
+            for call in ast.walk(owner)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        }
+        asserts = any(isinstance(node, ast.Assert) for node in ast.walk(owner))
+        replays = bool(calls & {"_case", "_block", "_output", "_fresh_calls"})
+        found[command] = "ok" if asserts and replays else "no assertion on a replayed receipt"
+    return found
+
+
+def test_p0400_every_operational_tag_sits_in_a_test_that_asserts_on_a_replay():
+    # P0400-FSI-NATIVE-EVIDENCE-TAGS (PFS-2135.003)
+    found = _tagged_tests(Path(__file__).read_text(encoding="utf-8"))
+    assert len(found) == 10, sorted(found)
+    assert {c: why for c, why in found.items() if why != "ok"} == {}
+
+
+def test_p0400_the_tag_reader_refuses_a_stray_tag_and_an_empty_test():
+    # P0400-FSI-NATIVE-EVIDENCE-TAGS (PFS-2135.003): the control of the test above.
+    stray = (
+        f"# {TAG}A_COMMAND\n"
+        "def test_empty():\n"
+        f"    # {TAG}B_COMMAND\n"
+        "    pass\n"
+        "def test_asserting_nothing_replayed():\n"
+        f"    # {TAG}C_COMMAND\n"
+        "    assert True\n"
+        "def test_replaying():\n"
+        f"    # {TAG}D_COMMAND\n"
+        "    assert _block('x')\n"
+    )
+    assert _tagged_tests(stray) == {
+        "A_COMMAND": "not inside a test function",
+        "B_COMMAND": "no assertion on a replayed receipt",
+        "C_COMMAND": "no assertion on a replayed receipt",
+        "D_COMMAND": "ok",
+    }
