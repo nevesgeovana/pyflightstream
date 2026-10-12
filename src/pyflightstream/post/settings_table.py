@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -513,17 +514,29 @@ def write_settings_table(
     # the same ambiguity -- zero, not measured, or not applicable -- that the
     # rule exists to end (the architect lens, v0.22.0 push round, which found
     # the commit claiming `_cell` was the one funnel while this bypassed it).
+    # EVERY VALUE AT FULL PRECISION, through the same funnel. The funnel writes a
+    # float at five decimals, the precision of a coefficient, and a convergence
+    # threshold of 1e-6 was written 0.00000 and read back as 0: a setting is
+    # not a coefficient. A finite float goes in as its shortest exact spelling
+    # (repr), so it reads back equal; a NaN and None stay `NA`.
     held = keys or [{} for _ in rows]
     write_csv_table(
         destination,
         [*lead, *columns],
         [
-            [*(own[name] for name in lead), *(row.get(key) for key in columns)]
+            [*(own[name] for name in lead), *(_exact(row.get(key)) for key in columns)]
             for own, row in zip(held, rows, strict=True)
         ],
     )
     _textio.write_text(legend_path, json.dumps(codebook(), indent=2) + "\n")
     return destination, legend_path
+
+
+def _exact(value: object) -> object:
+    """Return a finite float as its shortest exact text; anything else as it is."""
+    if isinstance(value, float) and math.isfinite(value):
+        return repr(value)
+    return value
 
 
 def read_settings_table(path: str | Path) -> list[Row]:

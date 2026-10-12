@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 import pyflightstream.post.corrections as corrections
+from pyflightstream._digest import text_sha256
 from pyflightstream.cases.corrections import CalibrationError, calibration_path
 from pyflightstream.workspace import CampaignWorkspace
 
@@ -20,7 +21,14 @@ _LOADS = {"ALPHA": 0.0, "BETA": 0.0, "J": 0.5, "THRUST": 1.0, "TORQUE": 1.0, "CT
 
 def _workspace(tmp_path, monkeypatch):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    runs = [SimpleNamespace(run_id="camp/sim_1/W"), SimpleNamespace(run_id="camp/sim_2/S")]
+    # The sector's script proves whole-rotor loads (PFS-2093.002).
+    script = "SYMMETRY PERIODIC 6\nSET_ANALYSIS_SYMMETRY_LOADS ENABLE\n"
+    (workspace.sim_dir("2") / "S.txt").parent.mkdir(parents=True, exist_ok=True)
+    (workspace.sim_dir("2") / "S.txt").write_bytes(script.encode("utf-8"))
+    sector = SimpleNamespace(
+        run_id="camp/sim_2/S", sim_id="2", script_path="S.txt", script_sha256=text_sha256(script)
+    )
+    runs = [SimpleNamespace(run_id="camp/sim_1/W"), sector]
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda _self: runs)
     out = workspace.products_dir(None)
     out.mkdir(parents=True, exist_ok=True)

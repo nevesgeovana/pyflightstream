@@ -38,9 +38,18 @@ uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
 - **A row that states a window never holds an instant.** A point whose history
   does not cover the window, or holds no such columns, is LEFT OUT of the table
   and named in `products.json`, as the unsteady polar beside it does. The
-  table's manifest entry states `source` and `window`.
+  table's manifest entry states `source`, `window`, the row's window on its
+  clock rotor, and `windows`, each point's window of THIS rotor in steps.
+- **A rotor's revolution is its own `steps_per_revolution`** in the run's
+  plan, and its window ends at the row's last step. A row whose matrix states
+  no window key, or a record that states no clock of the rotor, averages every
+  rotor over the row's window.
 
 See [the rotor-table migration](../migrating-to-0.24.0.md) for the correction to historical unsteady tables.
+Before 0.40.0 the code averaged every rotor of a row over the clock rotor's
+window in steps, whatever its own speed; on a row with rotors at different
+speeds, the table of every rotor other than the clock rotor changes when the
+campaign is posted again, and no re-run is needed.
 
 ### `ETAW`
 

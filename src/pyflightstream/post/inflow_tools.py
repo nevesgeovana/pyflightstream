@@ -70,8 +70,10 @@ __all__ = [
 #: z, the side and yaw coefficients, the sense of rotation and its derived
 #: quantities, and (FR-420) the flow columns of the probes table and of
 #: the inflow profile: the ``Y`` position, the velocity component ``VY`` and the
-#: x and z components of the vorticity. ONE LIST: the definitions page states the same
-#: and a test holds them equal.
+#: x and z components of the vorticity. The torque coefficient ``CQ`` keeps the
+#: signed torque, so it flips with ``TORQUE`` and ``CP = 2 pi CQ sign(RPM)`` stays
+#: as written; ``YMOM``, the y of the moment point, is a position. ONE LIST: the
+#: definitions page states the same and a test holds them equal.
 FLIPPED_COLUMNS: tuple[str, ...] = (
     "FY",
     "MX",
@@ -83,20 +85,30 @@ FLIPPED_COLUMNS: tuple[str, ...] = (
     "CMZ",
     "TORQUE",
     "RPM",
+    "CQ",
     "BETA",
     "CS",
     "CMN",
     "Y",
+    "YMOM",
     "VY",
     "VORTICITY_[XZ]",
 )
 
-#: The columns the mirror maps by ``psi -> -psi (mod 360)``, matched
-#: case-insensitively and whole.
-AZIMUTH_COLUMNS: tuple[str, ...] = ("AZIMUTH", "AZIMUTH_START", "AZIMUTH_END", "azimuth_deg")
+#: The columns the mirror maps by ``psi -> -psi (mod 360)``, as patterns matched
+#: case-insensitively and whole: the azimuths, and the phase of a harmonic in
+#: azimuth, ``PHI_k -> -PHI_k``, since ``cos(k psi - PHI_k)`` at ``-psi`` is
+#: ``cos(k psi + PHI_k)``.
+AZIMUTH_COLUMNS: tuple[str, ...] = (
+    "AZIMUTH",
+    "AZIMUTH_START",
+    "AZIMUTH_END",
+    "azimuth_deg",
+    "H\\d+_PHASE_DEG",
+)
 
 _FLIP = re.compile(r"^(" + "|".join(FLIPPED_COLUMNS) + r")(?=_|\d|$)", re.IGNORECASE)
-_AZIMUTH = {name.upper() for name in AZIMUTH_COLUMNS}
+_AZIMUTH = re.compile(r"^(" + "|".join(AZIMUTH_COLUMNS) + r")$", re.IGNORECASE)
 
 #: How many harmonics ``share_n1 ... share_nN`` the blade-view tables carry.
 HARMONIC_SHARES = 8
@@ -148,7 +160,7 @@ def installed_frame_columns(
             f"the table (columns: {', '.join(columns)})."
         )
     flipped = tuple(c for c in columns if _FLIP.match(c) or c.upper() in wanted)
-    mapped = tuple(c for c in columns if c.upper() in _AZIMUTH)
+    mapped = tuple(c for c in columns if _AZIMUTH.match(c))
     return ColumnClassification(flipped, mapped)
 
 
@@ -170,7 +182,7 @@ def to_installed_frame(
     The installed frame is the isolated one mirrored through ``y = 0``: the
     columns of :data:`FLIPPED_COLUMNS` (and those named in ``flip``) change
     sign (a position along y, a polar vector's y component, an axial vector's x
-    and z components), the azimuths of :data:`AZIMUTH_COLUMNS` map
+    and z components), the azimuths and harmonic phases of :data:`AZIMUTH_COLUMNS` map
     ``psi -> -psi mod 360``, every other cell is copied as written. The list
     holds the ``Y`` position, ``VY`` and the vorticity's x and z columns, so a
     table carrying them is mirrored there too. Blade and family names do not

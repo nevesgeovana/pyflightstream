@@ -104,6 +104,26 @@ WARNING point=<point> product=sections/<point>_harmonics.csv: rotor 'PROP': the 
 A wheel of 2 blades at 2 clockings (4 azimuths) has a 1P fit and no 2P. Nothing
 blocks: the table is written.
 
+**Azimuths that do not go round the circle are `NA` too, said once.** Distinct
+is not enough: samples crowded inside a half circle determine a sinusoid only
+through differences at the round-off of their values, and five samples 0.1
+deg apart on a constant load gave amplitudes of 1e5. The coverage criterion:
+the `kP` term is fitted only where the angles `k psi` of the station's
+samples, taken modulo 360, leave no gap larger than 180 deg around the
+circle, and every lower term passes too, so a station whose 1P angles fail
+has neither 1P nor 2P, and one whose 2P angles fail keeps its 1P. It is
+checked for 1P, then 2P, after the count above; `H0` is always fitted. A
+harmonic left out this way carries `NA` in its amplitude and phase, the fit
+is made without it, and `post.log` carries ONE WARNING line per rotor and
+harmonic:
+
+```
+WARNING point=<point> product=sections/<point>_harmonics.csv: rotor 'PROP': the 1P harmonic is NA in 9 row(s), whose samples do not go round the circle: a 1P fit needs the angles 1 psi with no gap over 180 deg
+```
+
+Samples evenly spaced round the whole circle, as a wheel's are, pass wherever
+they pass the count.
+
 **Not written, and said.** An unsteady rotor whose record states no
 `steps_per_revolution`, or whose series holds no complete revolution, is named
 under `sections/<point>_harmonics.csv#rotor=<ALIAS>`; where no station of any

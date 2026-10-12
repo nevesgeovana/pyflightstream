@@ -33,6 +33,7 @@ from pyflightstream.cases import (
     select_group_members,
 )
 from pyflightstream.cases.qsteady import QsteadyRecord, QsteadyRecordError, read_qsteady_record
+from pyflightstream.cases.windows import averaging_steps
 from pyflightstream.cases.workflows import FLAT_RPM_KEY, ORIGINAL_FRAME_SUFFIX, QSTEADY_ROTOR
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._condition import (
@@ -478,6 +479,8 @@ def _rotor_tables(
                     # history was read from, or None where it is the native export
                     # of a steady run.
                     "read_from": sources_read.get(str(alias)),
+                    # EACH POINT'S WINDOW OF THIS ROTOR (PFS-2088.013), in its own turns.
+                    "windows": _rotor_windows(ctx, str(alias)),
                 },
             )
         )
@@ -533,6 +536,39 @@ def _rotor_point_record(ctx: _RotorTablePlan, point: PolarPoint) -> RunRecord | 
 _PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 
 
+def _rotor_span(ctx: _RotorTablePlan, name: str, alias: str) -> tuple[int, int] | None:
+    """Return the window THIS rotor is averaged over at one point, in its own turns.
+
+    A WINDOW IS A COUNT OF TURNS (FR-68, PFS-2088.013). The row's span is
+    counted on its clock rotor, and a second rotor at another speed averaged
+    over it took a non-integer number of its own revolutions. The row's
+    ``LAST_REVS_AVG`` is counted on this rotor's ``steps_per_revolution`` from
+    the record's plan and ends at the row's last step, as the per-blade and
+    per-revolution reductions cut each rotor (:func:`cases.windows.replan`). A
+    count of iterations is the same steps for every rotor; a row that states
+    no key, or a record with no clock of this rotor, keeps the row's span.
+    """
+    span = (ctx.windows or {}).get(name, ctx.window)
+    record = ctx.by_run.get((ctx.sources.get(name) or [""])[0])
+    plan = getattr(record, "reductions", None)
+    blocks = plan.get("rotors") if isinstance(plan, Mapping) else None
+    block = blocks.get(alias) if isinstance(blocks, Mapping) else None
+    turn = block.get("steps_per_revolution") if isinstance(block, Mapping) else None
+    variables = getattr(ctx.matrix_row, "variables", None)
+    if span is None or not isinstance(variables, Mapping) or not isinstance(turn, int | float):
+        return span
+    if isinstance(turn, bool) or turn <= 0:
+        return span
+    own = averaging_steps(variables, per_revolution=float(turn))
+    return span if own is None else (max(span[1] - own + 1, 1), span[1])
+
+
+def _rotor_windows(ctx: _RotorTablePlan, alias: str) -> dict[str, tuple[int, int]]:
+    """Return each point's window of this rotor, for its table's manifest entry."""
+    spans = {name: _rotor_span(ctx, name, alias) for name in ctx.windows or {}}
+    return {name: span for name, span in spans.items() if span is not None}
+
+
 def _averaged_rotor_newtons(
     ctx: _RotorTablePlan, point: PolarPoint, alias: str, families: Sequence[str]
 ) -> tuple[dict[str, float] | None, str, str | None]:
@@ -552,7 +588,7 @@ def _averaged_rotor_newtons(
     The second value is the reason, for the caller to record; the third is the
     group the history was read from, which the manifest states.
     """
-    span = (ctx.windows or {}).get(point.name, ctx.window)
+    span = _rotor_span(ctx, point.name, alias)
     if ctx.plots is None or span is None:
         return None, "the row states no averaging window", None
     where = f"over steps {span[0]} to {span[1]}"

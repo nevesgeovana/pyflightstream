@@ -59,6 +59,7 @@ from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
+from pyflightstream._digest import text_sha256
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.corrections import (
@@ -1260,6 +1261,36 @@ def _loads_of(row: Mapping[str, str], alias: str, where: str) -> dict[str, float
     return known
 
 
+def _whole_rotor_gap(space: Any, record: Any) -> str | None:
+    """Why a sector run's record does not prove whole-rotor loads; None where it does.
+
+    Read from the run's own script, hashed as recorded: a solve under a
+    ``SYMMETRY`` other than ``NONE`` (a periodic sector, a mirrored half)
+    exports the whole rotor only where every ``SET_ANALYSIS_SYMMETRY_LOADS`` of
+    the script is ``ENABLE``; a solve with no symmetry has no copies to omit.
+    """
+    script, digest = getattr(record, "script_path", None), getattr(record, "script_sha256", None)
+    if not script or not digest:
+        return "its record names no hashed script"
+    try:
+        text = (space.sim_dir(record.sim_id) / script).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return f"its script cannot be read ({error})"
+    if text_sha256(text) != digest:
+        return f"its script {script} no longer hashes as recorded"
+    words = [line.split() for line in text.splitlines()]
+    modes = [" ".join(w[1:]) for w in words if len(w) > 1 and w[0] == "SYMMETRY"]
+    partial = [mode for mode in modes if mode.upper() != "NONE"]
+    loads = [w[1].upper() for w in words if len(w) > 1 and w[0] == "SET_ANALYSIS_SYMMETRY_LOADS"]
+    if not partial or (loads and set(loads) == {"ENABLE"}):
+        return None
+    stated = ", ".join(loads) if loads else "not stated"
+    return (
+        f"its script solves SYMMETRY {partial[-1]} with SET_ANALYSIS_SYMMETRY_LOADS {stated}, "
+        "so its loads export carries the modelled part alone"
+    )
+
+
 def sector_offset_calibration(
     workspace: Any,
     *,
@@ -1289,9 +1320,12 @@ def sector_offset_calibration(
     is one node, constant on every axis, so it applies at every ``J``,
     ``ALPHA`` and ``K_1P``: the offset measured in axial flow, applied at
     incidence, is what route 2 is. Refused with :class:`CalibrationError`
-    when a run is not in ``runs.json``, not a row of one rotor table, not
-    axial, at another ``J``, or when the file exists and ``overwrite`` is
-    False. The route is NOT VALIDATED. Returns the file written.
+    when a run is not in ``runs.json``, when the sector's record does not
+    prove whole-rotor loads (its script, hashed as recorded, solves a
+    symmetry other than ``NONE`` without ``SET_ANALYSIS_SYMMETRY_LOADS
+    ENABLE``, or cannot be read), not a row of one rotor table, not axial, at
+    another ``J``, or when the file exists and ``overwrite`` is False. The
+    route is NOT VALIDATED. Returns the file written.
 
     Parameters
     ----------
@@ -1320,17 +1354,29 @@ def sector_offset_calibration(
     Raises
     ------
     CalibrationError
-        If a run is not in ``runs.json``, is not a row of exactly one rotor table, is not axial,
+        If a run is not in ``runs.json``, the sector's record does not prove whole-rotor loads,
+        a run is not a row of exactly one rotor table, is not axial,
         the two points are at different advance ratios, or the file exists and ``overwrite`` is
         False.
     """
     from pyflightstream.workspace import CampaignWorkspace
 
     space = workspace if isinstance(workspace, CampaignWorkspace) else CampaignWorkspace(workspace)
-    known = {record.run_id for record in space.read_manifest()}
+    known = {record.run_id: record for record in space.read_manifest()}
     for run in (wheel_run_id, sector_run_id):
         if run not in known:
             raise CalibrationError(f"run {run!r} is not in {space.root / 'runs.json'}")
+    # REFUSED, NEVER SCALED ON A GUESS (PFS-2093.002). A sector's rotor row is its
+    # one solve's export as it stands: the whole rotor where symmetry loads are
+    # on, the modelled part alone where they are off, and an offset against a
+    # whole wheel is only an offset in the first case.
+    gap = _whole_rotor_gap(space, known[sector_run_id])
+    if gap is not None:
+        raise CalibrationError(
+            f"the sector point {sector_run_id!r} does not prove whole-rotor loads: {gap}. "
+            "Solve the sector with SET_ANALYSIS_SYMMETRY_LOADS ENABLE (the row's "
+            "SYMMETRY_LOADS), so its export carries the whole rotor, or model every blade"
+        )
     out = space.products_dir(matrix_stem)
     manifest_path = out / PRODUCTS_MANIFEST
     try:
