@@ -282,45 +282,51 @@ no probe has measured such a mesh.
   sound and the viscosity. Both have defaults: an absent altitude is sea
   level and an absent `dISA` is zero. Those defaults are what make a
   short set legal at all.
+* A `TK` pin replaces that temperature, and everything derived from the
+  temperature follows it: the speed of sound `a = sqrt(gamma R T)`, the
+  Sutherland viscosity, the Mach to velocity conversion and the density.
+  Only an `ASMPS` or `MUPas` pin of its own replaces those.
 * Exactly one of `MACH` or `TASmps` fixes the **velocity**. State
   exactly one of the two: stating neither leaves the state
   under-determined and is refused, and stating both is a contradiction
   and is refused.
 * `REmi` fixes the **density**, by solving the Reynolds definition for
-  it. If you do not state it, density is the atmosphere's own value at
-  the stated altitude and the Reynolds number becomes an outcome.
+  it. If you do not state it, density is the ideal-gas density of the
+  altitude's pressure (or a `PPA` pin) at the state's temperature, which
+  is the atmosphere's own value when nothing is pinned, and the Reynolds
+  number becomes an outcome.
 
 ### An ISA deviation moves temperature and leaves pressure alone
 
 That is the standard reading of "ISA+5", and it is worth stating because
 the other reading, shifting pressure too, is what a reader who has not
 met the convention will assume. Density follows from the offset
-temperature at the unchanged pressure altitude.
+temperature at the unchanged pressure altitude. A `TK` pin is read the
+same way: the pinned temperature at the altitude's pressure.
 
 ### A solved density is not a point in any atmosphere
 
 Holding a Mach number and a Reynolds number together at a fixed
 temperature is what a wind tunnel does, and what a validation case needs.
-The resulting state has an implied pressure that is not any altitude's:
+The resulting state has a pressure that is not any altitude's:
 `MACH:0.20, REmi:5.5` against a one-metre reference solves to about
-1.446 kg/m3 against a sea-level 1.225.
+1.446 kg/m3 against a sea-level 1.225, and carries the pressure
+`p = rho R T` of that density at the sea-level temperature, about
+119.6 kPa.
 
-That is the design, not a defect. For a panel method it is expected to be
-harmless: density scales forces and viscosity sets Reynolds, and nothing
-in this package reads the pressure.
+### Density, pressure and temperature are one consistent triple
 
-**One thing to know before you read that as a guarantee.** The package
-does not read the pressure, but it does WRITE it. The emitted fluid state
-carries the pressure and temperature of the stated altitude beside the
-solved density, so on this branch the three are not a consistent triple:
-at the worked figures above, a density 18 percent above sea level is
-emitted next to a sea-level pressure. Whether the solver re-derives
-anything from that argument is a question about the solver, not about
-this package, and it is open: it is recorded for the domain-expert seat
-rather than answered here, because settling it needs a licensed run.
+Whenever the density is solved (`REmi`) or pinned (`RHOkgm3`), the
+emitted pressure is the ideal-gas pressure of that density at the state's
+temperature, unless a `PPA` pin states the pressure itself. Whenever the
+density is neither, it is the ideal-gas density of the pressure and the
+temperature. So the emitted density, pressure and temperature satisfy
+`p = rho R T` unless all three are pinned, and whichever two of them the
+solver reads, it meets the same state. Pins are emitted as written: a
+row that pins all three owns their agreement.
 
-It stops being harmless the moment a consumer reads that state
-as an altitude, which is why the run record carries **which branch**
+A solved state is still not an altitude, and a consumer that reads it as
+one is misled, which is why the run record carries **which branch**
 produced the density, in its `density_source` field, beside the resolved
 density, temperature and viscosity and the condition as written.
 

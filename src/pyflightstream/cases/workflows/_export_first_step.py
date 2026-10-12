@@ -26,6 +26,7 @@ from ._vocabulary import (
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     EXPORT_UNSTEADY_LAST_ITER_VARIABLE,
     EXPORT_UNSTEADY_LAST_REV_VARIABLE,
+    STEADY_RUN_TYPES,
 )
 
 #: The form each key records in the run record's ``export_window``.
@@ -120,7 +121,7 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
     Raises
     ------
     CampaignConfigError
-        If ``workflow`` is ``steady``, or the revolutions last form is stated on a
+        If ``workflow`` is a steady run type, or the revolutions last form is stated on a
         run type that has no unsteady clock.
     """
     if key == EXPORT_UNSTEADY_LAST_REV_VARIABLE and workflow not in _UNSTEADY_WORKFLOWS:
@@ -131,11 +132,13 @@ def refuse_threshold_on_a_steady_run(case: SimCase, key: str, workflow: str) -> 
             f"'{EXPORT_UNSTEADY_LAST_ITER_VARIABLE}: <steps>' on an unsteady run type "
             "instead, or drop the key."
         )
-    if workflow != "steady":
+    # EVERY STEADY RUN TYPE, the quasi-steady rotor included: it fell through to
+    # refusals about an unsteady clock and a run type that "turns nothing".
+    if workflow not in STEADY_RUN_TYPES:
         return
     raise CampaignConfigError(
-        f"case {case.sim_id!r} states {key} and names the steady run type, which has "
-        "no time loop: an unsteady solver action runs after each time step, and a "
+        f"case {case.sim_id!r} states {key} and names the {workflow} run type, which "
+        "has no time loop: an unsteady solver action runs after each time step, and a "
         "steady solve has none. State the key on an unsteady run type, or drop it."
     )
 

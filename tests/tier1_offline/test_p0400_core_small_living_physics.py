@@ -1,7 +1,7 @@
 """P0400-LIVINGPICK (PFS-2135.041): the living physics page reads the newest report, never a label.
 
 builds_at_or_after kept the alphabetically last report of a build, so a
-targeted rerun named ``_smi`` replaced the ``_full`` run of the same date. The
+targeted rerun named ``_targeted`` replaced the ``_full`` run of the same date. The
 latest date now wins, and two reports of one build on that date are refused.
 """
 
@@ -25,7 +25,7 @@ def test_p0400_livingpick_same_date_reports_are_refused(tmp_path, monkeypatch):
     physics = tmp_path / "physics"
     physics.mkdir()
     _write(physics, "PHY-26124_2026-09-01_full.yaml")
-    _write(physics, "PHY-26124_2026-09-01_smi.yaml")
+    _write(physics, "PHY-26124_2026-09-01_targeted.yaml")
     monkeypatch.setattr(module, "PHYSICS", physics)
     with pytest.raises(ValueError, match=r"26\.124 has 2 physics reports dated 2026-09-01"):
         module.builds_at_or_after(module.OLDEST_BUILD)

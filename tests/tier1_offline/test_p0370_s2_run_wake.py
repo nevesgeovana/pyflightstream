@@ -58,14 +58,14 @@ _ROTOR = RotorBlock(
     rpm_sign=1,
     diameter_m=3.6576,
     families_general=[],
-    families_blades=["Blade1"],
+    families_blades=["Blade1", "Blade2", "Blade3", "Blade4"],
     blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
 )
 
 
 def _row(**overrides: str | None) -> SimCase:
     """A rotor row asking a wake of 4 radii at ten degrees a step, and no other run length."""
-    variables: dict[str, str] = {
+    variables: dict[str, str | float | int | bool] = {
         WORKFLOW_KEY: "unsteady_rotor",
         "VELOCITY": "30.0",
         "RPM": "1200",
@@ -107,7 +107,7 @@ def _air(velocity: float) -> FluidState:
 def _at(velocity: str, **settings: object) -> SimCase:
     """The row at ``velocity`` in sea-level air, with these setup keys."""
     return _row(VELOCITY=velocity).model_copy(
-        update={"fluid": _air(float(velocity)), "solver": SolverSettings(**settings)}
+        update={"fluid": _air(float(velocity)), "solver": SolverSettings.model_validate(settings)}
     )
 
 
@@ -410,16 +410,16 @@ def test_p0370_s2_an_export_threshold_reads_the_resolved_count():
     exports steps 141 to 176 and the last 10 steps 167 to 176, both counted back from the
     resolved count."""
     requirement = "FR-422"
-    last_rev = unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_REV="1"))
+    last_rev = unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_REV="1"), version="26.120")
     assert last_rev is not None
     assert (last_rev.time_iterations, last_rev.first_step) == (176, 141), (requirement, last_rev)
-    last_iter = unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_ITER="10"))
+    last_iter = unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_ITER="10"), version="26.120")
     assert last_iter is not None
     assert (last_iter.time_iterations, last_iter.first_step) == (176, 167), requirement
-    after = unsteady_export_threshold(_row(EXPORT_UNSTEADY_AFTER_ITER="176"))
+    after = unsteady_export_threshold(_row(EXPORT_UNSTEADY_AFTER_ITER="176"), version="26.120")
     assert after is not None and after.first_step == 176, requirement
     with pytest.raises(CampaignConfigError) as refused:
-        unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_ITER="177"))
+        unsteady_export_threshold(_row(EXPORT_UNSTEADY_LAST_ITER="177"), version="26.120")
     assert "176" in str(refused.value), (requirement, str(refused.value))
 
 

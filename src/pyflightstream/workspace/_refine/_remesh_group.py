@@ -247,7 +247,7 @@ def _curve_record(
 
 
 def _edge_kind(
-    edge: Edge, fs: list[int], group: _Group, held: tuple[set[int], set[int]]
+    edge: Edge, fs: list[int], group: _Group, held: tuple[set[int], set[Edge]]
 ) -> str | None:
     """Return the curve key of one edge, or None for an edge free to flip.
 
@@ -259,7 +259,7 @@ def _edge_kind(
     # Named before FROZEN too: a trailing-edge edge between two interface nodes is
     # still the trailing edge, and the level's points file is written from these
     # keys. It stays frozen through the frozen set (:func:`_curves`).
-    if a in te and b in te:
+    if edge in te:
         return TRAILING_EDGE
     if a in fixed and b in fixed:
         return FROZEN
@@ -271,7 +271,7 @@ def _edge_kind(
     return None
 
 
-def _curves(group: _Group, fixed: set[int], te: set[int]) -> tuple[dict[Edge, str], set[Edge]]:
+def _curves(group: _Group, fixed: set[int], te: set[Edge]) -> tuple[dict[Edge, str], set[Edge]]:
     """Return every curve edge with its key, and the frozen edges."""
     dihedral = dihedral_degrees(group.verts, group.faces)
     curve: dict[Edge, str] = {}

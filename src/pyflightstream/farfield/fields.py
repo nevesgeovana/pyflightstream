@@ -117,19 +117,26 @@ class LatticeFields:
         return replace(self, lateral_values=MappingProxyType(merged))
 
     def station_index(self, station: float) -> int:
-        """Return the index of a station x/R, matched exactly.
+        """Return the index of a station x/R, allowing floating-point roundoff.
+
+        An exact match wins; otherwise the one station within ``1e-12``
+        (relative and absolute) is taken, so ``0.1 * 3`` finds the plane at
+        ``0.3``. A nearby plane is never guessed.
 
         Raises
         ------
         FarfieldInputError
-            If the lattice carries no plane at ``station``; a nearby plane is
-            never taken in its place.
+            If no plane, or more than one, lies at ``station`` within the
+            roundoff tolerance; the message names the available stations.
         """
         found = np.flatnonzero(self.stations == station)
+        if found.size == 0:
+            found = np.flatnonzero(np.isclose(self.stations, station, rtol=1e-12, atol=1e-12))
         if found.size != 1:
             raise FarfieldInputError(
-                f"the lattice has no annular plane at x/R = {station!r}; its stations "
-                f"are {[float(s) for s in self.stations]}"
+                f"the lattice has no single annular plane at x/R = {station!r} "
+                f"({found.size} match within 1e-12); available stations are "
+                f"{[float(s) for s in self.stations]}"
             )
         return int(found[0])
 

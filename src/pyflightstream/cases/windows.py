@@ -323,7 +323,7 @@ def surface_average_window(
     return window
 
 
-def passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
+def passages(window: tuple[int, int], period: float) -> list[tuple[int, int]]:
     """Cut an inclusive step window into successive passages of ``period`` steps.
 
     From the first step forward, a trailing partial passage dropped rather than
@@ -333,8 +333,9 @@ def passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
     ----------
     window : tuple of (int, int)
         The inclusive ``(first, last)`` steps to cut.
-    period : int
-        Steps in one passage. A value below 1 gives no passage.
+    period : float
+        Physical steps in one passage. Fractional periods retain their
+        cumulative boundaries; a value below 1 gives no passage.
 
     Returns
     -------
@@ -343,10 +344,14 @@ def passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
     """
     first, last = window
     cut: list[tuple[int, int]] = []
+    if not math.isfinite(period) or period < 1:
+        return cut
     start = first
-    while period >= 1 and start + period - 1 <= last:
-        cut.append((start, start + period - 1))
-        start += period
+    complete = int(math.floor((last - first + 1) / period + 1e-9))
+    for number in range(1, complete + 1):
+        end = first - 1 + int(math.floor(number * period + 1e-9))
+        cut.append((start, end))
+        start = end + 1
     return cut
 
 
@@ -370,7 +375,14 @@ def _recut(
         entry = block.get(name)
         if period_value is None and isinstance(entry, Mapping):
             period_value = _number(entry.get("period_steps"))
-    period = int(period_value or 0)
+    blades = _number(block.get("blades"))
+    period = (
+        per_revolution / blades
+        if per_revolution is not None and blades is not None and blades > 0
+        else float(period_value or 0)
+    )
+    own = averaging_steps(variables, per_revolution=per_revolution)
+    own_span = (max(span[1] - own + 1, 1), span[1]) if own is not None else span
     entry = block.get("phase_locked")
     table_can_move = (
         gate is not _KEEP_GATE
@@ -386,19 +398,17 @@ def _recut(
             last_step=span[1],
             per_revolution=per_revolution or 0.0,
             who=who,
-            span=span,
+            span=own_span,
             period=period,
         )
 
     if period < 1:
         return  # no passage length: the per-blade skip stands as recorded
-    own = averaging_steps(variables, per_revolution=per_revolution)
     if own is None:
         return
-    own_span = (max(span[1] - own + 1, 1), span[1])
     block["per_blade"] = {
         "windows": [list(own_span)],
-        "period_steps": period,
+        "period_steps": int(round(period)),
         "window_from": f"{said}, {own} steps of {who}, shared by every blade",
     }
 
@@ -633,7 +643,7 @@ def phase_locked_plan(
     per_revolution: float,
     who: str,
     span: tuple[int, int],
-    period: int,
+    period: float,
 ) -> dict[str, object]:
     """Plan one rotor's phase-locked reduction, including its named skip.
 
@@ -654,7 +664,7 @@ def phase_locked_plan(
     span : tuple of (int, int)
         The row's inclusive averaging window, cut into passages when there is
         no table.
-    period : int
+    period : float
         Steps in one blade passage of this rotor.
 
     Returns
@@ -754,20 +764,23 @@ def regate(plan: Mapping[str, object] | None, gate: object | None) -> dict[str, 
             continue
         if gate is None and not _from_the_table(entry):
             continue
-        average = fresh.get("time_average")
+        average = block.get("per_blade")
+        if not isinstance(average, Mapping) or not average.get("windows"):
+            average = fresh.get("time_average")
         stated = average.get("windows") if isinstance(average, Mapping) else None
         if gate is None and (not stated or period is None or period < 1):
             continue
         span = (
             (int(stated[0][0]), int(stated[-1][1])) if gate is None and stated else (1, int(last))
         )
+        blades = _number(block.get("blades"))
         block["phase_locked"] = phase_locked_plan(
             gate,
             last_step=int(last),
             per_revolution=clock,
             who=who,
             span=span,
-            period=int(period or 0),
+            period=(clock / blades) if blades is not None and blades > 0 else float(period or 0),
         )
         moved = True
     return fresh if moved else None

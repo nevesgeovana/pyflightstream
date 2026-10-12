@@ -57,6 +57,7 @@ FAMILY_KEYS = (
     "origin",
     "elements",
     "keep_first_row",
+    "trailing_edge_direction",
 )
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
@@ -84,6 +85,7 @@ class FamilySpec:
     axis: tuple[float, float, float] | None = None
     origin: tuple[float, float, float] | None = None
     keep_first_row: bool = False
+    trailing_edge_direction: tuple[float, float, float] | None = None
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -207,7 +209,11 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         raise _refuse(
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
-    table = {k: v for k, v in table.items() if k not in ("elements", "keep_first_row")}
+    table = {
+        k: v
+        for k, v in table.items()
+        if k not in ("elements", "keep_first_row", "trailing_edge_direction")
+    }
     if any(k in table for k in ("axial", "circumferential")):
         return _body_spec(where, table, method)
     if not any(k in table for k in ("factor", "chordwise", "spanwise")):
@@ -371,6 +377,15 @@ def _family_tables(
             keep.append(name)
         if set(table) != {"elements"}:
             specs[name] = _family_spec(where, table)
+            if "trailing_edge_direction" in table:
+                specs[name] = dataclasses.replace(
+                    specs[name],
+                    trailing_edge_direction=_vector(
+                        f"{where} trailing_edge_direction",
+                        table["trailing_edge_direction"],
+                        nonzero=True,
+                    ),
+                )
     return specs, elements, keep
 
 

@@ -370,7 +370,7 @@ register_option(
     "qa.scratch_root",
     default="runs",
     doc="Root directory of the gitignored local run scratch; the QA tiers "
-    "use <root>/probes, <root>/physics, and <root>/drift under it.",
+    "use <root>/probes and <root>/drift under it; physics uses its campaign workspace.",
     validator=non_empty_path_text,
 )
 register_option(
@@ -378,13 +378,5 @@ register_option(
     default=120.0,
     doc="Per-probe wall-clock limit in seconds of the Tier 2 validity "
     "sweep; probes are tiny scripts, so minutes mean a hung solver.",
-    validator=positive_seconds,
-)
-register_option(
-    "qa.case_timeout_s",
-    default=900.0,
-    doc="Per-point wall-clock limit in seconds of the Tier 3 physics and "
-    "drift runs; a converged steady point on the synthetic cases "
-    "takes well under this on the reference machine.",
     validator=positive_seconds,
 )

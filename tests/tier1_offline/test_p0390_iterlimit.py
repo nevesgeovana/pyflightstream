@@ -169,6 +169,10 @@ def _limit_workspace(tmp_path: Path) -> CampaignWorkspace:
     }
     for row in rows:
         row.update(fields)
+        if row.get("points_ran"):
+            # The sweep writer records the limit and note only on the entries.
+            row.pop("iterations_requested", None)
+            row.pop("residual_note", None)
         for entry in row.get("points_ran") or []:
             entry.update(fields)
     workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
