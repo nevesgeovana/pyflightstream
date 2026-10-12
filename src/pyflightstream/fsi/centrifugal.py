@@ -27,9 +27,11 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
+from pyflightstream.fsi.state import TwistIterationError
 
 __all__ = [
     "CampbellData",
@@ -266,6 +268,30 @@ def propeller_moment_twist_stiffness(
     ]
 
 
+def _warn_of_an_unmodelled_cg_offset(cfg: FsiConfig) -> None:
+    """Warn when a rotating blade states a centre of gravity off its elastic axis.
+
+    The rotating model does not carry that offset: the static solve has
+    no centrifugal moment of it and no bend-twist coupling, and the modal
+    problem holds it only as the parallel-axis term of the twist inertia
+    (:func:`pyflightstream.fsi.beam.lumped_station_masses`). A fixed wing
+    reads it for its own weight (:mod:`pyflightstream.fsi.wing`) and is
+    not warned.
+    """
+    if cfg.wing is not None:
+        return
+    offsets = [*cfg.blade.cg_offset_chordwise_m, *cfg.blade.cg_offset_normal_m]
+    if any(value != 0.0 for value in offsets):
+        warn(
+            "the configuration states a nonzero cg_offset on a rotating blade, and the "
+            "rotating model does not carry it: the static solve has no centrifugal moment "
+            "of the offset and no bend-twist coupling, and the modal problem holds it only "
+            "as the parallel-axis term of the twist inertia",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 @dataclass(frozen=True)
 class RotatingSolution:
     """Static solution of the rotating blade with iteration diagnostics.
@@ -344,10 +370,28 @@ def solve_rotating_static(
     -------
     RotatingSolution
         Converged solution and iteration diagnostics.
+
+    Raises
+    ------
+    FsiInputError
+        If a load distribution, a sequence or an array alike, does not
+        have one entry per configured station.
     """
     n = len(cfg.blade.station_radii_m)
-    aero_torsion = list(torsion_moment_n_m_per_m or [0.0] * n)
+    _warn_of_an_unmodelled_cg_offset(cfg)
+    aero_torsion = (
+        list(torsion_moment_n_m_per_m) if torsion_moment_n_m_per_m is not None else [0.0] * n
+    )
     aero_flap = list(flap_load_n_per_m) if flap_load_n_per_m is not None else None
+    for name, values in (
+        ("flap_load_n_per_m", aero_flap),
+        ("torsion_moment_n_m_per_m", aero_torsion),
+    ):
+        if values is not None and len(values) != n:
+            raise FsiInputError(
+                f"{name} has {len(values)} entries for {n} stations; sectional "
+                "loads must be sampled at the configuration stations"
+            )
     axial = axial_load_distribution(cfg)
     softening = in_plane_softening_coefficients(cfg)
     softens = any(k != 0.0 for k in softening)
@@ -413,8 +457,12 @@ def rotating_frequencies(cfg: FsiConfig, n_modes: int = 6) -> beam.ModalResult:
 
     The blade is first solved statically under its centrifugal loads
     (inner iteration included); the modal problem then adds PyNite's
-    geometric stiffness of that tension state and the lumped propeller
-    moment stiffening about the converged twist.
+    geometric stiffness of that tension state, the lumped propeller
+    moment stiffening about the converged twist and the in-plane
+    centrifugal softening of the flap
+    (:func:`in_plane_softening_coefficients`, with the negative sign
+    the static solve applies it with), so a pitched blade's flap
+    frequencies are lowered by it as its static flap is raised.
 
     Parameters
     ----------
@@ -427,8 +475,27 @@ def rotating_frequencies(cfg: FsiConfig, n_modes: int = 6) -> beam.ModalResult:
     -------
     beam.ModalResult
         Ascending frequencies with flap or torsion classification.
+
+    Raises
+    ------
+    TwistIterationError
+        If the static solve's inner iteration did not converge: the
+        twist the propeller moment stiffening is linearized about is
+        then the last iterate, not a solution.
     """
     rotating = solve_rotating_static(cfg)
+    if not rotating.converged:
+        raise TwistIterationError(
+            f"the inner twist and flap iteration of the rotating static solve at Omega "
+            f"{cfg.omega_rad_per_s} rad/s did not converge after {rotating.inner_solves} "
+            f"solves (twist residual {rotating.twist_residual_rad:.3e} rad against "
+            f"{rotating.tolerance_rad:.1e} rad, flap residual {rotating.flap_residual_m:.3e} m "
+            f"against {rotating.flap_tolerance_m:.1e} m), so the modal problem would be "
+            "linearized about a twist the structural model never settled on",
+            residuals_rad=(rotating.twist_residual_rad,),
+            tolerance_rad=rotating.tolerance_rad,
+            inner_solves=rotating.inner_solves,
+        )
     model = beam.build_beam_model(cfg)
     spinning = cfg.omega_rad_per_s > 0.0
     if spinning:
@@ -439,12 +506,14 @@ def rotating_frequencies(cfg: FsiConfig, n_modes: int = 6) -> beam.ModalResult:
         if spinning
         else None
     )
+    flap_stiffness = [-k for k in in_plane_softening_coefficients(cfg)] if spinning else None
     return beam.modal_frequencies(
         model,
         cfg,
         n_modes=n_modes,
         include_geometric_stiffness=spinning,
         twist_stiffness_n_m_per_rad=twist_stiffness,
+        flap_stiffness_n_per_m=flap_stiffness,
     )
 
 
@@ -464,16 +533,30 @@ class CampbellData:
     modal_results: tuple["beam.ModalResult", ...]
 
     def family_track(self, kind: str) -> list[float]:
-        """First frequency of a family (``"flap"`` or ``"torsion"``) per Omega."""
+        """First frequency of a family (``"flap"`` or ``"torsion"``) per Omega.
+
+        Raises
+        ------
+        FsiInputError
+            If a sweep point holds no mode of that family among its
+            ``n_modes`` lowest.
+        """
         track = []
-        for result in self.modal_results:
-            track.append(
-                next(
+        for omega, result in zip(self.omegas_rad_per_s, self.modal_results, strict=True):
+            first = next(
+                (
                     f
                     for f, k in zip(result.frequencies_rad_per_s, result.kinds, strict=True)
                     if k == kind
-                )
+                ),
+                None,
             )
+            if first is None:
+                raise FsiInputError(
+                    f"no {kind!r} mode among the {len(result.kinds)} lowest modes at Omega "
+                    f"{omega} rad/s (kinds {result.kinds}); sweep with a larger n_modes"
+                )
+            track.append(first)
         return track
 
 
@@ -508,7 +591,7 @@ def campbell_sweep(
     >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
     >>> data = campbell_sweep(cfg, [0.0, 100.0, 200.0], n_modes=2)
     >>> [round(f) for f in data.family_track("flap")]
-    [115, 165, 261]
+    [115, 164, 258]
     """
     # Every point is validated BEFORE the first solve, not per iteration.
     # Validating inside the loop refused a bad Omega only after paying for
@@ -566,7 +649,8 @@ def southwell_fit(
     Raises
     ------
     FsiInputError
-        If the sweep has fewer than three points, or not one frequency per rotor speed.
+        If the sweep has fewer than three points, or not one frequency per rotor speed, or
+        fewer than two distinct values of Omega^2 (the slope is then undefined).
 
     Examples
     --------
@@ -580,6 +664,12 @@ def southwell_fit(
             "the Southwell fit needs at least three sweep points with one frequency per rotor speed"
         )
     x = [w**2 for w in omegas_rad_per_s]
+    if len(set(x)) < 2:
+        raise FsiInputError(
+            "the Southwell fit needs at least two distinct values of Omega^2; the sweep holds "
+            f"only |Omega| = {sorted({abs(w) for w in omegas_rad_per_s})} rad/s, so the slope S "
+            "is undefined"
+        )
     y = [f**2 for f in frequencies_rad_per_s]
     n = len(x)
     x_mean = sum(x) / n
