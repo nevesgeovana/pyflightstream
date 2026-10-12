@@ -220,6 +220,13 @@ def _checked(path: Path) -> dict[str, dict[str, object]]:
             f"{path} is not valid TOML: {error}. Nothing ran: the workspace settings are "
             "read before any work."
         ) from error
+    except UnicodeDecodeError as error:
+        # TOML is UTF-8, and tomllib decodes before it parses, so a file saved
+        # in a legacy code page never reaches TOMLDecodeError.
+        raise InputArtifactError(
+            f"{path} is not UTF-8 ({error}); save it as UTF-8, which TOML requires. "
+            "Nothing ran: the workspace settings are read before any work."
+        ) from error
     tables: dict[str, dict[str, object]] = {}
     for name, value in raw.items():
         if name == "schema_version":
