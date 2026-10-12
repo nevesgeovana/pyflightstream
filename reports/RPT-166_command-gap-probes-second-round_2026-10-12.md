@@ -229,3 +229,58 @@ of each), and `CMP-<build>_2026-10-12_pfs2135-items.yaml` for 26.100, 26.101,
 | P5-3f | SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND | no | verified | verified |
 | D-01 | SET_VORTICITY_DRAG_BOUNDARIES | no | verified | verified |
 | D-01c | SET_VORTICITY_DRAG_BOUNDARIES | no | verified | verified |
+
+## 8. The CCS confirmation campaign
+
+Run through the real command line (`pyfs-matrix plan`, `run --local`, `post`)
+in a managed workspace on 26.124 and 26.125, a synthetic NACA 0012 wing
+(chord 1 m, half span 4 m, mirrored) and a circular pod, every row hidden and
+far-field layers 5. It drives the routes the 0.40.0 geometry and CCS lanes test
+offline: the CCS curve route of a whole wing, a control surface declared in the
+sidecar (deflected 10 deg against 0 deg), and the file route with Relaxed_TE
+under AXIAL and AZIMUTH shedding.
+
+The first pass wrote the section with the open-edge thickness law missing its
+x^4 term (a 0.124 c blunt trailing edge), and the wing read CL -0.925 at
+alpha 0. The second pass moved that one thing, the closed-edge law, and read:
+
+| Row | Build | alpha | Status | CL | CMy |
+|---|---|---|---|---|---|
+| plain wing | 26.124 | 0 | CONVERGED | 0.0003 | -0.0012 |
+| plain wing | 26.125 | 0 | CONVERGED | 0.0006 | -0.0012 |
+| plain wing | 26.124 | 4 | FAILED_INCOMPLETE_OUTPUT | 0.2840 | -0.0129 |
+| plain wing | 26.125 | 4 | FAILED_INCOMPLETE_OUTPUT | 0.2838 | -0.0128 |
+| aileron 10 deg | 26.124 | 4 | CONVERGED | 0.4570 | -0.0485 |
+| aileron 10 deg | 26.125 | 4 | CONVERGED | 0.4540 | -0.0479 |
+| aileron 0 deg | 26.124 | 4 | CONVERGED | 0.2835 | -0.0116 |
+| aileron 0 deg | 26.125 | 4 | CONVERGED | 0.2800 | -0.0110 |
+| pod, AXIAL | 26.124 | 4 | CONVERGED | 0.0002 | 0.0050 |
+| pod, AXIAL | 26.125 | 4 | CONVERGED | 0.0000 | 0.0053 |
+| pod, AZIMUTH | 26.124 | 4 | MAX_ITER_REACHED (80) | -0.0226 | 0.0311 |
+| pod, AZIMUTH | 26.125 | 4 | CONVERGED | -0.0171 | 0.0250 |
+
+Against what the lanes' tests assume: every script those tests emit offline was
+accepted and solved by both builds; the declared control surface moves the
+wing (a 10 deg deflection adds 0.17 to CL and a nose-down moment) and its 0 deg
+twin matches the plain wing within 0.004; the two builds agree within 1.3
+percent. Two differences from the tests' picture:
+
+- The second point of an alpha sweep is recorded FAILED_INCOMPLETE_OUTPUT on
+  both builds with its loads present ("a collected solver log holds another
+  number of solves than this point solved"): the solve-count check of the
+  release head refuses every point after the first of a sweep. A release
+  regression, not a CCS one.
+- `pyfs-matrix run` warns that building a .csv geometry inside the run is a
+  route the geometry stage replaces and 0.41.0 refuses; the campaign used it
+  because the CCS rows of the lanes' tests do.
+
+## 9. Physics on 26.125 (PFS-2084.006)
+
+`pyfs-qa physics` on 26.125 wrote
+`reports/physics/PHY-26125_2026-10-12_pressure-drag.yaml`. PHY-02 (half against
+full symmetry) was measured and its 26.125 reference seeded from that report
+through `pyfs-qa update-reference` (CL full 0.3385, CL half 0.3404, delta CL
+0.0019, delta CDp 0.0001). PHY-01 and PHY-06 aborted on the same solve-count
+check as section 8; PHY-05 (the rotor) was not planned, the workspace refusing
+its blade alias ("the geometry lacks boundary 'Blade1'"). Their references wait
+for those two regressions.
