@@ -104,6 +104,7 @@ nav:
           - CCS geometry: ccs-geometry.md
           - Surface translation: surface-translation.md
           - One row, one geometry, turned or moved: workflow-row-geometry-motion.md
+          - One row, a body free to move (6DOF): workflow-sixdof.md
       - Inputs and setup:
           - The input library and the solver presets: workflow-input-library.md
           - The reference artifact: workflow-reference-artifact.md
@@ -126,12 +127,14 @@ nav:
           - Sync every folder, and the two matrix homes: sync-folders-and-matrix-homes.md
       - FSI:
           - FSI in a workspace: fsi-workspace.md
+          - FSI with a structural program of your own: fsi-external.md
           - FSI Campbell diagram: examples/fsi_campbell_diagram.md
           - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
           - Workspace FSI calibration: examples/workspace_fsi_calibration.md
       - Post-processing:
           - The post-processing artifact and its products: pproc-artifact.md
           - Extracting more from a finished point: workflow-additional-post.md
+          - Streamlines from the pproc artifact: streamlines.md
           - Sampled velocity fields: sampled-fields.md
           - Boundary-layer products: boundary-layer-products.md
           - Quasi-steady wheel corrections: qsteady-corrections.md
