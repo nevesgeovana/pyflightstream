@@ -491,6 +491,12 @@ def _judged_reduction_windows(
             f"steps ({error}), so no window of the reduction can be cut"
         )
         return None
+    if any(len(window) != 2 for window in windows):
+        ctx.skipped[relative] = (
+            f"the record's {name} windows {stated!r} must each hold two bounds "
+            "(first and last solver steps), so no window of the reduction can be cut"
+        )
+        return None
     try:
         if ctx.series is None:
             ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
