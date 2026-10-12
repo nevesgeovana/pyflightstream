@@ -16,9 +16,9 @@ M_hel = sqrt(V^2 + (Omega R)^2) / a
   `ADVANCE_RATIO`; a disc's `ACTUATOR_RPM`, or the speed its advance ratio
   works out to against the disc's own diameter, as its script emits it.
   Its sign is the rotor's hand and is not read: both numbers are of a speed.
-  On a build whose rotor motion is written without a unit mark (26.100, report
-  RPT-051) the package writes the rev/min it resolved, and the unit that build
-  reads there is not measured; the numbers are of the speed the row states.
+  Rotor motions on 26.100 are refused until a rotation null test settles its
+  angular-velocity unit (RPT-051). The earlier rev/min decision disagrees with
+  the manual's rad/s, so the package cannot interpret that motion safely.
 - `R` is a rotor's half diameter: the `diameter_m` of its rotor block in the
   reference, else the reference's `rotor_diameter_m`. A rotor with neither has
   no known radius, and its two numbers are not computed: the plan and the run

@@ -26,8 +26,10 @@ from pyflightstream.commands import (
 )
 from pyflightstream.script import (
     MARCH_ACTIONS,
+    CommandArgumentError,
     Script,
 )
+from pyflightstream.script.rotor_vocabulary import _unmarked_unit_refusal
 
 from ._conventions import (
     _AVERAGE_ACTION,
@@ -73,7 +75,9 @@ from ._vocabulary import (
     _UNSTEADY_KEYS,
     _UNSTEADY_RECIPES,
     _UNSTEADY_ROTOR_KEYS,
+    ADVANCE_RATIO_VARIABLE,
     QSTEADY_ROTOR,
+    RPM_VARIABLE,
     _refuse_retired_window_keys,
 )
 
@@ -282,6 +286,12 @@ def build_script(
                 "surface of the same point; retain the pproc's generated output dependencies"
             )
     workflow = resolve_workflow(select_workflow(case))
+    if script.version.canonical == "26.100" and (
+        workflow.name in {"unsteady_rotor", "qsteady_rotor"}
+        or case.motions
+        or any(key in case.variables for key in (RPM_VARIABLE, ADVANCE_RATIO_VARIABLE))
+    ):
+        raise CommandArgumentError(f"case {case.sim_id!r}: " + _unmarked_unit_refusal("26.100"))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
         # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from

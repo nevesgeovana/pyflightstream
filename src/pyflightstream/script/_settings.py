@@ -49,20 +49,24 @@ Nothing here imports ``cases`` or ``workspace``, and nothing here imports
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import math
+from collections.abc import Mapping, Sequence, Sized
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ValidationError
 
+from pyflightstream._decimal import plain_decimal
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.solver_setup import (
+    FLAG_SPECS,
     LIBRARY_MINIMUM_CP,
     SEPARATION_MODELS,
     BulkSeparation,
     SolverSetup,
     build_setup,
+    with_unsteady_regime,
 )
 from pyflightstream.script.toggles import Toggle, resolve_toggle
 
@@ -286,11 +290,15 @@ def _flush_pending_vorticity(script: Script) -> None:
     pending = script._pending_vorticity
     if pending is None:
         return
-    script._pending_vorticity = None
     if pending == "all":
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     else:
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(pending), list(pending))
+    # Cleared only once the line is in the script, as analysis_setup records
+    # its own selection: a refused flush keeps the selection pending, where it
+    # was cleared first and lost while the snapshot recorded it emitted
+    # (PFS-2104.045).
+    script._pending_vorticity = None
 
 
 def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all: bool) -> None:
@@ -414,7 +422,59 @@ def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> 
     )
 
 
+def _refuse_empty(helper: str, argument: str, value: Sized, *, every: str | None) -> None:
+    """Refuse an empty selection before the first emission (PFS-2085.018).
+
+    The count-plus-list grammar would write the count 0 and an empty list,
+    a line selecting nothing, which the settings path and rotate_surfaces
+    already refuse; this is the same refusal for the helpers that went
+    straight to the emitter. ``every`` names the form that selects every
+    entity, where the argument has one.
+    """
+    if len(value) > 0:
+        return
+    remedy = f"pass {every} to select every one, or " if every is not None else ""
+    raise CommandArgumentError(
+        f"{helper}: {argument} is an empty sequence, which would emit a count of 0 "
+        f"followed by an empty selection. Name what it applies to, {remedy}omit the "
+        "argument; if the list was computed, the filter that built it matched nothing"
+    )
+
+
+def _wake_termination_token(value: object) -> str:
+    """Render ``wake_termination_x`` as one checked token (PFS-2097.010).
+
+    The database types the argument ``str`` because it takes the word
+    ``DEFAULT`` or a number, so the emitter's finiteness guard never sees
+    it: rendering a float with ``str`` wrote ``nan`` into the script. A
+    number must be finite and is written as a plain decimal; a string must
+    be ``DEFAULT`` (in any case) or a token that reads as a finite number.
+    """
+    if isinstance(value, str):
+        token = value.strip()
+        if token.upper() == "DEFAULT":
+            return "DEFAULT"
+        try:
+            number = float(token)
+        except ValueError:
+            number = math.nan
+        if math.isfinite(number):
+            return token
+    elif not isinstance(value, bool) and isinstance(value, (int, float)):
+        if math.isfinite(value):
+            return plain_decimal(float(value))
+    raise CommandArgumentError(
+        f"initialize_solver: wake_termination_x is {value!r}, and it takes DEFAULT, "
+        "for the solver's own wake termination, or the finite X location of the "
+        "termination in the reference frame (SRC-003 p.337). NaN, an infinity or "
+        "any other word would reach the solver as text it cannot read"
+    )
+
+
 # --- The flow conditions: the free stream and the fluid properties.
+
+#: The free-stream definitions :func:`free_stream` writes (SRC-003 p.322).
+FREE_STREAM_KINDS = ("CONSTANT", "ROTATION", "CUSTOM")
 
 
 def free_stream(
@@ -467,6 +527,14 @@ def free_stream(
     ['SET_FREESTREAM CONSTANT']
     """
     upper = kind.upper()
+    if upper not in FREE_STREAM_KINDS:
+        # Before the branches, which took every other word for CONSTANT and
+        # then refused it in CONSTANT's name, a kind the caller never wrote
+        # (PFS-2097.016).
+        raise CommandArgumentError(
+            f"free_stream: kind {kind!r} is not a free-stream definition; SET_FREESTREAM "
+            f"takes {', '.join(FREE_STREAM_KINDS)} (SRC-003 p.322)"
+        )
     rotation_given = [frame is not None, axis is not None, rpm is not None]
     custom_given = [profile is not None, filetype is not None]
     if upper == "ROTATION":
@@ -659,6 +727,17 @@ def atmosphere(
             return
         script.emit("AIR_ALTITUDE", altitude, altitude_units or "METERS")
         return
+    if altitude_units is not None:
+        # The unit of an altitude, and there is none: FLUID_PROPERTIES states
+        # the fluid in SI and reads no unit, so the argument would be dropped
+        # in silence while the opposite mix is refused (PFS-2085.019).
+        raise CommandArgumentError(
+            f"atmosphere: altitude_units is {altitude_units!r} and no altitude is given. "
+            "It is the unit of the standard-atmosphere altitude (AIR_ALTITUDE) and has "
+            "no meaning for the five explicit fluid properties, which FLUID_PROPERTIES "
+            "takes in SI units and with no unit token (SRC-003 p.328). Drop "
+            "altitude_units, or pass the altitude it qualifies"
+        )
     if unwanted is not None:
         other = "sonic_velocity" if takes_ratio else "specific_heat_ratio"
         raise CommandArgumentError(
@@ -702,8 +781,21 @@ def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) 
         Number of physical time steps.
     delta_time : float
         Physical time step in s.
+
+    Notes
+    -----
+    The solver-setup snapshot records this emission (PFS-2103.037): an
+    existing ``script.solver_setup`` is restamped here, and a later
+    :func:`~pyflightstream.script.helpers.solver_settings` call that states
+    no ``mode`` records it too, so an unsteady run no longer reports its
+    regime as unknown and not emitted.
     """
     script.emit("SET_SOLVER_UNSTEADY", time_iterations, delta_time)
+    script._unsteady_regime = (time_iterations, delta_time)
+    if script.solver_setup is not None:
+        script.solver_setup = with_unsteady_regime(
+            script.solver_setup, time_iterations=time_iterations, delta_time=delta_time
+        )
 
 
 def emit_solver_settings(script: Script, given: Mapping[str, Any]) -> SolverSetup:
@@ -725,25 +817,38 @@ def emit_solver_settings(script: Script, given: Mapping[str, Any]) -> SolverSetu
     """
     values = dict(given)
     prepared = _read_arguments(script, values)
+    minimum_cp_before = script._minimum_cp_emitted
     _emit_time_regime(script, values)
     _emit_family(script, values, RUNTIME_FAMILY)
     _emit_family(script, values, BOUNDARY_LAYER_FAMILY)
     _emit_family(script, values, SEPARATION_FAMILY)
     _emit_separation_models(script, values, prepared)
     _emit_family(script, values, CONVERGENCE_FAMILY)
-    minimum_cp_default_emitted = _emit_minimum_cp(script, values["minimum_cp"])
+    minimum_cp_default_emitted = _emit_minimum_cp(
+        script, values["minimum_cp"], already=minimum_cp_before
+    )
     _emit_family(script, values, ADVANCED_FAMILY)
     if given["vorticity_drag_boundaries"] is not None:
         script._vorticity_selection = prepared.selection
         script._pending_vorticity = prepared.selection
     passed = dict(values)
-    boundary_layer, rbf_type = values["boundary_layer"], values["aeroelastic_rbf_type"]
-    passed["boundary_layer"] = boundary_layer.upper() if boundary_layer is not None else None
-    passed["aeroelastic_rbf_type"] = rbf_type.upper() if rbf_type is not None else None
+    # EVERY ENUM FLAG AS THE SCRIPT WROTE IT (PFS-2103.012): the emitter
+    # writes the canonical member, so the snapshot records that member and
+    # not the caller's spelling.
+    for spec in FLAG_SPECS:
+        if spec.kind == "enum" and passed.get(spec.param) is not None:
+            passed[spec.param] = _canonical_member(script, spec.command, passed[spec.param])
     # The effective selection, which on a re-emission call is the one the
     # earlier call chose: the snapshot must describe the script, not just
     # this call.
     passed["vorticity_drag_boundaries"] = prepared.selection
+    if values["mode"] is not None:
+        script._unsteady_regime = None
+    elif script._unsteady_regime is not None:
+        # The regime unsteady_solver emitted, which this call does not restate
+        # (PFS-2103.037).
+        passed["mode"] = "UNSTEADY"
+        passed["time_iterations"], passed["delta_time"] = script._unsteady_regime
     setup = build_setup(
         version=script.version.canonical,
         passed=passed,
@@ -752,8 +857,68 @@ def emit_solver_settings(script: Script, given: Mapping[str, Any]) -> SolverSetu
         # is a record of THIS script (PFS-2012.05).
         registry=script.registry,
     )
+    setup = _carry_earlier_records(script.solver_setup, setup, passed)
+    if values["minimum_cp"] is None and minimum_cp_before:
+        record = setup.flags.get(_MINIMUM_CP)
+        if record is not None and not record.emitted:
+            # The script carries a minimum Cp no settings call recorded (an
+            # emit of the command itself): its value is not this record's to
+            # guess, and the solver default it would otherwise claim is not in
+            # force.
+            unknown = record.model_copy(
+                update={"provenance": "unknown", "value": None, "emitted": True, "evidence": None}
+            )
+            setup = setup.model_copy(update={"flags": {**setup.flags, _MINIMUM_CP: unknown}})
     script.solver_setup = setup
     return setup
+
+
+_MINIMUM_CP = "SOLVER_MINIMUM_CP"
+
+
+def _canonical_member(script: Script, command: str, value: object) -> object:
+    """Return the enum member ``value`` spells for ``command``'s one argument."""
+    if command not in script._view or not isinstance(value, str):
+        return value
+    for spec in script._view[command].args:
+        for member in spec.values or ():
+            if member.upper() == value.upper():
+                return member
+    return value
+
+
+def _carry_earlier_records(
+    earlier: SolverSetup | None, setup: SolverSetup, passed: Mapping[str, Any]
+) -> SolverSetup:
+    """Keep what an earlier settings call put in the script (PFS-2103.011).
+
+    The snapshot describes the SCRIPT, and a re-emission call that omits a
+    keyword leaves the earlier call's line in it: ``velocity=30.0`` then
+    ``aoa=5.0`` still carries SOLVER_SET_VELOCITY 30.0. So a flag this call
+    did not pass keeps the earlier record wherever that record describes an
+    emission the script carries. A keyword this call passed, the empty
+    sequence of an erase included, is this call's record whatever it says.
+    """
+    if earlier is None:
+        return setup
+    flags = dict(setup.flags)
+    for spec in FLAG_SPECS:
+        value = passed.get(spec.param)
+        if spec.kind == "bare_request":
+            # False is the default and requests nothing; the line an earlier
+            # True wrote is still there.
+            given = value is True
+        elif spec.kind == "separation_models":
+            # Read as [] when not passed; each call appends its own models.
+            given = bool(value)
+        else:
+            given = value is not None
+        if given:
+            continue
+        held = earlier.flags.get(spec.command)
+        if held is not None and held.emitted and spec.command in flags:
+            flags[spec.command] = held
+    return setup.model_copy(update={"flags": flags})
 
 
 def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
@@ -770,6 +935,7 @@ def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
         values[argument] = _read_assignments(argument, model_type, values[argument])
     for name in READ_TOGGLES:
         values[name] = _optional_toggle("solver_settings", name, values[name])
+    _read_request(values, "disable_ref_velocity")
     _read_time_regime(values)
     values["bulk_separation"] = _read_bulk(values["bulk_separation"])
     # Rendering every assignment HERE, before the first emission, rather
@@ -901,6 +1067,24 @@ def _read_assignments(argument: str, model_type: Any, given: Any) -> list[Any]:
             f"solver_settings: {argument} takes a sequence of "
             f"{model_type.__name__} ({fields}): {error}"
         ) from error
+
+
+def _read_request(values: dict[str, Any], argument: str) -> None:
+    """Refuse a non-bool for a request with no off form (PFS-2104.046).
+
+    The command carries no value, so the flag means "emit it" or nothing,
+    and it was decided by truthiness: 'DISABLE' and 'false' are non-empty
+    strings and emitted the command. A toggle word cannot be honoured here,
+    because there is no line that says off.
+    """
+    value = values[argument]
+    if isinstance(value, bool):
+        return
+    raise CommandArgumentError(
+        f"solver_settings: {argument} is {value!r}, and it is a request with no off "
+        "form: the command takes no value, so the script either carries it or does "
+        "not. Pass True to request it; omit it otherwise"
+    )
 
 
 def _read_time_regime(values: dict[str, Any]) -> None:
@@ -1050,12 +1234,18 @@ def _emit_separation_models(script: Script, values: Mapping[str, Any], prepared:
             script.emit(command, **arguments)
 
 
-def _emit_minimum_cp(script: Script, minimum_cp: object) -> bool:
-    """Emit the minimum-Cp limiter, or its library default; say if the default."""
+def _emit_minimum_cp(script: Script, minimum_cp: object, *, already: bool) -> bool:
+    """Emit the minimum-Cp limiter, or its library default; say if the default.
+
+    The default goes in only while the script carries no SOLVER_MINIMUM_CP
+    (``already``): a re-emission call that omits ``minimum_cp`` wrote -100
+    over an earlier explicit limiter, so every point after the first solved
+    at the library value (PFS-2104.023).
+    """
     if minimum_cp is not None:
         script.emit("SOLVER_MINIMUM_CP", minimum_cp)
         return False
-    if "SOLVER_MINIMUM_CP" in script._view:
+    if not already and "SOLVER_MINIMUM_CP" in script._view:
         script.emit("SOLVER_MINIMUM_CP", LIBRARY_MINIMUM_CP)
         return True
     return False
@@ -1187,7 +1377,7 @@ def initialize_solver(
     )
     arguments: dict[str, Any] = {
         "solver_model": solver_model,
-        "wake_termination_x": str(wake_termination_x),
+        "wake_termination_x": _wake_termination_token(wake_termination_x),
         "symmetry": symmetry,
     }
     if surfaces == "all":
@@ -1202,6 +1392,16 @@ def initialize_solver(
             )
             for index, quad_mesher in surfaces
         ]
+        _refuse_empty("initialize_solver", "surfaces", resolved, every="'all'")
+        if any(index == -1 for index, _ in resolved):
+            # resolve_boundary accepts the generic -1, and inside the
+            # per-surface list it is no surface at all (PFS-2104.024).
+            raise CommandArgumentError(
+                "initialize_solver: surfaces lists -1, which selects every boundary "
+                "and is not one surface of the per-surface list. Pass surfaces='all' "
+                "to initialize every boundary, or list the surfaces by index or label "
+                "(SRC-003 p.337)"
+            )
         arguments["surfaces"] = len(resolved)
         arguments["surface_toggles"] = [
             f"{index},{_toggle(quad_mesher)}" for index, quad_mesher in resolved
