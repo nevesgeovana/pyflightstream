@@ -20,6 +20,7 @@ Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1)
 | `CS` | flip | the side-force coefficient |
 | `CMN` | flip | the yawing-moment coefficient |
 | `Y` | flip | a position along the mirrored axis: a point at +y appears at -y (class: position) |
+| `YMOM` | flip | the moment reference point's position along the mirrored axis |
 | `VY` | flip | the y component of a velocity (class: polar vector) |
 | `VORTICITY_[XZ]` | flip | the x and z components of a vorticity (class: axial vector) |
 | `AZIMUTH` | azimuth | `psi -> -psi mod 360` |
@@ -30,7 +31,7 @@ Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1)
 | `MY` | keep | a moment about the normal of the mirror plane |
 | `CT` | keep | the thrust coefficient |
 
-The sectional `Fx`, `Fz` and `Moment` are NOT negated by default: the orientation of the section axes is not settled, and negating them on a guess would write a wrong number that looks like a right one. The `flip=` argument names them once it is. Any other column is copied as written.
+Every column ending in `*_PHASE_DEG` maps by `psi -> -psi mod 360`, including the first and second harmonic phases. The sectional `Fx`, `Fz` and `Moment` are NOT negated by default: the orientation of the section axes is not settled, and negating them on a guess would write a wrong number that looks like a right one. The `flip=` argument names them once it is. Any other column is copied as written.
 
 **The post writes the copies of the inflow tables.** `[products] installed_frame` in the pproc is a list of families from `probes` and `inflow` (default empty; any other name is refused when the pproc is read, naming these two). For `probes` the post writes `probes/<point>_probes_installed.csv` beside each probes table; for `inflow` it writes `<stem>.inflow_installed.dat` beside each reusable inflow profile (`fields/<stem>.inflow.dat`), the six columns `x y z vx vy vz` read as `X Y Z VX VY VZ`. Each copy is the mirror through `y = 0` by the one classification above, so a probe at +y appears at -y, its `VY` changes sign and its vorticity's x and z components change sign, while every other column is copied as written. Mirroring a copy again returns the source.
 

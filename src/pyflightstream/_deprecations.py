@@ -832,9 +832,18 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 #: architecture lens of 2026-09-09: the mapping was private to one module
 #: and its sibling reached into it).
 
+INFLOW_STATION_HARMONICS = DeprecatedFunction(
+    function="pyflightstream.post.inflow_tools.StationHarmonics",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyflightstream.post.inflow_tools.InflowStationHarmonics",
+)
+
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
+    INFLOW_STATION_HARMONICS,
 )
