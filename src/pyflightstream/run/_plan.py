@@ -57,6 +57,7 @@ from pyflightstream.cases.workflows import (
     actuator_records,
     qsteady_validity,
     rotor_machs,
+    streamline_count,
 )
 from pyflightstream.cases.workflows._freestream import (
     WakeTermination,
@@ -202,6 +203,10 @@ class PointPlan:
         in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
         the revolutions they turn. Empty on every other point, and then left
         out of ``plan.json``.
+    streamlines : int
+        The off-body streamlines the point's pproc traces (FR-460 R3, 0.40.0):
+        every seed line's count and every tube's ``radial * circular``. 0, and
+        left out of ``plan.json``, where it traces none.
     """
 
     run_id: str
@@ -218,6 +223,7 @@ class PointPlan:
     continuation: str | None = None
     wake_termination: dict[str, object] = field(default_factory=dict)
     run_wake_length: dict[str, object] = field(default_factory=dict)
+    streamlines: int = 0
 
 
 @dataclass(frozen=True)
@@ -866,7 +872,17 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
-    return lines
+    return lines + _streamline_lines(points)
+
+
+def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return the plan's line per point that seeds off-body streamlines (FR-460 R3)."""
+    return [
+        f"  {entry.run_id}: {entry.streamlines} off-body streamlines traced "
+        "(the [streamlines] lines and tubes of its pproc)"
+        for entry in points
+        if entry.streamlines
+    ]
 
 
 def run_wake_length_line(run: Mapping[str, object]) -> str:
@@ -1388,6 +1404,8 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
     record = {**asdict(entry), "status": str(entry.status)}
     if not entry.run_wake_length:
         del record["run_wake_length"]
+    if not entry.streamlines:
+        del record["streamlines"]
     return record
 
 
@@ -1405,6 +1423,7 @@ def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
         "qsteady_validity": qsteady_validity(point_case, inflow_fft=inflow_fft) or {},
         "wake_termination": {} if wake is None else wake.record(),
         "run_wake_length": {} if run is None else run.record(),
+        "streamlines": streamline_count(point_case),
     }
 
 

@@ -27,6 +27,8 @@ The byte snapshot of the products (``tests/tier1_offline/test_products_snapshot.
 P0330-PRODUCTS-SNAPSHOT) was taken before the decomposition and is unchanged
 by it. A product family of the backlog joins as one more step here, reading
 the context and writing into its sinks.
+
+Size exemption: one context and every product step of a simulation, each step one family.
 """
 
 from __future__ import annotations
@@ -114,6 +116,7 @@ from pyflightstream.post.polar import (
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import write_rotor_table
+from pyflightstream.post.streamlines import write_point_streamlines
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     plots_last_row,
@@ -228,6 +231,8 @@ class SimContext:
     #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
+    #: FR-460: each point's streamline exports, by kind.
+    streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -445,6 +450,7 @@ def _resolve(
         point_windows=admitted.point_windows,
         frozen_points=admitted.frozen_points,
         probe_positions=admitted.probe_positions,
+        streamlines=admitted.streamlines,
     )
 
 
@@ -705,6 +711,8 @@ def _point_products(ctx: SimContext) -> None:
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
+        # FR-460 R7: the streamline products of the point, from its exports.
+        write_point_streamlines(ctx, point.name)
 
 
 def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | None) -> None:

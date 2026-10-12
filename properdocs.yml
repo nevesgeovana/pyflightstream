@@ -112,6 +112,7 @@ nav:
               - Actuator profiles: actuator-profiles.md
           - Moving geometry:
               - Row geometry motion: workflow-row-geometry-motion.md
+              - Body free to move (6DOF): sixdof-motion.md
               - Roll rate example: examples/roll_rate_row.md
       - 3. Choose the run type:
           - Steady workflow: workflow-steady.md
@@ -121,6 +122,7 @@ nav:
           - Acoustic signals: acoustic-emission.md
           - Fluid-structure interaction:
               - FSI workspace: fsi-workspace.md
+              - FSI with your own structural program: fsi-external.md
               - FSI tutorial: fsi-tutorial.md
               - Wing static deflection: examples/wing_static_deflection.md
               - FSI Campbell diagram: examples/fsi_campbell_diagram.md
@@ -138,6 +140,7 @@ nav:
           - Probes: probes.md
           - Additional post: workflow-additional-post.md
           - Additional post example: examples/additional_post.md
+          - Streamlines: streamlines.md
           - Unsteady post-processing: unsteady-postprocessing.md
           - Quasi-steady corrections: qsteady-corrections.md
           - Fields and surfaces:

@@ -409,7 +409,9 @@ def _export_block(
     # at it, after the queue wait.
     exports_its_log = _exports_its_log(case)
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
-        if kind not in kinds or (only_unsteady and not unsteady):
+        # FR-460 R2, FR-461 R2: the surface trace and the trajectory are written
+        # where their commands sit (`_pproc_streamlines`, `_sixdof_motion`).
+        if kind not in kinds or (only_unsteady and not unsteady) or kind in _WRITTEN_ELSEWHERE:
             continue
         if kind == "log" and (declared_log or not exports_its_log):
             continue
@@ -451,6 +453,10 @@ def _export_block(
 #: declared. The section Cp plot is one: it plots the sections, and a point
 #: whose pproc switched every other section export off still updates them.
 _UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
+
+#: The declared kinds the export block never emits: each is written by the
+#: command that makes it, in its own phase (FR-460 R2, FR-461 R2).
+_WRITTEN_ELSEWHERE: frozenset[str] = frozenset({"streamlines_surface", "trajectory_6dof"})
 
 
 def _exports_its_log(case: SimCase) -> bool:

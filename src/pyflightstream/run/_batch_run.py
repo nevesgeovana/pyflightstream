@@ -387,7 +387,7 @@ def _job_points(
 def _post_script(case: SimCase, working: Path) -> str:
     """Return the post-processing script a coupled point staged in its folder, else ''."""
     staged = working / POST_FILE
-    if case.fsi is None or not staged.is_file():
+    if (case.fsi is None and case.fsi_external is None) or not staged.is_file():
         return ""
     return staged.read_text(encoding="utf-8")
 

@@ -271,7 +271,10 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # build logs of the two published PDFs (NFR-46); no exemption line was added or widened.
     # 265 on 0.39.0: guide/ gained pdf-release-record.json, the release record of the two
     # published PDFs (NFR-46 R4, R5); no exemption line was added or widened.
-    assert numbers["exempt"] <= 265, (
+    # 268 on 0.40.0 (gaps-rt lane): docs/ gained streamlines.md, sixdof-motion.md and
+    # fsi-external.md, the pages of the command-gap capabilities (FR-460 to FR-462); no
+    # exemption line was added or widened.
+    assert numbers["exempt"] <= 268, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

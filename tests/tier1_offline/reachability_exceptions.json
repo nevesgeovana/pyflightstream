@@ -233,18 +233,6 @@
    ]
   },
   {
-   "id": "RX-16",
-   "capability": "Off-body streamlines",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.results.OffBodyStreamline",
-    "pyflightstream.results.OffBodyStreamlinesReport",
-    "pyflightstream.results.parse_off_body_streamlines"
-   ]
-  },
-  {
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "routed later",

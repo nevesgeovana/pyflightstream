@@ -308,7 +308,7 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
-    if case.fsi is not None:
+    if case.fsi is not None or case.fsi_external is not None:
         return False
     return not (
         _sweeps_the_flow(case) or _sweeps_a_body_rate(case) or disc_speed_moves_with_the_point(case)

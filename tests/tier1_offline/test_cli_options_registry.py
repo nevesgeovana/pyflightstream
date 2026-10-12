@@ -473,7 +473,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "since"): frozenset({"log"}),
     ("pyfs-matrix", "problems"): frozenset({"log"}),
     ("pyfs-matrix", "open_only"): frozenset({"log"}),
-    ("pyfs-fsi", "dir"): frozenset({"init-dummy", "step"}),
+    ("pyfs-fsi", "dir"): frozenset({"external", "init-dummy", "step"}),
     ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
     ("pyfs-manual", "build"): frozenset({"register"}),
     ("pyfs-manual", "by_section"): frozenset({"sweep"}),
