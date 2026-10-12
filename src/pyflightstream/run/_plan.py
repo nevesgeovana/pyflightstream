@@ -511,7 +511,10 @@ def estimate_point_cost(
                 continue
             work = float(steps)
         else:
-            work = 1.0
+            # A STEADY JOB RECORD IS ITS POINTS' SOLVES IN ONE PROCESS
+            # (PFS-2094.015): its wall time is the whole job's, so it is
+            # one solve per point it ran, not one solve.
+            work = float(len(record.get("points_ran") or []) or 1)
         rates.append(float(record["wall_time_s"]) / work)
     samples = len(rates)
     if rates:

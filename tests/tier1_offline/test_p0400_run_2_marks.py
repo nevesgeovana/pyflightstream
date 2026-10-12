@@ -76,3 +76,18 @@ def test_p0400_cost_table_procs_is_the_row_s_ncpus(tmp_path):
     case = steady_case(geometry, max_threads=8)
     case = case.model_copy(update={"variables": {**case.variables, "NCPUS": "48"}})
     assert estimate_point_cost(case, run_id="run/a", recorded=[]).processors == 48
+
+
+def test_p0400_cost_prices_a_steady_job_record_per_point(tmp_path):
+    """P0400-COST-JOB (PFS-2094.015): a steady job's wall time is shared by its points.
+
+    One record of ten points in 1000 s priced one steady point at 1000 s,
+    ten times its share.
+    """
+    from pyflightstream.run import estimate_point_cost
+    from tests.tier1_offline.test_plan_cost import recorded, saved_simulation, steady_case
+
+    geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
+    job = {**recorded("run/sweep", 1000.0), "points_ran": [{"tag": f"p{i}"} for i in range(10)]}
+    cost = estimate_point_cost(steady_case(geometry), run_id="run/a", recorded=[job])
+    assert cost.seconds == 100.0
