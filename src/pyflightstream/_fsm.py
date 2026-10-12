@@ -70,6 +70,7 @@ __all__ = [
     "MeshReadError",
     "boundary_labels",
     "boundary_names",
+    "boundary_owners",
     "resolve_family",
     "saved_actuators",
     "saved_solver_actions",
@@ -985,6 +986,20 @@ def surface_mesh(
     """
     vertices, triangles, _, _ = _mesh_block(path)
     return vertices, triangles
+
+
+def boundary_owners(path: str | Path) -> tuple[int, ...]:
+    """Return the boundary of every face of a saved simulation's mesh block, counted from 1.
+
+    The geometry stage colours its preview by it (FR-471 R6). Empty where the
+    block carries no boundary row this reader recognises.
+
+    Raises
+    ------
+    MeshReadError
+        As :func:`surface_mesh`.
+    """
+    return _mesh_block(path)[3]
 
 
 def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float], ...]:
