@@ -56,7 +56,6 @@ import json
 import shutil
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,14 +69,15 @@ from pyflightstream.cases import (
     sweep_name,
 )
 from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix
+from pyflightstream.run._record_files import _now_stamp
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
-    ARCHIVE_STAMP,
     DATAPOINT_PREFIX,
     PointName,
     archive_previous,
     datapoint_dir_name,
+    free_root_archive,
     point_file_stem,
     sweep_file_stem,
 )
@@ -478,11 +478,15 @@ def _point_of_row(row: MatrixRow, point: Mapping[str, float]) -> bool:
 
 
 def _archive_manifest(workspace: CampaignWorkspace) -> RenameChange:
-    """Copy runs.json under ``archive/`` before it is rewritten."""
-    stamp = datetime.now(UTC).strftime(ARCHIVE_STAMP)
-    archive = workspace.root / ARCHIVE_DIR
-    archive.mkdir(parents=True, exist_ok=True)
-    target = archive / f"runs-{stamp}.json"
+    """Copy runs.json under ``archive/`` before it is rewritten.
+
+    In local time and through the one home of the spelling, as every other
+    archiver writes (PFS-2096.008, PFS-2096.006): a UTC stamp sorted against
+    the local ones made restore take the wrong copy as the newest, and a
+    hand-built name overwrote a copy written within the same second.
+    """
+    (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
+    target = free_root_archive(workspace.root, workspace.manifest_path.name, _now_stamp())
     shutil.copy2(workspace.manifest_path, target)
     return RenameChange(
         "manifest archived",
