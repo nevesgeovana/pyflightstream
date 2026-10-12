@@ -181,15 +181,15 @@ passage, in which the rotor's total repeats.
 
 **The limits.** Axisymmetric, isolated rotors only. At an angle, the
 in-plane loads are quasi-steady ESTIMATES: on the measured propeller the
-side force and the yawing moment came out with the opposite sign to the
+side force and the pitching moment (My) came out with the opposite sign to the
 unsteady rotor's and the normal force 20 % lower, whatever the clocking
 count. At 0 deg of angle and 10 deg per step, the quasi-steady thrust was
 9.2 % above the unsteady rotor's after three revolutions and 7.5 % after
 six, and the torque 7.1 % and 5.75 % above (RPT-089 section 3). A finer unsteady step
 closes part of that: at 5 deg per step and six revolutions the thrust gap was
 3.6 % at 5 deg of angle and 3.9 % at 0 deg, the normal force was 11.7 % and
-`Mz` 8.2 % away, and the side force and the yawing moment kept their
-opposite sign. That measurement is of hand-built scripts of the same
+`Mz` 8.2 % away, and the side force and the pitching moment (My) kept their
+opposite sign; Mz, the yawing moment, was 8.2 % away. That measurement is of hand-built scripts of the same
 commands, which clocked the wheel from a new simulation per clocking rather
 than by rotating its surfaces between solves. The scripts this run type
 builds have since run on 26.124: a sector coupled with FSI (RPT-090) and a

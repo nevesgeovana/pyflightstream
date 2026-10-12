@@ -196,11 +196,11 @@ def _listed_sims(text: str) -> list[str]:
 
 
 def _confirmed_destruction(yes: bool) -> bool:
-    """Ask before a product is destroyed rather than archived.
+    """Ask before the deprecated explicit-confirmation rebuild path.
 
-    `--force-overwrite` is named so it
-    cannot be reached by habit, and it asks. `--yes` answers it, for the
-    script that means it.
+    Rebuilds overwrite in place by default without an archive; ``--archive``
+    opts into keeping a copy. ``--force-overwrite`` and ``--yes`` are retained
+    as deprecated confirmation controls and do not change that archive policy.
 
     A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
     answer is not "assume yes": that is how a flag in a saved command line
@@ -211,10 +211,10 @@ def _confirmed_destruction(yes: bool) -> bool:
     if not sys.stdin or not sys.stdin.isatty():
         return False
     answer = input(
-        "--force-overwrite DESTROYS the products that are there and keeps no copy. "
-        "The default archives them instead. Type 'destroy' to go on: "
+        "--force-overwrite is deprecated and confirms a rebuild. The default "
+        "writes no archive; --archive keeps a copy. Type 'rebuild' to go on: "
     )
-    return answer.strip().lower() == "destroy"
+    return answer.strip().lower() == "rebuild"
 
 
 @cli_entrypoint
@@ -859,8 +859,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
             return 2
         if args.force_overwrite and not _confirmed_destruction(args.yes):
             print(
-                "--force-overwrite was not confirmed; nothing was written. Run without "
-                "it to archive what is there and rebuild, which loses nothing.",
+                "--force-overwrite was not confirmed; nothing was written. Confirm the "
+                "rebuild with --yes, or omit the deprecated confirmation option.",
                 file=sys.stderr,
             )
             return 2

@@ -1452,8 +1452,9 @@ byte (the manifest, the storage record, the additional-post record, a
 matrix's products record or its plan receipt), previewing until applied,
 archiving the current file first so a restore can be undone, and writing
 under the leases a sync holds, refusing while one writes. The writers of
-the storage record, the additional-post record, the plan receipt and the
-products record archive the previous file first, through the one home of the
+the storage record, the additional-post record and the plan receipt archive the
+previous file on every write. Products are archived only with `post --archive`
+(FR-397), through the one home of the
 archive names (`workspace.naming.archive_previous`), so each kind has a copy
 to restore; a failed copy warns and never blocks the write (FR-291 to
 FR-294). `pyfs-matrix

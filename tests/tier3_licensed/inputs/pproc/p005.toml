@@ -10,9 +10,8 @@
 #   SMRP or RMRP                           -> one per ROTOR, in that rotor's frame
 #   LOCAL_AXIS                             -> one per BLADE, in that blade's frame
 #
-# So the four lines of [plots] below become nine emissions on this
-# two-rotor aircraft, and would become twenty-seven on a nine-rotor one
-# without a line changing.
+# Four [plots] groups produce six emissions on two rotors (twenty on nine),
+# plus the rotor and MRP_TOTAL groups added by the run.
 
 # A GROUP IS CITED BY NUMBER and its members are boundary names, families or
 # ALIASES the reference declares. `airframe` and `rotors` are this study's

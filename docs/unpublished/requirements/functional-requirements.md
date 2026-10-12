@@ -4849,7 +4849,9 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-210 A file of the records family is restored from the workspace's archive, exactly <span class='srs-implemented'>implemented</span>"
 
     *Need: `sync`, `--force-rerun`, `delete-sims` and `rename` archive
-    `runs.json` before they rewrite it, and nothing brought a copy back.
+    `runs.json` before they rewrite it, and nothing brought a copy back. Storage,
+    plan and additional records are archived on every write; products are archived
+    only with `post --archive` (FR-397).
     Requirement: `pyfs-matrix restore <kind>` (library:
     `pyflightstream.run.records.restore`) previews by default, writes with
     `--apply`, archives the current file first in the same form, and puts the
@@ -4881,9 +4883,10 @@ Requirements written after the specification was last reconciled with the packag
       not readable JSON, or a manifest copy that is not a list of records; a
       restore of any kind while `runs.json.lock` is held, as during a sync,
       or while the restored record's own lease is held.
-    - The writers of the storage record, the products record, the plan
-      receipt and the additional-post record do not archive their file yet, so
-      for those kinds the copies found are the ones a restore made.
+    - Storage, plan and additional records are archived on every write.
+      Products are archived only when `pyfs-matrix post --archive` is used
+      (FR-397); without it, a restore can find only copies made by another
+      archive operation.
 
 !!! requirement "FR-211 Run records are rebuilt from the simulation folders, proved by the script the version that ran renders <span class='srs-implemented'>implemented</span>"
 
@@ -5746,12 +5749,11 @@ Requirements written after the specification was last reconciled with the packag
 
     *Origin: P0320-RESTORE-ARCHIVE, GEO-066 2.3 item 1; `products.json` used to be removed before a rebuild (ARCHITECTURE.md 5.9). Evidence: `tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_the_plan`, `::test_p0320_restore_archive_the_products_record_is_archived_not_removed`.*
 
-    Before a matrix's `plan.json` is rewritten, by a plan or by a rename, and
-    before a post rebuild removes and rewrites the matrix's `products.json`, the
-    previous file shall be copied to `post/<matrix>/archive/<stamp>/<name>`, the
-    form `restore plan` and `restore products` read. A plan of a campaign with no
-    matrix, which keeps its plan at the workspace root, is not archived, since
-    no restore kind reads it.
+    Before a matrix's `plan.json` is rewritten, by a plan or by a rename, the
+    previous file shall be copied to `post/<matrix>/archive/<stamp>/<name>`. A
+    post rebuild archives products only when `pyfs-matrix post --archive` is
+    given (FR-397). A plan of a campaign with no matrix, which keeps its plan at
+    the workspace root, is not archived, since no restore kind reads it.
 
     Solution, release 0.32.0: the plan writer, the rename and the post rebuild
     call `archive_previous` with the matrix stem.
@@ -6301,7 +6303,8 @@ Requirements written after the specification was last reconciled with the packag
     clean, and `post.log.json` beside it.
 
     - The log carries the invocation header and one record for every named skip
-      and stage warning, and is archived with the products on rebuild. The
+      and stage warning. It is archived with products only when `post --archive`
+      is used (FR-397). The
       manifest names both files (`log_json` for the second).
     - `post.log.json` holds the header (`version`, `workspace`, `matrix`,
       `time`, `check_frozen`) and `records`, one per WARNING line in the same

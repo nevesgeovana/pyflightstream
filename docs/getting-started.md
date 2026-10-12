@@ -19,6 +19,7 @@ Optional extras, each gating one subsystem:
 | `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
 | `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it became a runtime dependency in v0.8.0, because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
 | `[plot]` | matplotlib, for the plotting examples only |
+| `[excel]` | Optional macro-free matrix workbook |
 
 Reach one without installing it and you get a single typed refusal
 carrying the exact install command:
@@ -234,9 +235,7 @@ is measured in, and the count follows:
 | `SMRP` or `RMRP` | one per ROTOR, in that rotor's own frame |
 | `LOCAL_AXIS` | one per BLADE, in that blade's frame |
 
-So the four `[[plots.groups]]` entries in `p005.toml` become nine emissions
-on this two-rotor aircraft, and would become twenty-seven on a nine-rotor
-one without a line changing.
+The four `[[plots.groups]]` entries in `p005.toml` produce six emissions (twenty on nine rotors), plus the rotor and `MRP_TOTAL` groups the run adds.
 
 ### 5. The matrix: which combinations to run
 
@@ -248,7 +247,7 @@ sweeps. Row 8002 is the one to look at first:
 8002 | Twin | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 | r006 | s002 | p005 | ...
      | GEOMETRY: 41_TWIN.fsm / DELTA_THETA: 30 / REVOLUTIONS: 0.5 /
        CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD} /
-       LAST_REVS_AVG: 1
+       LAST_REVS_AVG: 0.25
 ```
 
 Read it left to right: at Mach 0.1, at zero incidence and sideslip,
@@ -448,23 +447,15 @@ the run defined.
 ```python
 from pyflightstream.results import parse_unsteady_plots
 
-export = (
-    "Time (sec), CL, CDi\n"
-    ".000, +2.3500000E-3, -1.9800000E-4\n"
-    ".004, +2.1000000E-3, -1.4000000E-4\n"
-)
+from pathlib import Path
+
+export = Path("tests/tier1_offline/fixtures/s10_26125/plots_26.125.txt").read_text(encoding="utf-8")
 report = parse_unsteady_plots(export)
 assert report.steps == 2
 assert report.series("CL")[-1] == 0.0021
 ```
 
-READ THE STATUS OF THIS ONE BEFORE YOU RELY ON IT. The file's shape is
-DOCUMENTED and not yet OBSERVED: no export of that command exists in
-this repository, so the parser was written against the manual's
-description and its fixture is synthetic and says so in its own header.
-An emitted command is not a proven one, and a parser written against a
-description is not a parser proven against a file. The first real export
-is what turns this from documented into verified.
+Recorded unsteady plot exports from FlightStream 26.124 and 26.125 are committed and read by the post; RPT-076 records the measured format. The parser example below uses a trimmed recorded export so the test exercises the real header.
 
 ## Where to go next
 

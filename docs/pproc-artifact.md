@@ -5,7 +5,7 @@ What the post-processing artifact of a row holds, the products it derives, and a
 ## What the post-processing artifact holds
 
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact
-(PFS-2029.07). It carries twelve optional tables; a file holding `[groups]`
+(PFS-2029.07). It carries fifteen optional tables; a file holding `[groups]`
 alone is valid. `[volume_section]` has [its own paragraph below](#a-volume-section).
 `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
@@ -74,7 +74,7 @@ end = [-2.0, 1.0, 0.0]
 # kind = "normal"              # unsteady rows: probe points at the last time step
 
 [products]                     # the post-processed CSV tables the campaign writes
-polars = true                  # one polar table per group, per point
+polars = true                  # one polar table per group, per simulation
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
 custom_polar_format = false    # beside each polar table, the text file the reference tooling opens
@@ -534,13 +534,7 @@ its other products.
 And the REDUCTIONS of the plots table, one file per applicable reduction
 beside it (PFS-2015.04), over the window the row states;
 [the reductions of an unsteady point](workflow-unsteady.md#the-reductions-of-an-unsteady-point)
-walks them. The arithmetic behind the polar table is the
-reference and was checked column by column against the tables the owning seat
-recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
-coefficients, the body axes follow by turning them through the angle of
-attack, the wind axes by turning the stability axes through the sideslip,
-and the rolling and yawing moments are `CMx` and `CMz` scaled from the chord
-to the span, with the reference sign.
+walks them. The steady polar arithmetic is defined in [the axes of a steady polar](definitions/the-axes-of-a-steady-polar.md).
 
 The run writes these after collection, under `post/<matrix stem>/`, the
 folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
@@ -552,22 +546,17 @@ area than the products would state for one, is listed under
 `skipped` in that file with the reason, and the others are written
 (PFS-2031.16); the key is always there, empty when nothing was refused. A
 windowed unsteady point also gets its per-step series under `series/`,
-described with the export threshold below (the stamped files as a series). To rebuild them by hand, with no solver and no executable
+described with [the export threshold](workflow-unsteady-rotor.md#exports-that-begin-after-a-threshold). To rebuild them by hand, with no solver and no executable
 configured:
 
 ```text
-pyfs-matrix post matriz.fs --workspace .            # archives what is there, then writes
+pyfs-matrix post matriz.fs --workspace .            # overwrites products in place
 pyfs-matrix post --workspace .                      # every matrix the manifest names
 pyfs-matrix post --workspace . --strict             # exit 3 if any product was skipped
-pyfs-matrix post --workspace . --force-overwrite    # destroys instead, and asks first
+pyfs-matrix post --workspace . --archive             # keeps a copy before overwriting
 ```
 
-**A REBUILD REFUSES NOTHING.** The first form MOVES whatever is
-there into `archive/<day and hour>/` beside it and writes the new product in
-its place, so nothing is lost and nothing is in your way. `--overwrite` is
-gone: the flag that keeps no copy is `--force-overwrite`, it asks for a
-confirmation, and a non-interactive session answers no. One stamp per rebuild,
-so everything one rebuild replaced sits in one folder.
+**A rebuild overwrites products in place by default.** Add `--archive` to keep a copy of replaced products. The deprecated `--force-overwrite` and `--yes` flags add an explicit confirmation path; they do not change the archive policy.
 
 A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
@@ -642,7 +631,7 @@ The title carries the row's description; line 2 is the polar and a
 two-digit Mach code (`1001` at Mach 0.10 is `100110`);
 line 3 the write time; `007 01` the number of reference columns and the
 group; then the reference names and values, the row and column counts,
-the twenty-four column names of the polar table in its order, and every
+one polar table per group, per simulation, and the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (the retired prefix and key are refused); the tier-1 test

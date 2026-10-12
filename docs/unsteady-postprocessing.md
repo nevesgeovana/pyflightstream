@@ -22,9 +22,8 @@ table. Setting an export to false suppresses that plot. Asking for the Cp plot
 without any section distribution remains invalid.
 
 A native control ([RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)) measured this final export on FlightStream
-26.124, build 8172026. Thirty nonempty curves were exported after twelve time
-steps; the nine printed final load coefficients matched the baseline exactly.
-This evidence does not establish the same behavior on other builds.
+26.124, build 8172026. Thirty nonempty curves were exported; the nine printed final load coefficients matched the baseline exactly.
+RPT-083 sections ?Final section Cp? and ?Temporal averages? report the measured 26.122 wall time and averaging results. This evidence does not establish the same behavior on other builds.
 
 Surface averages use every STEP in the requested inclusive window. The same
 cell identity is followed through the window; the final STEP supplies geometry.

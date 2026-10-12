@@ -169,9 +169,7 @@ not record), so the zip under `archive/` is where to look.
 Stated plainly, because a reproducibility page that only lists
 successes is not much use.
 
-The staged inputs are copies, so a reconstruction is faithful to the
-files that were staged, not to whatever the source path holds today.
-That is the intended behaviour and it is why staging copies at all.
+Inputs are linked into `inputs/geometries/` (`staged_as: link`); a copy is made only as a fallback. Editing a library geometry therefore changes what every past point's inputs resolve to, and the hash check reports the change. Version or copy geometries instead of editing them in place.
 
 Solver behaviour is not in the record. If the same build produces a
 different number on a different machine, nothing here will tell you

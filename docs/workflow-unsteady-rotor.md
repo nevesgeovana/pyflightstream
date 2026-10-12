@@ -8,15 +8,9 @@ row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
 values it needs come off the row and nowhere else, and a row missing one
 of them is refused before anything runs, naming the row and the cell.
 
-That combination, periodic copies together with a rotary motion in an
-unsteady run, HAS been run on a licensed solver by this repository's own
-QA case PHY-05, on 26.120 and again on 26.123, inside its bands. Read
-that as evidence about the SOLVER and not about this workflow: PHY-05 is
-a hand-built script, and no script the `unsteady_rotor` workflow builds
-has run on a licensed solver. What is not established here is whether a
-`BLADES` count may divide the phase-locked averaging window on the
-strength of it, which is why the limits list still says `BLADES`
-configures no rotor.
+Workflow-built rotor scripts have run on licensed solvers: RPT-043 (26.120),
+RPT-073 and RPT-080 (26.124), and RPT-133 (26.124). Blade counts come from
+`families_blades`; `BLADES` applies only to a row that names no rotor.
 
 **A mean taken from few revolutions, or at a coarse time step, sits below
 the developed wake.** An `unsteady_rotor` point's thrust and torque are still
@@ -142,22 +136,9 @@ the decisions and the package derives the rest.
     diameter; and an axial velocity that is not positive (state
     `wake_termination_thrust_n` in the setup, or state `REVOLUTIONS`).
 
-* `LOG_OUTPUT: <n>` names WHICH of the row's own `OUTPUTS` is the solver
-  log, counted from 1, and the workflow then emits `EXPORT_LOG` for it.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` applies only to cases written in Python. A row declaring it is refused; use `pyfs-matrix upgrade <matrix> --in-place` to migrate the matrix.
 
-    **It is what makes a convergence verdict possible at all.** An
-    unsteady time loop always reaches its prescribed end, so the
-    iteration counter judges nothing, and without a log every unsteady
-    run is recorded `COMPLETED_MAX_ITER` whether it converged at every
-    time step or at none. That word is a statement about the evidence
-    and it reads as a statement about the solver. With a log the verdict
-    is the final residual against the row's own convergence limit.
-
-    It is a POSITION and not a file name because the names carry the
-    point placeholder in the cell and reach a builder already rendered:
-    the cell says `loads_{point}.txt` and the case carries
-    `loads_M200RE230AL+000.txt`, so a name could never match. Order survives
-    rendering; a name does not.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. Use `pyfs-matrix upgrade <matrix> --in-place` to migrate an older matrix.
 
 * `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
   <steps>`, at most one per row, is the step the PER-STEP exports begin
@@ -206,7 +187,7 @@ definitions, and where else the two numbers appear (the run record, the
 rotor table), are in
 [the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
-**THE RESERVED NAMES ARE THESE, AND THE LIST HAS GROWN TWICE.**
+The package-reserved matrix keys are listed in the [input glossary](inputs.md#tables-and-reserved-keys).
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
 itself reads, and a cell of yours that already spells one of them is
 read by the package rather than ignored:
@@ -343,9 +324,7 @@ v0.9.0 added a larger upgrade risk than any name, the removal of the
 `pyfs-matrix upgrade <path> --in-place` and described on
 [the flight-condition page](flight-conditions.md).
 
-A row that names none of the three behaves exactly as it did before, and
-that is measured rather than promised, in two separate ways because they
-are two separate claims.
+A row that names none of the reserved keys behaves as it did before. The [input glossary](inputs.md) lists both matrix homes and the package-reserved names.
 
 Going forward, every workflow crossed with three case shapes and every
 build it covers is pinned as a committed golden under
@@ -503,9 +482,7 @@ the two registrations above, whose program counts the time steps and
 writes nothing else, so no exports file exists and no exports action runs.
 The record names the program as `action_program` and keeps `action_count`,
 with no `action_script` and no `export_window`, and the progress bar of a
-local run reads that count, as it reads it on a row with exports. That the
-counter leaves the results unchanged is owed by the licensed round of
-0.33.0.
+local run reads that count, as it reads it on a row with exports. RPT-112 measured the no-effect result on 26.124, build 8172026, for its tested unsteady counter case.
 
 What is exported per step is read from the row's outputs and nowhere
 else: the loads table, the surface (the VTK, from which the run writes each
@@ -517,8 +494,6 @@ threshold beyond the run is refused naming both numbers; the revolutions
 form on `unsteady` is refused naming the iterations form that would work,
 because a run that turns nothing has no revolution to count.
 
-This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
-exports: the exports begin AFTER a threshold, in the reference definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 

@@ -37,11 +37,7 @@ per row (FR-415). The revolutions forms are refused here, having no rotor clock;
 the refusal names the iterations form. See [the last revolutions or the last
 steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-steps-of-a-run).
 
-**`LOG_OUTPUT` applies here too**, and for the same reason it applies to
-a rotor run: an unsteady time loop always reaches its prescribed end, so
-the iteration counter judges nothing and the run would be recorded
-`COMPLETED_MAX_ITER` whatever the solver did. Name the log among the
-row's outputs and the residuals decide instead.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. Use `pyfs-matrix upgrade <matrix> --in-place` to migrate an older matrix.
 
 ## Probes: unsteady or normal
 

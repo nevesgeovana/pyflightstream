@@ -47,3 +47,9 @@ after the march when the pproc declares section distributions, never by each
 per-STEP action. The earlier steady-only refusal applies to prior releases.
 A plot is not a sectional-load table; see [unsteady plots and averages](../unsteady-postprocessing.md)
 for the measured final-export control and history-coverage limits.
+
+
+**Run as a campaign writes it.** A point saves each plot to its own name,
+relative to its working directory, as every export of the point does; two saves
+in a row on 26.124 left both files in the working directory (RPT-067 and its
+addendum).

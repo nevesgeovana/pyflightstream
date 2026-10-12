@@ -5,11 +5,11 @@ and a row of an unsteady run type must state it.
 
 | column | run type | required | unit |
 |---|---|---|---|
-| `LAST_REVS_AVG` | `unsteady_rotor` | **yes** | last revolutions, **accepts a float** |
+| `LAST_REVS_AVG` or `LAST_ITERS_AVG` | `unsteady_rotor` | exactly one | last revolutions (float) or last iterations |
 | `LAST_ITERS_AVG` | `unsteady` | yes | last iterations |
 
-**The key is written in UPPER CASE, exactly as the table spells it**, like every
-other key of a matrix row. `VAR_NAMES_VALUES` keys are matched on the exact
+**`VAR_NAMES_VALUES` keys are written in UPPER CASE, exactly as the table spells them**, like every
+other key of a matrix row. These keys are matched on the exact
 spelling: a lower-case `last_revs_avg` on a workflow row is refused as a key of
 no run type, and where that check does not run it is not read at all, so the
 window it meant to state is not applied.
@@ -49,8 +49,7 @@ starts again at step 1 with rows of its own is numbered on from the history's
 last step, its time with it. No step is repeated or missing at a seam, and
 `post.log` says how the history was joined and the step the window ends at. A
 history that cannot be found or joined is said there, naming the file, and the
-table then holds the continuation's own export, as it states its steps. Which
-of these the solver writes is not yet read on a licensed run, so each is read.
+table then holds the continuation's own export, as it states its steps. On 26.124, RPT-134 measured that a continuation export numbered the whole march from step 1 to step 24; its resumed export restated the march. Emitting no reinitialization on continuation remains owed for 0.35.0.
 A point that continues nothing is averaged exactly as before.
 
 ---

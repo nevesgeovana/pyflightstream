@@ -1127,18 +1127,16 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="DESTROY an existing product instead of archiving it. Since v0.17.0 a "
-        "rebuild MOVES what is there into post/<matrix>/archive/<day and hour>/ and "
-        "then writes, so nothing is lost and nothing is refused; this is the escape "
-        "from that, it keeps no copy, and it asks for a confirmation first. Pass "
-        "--yes to answer that confirmation in a script",
+        help="Deprecated confirmation control. Rebuilds overwrite in place without an "
+        "archive by default; use --archive to keep a copy. This option adds an "
+        "explicit confirmation before rebuilding and does not change the archive policy. "
+        "Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",
         action="store_true",
-        help="answer the --force-overwrite confirmation. Only meaningful with it, and "
-        "refused without it: a flag that answers a question nobody asked is a flag "
-        "somebody will carry into the run that did ask",
+        help="Deprecated confirmation control for --force-overwrite. It confirms a "
+        "rebuild, whose default still writes no archive; --archive keeps a copy.",
     )
     post.add_argument(
         "--strict",
