@@ -88,6 +88,7 @@ from pyflightstream._progress import print_held_warnings as print_held_warnings
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
+    RAW_MESH_FORMATS,
     WorkflowCoverageError,
     resolve_workflow,
     workflow_names,
@@ -1061,7 +1062,20 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
     )
 
     geometry = Path(args.geometry)
-    saved = geometry.is_file() and geometry.suffix.lower() != OBJ_SUFFIX
+    # A RAW MESH IS EVERY FORMAT RAW_MESH_FORMATS NAMES, the STL as well as
+    # the OBJ (PFS-2094.036): an STL read as a saved simulation was warned
+    # about, or cleaned, before write_inventory refused it. Its refusal now
+    # comes first, and --clean on an OBJ is refused rather than ignored.
+    raw = geometry.suffix.lower() in RAW_MESH_FORMATS
+    if raw and args.clean and geometry.suffix.lower() == OBJ_SUFFIX:
+        print(
+            f"--clean reduces a saved simulation to its meshes and boundary conditions; "
+            f"{geometry.name} is a raw mesh, which carries no saved solver action. "
+            "Drop --clean to write its inventory.",
+            file=sys.stderr,
+        )
+        return 2
+    saved = geometry.is_file() and not raw
     if saved and args.clean:
         stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         try:

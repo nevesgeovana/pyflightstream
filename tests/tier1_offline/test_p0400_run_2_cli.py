@@ -35,3 +35,35 @@ def test_p0400_query_alias_survives_a_campaign_named_sim_something():
     assert _cli_query_point._annotate(row, aliases)["run_id_alias"] == "2006_1"
     plain = {"run_id": "campaign/sim_2006/a+02.0_b+00.0"}
     assert _cli_query_point._annotate(plain, aliases)["run_id_alias"] == "2006_1"
+
+
+_TRIANGLE_STL = (
+    "solid wing\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\n"
+    "vertex 0 1 0\nendloop\nendfacet\nendsolid wing\n"
+)
+
+
+@pytest.mark.parametrize("clean", [False, True])
+def test_p0400_inventory_reads_an_stl_as_a_raw_mesh(tmp_path, capsys, clean):
+    """P0400-INVENTORY-RAW (PFS-2094.036): an STL is a raw mesh, never a saved simulation.
+
+    write_inventory's refusal of an STL comes first: no saved-action warning,
+    and no --clean run on it.
+    """
+    stl = tmp_path / "wing.stl"
+    stl.write_text(_TRIANGLE_STL, encoding="utf-8")
+    argv = ["inventory", str(stl), *(["--clean"] if clean else [])]
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "carries no mesh block" in err
+    assert "saved unsteady" not in err
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["wing.stl"]
+
+
+def test_p0400_inventory_refuses_clean_on_an_obj(tmp_path, capsys):
+    """P0400-INVENTORY-RAW (PFS-2094.036): --clean on an OBJ is refused, not ignored."""
+    obj = tmp_path / "wing.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\ng wing\nf 1 2 3\n", encoding="utf-8")
+    assert cli.main(["inventory", str(obj), "--clean"]) == 2
+    assert "is a raw mesh, which carries no saved solver action" in capsys.readouterr().err
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["wing.obj"]
