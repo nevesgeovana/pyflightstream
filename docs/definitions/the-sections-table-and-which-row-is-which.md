@@ -265,11 +265,12 @@ immediately after `Moment`:
 | `My_int` | `MY_INT` | N m | `Moment * Strip_length`, about this station's quarter chord |
 
 **Strip rule.** For strictly monotonic exported offsets `s[0] ... s[n-1]`,
-the interior boundaries are `(s[i-1] + s[i]) / 2`. The outer boundaries are
-`s[0]` and `s[n-1]`. Endpoint lengths are half their one adjacent interval;
+the interior boundaries are `(s[i-1] + s[i]) / 2`. The outer boundaries extend
+half an adjacent spacing beyond `s[0]` and `s[n-1]`, because the exported end
+stations are strip centers. Endpoint lengths are their one adjacent interval;
 each interior length is half the distance between its two neighboring stations.
-Thus the strips tile exactly the first-to-last station interval with no gap,
-overlap or extrapolation to a geometric root or tip. Decreasing offsets retain
+Thus the strips cover the span including the half strip beyond each end station,
+with no gap or overlap. Decreasing offsets retain
 their order and use positive lengths. The nominal `count` spacing is never
 used. Each recorded block (one plane, frame and family selection) is integrated
 independently at each exported STEP, including blocks sharing a distribution

@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -395,10 +395,15 @@ def _force_along_the_stream(
     and the efficiency, a ratio, is the same number either way. The wind-axis
     force has to follow the same sense or that ratio flips sign with a choice
     that is the user's to make.
+
+    THE SENSE IS FIXED ONCE PER ROTOR, against the body's +x, the stream of a
+    level row (PFS-2105.017): taken against each row's own stream it flipped
+    where the shaft is square to the stream, so a lift rotor's ETAW changed
+    sign between alpha -2 and +2 while its thrust and CP did not. A shaft
+    square to +x keeps the sense +1.
     """
     stream = free_stream_in_export_frame(alpha_deg, beta_deg)
-    along = sum(a * b for a, b in zip(stream, _unit(shaft), strict=True))
-    sense = -1.0 if along < 0.0 else 1.0
+    sense = -1.0 if _unit(shaft)[0] < 0.0 else 1.0
     return sense * sum(float(a) * float(b) for a, b in zip(newtons, stream, strict=True))
 
 
@@ -614,6 +619,41 @@ def rotor_coefficients(
     return values
 
 
+def _angle_of(attitude: Mapping[object, object], key: str) -> float | None:
+    """Return the row's ALPHA or BETA, read case-folded, or None where it states none."""
+    for name, value in attitude.items():
+        if str(name).casefold() == key.casefold():
+            try:
+                angle = float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return None
+            return angle if math.isfinite(angle) else None
+    return None
+
+
+def _say_the_na_rows(
+    product: str, alias: str, *, unangled: Sequence[str], at_rest: Sequence[str]
+) -> None:
+    """Warn once per table for the rows written with NA cells, naming them and why."""
+    if unangled:
+        warn(
+            f"point={unangled[0] or 'NA'} product={product}: {len(unangled)} row(s) of rotor "
+            f"{alias} state no ALPHA or BETA ({', '.join(r or 'NA' for r in unangled)}), so "
+            f"the shaft angle and ETAW_{alias} read NA there; nothing is taken as level flight.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if at_rest:
+        warn(
+            f"point={at_rest[0] or 'NA'} product={product}: {len(at_rest)} row(s) of rotor "
+            f"{alias} are static points ({', '.join(r or 'NA' for r in at_rest)}): the export's "
+            "coefficients were divided by a zero dynamic pressure, so every rotor coefficient "
+            "but J reads NA there (a static point).",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def write_rotor_table(
     path: str | Path,
     *,
@@ -722,6 +762,8 @@ def write_rotor_table(
     # independent lens of 2026-09-18.
     refused = [] if left_out is None else left_out
     emitted = [] if written_runs is None else written_runs
+    unangled: list[str] = []
+    at_rest: list[str] = []
     for row in rows:
         stated = row.get("run_id")
         run_id = str(stated) if isinstance(stated, str) else ""
@@ -783,6 +825,23 @@ def write_rotor_table(
         # one item 19 removed.
         stated = row.get("condition")
         attitude = stated if isinstance(stated, Mapping) else {}
+        # ONE PREMISE, ONE VERDICT, AND THE ROW SAYS IT (PFS-2105.040): a loads
+        # export in another frame gave a row of NA listed as written, with no
+        # reason anywhere; the frame check refuses the whole row, named.
+        stated_frame = row.get("frame")
+        if isinstance(stated_frame, str) and (
+            stated_frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES
+        ):
+            refused.append(
+                (
+                    run_id,
+                    f"{alias}: its loads export states analysis frame {stated_frame!r}; the "
+                    "rotor's thrust, torque and wind-axis force need forces in the geometry's "
+                    "axes, and this frame's rotation is unknown",
+                )
+            )
+            continue
+        angles = (_angle_of(attitude, "ALPHA"), _angle_of(attitude, "BETA"))
         loads = rotor_shaft_loads(
             surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
             rotor=rotor,
@@ -794,8 +853,8 @@ def write_rotor_table(
                 if isinstance(stated_aliases := row.get("aliases"), Mapping)
                 else None
             ),
-            alpha_deg=float(attitude.get("ALPHA") or 0.0),
-            beta_deg=float(attitude.get("BETA") or 0.0),
+            alpha_deg=angles[0] if angles[0] is not None else 0.0,
+            beta_deg=angles[1] if angles[1] is not None else 0.0,
             # THE CALL SITE IS WHAT DELIVERS THE CHECK. The witness field and
             # the refusal both existed for a few minutes without this line, and
             # `ETAW` would have gone on being computed from a force in whatever
@@ -820,6 +879,13 @@ def write_rotor_table(
                 )
             )
             continue
+        if None in angles:
+            # NO ATTITUDE IS NOT LEVEL FLIGHT (PFS-2105.018): the shaft angle and
+            # the wind-axis force need the row's ALPHA and BETA, and read NA.
+            loads = replace(loads, shaft_angle_deg=math.nan, wind_force_n=math.nan)
+            unangled.append(run_id)
+        if 0.5 * density_kg_m3 * speed_m_s**2 <= 0.0:
+            at_rest.append(run_id)
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
             torque_nm=loads.torque_nm,
@@ -894,6 +960,7 @@ def write_rotor_table(
 
     if not written:
         return None
+    _say_the_na_rows(Path(path).name, alias, unangled=unangled, at_rest=at_rest)
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     # THROUGH `write_csv_table`, which is THE funnel: every cell of every

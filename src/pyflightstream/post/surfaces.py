@@ -37,7 +37,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import ProductError
+from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream.post.series import stamped_exports
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
@@ -135,11 +135,19 @@ def average_surface_exports(
     Raises
     ------
     ProductError
-        If a step of the window was not exported (the average is skipped, never
-        partial), if an export is not a surface export, or if two steps do not
-        share one topology (the average is refused: a panel cannot be followed).
+        If the window ends before it starts, if a step of the window was not
+        exported (the average is skipped, never partial), if an export is not a
+        surface export, or if two steps do not share one topology (the average
+        is refused: a panel cannot be followed).
     """
     first, last = int(window[0]), int(window[1])
+    if last < first:
+        # REFUSED AS blade_passage_average REFUSES IT: an empty range read
+        # nothing and then failed on the first surface of none.
+        raise ProductError(
+            f"the window ({first}, {last}) ends before it starts; it is an inclusive "
+            "(first_step, last_step) pair in solver steps"
+        )
     steps = list(range(first, last + 1))
     missing = [step for step in steps if step not in exports]
     if missing:
@@ -285,7 +293,21 @@ def write_surface_average(
     -------
     list of pathlib.Path
         The files written, the Tecplot first.
+
+    Raises
+    ------
+    ProductExistsError
+        If either destination exists and ``overwrite`` is false; both are
+        tested first, so nothing is written then.
     """
+    # BOTH DESTINATIONS BEFORE EITHER WRITE, as write_output_pair tests its
+    # pair: the Tecplot was written and then the VTK refused, half a pair.
+    for target in (Path(dat), *(() if vtk is None else (Path(vtk),))):
+        if target.exists() and not overwrite:
+            raise ProductExistsError(
+                f"{target} exists; the surface writers never replace a file unasked, and "
+                "nothing of the pair was written. Pass overwrite=True to replace it"
+            )
     first, last = average.window
     missing = [name for name in NOT_CARRIED_BY_THE_VTK if name not in average.surface.point_data]
     auxdata = {

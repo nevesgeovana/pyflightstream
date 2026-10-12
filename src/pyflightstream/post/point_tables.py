@@ -42,7 +42,12 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._errors import ProductArgumentError, PyflightstreamError
+from pyflightstream._errors import (
+    ProductArgumentError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_COLUMN
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS
@@ -55,6 +60,7 @@ from pyflightstream.post._stage import (
 )
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
+    _PLOTS_STEP_COLUMN,
     ADVANCE_RATIO_COLUMN,
     CONTEXT_COLUMNS,
     NOT_APPLICABLE,
@@ -65,6 +71,7 @@ from pyflightstream.post._tables import (
     read_csv_table,
     renamed_columns,
     section_identity,
+    stated_steps,
     write_csv_table,
 )
 from pyflightstream.post.axes import blade_azimuth_deg
@@ -362,7 +369,20 @@ def write_plots_table(
         vref = float(labeled_value(export_text, "Reference velocity (m/s)"))
     except (MalformedOutputError, ValueError):
         vref = vinf
-    scale = (vref / vinf) ** 2 if vinf else 1.0
+    scale = (vref / vinf) ** 2 if vinf > 0.0 else math.nan
+    if vinf <= 0.0:
+        # NO FREE STREAM TO BRING THEM TO (PFS-2105.015): the coefficients were
+        # kept by VREF in silence while the definition and the post log said
+        # they were the free stream's. They read NA, and the log says why.
+        target = Path(path)
+        warn(
+            f"point={target.stem.removesuffix('_plots')} product={PROBES_DIR}/{target.name}: "
+            f"the plots export states a free-stream velocity of {vinf:g} m/s, so its "
+            "coefficient columns cannot be brought to the free stream by (VREF / VINF)^2 and "
+            "read NA; the forces and every other column are written as exported.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     scaled = values.copy()
     for index, name in enumerate(report.columns):
         if name.startswith(_COEFFICIENT_PLOT_PREFIXES):
@@ -761,20 +781,18 @@ def write_unsteady_probes_table(
     # fixture in the tree and disagrees the first time an export does not
     # begin at one or does not step by one (the QA lens scoring M22,
     # 2026-09-11). A table with no such column falls back to the ordinal,
-    # which is the only thing left, rather than refusing a product.
-    stated = "Time-step" if "Time-step" in present else None
+    # which is the only thing left, rather than refusing a product. THE ONE
+    # READER of that clock (`stated_steps`), so a row's STEP here is the step
+    # the reductions and the series give it.
+    steps = (
+        stated_steps([row.get(_PLOTS_STEP_COLUMN) or "" for row in rows])
+        if _PLOTS_STEP_COLUMN in present
+        else np.arange(1, len(rows) + 1, dtype=int)
+    )
     context = context_row(condition, None if reference is None else reference.as_lengths())
     out: list[tuple[object, ...]] = []
-    for ordinal, row in enumerate(rows, start=1):
-        step: object = ordinal
-        if stated is not None:
-            text = str(row.get(stated) or "").strip()
-            try:
-                value = float(text)
-            except ValueError:
-                value = float("nan")
-            if value == value:  # not NaN
-                step = int(value) if value.is_integer() else value
+    for row, stated in zip(rows, steps, strict=True):
+        step = int(stated)
         for vertex, names in groups:
             out.append(
                 (

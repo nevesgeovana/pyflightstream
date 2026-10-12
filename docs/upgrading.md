@@ -2,6 +2,11 @@
 
 Read the migration records for the releases between your installed version and the version you are adopting. Each record states the changes a workspace needs.
 
+For 0.40.0, integrated sectional loads extend the first and last strip by half
+their adjacent station spacing. `Strip_length`, `Fx_int`, `Fz_int` and `My_int`
+at the tips therefore increase; interior strip lengths keep the midpoint rule.
+Rebuild post products to apply the corrected full-span integration.
+
 - [Migrating to 0.39.0](migrating-to-0.39.0.md)
 - [Migrating to 0.38.0](migrating-to-0.38.0.md)
 - [Migrating to 0.37.0](migrating-to-0.37.0.md)

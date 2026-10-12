@@ -267,6 +267,14 @@ def _refuse_a_wrong_axis(axis: Sequence[float]) -> None:
             f"refused: the rotor axis is {tuple(axis)}; the inflow profile is a plane of the "
             "global YZ, so the blade-view harmonics need the axis along X."
         )
+    if axis[0] < 0.0:
+        # THE HAND IS OMEGA'S SIGN ABOUT +X: a -X axis would turn a positive
+        # omega left-handed about +X while every column says right-handed.
+        raise ProductError(
+            f"refused: the rotor axis is {tuple(axis)}; the blade-view harmonics state the "
+            "hand by the sign of omega about +X, so give the axis as +X and a negative "
+            "omega for a rotor turning the other way."
+        )
 
 
 def blade_view_harmonics(

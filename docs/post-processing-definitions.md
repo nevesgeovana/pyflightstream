@@ -55,6 +55,10 @@ them was inferred from an implementation.
 
 [Integrated sectional loads](definitions/the-sections-table-and-which-row-is-which.md#integrated-sectional-loads-since-0260).
 
+Since 0.40.0 the integrated strips extend half a station spacing beyond each
+end station, preserving the full span when the exported stations sit at strip
+centers. The linked definition states the rule for every block.
+
 <a id="the-probes-table"></a>
 
 [The probes table](definitions/the-probes-table.md#the-probes-table).
