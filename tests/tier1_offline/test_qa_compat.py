@@ -125,7 +125,28 @@ def test_report_pair_round_trips(tmp_path):
     assert "did not halt \\|" in markdown
 
 
-def test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header(tmp_path):
+FROZEN_TODAY = "2031-02-03"
+
+
+@pytest.fixture
+def frozen_today(monkeypatch):
+    """The date source of the report helpers, fixed, so a test that crosses local midnight
+    between the writer's call and its own cannot disagree with it (PFS-2135.013)."""
+    import datetime
+    import types
+
+    from pyflightstream.qa import reports
+
+    class _Date(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(FROZEN_TODAY)
+
+    monkeypatch.setattr(reports, "datetime", types.SimpleNamespace(date=_Date))
+    return FROZEN_TODAY
+
+
+def test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header(tmp_path, frozen_today):
     """One fact written in three places, and NO test called the default path.
 
     Every existing test of this writer passes `date=` explicitly, so the
@@ -141,10 +162,8 @@ def test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header(tmp_path
     So this calls the writer with no date at all, which is what a run
     does, and requires the three copies to agree.
     """
-    import datetime
-
     yaml_path, md_path = write_compat_report(make_run(), tmp_path, label="defaulted")
-    today = datetime.date.today().isoformat()
+    today = frozen_today
 
     stem = re.match(r"^CMP-\d+_(\d{4}-\d{2}-\d{2})_defaulted$", yaml_path.stem)
     assert stem, yaml_path.stem
@@ -158,7 +177,7 @@ def test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header(tmp_path
     assert today in md_path.read_text(encoding="utf-8").splitlines()[0]
 
 
-def test_the_path_helper_defaults_its_date_the_same_way(tmp_path):
+def test_the_path_helper_defaults_its_date_the_same_way(tmp_path, frozen_today):
     """The mirror image of the defect above, and it is not decoration.
 
     The one-arm version of the guard above is holed: the mutation that
@@ -170,10 +189,8 @@ def test_the_path_helper_defaults_its_date_the_same_way(tmp_path):
     and then discarded at write time. That is the incident the pre-flight
     was added to prevent, arriving through the guard meant to prove it.
     """
-    import datetime
-
     yaml_path, md_path = compat_report_paths(tmp_path, version="26.120", label="probe")
-    today = datetime.date.today().isoformat()
+    today = frozen_today
     assert yaml_path.name == f"CMP-26120_{today}_probe.yaml"
     assert md_path.name == f"CMP-26120_{today}_probe.md"
 
@@ -1449,15 +1466,13 @@ def test_the_primitive_refuses_an_empty_or_string_version_list(tmp_path):
     assert issubclass(QaEvidenceError, ValueError)
 
 
-def test_the_date_resolver_is_the_one_home_and_passes_an_explicit_date_through():
+def test_the_date_resolver_is_the_one_home_and_passes_an_explicit_date_through(frozen_today):
     """`resolve_report_date` replaced six copies of one expression."""
-    import datetime
-
     from pyflightstream.qa import resolve_report_date
 
     assert resolve_report_date("2026-07-21") == "2026-07-21"
-    assert resolve_report_date(None) == datetime.date.today().isoformat()
-    assert resolve_report_date() == datetime.date.today().isoformat()
+    assert resolve_report_date(None) == frozen_today
+    assert resolve_report_date() == frozen_today
 
 
 def test_the_primitive_refuses_an_unknown_series(tmp_path):

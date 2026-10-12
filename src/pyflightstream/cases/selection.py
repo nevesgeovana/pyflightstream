@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from pydantic import AfterValidator
 
@@ -45,8 +45,12 @@ _SELECTORS_THAT_GUESS = {
 }
 
 
-def warn_a_selector_that_guesses(word: str) -> None:
-    """Warn that a families selector deciding what a blade is has retired."""
+def warn_a_selector_that_guesses(word: str) -> NoReturn:
+    """Refuse a families selector deciding what a blade is: refused since 0.15.0.
+
+    The name is the one it was published under, when the selector still
+    warned; it has refused since, and it never returns.
+    """
     # NO PREFIX. The ledger entry already opens with its owner, so
     # prefixing "a families cell" produced "a families cell: families =
     # 'airframe' of a families cell was renamed to ..." (the interface lens
@@ -68,10 +72,12 @@ def select_families(
     as the reference driver filtered its tables to the components it opened; an
     entry that resolves to nothing is an empty result and the caller
     skips it. ``all`` is the empty list standing for the command's own
-    every-boundary form, which the caller spells as -1. An ALIAS of the
+    every-boundary form, which the caller spells as -1; as a list member it
+    adds every surface of the inventory. An ALIAS of the
     row's setup (the design decision of 2026-09-09) is read before the five
     selector words, as the bare string and as a list member, so
-    ``airframe`` and ``blades`` are the setup's own where it defines them;
+    ``airframe`` and ``blades`` are the setup's own where it defines them
+    and refused as selectors where it does not (since 0.15.0);
     a bare word that is neither is a family name.
 
     Parameters
@@ -104,13 +110,8 @@ def select_families(
         # resolved. That is the only case the retirement is about: a
         # reference that declares `airframe` keeps working unchanged, which
         # is what every one of the reference rows does (the design decision of 2026-09-10).
-        if selection == "airframe":
+        if selection in _SELECTORS_THAT_GUESS:
             warn_a_selector_that_guesses(selection)
-            chosen = [name for name in inventory if not is_blade(name)]
-            return [chosen] if chosen else []
-        if selection == "blades":
-            warn_a_selector_that_guesses(selection)
-            return [blades] if blades else []
         if selection == "each":
             return [[name] for name in inventory]
         if selection == "each_blade":
@@ -119,17 +120,18 @@ def select_families(
         # p001 of 2026-09-09); one the inventory lacks is an empty result.
         names = names_of(selection, inventory)
         return [names] if names else []
-    chosen = []
+    chosen: list[str] = []
     for item in selection:
         aliased = resolve_alias(item, inventory, aliases)
         if aliased is not None:
             names = aliased
-        elif item == "blades":
+        elif item in _SELECTORS_THAT_GUESS:
             warn_a_selector_that_guesses(item)
-            names = blades
-        elif item == "airframe":
-            warn_a_selector_that_guesses(item)
-            names = [name for name in inventory if not is_blade(name)]
+        elif item == EVERY_FAMILY:
+            # THE WORD MEANS WHAT IT MEANS WRITTEN ALONE AND IN A [groups] entry:
+            # every surface. Read as a family name it selected nothing, and the
+            # entry was left out with a warning (PFS-2104.002).
+            names = list(inventory)
         else:
             # A list member resolves as the bare word does, family
             # fallback included (the interface lens of 2026-09-09: the

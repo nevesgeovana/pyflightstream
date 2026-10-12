@@ -9,7 +9,7 @@ never stated, and the ones 0.32.0 adds, were written by parallel work packages
 (K1, K2 and the packages that deliver a capability). Each writes
 ``docs/srs/fr.d/<package>.md``, numbered inside its own range, so two packages
 merged one after the other never touch the same lines of
-``docs/srs/functional-requirements.md``. This script folds them once, at
+``docs/unpublished/requirements/functional-requirements.md``. This script folds them once, at
 integration, the way ``scripts/assemble_changelog.py`` folds the change log.
 
 WHAT IT DOES. Every ``docs/srs/fr.d/*.md`` except ``README.md`` is a fragment:
@@ -41,7 +41,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 FRAGMENTS_DIR = Path("docs") / "srs" / "fr.d"
 README = "README.md"
-PAGE = Path("docs") / "srs" / "functional-requirements.md"
+PAGE = Path("docs") / "unpublished" / "requirements" / "functional-requirements.md"
 HEADING = "## 0.25.0 to 0.32.0 additions"
 INTRO = (
     "Requirements written after the specification was last reconciled with the package: "
@@ -93,6 +93,13 @@ def parse_fragment(path: Path) -> list[tuple[str, str]]:
     boxes = split_boxes(text)
     if not boxes:
         raise FragmentError(f"{path}: the fragment holds no requirement box")
+    first = _BOX_START.search(text)
+    assert first is not None
+    if text[: first.start()].strip():
+        raise FragmentError(f"{path}: non-box text before the first requirement would be lost")
+    for line in text[first.start() :].splitlines():
+        if line.strip() and not line.startswith(("!!! requirement ", "    ")):
+            raise FragmentError(f"{path}: non-box text must be inside an indented requirement body")
     return boxes
 
 
@@ -109,7 +116,7 @@ def fold_page(text: str, blocks: list[tuple[Path, list[tuple[str, str]]]]) -> tu
     for path, boxes in blocks:
         present = [rid in page_boxes for rid, _ in boxes]
         for rid, box in boxes:
-            if rid in page_boxes and box not in text:
+            if rid in page_boxes and page_boxes[rid] != box:
                 raise FragmentError(
                     f"{path}: {rid} is already in {PAGE.name} with another text; "
                     "a numbered requirement is never rewritten by a fragment"

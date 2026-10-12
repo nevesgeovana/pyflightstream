@@ -11,7 +11,9 @@ A mesh verb needs no executable, no matrix and no workspace: it reads the OBJ
 it is given and writes beside it. Its exit status is the console contract of
 FR-426 R1: 0 when every gate and check passes, 1 when one fails (the audit is
 still written, and each failure is a warning held to the end of the command),
-2 when the input is refused, with the refusal on standard error.
+2 when the input is refused, with the refusal on standard error. ``audit-mesh``
+also exits 2 when the CSV of ``--out`` cannot be written after the audit was:
+the error on standard error names the audit file that was written.
 
 The written file is named by ``--out`` on both verbs, as on their sibling
 commands (``rebuild --out``, ``pyfs-workspace ... --out``): ``refine --out
@@ -43,7 +45,8 @@ _AUDIT_DESCRIPTION = (
     "--against only G1, G2 and G4 are judged. The trailing-edge points file is the one "
     "<stem>.boundaries.toml names, or else <stem>.te.txt. A gate or check that fails is a "
     "warning, and the audit is still written. Exits 0 when every gate and check passes, 1 when "
-    "one fails, 2 when the input is refused. Needs no executable."
+    "one fails, 2 when the input is refused or when the --out CSV cannot be written after the "
+    "audit was (the error names the audit written). Needs no executable."
 )
 
 

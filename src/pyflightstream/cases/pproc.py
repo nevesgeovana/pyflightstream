@@ -21,6 +21,7 @@ import math
 import re
 import string
 from collections.abc import Mapping, Sequence
+from pathlib import PurePath, PurePosixPath
 from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
@@ -315,20 +316,53 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
         if (release is None or release >= (0, 29)) and lowered.endswith("_native_tecplot.dat"):
             continue
         # 0.32.0 (E2): an acoustic export or section file is never a surface export.
-        if (release is None or release >= (0, 32)) and _is_acoustic_output(name):
+        if (release is None or release >= (0, 32)) and is_acoustic_output(name):
             continue
         for kind, suffix, _, _ in by_length:
-            if lowered.endswith(suffix) and kind not in claimed:
-                claimed[kind] = str(name)
+            # THE LONGEST MATCHING SUFFIX DECIDES THE KIND, claimed or not: a
+            # second `_cp.txt` falling through to `.txt` displaced the loads table.
+            if lowered.endswith(suffix):
+                if kind not in claimed:
+                    claimed[kind] = str(name)
                 break
     return claimed
 
 
-def _is_acoustic_output(name: str) -> bool:
-    """Whether an output is an acoustic file (0.32.0), asked of its one home."""
-    from pyflightstream.cases.acoustics import is_acoustic_output
+#: The end of the name of a point's acoustic export, written beside its
+#: other exports as ``<point><suffix>``. Confirmed by the round-1 probe A1 on
+#: 26.124: the solver writes the export to the path it is given, and the file
+#: is text (``Observer:``, ``Position:`` and ``Columns:`` lines, then rows).
+#: Defined here, beside the export kinds the classifier reads, and published
+#: by :mod:`pyflightstream.cases.acoustics`, so neither module imports the other
+#: inside a function.
+ACOUSTIC_SIGNALS_SUFFIX = "_acoustic_signals.txt"
 
-    return is_acoustic_output(name)
+#: The end of the name of the folder a point's acoustic section writes its VTK
+#: files into, ``<point><suffix>/``, beside the point's other exports.
+ACOUSTIC_SECTION_SUFFIX = "_acoustic_section"
+
+
+def is_acoustic_output(name: str | PurePath) -> bool:
+    """Whether a declared or recorded output is an acoustic file, never a surface export.
+
+    The signals export ends in ``.txt`` like the loads table, and a section's
+    files end in ``.vtk`` like the surface export, so the classifier asks this
+    before it pairs a name with a kind.
+
+    Parameters
+    ----------
+    name : str or PurePath
+        A declared or recorded output name.
+
+    Returns
+    -------
+    bool
+        True for the signals export and for any file inside an acoustic section folder.
+    """
+    path = PurePosixPath(str(name).replace("\\", "/"))
+    if path.name.lower().endswith(ACOUSTIC_SIGNALS_SUFFIX):
+        return True
+    return any(part.lower().endswith(ACOUSTIC_SECTION_SUFFIX) for part in path.parts[:-1])
 
 
 def _release_of(package_version: str | None) -> tuple[int, int] | None:
@@ -917,12 +951,17 @@ def _a_group_is_one_alias(value: object) -> object:
                     f'{name} = "<alias>"; declare the members under [aliases] '
                     "in the reference, using boundary names for positions"
                 )
-            raise InputArtifactError(
+            # A ValueError, as the equations validator raises, so pydantic wraps it
+            # and the loader adds the artifact path; InputArtifactError is a
+            # RuntimeError and passed through without it (PFS-2100.001).
+            raise ValueError(
                 f"pproc [groups] entry {name!r}: member lists were removed in 0.26.0. "
-                f"Write {replacement} instead.",
-                kind="pproc",
+                f"Write {replacement} instead."
             )
-        return value
+        raise ValueError(
+            f"pproc [groups] entry {name!r} = {stated!r}: a group names ONE alias as a "
+            f'string, e.g. {name} = "<alias>"'
+        )
     return groups
 
 
@@ -958,7 +997,7 @@ class ProbeLine(BaseModel):
         The last vertex, in the entry's frame and scale.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     start: tuple[float, float, float]
     end: tuple[float, float, float]
@@ -990,7 +1029,7 @@ class ProbeRectangle(BaseModel):
         The stations from ``origin`` to ``along_v``, both ends included.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     origin: tuple[float, float, float]
     along_u: tuple[float, float, float]
@@ -1040,7 +1079,7 @@ class ProbeCircle(BaseModel):
         The stations around.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     center: tuple[float, float, float]
     normal: tuple[float, float, float]
@@ -1203,7 +1242,13 @@ class ProbesSpec(BaseModel):
             )
         return self
 
-    _frame_is_named = field_validator("frame")(_a_named_frame)
+    @field_validator("frame")
+    @classmethod
+    def _frame_is_named_or_the_hub(cls, value: str) -> str:
+        """Read an empty frame, written or defaulted, as the rotor's own hub frame."""
+        # The shared refusal of an empty frame made the documented meaning
+        # reachable only by omitting the key (PFS-2095.005).
+        return value if value.strip() else ""
 
     @field_validator("parameters")
     @classmethod
@@ -1446,8 +1491,12 @@ class PhaseLockedSpec(BaseModel):
         AT LEAST, not more than: equality meets the minimum, and the
         boundary is the whole content of the rule, so it is one comparison with
         its own name rather than an inline `>=` at each call site.
+
+        Equality within a relative 1e-9: the turns are a quotient of steps by a
+        floating-point clock, and 1920 steps at 240.00000000000003 per turn are
+        the 8 revolutions the row states, not 7.999999999999999 (PFS-2105.026).
         """
-        return float(revolutions) >= self.min_revolutions
+        return float(revolutions) >= self.min_revolutions * (1.0 - 1e-9)
 
 
 class EquationSpec(BaseModel):
@@ -1546,6 +1595,19 @@ class SurfaceTimeAveragingSpec(BaseModel):
         return self
 
 
+def _command_tokens(command: str, argument: str) -> dict[str, str]:
+    """Read an artifact's tokens across all builds, preserving their declared spelling."""
+    entry = CommandRegistry.load().commands[command]
+    lists = [arg.values for arg in entry.args if arg.name == argument]
+    lists += [
+        arg.values
+        for record in entry.versions.values()
+        for arg in record.args or ()
+        if arg.name == argument
+    ]
+    return {token.casefold(): token for tokens in lists for token in tokens or ()}
+
+
 class SurfaceProbeSpec(BaseModel):
     """One surface property recorded at a named-frame point during an unsteady march."""
 
@@ -1572,13 +1634,12 @@ class SurfaceProbeSpec(BaseModel):
     @field_validator("parameter")
     @classmethod
     def _parameter(cls, value: str) -> str:
-        entry = CommandRegistry.load().commands["NEW_UNSTEADY_SOLVER_SURFACE_PROBE"]
-        allowed = next(arg.values for arg in entry.args if arg.name == "parameter") or ()
-        if value not in allowed:
+        declared = _command_tokens("NEW_UNSTEADY_SOLVER_SURFACE_PROBE", "parameter")
+        if value.casefold() not in declared:
             raise ValueError(
-                f"surface probe parameter {value!r} must be one of {', '.join(allowed)}"
+                f"surface probe parameter {value!r} must be one of {', '.join(declared.values())}"
             )
-        return value
+        return declared[value.casefold()]
 
     @field_validator("point_m")
     @classmethod
@@ -1718,16 +1779,19 @@ class PprocSpec(BaseModel):
     def _known_vtk_variables(cls, value: list[str] | None) -> list[str] | None:
         if value is None:
             return None
-        entry = CommandRegistry.load().commands["SET_VTK_EXPORT_VARIABLES"]
-        allowed = next(arg.values for arg in entry.args if arg.name == "variables") or ()
-        unknown = sorted(set(value) - set(allowed))
+        # THE UNION OF EVERY BUILD'S TOKENS, folded as the emitter folds an enum:
+        # the artifact names no build, so a 26.125 variable is judged where the
+        # script is built for one, and a lowercase name is the declared spelling.
+        declared = _command_tokens("SET_VTK_EXPORT_VARIABLES", "variables")
+        unknown = sorted(name for name in value if name.casefold() not in declared)
         if unknown:
             raise ValueError(f"vtk_variables: unknown variable(s) {', '.join(unknown)}")
-        if not value or len(set(value)) != len(value):
+        spelled = [declared[name.casefold()] for name in value]
+        if not spelled or len(set(spelled)) != len(spelled):
             raise ValueError(
                 "vtk_variables must be a nonempty list of distinct command variable names"
             )
-        return value
+        return spelled
 
     #: 0.30.0 (SS1): whether a point's Tecplot surface carries the nodal
     #: ``Singularity_strength``. The VTK does not hold it, so carrying it costs
@@ -1986,6 +2050,17 @@ class PprocSpec(BaseModel):
     def _boundary_layer_sections_are_declared(self) -> PprocSpec:
         if self.products.boundary_layer_integrals and not self.sections.distributions:
             raise ValueError("boundary_layer_integrals requires declared sections.distributions")
+        # The product reads the VTK and the sections exports, so an explicit
+        # false for either is a contradiction, refused rather than overridden
+        # in silence (PFS-2084.003), as the section Cp plot's is above.
+        switched_off = [kind for kind in ("vtk", "sections") if self.exports.get(kind) is False]
+        if self.products.boundary_layer_integrals and switched_off:
+            stated = " and ".join(f"[exports] {kind} = false" for kind in switched_off)
+            raise ValueError(
+                f"[products] boundary_layer_integrals = true reads the VTK and the sections "
+                f"exports, and the artifact states {stated}. Remove the export key to let "
+                "the product request its source, or set boundary_layer_integrals = false"
+            )
         return self
 
     def outputs(self, unsteady: bool) -> list[str]:
@@ -2007,14 +2082,19 @@ class PprocSpec(BaseModel):
             for source in ("{name}.vtk", "{name}_cp.txt"):
                 if source not in names:
                     names.append(source)
-        if (
-            (unsteady and self.surface_probes)
-            or self.volume_section is not None
-            or any(entry.field_formats or entry.reusable_inflow for entry in self.probes)
+        sources = []
+        if unsteady and self.surface_probes:
+            # A surface probe is a native unsteady plot (SURFACE_<name>), so its
+            # history is in the plots export whatever the [[probes]] kind is
+            # (PFS-2105.002).
+            sources.append("{name}_plots.txt")
+        if self.volume_section is not None or any(
+            entry.field_formats or entry.reusable_inflow for entry in self.probes
         ):
             # FR-418: a NORMAL entry's field is read from the probe-points
             # export on an unsteady row too, not from the plots history.
-            source = "{name}_plots.txt" if unsteady and not normal else "{name}_probes.txt"
+            sources.append("{name}_plots.txt" if unsteady and not normal else "{name}_probes.txt")
+        for source in sources:
             if source not in names:
                 names.append(source)
         return names

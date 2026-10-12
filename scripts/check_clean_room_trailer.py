@@ -37,6 +37,8 @@ import sys
 from pathlib import Path
 
 REQUIRED = "Clean-room:"
+#: The line `git commit -v` writes above the diff; git keeps nothing below it.
+_SCISSORS = re.compile(r"^# -+ >8 -+$")
 
 GUIDANCE = """
 The Clean-room trailer must be in the LAST paragraph of the message.
@@ -76,7 +78,13 @@ def main() -> int:
     # Comment lines are stripped by git before the message is stored, so
     # they are stripped here too: a `# Clean-room:` in the template would
     # otherwise pass a check the real message fails.
-    message = "\n".join(line for line in raw.splitlines() if not line.startswith("#"))
+    lines = raw.splitlines()
+    # CUT AT THE SCISSORS FIRST. Under `git commit -v` the diff follows a
+    # `# ------------------------ >8 ------------------------` line, and git
+    # drops everything from it on; stripping only the `#` lines kept the
+    # diff, which then became the last paragraph and hid the trailers.
+    scissors = next((i for i, line in enumerate(lines) if _SCISSORS.match(line)), len(lines))
+    message = "\n".join(line for line in lines[:scissors] if not line.startswith("#"))
     if not message.strip():
         return 0  # an empty message aborts the commit anyway
     if REQUIRED not in message:

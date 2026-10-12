@@ -8,7 +8,8 @@ over every simulation of the matrix, are left as they were and named under
 SUBMITTED records of the named simulations. Every workspace is a real
 ``tmp_path`` tree built as a run leaves it.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 
@@ -389,7 +390,7 @@ def test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307(tmp_path, monkey
 
     monkeypatch.setattr(workspace_module, "post_stages", lambda: (spy,))
     code = matrix_cli.main(
-        ["collect", "--workspace", str(workspace.root), "--sims", "9001", "--interval", "0"]
+        ["collect", "--workspace", str(workspace.root), "--sims", "9001", "--interval", "0.001"]
     )
     assert code == 0
     assert _status(workspace, "9001") != "SUBMITTED"

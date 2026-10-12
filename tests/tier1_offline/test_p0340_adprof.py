@@ -18,7 +18,8 @@ What it does NOT check: what the solver does with the file. RPT-070 measured
 the form it reads and RPT-137 what the discs delivered, each on one build.
 Synthetic fixtures only: no research geometry, no measured loads.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 

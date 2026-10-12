@@ -12,6 +12,8 @@ from pathlib import Path
 import markdown
 import yaml
 
+from tests.tier1_offline._docs_site import definition_page, site_pages
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 FIXTURE = json.loads((Path(__file__).parent / "data/p0360_doc_slugs.json").read_text("utf-8"))
@@ -182,7 +184,7 @@ def definition_pins_problems(root: Path, docs: Path) -> list[str]:
     mapping = {}
     for heading in FIXTURE["definitions"]:
         if heading["level"] == 2 and heading["slug"] != "contents":
-            family = f"definitions/{heading['slug']}.md"
+            family = definition_page(heading["slug"])
         if heading["level"] >= 2 and heading["slug"] != "contents":
             mapping[heading["slug"]] = family
     problems = []
@@ -203,7 +205,7 @@ def definition_pins_problems(root: Path, docs: Path) -> list[str]:
 def narrative_matches(docs: Path) -> list[tuple[str, str]]:
     return [
         (page.relative_to(docs).as_posix(), match[0])
-        for page in docs.rglob("*.md")
+        for page in site_pages(docs).values()
         if not page.name.startswith("migrating-to-")
         and page.name not in {"release-notes.md", "upgrading.md"}
         for match in NARRATIVE.finditer(page.read_text("utf-8"))
@@ -228,9 +230,15 @@ def upgrading_problems(docs: Path) -> list[str]:
     index = docs / "upgrading.md"
     if not index.is_file():
         return ["missing upgrading index"]
-    links = re.findall(r"\]\((migrating-to-[^)]+\.md)\)", index.read_text("utf-8"))
+    text = index.read_text("utf-8")
+    versions = {
+        p.stem.removeprefix("migrating-to-")
+        for p in records
+        if tuple(map(int, p.stem.removeprefix("migrating-to-").split("."))) >= (0, 21, 0)
+    }
+    listed = set(re.findall(r"^## (\d+\.\d+\.\d+)\s*$", text, re.M))
     problems = (
-        [] if sorted(links) == sorted(p.name for p in records) else ["migration index differs"]
+        [] if versions <= listed and "## Older layouts" in text else ["migration index differs"]
     )
     for record in [*records, docs / "release-notes.md"]:
         banners = [
@@ -270,11 +278,13 @@ def test_definitions_split(tmp_path):
     assert len(FIXTURE["definitions"]) == 61
     assert not split_problems(DOCS, "post-processing-definitions.md", "definitions")
     expected = {
-        h["slug"] + ".md"
+        Path(definition_page(h["slug"])).name
         for h in FIXTURE["definitions"]
         if h["level"] == 2 and h["slug"] != "contents"
     }
-    assert {p.name for p in (DOCS / "definitions").glob("*.md")} == expected
+    assert {
+        p.name for rel, p in site_pages(DOCS, in_nav=True).items() if rel.startswith("definitions/")
+    } == expected
     assert not definition_pins_problems(ROOT, DOCS)
     for pin in FIXTURE["definition_pins"]:
         text = (ROOT / pin["source"]).read_text("utf-8")
@@ -339,7 +349,7 @@ def test_upgrading(tmp_path):
     shutil.copytree(DOCS, copied)
     index = copied / "upgrading.md"
     text = index.read_text("utf-8")
-    index.write_text(re.sub(r"\]\(migrating-to-[^)]+\.md\)", "]", text, count=1), "utf-8")
+    index.write_text(text.replace("## 0.21.0", "## Missing release", 1), "utf-8")
     assert "migration index differs" in upgrading_problems(copied)
     index.write_text(text, "utf-8")
     record = copied / "migrating-to-0.21.0.md"

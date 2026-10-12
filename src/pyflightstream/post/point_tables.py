@@ -42,7 +42,12 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._errors import ProductArgumentError, PyflightstreamError
+from pyflightstream._errors import (
+    ProductArgumentError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._tokens import POLAR_ID_COLUMN, REDUCTION_COLUMNS, ROTOR_ID_COLUMN
 from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS
@@ -55,6 +60,7 @@ from pyflightstream.post._stage import (
 )
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
+    _PLOTS_STEP_COLUMN,
     ADVANCE_RATIO_COLUMN,
     CONTEXT_COLUMNS,
     NOT_APPLICABLE,
@@ -65,6 +71,7 @@ from pyflightstream.post._tables import (
     read_csv_table,
     renamed_columns,
     section_identity,
+    stated_steps,
     write_csv_table,
 )
 from pyflightstream.post.axes import blade_azimuth_deg
@@ -279,6 +286,12 @@ def write_sections_table(
     # exactly how two families come to disagree about which column is which --
     # a value landing under its neighbour's name, which is the defect 0.23.0
     # item 5 found in three of the four families.
+    try:
+        reynolds = None if condition is not None else _reynolds_millions(export_text)
+    except (PyflightstreamError, ValueError) as error:
+        # A banner without its Reynolds number is an export this table cannot
+        # state a condition for: a refusal naming the file, as the parser's.
+        raise ProductError(f"the sectional loads export {path} cannot be read: {error}") from error
     stated: Mapping[str, object] = (
         condition
         if condition is not None
@@ -286,7 +299,7 @@ def write_sections_table(
             "ALPHA": report.angle_of_attack_deg,
             "BETA": report.sideslip_deg,
             "MACH": mach,
-            "RE": _reynolds_millions(export_text),
+            "RE": reynolds,
             "VINF": report.freestream_velocity_m_s,
             "ALT": _altitude_ft(export_text),
             ADVANCE_RATIO_COLUMN: advance_ratio,
@@ -344,12 +357,32 @@ def write_plots_table(
     values = np.asarray(report.values, dtype=float)
     if values.size == 0:
         return None
-    vinf = float(labeled_value(export_text, "Freestream velocity (m/s)"))
+    # Inside a refusal, as the parse above: the parser accepts an export with
+    # no banner, and the bare AnchorNotFoundError (or a ValueError for a
+    # value that is no number) was neither a ProductError nor an OSError, so
+    # it ended the whole post instead of skipping this point's table.
+    try:
+        vinf = float(labeled_value(export_text, "Freestream velocity (m/s)"))
+    except (PyflightstreamError, ValueError) as error:
+        raise ProductError(f"the unsteady plots export {path} cannot be read: {error}") from error
     try:
         vref = float(labeled_value(export_text, "Reference velocity (m/s)"))
     except (MalformedOutputError, ValueError):
         vref = vinf
-    scale = (vref / vinf) ** 2 if vinf else 1.0
+    scale = (vref / vinf) ** 2 if vinf > 0.0 else math.nan
+    if vinf <= 0.0:
+        # NO FREE STREAM TO BRING THEM TO (PFS-2105.015): the coefficients were
+        # kept by VREF in silence while the definition and the post log said
+        # they were the free stream's. They read NA, and the log says why.
+        target = Path(path)
+        warn(
+            f"point={target.stem.removesuffix('_plots')} product={PROBES_DIR}/{target.name}: "
+            f"the plots export states a free-stream velocity of {vinf:g} m/s, so its "
+            "coefficient columns cannot be brought to the free stream by (VREF / VINF)^2 and "
+            "read NA; the forces and every other column are written as exported.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     scaled = values.copy()
     for index, name in enumerate(report.columns):
         if name.startswith(_COEFFICIENT_PLOT_PREFIXES):
@@ -628,6 +661,16 @@ def write_probes_table(
     return write_csv_table(path, (*PROBE_SPINE, *rest), rows)
 
 
+def _plotted_value(text: str | None) -> float | None:
+    """Read one plots-table cell back, its `NA` (or blank) as a missing value.
+
+    The plots table writes a NaN the export carried as `NA`, and ``float``
+    refused it, so one missing sample dropped the point's whole probes table.
+    """
+    cell = (text or "").strip()
+    return None if cell in ("", NOT_APPLICABLE) else float(cell)
+
+
 def write_unsteady_probes_table(
     path: str | Path,
     plots_table: str | Path,
@@ -738,27 +781,25 @@ def write_unsteady_probes_table(
     # fixture in the tree and disagrees the first time an export does not
     # begin at one or does not step by one (the QA lens scoring M22,
     # 2026-09-11). A table with no such column falls back to the ordinal,
-    # which is the only thing left, rather than refusing a product.
-    stated = "Time-step" if "Time-step" in present else None
+    # which is the only thing left, rather than refusing a product. THE ONE
+    # READER of that clock (`stated_steps`), so a row's STEP here is the step
+    # the reductions and the series give it.
+    steps = (
+        stated_steps([row.get(_PLOTS_STEP_COLUMN) or "" for row in rows])
+        if _PLOTS_STEP_COLUMN in present
+        else np.arange(1, len(rows) + 1, dtype=int)
+    )
     context = context_row(condition, None if reference is None else reference.as_lengths())
     out: list[tuple[object, ...]] = []
-    for ordinal, row in enumerate(rows, start=1):
-        step: object = ordinal
-        if stated is not None:
-            text = str(row.get(stated) or "").strip()
-            try:
-                value = float(text)
-            except ValueError:
-                value = float("nan")
-            if value == value:  # not NaN
-                step = int(value) if value.is_integer() else value
+    for row, stated in zip(rows, steps, strict=True):
+        step = int(stated)
         for vertex, names in groups:
             out.append(
                 (
                     *_exact_position(
                         _probe_spine(vertex, positions, step, context=context, pol=pol)
                     ),
-                    *(float(row[name]) if name in present else None for name in names),
+                    *(_plotted_value(row[name]) if name in present else None for name in names),
                 )
             )
     return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)

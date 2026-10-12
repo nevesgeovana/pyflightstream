@@ -50,10 +50,10 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     # to avoid.
     "CONTRIBUTING.md": 4,
     "docs/srs/data-model.md": 2,
-    "docs/srs/functional-requirements.md": 39,
-    "docs/srs/index.md": 4,
+    "docs/unpublished/requirements/functional-requirements.md": 39,
+    "docs/unpublished/requirements/index.md": 4,
     "docs/srs/introduction.md": 20,
-    "docs/srs/nonfunctional-requirements.md": 7,
+    "docs/unpublished/requirements/nonfunctional-requirements.md": 7,
     "docs/srs/roadmap.md": 2,
     "reports/RPT-004_probe-roundtrip-order_2026-07-21.md": 3,
     "reports/RPT-005_fsi-dry-run_2026-07-21.md": 2,

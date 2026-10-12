@@ -8,6 +8,7 @@ against a row the author wrote, column by column, at the author's five decimals.
 
 from __future__ import annotations
 
+import sys
 import warnings
 from pathlib import Path
 
@@ -2103,19 +2104,60 @@ def test_goal019_post_two_rebuilds_in_one_second_do_not_collide(tmp_path):
     )
 
 
-def test_goal019_post_the_command_line_asks_before_it_destroys(tmp_path):
+class _Stdin:
+    """A stand-in for ``sys.stdin`` that says whether it is a terminal."""
+
+    def __init__(self, tty: bool) -> None:
+        self._tty = tty
+
+    def isatty(self) -> bool:
+        return self._tty
+
+
+def test_goal019_post_the_command_line_asks_before_it_destroys(monkeypatch):
     """--force-overwrite is refused when nobody answered it.
 
     A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
     answer is not "assume yes": that is how a flag in a saved command line
     quietly destroys a rebuild's evidence on a machine with no terminal.
+
+    The stdin is stated, not inherited: run with ``-s`` from a terminal the real one is
+    a tty and the question would block on the developer (PFS-2135.012).
     """
+    import builtins
+
     from pyflightstream.run.cli import _confirmed_destruction
 
+    def nobody(_prompt: str = "") -> str:
+        raise AssertionError("a question was asked of a session with no terminal")
+
+    monkeypatch.setattr(sys, "stdin", _Stdin(False))
+    monkeypatch.setattr(builtins, "input", nobody)
     assert _confirmed_destruction(True) is True, "--yes answers it"
     assert _confirmed_destruction(False) is False, (
         "a session with no terminal answered yes to a question nobody was asked"
     )
+    monkeypatch.setattr(sys, "stdin", None)
+    assert _confirmed_destruction(False) is False, "a session with no stdin answered yes"
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [("destroy", True), ("  Destroy \n", True), ("yes", False), ("", False), ("DESTROY it", False)],
+)
+def test_goal019_post_the_command_line_destroys_only_on_the_word_destroy(
+    monkeypatch, answer, expected
+):
+    """At a terminal the question is asked, and only the word 'destroy' goes on."""
+    import builtins
+
+    from pyflightstream.run.cli import _confirmed_destruction
+
+    asked: list[str] = []
+    monkeypatch.setattr(sys, "stdin", _Stdin(True))
+    monkeypatch.setattr(builtins, "input", lambda prompt="": asked.append(prompt) or answer)
+    assert _confirmed_destruction(False) is expected
+    assert len(asked) == 1 and "DESTROYS" in asked[0], asked
 
 
 # --- GOAL-019 item 9: the Band D fixes of the GEO-039 triage ------------------

@@ -217,6 +217,21 @@ def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
     selection at all the solver also writes a ``<name>_wakes.vtk`` (RPT-074).
     """
     variables = case.pproc.vtk_variables if case.pproc is not None else None
+    if variables:
+        allowed = (
+            next(
+                arg.values
+                for arg in script.entry("SET_VTK_EXPORT_VARIABLES").args
+                if arg.name == "variables"
+            )
+            or ()
+        )
+        unknown = [name for name in variables if name not in allowed]
+        if unknown:
+            raise CampaignConfigError(
+                f"vtk_variables {', '.join(unknown)} unavailable on FlightStream "
+                f"{script.version.canonical}; select variables supported by this build"
+            )
     if wants_wake(case):
         # FR-455 R3 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
         # wake switch in the variable selection writes.

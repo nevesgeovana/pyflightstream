@@ -764,18 +764,13 @@ def test_goal019_watchdog_the_margin_lives_in_the_setup(tmp_path):
 
 def _a_threshold():
     """One export threshold, built the way a row states it."""
-    from pyflightstream.cases.workflows import UnsteadyExportThreshold
+    from pyflightstream.cases.workflows import unsteady_export_threshold
 
-    return UnsteadyExportThreshold(
-        stated_form="EXPORT_UNSTEADY_AFTER_ITER",
-        stated_value=4.0,
-        first_step=4,
-        time_iterations=10,
-        step_deg=None,
-        delta_time_s=0.001,
-        rpm=None,
-        exports=(("log", "_log.txt", "EXPORT_LOG"),),
-    )
+    # Resolved from a row by the library, so every field has the type the builders produce
+    # (``exports`` is the child script's text, not a tuple; PFS-2135.008).
+    threshold = unsteady_export_threshold(unsteady_case(**{ITER: "4"}))
+    assert threshold is not None
+    return threshold
 
 
 def test_goal019_watchdog_restart_reads_the_three_forms_and_refuses_a_fourth():

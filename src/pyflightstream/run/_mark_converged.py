@@ -107,8 +107,14 @@ def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
 
 
 def _loads_on_disk(workspace: CampaignWorkspace, row: Mapping[str, Any], unit: Mapping) -> bool:
-    """Say whether the point's loads export is in its simulation folder."""
-    outputs = [str(name) for name in unit.get("outputs") or row.get("outputs") or []]
+    """Say whether the point's loads export is in its simulation folder.
+
+    A point of a steady job is judged by its own entry's outputs alone
+    (PFS-2103.029): the job row's are every point's, so a point that
+    collected nothing was accepted on another point's loads.
+    """
+    own = unit.get("outputs") if unit is not row else row.get("outputs")
+    outputs = [str(name) for name in own or []]
     name = classify_outputs(outputs).get("loads")
     if not name:
         return False
@@ -118,6 +124,14 @@ def _loads_on_disk(workspace: CampaignWorkspace, row: Mapping[str, Any], unit: M
 def _refusal(workspace: CampaignWorkspace, row: Mapping, unit: Mapping) -> str | None:
     """Why one point cannot take a verdict of CONVERGED, with the remedy; None when it can."""
     status = unit.get("status")
+    if unit is not row and row.get("status") == RunStatus.FAILED_MARKED.value:
+        # mark-failed marks a steady job's ROW, and its points keep their own
+        # statuses (PFS-2103.031): the person's verdict is the row's.
+        return (
+            "its job was marked failed by a person (mark-failed); one verdict is not laid "
+            "over another: restore runs.json from before that mark (pyfs-matrix restore "
+            "runs) first"
+        )
     if status == RunStatus.SUBMITTED.value:
         return (
             "still SUBMITTED: its job's outputs were never collected; collect it first "
@@ -277,12 +291,15 @@ def mark_converged(
         archived = base / ARCHIVE_DIR / f"{manifest.stem}-{_now_stamp()}.json"
         archived.parent.mkdir(exist_ok=True)
         shutil.copy2(manifest, archived)
+        # A JOB'S OWN FAILURE, one no point of it carries, outlives a point's verdict
+        # (PFS-2103.031): read before any point changes.
+        floors = {id(row): _job_only_failure(row) for row, _unit, _run_id, _was in todo}
         for row, unit, _run_id, was in todo:
             unit["marked"] = {"from": was, "at": at, "reason": reason, "verdict": _VERDICT.value}
             unit["status"] = _VERDICT.value
             unit.pop("iterations_requested", None)  # FR-434 R1: the person's verdict outranks.
             if unit is not row:
-                row["status"] = _worst(row)
+                row["status"] = _worst(row, floor=floors[id(row)])
                 if row["status"] != RunStatus.MAX_ITER_REACHED.value:
                     row.pop("iterations_requested", None)
         workspace._replace_manifest(rows)
@@ -325,13 +342,14 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
                 f"rebuild would lose marked point(s) {', '.join(sorted(missing))}; "
                 "restore the point declarations before rebuilding"
             )
+        floor = _job_only_failure(record)
         record = {
             **record,
             "points_ran": [
                 keep_verdict(point, units.get(str(point.get("tag")))) for point in points
             ],
         }
-        record["status"] = _worst(record)
+        record["status"] = _worst(record, floor=floor)
     if not row.get("marked"):
         return record
     note = (
@@ -345,18 +363,56 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
     return kept
 
 
-def _worst(row: Mapping[str, Any]) -> str:
-    """Return a steady job's status after a mark: its worst point's, by the one order."""
-    worst = RunStatus.CONVERGED
+def _job_only_failure(row: Mapping[str, Any]) -> RunStatus | None:
+    """Return a steady job's FAILED_* status that none of its points carries, else None.
+
+    Such a failure is the job's own (the build readings disagreeing, for one),
+    and a verdict on a point does not explain it away.
+    """
+    status = str(row.get("status") or "")
+    entries = row.get("points_ran") or []
+    if not entries or not status.startswith("FAILED"):
+        return None
+    if any(isinstance(entry, Mapping) and entry.get("status") == status for entry in entries):
+        return None
+    return _status_of(row, status)
+
+
+def _worst(row: Mapping[str, Any], *, floor: RunStatus | None = None) -> str:
+    """Return a steady job's status after a mark: its worst point's, by the one order.
+
+    ``floor`` is a failure of the job's own (:func:`_job_only_failure`), kept.
+    """
+    worst = floor or RunStatus.CONVERGED
     for entry in row.get("points_ran") or []:
-        worst = worse_of(worst, RunStatus(entry["status"]))
+        worst = worse_of(worst, _status_of(row, entry.get("status")))
     return worst.value
 
 
+def _status_of(row: Mapping[str, Any], status: object) -> RunStatus:
+    """Read a recorded status, refusing one this release does not know, naming the run id."""
+    try:
+        return RunStatus(str(status))
+    except ValueError:
+        raise RunsManifestError(
+            f"the record {row.get('run_id')!r} carries the status {status!r}, which is no "
+            f"status this release knows; correct it or restore {DEFAULT_MANIFEST} from "
+            "archive/ (pyfs-matrix restore runs)"
+        ) from None
+
+
 def _read(manifest: Path) -> list[dict[str, Any]]:
-    rows = json.loads(manifest.read_text(encoding="utf-8"))
-    if not isinstance(rows, list):
+    try:
+        rows = json.loads(manifest.read_text(encoding="utf-8"))
+    except ValueError as error:
+        raise RunsManifestError(
+            f"{manifest} is not readable JSON ({error}); restore it from archive/ "
+            "(pyfs-matrix restore runs) or rebuild it (pyfs-matrix rebuild)"
+        ) from None
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise RunsManifestError(f"{manifest} is not a list of run records")
+    if any(row.get("deleted_sim") is None and "run_id" not in row for row in rows):
+        raise RunsManifestError(f"{manifest} holds a run record with no run_id")
     return rows
 
 
@@ -438,6 +494,12 @@ def cmd_mark_converged(args: argparse.Namespace) -> int:
         print(f"refused: {who}: {why}")
     if entry["applied"]:
         print(f"runs.json as it was: {entry['runs_archived_as']}")
-    elif entry["marked"] or entry["refused"]:
+    elif entry["refused"]:
+        # --apply refuses while any point is refused (PFS-2100.016), so it is not the hint.
+        print(
+            "preview: nothing was written; --apply writes nothing while a point is refused: "
+            "resolve each refusal above, or leave its point out with --points, first"
+        )
+    elif entry["marked"]:
         print("preview: nothing was written; run again with --apply")
     return 0

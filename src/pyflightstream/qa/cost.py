@@ -86,7 +86,7 @@ from pathlib import Path
 from statistics import fmean
 
 from pyflightstream.qa.errors import QaEvidenceError
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import JOB_TAG, CampaignWorkspace, RunRecord, RunStatus
 
 __all__ = [
     "ABSENT",
@@ -242,11 +242,19 @@ class PointKey:
         Sweep point as (axis name, value) pairs sorted by name. Values
         are compared exactly, which is what makes two runs of the same
         matrix line land in the same row; units are the axis's own, as
-        the case matrix declared them.
+        the case matrix declared them. Empty for a job row.
+    job : tuple of str, optional
+        ``None`` for a point row. For a JOB record (a steady matrix row
+        run as one sweep, its run id ending in
+        :data:`~pyflightstream.workspace.JOB_TAG`) the tags of the points
+        it ran, in the order it ran them, possibly none. A job's wall time
+        is the whole sweep's, so its row is the job and never its first
+        point (PFS-2094.002).
     """
 
     sim_id: str
     axes: tuple[tuple[str, float], ...]
+    job: tuple[str, ...] | None = None
 
     @property
     def label(self) -> str:
@@ -256,7 +264,12 @@ class PointKey:
         exactly, rather than with a fixed precision. This label is an
         IDENTITY and two points a hair apart are two rows; ``:g`` would
         have printed six significant digits and given them one name.
+        A job row reads ``sweep of 3 points: AL+000, AL+002, AL+004``.
         """
+        if self.job is not None:
+            if not self.job:
+                return f"{JOB_TAG} (no point recorded)"
+            return f"{JOB_TAG} of {len(self.job)} points: {', '.join(self.job)}"
         if not self.axes:
             return NO_AXES
         return ", ".join(f"{name}={value!r}" for name, value in self.axes)
@@ -274,10 +287,15 @@ class CostCell:
     Attributes
     ----------
     samples : tuple of float
-        Wall-clock seconds of each run there that recorded one, in
-        manifest order. A re-run adds a sample rather than replacing
-        one: a manifest is evidence and the second reading does not
-        delete the first.
+        Wall-clock seconds of each run there that recorded one AND
+        reached an answer, in manifest order. A re-run adds a sample
+        rather than replacing one: a manifest is evidence and the second
+        reading does not delete the first.
+    excluded_samples : tuple of float
+        Wall-clock seconds of the runs counted in ``excluded_count``
+        that recorded one. Kept apart, never averaged into
+        :attr:`wall_time_s` (PFS-2094.003): a build that fails fast must
+        not read as a build that answers fast.
     run_count : int
         Runs recorded for this (point, build), timed or not.
     excluded_count : int
@@ -292,12 +310,14 @@ class CostCell:
     samples: tuple[float, ...] = ()
     run_count: int = 0
     excluded_count: int = 0
+    excluded_samples: tuple[float, ...] = ()
 
     @property
     def wall_time_s(self) -> float | None:
         """Mean of the recorded samples in seconds, or ``None``.
 
-        ``None`` when nothing there was timed. It is deliberately not
+        Over the runs that reached an answer only. ``None`` when none of
+        them was timed. It is deliberately not
         ``0.0`` and deliberately not ``math.nan``: see this module's
         top docstring.
         """
@@ -305,7 +325,7 @@ class CostCell:
 
     @property
     def absent(self) -> bool:
-        """True when no run there carries a wall time."""
+        """True when no run there carries a wall time to an answer."""
         return not self.samples
 
     @property
@@ -551,7 +571,17 @@ def _records(source: CostSource) -> list[RunRecord]:
 
 
 def _point_key(record: RunRecord) -> PointKey:
-    """Return the row this record belongs to."""
+    """Return the row this record belongs to.
+
+    PFS-2094.002. A JOB record carries its first point in ``point`` and
+    the whole sweep's wall time, so keying it by ``point`` printed the
+    cost of a polar as the cost of one angle. Its row is the job.
+    """
+    if record.points_ran or record.run_id.rsplit("/", 1)[-1] == JOB_TAG:
+        tags = tuple(
+            str(entry.get("tag") or entry.get("point") or "") for entry in record.points_ran
+        )
+        return PointKey(record.sim_id, (), job=tags)
     return PointKey(record.sim_id, tuple(sorted(record.point.items())))
 
 
@@ -598,17 +628,23 @@ def cost_view(source: CostSource) -> CostView:
         builds.add(build)
         points.add(point)
         cell = gathered.get((point, build), _EMPTY_CELL)
-        samples = cell.samples
+        excluded = record.status in _EXCLUDED_STATUSES
+        samples, excluded_samples = cell.samples, cell.excluded_samples
         if record.wall_time_s is not None:
-            samples = (*samples, float(record.wall_time_s))
+            # PFS-2094.003. Time to a failure is kept, apart from the mean.
+            if excluded:
+                excluded_samples = (*excluded_samples, float(record.wall_time_s))
+            else:
+                samples = (*samples, float(record.wall_time_s))
         gathered[(point, build)] = CostCell(
             samples=samples,
             run_count=cell.run_count + 1,
-            excluded_count=cell.excluded_count + (1 if record.status in _EXCLUDED_STATUSES else 0),
+            excluded_count=cell.excluded_count + (1 if excluded else 0),
+            excluded_samples=excluded_samples,
         )
     return CostView(
         builds=tuple(sorted(builds, key=lambda item: item.label)),
-        points=tuple(sorted(points, key=lambda item: (item.sim_id, item.axes))),
+        points=tuple(sorted(points, key=lambda item: (item.sim_id, item.axes, item.job or ()))),
         cells=gathered,
     )
 

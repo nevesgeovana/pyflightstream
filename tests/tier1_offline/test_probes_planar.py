@@ -48,7 +48,8 @@ def test_uniform_axis_prescribes_the_element_size():
     axis = AxisSpec(start=0.0, stop=1.0, spacing=0.25)
     assert axis.points() == pytest.approx([0.0, 0.25, 0.5, 0.75, 1.0])
     snapped = AxisSpec(start=0.0, stop=1.0, spacing=0.3)
-    assert len(snapped.points()) == 4  # 3 elements of 1/3, snapped to fill
+    # 4 elements of 0.25 since 0.40.0 (PFS-2104.016): never coarser than asked.
+    assert len(snapped.points()) == 5
     assert snapped.points()[-1] == 1.0
 
 

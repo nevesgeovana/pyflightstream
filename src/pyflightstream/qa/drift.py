@@ -32,6 +32,7 @@ import pyflightstream
 import pyflightstream._textio as _textio
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.physics import (
+    CaseResult,
     PhysicsRun,
     ReferenceBand,
     Verdict,
@@ -131,6 +132,17 @@ class DriftRun:
         return counts
 
 
+def _one_sided_case(result: CaseResult, present: str, absent: str) -> DriftCaseResult:
+    """Report a case only one run carries as an aborted comparison (PFS-2102.004)."""
+    return DriftCaseResult(
+        case_id=result.case_id,
+        title=result.title,
+        metrics={},
+        error=f"the case ran on {present} only; the {absent} run has no result for it, "
+        "so nothing was compared",
+    )
+
+
 def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
     """Diff two physics runs case by case and metric by metric.
 
@@ -138,7 +150,9 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
     is testable without a solver. Metrics are judged with the case's
     declared bands centered on the version-A value; a metric absent
     from the case specifications judges ``NO_REFERENCE`` rather than
-    inventing a band.
+    inventing a band, and so does a relative metric whose A value is
+    exactly zero. A metric one run lacks judges ``FAIL``, and a case
+    one run lacks is an aborted comparison: neither is skipped.
 
     Parameters
     ----------
@@ -151,11 +165,15 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
     DriftRun
         The comparison, one entry per case present in both runs.
     """
+    cases_a = {result.case_id for result in run_a.results}
     cases_b = {result.case_id: result for result in run_b.results}
     results: list[DriftCaseResult] = []
     for result_a in run_a.results:
         result_b = cases_b.get(result_a.case_id)
         if result_b is None:
+            # PFS-2102.004. A case on one side only was skipped, so a
+            # comparison that lost half its evidence read as clean.
+            results.append(_one_sided_case(result_a, run_a.version, run_b.version))
             continue
         title = result_a.title or result_b.title
         errors = [
@@ -176,11 +194,30 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
         case = registered_cases(include_smi=True).get(result_a.case_id)
         specs = case.specs_by_name if case is not None else {}
         metrics: dict[str, DriftMetric] = {}
-        for name, value_a in result_a.metrics.items():
-            if name not in result_b.metrics:
-                continue
-            value_b = result_b.metrics[name]
+        names = [*result_a.metrics, *(n for n in result_b.metrics if n not in result_a.metrics)]
+        for name in names:
             spec = specs.get(name)
+            if name not in result_a.metrics or name not in result_b.metrics:
+                # PFS-2102.004: an unpaired metric is a FAIL, never a skip.
+                value_a = result_a.metrics.get(name, float("nan"))
+                value_b = result_b.metrics.get(name, float("nan"))
+                metrics[name] = DriftMetric(
+                    value_a=value_a,
+                    value_b=value_b,
+                    delta=float("nan"),
+                    verdict=Verdict.FAIL,
+                    warn=spec.warn if spec else float("nan"),
+                    fail=spec.fail if spec else float("nan"),
+                    kind=spec.kind if spec else "abs",
+                )
+                continue
+            value_a = result_a.metrics[name]
+            value_b = result_b.metrics[name]
+            if spec is not None and spec.kind == "rel" and value_a == 0.0:
+                # PFS-2102.036. A relative band centred on zero has no width,
+                # so it is not applied (ReferenceBand refuses it); the metric
+                # is reported without a band rather than as a FAIL of nothing.
+                spec = None
             if spec is None:
                 metrics[name] = DriftMetric(
                     value_a=value_a,
@@ -203,6 +240,11 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
                 kind=spec.kind,
             )
         results.append(DriftCaseResult(case_id=result_a.case_id, title=title, metrics=metrics))
+    results.extend(
+        _one_sided_case(result_b, run_b.version, run_a.version)
+        for result_b in run_b.results
+        if result_b.case_id not in cases_a
+    )
     identity = list(run_a.solver_identity)
     identity.extend(line for line in run_b.solver_identity if line not in identity)
     return DriftRun(

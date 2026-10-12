@@ -136,8 +136,8 @@ class CcsControlSurface(BaseModel):
     name : str
         The control surface's name, one word.
     v0, v1 : float
-        Inner and outer spanwise limits, parametric (0 to 1) or, with
-        ``space = "REAL"``, coordinates along ``axis`` of the reference frame.
+        Inner and outer spanwise limits, fractions of the span between 0
+        and 1.
     u0, u1 : float
         Chordwise depths at the inner and outer limits, from the trailing edge.
     hinge_height : float
@@ -147,7 +147,9 @@ class CcsControlSurface(BaseModel):
     slot_gap_pct : float
         Slot gap on either side, in percent of span.
     space : str
-        ``PARAMETRIC`` (the default) or ``REAL``.
+        ``PARAMETRIC`` (the default), the one supported form. ``REAL``
+        is accepted by the model so the emitter can write it, and the
+        plan refuses it on every build (RPT-097): unsupported.
     axis : str
         The reference axis of REAL spanwise limits; written on every line.
     """
@@ -170,7 +172,7 @@ class CcsControlSurface(BaseModel):
     angle_deg: float
     #: Slot gap on either side, in percent of span.
     slot_gap_pct: float = Field(ge=0.0)
-    #: How the spanwise limits are read: PARAMETRIC or REAL.
+    #: How the spanwise limits are read: PARAMETRIC; REAL is unsupported (refused at plan, RPT-097).
     space: Literal["PARAMETRIC", "REAL"] = "PARAMETRIC"
     #: The reference axis REAL spanwise limits lie along.
     axis: Literal["X", "Y", "Z"] = "Y"
@@ -189,8 +191,9 @@ class CcsControlSurface(BaseModel):
             )
         if self.space == "PARAMETRIC" and not (0.0 <= self.v0 and self.v1 <= 1.0):
             raise ValueError(
-                f"v0 and v1 ({self.v0}, {self.v1}) are PARAMETRIC spanwise limits and lie "
-                'between 0 and 1; write space = "REAL" for coordinates along an axis'
+                f"v0 and v1 ({self.v0}, {self.v1}) are PARAMETRIC spanwise limits, "
+                "fractions of the span between 0 and 1; write each limit as that "
+                "fraction (the REAL form is refused at plan, RPT-097)"
             )
         return self
 
@@ -320,7 +323,10 @@ def ccs_component_names(text: str) -> tuple[str, ...]:
         name the file route gives each boundary (round 1, C0 on 26.124).
     """
     names = []
-    for line in text.splitlines():
+    # A byte order mark opens the first line of a file saved as UTF-8 by a
+    # spreadsheet; read as part of the word, it hid the first Component line
+    # (PFS-2095.039). The text itself, and so the file restated, keeps it.
+    for line in text.removeprefix("﻿").splitlines():
         fields = [field.strip() for field in line.split(";")]
         if len(fields) >= 2 and fields[0].casefold() == "component":
             names.append(fields[1])

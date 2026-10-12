@@ -11,6 +11,7 @@ and the coverage functions say how much of a plane was sampled.
 
 from __future__ import annotations
 
+import numbers
 from typing import Literal
 
 import numpy as np
@@ -215,13 +216,24 @@ def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) 
     _delta_psi(psi)
     data = np.asarray(values)
     n = data.shape[-1]
-    if m_max >= n // 2:
+    if isinstance(m_max, bool) or not isinstance(m_max, numbers.Integral) or m_max < 0:
+        raise FarfieldInputError(
+            f"m_max={m_max!r} is not an azimuthal order; give a non-negative integer"
+        )
+    # Order m is unaliased while 2 m < n: an odd grid of n = 2 m + 1 azimuths
+    # carries order m, and an even grid's Nyquist order n/2 is refused.
+    if 2 * m_max >= n:
         raise FarfieldInputError(
             f"m_max={m_max} needs more than {2 * m_max} uniform azimuths to avoid "
             f"aliasing; this grid has {n}"
         )
     spectrum = np.fft.fft(data, axis=-1) / n
-    return np.take(spectrum, np.arange(m_max + 1), axis=-1)
+    kept = np.take(spectrum, np.arange(m_max + 1), axis=-1)
+    # THE AZIMUTH ORIGIN. The FFT sums f_k exp(-i m 2 pi k / N), which is the
+    # c_m of the docstring only when psi_0 = 0; a grid starting at psi_0 needs
+    # the factor exp(-i m psi_0), or every order comes back rotated by m psi_0.
+    psi_0 = float(np.asarray(psi)[0])
+    return kept * np.exp(-1j * np.arange(m_max + 1) * psi_0)
 
 
 def _half_spectrum(values: np.ndarray, half: int) -> np.ndarray:

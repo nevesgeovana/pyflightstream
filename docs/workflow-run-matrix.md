@@ -122,7 +122,7 @@ them close the gap that made the capability unusable:
     before any seat is spent, since without one there is no wake and the
     solver answers anyway, and a `.fsm` whose sidecar states any of the
     three tables is refused, since its own marking is in the file.
-    [Mesh inputs and GUI-only operations](mesh-inputs.md) carries the
+    [Mesh inputs and GUI-only operations](mesh/how-to.md) carries the
     route in full. A recipe of your own receives whatever the library
     staged and imports it declaring the units itself.
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
@@ -185,7 +185,7 @@ placeholders are `{polar}` (`P<sim>-<name>`), `{point}` (the name),
 and inside an output name `{name}` is the rendered stem. The run record
 carries the name (`point_name`), the name of its sweep (`sweep_name`) and
 the template that named each point (`point_name_template`). A workspace may carry the old names; `pyfs-matrix rename` renames
-it, as [migrating to 0.21.0](migrating-to-0.21.0.md) describes.
+it, as [migrating to 0.21.0](upgrading.md#older-layouts) describes.
 
 ## Several matrices in one workspace
 

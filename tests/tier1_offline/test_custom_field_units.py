@@ -234,6 +234,7 @@ def test_continuation_refuses_changed_unit_declaration_even_with_identical_bytes
     source = field(tmp_path)
     case = with_field(steady_case(), source).model_copy(update={"freestream_units": "SI"})
     previous = SimpleNamespace(
+        run_id="c/sim_x/point",
         inputs_sha256={source.name: sha256(source.read_bytes()).hexdigest()},
         freestream_units="SI",
     )

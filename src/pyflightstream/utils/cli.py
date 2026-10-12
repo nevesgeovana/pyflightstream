@@ -786,6 +786,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     index_range = _pages(parser, "--index-pages", args.index_pages) if args.index_pages else None
     if args.command == "draft" and args.write and not args.out:
         parser.error("--write needs --out; refusing to guess where to put a draft")
+    if not Path(args.manual).is_file():
+        parser.error(f"--manual {args.manual} is not a file; give the path of the manual pdf")
 
     # A library refusal is a usage error when it arrives here: the caller
     # typed a page range or a manual path. Letting it escape delivered

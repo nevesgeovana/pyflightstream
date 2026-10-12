@@ -43,7 +43,7 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 # where the ledger reads them too; the run layer imports them back under this name.
 from pyflightstream.workspace.ledger import latest_record_of_point
 
-#: The statuses a continuation continues FROM whatever the run type: these two
+#: The statuses a continuation continues FROM whatever the run type: these three
 #: stopped with their outputs written and more to march, the wall clock or the
 #: iteration cap having ended them. A CONVERGED record of an unsteady march is
 #: continued too, but only by ``ADDITIONAL_REVS`` or ``ADDITIONAL_ITERS`` and
@@ -421,9 +421,19 @@ def continuation_verdict(
         )
     if latest.status in (RunStatus.COMPLETED_MAX_ITER, RunStatus.MAX_ITER_REACHED):
         return ContinuationVerdict(True, f"continuing {run!r}, recorded {status}, {_by(request)}")
+    if latest.status is RunStatus.RAN_MISSING_LOG:
+        # FR-413: NEVER CONVERGED BY ASSUMPTION, so not continued as a converged
+        # march either; it is not among CONTINUABLE (PFS-2103.025).
+        return ContinuationVerdict(
+            False,
+            f"not continued: its latest run, {run!r}, is recorded {status}, its outputs "
+            "written and its solver log absent, so how it ended is not known; recover the "
+            f"log and collect again, or remove the {RESTART_VARIABLE} key to march the point "
+            "from the start",
+        )
     if latest.recipe in MARCHING_RUN_TYPES:
         return ContinuationVerdict(
-            True, f"continuing a CONVERGED unsteady run, {run!r}, {_by(request)}"
+            True, f"continuing a {status} unsteady run, {run!r}, {_by(request)}"
         )
     return ContinuationVerdict(
         False,

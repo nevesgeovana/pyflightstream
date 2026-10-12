@@ -209,7 +209,9 @@ def test_manifest_round_trip_and_unique_run_id(tmp_path):
     ]
     with pytest.raises(WorkspaceError, match="already in the manifest"):
         workspace.append_record(make_record())
-    assert not workspace.manifest_path.with_suffix(".json.tmp").exists()
+    # The writer names its temporary file by process (runs.json.<pid>.tmp), so the glob is
+    # the check: an exact name no writer uses can never exist (PFS-2135.017).
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_manifest_is_valid_json_on_disk(tmp_path):

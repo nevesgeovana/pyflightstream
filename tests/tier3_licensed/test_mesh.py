@@ -68,8 +68,10 @@ def test_the_file_route_imported_one_edge_per_point_of_its_file(runs, pol, bound
 @pytest.mark.parametrize(("pol", "boundary", "count"), [(p, *v) for p, v in DETECTED.items()])
 def test_the_detection_route_marked_the_edges_the_saved_file_carries(runs, pol, boundary, count):
     record = runs.one(MATRIX, pol, **_point(pol))
-    marked = {name: int(n) for n, name in _MARKED.findall(_log(runs, record))}
-    assert marked == {boundary: count}, marked
+    # A list of (surface, count) pairs: a dict keeps only the last count per surface, so a log
+    # that marks a surface twice, or marks it 16 and then 0, would have compared equal.
+    marked = [(name, int(n)) for n, name in _MARKED.findall(_log(runs, record))]
+    assert marked == [(boundary, count)], marked
 
 
 @pytest.mark.parametrize("pol", ("4101", "4111"))

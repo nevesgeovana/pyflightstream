@@ -1217,17 +1217,20 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 180 since 0.37.0 (FR-423): twelve of the commands the 26.125 edition documents
     # first, none of them in the 26.122 view, so they land in not_in_this_view and the
     # two figures below do not move.
-    assert len(PROBE_SPECS) == 180, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 180. Adding one is "
+    # 235 since 0.40.0 (PFS-2081.13 to .17): the 55 primary probes of the command gaps,
+    # 42 rendering in isolation on 26.122 (28 with arguments) and 13 needing the motion
+    # their prelude creates, so 185, 123 and 33.
+    assert len(PROBE_SPECS) == 235, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 235. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
-    assert renders == 143, (
-        f"{renders} specifications render their target line in isolation, not 143. This "
+    assert renders == 185, (
+        f"{renders} specifications render their target line in isolation, not 185. This "
         f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
         "promotion that removes a command from the view, or marks it broken, moves it"
     )
-    assert len(groups["with_arguments"]) == 95, (
-        f"{len(groups['with_arguments'])} carry arguments on the target line, not 95. "
+    assert len(groups["with_arguments"]) == 123, (
+        f"{len(groups['with_arguments'])} carry arguments on the target line, not 123. "
         "That is the population a bare-token detector would have missed (RPT-026)"
     )
     # Split by CAUSE, because one bucket called "needs prelude" hid
@@ -1236,7 +1239,8 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
     assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
-    assert len(groups["needs_prelude"]) == 20, groups["needs_prelude"]
+    # 33 since 0.40.0: thirteen gap probes cite the motion their prelude creates.
+    assert len(groups["needs_prelude"]) == 33, groups["needs_prelude"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 

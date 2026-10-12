@@ -48,7 +48,7 @@ def test_source_and_srs_state_requirements_without_personal_attribution():
         for path in (root / "src").rglob("*")
         if path.is_file() and path.suffix in {".py", ".md", ".yaml"}
     )
-    paths.append(root / "docs/srs/functional-requirements.md")
+    paths.append(root / "docs/unpublished/requirements/functional-requirements.md")
     pattern = re.compile(
         r"\b(she|her|hers)\b|\b(?:owner|author)['?]s\b|"
         r"\b(?:owner|author)\s+(?:asked|decided|requested|wanted|settled)\b|"

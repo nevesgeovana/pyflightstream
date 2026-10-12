@@ -548,7 +548,6 @@ def _literal(value: Any) -> str:
     return json.dumps(value, ensure_ascii=True, allow_nan=False)
 
 
-@lru_cache(maxsize=1024)
 def setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
     """Return build availability and cited evidence for one setup field.
 
@@ -557,13 +556,20 @@ def setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
     key : str
         A solver setting's key.
     version : str
-        The build asked about.
+        The build asked about, canonical or by a display alias.
 
     Returns
     -------
     tuple of (bool, str)
         Whether the build carries the setting, and the evidence cited.
     """
+    # The per-version rows are keyed by the canonical identifier, so a build
+    # named by its alias is resolved once here; the cache key is canonical too.
+    return _setup_entry_evidence(key, resolve(version).canonical)
+
+
+@lru_cache(maxsize=1024)
+def _setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
     registry = CommandRegistry.load()
     command = SOLVER_SETTING_COMMANDS.get(key)
     if command is None:
@@ -982,5 +988,7 @@ def write_setup_library(
                 stream.write(body)
             result[name] = "created"
         except FileExistsError:
-            result[name] = "unchanged" if path.read_text(encoding="utf-8") == body else "preserved"
+            # Bytes, not text: a user's file in another encoding is preserved, not decoded.
+            same = path.read_bytes() == body.encode("utf-8")
+            result[name] = "unchanged" if same else "preserved"
     return result

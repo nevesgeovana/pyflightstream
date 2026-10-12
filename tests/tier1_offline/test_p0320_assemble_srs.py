@@ -2,7 +2,8 @@
 
 The 0.32.0 preparation step for the requirements the release adds: the SRS
 packages K1 and K2 each write ``docs/srs/fr.d/<package>.md`` and
-``scripts/assemble_srs.py`` folds them into ``docs/srs/functional-requirements.md``
+``scripts/assemble_srs.py`` folds them into
+``docs/unpublished/requirements/functional-requirements.md``
 under the heading ``## 0.25.0 to 0.32.0 additions``, then deletes them. Each
 test builds its own checkout in a temporary folder; the real SRS is never
 written.
@@ -58,7 +59,9 @@ def _script():
 def _checkout(tmp_path: Path, page: str = PAGE, **fragments: str) -> Path:
     srs = tmp_path / "docs" / "srs"
     srs.mkdir(parents=True, exist_ok=True)
-    (srs / "functional-requirements.md").write_text(page, encoding="utf-8")
+    page_dir = tmp_path / "docs" / "unpublished" / "requirements"
+    page_dir.mkdir(parents=True, exist_ok=True)
+    (page_dir / "functional-requirements.md").write_text(page, encoding="utf-8")
     if fragments:
         folder = srs / "fr.d"
         folder.mkdir()
@@ -68,7 +71,9 @@ def _checkout(tmp_path: Path, page: str = PAGE, **fragments: str) -> Path:
 
 
 def _page(repo: Path) -> str:
-    return (repo / "docs" / "srs" / "functional-requirements.md").read_text(encoding="utf-8")
+    return (
+        repo / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
+    ).read_text(encoding="utf-8")
 
 
 def test_fragments_fold_under_one_heading_in_package_order_and_are_deleted(tmp_path):
@@ -184,7 +189,7 @@ def test_a_heading_already_there_is_extended_before_the_section_that_follows_it(
 
 def test_the_line_ends_of_the_page_are_kept(tmp_path):
     repo = _checkout(tmp_path, k1=_box(112))
-    page_path = repo / "docs" / "srs" / "functional-requirements.md"
+    page_path = repo / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
     page_path.write_bytes(PAGE.replace("\n", "\r\n").encode("utf-8"))
     _script().assemble(repo)
     raw = page_path.read_bytes()

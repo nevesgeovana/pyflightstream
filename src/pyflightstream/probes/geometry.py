@@ -167,14 +167,29 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
     reached.
     """
     mesh = read_mesh(path)
-    if require_watertight and not mesh.is_watertight:
-        raise OpenMeshError(
-            f"the surface mesh {path} is not watertight, so inside/outside is "
-            "undefined and containment culling would guess. Close the geometry "
-            "(mirror a half model, close open ends) or run the gate with "
-            "cull disabled."
-        )
+    if require_watertight:
+        _refuse_open(mesh, str(path))
     return mesh
+
+
+def _refuse_open(mesh, source: str) -> None:
+    """Refuse an open mesh where containment is about to be asked of it.
+
+    PFS-2100.010. The remedy names the path that works: the gate loads
+    ``mesh_path`` with the watertight check only when it culls, so a
+    distance-only run (a standoff margin, a refinement band) is
+    ``cull=False``. Until 0.40.0 the gate loaded with the check whatever
+    ``cull`` was, and a user who followed the old remedy met the same
+    refusal again.
+    """
+    if not mesh.is_watertight:
+        raise OpenMeshError(
+            f"the surface mesh {source} is not watertight, so inside/outside is "
+            "undefined and containment culling would guess. Close the geometry "
+            "(mirror a half model, close open ends), or, for a distance-only use "
+            "(a standoff margin, a refinement band), run apply_geometry_gate with "
+            "cull=False, which tests no containment."
+        )
 
 
 def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
@@ -243,12 +258,16 @@ def apply_geometry_gate(
         honored here, because only the mesh knows where the surface
         is.
     mesh : trimesh.Trimesh, optional
-        Loaded surface mesh; alternatively give ``mesh_path``.
+        Loaded surface mesh; alternatively give ``mesh_path``, never
+        both. The report records no file for a mesh object.
     mesh_path : str or pathlib.Path, optional
-        Mesh file to load through :func:`load_surface_mesh`.
+        Mesh file to load through :func:`load_surface_mesh`; the
+        watertight check runs only when ``cull`` is set.
     cull : bool
-        Discard points inside the body. Disabling keeps every point
-        while still allowing band refinement.
+        Discard points inside the body; it needs a closed mesh.
+        Disabling keeps every point, asks no containment (so an open
+        mesh serves a standoff margin or a refinement band), and is the
+        way to run the gate without a mesh.
     standoff : float
         Also discard points closer to the surface than this margin
         (simulation length units). A probe on or hugging the wall
@@ -270,11 +289,29 @@ def apply_geometry_gate(
         If the grid asks for refinement, or a positive standoff is
         requested, without a mesh: both are measured from the
         surface, so they cannot exist without one. Also if the
-        standoff is negative. It is a ``ValueError``.
+        standoff is negative, if ``cull`` is set without a mesh, or if
+        both ``mesh`` and ``mesh_path`` are given. It is a
+        ``ValueError``.
+    OpenMeshError
+        If ``cull`` is set and the mesh is not watertight, whether it
+        came as ``mesh`` or through ``mesh_path``.
     """
+    # PFS-2103.001. With both, the report would record a file the gate
+    # never loaded.
+    if mesh is not None and mesh_path is not None:
+        raise ProbeGeometryError(
+            "pass mesh or mesh_path, not both: the report records the mesh file the "
+            "gate tested against, and with both it would name a file it never loaded"
+        )
     resolved_path = str(mesh_path) if mesh_path is not None else None
-    if mesh is None and mesh_path is not None:
-        mesh = load_surface_mesh(mesh_path)
+    if mesh_path is not None:
+        # PFS-2097.007, PFS-2100.010. Containment is asked only when the
+        # gate culls, so only then must the surface be closed.
+        mesh = load_surface_mesh(mesh_path, require_watertight=cull)
+    elif mesh is not None and cull:
+        # PFS-2097.008. A mesh object reaches containment with no
+        # check unless the gate makes the one the loader makes.
+        _refuse_open(mesh, "passed as mesh=")
     if grid.refinement is not None and mesh is None:
         raise ProbeGeometryError(
             "the grid prescribes a near-surface refinement band, but no surface "
@@ -287,6 +324,14 @@ def apply_geometry_gate(
         raise ProbeGeometryError(
             "a standoff margin is measured from the surface, so it needs a mesh; "
             "pass mesh or mesh_path, or drop the margin"
+        )
+    if cull and mesh is None:
+        # PFS-2088.007. The default asked for culling, and without a mesh
+        # it culled nothing while the report read like a gated grid.
+        raise ProbeGeometryError(
+            "cull=True discards the points inside the body, and no surface mesh was "
+            "given to say where the body is, so nothing would be culled; pass mesh or "
+            "mesh_path, or cull=False to keep every point"
         )
 
     base = grid.base_points()
@@ -331,7 +376,9 @@ def _refine_band(
     """Fine nodes of the cells within the band distance of the surface.
 
     Cells are flagged by their center: within ``distance`` of the
-    surface and not inside the body. Flagged cells are re-sampled
+    surface and, when the gate culls, not inside the body (without
+    culling no containment is asked, because the mesh may be open).
+    Flagged cells are re-sampled
     ``factor`` times finer per direction; nodes already present in the
     base grid are skipped, and nodes shared between adjacent flagged
     cells are emitted once, in cell-major order. Candidates inside the
@@ -350,8 +397,11 @@ def _refine_band(
     centers = grid.frame.to_reference(centers_local)
 
     center_distance = _surface_distance(mesh, centers)
-    center_inside = _inside(mesh, centers)
-    flagged = (center_distance < distance) & ~center_inside
+    flagged = center_distance < distance
+    if cull:
+        # PFS-2097.007. Containment on an open surface is a guess, and
+        # the gate checks the surface is closed only when it culls.
+        flagged &= ~_inside(mesh, centers)
     flagged = flagged.reshape(len(centers_u), len(centers_v))
 
     fine_u = _fine_axis(u, factor)

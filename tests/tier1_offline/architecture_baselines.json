@@ -55,7 +55,7 @@
    "positional": 0
   },
   "cases/selection.py:select_families": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 12,
    "statements": 27,
    "positional": 4
@@ -118,12 +118,6 @@
    "complexity": 11,
    "branches": 10,
    "statements": 27,
-   "positional": 1
-  },
-  "cases/matrix.py:read_matrix": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 47,
    "positional": 1
   },
   "cases/_matrix_upgrade.py:rewrite_codes": {
@@ -1633,6 +1627,7 @@
     "_collect_logs",
     "_record_files",
     "matrix",
+    "_additional",
     "__init__",
     "_grouped",
     "_campaign",

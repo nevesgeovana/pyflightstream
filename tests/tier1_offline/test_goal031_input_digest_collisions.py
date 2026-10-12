@@ -370,18 +370,26 @@ def test_a_declared_log_is_read_whatever_the_case_of_its_name(tmp_path):
     """A log the script names ``RunLog.OUT`` and a row collects as ``runlog.out`` is one
     file on a case-insensitive file system, so its text is read for the refusal lines
     although its suffix is no text suffix; every collected text output is read whatever
-    its name, and an output that is neither declared nor text is not."""
-    from pyflightstream.run._wake_edge_verdict import collected_log_texts
+    its name, and an output that is neither declared nor text is not. Since 0.40.0 the
+    lines that carry a refusal are what is read, from every output of a kind that is not
+    binary, declared or not (PFS-2101.003)."""
+    from pyflightstream.run._wake_edge_verdict import (
+        ACTUATOR_PROFILE_REFUSALS,
+        collected_log_texts,
+    )
 
-    (tmp_path / "runlog.out").write_text("the log", encoding="utf-8")
+    def said(who: str) -> str:
+        return f"{ACTUATOR_PROFILE_REFUSALS[0]} {who}\n"
+
+    (tmp_path / "runlog.out").write_text("the log\n" + said("log"), encoding="utf-8")
     (tmp_path / "table.csv").write_text("the table", encoding="utf-8")
-    (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
+    (tmp_path / "loads.txt").write_text("the loads\n" + said("loads"), encoding="utf-8")
     collected = ["runlog.out", "table.csv", "loads.txt"]
     assert collected_log_texts(tmp_path, collected, declared=["RunLog.OUT"]) == [
-        "the log",
-        "the loads",
+        said("log"),
+        said("loads"),
     ]
-    assert collected_log_texts(tmp_path, collected, declared=[]) == ["the loads"]
+    assert collected_log_texts(tmp_path, collected, declared=[]) == [said("log"), said("loads")]
 
 
 def test_a_log_a_child_action_exported_is_read_for_the_refusal_lines(tmp_path):
@@ -448,12 +456,16 @@ def test_the_solvers_own_log_is_read_on_a_job_that_declared_no_log(tmp_path):
     the solver's own ``FlightStreamLog.txt`` through LOG_OUTPUT alone, with no EXPORT_LOG:
     the file is the solver's own log by its name, so it is read for the refusal lines
     whatever was declared, in any case."""
-    from pyflightstream.run._wake_edge_verdict import collected_log_texts
+    from pyflightstream.run._wake_edge_verdict import (
+        ACTUATOR_PROFILE_REFUSALS,
+        collected_log_texts,
+    )
 
-    (tmp_path / "flightstreamlog.txt").write_text("the log", encoding="utf-8")
+    refusal = f"{ACTUATOR_PROFILE_REFUSALS[0]} the log\n"
+    (tmp_path / "flightstreamlog.txt").write_text("the log\n" + refusal, encoding="utf-8")
     (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
     collected = ["flightstreamlog.txt", "loads.txt"]
-    assert "the log" in collected_log_texts(tmp_path, collected, declared=[])
+    assert refusal in collected_log_texts(tmp_path, collected, declared=[])
 
 
 def test_one_file_spelled_through_a_parent_folder_is_one_file(tmp_path):

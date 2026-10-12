@@ -87,6 +87,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-qa", "case"): SUBJECT,
     ("pyfs-qa", "from_report"): SUBJECT,
     ("pyfs-qa", "reason"): RECORD,
+    # 0.40.0: update-reference writes the tree it is pointed at (PFS-2102.011/.012),
+    # apply-compat promotes into the repository's own database (PFS-2102.032).
+    ("pyfs-qa", "references_dir"): OUTPUT,
+    ("pyfs-qa", "drop"): RECORD,
+    ("pyfs-qa", "commands_dir"): OUTPUT,
     ("pyfs-fsi", "node_count"): CASE,
     ("pyfs-fsi", "dir"): SUBJECT,
     ("pyfs-workspace", "root"): SUBJECT,
@@ -663,7 +668,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "report"): frozenset({"apply-compat"}),
     ("pyfs-qa", "report_dir"): frozenset({"drift", "physics", "probe"}),
     ("pyfs-qa", "resume"): frozenset({"physics"}),
-    ("pyfs-qa", "root"): frozenset({"apply-compat"}),
+    ("pyfs-qa", "root"): frozenset({"apply-compat", "update-reference"}),
+    ("pyfs-qa", "references_dir"): frozenset({"update-reference"}),
+    ("pyfs-qa", "drop"): frozenset({"update-reference"}),
+    ("pyfs-qa", "commands_dir"): frozenset({"apply-compat"}),
     ("pyfs-qa", "timeout"): frozenset({"probe"}),
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
@@ -768,7 +776,9 @@ def test_the_allowlist_names_only_options_that_exist():
 
 def test_the_registry_requirement_says_command_line_option():
     """The SRS sentence this test holds the scripts to (design/68, PFS-2022.06)."""
-    text = (REPO / "docs" / "srs" / "functional-requirements.md").read_text(encoding="utf-8")
+    text = (
+        REPO / "docs" / "unpublished" / "requirements" / "functional-requirements.md"
+    ).read_text(encoding="utf-8")
     start = text.index('requirement "FR-40')
     statement = text[start : text.index("!!! requirement", start + 1)]
     assert "every command-line option" in statement.lower(), (

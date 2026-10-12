@@ -13,14 +13,19 @@ then `MTIP_<alias>` and `MHEL_<alias>`
 `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
 ([The in-plane coefficients](#the-in-plane-coefficients)). The column contract
 grows at its end only, so every earlier column keeps its position.
-Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../migrating-to-0.27.0.md) for older files with an alias line.
+Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.
 
 ### Where an unsteady point's numbers come from
 
 A steady point's row is built from the loads export. **An unsteady point's row
-is the average of the PLOTS history over the row's window**, the same window the
-unsteady polar and the reductions use, because the loads export of an unsteady
-run states the last time step, one instant of a cycle.
+is the average of the PLOTS history over the row's window**, because the loads
+export of an unsteady run states the last time step, one instant of a cycle.
+**Each rotor's table follows its own rotor's clock**, as each blade does
+([`per_blade`](per_blade.md#per_blade)): `LAST_REVS_AVG` counts that rotor's
+own revolutions, so on a row with several rotors turning at different rates
+each table averages over the stated number of its own revolutions, and its
+window in steps can differ from the clock rotor's, which the unsteady polar
+uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
 
 - **The history is the rotor's own six components in the global `MRP` frame**,
   `FX, FY, FZ, MX, MY, MZ` in Newtons, over the rotor's own families, general
@@ -35,7 +40,7 @@ run states the last time step, one instant of a cycle.
   and named in `products.json`, as the unsteady polar beside it does. The
   table's manifest entry states `source` and `window`.
 
-See [the rotor-table migration](../migrating-to-0.24.0.md) for the correction to historical unsteady tables.
+See [the rotor-table migration](../upgrading.md#older-layouts) for the correction to historical unsteady tables.
 
 ### `ETAW`
 

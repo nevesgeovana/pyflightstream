@@ -229,8 +229,12 @@ def _refuse_a_field_the_stopped_run_did_not_read(
     declaration = case.variables.get("FREESTREAM_UNITS") or case.freestream_units
     if declaration != previous.freestream_units:
         raise CampaignConfigError(
-            "The continued custom field changed its FREESTREAM_UNITS declaration; "
-            "start a new run rather than reinterpret the saved field."
+            f"case {case.sim_id!r} point {tag} states FREESTREAM_UNITS {declaration!r} and "
+            f"{RESTART_VARIABLE}, and the run it continues, {previous.run_id!r}, read its "
+            f"custom field under FREESTREAM_UNITS {previous.freestream_units!r}. A "
+            "continuation reopens the saved field and would reinterpret it. Restore the "
+            f"declaration the run read, or remove the {RESTART_VARIABLE} key to start a new "
+            "run in the field."
         )
     if recorded == current:
         return

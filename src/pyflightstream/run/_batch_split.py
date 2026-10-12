@@ -409,9 +409,36 @@ def _from_cells(
             f"cluster's max_walltime of {_minutes(max_walltime_s)}; write a cell the cluster "
             "grants, or BEST.",
         )
+    # A ROW THAT STATES NO WALL CLOCK AND IS NOT BEST adds nothing to the sum, so
+    # the sum would bound its points at zero seconds (PFS-2094.006): the job asks
+    # the profile's limit, said, or is refused where there is none.
+    unstated = [
+        unit.sim_id for unit in split.units if unit.walltime_cell_s is None and not unit.best
+    ]
+    if unstated:
+        names = ", ".join(unstated)
+        if max_walltime_s is None:
+            return (
+                None,
+                "none",
+                None,
+                None,
+                warnings,
+                f"rows {names} state no WALLTIME and are not BEST, and share a job with rows "
+                f"that state one ({', '.join(unit.sim_id for unit in cells)}), so the job's "
+                "walltime cannot budget their points and the profile states no max_walltime "
+                "to ask for; write a wall clock with its unit or BEST in those rows.",
+            )
+        warnings.append(
+            f"rows {names} state no WALLTIME and are not BEST, so the cells of the job do not "
+            "budget their points; the job asks the profile's max_walltime."
+        )
+        return int(max_walltime_s), "max_walltime", None, None, warnings, None
     seconds = int(sum((unit.walltime_cell_s or 0.0) * max(len(unit.run_ids), 1) for unit in cells))
     for unit in split.units:
-        if unit.best and unit.walltime_cell_s is None:
+        # EVERY UNIT IS PRICED (PFS-2094.007): a row that states no WALLTIME
+        # shares the job and added 0 s, as BEST does by its estimate.
+        if unit.walltime_cell_s is None:
             if any(value is None for value in unit.point_seconds):
                 return _from_estimate(split, None, max_walltime_s)
             seconds += best_walltime_s(
@@ -489,11 +516,13 @@ def job_walltime(
 ) -> tuple[int | None, str, bool | None, float | None, list[str], str | None]:
     """Decide the wall clock one job asks for (FR-364, FR-377).
 
-    Every polar BEST: the job is BEST, ``ceil(1.25 x estimate + margin)`` to the minute, capped
-    at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job
-    takes the sum of the cells per point and each BEST row's priced estimate. A cell above
+    No cell and a BEST polar: the job is BEST, ``ceil(1.25 x estimate + margin)`` to the minute,
+    capped at ``max_walltime_s`` with a warning that suggests a larger ``n``. Otherwise the job
+    takes the sum of the cells per point and each other row's priced estimate, BEST or stating no
+    WALLTIME (PFS-2094.007). A point with no estimate takes ``max_walltime_s`` with a warning
+    naming it, or blocks the plan where the profile states none. A cell above
     ``max_walltime_s`` is refused; a shortfall is named only with a recorded point estimate. A job
-    whose rows state nothing asks for none.
+    whose rows all state nothing asks for none.
 
     Parameters
     ----------
@@ -513,6 +542,6 @@ def job_walltime(
     """
     if _cells_of(split):
         return _from_cells(split, estimate_s, max_walltime_s)
-    if all(unit.best for unit in split.units):
+    if any(unit.best for unit in split.units):
         return _from_estimate(split, estimate_s, max_walltime_s)
     return None, "none", None, None, [], None

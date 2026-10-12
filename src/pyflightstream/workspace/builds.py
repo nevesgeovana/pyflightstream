@@ -94,7 +94,7 @@ class RegisteredBuild:
     accept_unregistered_build: bool = False
 
 
-def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -> None:
+def _refuse_declared_version(version: str, build_id: str, entry_path: Path) -> None:
     """Refuse a declared version the version registry does not carry.
 
     The check happens where the version is READ rather than where a
@@ -108,8 +108,8 @@ def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -
         The version string the registry entry declares.
     build_id : str
         The build id whose entry declares it, for the message.
-    registry_path : Path
-        The registry file, for the message.
+    entry_path : Path
+        The file the entry came from (the registry or its local overlay), for the message.
 
     Raises
     ------
@@ -122,7 +122,7 @@ def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -
         resolve(version)
     except (UnknownVersionError, AmbiguousVersionAliasError) as error:
         raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} declares "
+            f"the registry entry for build {build_id!r} in {entry_path} declares "
             f"version {version!r}, which this package cannot resolve to one registered "
             "FlightStream version. The version decides which command database the "
             "build's scripts are emitted against, so it is never guessed from the "
@@ -296,7 +296,7 @@ def resolve_build(
             'version is written as a string: version = "26.123". A bare 26.123 is a '
             "TOML float and loses the three-digit form the canonical identifier is."
         )
-    _refuse_declared_version(version, build_id, registry_path)
+    _refuse_declared_version(version, build_id, entry_path)
     return RegisteredBuild(
         fs_exe=Path(path_value), fs_version=version, accept_unregistered_build=accepted
     )

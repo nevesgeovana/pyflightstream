@@ -418,8 +418,13 @@ def _coupled(record: RunRecord) -> bool:
 def _not_started(
     workspace: CampaignWorkspace, point: _Point, source: Path | None, job: _Job
 ) -> None:
-    """Complete a point of an ended job that left no file and no stop (FR-369, D5)."""
-    files = [*_waited(point, source)]
+    """Complete a point of an ended job that left no file and no stop (FR-369, D5).
+
+    Only the point's OWN files count: under ``export_log = false`` the log's source
+    is the job's native log, which exists for every point once the job started.
+    """
+    shared = job.profile is not None and not job.profile.export_log
+    files = _waited(point, None if shared else source)
     if any(path.exists() for path in files):
         return
     if _walltime_stop(point.work / WALLTIME_CLOCK_STATE) is not None:
@@ -536,7 +541,10 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
     )
     in_batch = job.job["kind"] == "batch"
     if in_batch and verdict.ended:
-        _move_job(workspace, job, {record.sim_id for record in submitted})
+        # EVERY SIMULATION OF THE JOB (PFS-2103.022): one whose points all
+        # completed from copies while the job ran has no SUBMITTED record,
+        # and its batch copy was never moved home.
+        _move_job(workspace, job, {record.sim_id for record in job.members})
         in_batch = False
     for record in sorted(submitted, key=lambda r: (job_of(r) or {"order": 0})["order"]):
         entry = job_of(record)

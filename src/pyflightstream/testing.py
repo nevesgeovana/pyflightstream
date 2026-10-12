@@ -89,6 +89,13 @@ def assert_records_close(
             if math.isnan(a) != math.isnan(e):
                 violations.append((key, a, e, math.inf))
             continue
+        # An infinite value has no tolerance band: rtol * inf is inf (or
+        # nan when rtol is 0) and inf > inf is False, so only the same
+        # infinity matches.
+        if math.isinf(a) or math.isinf(e):
+            if a != e:
+                violations.append((key, a, e, math.inf))
+            continue
         if deviation > atol + rtol * abs(e):
             violations.append((key, a, e, deviation))
     if violations:

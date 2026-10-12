@@ -68,14 +68,17 @@ from pyflightstream.run._grouped import (
     read_receipt,
     refuse_grouped_options,
 )
-from pyflightstream.run._identity import entry_accepted_builds
+from pyflightstream.run._identity import (
+    _case_build,
+    _check_scheduled_builds,
+    entry_accepted_builds,
+)
 from pyflightstream.run._ids import CampaignErrors, narrow_to_selection
 from pyflightstream.run._plan import plan_campaign
 from pyflightstream.run._rebuild import bind_row_builds, campaign_executor, row_versions
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
-from pyflightstream.workspace.hpc import HpcProfile
-from pyflightstream.workspace.inputs import hpc_profiles, read_hpc_profile
+from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 from pyflightstream.workspace.naming import PointName
 
@@ -261,23 +264,28 @@ def _supersede_not_started(workspace: CampaignWorkspace, receipt: GroupingReceip
 
 
 def _profile_for(workspace: CampaignWorkspace, inner: Any) -> HpcProfile | None:
-    """Return the profile a grouped run reads: the inner's, or the workspace's under --local."""
+    """Return the profile a grouped run reads: the inner's, or the workspace's under --local.
+
+    Under ``--local`` the workspace's profile is the one the grouped plan read, by the
+    same rule (:func:`~pyflightstream.workspace.hpc.resolve_hpc_profile`): the
+    ``--hpc`` selection, else the one profile, and several with no selection refused.
+    """
     profile = getattr(inner, "profile", None)
     if isinstance(profile, HpcProfile):
         return profile
     if getattr(inner, "forced_local", False):
-        found = hpc_profiles(workspace.inputs_dir)
-        return read_hpc_profile(found[0]) if found else None
+        return resolve_hpc_profile(workspace.inputs_dir)
     return None
 
 
 def _job_root(job: GroupedJob, root: Path, profile: HpcProfile | None, submits: bool) -> PurePath:
     """Return the root a job's script names its paths from (reading 3)."""
     work_dir = (root / job.dir).as_posix().rstrip("/")
-    # FT-PLAN adds `job_root` to HpcProfile in parallel; read with a default so
-    # this holds before and after that merge (the session reconciles at INT).
-    template = getattr(profile, "job_root", DEFAULT_JOB_ROOT) if submits else DEFAULT_JOB_ROOT
-    return PurePath(str(template).format(work_dir=work_dir, batch=job.label, sim=job.label))
+    template = profile.job_root if submits and profile is not None else DEFAULT_JOB_ROOT
+    # ONE MEANING PER PLACEHOLDER (0.40.0), the meaning of :func:`job_values`:
+    # ``{sim}`` is the job's first simulation, ``{batch}`` the job's label.
+    first = job.sims[0] if job.sims else job.label
+    return PurePath(template.format(work_dir=work_dir, batch=job.label, sim=first))
 
 
 def job_values(job: GroupedJob, *, profile: HpcProfile | None) -> dict[str, object]:
@@ -287,8 +295,9 @@ def job_values(job: GroupedJob, *, profile: HpcProfile | None) -> dict[str, obje
     so ``job_name = "FTS{sim}"`` names a batch by the polar it starts with; for a
     polar sweep it is that polar) and ``point`` its name (``BATCH-<a>-<b>``,
     ``FULL-POLAR``), so the profile's ``native_log`` finds the job's log in the
-    job's own folder. The batch label ``<matrix>_b<ID>`` is ``batch``. A batch adds
-    ``batch`` and ``batch_id``; every job adds
+    job's own folder. ``batch`` is the job's label, the batch label ``<matrix>_b<ID>``
+    or a polar sweep's simulation id, as in the profile's ``job_root``. A batch adds
+    ``batch_id``; every job adds
     ``sims``, ``first_sim``, ``last_sim``, ``fs_build`` and ``ncpus``, and the
     walltime in the three spellings a point offers, when the job has one.
 
@@ -312,9 +321,10 @@ def job_values(job: GroupedJob, *, profile: HpcProfile | None) -> dict[str, obje
         "last_sim": job.sims[-1] if job.sims else "",
         "fs_build": job.fs_build,
         "ncpus": job.ncpus,
+        "batch": job.label,
     }
     if job.batch_id is not None:
-        values.update(batch=job.label, batch_id=job.batch_id)
+        values.update(batch_id=job.batch_id)
     if job.walltime_s is not None:
         seconds = profile is not None and profile.walltime_arithmetic == "seconds"
         values["walltime"] = int(job.walltime_s) if seconds else job.walltime_written
@@ -503,18 +513,25 @@ def _records_of(job: GroupedJob, records: Sequence[RunRecord]) -> list[RunRecord
 
 def _launch_all(
     context: _Context, records: list[RunRecord], inners: Mapping[str, Any]
-) -> list[RunRecord]:
-    """Launch every job that holds a point this call recorded; return the records as they end."""
+) -> tuple[list[RunRecord], list[RunRecord]]:
+    """Launch every job that holds a point this call recorded.
+
+    Returns the records as they end, and the records of the jobs that did
+    not launch, which the caller raises (PFS-2094.031).
+    """
     done: dict[str, RunRecord] = {}
+    refused: list[RunRecord] = []
     for job in context.receipt.jobs:
         mine = _records_of(job, records)
         if not mine:
             continue
         launch, ended = _run_job(context, job, mine, inners[job.label])
         done.update({record.run_id: record for record in ended})
+        if launch.refusal is not None:
+            refused.extend(ended)
         _say_job(job, launch, len(mine), local=context.local)
     print("next: pyfs-matrix collect, then pyfs-matrix post")
-    return [done.get(record.run_id, record) for record in records]
+    return [done.get(record.run_id, record) for record in records], refused
 
 
 def _inner_of(job: GroupedJob, cases: Mapping[str, SimCase], builds: Any, grouping: Any) -> Any:
@@ -559,13 +576,16 @@ def run_grouped_matrix(
     Returns
     -------
     list of RunRecord
-        The records of this call: SUBMITTED, or FAILED_EXECUTION for the
-        points of a job that did not launch.
+        The records of this call, SUBMITTED, when every job launched.
 
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
         A refused option, a receipt that does not match, or a blocked pre-flight.
+    CampaignErrors
+        A point failed or a job did not launch: its points are recorded
+        FAILED_EXECUTION and named in ``failures``, and ``records`` holds
+        every record of the call.
     """
     kw = run_matrix_keywords
     refusal = refuse_grouped_options(
@@ -581,7 +601,8 @@ def run_grouped_matrix(
     if refusal is not None or receipt is None:
         raise MatrixError(f"grouped run refused: {refusal}")
     resolved = _bound_matrix(path, workspace, receipt, kw)
-    _supersede_not_started(workspace, receipt)
+    # THE FAILED RECORDS ARE SUPERSEDED IN _run_receipt, after every refusal
+    # (PFS-2096.004, as run_campaign orders its own, FIX-0212).
     # THE PRE-FLIGHT ALLOCATES EACH SIMULATION'S FOLDER, so it plans in the
     # staging workspace too: a batched simulation gets no sims/sim_<id>/ here.
     staging = BatchStagingWorkspace(
@@ -591,7 +612,7 @@ def run_grouped_matrix(
         resolved.campaign,
         staging,
         recipes=kw.get("recipe_registry"),
-        versions=row_versions(resolved),
+        versions=row_versions(resolved, _default_version(kw)),
         matrix_path=path,
         write_plan=False,
     )
@@ -600,7 +621,18 @@ def run_grouped_matrix(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
             f"executed:\n{plan.summary()}"
         )
-    return _run_receipt(path, staging, receipt, resolved, kw)
+    return _run_receipt(path, staging, receipt, resolved, kw, home=workspace)
+
+
+def _pending_sims(workspace: CampaignWorkspace, receipt: GroupingReceipt) -> set[str]:
+    """Return the simulations with a receipt point that has no record, or a FAILED_* one."""
+    effective = {record.run_id: record for record in workspace.read_manifest()}
+    return {
+        run_id.rsplit("/", 2)[-2].removeprefix("sim_")
+        for job in receipt.jobs
+        for run_id in job.points
+        if run_id not in effective or str(effective[run_id].status).startswith("FAILED")
+    }
 
 
 def _run_receipt(
@@ -609,8 +641,14 @@ def _run_receipt(
     receipt: GroupingReceipt,
     resolved: ResolvedMatrix,
     kw: Mapping[str, Any],
+    *,
+    home: CampaignWorkspace,
 ) -> list[RunRecord]:
-    """Run the campaign loop through the adapters, then launch every job."""
+    """Run the campaign loop through the adapters, then launch every job.
+
+    ``home`` is the workspace whose records and datapoint folders the failed
+    records of the receipt's points are superseded and archived in.
+    """
     inner, inner_for = campaign_executor(
         workspace,
         resolved,
@@ -646,6 +684,21 @@ def _run_receipt(
         local=not submits,
     )
     inners = {job.label: _inner_of(job, context.cases, builds, grouping) for job in receipt.jobs}
+    accepted = entry_accepted_builds(resolved, workspace, _default_version(kw), kw.get("fs_exe"))
+    # THE IDENTITY PRE-FLIGHT, HERE AND NOT IN run_campaign (PFS-2096.004): the
+    # failed records of the receipt's points are superseded only once it has
+    # passed, so a refusal leaves the workspace as it found it. It asks the
+    # builds of the simulations with a point still to run, as run_campaign's
+    # own pass two would, and run_campaign does not ask again.
+    pending = _pending_sims(home, receipt)
+    _check_scheduled_builds(
+        campaign,
+        grouping,
+        [(case, _case_build(case, builds)) for case in campaign.sims if case.sim_id in pending],
+        accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
+        accepted_builds=accepted,
+    )
+    _supersede_not_started(home, receipt)
     try:
         records = run_campaign(
             campaign,
@@ -657,11 +710,16 @@ def _run_receipt(
             builds=builds,
             name_from=kw.get("name_from"),
             accept_unregistered_build=bool(kw.get("accept_unregistered_build")),
-            accepted_builds=entry_accepted_builds(
-                resolved, workspace, _default_version(kw), kw.get("fs_exe")
-            ),
+            accepted_builds=accepted,
+            preflight=False,
         )
     except CampaignErrors as error:
-        error.records = _launch_all(context, list(error.records), inners)
+        error.records, refused = _launch_all(context, list(error.records), inners)
+        error.failures = [*error.failures, *refused]
         raise
-    return _launch_all(context, records, inners)
+    # A JOB THAT DID NOT LAUNCH IS A FAILURE OF THE RUN (PFS-2094.031): its
+    # points were recorded FAILED_EXECUTION and the command exited 0.
+    records, refused = _launch_all(context, records, inners)
+    if refused:
+        raise CampaignErrors(refused, records)
+    return records

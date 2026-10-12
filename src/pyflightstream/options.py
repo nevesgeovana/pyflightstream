@@ -42,6 +42,7 @@ definition or the workspace, where it is recorded by the manifest.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -316,7 +317,7 @@ _MISSING = object()
 
 
 def positive_seconds(value: Any) -> None:
-    """Accept a strictly positive real number of seconds.
+    """Accept a strictly positive, finite real number of seconds.
 
     Parameters
     ----------
@@ -326,11 +327,17 @@ def positive_seconds(value: Any) -> None:
     Raises
     ------
     ValueError
-        If the value is not a strictly positive real number; the registry reports it as an
-        :class:`OptionError`.
+        If the value is not a strictly positive finite real number (NaN and
+        infinity included, since ``nan <= 0`` is False); the registry reports
+        it as an :class:`OptionError`.
     """
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
-        raise ValueError("a strictly positive number of seconds is required")
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError("a strictly positive, finite number of seconds is required")
 
 
 def non_empty_path_text(value: Any) -> None:

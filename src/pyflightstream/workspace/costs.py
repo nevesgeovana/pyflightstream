@@ -30,6 +30,7 @@ from collections.abc import Collection, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeGuard
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace.sidecars import load_toml
@@ -217,11 +218,21 @@ def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
     return read_cost_file(found[0]) if found else None
 
 
-def _number(table: Mapping, key: str, where: str, path: Path) -> float:
-    """Return ``table[key]`` as a finite number, refusing it by name otherwise."""
+def _is_number(value: object) -> TypeGuard[int | float]:
+    """Whether ``value`` is a finite TOML number (a boolean is not one)."""
+    return not isinstance(value, bool) and isinstance(value, int | float) and math.isfinite(value)
+
+
+def _number(table: Mapping, key: str, where: str, path: Path, *, positive: bool = False) -> float:
+    """Return ``table[key]`` as a finite number, refusing it by name otherwise.
+
+    ``positive`` also refuses zero and a negative value: the reference
+    quantities divide an estimate, so a zero is a division by zero later.
+    """
     value = table.get(key)
-    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
-        raise InputArtifactError(f"the cost file {path} needs [{where}] {key} to be a number.")
+    if not _is_number(value) or (positive and value <= 0):
+        kind = "a positive number" if positive else "a number"
+        raise InputArtifactError(f"the cost file {path} needs [{where}] {key} to be {kind}.")
     return float(value)
 
 
@@ -248,6 +259,10 @@ def _curve(parallel: Mapping, path: Path) -> tuple[tuple[float, ...], tuple[floa
     if not isinstance(ncpus, list) or not isinstance(speedup, list) or len(ncpus) != len(speedup):
         raise InputArtifactError(
             f"the cost file {path} needs [parallel] ncpus and speedup to be lists of one length."
+        )
+    if not all(_is_number(value) for value in (*ncpus, *speedup)):
+        raise InputArtifactError(
+            f"the cost file {path} needs every [parallel] ncpus and speedup entry to be a number."
         )
     xs = tuple(float(x) for x in ncpus)
     if list(xs) != sorted(set(xs)) or any(s <= 0 for s in speedup):
@@ -282,7 +297,9 @@ def read_cost_file(path: str | Path) -> CostFile:
     _refuse_unknown(raw, target)
     reference = dict(raw.get("reference", {}))
     for key in ("wall_time_s", "mesh_faces", "ncpus"):
-        _number(reference, key, "reference", target)
+        _number(reference, key, "reference", target, positive=True)
+    if "steps" in reference:
+        _number(reference, "steps", "reference", target, positive=True)
     xs, ys = _curve(raw.get("parallel", {}), target)
     fit = None
     parallel = raw.get("parallel", {})

@@ -30,8 +30,9 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
-from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
+from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT, SCRIPT_ARGUMENT
+from pyflightstream.run._mark_converged import RunsManifestError, keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
     _copy_inputs,
@@ -98,21 +99,24 @@ _NOT_RECOVERABLE_NOTE = (
 # ---------------------------------------------------------------------------
 
 
-def row_versions(resolved: Any) -> dict[str, str]:
+def row_versions(resolved: Any, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation solver version of a bound matrix, keyed by sim id.
 
-    The version each row's build declares in the build registry; a row on a
-    build declaring none is absent and runs under the campaign default. The
-    same answer ``pyfs-matrix plan`` and ``run`` use.
+    The version each row's build declares in the build registry, else
+    ``default``, else the build id itself, which is the version the run emits
+    the row's scripts under; a row naming no build is absent and runs under
+    the campaign default. The same answer ``pyfs-matrix plan`` and ``run`` use.
 
     Parameters
     ----------
     resolved : pyflightstream.workspace.matrix.ResolvedMatrix
         The bound matrix.
+    default : str, optional
+        The campaign's default version, as the run binds the rows' builds with.
     """
     from pyflightstream.run import matrix as run_matrix
 
-    return run_matrix._row_versions(resolved)
+    return run_matrix._row_versions(resolved, default)
 
 
 def campaign_executor(
@@ -515,9 +519,14 @@ def _complete_rows(
     notes: list[str],
     out: _Outcome,
 ) -> None:
-    """Complete each minted row of one proved simulation from the files on disk."""
-    base, shadow = context.base, context.shadow
-    descriptor_name = getattr(context.profile, "descriptor_name", None)
+    """Complete each minted row of one proved simulation from the files on disk.
+
+    THE SIMULATION IS REBUILT WHOLE OR NOT AT ALL (PFS-2103.028): its records
+    reach ``out`` only once every row of it succeeded, so one reported NOT
+    RECOVERABLE has none of its records written. A person's mark that cannot
+    be kept refuses the simulation alone (PFS-2095.053), never the rebuild.
+    """
+    done: list[dict[str, Any]] = []
     for row in rows:
         facts = _facts(context, sim_dir, row)
         if facts is None:
@@ -527,13 +536,13 @@ def _complete_rows(
             out.refused[sim] = facts
             return
         grouped = grouped_point(
-            base,
+            context.base,
             stem,
             str(row["run_id"]),
             executed=executed,
             home=sim_dir,
             run_root=run_root,
-            descriptor_name=descriptor_name,
+            descriptor_name=getattr(context.profile, "descriptor_name", None),
         )
         refusal = grouped_facts(facts, grouped)
         if refusal is not None:
@@ -544,20 +553,24 @@ def _complete_rows(
             completed, deferred = dict(row), facts["keep_submitted"]
         else:
             completed, deferred = collect_without_writing(
-                base, row, staging=shadow / "collect" / f"sim_{sim}"
+                context.base, row, staging=context.shadow / "collect" / f"sim_{sim}"
             )
         record = _finalise(context, sim, completed, facts, deferred, notes)
         if grouped is not None:
             record = with_job(record, grouped, row.get("submission") or {})
-        record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
         try:
+            record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
             from pyflightstream.workspace import RunRecord
 
             RunRecord.model_validate(record)
+        except RunsManifestError as error:
+            out.refused[sim] = str(error)
+            return
         except Exception as error:  # noqa: BLE001 - the model's refusal is the reason given
             out.refused[sim] = f"the rebuilt record does not validate: {error}; {_MINT_REMEDY}"
             return
-        out.records.append(record)
+        done.append(record)
+    out.records.extend(done)
 
 
 def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str, Any] | str | None:
@@ -628,6 +641,23 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
     return facts
 
 
+def _matrix_hidden(base: Path, stem: object) -> bool:
+    """Whether ``pyfs-matrix run`` ran the matrix's points windowless, by its HIDDEN column.
+
+    The rule of the run (``run.matrix``): windowless when every row says so, and when the
+    matrix has no row; a matrix that cannot be read here is taken as the default, hidden.
+    """
+    from pyflightstream.cases.matrix import read_matrix
+
+    if not stem:
+        return True
+    try:
+        rows = read_matrix(matrix_path(base, str(stem)))
+    except (PyflightstreamError, OSError, ValueError):
+        return True
+    return all(row.hidden for row in rows) if rows else True
+
+
 def _finalise(
     context: _Context,
     sim: str,
@@ -637,7 +667,6 @@ def _finalise(
     notes: Sequence[str],
 ) -> dict[str, Any]:
     """Put back what the shadow could not know, and say what was reconstructed."""
-    from pyflightstream.run import LocalExecutor
     from pyflightstream.run.collect import assessment_of_collected
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
@@ -679,21 +708,21 @@ def _finalise(
             record["submission"] = submission
         else:
             record["submission"] = None
-        posix = run_root.startswith("/")
         own_root = facts.get("run_root") is not None
         record["cwd"] = (
             _join_root(run_root, work_dir.relative_to(base)) if own_root else str(work_dir)
         )
         script_at_run = _join_root(run_root, script.relative_to(base)) if own_root else str(script)
-        try:
-            local = LocalExecutor(record["fs_exe"], hidden=True)
-            argv = [str(item) for item in local._argv(Path(script_at_run))]
-            if posix:
-                argv = [
-                    script_at_run if item == str(Path(script_at_run)) else item for item in argv
-                ]
-        except Exception:  # noqa: BLE001 - an executable not on this machine still has an argv
-            argv = [str(record.get("fs_exe")), "-script", script_at_run]
+        # ONE RECONSTRUCTION (PFS-2103.004), whether or not the executable is on
+        # this machine: the command line LocalExecutor writes, with the window
+        # the matrix's HIDDEN column gave the run (as `pyfs-matrix run` reads it).
+        hidden = _matrix_hidden(base, record.get("matrix_stem"))
+        argv = [
+            str(record.get("fs_exe")),
+            *(["-hidden"] if hidden else []),
+            SCRIPT_ARGUMENT,
+            script_at_run,
+        ]
         record["argv"] = argv
         record["executor"] = {"class_name": "LocalExecutor", "argv": argv}
         reconstructed += ["argv", "executor", "cwd"]

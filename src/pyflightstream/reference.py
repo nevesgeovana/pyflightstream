@@ -879,7 +879,8 @@ def help(  # noqa: A001
     target = Path(path)
     _textio.write_text(target, render_html(version))
     if open_browser:
-        webbrowser.open(target.as_uri())
+        # A relative path has no file URI: resolve it before asking for one.
+        webbrowser.open(target.resolve().as_uri())
     return target
 
 

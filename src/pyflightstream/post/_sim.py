@@ -104,6 +104,7 @@ from pyflightstream.post.point_tables import (
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
+    _unjudged_vorticity_drag,
     drag_columned_rows,
     drag_columns_of,
     group_polar_rows,
@@ -127,7 +128,11 @@ from pyflightstream.post.unsteady_polar import (
 )
 from pyflightstream.results import FrozenSolve
 from pyflightstream.workspace.inputs import rotor_integration_groups
-from pyflightstream.workspace.sidecars import inventory_sidecar, recorded_mesh_faces
+from pyflightstream.workspace.sidecars import (
+    OBJ_SUFFIX,
+    inventory_sidecar,
+    recorded_mesh_faces,
+)
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -489,6 +494,21 @@ def _group_polars(ctx: SimContext) -> None:
     """Write the polar of each boundary group, its custom-format twin and its superfile rows."""
     if not ctx.pproc.products.polars:
         return
+    for point in ctx.points:
+        # THE DECLINED-DRAG RULE IS UNMEASURED ON 26.125 (FR-423): said once per
+        # point whose record lists vorticity-drag surfaces, never left silent.
+        unjudged = _unjudged_vorticity_drag(point.loads, point.vorticity_selection)
+        if unjudged:
+            warn(
+                f"point={point.name} product=polars: {', '.join(unjudged)} "
+                f"{'is' if len(unjudged) == 1 else 'are'} on the vorticity induced-drag list "
+                "(SET_VORTICITY_DRAG_BOUNDARIES) and the export prints the 26.125 split "
+                "(CDp, CDv), for which no run has measured what a listed surface without a "
+                "trailing edge prints; the declined-drag rule is not applied, so their axis "
+                "drag columns are written as numbers nothing judged.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
     # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
     # group polars below are NOT written for it: the native coefficient export
     # states the LAST TIME STEP, which on an oscillating rotor is one instant of
@@ -512,10 +532,34 @@ def _group_polars(ctx: SimContext) -> None:
         try:
             groups = rotor_integration_groups(getattr(ctx.live, "rotors", {}), ctx.pproc.groups)
         except PyflightstreamError as clash:
-            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = str(clash)
+            # NO GROUP POLAR IS WRITTEN. The refusal says a declared group and a
+            # rotor disagree about what one alias means; writing the groups as
+            # declared went on with exactly the group it called ambiguous.
+            ctx.skipped[f"{POLARS_DIR}/{ctx.sim_id}"] = (
+                f"{clash} No group polar of simulation {ctx.sim_id!r} is written until "
+                "the two agree."
+            )
+            return
     positions = {name: index for index, name in enumerate(groups, start=1)}
+    # AN UNSTEADY SIMULATION WITH NO WINDOW still reaches the loop below (its
+    # clock could not be resolved, so no window and no unsteady polar), and
+    # its group polars then hold the LAST TIME STEP: written, as the rotor
+    # table beside them is, with `kind: instant` and a line in post.log.
+    instant = ctx.window is None and any(
+        str(getattr(ctx.record_of.get(point.name), "recipe", "") or "").startswith("unsteady")
+        for point in ctx.points
+    )
+    if instant and groups:
+        warn(
+            f"point={POLARS_DIR}/{ctx.sim_id} product={POLARS_DIR}/{ctx.sim_id}: simulation "
+            f"{ctx.sim_id}'s group polars are read from the loads export of an "
+            "unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging "
+            "window resolves for it; the manifest marks them kind: instant.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     for group, families in () if ctx.window is not None else groups.items():
-        _group_polar(ctx, group, families, positions)
+        _group_polar(ctx, group, families, positions, instant=instant)
 
 
 def _group_rows(
@@ -553,9 +597,18 @@ def _group_rows(
 
 
 def _group_polar(
-    ctx: SimContext, group: str, families: Sequence[int | str], positions: Mapping[str, int]
+    ctx: SimContext,
+    group: str,
+    families: Sequence[int | str],
+    positions: Mapping[str, int],
+    *,
+    instant: bool = False,
 ) -> None:
-    """One group's polar table, its superfile rows and its custom-format twin."""
+    """One group's polar table, its superfile rows and its custom-format twin.
+
+    ``instant`` marks both entries ``kind: instant``: an unsteady simulation's
+    polar read from its loads export, the last time step.
+    """
     group_points, group_conditions, rows, absent = _group_rows(ctx, group, families)
     group_name = ctx.contributor_name(group_points) if group_points else ctx.table_name
     relative = f"{POLARS_DIR}/{swept_polar_file_name(ctx.sim_id, name=group_name, group=group)}"
@@ -607,7 +660,8 @@ def _group_polar(
             full,
             group_points,
         )
-    ctx.add(target, {"runs": group_runs})
+    entry: dict[str, object] = {"runs": group_runs, **({"kind": "instant"} if instant else {})}
+    ctx.add(target, dict(entry))
     if ctx.pproc.products.custom_polar_format:
         # PFS-2014.01.01: the same rows, a second time, in the
         # format the existing tooling opens, beside the table.
@@ -637,7 +691,7 @@ def _group_polar(
                 else None
             ),
         )
-        ctx.add(target, {"runs": group_runs})
+        ctx.add(target, dict(entry))
 
 
 # ------------------------------------------------------------------ step 2: each point's tables
@@ -702,8 +756,28 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
     except ProductError as error:
         ctx.skipped[relative] = str(error)
         return
-    if done is not None:
-        _sections_cut_products(ctx, point, done)
+    if done is None:
+        _retire_unwritten(
+            ctx,
+            relative,
+            target,
+            "the sectional loads export declares no section, so no sections table is written",
+        )
+        return
+    _sections_cut_products(ctx, point, done)
+
+
+def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str) -> None:
+    """Name a product the writer did not write, where a previous one would stay current.
+
+    A post without the archive prepares a destination by leaving the previous
+    product in place for the writer to overwrite. A writer that writes nothing
+    (an export with no section, a history with no step) then left that file on
+    disk, unnamed by the new manifest and read as current. Named in ``skipped``,
+    it is retired by the post's retirement, which removes it.
+    """
+    if target.exists():
+        ctx.skipped[relative] = f"{reason}; the previous table is retired"
 
 
 def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> None:
@@ -888,6 +962,9 @@ def _plots_products(
             )
         return
     if done is None:
+        _retire_unwritten(
+            ctx, relative, target, "the plots export holds no step, so no plots table is written"
+        )
         return
     ctx.add(done, {"runs": ctx.sources[point.name]})
     ctx.plots_tables[point.name] = done
@@ -1014,6 +1091,7 @@ def _rotor_table_products(ctx: SimContext) -> None:
         aliases=ctx.aliases,
         frozen=ctx.frozen_points,
         skipped=ctx.skipped,
+        mach=ctx.mach,
     ):
         _rotor_table(ctx, target_path, alias, plan)
 
@@ -1474,13 +1552,21 @@ def _mesh_faces_of(workspace: CampaignWorkspace, record: RunRecord | None, point
     if faces is None:
         return ""
     if not faces.same_bytes:
+        # THE REMEDY BY GEOMETRY KIND: the sidecar of an OBJ is never
+        # rewritten, --overwrite or not, so naming --overwrite there names a
+        # command that is always refused.
+        remedy = (
+            "Move the inventory aside, take it again (pyfs-matrix inventory <geometry>) and "
+            "copy its tables beneath the new list (docs/mesh-inputs.md)"
+            if Path(str(faces.name)).suffix.lower() == OBJ_SUFFIX
+            else "Take the inventory again (pyfs-matrix inventory <geometry> --overwrite)"
+        )
         warn(
             f"point={point} product={MESH_FACES_COLUMN}: the inventory {faces.sidecar} states "
             f"mesh_faces = {faces.mesh_faces} counted in mesh_sha256 {faces.counted_sha256}, "
             f"and run "
             f"{record.run_id} recorded sha256 {faces.recorded_sha256} for {faces.name}; the count "
-            "is carried as the inventory states it. Take the inventory again "
-            "(pyfs-matrix inventory <geometry> --overwrite) if the geometry changed (FR-348).",
+            f"is carried as the inventory states it. {remedy} if the geometry changed (FR-348).",
             PyflightstreamWarning,
             stacklevel=2,
         )

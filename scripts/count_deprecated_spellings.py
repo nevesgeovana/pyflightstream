@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -96,7 +97,7 @@ def code_of(path: Path, text: str) -> str:
 def walk(root: Path):
     """Every artifact under ``root`` a user edits, .fs and .toml."""
     for path in sorted(list(root.rglob("*.fs")) + list(root.rglob("*.toml"))):
-        if SKIP & set(path.parts):
+        if SKIP & set(path.relative_to(root).parts):
             continue
         yield path
 
@@ -114,17 +115,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     roots = [REPO, *(args.root or [])]
+    for root in roots:
+        if not root.is_dir():
+            print(f"{root} is not a directory", file=sys.stderr)
+            return 1
     counts: dict[str, int] = dict.fromkeys(SPELLINGS, 0)
     files: dict[str, set[str]] = {name: set() for name in SPELLINGS}
     for root in roots:
-        if not root.is_dir():
-            print(f"  [skip] {root} is not a directory")
-            continue
         print(f"  walking {root}")
         for path in walk(root):
             raw = path.read_text(encoding="utf-8", errors="replace")
             text = code_of(path, raw)
-            in_a_setup = "setups" in path.parts
+            in_a_setup = "setups" in path.relative_to(root).parts
             for name, pattern in SPELLINGS.items():
                 if name in SETUP_ONLY_TABLES and not in_a_setup:
                     # The table in a reference is the NEW home. Counting it

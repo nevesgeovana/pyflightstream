@@ -168,7 +168,7 @@ def test_p0320_runs_name_collect_completes_the_named_manifest(tmp_path):
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     (sim / "run_log.txt").write_text("log", encoding="utf-8")
 
-    argv = ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0"]
+    argv = ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0.001"]
     cli.main(argv)
 
     raw = json.loads((root / "runs-hpc.json").read_text(encoding="utf-8"))
@@ -214,7 +214,7 @@ def test_p0320_post_and_collect_report_their_stage_progress(tmp_path, monkeypatc
     assert "post" in seen
     seen.clear()
     workspace2, _ = _submitted_workspace(tmp_path / "other")
-    cli.main(["collect", "--workspace", str(workspace2.root), "--interval", "0"])
+    cli.main(["collect", "--workspace", str(workspace2.root), "--interval", "0.001"])
     assert "collect" in seen
     assert workspace.root.is_dir()
 
@@ -222,11 +222,32 @@ def test_p0320_post_and_collect_report_their_stage_progress(tmp_path, monkeypatc
 # ------------------------------------------------------- post --from-sims
 
 
-def _from_sims_workspace(tmp_path: Path, *, variables: str | None = None) -> CampaignWorkspace:
-    """The same campaign with its inputs and NO runs.json: polars run outside the package."""
+#: The velocity the package resolves for the steady row (Mach 0.2 in the setup's air): the
+#: loads export of a point of THIS campaign prints it, to the four decimals the solver prints.
+RESOLVED_VELOCITY = "68.0588"
+
+
+def _from_sims_workspace(
+    tmp_path: Path,
+    *,
+    variables: str | None = None,
+    printed_velocity: str = RESOLVED_VELOCITY,
+) -> CampaignWorkspace:
+    """The same campaign with its inputs and NO runs.json: polars run outside the package.
+
+    The steady exports print ``printed_velocity``. The shared fixture prints 68.058, which is
+    not the package's resolution (68.0588): the assessor then refused every point as another
+    operating point and the tests passed on that refusal, never on the status they name
+    (PFS-2092.001). The default now prints the resolved velocity; the mismatch is its own case.
+    """
+    from tests.tier1_offline.test_post_superfile import _loads
+
     workspace = _workspace(tmp_path)
     root = workspace.root
     workspace.manifest_path.unlink()
+    for tag, alpha in (("AL-020", -2.0), ("AL+000", 0.0)):
+        export = workspace.sim_dir("6001") / "outputs" / f"POLAR-6001_M20{tag}BE+000.txt"
+        export.write_text(_loads(alpha, velocity=printed_velocity), encoding="utf-8")
     for ref in ("r001", "r002"):
         (workspace.inputs_dir / "references" / f"{ref}.toml").write_text(REFERENCE, "utf-8")
     for setup in ("s001", "s002"):
@@ -426,12 +447,30 @@ def test_p0320_post_no_manifest_refuses_a_row_sweeping_no_angle_over_two_values(
 
 
 def test_p0320_post_no_manifest_status_is_the_collects_assessment(tmp_path):
-    """P0320-POST-NO-MANIFEST: a steady point with no log export is not called converged."""
+    """P0320-POST-NO-MANIFEST: the status is the one collect's assessor gives the exports.
+
+    The steady exports stop at iteration 198 of the 500 requested and print the velocity
+    the package resolves, so the count judgement stands: CONVERGED, with no log beside them.
+    """
     workspace = _from_sims_workspace(tmp_path)
     assembled, _ = records.assemble_records(workspace.root, "matriz")
     steady = [record for record in assembled if record.sim_id == "6001"]
-    assert {record.status.value for record in steady} == {"FAILED_INCOMPLETE_OUTPUT"}
+    assert len(steady) == 2
+    assert {record.status.value for record in steady} == {"CONVERGED"}
+    assert all(record.error is None for record in steady), [r.error for r in steady]
     assert all(record.warnings == [records.ASSEMBLED_NOTE] for record in steady)
+
+
+def test_p0320_post_no_manifest_refuses_an_export_of_another_operating_point(tmp_path):
+    """P0320-POST-NO-MANIFEST: an export printing another velocity is refused by its words."""
+    workspace = _from_sims_workspace(tmp_path, printed_velocity="68.058")
+    assembled, _ = records.assemble_records(workspace.root, "matriz")
+    steady = [record for record in assembled if record.sim_id == "6001"]
+    assert {record.status.value for record in steady} == {"FAILED_INCOMPLETE_OUTPUT"}
+    for record in steady:
+        assert "different operating point" in (record.error or ""), record.error
+        assert "velocity requested +68.0588 m/s" in record.error, record.error
+        assert "export prints +68.0580 m/s" in record.error, record.error
 
 
 def test_p0320_runs_name_collect_posts_the_named_manifest_apart(tmp_path, monkeypatch):
@@ -451,7 +490,9 @@ def test_p0320_runs_name_collect_posts_the_named_manifest_apart(tmp_path, monkey
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     (sim / "run_log.txt").write_text("log", encoding="utf-8")
 
-    cli.main(["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0"])
+    cli.main(
+        ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0.001"]
+    )
 
     assert seen == [root / "post" / "matriz@runs-hpc"]
 

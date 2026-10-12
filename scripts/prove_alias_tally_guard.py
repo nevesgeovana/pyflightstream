@@ -219,7 +219,7 @@ MUTANTS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     ("docs/getting-started.md", ((GETTING_STARTED_LIVE, GETTING_STARTED_STALE),)),
-    ("docs/srs/functional-requirements.md", ((SRS_LIVE, SRS_STALE),)),
+    ("docs/unpublished/requirements/functional-requirements.md", ((SRS_LIVE, SRS_STALE),)),
     ("examples/steady_polar.py", ((EXAMPLE_LIVE, EXAMPLE_STALE),)),
     ("src/pyflightstream/commands/_meta.yaml", ((META_LIVE, META_STALE),)),
 )

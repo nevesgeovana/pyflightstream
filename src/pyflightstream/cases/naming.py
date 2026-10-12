@@ -16,8 +16,10 @@ package root that defines :class:`~pyflightstream.cases.SimCase` and
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Protocol
 
 from pyflightstream.cases.reference_blocks import CampaignConfigError
@@ -156,6 +158,20 @@ POINT_AXIS_KEYS: dict[str, str] = {
 SWEEP_NAME_VALUE = "+sweep"
 
 
+def _rounded(value: float, scale: float) -> int:
+    """Return ``value * scale`` to the nearest integer, a tie away from zero.
+
+    On the decimal the value prints as, so 0.15 and 0.25 degrees, a tenth of a
+    degree apart, write 2 and 3 tenths and not 2 and 2: binary error and the
+    round-half-to-even of :func:`round` gave both 2 (PFS-2095.038). A value that
+    is not finite is left to :func:`round`, which refuses it.
+    """
+    if not math.isfinite(value):
+        return round(value * scale)
+    exact = Decimal(repr(value)) * Decimal(repr(scale))
+    return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def name_field(key: str, value: float) -> str:
     """Write one variable the way a point name carries it, for example ``M144`` or ``AL-020``.
 
@@ -208,7 +224,7 @@ def name_field(key: str, value: float) -> str:
             "positive and set 'rpm_sign' there; on a row that names no rotor block, "
             "write 'RPM_SIGN: -1' beside the speed."
         )
-    number = round(float(value) * field.scale)
+    number = _rounded(float(value), field.scale)
     if field.signed:
         return f"{field.code}{number:+0{field.width}d}"
     if number < 0:

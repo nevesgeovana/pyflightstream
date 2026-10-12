@@ -365,8 +365,13 @@ def test_the_relaxed_trailing_edge_direction_is_recorded_where_it_belongs():
         "the direction field the newest edition adds is recorded nowhere, so a rotor "
         "user meets the relaxed trailing edge and never learns the option exists"
     )
-    for token in ("axial", "azimuth", "0", "1"):
-        assert token in notes, f"the note does not state {token!r}"
+    # The phrases that DEFINE the values, not single digits ("1" is inside "SRC-751").
+    for phrase in (
+        "0 for the axial direction and the default",
+        "1 for the azimuth direction",
+        "a fifth field where it had four",
+    ):
+        assert phrase in notes, f"the note does not state {phrase!r}"
     assert "SRC-750 p.85" in notes, (
         "the note does not say which edition printed the older form, so a reader "
         "cannot tell an addition from a fact that was always there"

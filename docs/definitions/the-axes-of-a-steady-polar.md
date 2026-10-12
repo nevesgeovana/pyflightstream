@@ -109,6 +109,6 @@ beside it on 27 of the 28 lifting recorded exports (lift above 0.05) in
 `tests/tier1_offline/fixtures/recorded_total_rows.csv`; one sits at 0.71 per cent.
 The cause is not known. The polar states the vector's, so that every column of a row
 comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
-export. See [the steady-polar migration](../migrating-to-0.24.0.md) for the correction to historical `CLS` and `CLW`.
+export. See [the steady-polar migration](../upgrading.md#older-layouts) for the correction to historical `CLS` and `CLW`.
 
 ---

@@ -57,11 +57,11 @@ build spells the same thing in its own vocabulary, the package writes
 that vocabulary, and the plan and the run record say what was chosen.
 What each run type does on each registered build:
 
-| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124 |
+| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124, 26.125 |
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | single march, Euclidean rotor without the rotor mark, speed in rev/min (not run) | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
@@ -108,17 +108,17 @@ run.
 
 **On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
 the mark and its solver answers it as an unrecognized command (RPT-049).
-The package writes the Euclidean motion without it, with the angular
-velocity in REV/MIN along the axis, and a comment in the script says so.
-None of this is measured (RPT-051):
+The package refuses rotor motions and rotor-speed rows on this build during
+plan rehearsal until a rotation null test settles the angular-velocity unit
+(RPT-051):
 
 - the unit is a maintainer decision, while that build's manual tutorial
   gives rad/s for the field and 26.000 measured rad/s;
 - the sense of rotation is not measured on that build;
 - the solver is never told the motion is a rotor.
 
-Before trusting the loads of a 26.100 rotor, check on one short run that
-the blade turned the angle the row states, and in the direction it states.
+A licensed rotation null test of the RPT-047 kind must compare the azimuth
+reached with the azimuth stated. Use a build with a proved rotor unit meanwhile.
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default
