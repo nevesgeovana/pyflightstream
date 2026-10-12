@@ -647,6 +647,17 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (0.40.0, PFS-2081.28):
+    # zero takes both observations at one instant, so nothing is ever seen
+    # to settle, and a negative wait reached time.sleep mid-sweep. Checked
+    # here rather than by the parser, so a value from pyfs.toml is held to
+    # it too.
+    if args.interval is not None and not 0.0 < args.interval < float("inf"):
+        print(
+            f"interval (CLI: --interval) takes a number of seconds above 0, not {args.interval}",
+            file=sys.stderr,
+        )
+        return 2
     # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
     # `_cmd_post` reaches it, and not by importing the products writer here.
     # Dependencies flow downward and a function-body import does not make an

@@ -5,7 +5,23 @@ Every fixture is synthetic.
 
 from __future__ import annotations
 
-from pyflightstream.run import _cli_query_point
+import pytest
+
+from pyflightstream.run import _cli_query_point, cli
+from pyflightstream.workspace import CampaignWorkspace
+
+
+@pytest.mark.parametrize("seconds", ["0", "-1", "inf"])
+def test_p0400_collect_interval_takes_seconds_above_zero(tmp_path, capsys, seconds):
+    """P0400-COLLECT-INTERVAL (PFS-2081.28): --interval 0 or below is refused at parse time.
+
+    Zero disables the settle check (both observations at one instant), and a
+    negative value reached ``time.sleep`` mid-sweep.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    argv = ["collect", "--workspace", str(workspace.root), "--interval", seconds]
+    assert cli.main(argv) == 2
+    assert "interval (CLI: --interval) takes a number of seconds above 0" in capsys.readouterr().err
 
 
 def test_p0400_query_alias_survives_a_campaign_named_sim_something():

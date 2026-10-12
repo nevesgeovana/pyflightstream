@@ -168,7 +168,7 @@ def test_p0320_runs_name_collect_completes_the_named_manifest(tmp_path):
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     (sim / "run_log.txt").write_text("log", encoding="utf-8")
 
-    argv = ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0"]
+    argv = ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0.001"]
     cli.main(argv)
 
     raw = json.loads((root / "runs-hpc.json").read_text(encoding="utf-8"))
@@ -214,7 +214,7 @@ def test_p0320_post_and_collect_report_their_stage_progress(tmp_path, monkeypatc
     assert "post" in seen
     seen.clear()
     workspace2, _ = _submitted_workspace(tmp_path / "other")
-    cli.main(["collect", "--workspace", str(workspace2.root), "--interval", "0"])
+    cli.main(["collect", "--workspace", str(workspace2.root), "--interval", "0.001"])
     assert "collect" in seen
     assert workspace.root.is_dir()
 
@@ -451,7 +451,9 @@ def test_p0320_runs_name_collect_posts_the_named_manifest_apart(tmp_path, monkey
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     (sim / "run_log.txt").write_text("log", encoding="utf-8")
 
-    cli.main(["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0"])
+    cli.main(
+        ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0.001"]
+    )
 
     assert seen == [root / "post" / "matriz@runs-hpc"]
 

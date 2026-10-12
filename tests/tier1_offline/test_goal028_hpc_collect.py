@@ -221,7 +221,7 @@ def test_collect_post_rebuilds_the_matrix_whose_records_it_collected(tmp_path, m
         return []
 
     monkeypatch.setattr("pyflightstream.workspace.post_stages", lambda: [stage])
-    status = cli_mod.main(["collect", "--workspace", str(workspace.root), "--interval", "0"])
+    status = cli_mod.main(["collect", "--workspace", str(workspace.root), "--interval", "0.001"])
     assert status == 0
     # The fixture's record names the matrix `matriz`.
     assert [call.get("matrix_stem") for call in calls] == ["matriz"], calls

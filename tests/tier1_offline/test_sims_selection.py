@@ -389,7 +389,7 @@ def test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307(tmp_path, monkey
 
     monkeypatch.setattr(workspace_module, "post_stages", lambda: (spy,))
     code = matrix_cli.main(
-        ["collect", "--workspace", str(workspace.root), "--sims", "9001", "--interval", "0"]
+        ["collect", "--workspace", str(workspace.root), "--sims", "9001", "--interval", "0.001"]
     )
     assert code == 0
     assert _status(workspace, "9001") != "SUBMITTED"
