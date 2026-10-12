@@ -107,8 +107,14 @@ def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
 
 
 def _loads_on_disk(workspace: CampaignWorkspace, row: Mapping[str, Any], unit: Mapping) -> bool:
-    """Say whether the point's loads export is in its simulation folder."""
-    outputs = [str(name) for name in unit.get("outputs") or row.get("outputs") or []]
+    """Say whether the point's loads export is in its simulation folder.
+
+    A point of a steady job is judged by its own entry's outputs alone
+    (PFS-2103.029): the job row's are every point's, so a point that
+    collected nothing was accepted on another point's loads.
+    """
+    own = unit.get("outputs") if unit is not row else row.get("outputs")
+    outputs = [str(name) for name in own or []]
     name = classify_outputs(outputs).get("loads")
     if not name:
         return False
