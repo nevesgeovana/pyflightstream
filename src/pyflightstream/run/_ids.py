@@ -31,6 +31,7 @@ from pyflightstream.cases.acoustics import (
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
+    RATE_VARIABLES,
     carries_singularity_strength,
     disc_speed_moves_with_the_point,
     with_tecplot_source,
@@ -299,12 +300,32 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     A SIXTH SINCE 0.30.0: the row couples a fixed wing (FSI-G). A steady
     coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
     is stopped once the analysis ends, so one script holds one point.
+
+    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate. The
+    rotating free stream is set once in a warm job, at the first point's
+    rate, so every point after it was solved at that rate and recorded under
+    its own; such a row is one job per point, as a flow sweep is.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
     if case.fsi is not None:
         return False
-    return not (_sweeps_the_flow(case) or disc_speed_moves_with_the_point(case))
+    return not (
+        _sweeps_the_flow(case) or _sweeps_a_body_rate(case) or disc_speed_moves_with_the_point(case)
+    )
+
+
+def _sweeps_a_body_rate(case: SimCase) -> bool:
+    """Whether the points of this case turn the free stream at different body rates."""
+    rates = {key for key, _ in RATE_VARIABLES}
+    if case.sweep.type in rates:
+        return True
+    states = list(case.point_states.values())
+    return any(
+        state.flight_condition.get(key) != states[0].flight_condition.get(key)
+        for state in states[1:]
+        for key in rates
+    )
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:
