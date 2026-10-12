@@ -229,6 +229,7 @@ BUILD_ROWS = [
 ]
 
 
+@pytest.mark.requirement("FR-314")
 @pytest.mark.parametrize("build", WITH_ACTIONS)
 @pytest.mark.parametrize(("label", "cells"), BUILD_ROWS)
 def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, label, cells):
@@ -237,11 +238,9 @@ def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, l
     FR-314 changed this expectation: the step counter every unsteady row now
     registers is not an action the label counts; any other action is.
     """
-    requirement = "FR-314"
     script = Script(build)
     build_script(unsteady_case(**cells), script)
     emitted = any(use.name != "pfs_unsteady_counter" for use in script.unsteady_actions)
-    assert requirement
     assert (script.march_strategy == MARCH_ACTIONS) is emitted, (label, script.march_strategy)
 
 
