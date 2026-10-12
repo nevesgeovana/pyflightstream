@@ -189,15 +189,10 @@ def _drop_fs_script_and_name_pproc(data: bytes, source: str) -> bytes:
                 body = body[: max(0, len(body) - removed_width)]
             rebuilt.append(body + terminator)
             continue
-        row_number += 1
         parts = body.split(b"|")
-        if len(parts) != len(_LAYOUT_0_9_0):
-            raise MatrixError(
-                f"{source} row {row_number} has {len(parts)} cells against the "
-                f"{len(_LAYOUT_0_9_0)} columns of the layout being upgraded: "
-                f"{body.strip()[:60]!r}"
-            )
         if not header_seen:
+            # The dispatch matched this header to the layout, so its cell
+            # count is right, and it is not a data row: the count starts after it.
             header_seen = True
             entry_cell = parts[entry_index]
             parts[entry_index] = entry_cell.replace(b"ENTRY", b"PPROC", 1)
@@ -205,6 +200,13 @@ def _drop_fs_script_and_name_pproc(data: bytes, source: str) -> bytes:
             del parts[script_index]
             rebuilt.append(b"|".join(parts) + terminator)
             continue
+        row_number += 1
+        if len(parts) != len(_LAYOUT_0_9_0):
+            raise MatrixError(
+                f"data row {row_number} of {source} holds {len(parts)} cells against the "
+                f"{len(_LAYOUT_0_9_0)} columns of the layout being upgraded: "
+                f"{body.strip()[:60]!r}"
+            )
         code = parts[script_index].strip().decode("utf-8", "replace")
         workflow = parts[workflow_index].strip().decode("utf-8", "replace")
         entry_cell = parts[entry_index]
@@ -223,7 +225,7 @@ def _drop_fs_script_and_name_pproc(data: bytes, source: str) -> bytes:
     return b"".join(rebuilt)
 
 
-_GEOMETRY_PAIR = re.compile(rb"(GEOMETRY\s*:\s*)([^/|\s]+)")
+_GEOMETRY_PAIR = re.compile(rb"(^|/)(\s*GEOMETRY\s*:\s*)([^/|\s]+)")
 
 
 def _name_geometry_files(data: bytes) -> bytes:
@@ -235,10 +237,28 @@ def _name_geometry_files(data: bytes) -> bytes:
     value already carrying an extension is left as written, so running
     this on an upgraded file changes nothing, and every other byte of the
     line survives.
+
+    Read on the 0.15.0 layout this stage receives, and only in a row's
+    VAR_NAMES_VALUES cell, on a pair whose key is exactly ``GEOMETRY``: a
+    DESCRIPTION reading ``see GEOMETRY: baseline`` or a ``NOTE_GEOMETRY``
+    pair is text the user wrote, not a file name.
     """
-    return _GEOMETRY_PAIR.sub(
-        lambda m: m.group(1) + m.group(2) + (b"" if b"." in m.group(2) else b".fsm"), data
-    )
+    index = _LAYOUT_0_15_0.index("VAR_NAMES_VALUES")
+    rebuilt: list[bytes] = []
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        parts = body.split(b"|")
+        if len(parts) != len(_LAYOUT_0_15_0):
+            rebuilt.append(line)
+            continue
+        parts[index] = _GEOMETRY_PAIR.sub(
+            lambda m: (
+                m.group(1) + m.group(2) + m.group(3) + (b"" if b"." in m.group(3) else b".fsm")
+            ),
+            parts[index],
+        )
+        rebuilt.append(b"|".join(parts) + terminator)
+    return b"".join(rebuilt)
 
 
 def _paired_sweep_as_one(code: str, values: str) -> tuple[str, str] | None:
@@ -718,7 +738,7 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
     if header is None:
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     if header == _COLUMNS:
-        return _name_geometry_files(data)
+        return data
     if header == _LAYOUT_0_15_0:
         return _expand_to_nineteen(_name_geometry_files(data), source)
     if header == _LAYOUT_0_11_0:
