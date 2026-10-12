@@ -55,18 +55,27 @@ def test_p0400_a_submit_command_naming_an_unresolved_value_writes_no_descriptor(
     """P0400-SUBMIT-REFUSAL (PFS-2094.037): the argv is formatted before the descriptor.
 
     A KeyError from formatting the submit command escaped run_script after the
-    descriptor had been written.
+    descriptor had been written. A name no run supplies (``{queue}``) is refused when
+    the executor is built (PFS-2094.010); a name a grouped job supplies and this point
+    does not (``{batch_id}``) is this point's failed result, with no descriptor.
     """
-    text = (
-        _profile(tmp_path).path.read_text(encoding="utf-8").replace("{descriptor_path}", "{queue}")
-    )
-    path = tmp_path / "h002.toml"
-    path.write_text(text, encoding="utf-8")
+    import pytest
+
+    from pyflightstream.run import ExecutorConfigurationError
     from pyflightstream.workspace.inputs import read_hpc_profile
 
-    executor = SubmittingExecutor(read_hpc_profile(path), values={"walltime": "4h"}, submit=False)
+    source = _profile(tmp_path).path.read_text(encoding="utf-8")
+    unknown = tmp_path / "h002.toml"
+    unknown.write_text(source.replace("{descriptor_path}", "{queue}"), encoding="utf-8")
+    with pytest.raises(ExecutorConfigurationError, match=r"\{queue\}"):
+        SubmittingExecutor(read_hpc_profile(unknown), values={"walltime": "4h"}, submit=False)
+    unbound = tmp_path / "h003.toml"
+    unbound.write_text(source.replace("{descriptor_path}", "{batch_id}"), encoding="utf-8")
+    executor = SubmittingExecutor(
+        read_hpc_profile(unbound), values={"walltime": "4h"}, submit=False
+    )
     script = tmp_path / "point.txt"
     script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
     result = executor.run_script(script, working_dir=tmp_path / "work")
-    assert result.return_code != 0 and "{queue}" in result.stderr
+    assert result.return_code != 0 and "{batch_id}" in result.stderr, result.stderr
     assert not (tmp_path / "work" / "submit.yaml").exists()

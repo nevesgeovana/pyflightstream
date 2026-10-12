@@ -1018,10 +1018,19 @@ class SubmittingExecutor:
         if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
             values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
         descriptor = Path(working_dir) / self.profile.descriptor_name
-        argv = [
-            part.format(descriptor_path=descriptor.as_posix(), **values)
-            for part in self.profile.submit
-        ]
+        try:
+            argv = [
+                part.format(descriptor_path=descriptor.as_posix(), **values)
+                for part in self.profile.submit
+            ]
+        except KeyError as error:
+            # A name the executor accepted (a point's or a grouped job's value) that
+            # this point does not supply: refused by name, before any descriptor.
+            raise CampaignConfigError(
+                f"the HPC profile {self.profile.path} writes {{{error.args[0]}}} in its "
+                "submit command, and this point cannot supply it. What it can: "
+                f"{', '.join(sorted({'descriptor_path', *values}))}."
+            ) from None
         rendered = render_descriptor(self.profile, values)
         descriptor.parent.mkdir(parents=True, exist_ok=True)
         _textio.write_text(descriptor, rendered)
