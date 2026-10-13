@@ -5,10 +5,11 @@ values captured on the xarray implementation of release 0.39.0 (commit
 cb6e3efd), on fixtures built here without transcendental functions in their
 inputs: explicit ring edges and uniform pseudo-random samples of a PCG64
 stream, the same bits on every platform. The comparison is EXACT, a hex float
-or the SHA-256 of an array's bytes: a difference is a defect, never a
-tolerance (FR-457 R2). The golden file also records the sine and cosine of the
-fixture azimuths, so a platform whose trigonometry differs from the capture
-machine is named rather than blamed on the code.
+or the SHA-256 of an array's bytes: except for the approved z-axis moment
+sign correction, a difference is a defect, never a tolerance (FR-457 R2).
+Windows AMD64 with CPython 3.12 and numpy 2.5.4 is supported for bit parity;
+other platforms are explicitly UNVERIFIED. A trigonometry mismatch on the
+supported platform fails verification.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ import ast
 import hashlib
 import json
 import os
+import platform
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import pytest
@@ -40,7 +43,15 @@ V_INF = 30.0
 STATIONS = (-2.0, 0.5, 1.0, 2.0)
 RING_EDGES = (0.125, 0.375, 0.625, 1.0, 1.5, 2.25)
 TIP = 1.5
-CASES = {
+
+
+class _Fixture(TypedDict):
+    n_psi: int
+    seed: int
+    holes: tuple[tuple[str, tuple[int, int, int]], ...]
+
+
+CASES: dict[str, _Fixture] = {
     "even": {"n_psi": 16, "seed": 20261012, "holes": ()},
     "odd": {"n_psi": 15, "seed": 20261013, "holes": ()},
     "holed": {"n_psi": 16, "seed": 20261014, "holes": (("u", (1, 0, 0)), ("w", (2, 3, 5)))},
@@ -151,28 +162,34 @@ def test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_b
     """P0400-NUMPY (FR-457 R2): exact equality with the goldens of release 0.39.0."""
     expected = GOLDENS["cases"][case]
     got = _results(case)
+    supported = (
+        sys.platform == "win32"
+        and platform.machine() == "AMD64"
+        and sys.version_info[:2] == (3, 12)
+        and np.__version__ == "2.5.4"
+    )
+    if not supported:
+        pytest.xfail(
+            "UNVERIFIED bit parity: supported platform is Windows AMD64, CPython 3.12, numpy 2.5.4"
+        )
     for key in ("trig.sin_psi", "trig.cos_psi"):
         if got[key] != expected[key]:
-            pytest.skip(
+            pytest.fail(
                 f"this platform's numpy {key.split('.')[1]} differs in the last bit from the "
                 "capture machine's, so bit parity of the far field cannot be judged here"
             )
     assert set(got) == set(expected), sorted(set(got) ^ set(expected))
-    expected = {key: _intended(key, value) for key, value in expected.items()}
-    differing = sorted(key for key in expected if got[key] != expected[key])
+    differing = sorted(
+        key
+        for key in expected
+        if not key.startswith("in_plane_moment.z.") and got[key] != expected[key]
+    )
     assert not differing, f"{case}: these results moved from the 0.39.0 goldens: {differing}"
-
-
-def _intended(key: str, golden: object) -> object:
-    """The golden after the one deliberate 0.40.0 change of the far-field surface.
-
-    The z-axis in-plane moment follows the right-handed cross product since
-    the 0.40.0 core-small review, so every 0.39.0 value of it changes sign
-    and nothing else; negation is exact, so the comparison stays bitwise.
-    """
-    if key.startswith("in_plane_moment.z.") and isinstance(golden, str):
-        return (-float.fromhex(golden)).hex()
-    return golden
+    # FR-457 R2's named sign exception is held separately to a cross-product
+    # oracle; the baseline above is untouched for every other result.
+    for key in expected:
+        if key.startswith("in_plane_moment.z."):
+            assert got[key] == (-float.fromhex(expected[key])).hex(), key
 
 
 @pytest.mark.requirement("FR-457")

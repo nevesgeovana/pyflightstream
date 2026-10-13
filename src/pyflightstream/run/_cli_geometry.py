@@ -200,8 +200,7 @@ def _print_plan(plan: GeometryBuildPlan) -> None:
         print(f"  writes into {variant.folder}")
         if variant.tag is not None:
             print(
-                f"  matrix cells: CONFIGURATION {variant.tag} | "
-                f"GEOMETRY {variant.instruction.name}.fsm"
+                f"  matrix cells: CONFIGURATION {variant.tag} | GEOMETRY {_geometry_cell(variant)}"
             )
         print("  script:")
         for line in variant.script.text.splitlines():
@@ -232,6 +231,12 @@ def _runner(executable: Path):  # noqa: ANN202
     return run
 
 
+def _geometry_cell(variant: Any) -> str:
+    """Return the promoted filename a matrix GEOMETRY cell can name."""
+    extension = "fsm" if "fsm" in variant.instruction.outputs else "obj"
+    return f"{variant.instruction.name}.{extension}"
+
+
 def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
     """Print the matrix rows of --rows (FR-472 R5); refuse --rows without --matrix."""
     if args.rows is None and args.matrix is None:
@@ -243,8 +248,7 @@ def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
     cells = [
         (
             variant.tag,
-            f"{variant.instruction.name}."
-            + ("fsm" if "fsm" in variant.instruction.outputs else "obj"),
+            _geometry_cell(variant),
         )
         for variant in plan.variants
     ]

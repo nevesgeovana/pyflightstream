@@ -121,6 +121,7 @@ def test_p0400_fsiext_factor_keys_are_refused(tmp_path):
 
 def _external_case(tmp_path: Path, make=steady_case):
     structure = resolve_row_fsi(_inputs(tmp_path).parent.parent, {"FSI": "f010"})
+    assert isinstance(structure, ExternalStructure)
     update = _wing_update(tmp_path, None)
     update["fsi"] = None
     update["fsi_external"] = structure
@@ -219,7 +220,9 @@ def _point(tmp_path: Path, mode: str = "ok") -> Path:
         executable_sha256=hashlib.sha256(exe.read_bytes()).hexdigest(),
         arguments=["stand_in.py", mode],
         structural_nodes=str(folder / EXTERNAL_NODES_FILE),
-        structural_nodes_sha256="0" * 64,
+        structural_nodes_sha256=hashlib.sha256(
+            (folder / EXTERNAL_NODES_FILE).read_bytes()
+        ).hexdigest(),
         node_count=3,
         inputs={"stand_in.py": str(script)},
         inputs_sha256={"stand_in.py": hashlib.sha256(script.read_bytes()).hexdigest()},

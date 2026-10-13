@@ -124,17 +124,18 @@ def test_p0400_geom_rows_refusals(tmp_path, monkeypatch, capsys):
 
 
 @pytest.mark.requirement("FR-472")
-def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(tmp_path):
+def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(
+    tmp_path, monkeypatch
+):
     """P0400-GEOM-PARALLEL (PFS-2081.41): R6, two at once; the refused variant runs again alone."""
-    _, folder = _sweep(tmp_path)
-    plan = plan_geometry_build("wing", cwd=folder.parent, registry=verified_registry())
-    built = apply_geometry_build(plan, runner=_body_runner(fail_once="Base+100"), parallel=2)
-    assert [item.folder.name for item in built] == [
-        "wing_Base-100",
-        "wing_Base+000",
-        "wing_Base+100",
-    ]
-    assert all((item.folder / f"{item.folder.name}.fsm").is_file() for item in built)
+    from tests.tier1_offline.test_p0400_rfixB_geometry import (
+        test_p0400_rfixb_parallel_calls_overlap_and_retry_runs_alone as overlap_proof,
+    )
+
+    overlap_proof(tmp_path, monkeypatch)
+    plan = plan_geometry_build(
+        "wing", cwd=tmp_path / "ws" / "inputs" / "geometries", registry=verified_registry()
+    )
     with pytest.raises(InputArtifactError, match=r"parallel \(CLI: --parallel\) 3"):
         apply_geometry_build(plan, runner=_body_runner(), parallel=3, overwrite=True)
 
