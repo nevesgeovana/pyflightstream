@@ -215,7 +215,7 @@ def test_polar_table_round_trips(tmp_path):
         and rows[0]["GROUP"] == "1"
     )
     assert rows[0]["SREF"] == "50.00000" and rows[0]["XMOM"] == "9.15200"
-    assert [rows[0][c] for c in COEFFICIENT_COLUMNS] == HER_ROW
+    assert [f"{float(rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
     # A row of the wrong width is refused, and so is a file whose rows do not fit its header.
     with pytest.raises(ProductError, match="values"):
         write_polar_table(
@@ -436,7 +436,7 @@ def test_write_recorded_polar_writes_one_table_per_group_and_the_sections(tmp_pa
         "sections/POLAR-3207_M20AL-020BE+000_sections.csv",
     ]
     _, rows = read_csv_table(tmp_path / "out" / "3207_M20_g01.csv")
-    assert [rows[0][c] for c in COEFFICIENT_COLUMNS] == HER_ROW
+    assert [f"{float(rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
     _, empty = read_csv_table(tmp_path / "out" / "3207_M20_g05.csv")
     assert empty[0]["CLB"] == "0.00000", "a group of absent families sums to zero"
 
@@ -1331,14 +1331,14 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"][f"polars/{stem}_g01.dat"]["runs"] == ["camp/sim_3207/M200AL-020"]
 
-    # The two serializations carry the same rows: the custom format at %10.5f, the
-    # CSV at five decimals.
+    # The custom format keeps its external %10.5f contract. The CSV now carries
+    # more coefficient digits, so compare both at the custom format's precision.
     table = read_custom_polar_format(out / "polars" / f"{stem}_g01.dat")
     assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
     assert table.description == "STEADY_WB"
     _, csv_rows = read_csv_table(out / "polars" / f"{stem}_g01.csv")
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == [
-        csv_rows[0][c] for c in COEFFICIENT_COLUMNS
+        f"{float(csv_rows[0][c]):.5f}" for c in COEFFICIENT_COLUMNS
     ]
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
     text = (out / "polars" / f"{stem}_g01.dat").read_text(encoding="ascii")

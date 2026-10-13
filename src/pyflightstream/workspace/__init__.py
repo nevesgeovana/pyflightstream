@@ -1587,6 +1587,10 @@ class CampaignWorkspace:
 
         Notes
         -----
+        An existing ``<stem>_wakes.vtk`` beside a declared surface VTK is
+        collected and recorded with it. This solver-created companion is
+        optional, so its absence never makes collection incomplete.
+
         Collection MOVES rather than copies. Every refusal here exists
         because of that and a reader has had to infer it from the
         collision message until now.
@@ -1599,6 +1603,20 @@ class CampaignWorkspace:
         # guard against.
         name = datapoint_dir_name(datapoint)
         folder = f"{SIM_DATAPOINTS_DIR}/{name}"
+        # The solver writes the wake beside the surface without a second
+        # export command. Include it in the same containment and collision
+        # pre-scans as every declared output, before moving either file.
+        expanded = list(produced)
+        named = {Path(path).resolve() for path in expanded}
+        for path in produced:
+            surface = Path(path)
+            if surface.suffix.lower() != ".vtk" or surface.stem.lower().endswith("_wakes"):
+                continue
+            wake = surface.with_name(surface.stem + "_wakes.vtk")
+            if wake.is_file() and wake.resolve() not in named:
+                expanded.append(wake)
+                named.add(wake.resolve())
+        produced = expanded
         # A MISSING OUTPUT STRANDS NOTHING (0.27.0). What is missing is named
         # at the end, after every output that exists has been filed: refusing
         # here, before anything moved, left every other export of a point
@@ -2266,6 +2284,17 @@ class CampaignWorkspace:
         if not movable:
             return None
         target = folder / ARCHIVE_DIR / (stamp or datetime.now()).strftime(ARCHIVE_STAMP)
+        if os.name == "nt" and any(len(str(target / child.name)) >= 250 for child in movable):
+            # The archive suffix can push a valid source past MAX_PATH. Use
+            # the native extended spelling, including UNC shares, and return
+            # it so callers can also read the archived output at that length.
+            absolute = str(target.absolute())
+            extended = (
+                "\\\\?\\UNC\\" + absolute[2:]
+                if absolute.startswith("\\\\")
+                else "\\\\?\\" + absolute
+            )
+            target = Path(extended)
         target.mkdir(parents=True, exist_ok=True)
         for child in movable:
             destination = target / child.name
@@ -2276,8 +2305,31 @@ class CampaignWorkspace:
                 while (target / f"{child.stem}.{index}{child.suffix}").exists():
                     index += 1
                 destination = target / f"{child.stem}.{index}{child.suffix}"
-            child.replace(destination)
+            try:
+                child.replace(destination)
+            except FileNotFoundError:
+                # A recorded output may have disappeared since enumeration.
+                # A missing destination (or an unreadable existing source) is
+                # still an archive failure and must retain the old record.
+                if child.exists() or child.is_symlink():
+                    raise
         return target
+
+    @contextmanager
+    def _keep_records_on_failure(self, run_ids: Sequence[str]) -> Iterator[None]:
+        """Restore superseded raw rows if a rerun fails before recording a replacement."""
+        selected = set(run_ids)
+        previous = [row for row in self.read_raw_manifest() if row.get("run_id") in selected]
+        try:
+            yield
+        except BaseException:
+            with self._manifest_lock():
+                raw = self.read_raw_manifest()
+                present = {row.get("run_id") for row in raw}
+                missing = [row for row in previous if row.get("run_id") not in present]
+                if missing:
+                    self._replace_manifest([*raw, *missing])
+            raise
 
     def complete_submitted_record(self, record: RunRecord) -> None:
         """Replace a SUBMITTED row with the completed run it became (FR-99).

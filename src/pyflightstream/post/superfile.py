@@ -295,8 +295,8 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
 def _free(value: object) -> str:
     """One cell whose precision is the SOURCE's, not the polar table's.
 
-    The polar table writes at five decimals, the reference precision, and every
-    value that comes from it keeps that. A value that comes from anywhere
+    The polar table retains six significant figures for coefficients, and every
+    value that comes from it keeps that precision. A value that comes from anywhere
     else must not be rounded to it: measured on `pfs0160`, the residual of
     the rotor point is 5.381595e-06, and five decimals would write it
     `0.00001` and destroy the only digit a reader of a residual wants.

@@ -153,11 +153,11 @@ def test_post_sims_rewrites_only_the_named_simulation_fr_307(tmp_path):
         if name.startswith("polars/P6001-") and after_hashes.get(name) != digest
     ]
     assert rebuilt
-    assert ",0.28716," in (out / rebuilt[0]).read_text(encoding="utf-8")
+    assert ",0.287158," in (out / rebuilt[0]).read_text(encoding="utf-8")
     # The other simulations were not: 6009's polar still states the old lift.
     kept = next(name for name in before_hashes if name.startswith("polars/P6009-"))
-    assert ",0.18716," in (out / kept).read_text(encoding="utf-8")
-    assert ",0.28716," not in (out / kept).read_text(encoding="utf-8")
+    assert ",0.187158," in (out / kept).read_text(encoding="utf-8")
+    assert ",0.287158," not in (out / kept).read_text(encoding="utf-8")
     # The archive of this rebuild (each folder's archive/<stamp>/) holds the
     # named simulation's files and nothing of another's.
     stamp = _SECOND.strftime("%Y%m%d-%H%M%S")

@@ -224,7 +224,7 @@ def test_p0400_ffout_the_trefftz_table(posted):
     assert a["X_T_M"] == "NA"
     assert float(c["CDI_T"]) == pytest.approx(0.0, abs=1e-9), "a uniform stream has no drag"
     assert float(c["COVERAGE"]) == 1.0 and c["CL_T"] == "NA"
-    assert a["P_AXIAL_W"] == "NA" and a["CDI_NEAR_PRESSURE"] == "0.00124"
+    assert a["P_AXIAL_W"] == "NA" and a["CDI_NEAR_PRESSURE"] == "0.0012418"
 
 
 @pytest.mark.requirement("FR-456")

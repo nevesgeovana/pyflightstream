@@ -65,7 +65,7 @@ and wind axes, under sideslip too. So ``CDB`` is the ``Cx`` of the export and
 ``CLB`` its ``Cz``; the rolling and yawing moments are normalised by the span and
 the pitching moment by the chord, after the moment has turned as one vector.
 ``CD0`` and ``CDI`` stay the solver's own profile and induced drag. Values are
-written at five decimals.
+written with at least six significant figures when five decimals lose precision.
 
 UNTIL 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as stability-axis
 forces and turned them back to body axes, and a point under sideslip was

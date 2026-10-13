@@ -582,6 +582,12 @@ SYNTHETIC_GEOMETRY_ALLOWLIST = {
     "tests/tier1_offline/goldens/planar_probes.vtk",
 }
 
+# Owner's 0.40.0 literature-lane instruction explicitly permits this recorded
+# wake output as regression evidence. It is not a synthetic geometry: only
+# this output's LF-normalized bytes are admitted, never another VTK.
+RECORDED_WAKE_PATH = "tests/tier1_offline/fixtures/p0400_lita_solver_wake.vtk"
+RECORDED_WAKE_SHA256 = "156fc09059c485346ae83ea266a5c4418c488f2909a02d3c028bc6fe7c08dc8b"
+
 
 #: The one folder whose saved simulations are provably synthetic BY
 #: CONSTRUCTION rather than by name: the tier-3 workspace library (GOAL-012,
@@ -633,6 +639,13 @@ def _geometry_offenses(relative_posix_paths, read=_read_tracked):
     tracked = set(paths)
 
     def provably_synthetic(path):
+        if path == RECORDED_WAKE_PATH:
+            import hashlib
+
+            data = read(path)
+            return (
+                isinstance(data, bytes) and hashlib.sha256(data).hexdigest() == RECORDED_WAKE_SHA256
+            )
         if path in SYNTHETIC_GEOMETRY_ALLOWLIST:
             return True
         if path.startswith(SYNTHETIC_LIBRARY) and path.lower().endswith(".fsm"):

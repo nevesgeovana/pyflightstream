@@ -485,7 +485,9 @@ ratio of the row in `J` (`NA` where the run recorded none) and twenty-four
 coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
 axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
 (`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
-every value at five decimals. A SECTIONS table per point,
+coefficient columns retain at least six significant figures where five decimals
+would lose precision, using scientific notation when needed. Settings retain
+their stated form and drift percentages keep five decimals. A SECTIONS table per point,
 `sections/<point>_sections.csv`: the solver `STEP` it was sampled at, WHICH
 distribution each row belongs to (`FAMILY`, `PLANE`, `ROTOR`) and where blade
 one of that rotor was (`AZIMUTH`), then the point's condition and the seven columns
