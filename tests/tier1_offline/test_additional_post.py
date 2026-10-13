@@ -1498,12 +1498,13 @@ def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
     for phrase in (
         "datapoints/DP-<point>/additional/<pid>/",
         f"`{KEY}`",
-        "RPT-062",
         "never solves",
         "additional.json",
         "`runs.json` is never written",
     ):
         assert phrase in workflows_page, phrase
+    # Docs Q5: the published page carries no internal locator; RPT-062 stays in the report.
+    assert "RPT-062" not in workflows_page
     definitions = " ".join((DEFINITION_DOCS).read_text(encoding="utf-8").split())
     for phrase in (
         "## The additional post",
@@ -1512,7 +1513,8 @@ def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
         '"additional": true',
     ):
         assert phrase in definitions, phrase
-    cited = set(re.findall(r"`(test_g12_\w+)`", workflows_page))
-    assert len(cited) >= 4, cited
-    for name in sorted(cited):
-        assert name in globals(), f"the page cites {name}, which is not in this module"
+    # Docs Q5 keeps the test evidence here, outside published prose: the page names no test,
+    # and the G12 tests that prove what it states are in this module.
+    assert not re.findall(r"`(test_g12_\w+)`", workflows_page)
+    proving = [name for name in globals() if name.startswith("test_g12_")]
+    assert len(proving) >= 4, proving

@@ -100,20 +100,20 @@ def test_rpt128_states_why_cdo_reads_zero_and_the_tree_holds_its_branch_fr_338()
     stated = [
         p
         for p in _paragraphs(FSI_PAGE.read_text(encoding="utf-8"))
-        if "`CDo`" in p and "RPT-128" in p and re.search(r"\bzero\b", p) and "coupled" in p
+        if "`CDo`" in p and "solver prints it" in p and re.search(r"\bzero\b", p) and "coupled" in p
     ]
     assert stated, (
         "FR-338 R3: one paragraph of the FSI page states that `CDo` reads zero in a coupled "
-        "run, citing RPT-128"
+        "run, and why"
     )
     defined = [
         p
         for p in _paragraphs(DEFINITIONS.read_text(encoding="utf-8"))
-        if "`CDo`" in p and "RPT-128" in p and "coupled" in p
+        if "`CDo`" in p and "coupled" in p
     ]
-    assert defined, (
-        "FR-338 R4: the definitions page states what `CDo` reads in a coupled run, citing RPT-128"
-    )
+    assert defined, "FR-338 R4: the definitions page states what `CDo` reads in a coupled run"
+    # Docs Q5: published pages carry no internal locator; RPT-128 keeps the evidence.
+    assert not [p for p in stated + defined if "RPT-128" in p]
     measured = "prints `CDo` as zero from the first export of its first coupling pass"
     assert any(measured in p and "`CD0` reads that zero" in p for p in defined), (
         "FR-338 R4: the definitions paragraph states the measured fact of RPT-128 and that "
@@ -218,8 +218,14 @@ def test_rpt128_xz_moment_verdict_follows_its_two_ratios_and_the_tree_holds_it_f
     page = FSI_PAGE.read_text(encoding="utf-8")
     anchor = "moment column of an XZ cut"
     assert anchor in page, f"FR-340 R3: the FSI page has no XZ reading ({anchor!r})"
-    xz = page.split(anchor, 1)[1][:1200]
-    assert "RPT-128" in xz, "FR-340 R3: the FSI page's XZ reading cites RPT-128"
+    xz = " ".join(page.split(anchor, 1)[1][:1200].split())
+    # FR-340 R3 under Docs Q5: the page states the confirmed reading and its two ratios,
+    # and the locator stays in the report.
+    assert "the magnitude is confirmed" in xz, "FR-340 R3: the FSI page states the verdict"
+    assert f"{moment_ratio:.5f}" in xz and f"{force_ratio:.5f}" in xz, (
+        "FR-340 R3: the FSI page's XZ reading states the ratios RPT-128 measured"
+    )
+    assert "RPT-128" not in xz
 
 
 def test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340():

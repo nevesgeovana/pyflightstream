@@ -61,7 +61,7 @@ def workspace(tmp_path):
         error="synthetic error",
         warnings=["synthetic warning"],
         residual_note="residual high",
-        stopped_at={"reason": "clock"},
+        stopped_at={"step": 12, "elapsed_s": 7200.0},
         iterations=12,
         residual=0.2,
         conditions=[{"axis": "alpha", "within": False, "tolerance": 0.01}],
@@ -156,7 +156,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     assert row["outcome"]["error"] == "synthetic error"
     assert row["outcome"]["warnings"] == ["synthetic warning"]
     assert row["outcome"]["iterations"] == 12 and row["outcome"]["residual"] == 0.2
-    assert row["outcome"]["stopped_at"]["reason"] == "clock"
+    assert row["outcome"]["stopped_at"] == {"step": 12, "elapsed_s": 7200.0}
     assert row["outcome"]["outside_tolerance"][0]["axis"] == "alpha"
     assert row["evidence"][0]["last_lines"] == [
         "line3",

@@ -22,6 +22,7 @@ def test_p0400_rfixa_signed_wake_requirement_matches_the_edge_fixture():
         / "docs/unpublished/requirements/functional-requirements.md"
     ).read_text(encoding="utf-8")
     box = text.split('!!! requirement "FR-452 ', 1)[1].split("!!! requirement ", 1)[0]
+    # The merged box carries rfixD's wording of the same decision (PFS-2081.78, VV-001).
     assert "signed shed circulation at strip edges" in box
     assert "[-1, -1, 0, 1, 1]" in box and "[1, 2, 2, 1]" in box
     assert "p0400_litB_wake_26125_fine.vtk.xz" in box

@@ -95,11 +95,11 @@ from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, ROTORS_KEY
 
 # Reading a run record's reductions without hard-coding either name.
 per_rotor = record.reductions.get(ROTORS_KEY, {})
-for alias, block in per_rotor.items:
- for reduction in PER_ROTOR_REDUCTIONS:
- entry = block[reduction]
- # -> {'windows': [[448, 515],...], 'period_steps': 68,...}
- # or {'skipped': '<the reason this rotor has none>'}
+for alias, block in per_rotor.items():
+    for reduction in PER_ROTOR_REDUCTIONS:
+        entry = block[reduction]
+        # -> {'windows': [[448, 515], ...], 'period_steps': 68, ...}
+        #    or {'skipped': '<the reason this rotor has none>'}
 ```
 
 A worked example: a row naming rotor `PROP` of eight steps, four steps per

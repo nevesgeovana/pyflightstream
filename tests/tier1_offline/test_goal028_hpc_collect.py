@@ -225,9 +225,10 @@ def test_collect_post_rebuilds_the_matrix_whose_records_it_collected(tmp_path, m
     assert status == 0
     # The fixture's record names the matrix `matriz`.
     assert [call.get("matrix_stem") for call in calls] == ["matriz"], calls
-    # A rebuild archives what it replaces, as `pyfs-matrix post` does: without
+    # A rebuild overwrites what it replaces, as `pyfs-matrix post` does: without
     # it the second sweep of a watch meets the first one's products and stops.
-    assert calls[0].get("overwrite") is True and calls[0].get("archive") is True, calls
+    # It archives only with `collect --archive` (FR-397, PFS-2100.019).
+    assert calls[0].get("overwrite") is True and calls[0].get("archive") is False, calls
 
 
 def test_each_collected_matrix_is_posted_once_and_a_sweep_that_collects_nothing_posts_nothing(

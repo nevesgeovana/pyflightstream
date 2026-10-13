@@ -128,7 +128,8 @@ spells for a Python caller:
 from pyflightstream.cases.workflows import IGNORE_MISSING_FAMILIES_VARIABLE
 
 case = case.model_copy(
- update={"variables": {**case.variables, IGNORE_MISSING_FAMILIES_VARIABLE: "false"}}
+    update={"variables": {**case.variables, IGNORE_MISSING_FAMILIES_VARIABLE: "false"}}
+)
 ```
 
 **A MATRIX CELL MAY NOT WRITE IT.** The reader refuses a row that states the

@@ -498,10 +498,12 @@ def test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so(cap
         "pyfs-workspace profile sections",
         "pyfs-workspace profile uni",
         "pyfs-workspace profile bp",
-        "RPT-137",
-        "RPT-070",
+        "**A RELAXED disc ignores a custom profile.**",
+        "a disc of wake type RELAXED gave the same wake for every profile",
     ):
         assert fact in page, fact
+    # Docs Q5: the published page carries no internal locator; the reports keep RPT-137, RPT-070.
+    assert "RPT-137" not in page and "RPT-070" not in page
     sheet = (
         REPO / "guide" / "latex-sources" / "04-cheatsheet" / "text" / "02-by-stage.tex"
     ).read_text(encoding="utf-8")

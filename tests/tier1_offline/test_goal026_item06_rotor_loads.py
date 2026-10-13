@@ -532,7 +532,9 @@ def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp
     # THE WINDOW IS WHAT MOVED and nothing else did, so the ratio is the ratio
     # of the two means: 350 over 150. Derived from the fixture, never read off
     # the implementation.
-    assert late == pytest.approx(early * (350.0 / 150.0), rel=1e-6), (
+    # Both cells are written at six significant figures (PFS-2081.53), so each carries
+    # up to 3.4e-6 of relative rounding; 1e-5 still refuses any other window.
+    assert late == pytest.approx(early * (350.0 / 150.0), rel=1e-5), (
         "the rotor table is not averaging over the row's window; "
         f"steps 1-2 mean 150 N and steps 3-4 mean 350 N: {early} and {late}"
     )

@@ -60,7 +60,14 @@ FOUR = [
     WALLTIME_STOP_ACTION,
 ]
 THRESHOLD_AND_CLOCK = {"EXPORT_UNSTEADY_AFTER_ITER": "5", "WALLTIME": "2h"}
-CONTINUING = {RESTART_FROM_VARIABLE: SAVED, RESTART_ITERATIONS_VARIABLE: "12"}
+#: RESTART_STEP_OFFSET is what plan and run resolve from the predecessor's recorded count
+#: (PFS-2104.032); a continuation's threshold refuses without it. Zero keeps the stated
+#: threshold in the continued march, so the registrations compared here are unchanged.
+CONTINUING = {
+    RESTART_FROM_VARIABLE: SAVED,
+    RESTART_ITERATIONS_VARIABLE: "12",
+    "RESTART_STEP_OFFSET": "0",
+}
 NO_STEP = "adds no time step"
 
 
