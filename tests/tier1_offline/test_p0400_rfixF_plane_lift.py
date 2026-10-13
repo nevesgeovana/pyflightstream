@@ -1,7 +1,7 @@
 """P0400-RFIXF-PLANELIFT: the Trefftz C plane states its own lift, and is flagged short of it.
 
 PFS-2081.95: a plane whose probe field does not hold the circulation the
-loads shed gives a crossflow energy that is not their induced drag (RPT-170:
+loads shed gives a crossflow energy that is not their induced drag (RPT-171:
 one build's probe field carried 0.74 of a wing's lift). The C row now states
 ``CL_T``, the Kutta-Joukowski lift of the plane's own streamwise vorticity
 (FR-453 R9), and post warns where it departs from the solver's CL by more
@@ -107,11 +107,11 @@ def test_p0400_rfixf_a_plane_short_of_the_lift_is_flagged(tmp_path):
     """P0400-RFIXF-PLANELIFT (FR-453 R9, PFS-2081.95): 0.74 of the circulation is flagged.
 
     The field of one build's probes on a wing carried 0.74 of the lift
-    (RPT-170). The row is written, its CL_T says 0.74 CL, and post.log names
+    (RPT-171). The row is written, its CL_T says 0.74 CL, and post.log names
     the point, both values and the ratio.
     """
     row, flags = _post(tmp_path, 0.74)
     assert float(row["CL_T"]) == pytest.approx(0.74 * _CL, rel=0.02)
     assert float(row["CDI_T"]) > 0.0, "the row is written"
     (flag,) = flags
-    assert "0.74" in flag and "RPT-170" in flag
+    assert "0.74" in flag and "RPT-171" in flag

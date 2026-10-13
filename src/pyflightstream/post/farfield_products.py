@@ -132,12 +132,12 @@ _INCOMPRESSIBLE_MACH = 0.3
 #: A Trefftz C plane whose own lift (its vorticity's first moment) departs from
 #: the solver's CL by more than this fraction is flagged: its field does not hold
 #: the circulation the loads shed, so its crossflow energy is not their induced
-#: drag (FR-453 R9; RPT-170 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
+#: drag (FR-453 R9; RPT-171 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
 _PLANE_LIFT_TOLERANCE = 0.10
 #: Trefftz A over families whose traced lift departs from the solver's CL by
 #: more than this fraction is warned: another family or a body carries the
 #: rest, so CDI_T and E_T are of the traced families alone (FR-451 R13). A wing
-#: traced alone agreed to 0.15 percent (RPT-170's wing); a wing traced without
+#: traced alone agreed to 0.15 percent (RPT-171's wing); a wing traced without
 #: its body departed by 6.6 and 7 percent.
 _TRACED_LIFT_TOLERANCE = 0.05
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
@@ -258,7 +258,7 @@ def _near_field(point: PolarPoint) -> tuple[float, float, float]:
     column of the printed drag split (:func:`~pyflightstream.results.loads.drag_pair`):
     ``CDi`` up to 26.124, ``CDp`` on 26.125, which takes the vorticity value
     when the run selects it and leaves ``CDv`` unchanged, as ``CDi`` does
-    beside ``CDo`` (PFS-2081.98, RPT-170). A table printing neither split
+    beside ``CDo`` (PFS-2081.98, RPT-171). A table printing neither split
     gives ``NA``.
     """
     total = point.loads.total
@@ -997,7 +997,7 @@ def _flag_a_plane_short_of_the_lift(
     which roll-up does not change; a plane holding the wake the loads shed
     carries the solver's lift. Where it departs by more than
     :data:`_PLANE_LIFT_TOLERANCE`, the probe field does not hold that
-    circulation (RPT-170) and the row's crossflow energy is not the loads'
+    circulation (RPT-171) and the row's crossflow energy is not the loads'
     induced drag: the row is written, and flagged here.
     """
     rho, speed, _alpha, _beta = _flow(point)
@@ -1011,7 +1011,7 @@ def _flag_a_plane_short_of_the_lift(
             f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
             f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
             "the probe field does not hold the circulation the loads shed, so its crossflow "
-            "energy is not their induced drag (FR-453 R9, RPT-170)",
+            "energy is not their induced drag (FR-453 R9, RPT-171)",
             PyflightstreamWarning,
             stacklevel=3,
         )

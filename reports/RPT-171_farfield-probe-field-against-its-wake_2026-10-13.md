@@ -1,4 +1,4 @@
-# RPT-170 - Far-field probe field against the solver's own wake, 26.124 and 26.125 (2026-10-13)
+# RPT-171 - Far-field probe field against the solver's own wake, 26.124 and 26.125 (2026-10-13)
 
 ## Scope and verdicts
 
