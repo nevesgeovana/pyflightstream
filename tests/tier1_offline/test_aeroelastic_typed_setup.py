@@ -220,7 +220,8 @@ def test_pending_node_input_collision_is_refused_before_coupling(tmp_path):
 
     script = Script("26.124")
     script._pending_input_files["FSI_NODES.CSV"] = "user-owned contents"
-    with pytest.raises(ValueError, match="collision"):
+    # Script.park_input_file words every case-insensitive input collision (PFS-2084.004).
+    with pytest.raises(ValueError, match="'fsi_nodes.csv' collides with input file 'FSI_NODES"):
         build_script(coupled_case(tmp_path), script)
     assert script.pending_input_files["FSI_NODES.CSV"] == "user-owned contents"
     assert "SET_AEROELASTIC_COUPLING_IN_UNSTEADY" not in script.render()

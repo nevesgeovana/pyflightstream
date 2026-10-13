@@ -792,7 +792,7 @@ def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
     )
 
     probe = subprocess.run(
-        ["git", "check-attr", "text", "eol", "--", *[str(path) for path in files]],
+        ["git", "check-attr", "binary", "text", "eol", "--", *[str(path) for path in files]],
         capture_output=True,
         text=True,
         cwd=Path(__file__).parents[2],
@@ -810,10 +810,18 @@ def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
             continue
         path_part, attribute, value = line.rsplit(": ", 2)
         pinned.setdefault(path_part, set()).add(f"{attribute}={value}")
+    # A COMPRESSED recording (the 26.125 wake of PFS-2081.50, `*.xz binary`) is
+    # bytes, not text: `binary` is its pin, since no conversion touches it either
+    # way, and normalizing it as text would corrupt it. Only a compressed suffix
+    # may take that pin, so a text fixture marked binary still fails here.
     unpinned = sorted(
         path_part
         for path_part, attributes in pinned.items()
         if not {"text=set", "eol=lf"} <= attributes
+        and not (
+            path_part.strip('"').endswith((".xz", ".gz", ".zip"))
+            and {"binary=set", "text=unset"} <= attributes
+        )
     )
     assert not unpinned, (
         "these fixtures are not pinned against line-ending conversion: "

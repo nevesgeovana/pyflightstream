@@ -104,7 +104,7 @@ def test_p0400_post_help_archive_opt_in():
     post = next(action for action in parser._actions if isinstance(action.choices, dict)).choices[
         "post"
     ]
-    help_text = post.format_help()
+    help_text = " ".join(post.format_help().split())
     assert "archived only with --archive" in help_text
 
 

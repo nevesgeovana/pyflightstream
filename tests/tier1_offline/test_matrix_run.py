@@ -1029,8 +1029,10 @@ def test_an_unreadable_cold_start_is_a_recorded_failure_of_its_row_at_run(tmp_pa
 
     def refuses_at_run(case):
         # The plan's check passes; the run loop's own check refuses, which is
-        # the path an invalid value reaches when the plan did not refuse it.
-        if sys._getframe(1).f_code.co_name == "run_campaign":
+        # the path an invalid value reaches when the plan did not refuse it. The
+        # loop is _run_scheduled_campaign since run_campaign keeps superseded
+        # records around it (PFS-2081.54).
+        if sys._getframe(1).f_code.co_name == "_run_scheduled_campaign":
             raise CampaignConfigError("COLD_START must be true or false; got 'maybe'")
         return real(case)
 

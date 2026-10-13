@@ -74,7 +74,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-33e": "4507f2f995b281386ce86a912ae7b66f047b8b00f9ad958c7bfab7948a945edd",
     "FR-33f": "3bef69c8bf4fba7f3dfa9f3d65d4871242c99cfb960ecdde81cff008b6c4f132",
     "FR-37": "d3b1e6176d052ee3ac34b35b9a7ad8be473af7d0c4a461a24520d1e476deb2b8",
-    "FR-38": "b4916f1f182229ff90f3b1b625cc5500975ff2d53b67721da2ffae1830f995c1",
+    "FR-38": "428bbfa3e97206a8e45368b04bf676647bdd2c40b83c83a5860f046dba2049b3",
     "FR-39": "3748fbe9678f39d8603d5b63a9b871d6a909db8f0578fd514d90e7c41ef51519",
     "FR-40": "2efdeae31a69872594f1cee1e80c52a254cb52234bdab5c621763e5013169b71",
     "FR-41": "0534ca6beb9627469b240b07a50b9ad9107107099c4c79f3e355ee1a9156cac7",
@@ -83,7 +83,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-44": "7ef2451f1f1215fcb4a31c844aaac6db52098ab82687004cb14c9930a78f6515",
     "FR-45": "b3c7e4711b585b534344e4d55c03ec1825a2ccd3a9d67b4c92d889f3af780896",
     # amended in 0.39.0 by FR-434 (MAX_ITER_REACHED joins the closed set), SRS 1.76.0
-    "FR-46": "8af17d50f8de84bda4a89becef2c1579e21f95b4dfad1fdd8ac790e83a789814",
+    "FR-46": "70fe82dfe9089ba12a183350320273a939fd85ab93078e97d74b3db67eb8e619",
     "FR-47": "79b6e547ac2465f4909928fe12fd1b8c9faaf48f3f358422b2c439059b270764",
     "FR-48": "5103a063d5b962358562031c69da755babc171f0e9ae3e49c2f9814d646bca63",
     "FR-49": "b8c4d1c27efe458ab545fc4369dc4cd3d6af65050e8ebcfac255b8c845cd06ac",
@@ -116,7 +116,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-76": "3cb28a3d7cf0f45a83cca7a97d95f7f25640d89dc5c7bac0faac8c0623f7c483",
     "FR-77": "07354a1e2e84d651c5e47d29bce553da9b3efe3be4cf3ee7a75c93bfc6b26a2c",
     "FR-78": "995b8b0272bb525c52ba0173703516d3c50b725a880eff7b4741adcb58b3c357",
-    "FR-79": "8321f012156fd386774bf35fd4a570edae814e457d3315e41f3b03a9090ad966",
+    "FR-79": "0b5f75715427c1dd7fe6ec2ee69e150d1908b8e123ce0fd5f80e2c6886fbb23a",
     "FR-80": "8e1f76156d38e3f80b9167b3bb8063aa7a4415096d2f634cb4abbfd41d450f64",
     "FR-81": "f5ca8649c6b3d4ca14e8a3b71e6f706ca28f1ee80561c497470989a96f6f8941",
     "FR-82": "bb467b517c43897a16fb71d11421e3b2a7274f63762737dbc5fd7002102f4f3f",
@@ -626,6 +626,10 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
     home, NFR-06 numpy runtime), sweep-1 (FR-82 cost exclusions and FR-377 job labels),
     docsfix (FR-210, FR-293 and FR-120 archive opt-in), mach (FR-176 advancing tip)
     and the measured mypy recount (NFR-27, commit 6ee5e247). FR-419 remains pinned.
+    The release review fixes move three more: FR-38 (its verification by PFS-2081.72, the
+    definitions link by PFS-2081.88 and R8 by PFS-2081.94), FR-46 (the six statuses read as
+    the historical set, PFS-2081.82) and FR-79 (the probe-home amendment implemented,
+    PFS-2081.86).
     """
     changed = []
     for page in PAGES:
