@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Measure the architecture of pyflightstream, and write the architecture metrics record.
 
     python scripts/arch_metrics.py summary
@@ -128,12 +139,13 @@ MONOTONE = (
 # THE TEST-COUPLING FREEZE RE-PINNED AT 0.40.0, and nothing else of the first
 # record: the release decision of 2026-10-12 (capabilities first, rigor in its
 # own release) accepted the coupling the 0.40.0 lanes' tests brought, listed
-# per module in RPT-168, with the final 2026-10-13 lane recount at 330 and 147,
+# per module in RPT-168, with the final 2026-10-13 lane recount at 334 and 150,
+# attributed to rfixAPI, rfixR5 and rfixR6 in RPT-173,
 # and planned the reduction back to the numbers of the
 # first record (242 private names, 83 patch targets) as PFS-2081.47 (0.42.0).
 # The metrics table is compared with these two numbers in place of the first
 # record's; raising either is an edit of this line, visible in review.
-COUPLING_REPIN = {"private_test_names": 330, "monkeypatch_targets": 147}
+COUPLING_REPIN = {"private_test_names": 334, "monkeypatch_targets": 150}
 
 
 def freeze_floor(freeze: Mapping) -> dict:

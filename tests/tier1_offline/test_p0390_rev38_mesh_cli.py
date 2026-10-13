@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """P0390-REV38 (NFR-45): the mesh command findings of the 0.38.0 review, API-05 and PUSH-IND-ARCH-6.
 
 API-05: the mesh verbs name the file they write ``--out`` as their sibling
@@ -44,6 +55,12 @@ def _run(capsys, *argv: str) -> tuple[int, str, str, list[str]]:
         code = cli.main(list(argv))
     out = capsys.readouterr()
     said = [str(w.message) for w in caught if "deprecated" in str(w.message)]
+    # FR-477 and API-002: the command alias now has its own dated warning,
+    # independently of the old option aliases this module compares.
+    command = [message for message in said if message.startswith(f"pyfs-matrix {argv[0]} ")]
+    assert len(command) == 1, said
+    assert "pyfs-workspace geometry" in command[0] and "removed in v1.0.0" in command[0]
+    said = [message for message in said if message not in command]
     return code, out.out, out.err, said
 
 

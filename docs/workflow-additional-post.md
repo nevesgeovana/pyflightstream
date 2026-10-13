@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:35:00-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [tests/tier1_offline/test_additional_post.py]
+authority: pyflightstream
+status: active
+confidentiality: internal
+change_summary: Restore public additional-post skip reasons removed with internal citations.
+revision_source: git
+-->
+
 # Extracting more from a finished point: the additional post
 
 A row may name a second post-processing artifact, `ADDITIONAL_PPROC: p<id>` in
@@ -66,22 +79,22 @@ says which.
 **Who is extracted, and every reason a point is not.** A point is skipped by
 name, with the path or the hashes involved, when:
 
-- its row states no `ADDITIONAL_PPROC`;
-- its record names no `.fsm`, or the file it names is not there
+- its row states no `ADDITIONAL_PPROC` (`NO_KEY`);
+- its record names no `.fsm`, or the file it names is not there (`NO_SAVED_SIMULATION`)
 ;
-- the file does not hash as its record says;
+- the file does not hash as its record says (`HASH_MISMATCH`, naming both digests);
 - the same artifact was already extracted from the same bytes into files that
-  still hash as recorded; an extraction whose
+  still hash as recorded (`ALREADY_EXTRACTED`); an extraction whose
   file was changed since is extracted again, as the post, which withholds its
   products, asks
 ;
-- the build the row names today is not the one the point ran on
+- the build the row names today is not the one the point ran on (`BUILD_CHANGED`)
 : a saved
   simulation is reopened on the build that saved it;
-- the run averaged its surface in time: whether a
+- the run averaged its surface in time (`SURFACE_AVERAGED`): whether a
   reopened file gives back the average or an instant was not measured;
 - the run's recorded script created other frames than the row creates today,
-  or declared other boundaries: a
+  or declared other boundaries (`SCRIPT_DRIFT`): a
   distribution would be cut in the wrong frame. Frames are compared by every
   line the script defines or moves one with, so a frame turned or moved since
   the run under its old name counts as another
@@ -91,9 +104,9 @@ name, with the path or the hashes involved, when:
   a point whose names nothing on disk recovers, while the geometry declares
   names today, is skipped naming the file
 ;
-- the point is still in a scheduler's queue, a continuation replaced it
+- the point is still in a scheduler's queue (`NOT_FINISHED`), a continuation replaced it (`SUPERSEDED`)
 ,
-  or its row is no longer active.
+  or its row is no longer active (`ROW_NOT_ACTIVE`).
 
 **What the plan refuses, before a seat is spent.** An id the input library
 lacks, naming the key and `inputs/pproc/<id>.toml`

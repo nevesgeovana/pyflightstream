@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """PFS-2029.15.01 and .15.02: the campaign's CSV products round-trip and carry the author's numbers.
 
 The synthetic case here is one loads table with two surfaces at alpha -2,
@@ -2164,7 +2175,10 @@ def test_goal019_post_the_command_line_rebuilds_only_on_the_word_rebuild(
     monkeypatch.setattr(sys, "stdin", _Stdin(True))
     monkeypatch.setattr(builtins, "input", lambda prompt="": asked.append(prompt) or answer)
     assert _confirmed_destruction(False) is expected
-    assert len(asked) == 1 and "deprecated" in asked[0], asked
+    # API-001: confirmation controls have no dated removal promise.
+    assert len(asked) == 1 and "Type 'rebuild'" in asked[0], asked
+    assert "--force-overwrite" in asked[0] and "--archive" in asked[0]
+    assert "deprecated" not in asked[0].lower()
 
 
 # --- GOAL-019 item 9: the Band D fixes of the GEO-039 triage ------------------

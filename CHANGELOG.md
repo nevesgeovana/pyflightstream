@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:20:00-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [release/0.40.0, integC integration evidence]
+authority: pyflightstream
+status: active
+confidentiality: internal
+change_summary: Align guards and measurements with release intent.
+revision_source: git
+-->
+
 # Changelog
 
 All notable changes to pyflightstream. The format follows
@@ -75,8 +88,8 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-10-13: 165 errors in 13 of 344 modules, on the 0.40.0 tree; the shipped
-  configuration is green over all 344. Three exempted modules are clean and their overrides are
+- mypy recount 2026-10-13: 165 errors in 13 of 343 modules, on the 0.40.0 tree; the shipped
+  configuration is green over all 343. Three exempted modules are clean and their overrides are
   deleted (`pyflightstream.farfield`, `pyflightstream.fsi.driver` and `pyflightstream.script.entities`),
   the exempted set falls from sixteen modules to thirteen, and the error total inside it moves from 159
   to 165 (`qa.probes` 79 to 92, `script.helpers` 2 to 4, `script` 17 to 13, `post.writers` 2 to 1). The
