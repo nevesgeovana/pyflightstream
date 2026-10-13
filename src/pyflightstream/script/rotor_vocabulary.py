@@ -19,6 +19,12 @@ from __future__ import annotations
 
 from pyflightstream.commands import VersionView
 
+# Re-exported for ``cases.workflows``, which refuses an unmarked-unit build
+# through this module rather than through the private form module.
+from pyflightstream.script._build_forms import (
+    _unmarked_unit_refusal as _unmarked_unit_refusal,
+)
+
 __all__ = [
     "EUCLIDEAN_ROTOR_COMMANDS",
     "EUCLIDEAN_ROTOR_UNIT",

@@ -511,9 +511,11 @@ DATA_ORIGIN_CODES: dict[str, int] = {"raw": 0, "reduced": 1}
 #: ``none`` is a direct integration the solver printed, ``time_average`` is
 #: an average over a window, ``unknown`` is a row whose mode was never
 #: printed at all, and ``last_step`` (0.40.0) is an unsteady export, which
-#: states the last time step only. Nothing in the package writes
-#: ``time_average`` since 0.40.0; it stays published because a file written
-#: before carries it. ``unknown`` is deliberately a WORD and not an empty
+#: states the last time step only. Since 0.40.0 no solver export is stamped
+#: ``time_average``; the unsteady polar's averaged row is, because the
+#: package averaged it over its window (``averaging_window`` below), and a
+#: file written before carries it on an unsteady export. ``unknown`` is
+#: deliberately a WORD and not an empty
 #: cell: an empty cell reads back out of a csv as NaN, so the identifier
 #: would not survive its own file.
 REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2, "last_step": 3}
@@ -522,7 +524,7 @@ REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2, "
 #: rule as the two above, and for the same reason: a file written last
 #: month is read with this table and cannot be asked what it meant.
 #:
-#: ALL FOUR RECORD SOMETHING THE PACKAGE KNOWS, and two of them record
+#: ALL FIVE RECORD SOMETHING THE PACKAGE KNOWS, and two of them record
 #: ignorance rather than a window. ``not_applicable`` is a direct
 #: integration, which averages over nothing. ``not_printed`` is an
 #: average the SOLVER took: the loads spreadsheet prints a solver mode
@@ -536,18 +538,22 @@ REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2, "
 #: ``last_time_step`` (0.40.0) goes with ``last_step``: the unsteady export
 #: states the instant of the run's last time step, a window of one step.
 #:
-#: A TOKEN FOR A WINDOW THIS PACKAGE COMPUTED IS NOT PUBLISHED YET, and
-#: deliberately: nothing in the package writes one. This table is append
-#: only, so a token added later is cheap and a token whose meaning has to
-#: change is impossible, which is the wrong way round to guess.
+#: ``averaging_window`` (0.40.0) is the first token for a window THIS
+#: PACKAGE computed: the averaging window of the definition of record
+#: (docs/definitions/the-averaging-window.md), whose bounds the same row
+#: states in ``FIRST_STEP``, ``LAST_STEP`` and ``STEPS``. It goes with
+#: ``time_average`` on the unsteady polar's averaged row, which until then
+#: carried the sweep row's ``not_printed`` (and, briefly, its
+#: ``last_time_step``) as though the solver's export were the row.
 #:
-#: A blank cell would say all four at once and survive none of them: it
+#: A blank cell would say all five at once and survive none of them: it
 #: reads back out of a csv as NaN.
 REDUCTION_WINDOW_CODES: dict[str, int] = {
     "not_applicable": 0,
     "not_printed": 1,
     "unknown": 2,
     "last_time_step": 3,
+    "averaging_window": 4,
 }
 
 #: The three column labels, named once so no writer spells them itself.

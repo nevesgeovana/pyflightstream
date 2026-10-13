@@ -479,6 +479,48 @@ def _refuse_signs(effective: Mapping[str, float], speed_key: str, pol: str) -> N
         )
 
 
+def _density_and_pressure(
+    effective: dict[str, float],
+    *,
+    pol: str,
+    velocity: float,
+    viscosity: float,
+    temperature: float,
+    atmosphere_pressure_pa: float,
+    reference_length_m: float | None,
+) -> tuple[float | None, float, str, float]:
+    """Reynolds, density, density source and pressure of the resolved state."""
+    reynolds: float | None
+    if DENSITY_KEY in effective:
+        reynolds, density = _density_from_reynolds(
+            effective,
+            pol=pol,
+            velocity=velocity,
+            viscosity=viscosity,
+            reference_length_m=reference_length_m,
+        )
+        density_source = "solved-from-reynolds"
+        pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
+    else:
+        if "RHOkgm3" in effective:
+            density = effective["RHOkgm3"]
+            density_source = "pinned"
+            pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
+        else:
+            # The altitude's pressure (or the PPA pin) at the state's
+            # temperature: isa()'s own expression, so unpinned it is the
+            # atmosphere's density to the bit.
+            pressure = effective.get("PPA", atmosphere_pressure_pa)
+            density = ideal_gas_density(pressure, temperature)
+            density_source = "atmosphere"
+        reynolds = (
+            None
+            if reference_length_m is None
+            else density * velocity * reference_length_m / viscosity
+        )
+    return reynolds, density, density_source, pressure
+
+
 def resolve_flight_condition(
     stated: dict[str, float],
     *,
@@ -696,34 +738,15 @@ def resolve_flight_condition(
         velocity = effective["TASmps"]
     mach = velocity / sonic_velocity
 
-    reynolds: float | None
-    if DENSITY_KEY in effective:
-        reynolds, density = _density_from_reynolds(
-            effective,
-            pol=pol,
-            velocity=velocity,
-            viscosity=viscosity,
-            reference_length_m=reference_length_m,
-        )
-        density_source = "solved-from-reynolds"
-        pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
-    else:
-        if "RHOkgm3" in effective:
-            density = effective["RHOkgm3"]
-            density_source = "pinned"
-            pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
-        else:
-            # The altitude's pressure (or the PPA pin) at the state's
-            # temperature: isa()'s own expression, so unpinned it is the
-            # atmosphere's density to the bit.
-            pressure = effective.get("PPA", atmosphere.pressure_pa)
-            density = ideal_gas_density(pressure, temperature)
-            density_source = "atmosphere"
-        reynolds = (
-            None
-            if reference_length_m is None
-            else density * velocity * reference_length_m / viscosity
-        )
+    reynolds, density, density_source, pressure = _density_and_pressure(
+        effective,
+        pol=pol,
+        velocity=velocity,
+        viscosity=viscosity,
+        temperature=temperature,
+        atmosphere_pressure_pa=atmosphere.pressure_pa,
+        reference_length_m=reference_length_m,
+    )
 
     return ResolvedCondition(
         velocity_m_per_s=velocity,

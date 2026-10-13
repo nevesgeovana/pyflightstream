@@ -11,7 +11,7 @@ The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
 then `MTIP_<alias>` and `MHEL_<alias>`
 ([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)), and then
 `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
-([The in-plane coefficients](#the-in-plane-coefficients)), and, last since 0.40.0,
+([The in-plane coefficients](#the-in-plane-coefficients)), and, last,
 `MADV_<alias>`, the advancing-tip Mach number. The column contract
 grows at its end only, so every earlier column keeps its position.
 Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.

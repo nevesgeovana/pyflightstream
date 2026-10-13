@@ -463,9 +463,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
     },
@@ -476,9 +478,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
     },
@@ -489,9 +493,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
     },
@@ -504,7 +510,8 @@
       "evidence": [
         "src/pyflightstream/cases/fsi_workspace.py:emit_steady_aeroelastic_analysis",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
     },
@@ -515,9 +522,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, unchanged from SRC-752 p.382"
     },
@@ -528,6 +537,7 @@
       "reachable": "setup: aeroelastic_convergence_threshold",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/_setup_link.py:_emit_26125_keys"
       ],
       "database_note": "SRC-753 p.390, the first edition to document it"
@@ -539,9 +549,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
     },
@@ -552,9 +564,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
     },
@@ -565,22 +579,26 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
     },
     {
       "command": "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
       "chapter": "aeroelastic_coupling",
-      "build_status": "documented",
+      "build_status": "verified",
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.389, unchanged from SRC-752 p.383"
     },
@@ -591,9 +609,11 @@
       "reachable": "row: FSI",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:wire_external_fsi",
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.389, unchanged from SRC-752 p.382"
     },
@@ -606,7 +626,8 @@
       "evidence": [
         "src/pyflightstream/cases/fsi_workspace.py:_stage_and_emit",
         "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_refuse_fsi_on_a_quasi_steady_rotor",
-        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi"
+        "src/pyflightstream/workspace/fsi_setup.py:resolve_row_fsi",
+        "src/pyflightstream/workspace/sixdof_setup.py:resolve_row_sixdof"
       ],
       "database_note": "SRC-753 p.388, the Aeroelastic Coupling Toolbox page; the licensed run of FR-341 (RPT-155) is the evidence a promotion through pyfs-qa apply-compat would cite, and none is recorded yet"
     },
@@ -804,12 +825,18 @@
       "reachable": "sidecar: trailing_edges.detect",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_geometry_emit.py:_emit_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:_check_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:marks_trailing_edges",
         "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
         "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
         "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
         "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
         "src/pyflightstream/run/_plan.py:format_cost_table",
         "src/pyflightstream/script/_build_forms.py:detect_every_boundary",
+        "src/pyflightstream/workspace/_geometry_build.py:_inputs",
+        "src/pyflightstream/workspace/_geometry_convert.py:_instruction_text",
+        "src/pyflightstream/workspace/_geometry_instruction.py:checked_trailing_edge_points",
         "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
         "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
         "src/pyflightstream/workspace/_refine/_obj.py:te_route"
@@ -862,12 +889,18 @@
       "reachable": "sidecar: trailing_edges.file",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_geometry_emit.py:_emit_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:_check_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:marks_trailing_edges",
         "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
         "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
         "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
         "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
         "src/pyflightstream/run/_plan.py:format_cost_table",
         "src/pyflightstream/script/helpers.py:mark_wake_edges",
+        "src/pyflightstream/workspace/_geometry_build.py:_inputs",
+        "src/pyflightstream/workspace/_geometry_convert.py:_instruction_text",
+        "src/pyflightstream/workspace/_geometry_instruction.py:checked_trailing_edge_points",
         "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
         "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
         "src/pyflightstream/workspace/_refine/_obj.py:te_route"
@@ -1082,12 +1115,12 @@
       "reachable": "setup: max_threads",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/workflows/_rows.py:row_solver_setting",
         "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
         "src/pyflightstream/run/_batch_plan.py:_unit_of",
         "src/pyflightstream/run/_executors.py:bind_submission_values",
         "src/pyflightstream/run/_plan.py:estimate_point_cost",
-        "src/pyflightstream/script/_settings.py:_emit_family",
-        "src/pyflightstream/workspace/setup_inspection.py:inspect_case_setup"
+        "src/pyflightstream/script/_settings.py:_emit_family"
       ],
       "database_note": "SRC-753 p.352, unchanged from SRC-752 p.345"
     },
@@ -1181,6 +1214,7 @@
       "reachable": "reference: chord_m",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_geometry_emit.py:_emit_section_loft",
         "src/pyflightstream/run/_assemble.py:_assembled_record",
         "src/pyflightstream/script/_settings.py:_emit_family",
         "src/pyflightstream/workspace/_matrix_phases.py:_bind_states",
@@ -1268,14 +1302,19 @@
       "reachable": "setup: simulation_length_unit",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_fsi_external.py:validate_external_fsi",
+        "src/pyflightstream/cases/_geometry_emit.py:render_geometry_script",
         "src/pyflightstream/cases/fsi_workspace.py:validate_workspace_fsi",
         "src/pyflightstream/cases/workflows/_freestream.py:_free_stream",
         "src/pyflightstream/cases/workflows/_geometry.py:_geometry_simulation_controls",
-        "src/pyflightstream/cases/workflows/_probes.py:_pproc_probes",
+        "src/pyflightstream/cases/workflows/_geometry.py:_mark_trailing_edges_from_file",
+        "src/pyflightstream/cases/workflows/_probes.py:_emit_one_probe_table",
         "src/pyflightstream/cases/workflows/_probes.py:_pproc_sampled_volume",
         "src/pyflightstream/cases/workflows/_probes.py:_pproc_surface_probes",
-        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_qsteady_free_stream",
+        "src/pyflightstream/cases/workflows/_probes.py:_record_probe_field",
+        "src/pyflightstream/cases/workflows/_qsteady_rotor.py:_the_fields_native_unit",
         "src/pyflightstream/cases/workflows/_rows.py:_from_metres",
+        "src/pyflightstream/cases/workflows/_sixdof.py:_refuse_what_the_motion_cannot_place",
         "src/pyflightstream/run/_field_motion.py:continued_frame_motions"
       ],
       "database_note": "SRC-753 p.293, unchanged from SRC-752 p.288"
@@ -1298,11 +1337,17 @@
       "reachable": "sidecar: trailing_edges.detect.sweep_angle",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/_geometry_emit.py:_emit_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:_check_trailing_edges",
+        "src/pyflightstream/cases/_geometry_instruction.py:marks_trailing_edges",
         "src/pyflightstream/cases/workflows/_geometry.py:_declared_condition_tables",
         "src/pyflightstream/cases/workflows/_geometry.py:_import_cad",
         "src/pyflightstream/cases/workflows/_geometry.py:_raw_mesh_boundary_conditions",
         "src/pyflightstream/cases/workflows/_geometry.py:_wake_termination_after_initialization",
         "src/pyflightstream/run/_plan.py:format_cost_table",
+        "src/pyflightstream/workspace/_geometry_build.py:_inputs",
+        "src/pyflightstream/workspace/_geometry_convert.py:_instruction_text",
+        "src/pyflightstream/workspace/_geometry_instruction.py:checked_trailing_edge_points",
         "src/pyflightstream/workspace/_matrix_phases.py:_raw_mesh_conditions_of",
         "src/pyflightstream/workspace/_refine/_level.py:_boundaries_text",
         "src/pyflightstream/workspace/_refine/_obj.py:te_route"
@@ -1352,9 +1397,10 @@
       "reachable": "setup: symmetry_loads",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/workflows/_rows.py:row_solver_setting",
+        "src/pyflightstream/cases/workflows/_sixdof.py:_sixdof_motion",
         "src/pyflightstream/cases/workflows/_solver_settings.py:_settings",
-        "src/pyflightstream/script/helpers.py:analysis_setup",
-        "src/pyflightstream/workspace/setup_inspection.py:inspect_case_setup"
+        "src/pyflightstream/script/helpers.py:analysis_setup"
       ],
       "database_note": "SRC-753 p.365, unchanged from SRC-752 p.356"
     },
@@ -1979,6 +2025,7 @@
       "reachable": "pproc: exports",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/farfield_inputs.py:export",
         "src/pyflightstream/cases/pproc.py:_a_sections_plot_needs_sections",
         "src/pyflightstream/cases/pproc.py:_boundary_layer_sections_are_declared",
         "src/pyflightstream/cases/pproc.py:outputs",
@@ -1987,6 +2034,8 @@
         "src/pyflightstream/cases/workflows/_batch_script.py:job_point",
         "src/pyflightstream/cases/workflows/_exports.py:_export_block",
         "src/pyflightstream/cases/workflows/_exports.py:_surface_export",
+        "src/pyflightstream/cases/workflows/_farfield.py:_resolve",
+        "src/pyflightstream/cases/workflows/_farfield.py:farfield_outputs",
         "src/pyflightstream/run/_actions_counter.py:render_program"
       ],
       "database_note": "SRC-753 p.359, unchanged from SRC-752 p.352"
@@ -1998,13 +2047,17 @@
       "reachable": "pproc: probes",
       "not_offered": "",
       "evidence": [
+        "src/pyflightstream/cases/farfield_inputs.py:probes",
+        "src/pyflightstream/cases/farfield_inputs.py:resolve_farfield",
         "src/pyflightstream/cases/pproc.py:outputs",
         "src/pyflightstream/cases/pproc.py:samples_normal_probes",
         "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
+        "src/pyflightstream/cases/workflows/_farfield.py:_declares_lattice",
+        "src/pyflightstream/cases/workflows/_farfield.py:farfield_probes",
         "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
         "src/pyflightstream/cases/workflows/_probes.py:_built_from_the_mesh",
         "src/pyflightstream/cases/workflows/_probes.py:_emit_one_probe_table",
-        "src/pyflightstream/cases/workflows/_probes.py:_normal_probes_of",
+        "src/pyflightstream/cases/workflows/_probes.py:_open_the_probe_points",
         "src/pyflightstream/cases/workflows/_probes.py:_pproc_probes",
         "src/pyflightstream/cases/workflows/_probes.py:_pproc_sampled_volume",
         "src/pyflightstream/cases/workflows/_probes.py:_refuse_unmeasured_normal_probes",

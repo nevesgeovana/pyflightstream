@@ -108,7 +108,7 @@ from pyflightstream.run import format_cost_table as format_cost_table
 from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
-from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
+from pyflightstream.run._alias import failure_alias_lines, listed_ids, split_typed_ids
 from pyflightstream.run._cli_parsers import (
     GEOMETRY_COMMANDS,
     _build_parser,
@@ -490,9 +490,7 @@ def _cmd_records(args: argparse.Namespace) -> int:
 def _cmd_mark_failed(args: argparse.Namespace) -> int:
     """Mark the named simulations' records FAILED_MARKED (FR-309)."""
     try:
-        from pyflightstream.run._mark_converged import _listed
-
-        sims, points = split_typed_ids(_listed(args.sims), args.workspace)  # FR-395
+        sims, points = split_typed_ids(listed_ids(args.sims), args.workspace)  # FR-395
         if args.points:
             points = {**points, **{sim: list(args.points) for sim in sims}}
             sims = []

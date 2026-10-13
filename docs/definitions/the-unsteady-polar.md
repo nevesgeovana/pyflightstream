@@ -15,6 +15,10 @@
   what the file IS, the average of the unsteady history, and carries the `P`
   every per-point product carries. It was `<sim>_<name>_unsteady.csv` in 0.23.0.
 - **The columns are ordered once:** plots, eighteen axis coefficients per MRP group, `[equations]` columns, super-file content, then `MESH_FACES`. The window columns and condition context identify the averaged interval and point.
+- **A row says it is an average.** Its `reduction` is `time_average` and its
+  `reduction_window` is `averaging_window`, the window its `FIRST_STEP`,
+  `LAST_STEP` and `STEPS` state. The sweep row and the super polar of the same
+  point, read from the native export, say `last_step` over `last_time_step`.
 - **The super file's content is ADDED to this table**, after the `[equations]` columns:
   the matrix row's cells, the record's scalars, each rotor's speed and diameter
   (`RPM_<alias>` and, right after it, `DIAMETER_<alias>`), the solver

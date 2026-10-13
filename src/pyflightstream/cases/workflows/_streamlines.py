@@ -170,6 +170,9 @@ def _pproc_streamlines(
 ) -> None:
     """Emit the row's ``[streamlines]`` table in the analysis phase (FR-460 R1, R2).
 
+    Only the generation is emitted here; the surface trace is exported by the
+    export block, where its export-phase command belongs.
+
     Before the trace, the streamlines a script already holds are deleted: those
     of the previous point of a warm steady sweep, which the solver keeps, and
     those a saved simulation carries when ``reopened`` (the additional post).
@@ -223,8 +226,10 @@ def _pproc_streamlines(
                 "streamlines and the row's outputs declare no <point>_sls.txt to export them "
                 "to; a row's outputs come from its pproc, so build it through the workspace."
             )
+        # Exported with the other files by the export block: its command is an
+        # export-phase command, and the analysis commands that follow the trace
+        # would be refused after it.
         script.emit("GENERATE_ALL_SURFACE_STREAMLINES")
-        script.emit("EXPORT_ALL_SURFACE_STREAMLINES", surface_file)
     if spec.off_body:
         assert frames is not None
         _emit_off_body(case, script, frames, spec, placed if placed is not None else script)

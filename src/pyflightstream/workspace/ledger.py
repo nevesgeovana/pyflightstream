@@ -56,7 +56,9 @@ from pyflightstream.workspace import (
     find_matrix,
     planned_points_without_record,
 )
+from pyflightstream.workspace._batch_life import end_evidence as end_evidence
 from pyflightstream.workspace._batch_life import running_batches
+from pyflightstream.workspace._batch_life import walltime_stop as walltime_stop
 from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._effective import effective_points, latest_record_of_point
 from pyflightstream.workspace._ledger_api import (

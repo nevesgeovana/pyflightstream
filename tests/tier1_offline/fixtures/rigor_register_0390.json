@@ -340,7 +340,7 @@
     "summary": "The S6 byte-identity hash is of the separator-folded render, which the comment and docstring do not say, and no native assertion guards the FILE TMP?blade.obj line.",
     "files": [
       "tests/tier1_offline/test_p0370_s6_direct_morphing.py",
-      "docs/srs/functional-requirements.md"
+      "docs/unpublished/requirements/functional-requirements.md"
     ],
     "proposed_fix": "Say in the comment above MAPPED_SCRIPT_SHA256 and the docstring that the hash is of the separator-folded render; add a native assertion on the FILE TMP?blade.obj line; state the folded comparison in FR-341 R3.",
     "test": "tests/tier1_offline/test_p0390_rev37_docs.py",

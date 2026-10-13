@@ -123,9 +123,9 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_sections_cp", "_plot_cp_sections.txt", "SAVE_PLOT_TO_FILE", False),
     # FR-460 (0.40.0): the traced streamlines, declared only by a pproc's
-    # [streamlines] table. The surface file is written by the trace itself, in
-    # the analysis phase (its command is an analysis command); the off-body
-    # export is an export like the others.
+    # [streamlines] table. Both exports are exports like the others: the traces
+    # are generated in the analysis phase, and their export commands are
+    # export-phase commands.
     ("streamlines_surface", "_sls.txt", "EXPORT_ALL_SURFACE_STREAMLINES", False),
     ("streamlines_off_body", "_slo.txt", "EXPORT_ALL_OFF_BODY_STREAMLINES", False),
     # FR-461 (0.40.0): a free body's trajectory, declared only by a row's SIXDOF

@@ -892,9 +892,14 @@
     so its override was deleted; and `rel/0-34` with the wave-2 packages
     merged read 160 errors in 16 of 236 modules on 2026-10-02, the two
     modules more (`pyflightstream._textio` and
-    `pyflightstream.workspace.actuator_profiles`) each clean.
-    The sixteen exempted modules are the set of the eighteen less
-    `pyflightstream.run` and `pyflightstream.qa.specs`, every module a release
+    `pyflightstream.workspace.actuator_profiles`) each clean; the 0.39.0
+    tree read 159 errors in 16 of 296 modules on 2026-10-11, and the 0.40.0
+    tree read 165 errors in 13 of 342 modules on 2026-10-12, when
+    `pyflightstream.farfield`, `pyflightstream.fsi.driver` and
+    `pyflightstream.script.entities` were measured clean and their overrides
+    deleted (RPT-029).
+    The thirteen exempted modules are the set of the eighteen less
+    `pyflightstream.run`, `pyflightstream.qa.specs` and those three, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those
     modules gain and is a measurement, not a promise; the requirement is that

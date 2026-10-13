@@ -766,7 +766,7 @@ def _a_threshold():
 
     # Resolved from a row by the library, so every field has the type the builders produce
     # (``exports`` is the child script's text, not a tuple; PFS-2135.008).
-    threshold = unsteady_export_threshold(unsteady_case(**{ITER: "4"}))
+    threshold = unsteady_export_threshold(unsteady_case(**{ITER: "4"}), version="26.120")
     assert threshold is not None
     return threshold
 
