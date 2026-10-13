@@ -995,7 +995,10 @@ def test_p0400_reach_guard_refuses_stale_and_expired_rows(
     due = row_problems({"rows": [routed]}, routed["release"])
     assert len(due) == 1 and routed["node"] in due[0]
     assert row_problems({"rows": [routed]}, "0.0.1") == []
-    unsigned = {"rows": [{**routed, "reason": "Python-only by design"}]}
+    # A routed-later row may carry the decision that set its release; the
+    # planted row drops it, so it is unsigned whatever row came first.
+    bare = {key: value for key, value in routed.items() if key != "decision"}
+    unsigned = {"rows": [{**bare, "reason": "Python-only by design"}]}
     assert "names the owner decision" in row_problems(unsigned, "0.0.1")[0]
     pending = {"rows": [{**routed, "reason": "pending owner decision"}]}
     assert "is not one of" in row_problems(pending, "0.0.1")[0]

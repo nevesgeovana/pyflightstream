@@ -14,7 +14,8 @@
    "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
    "reason": "routed later",
    "node": "PFS-2140.001",
-   "release": "0.40.0",
+   "release": "0.41.0",
+   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.probes.AxisSpec",
     "pyflightstream.probes.FrameDefinition",
@@ -29,7 +30,8 @@
    "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
    "reason": "routed later",
    "node": "PFS-2140.001",
-   "release": "0.40.0",
+   "release": "0.41.0",
+   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.exceptions.SurfaceMeshExportError",
     "pyflightstream.probes.geometry.apply_geometry_gate",
