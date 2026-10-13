@@ -119,7 +119,9 @@ that replaces it; all are in `pyflightstream.farfield` except
 | `rothalpy(h_total: xr.DataArray, omega: float, r: xr.DataArray, v_theta: xr.DataArray) -> xr.DataArray` | removed, handed to ITACA for evaluation (below) |
 | `sample_coverage(integrand: xr.DataArray) -> xr.DataArray` | `sample_coverage(integrand: np.ndarray) -> np.ndarray` |
 | `shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray` | `shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray` |
+| `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
 | `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int=6) -> float` |
+| `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
 | `transverse_flux(ds: xr.Dataset, rho: float, *, component: str='w', method: str='quadrature') -> xr.DataArray` | `transverse_flux(fields: LatticeFields, rho: float, *, component: str='w', method: str='quadrature') -> np.ndarray` |
 | `transverse_force(ds: xr.Dataset, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> xr.Dataset` | `transverse_force(fields: LatticeFields, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> TransverseForce` |
 | `dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]` | `LatticeFields.points(self) -> tuple[np.ndarray, dict[str, np.ndarray]]` |
@@ -128,8 +130,8 @@ A field read as `ds["u"]` is now `fields["u"]`, a numpy array shaped station,
 ring, azimuth, and `ds.coords["psi"]` is `fields.psi`; `ds["u"].sel(station=x)`
 is `fields["u"][fields.station_index(x)]`. A result read by key
 (`mass_closure(...)["mdot"]`, `transverse_force(...)["total"]`) is read by
-attribute (`.mdot`, `.total`). `to_counts` and `spurious_diagnostic` keep their
-signatures. The retired `lattice_dataset` and `dataset_to_points` refuse when
+attribute (`.mdot`, `.total`). `to_counts` and `spurious_diagnostic` take
+`s_ref` explicitly, with no default. The retired `lattice_dataset` and `dataset_to_points` refuse when
 called, naming the replacement in this table.
 
 `farfield.rothalpy` and `farfield.irreversible_deficit` were removed in 0.40.0,

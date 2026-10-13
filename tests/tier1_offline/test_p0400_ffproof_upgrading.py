@@ -91,7 +91,7 @@ def test_p0400_ffproof_the_table_lists_every_changed_signature_and_no_other():
         sorted(set(rows) - set(changed.values())),
     )
     unchanged = set(SNAPSHOT["signatures"].values()) - set(changed.values())
-    assert unchanged and not unchanged & set(rows), "an unchanged signature has a row"
+    assert not unchanged & set(rows), "an unchanged signature has a row"
 
 
 @pytest.mark.requirement("FR-457")
