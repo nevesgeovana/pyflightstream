@@ -286,7 +286,11 @@ the hub frame by adding back the frame velocity of the rotor the lattice names,
     v_hub = v_probe + Omega x (x - x_hub)
 
 with `Omega` along the rotor's axis and the sense of its speed, so the channels
-and the balances are those of the rotor turning in still air.
+and the balances are those of the rotor turning in still air. The speed is the
+one every product of the point reads: the run's plan where it states one, and
+otherwise the row's own speed in the quasi-steady record beside the loads export,
+which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
+(`rpm_sign` times the row's `RPM`), and that sign alone gives the sense of `Omega`.
 
 **Quadrature.** The trapezoid rule on the grid (corners a quarter, edges a half
 of a cell); a missing sample makes the integral `NA` and `COVERAGE` states the

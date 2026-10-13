@@ -281,6 +281,9 @@ class FarLayout:
     lattice_local_m : numpy.ndarray or None
         The lattice's points in the frame its positions were recorded in, where
         that is not the reference frame (a declared lattice of a frame).
+    lattice_origin_m : numpy.ndarray or None
+        Where the run placed the lattice's origin (a rotor's hub), m; None
+        for a layout the run did not record.
     plane_placed, lattice_placed : bool
         True where the set is placed, so every position is matched where it
         stands: always for a layout the run recorded, and for a rotor's lattice
@@ -295,6 +298,7 @@ class FarLayout:
     lattice_m: np.ndarray | None = None
     axis: str = "X"
     lattice_local_m: np.ndarray | None = None
+    lattice_origin_m: np.ndarray | None = None
     plane_placed: bool = True
     lattice_placed: bool = True
 
@@ -350,7 +354,13 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
                 local = None
                 if str(shape.get("positions_frame", "REFERENCE")).upper() != "REFERENCE":
                     local = points - origin
-                found.update(lattice=lattice, lattice_m=points, axis=axis, lattice_local_m=local)
+                found.update(
+                    lattice=lattice,
+                    lattice_m=points,
+                    axis=axis,
+                    lattice_local_m=local,
+                    lattice_origin_m=origin,
+                )
                 count = len(points)
             else:
                 raise PyflightstreamError(f"the record names a far-field shape {kind!r}")

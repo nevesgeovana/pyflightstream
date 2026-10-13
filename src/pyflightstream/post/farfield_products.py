@@ -38,7 +38,7 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._condition import _section_rotors
+from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
@@ -718,23 +718,43 @@ def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:
     )
 
 
-def _hub(ctx: SimContext, point: PolarPoint, spec) -> tuple[float, np.ndarray, np.ndarray] | None:
-    """Return the frame speed, axis and origin a quasi-steady rotor's probes are read in."""
+def _hub(
+    ctx: SimContext, point: PolarPoint, spec, layout: FarLayout
+) -> tuple[float, np.ndarray, np.ndarray] | None:
+    """Return the frame speed (rad/s, signed), axis and origin of a quasi-steady rotor's probes.
+
+    PFS-2081.93: the speed is read as every other product of the point reads
+    it, the record's plan where it states one and otherwise the row's own
+    speed from the quasi-steady record beside the loads export
+    (:func:`~pyflightstream.post._condition.row_rotor_speeds`), which a
+    ``qsteady_rotor`` run always writes and never plans. That speed is SIGNED
+    by the rotor's hand (``rpm_sign`` times the row's magnitude), so the frame
+    turns about the axis by the sign of the speed alone; the hand is not
+    applied a second time. The axis and the hub are the lattice's as the run
+    recorded it, or the reference's rotor block for a record without a layout.
+    """
     record = ctx.record_of[point.name]
     if str(record.recipe or "") != "qsteady_rotor" or spec.ledgers is None:
         return None
     alias = spec.ledgers.rotor
-    rotor = (getattr(ctx.live, "rotors", None) or {}).get(alias)
-    rpm = (_section_rotors(ctx.live, ctx.aliases, record).get(alias) or {}).get("rpm")
-    if rotor is None or rpm is None:
+    own = row_rotor_speeds(record, getattr(point, "loads_path", None))
+    rpm = _recorded_speeds(record.reductions, own).get(str(alias))
+    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    if rpm is None:
         raise PyflightstreamError(
-            f"the quasi-steady rotor {alias!r} states no speed in the point's record, so its "
-            "probes cannot be converted to the hub frame"
+            f"the quasi-steady rotor {alias!r} states no speed in the point's record nor in "
+            "its quasi-steady record, so its probes cannot be converted to the hub frame"
         )
-    sense = float(getattr(rotor, "rpm_sign", 1) or 1)
-    axis = _AXES[str(rotor.axis).strip().upper()] * sense
-    origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m], dtype=float)
-    return 2.0 * math.pi * float(str(rpm)) / 60.0, axis, origin
+    if layout.lattice_origin_m is not None:
+        letter, origin = layout.axis, np.asarray(layout.lattice_origin_m, dtype=np.float64)
+    elif rotor is not None:
+        letter = str(rotor.axis)
+        origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
+    else:
+        raise PyflightstreamError(
+            f"the reference names no rotor {alias!r}, so the hub its probes turn about is unknown"
+        )
+    return 2.0 * math.pi * float(rpm) / 60.0, _AXES[letter.strip().upper()], origin
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
@@ -744,12 +764,8 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
             "the point saved no simulation whose length unit the package reads, so its probe "
             "positions cannot be matched in metres"
         )
-    return _Probe(
-        per_m=per_m,
-        layout=_layout(ctx, point, spec, rotor),
-        hub=_hub(ctx, point, spec),
-        rotor=rotor,
-    )
+    layout = _layout(ctx, point, spec, rotor)
+    return _Probe(per_m=per_m, layout=layout, hub=_hub(ctx, point, spec, layout), rotor=rotor)
 
 
 def _instant_values(
