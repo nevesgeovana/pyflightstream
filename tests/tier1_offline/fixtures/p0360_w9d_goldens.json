@@ -809,11 +809,14 @@
           ]
         }
       ],
-      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.124\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"matrix_registry\"\n\n[[sim]]\nsim_id = \"8001\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_ALPHA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"8002\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_BETA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"BETA\"]\nsweep = {type = \"beta\", values = [-3.0, 3.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"LEGACY\"\n",
-      "warnings": []
+      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.120\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"matrix_registry\"\n\n[[sim]]\nsim_id = \"8001\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_ALPHA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = false\n\"matrix_workflow\" = \"LEGACY\"\n\n[[sim]]\nsim_id = \"8002\"\naircraft = \"TestWing\"\ndescription = \"REGISTRY_BETA\"\nreynolds = 3100000.0\nmach = 0.089\nflight_condition = {MACH = 0.089, REmi = 3.1}\ncondition_order = [\"MACH\", \"REmi\", \"BETA\"]\nsweep = {type = \"beta\", values = [-3.0, 3.0]}\nrecipe = \"recipes.steady_polar:build\"\noutputs = [\"loads_{point}.txt\"]\n[sim.variables]\n\"FSM_FILE\" = \"wing_clean\"\n\"OUTPUTS\" = \"loads_{point}.txt\"\n\"RECIPE\" = \"003\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"003\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"LEGACY\"\n",
+      "warnings": [],
+      "convert_overrides": {
+        "fs_version": "26.120"
+      }
     },
     "workflow_rotor_matrix.fs": {
-      "sha256": "5944a9af077c490bd309efb3b877c357d3192228f4faa0f980eff8c1ed42c5a3",
+      "sha256": "e11df2f3352e283d2cdf1339843c79e1ce4853c2eeb8cd8b00125539b370126c",
       "active_rows": [
         {
           "row_number": 1,
@@ -840,7 +843,6 @@
           "run": 1,
           "workflow": "unsteady_rotor",
           "variables": {
-            "VELOCITY": "30.0",
             "RPM": "1200",
             "ROTOR_AXIS": "X",
             "BLADES": "4",
@@ -883,9 +885,7 @@
           "hidden": true,
           "run": 1,
           "workflow": "steady",
-          "variables": {
-            "VELOCITY": "30.0"
-          },
+          "variables": {},
           "motions": [],
           "rotations": [],
           "translations": [],
@@ -921,7 +921,6 @@
           "run": 1,
           "workflow": "unsteady",
           "variables": {
-            "VELOCITY": "30.0",
             "DELTA_TIME": "0.00025",
             "TIME_ITERATIONS": "480",
             "LAST_ITERS_AVG": "480"
@@ -963,7 +962,6 @@
           "run": 1,
           "workflow": "unsteady_rotor",
           "variables": {
-            "VELOCITY": "30.0",
             "RPM": "1200",
             "ROTOR_AXIS": "X",
             "BLADES": "4",
@@ -1006,9 +1004,7 @@
           "hidden": true,
           "run": 1,
           "workflow": "steady",
-          "variables": {
-            "VELOCITY": "30.0"
-          },
+          "variables": {},
           "motions": [],
           "rotations": [],
           "translations": [],
@@ -1044,7 +1040,6 @@
           "run": 1,
           "workflow": "unsteady",
           "variables": {
-            "VELOCITY": "30.0",
             "DELTA_TIME": "0.00025",
             "TIME_ITERATIONS": "480",
             "LAST_ITERS_AVG": "480"
@@ -1060,8 +1055,11 @@
           ]
         }
       ],
-      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.124\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"workflow_rotor_matrix\"\n\n[[sim]]\nsim_id = \"7001\"\naircraft = \"RotorRig\"\ndescription = \"ROTOR_UNSTEADY\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady_rotor\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"RPM\" = \"1200\"\n\"ROTOR_AXIS\" = \"X\"\n\"BLADES\" = \"4\"\n\"DELTA_TIME\" = \"0.0001\"\n\"TIME_ITERATIONS\" = \"720\"\n\"LAST_REVS_AVG\" = \"0.25\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady_rotor\"\n\n[[sim]]\nsim_id = \"7002\"\naircraft = \"RotorRig\"\ndescription = \"STEADY_REFERENCE\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"steady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_probes.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"steady\"\n\n[[sim]]\nsim_id = \"7003\"\naircraft = \"RotorRig\"\ndescription = \"UNSTEADY_NO_ROTOR\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"VELOCITY\" = \"30.0\"\n\"DELTA_TIME\" = \"0.00025\"\n\"TIME_ITERATIONS\" = \"480\"\n\"LAST_ITERS_AVG\" = \"480\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady\"\n",
-      "warnings": []
+      "converted": "[campaign]\nname = \"baseline-matrix\"\nfs_version = \"26.120\"\nfs_exe = \"FlightStream.exe\"\nmatrix_stem = \"workflow_rotor_matrix\"\n\n[[sim]]\nsim_id = \"7001\"\naircraft = \"RotorRig\"\ndescription = \"ROTOR_UNSTEADY\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady_rotor\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"RPM\" = \"1200\"\n\"ROTOR_AXIS\" = \"X\"\n\"BLADES\" = \"4\"\n\"DELTA_TIME\" = \"0.0001\"\n\"TIME_ITERATIONS\" = \"720\"\n\"LAST_REVS_AVG\" = \"0.25\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady_rotor\"\n\n[[sim]]\nsim_id = \"7002\"\naircraft = \"RotorRig\"\ndescription = \"STEADY_REFERENCE\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0, 2.0]}\nrecipe = \"steady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_probes.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"steady\"\n\n[[sim]]\nsim_id = \"7003\"\naircraft = \"RotorRig\"\ndescription = \"UNSTEADY_NO_ROTOR\"\nreynolds = 1200000.0\nflight_condition = {TASmps = 30.0, REmi = 1.2}\ncondition_order = [\"TASmps\", \"REmi\", \"ALPHA\"]\nsweep = {type = \"alpha\", values = [0.0]}\nrecipe = \"unsteady\"\noutputs = [\"{name}.fsm\", \"{name}.txt\", \"{name}.dat\", \"{name}_cp.txt\", \"{name}_sloads.txt\", \"{name}_plots.txt\", \"{name}_plot_residuals.txt\", \"{name}_plot_loads.txt\", \"{name}_log.txt\"]\n[sim.variables]\n\"DELTA_TIME\" = \"0.00025\"\n\"TIME_ITERATIONS\" = \"480\"\n\"LAST_ITERS_AVG\" = \"480\"\n\"matrix_ref\" = \"r003\"\n\"matrix_set\" = \"s002\"\n\"matrix_pproc\" = \"p001\"\n\"matrix_fs_script\" = \"\"\n\"matrix_fs_build\" = \"26.120\"\n\"matrix_hidden\" = true\n\"matrix_workflow\" = \"unsteady\"\n",
+      "warnings": [],
+      "convert_overrides": {
+        "fs_version": "26.120"
+      }
     }
   }
 }

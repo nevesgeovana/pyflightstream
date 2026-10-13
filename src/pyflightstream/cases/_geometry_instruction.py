@@ -89,7 +89,7 @@ _OPERATION_KEYS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
 #: The every-surface word of a sidecar, which no surface-creating kind takes.
 _EVERY = "all"
 
-#: Where the move of a body belongs (her rule of 2026-10-12: they stay in the run).
+#: Body moves stay in the run.
 _TRANSLATE_ROTATE = (
     "translate and rotate stay in the run: write them in the sidecar of the built mesh "
     "([[import.operations]] of <name>.boundaries.toml) or as the row keys TRANSLATE and "
@@ -450,7 +450,7 @@ class CreateLoft(BaseModel):
 
 
 class CreateSource(BaseModel):
-    """The ``[create]`` source: the CAD Create recipe (FR-475 R2, her P2-Q1 under G-Q12)."""
+    """The ``[create]`` source: the CAD Create recipe (FR-475 R2)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

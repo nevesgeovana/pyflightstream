@@ -507,6 +507,14 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
             e for f in data for e in f.get("sections", {}).get("distributions", [])
         ],
         "`[volume_section]`": [f.get("volume_section", {}) for f in data],
+        # FR-460 (0.40.0): the streamlines table of a pproc.
+        "`[streamlines]`": [f.get("streamlines", {}) for f in data],
+        "`[[streamlines.lines]]`": [
+            e for f in data for e in f.get("streamlines", {}).get("lines", [])
+        ],
+        "`[[streamlines.tubes]]`": [
+            e for f in data for e in f.get("streamlines", {}).get("tubes", [])
+        ],
         "`[plots]`": [f.get("plots", {}) for f in data],
         "`[[plots.groups]]`": [e for f in data for e in f.get("plots", {}).get("groups", [])],
         "`[[probes]]`": [e for f in data for e in f.get("probes", [])],
@@ -518,6 +526,12 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         ],
         "`[[probes.circles]]`": [
             e for f in data for p in f.get("probes", []) for e in p.get("circles", [])
+        ],
+        "`[farfield]`": [f.get("farfield", {}) for f in data],
+        "`[farfield.trefftz]`": [f.get("farfield", {}).get("trefftz", {}) for f in data],
+        "`[farfield.ledgers]`": [f.get("farfield", {}).get("ledgers", {}) for f in data],
+        "`[[probes.lattices]]`": [
+            e for f in data for p in f.get("probes", []) for e in p.get("lattices", [])
         ],
         "`[products]`": [f.get("products", {}) for f in data],
         "`[moment_point]`": [f.get("moment_point", {}) for f in data],
@@ -648,6 +662,7 @@ BREAKS: dict[str, tuple[str, str]] = {
     "inputs/setups/s001.toml": ("\niterations =", "\niteratoins ="),
     "inputs/pproc/p001.toml": ("\nblade_pattern =", "\nblade_patern ="),
     "inputs/pproc/p002.toml": ('parameter = "CP_FREE"', 'parameter = "CP_UNKNOWN"'),
+    "inputs/pproc/p003.toml": ("\ndistance_bref =", "\ndistance_bref_ ="),
     "inputs/references/r001.toml": ("\narea_m2 =", "\narea_m3 ="),
     f"inputs/{REFERENCE_POINTS_FILE}": ("\nx_m =", "\nx_mm ="),
     "inputs/geometries/aircraft/aircraft.boundaries.toml": ("\nboundaries =", "\nboundary ="),

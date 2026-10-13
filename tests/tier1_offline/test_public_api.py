@@ -61,7 +61,7 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.settings",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.setup_surfaces",
-    # 0.40.0: the 6DOF input model (FR-461).
+    # The 6DOF input model; this checks public names rather than motion behavior.
     "pyflightstream.cases.sixdof",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who

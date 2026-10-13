@@ -1,30 +1,4 @@
 {
-  "_geoverse_header": {
-    "file_version": "1.0.0",
-    "artifact_id": "RPT-165",
-    "last_modified_at": "2026-10-12T00:00:00-03:00",
-    "last_modified_by": {
-      "provider": "OpenAI",
-      "product": "Codex",
-      "model": "GPT-6",
-      "role": "primary-agent"
-    },
-    "dependencies": [
-      "scripts/build_command_coverage.py",
-      "src/pyflightstream/commands/*.yaml",
-      "src/pyflightstream/cases",
-      "src/pyflightstream/workspace",
-      "src/pyflightstream/run",
-      "src/pyflightstream/script",
-      "reports/RPT-106_setup-key-audit_2026-09-30.md",
-      "tests/tier1_offline/reachability_exceptions.json"
-    ],
-    "authority": "pyflightstream",
-    "status": "active",
-    "confidentiality": "public",
-    "change_summary": "Record the 26.125 setup and boundary command coverage partition.",
-    "revision_source": "git"
-  },
   "build": "26.125",
   "chapters": [
     "solver_settings",
@@ -2032,7 +2006,7 @@
         "src/pyflightstream/cases/workflows/_additional.py:additional_outputs",
         "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
         "src/pyflightstream/cases/workflows/_batch_script.py:job_point",
-        "src/pyflightstream/cases/workflows/_exports.py:_export_block",
+        "src/pyflightstream/cases/workflows/_exports.py:_export_each_kind",
         "src/pyflightstream/cases/workflows/_exports.py:_surface_export",
         "src/pyflightstream/cases/workflows/_farfield.py:_resolve",
         "src/pyflightstream/cases/workflows/_farfield.py:farfield_outputs",

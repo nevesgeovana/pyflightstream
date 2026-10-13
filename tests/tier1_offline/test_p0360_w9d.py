@@ -33,6 +33,10 @@ def test_convert_matrix_matches_pre_cut_text(fixture: str) -> None:
     golden = GOLDENS["fixtures"][fixture]
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        actual = convert_matrix(FIXTURES / fixture, **GOLDENS["convert_arguments"])
+        # A fixture whose rows name another build than the default states its own
+        # `convert_overrides`: a conversion refuses a per-row build it cannot bind
+        # (PFS-2096.002 family, the cases review), so these convert at the rows' build.
+        arguments = {**GOLDENS["convert_arguments"], **golden.get("convert_overrides", {})}
+        actual = convert_matrix(FIXTURES / fixture, **arguments)
     assert actual == golden["converted"]
     assert [str(warning.message) for warning in caught] == golden["warnings"]

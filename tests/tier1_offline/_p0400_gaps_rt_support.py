@@ -2,7 +2,7 @@
 
 The streamline and 6DOF commands were recorded ``documented`` and unprobed on
 26.124 when their routes were written, and the evidence gate refuses them
-(FR-460 R-GATE, FR-461 R-GATE). The emission tests build their scripts against
+at plan. The emission tests build their scripts against
 a copy of the committed database in which the commands they name carry the
 status the test needs on one build, so a golden runs the real emission path
 before the licensed probes record the evidence and after it, and the refusal

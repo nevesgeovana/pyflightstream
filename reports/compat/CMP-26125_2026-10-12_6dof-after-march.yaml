@@ -1,23 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: CMP-26125_2026-10-12_6dof-after-march
-# last_modified_at: '2026-10-13T00:49:01.230884+00:00'
-# last_modified_by:
-#   provider: OpenAI
-#   product: Codex
-#   model: GPT-6
-#   role: primary-agent
-# dependencies:
-# - reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md
-# - C:\WORK\r040\gapprobes-run\out-p404m\26.125\summaries\P4-04m.json
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Project only the verified after-march command from orchestrator probe
-#   evidence.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 schema: pyflightstream-compat-report/1
 fs_version: '26.125'
 date: '2026-10-12'
@@ -25,7 +5,7 @@ package_version: 0.39.0
 solver_identity:
 - 'Simcenter Flightstream 2612, build #10052026'
 source_report: reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md
-source_summary: C:\WORK\r040\gapprobes-run\out-p404m\26.125\summaries\P4-04m.json
+source_summary: gapprobes-run/out-p404m/26.125/summaries/P4-04m.json
 summary:
   verified: 1
   broken: 0

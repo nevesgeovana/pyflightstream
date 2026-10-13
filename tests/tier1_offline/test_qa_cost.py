@@ -458,7 +458,11 @@ def test_the_cost_view_imports_nothing_but_the_manifest_layer():
     # this view reports. It is here because FR-39's first clause is not
     # optional for a new module, and the catalogue ratchet refuses the bare
     # standard-library raises this module opened with.
-    assert package == {"pyflightstream.workspace", "pyflightstream.qa.errors"}, (
+    assert package == {
+        "pyflightstream.workspace",
+        "pyflightstream.workspace.manifest",
+        "pyflightstream.qa.errors",
+    }, (
         f"qa.cost imports {sorted(package)}; the cost view is built from run "
         "manifests alone, so the manifest layer plus the QA exception module "
         "are the only package imports it may take. Adding another is a "

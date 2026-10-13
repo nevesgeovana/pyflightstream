@@ -36,7 +36,7 @@ from pyflightstream.script import (
     CommandArgumentError,
     Script,
 )
-from pyflightstream.script.rotor_vocabulary import _unmarked_unit_refusal
+from pyflightstream.script.rotor_vocabulary import unmarked_unit_refusal
 
 from ._actuator import (
     _actuator_disc,
@@ -354,7 +354,7 @@ def _before_the_build(
         or case.motions
         or any(key in case.variables for key in (RPM_VARIABLE, ADVANCE_RATIO_VARIABLE))
     ):
-        raise CommandArgumentError(f"case {case.sim_id!r}: " + _unmarked_unit_refusal("26.100"))
+        raise CommandArgumentError(f"case {case.sim_id!r}: " + unmarked_unit_refusal("26.100"))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
         # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from

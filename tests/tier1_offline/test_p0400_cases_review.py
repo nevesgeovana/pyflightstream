@@ -100,8 +100,18 @@ def test_p0400_review_invalid_windows_refused_by_plan_and_post(variables):
     case.variables.update(variables)
     with pytest.raises(CampaignConfigError, match="LAST_|averag"):
         averaging_steps(variables, per_revolution=36.0)
-    with pytest.raises(CampaignConfigError, match="7001"):
-        reduction_windows(case)
+    # PFS-2095.007 (cases-workflows): the plan records an uninterpretable window as
+    # a skip naming the row, every reduction alike, and never as a window; the build
+    # refuses a declared value that is invalid in itself. A window shorter than one
+    # step is judged against the clock, so the build passes it and the post skips it.
+    recorded = reduction_windows(case)
+    assert recorded is not None
+    for reduction in ("time_average", "phase_locked", "per_blade"):
+        assert "7001" in recorded[reduction]["skipped"]
+        assert "windows" not in recorded[reduction]
+    if variables != {"LAST_REVS_AVG": "0.01"}:
+        with pytest.raises(CampaignConfigError, match="7001"):
+            build_script(case, Script("26.124"))
     with pytest.raises(CampaignConfigError):
         replan(plan, variables)
 

@@ -4,7 +4,7 @@ P0400-GEOM-P1OPS (PFS-2081.13). Each kind is emitted by the typed emitter in
 the reference frame, its surface cited by its position at its own step; the
 names it states are the names after it. The commands are unprobed, so these
 are offline goldens of the emitted lines; the build refuses to run them until
-a licensed probe verifies them (FR-471 R9).
+a licensed probe verifies them; the build tests guard that gate.
 """
 
 from __future__ import annotations

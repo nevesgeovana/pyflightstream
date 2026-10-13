@@ -468,8 +468,13 @@ def test_the_largest_column_of_its_group_warns_exactly_as_its_relative_drift(tmp
 
 #: The per-revolution table of ``_rotor_workspace(ROTOR)``, measured on the tree BEFORE
 #: the scale rule (315b7e41): the warning's change must not move one byte of the product.
+#: RE-MEASURED in 0.40.0 (it was e91b36a65a1490c3a8fd53eda4312c36e6fcd94fe88d9671bcb2118a94a8153b):
+#: PFS-2105.041 writes the force- and moment-prefixed columns at six significant digits, so the
+#: two drift cells FX_PROP_X_DRIFT_PCT and MX_PROP_X_DRIFT_PCT read -0.0285714 and 0.0333222
+#: where they read -0.02857 and 0.03333; the committed snapshot of the per_revolution_rotor
+#: campaign states the same digest. Nothing else of the table moved.
 TABLE_SHA256_BEFORE_THE_SCALE_RULE = (
-    "e91b36a65a1490c3a8fd53eda4312c36e6fcd94fe88d9671bcb2118a94a8153b"
+    "50fb1508d81c6eebb1ad1d3abc39fe6a4fbe0b5205810fe02ff06c75fccc22c4"
 )
 
 

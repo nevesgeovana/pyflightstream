@@ -7,7 +7,7 @@ starts and naming the file and the key; :func:`checked_trailing_edge_points`
 reads the points file of a ``[trailing_edges]`` file route and checks it
 against the source mesh, the rule a sidecar's file route meets at binding;
 :func:`refuse_moved_nodes` holds the node operations to the mesh they were
-written for (her P1-Q2).
+written for.
 """
 
 from __future__ import annotations
@@ -253,7 +253,7 @@ def checked_trailing_edge_points(
 
 
 def refuse_moved_nodes(instruction: GeometryInstruction, path: Path) -> None:
-    """Refuse node operations whose mesh no longer hashes as pinned (FR-474 R5, her P1-Q2)."""
+    """Refuse node operations whose mesh no longer hashes as pinned (FR-474 R5)."""
     for position, operation in enumerate(instruction.operations, start=1):
         if operation.op != "transform_nodes":
             continue

@@ -14,7 +14,7 @@ following tracks select the entry page for each task.
 | Track | Start here |
 |---|---|
 | New to FlightStream | [New to FlightStream and the panel method](start/new-to-flightstream.md) |
-| GUI user moving to a command line | [First campaign](getting-started.md) |
+| GUI user moving to a command line | [From the GUI to pyfs](gui-to-pyfs.md), then [First campaign](getting-started.md) |
 | Python API user | [Choose the Python API or workspace](python-api/index.md) |
 | Installer or cluster operator | [Install pyflightstream](install.md) |
 | Post-processing analyst | [Post-processing artifact](pproc-artifact.md) |

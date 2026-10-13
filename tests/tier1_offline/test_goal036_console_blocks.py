@@ -121,10 +121,18 @@ def test_plan_prints_each_title_in_order_with_a_blank_line_between_blocks(tmp_pa
     assert "points: 0 ready, 4 blocked, 0 already recorded" in cases, out
     assert "the campaign's own installation: 2 case(s) (9001, 9002)" in cases, out
     mach = out.split("\nRotor Mach numbers\n", 1)[1].split("\n\n", 1)[0].splitlines()
-    assert mach[0].split() == ["POL", "point", "rotor", "M_tip", "M_hel"], out
-    assert mach[2].split() == ["9001", "M144RE438AL+000RPM06000", "rotor", "PORT", "1.108", "1.117"]
+    assert mach[0].split() == ["POL", "point", "rotor", "M_tip", "M_hel", "M_adv"], out
+    assert mach[2].split() == [
+        "9001",
+        "M144RE438AL+000RPM06000",
+        "rotor",
+        "PORT",
+        "1.108",
+        "1.117",
+        "1.117",
+    ]
     column = mach[0].index("M_tip")  # aligned: each M_tip value starts under its heading
-    assert all(row[column:].split()[0] == row.split()[-2] for row in mach[1:]), mach
+    assert all(row[column:].split()[0] == row.split()[-3] for row in mach[1:]), mach
     setup = out.split("\nSolver setup per case\n", 1)[1].split("\n\n", 1)[0].splitlines()
     assert setup[0] == "  POL 9001 (FlightStream 26.120, setup s002)", out
     assert [line.split(":")[0].strip() for line in setup[1:4]] == [

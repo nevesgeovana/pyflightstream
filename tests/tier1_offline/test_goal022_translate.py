@@ -484,27 +484,22 @@ def test_goal022_order_a_flat_rotor_row_translates_before_it_rotates(tmp_path):
     assert _last(lines, "ROTATE_SURFACE") < lines.index("CREATE_NEW_MOTION ROTARY")
 
 
-def test_goal022_frames_move_a_frame_turned_away_from_its_pivot_is_refused_not_guessed(tmp_path):
-    """The flat row's blade axis frame is placed at the reference rotor position and turned
-    about a hub that sits elsewhere, so where it stands depends on a sign the manual does
-    not state; moving its hub is refused naming it rather than moving it to a guess."""
+def test_goal022_frames_move_a_declared_rotors_blade_frame_moves_with_its_hub(tmp_path):
+    """0.40.0 (cases-workflows lane): a declared rotor's blade axis frame is placed by
+    the one rule, at the hub as the script placed it, so where it stands is known and moving
+    its hub moves it by the same distance. This row was refused as a guess before the blade
+    frames were placed from the hub."""
     case = _pitched_rotor(
         tmp_path,
         translations=translations(
             "{DISTANCE: 0.1 / AXIS: NAC-X / ALIAS: pitched / AUX_FRAMES: ROTOR_SMRP}"
         ),
     )
-    with pytest.raises(PyflightstreamError) as refused:
-        lines_of(case)
-    message = str(refused.value)
-    for clause in (
-        "moving a frame, which comes in through AUX_FRAMES, placed from ROTOR_SMRP, and",
-        "cannot state where that frame stands",
-        "Drop ROTOR_SMRP from AUX_FRAMES",
-        "placed from",
-    ):
-        assert message.count(clause) == 1, (clause, message)
-    assert "(frame " not in message, "a row never names a frame by its index"
+    lines = lines_of(case)
+    moved = [line for line in lines if line.startswith("SET_COORDINATE_SYSTEM_ORIGIN")]
+    assert len(moved) == 2, moved
+    assert all(line.endswith("0.2 0.2 0.3 METER") for line in moved), moved
+    assert not any("guess" in line for line in lines)
 
 
 @pytest.mark.parametrize("factory", [steady_case, unsteady_case])
@@ -703,9 +698,12 @@ def test_goal022_frames_move_an_alias_frame_it_cannot_place_says_it_cannot_be_le
     with pytest.raises(PyflightstreamError) as refused:
         _translations(case, script, {"MRP": mrp, "PUSHER_SMRP": hub})
     message = str(refused.value)
+    # 0.40.0: the copy of the hub an alias keeps is taken as the script placed it, so a hub
+    # the script cannot place is refused there, before the move, and by name.
     for clause in (
-        "moving 'PUSHER_SMRP', which comes in through ALIAS: PUSHER",
-        "An alias's own frames cannot be left behind when its boundaries move",
+        "turns 'PUSHER' and keeps PUSHER_SMRP as it stood before the turn",
+        "cannot state where PUSHER_SMRP is placed",
+        "a copy of it would be a guess",
     ):
         assert message.count(clause) == 1, (clause, message)
     assert "AUX_FRAMES" not in message, "no AUX_FRAMES remedy for a frame the alias owns"

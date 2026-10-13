@@ -624,8 +624,12 @@ def test_p0351_steady_fr403_a_plan_with_no_job_runs_nothing(tmp_path):
         matrix = _matrix(tmp_path / folder)
         if warm:
             text = matrix.read_text(encoding="utf-8")
-            text = text.replace("VELOCITY: 30.0", "VELOCITY: 30.0 / COLD_START: false")
-            matrix.write_text(text, encoding="utf-8")
+            # The steady fixture rows state no variable since the flight condition carries
+            # the speed (cases lane), so the key is written after the run type, and the
+            # edit is checked: a replace that matched nothing left both rows cold.
+            warmed = text.replace(" | steady         |", " | steady         | COLD_START: false")
+            assert warmed.count("COLD_START: false") == 2, text
+            matrix.write_text(warmed, encoding="utf-8")
         plan = _plan(workspace, matrix)
         assert len(plan.grouping.jobs) == (0 if warm else 1), plan.grouping
         seen.unlink(missing_ok=True)

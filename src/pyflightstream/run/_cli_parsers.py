@@ -80,8 +80,8 @@ def _parse_workflows(pairs: list[str]) -> dict[str, str]:
         code, separator, name = item.partition("=")
         if not separator or not code.strip() or not name.strip():
             raise CampaignConfigError(
-                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
-                f"maps to), got {item!r}; the registered types are "
+                "workflow (CLI: --workflow) expects CODE=NAME (the FS_SCRIPT code and the "
+                f"run type it maps to), got {item!r}; the registered types are "
                 f"{', '.join(workflow_names())}"
             )
         resolve_workflow(name.strip())

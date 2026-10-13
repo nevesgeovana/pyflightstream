@@ -25,8 +25,8 @@ GEOMETRIES = {
     "dirty": {"actions": ACTIONS},
     "unreadable": {"actions": ACTIONS, "count": 3},
 }
-ROTOR_VARIABLES = "VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001"
-UNSTEADY_VARIABLES = "VELOCITY: 30.0 / DELTA_TIME: 0.01 / TIME_ITERATIONS: 40 / LAST_ITERS_AVG: 4"
+ROTOR_VARIABLES = "RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001"
+UNSTEADY_VARIABLES = "DELTA_TIME: 0.01 / TIME_ITERATIONS: 40 / LAST_ITERS_AVG: 4"
 
 
 def _planned(tmp_path: Path, run_type: str, geometry: str):

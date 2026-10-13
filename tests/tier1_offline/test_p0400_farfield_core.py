@@ -18,7 +18,7 @@ import pyflightstream.farfield as ff
 REPO = Path(__file__).resolve().parents[2]
 CORE = REPO / "src" / "pyflightstream" / "farfield"
 
-#: The packages the core may not import (FR-450 R2), and xarray (FR-457).
+#: The packages the core may not import (FR-450 R2), including xarray.
 FORBIDDEN_PACKAGES = (
     "pyflightstream.results",
     "pyflightstream.cases",

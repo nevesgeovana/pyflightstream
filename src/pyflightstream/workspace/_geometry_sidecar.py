@@ -4,7 +4,7 @@ Pipeline role: the workspace row. A built OBJ is opened by the run through its
 ``<name>.boundaries.toml``: the inventory, the unit of the export and the
 trailing-edge route the build wrote, and what the run reads of a mesh and the
 build does not make: the ``translate`` and ``rotate`` operations of
-``[[import.operations]]`` (her rule: they stay in the run), ``[wake_termination]``
+``[[import.operations]]`` (these stay in the run), ``[wake_termination]``
 and ``[base_regions]``. :func:`carried_tables` takes those from the sidecar the
 rebuilt mesh had, else from the sidecar of the ``[mesh]`` source, so a rebuild
 or a first build after ``from-sidecar`` keeps them.

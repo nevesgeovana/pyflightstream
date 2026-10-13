@@ -1,29 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: RPT-165
-last_modified_at: '2026-10-12T00:00:00-03:00'
-last_modified_by:
-  provider: OpenAI
-  product: Codex
-  model: GPT-6
-  role: primary-agent
-dependencies:
-- scripts/build_command_coverage.py
-- src/pyflightstream/commands/*.yaml
-- src/pyflightstream/cases
-- src/pyflightstream/workspace
-- src/pyflightstream/run
-- src/pyflightstream/script
-- reports/RPT-106_setup-key-audit_2026-09-30.md
-- tests/tier1_offline/reachability_exceptions.json
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Record the 26.125 setup and boundary command coverage partition.
-revision_source: git
--->
-
 # RPT-165: setup and boundary command coverage on 26.125 (2026-10-12)
 
 ## Purpose
@@ -201,7 +175,7 @@ RPT-106 was produced by the union of the six solver database chapters and the 26
 | `SOLVER_TIME_AVERAGING` | unsteady_solver | unprobed |  | not offered in 0.40.0: unprobed: no 26.125 evidence row; this independent build inherits nothing | src/pyflightstream/commands/unsteady_solver.yaml:SOLVER_TIME_AVERAGING |
 | `UNSTEADY_SOLVER_ANIMATION` | unsteady_solver | documented |  | not offered in 0.40.0: owner decision of 2026-09-27; unsteady actions deliver per-step exports | reports/RPT-106_setup-key-audit_2026-09-30.md |
 | `UNSTEADY_SOLVER_DELETE_ALL_PLOTS` | unsteady_solver | documented | pproc: plots |  | src/pyflightstream/cases/pproc.py:global_frame_plot_declarations; src/pyflightstream/cases/workflows/_additional.py:additional_outputs; src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give; src/pyflightstream/cases/workflows/_pproc.py:_plot_each_rotors_own_history; src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots; src/pyflightstream/run/_assemble.py:_reductions |
-| `UNSTEADY_SOLVER_EXPORT_PLOTS` | unsteady_solver | verified | pproc: exports |  | src/pyflightstream/cases/farfield_inputs.py:export; src/pyflightstream/cases/pproc.py:_a_sections_plot_needs_sections; src/pyflightstream/cases/pproc.py:_boundary_layer_sections_are_declared; src/pyflightstream/cases/pproc.py:outputs; src/pyflightstream/cases/workflows/_additional.py:additional_outputs; src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give; src/pyflightstream/cases/workflows/_batch_script.py:job_point; src/pyflightstream/cases/workflows/_exports.py:_export_block; src/pyflightstream/cases/workflows/_exports.py:_surface_export; src/pyflightstream/cases/workflows/_farfield.py:_resolve; src/pyflightstream/cases/workflows/_farfield.py:farfield_outputs; src/pyflightstream/run/_actions_counter.py:render_program |
+| `UNSTEADY_SOLVER_EXPORT_PLOTS` | unsteady_solver | verified | pproc: exports |  | src/pyflightstream/cases/farfield_inputs.py:export; src/pyflightstream/cases/pproc.py:_a_sections_plot_needs_sections; src/pyflightstream/cases/pproc.py:_boundary_layer_sections_are_declared; src/pyflightstream/cases/pproc.py:outputs; src/pyflightstream/cases/workflows/_additional.py:additional_outputs; src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give; src/pyflightstream/cases/workflows/_batch_script.py:job_point; src/pyflightstream/cases/workflows/_exports.py:_export_each_kind; src/pyflightstream/cases/workflows/_exports.py:_surface_export; src/pyflightstream/cases/workflows/_farfield.py:_resolve; src/pyflightstream/cases/workflows/_farfield.py:farfield_outputs; src/pyflightstream/run/_actions_counter.py:render_program |
 | `UNSTEADY_SOLVER_NEW_FLUID_PLOT` | unsteady_solver | verified | pproc: probes |  | src/pyflightstream/cases/farfield_inputs.py:probes; src/pyflightstream/cases/farfield_inputs.py:resolve_farfield; src/pyflightstream/cases/pproc.py:outputs; src/pyflightstream/cases/pproc.py:samples_normal_probes; src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give; src/pyflightstream/cases/workflows/_farfield.py:_declares_lattice; src/pyflightstream/cases/workflows/_farfield.py:farfield_probes; src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots; src/pyflightstream/cases/workflows/_probes.py:_built_from_the_mesh; src/pyflightstream/cases/workflows/_probes.py:_emit_one_probe_table; src/pyflightstream/cases/workflows/_probes.py:_open_the_probe_points; src/pyflightstream/cases/workflows/_probes.py:_pproc_probes; src/pyflightstream/cases/workflows/_probes.py:_pproc_sampled_volume; src/pyflightstream/cases/workflows/_probes.py:_refuse_unmeasured_normal_probes; src/pyflightstream/cases/workflows/_skeleton.py:_refuse_what_a_steady_coupled_run_cannot_export; src/pyflightstream/workspace/_matrix_phases.py:_resolve_cited_profiles |
 | `UNSTEADY_SOLVER_NEW_FORCE_PLOT` | unsteady_solver | verified | pproc: plots |  | src/pyflightstream/cases/pproc.py:global_frame_plot_declarations; src/pyflightstream/cases/workflows/_additional.py:additional_outputs; src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give; src/pyflightstream/cases/workflows/_pproc.py:_plot_each_rotors_own_history; src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots; src/pyflightstream/run/_assemble.py:_reductions |
 

@@ -99,6 +99,11 @@ def stated_key(variables: Mapping[str, object]) -> tuple[str, float] | None:
     tuple of (str, float) or None
         The key (``LAST_REVS_AVG`` or ``LAST_ITERS_AVG``) and its positive value,
         or None.
+
+    Raises
+    ------
+    CampaignConfigError
+        If declarations use conflicting aliases for the same window.
     """
     revs = _positive(variables, LAST_REVS_AVG)
     iters = _positive(variables, LAST_ITERS_AVG)
@@ -134,6 +139,11 @@ def averaging_steps(variables: Mapping[str, object], *, per_revolution: float | 
         The window's length in steps, at least 1, or None where the row states
         no key or a count of revolutions meets no clock. Invalid values and
         windows shorter than one step raise CampaignConfigError.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the stated averaging window is nonnumeric, nonfinite or outside the run.
     """
     stated = stated_key(variables)
     if stated is None:

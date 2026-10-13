@@ -77,6 +77,17 @@ def _entry(name, chapter):
     )
 
 
+@pytest.fixture(autouse=True)
+def synthetic_cli_pdf_support(monkeypatch):
+    """Keep the CLI fixtures independent of the optional PDF dependency.
+
+    The reader is patched in every test that reaches it, so the entry gate
+    for a missing ``manual`` extra (exercised by its own regression) must
+    not stand between the dispatch and what these tests measure.
+    """
+    monkeypatch.setattr("pyflightstream.utils.cli._manual_extra_error", lambda: None)
+
+
 @pytest.fixture
 def tree(tmp_path):
     """A chapter directory, a registry over it, and the two editions."""

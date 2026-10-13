@@ -2143,12 +2143,19 @@ def test_goal019_post_the_command_line_asks_before_it_destroys(monkeypatch):
 
 @pytest.mark.parametrize(
     ("answer", "expected"),
-    [("destroy", True), ("  Destroy \n", True), ("yes", False), ("", False), ("DESTROY it", False)],
+    [
+        ("rebuild", True),
+        ("  Rebuild \n", True),
+        ("yes", False),
+        ("", False),
+        ("REBUILD it", False),
+        ("destroy", False),
+    ],
 )
-def test_goal019_post_the_command_line_destroys_only_on_the_word_destroy(
+def test_goal019_post_the_command_line_rebuilds_only_on_the_word_rebuild(
     monkeypatch, answer, expected
 ):
-    """At a terminal the question is asked, and only the word 'destroy' goes on."""
+    """At a terminal the question is asked, and only the word 'rebuild' goes on."""
     import builtins
 
     from pyflightstream.run.cli import _confirmed_destruction
@@ -2157,7 +2164,7 @@ def test_goal019_post_the_command_line_destroys_only_on_the_word_destroy(
     monkeypatch.setattr(sys, "stdin", _Stdin(True))
     monkeypatch.setattr(builtins, "input", lambda prompt="": asked.append(prompt) or answer)
     assert _confirmed_destruction(False) is expected
-    assert len(asked) == 1 and "DESTROYS" in asked[0], asked
+    assert len(asked) == 1 and "deprecated" in asked[0], asked
 
 
 # --- GOAL-019 item 9: the Band D fixes of the GEO-039 triage ------------------

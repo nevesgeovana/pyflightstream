@@ -33,7 +33,6 @@ import csv
 import io
 import math
 import re
-import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,7 +40,12 @@ from pathlib import Path
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import negated_text
 from pyflightstream._deprecations import INFLOW_STATION_HARMONICS
-from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream._errors import (
+    ProductError,
+    ProductExistsError,
+    PyflightstreamDeprecationWarning,
+    warn,
+)
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
     HARMONIC_AMPLITUDE_FLOOR_DEG,
@@ -288,7 +292,7 @@ class InflowStationHarmonics:
 
 def __getattr__(name: str) -> object:
     if name == "StationHarmonics":
-        warnings.warn(INFLOW_STATION_HARMONICS.message(), DeprecationWarning, stacklevel=2)
+        warn(INFLOW_STATION_HARMONICS.message(), PyflightstreamDeprecationWarning, stacklevel=2)
         return InflowStationHarmonics
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

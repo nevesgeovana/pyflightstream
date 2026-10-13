@@ -31,7 +31,7 @@ def _coupled_sector_inputs(root):
     (inputs / "references/r340.toml").write_text(
         "area_m2 = 1.0\nchord_m = 0.04\nspan_m = 1.0\n"
         '[rotors.PROP]\nalias = "PROP"\naxis = "X"\ndiameter_m = 1.0\n'
-        'families_blades = ["Blade1", "Blade2", "Blade3"]\n'
+        'families_blades = ["Blade1"]\n'
         '[rotors.PROP.blade1]\nazimuth_deg = 0.0\nzero = "Z"\n',
         encoding="utf-8",
     )

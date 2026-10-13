@@ -234,7 +234,20 @@ def missing_log_fields(logs: Sequence[str]) -> dict[str, object]:
 
 
 def missing_log_warning(run_id: str, *, check_frozen: bool) -> str:
-    """Return the one ``post.log`` WARNING of a RAN_MISSING_LOG point (R3)."""
+    """Return the one ``post.log`` WARNING of a RAN_MISSING_LOG point (R3).
+
+    Parameters
+    ----------
+    run_id : str
+        Recorded point identifier used in the warning.
+    check_frozen : bool
+        Whether the missing log also prevents a frozen-solve check.
+
+    Returns
+    -------
+    str
+        Warning explaining which checks the missing log prevents.
+    """
     frozen = (
         "; the frozen-point check (--check-frozen) cannot read its freeze, and the point is "
         "admitted"

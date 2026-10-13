@@ -16,7 +16,7 @@ from pyflightstream._errors import (
     collecting_warnings,
     warn,
 )
-from pyflightstream._fsm import boundary_labels, family_of
+from pyflightstream._fsm import boundary_labels, family_of, names_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.cases import (
     PprocSpec,
@@ -336,6 +336,28 @@ def _established_aliases(
         if (frame := str(b.get("frame", ""))) not in literal
         and (named := _rotor_frame(frame)) is not None
     )
+
+
+def _expanded_over(
+    selection: str | Sequence[str],
+    inventory: Sequence[str],
+    is_blade: Callable[[str], bool],
+    aliases: Mapping[str, Sequence[str]],
+    *,
+    known: bool,
+) -> list[list[str]]:
+    """Expand a selection over an inventory; over the cuts alone a numbered stem keeps its family.
+
+    The cuts of a legacy layout are not the geometry's boundaries, so they cannot
+    show that a numbered name is absent (PFS-2029.25 refuses only over a known
+    inventory), and the export that recorded them read ``Blade1`` as the family.
+    """
+    with collecting_warnings():
+        expanded = select_families(selection, inventory, is_blade, aliases, strict=False)
+    if not expanded and not known and isinstance(selection, str):
+        family = names_of(selection, inventory, refuse_indexed=False)
+        return [family] if family else expanded
+    return expanded
 
 
 def _geometry_that_settles(
@@ -705,14 +727,13 @@ def _matching_distributions(
             ):
                 return True
             return False
-        with collecting_warnings():
-            expanded_families = select_families(
-                entry.families,
-                inventory,
-                pproc.is_blade,
-                record.aliases if aliases is None else aliases,
-                strict=False,
-            )
+        expanded_families = _expanded_over(
+            entry.families,
+            inventory,
+            pproc.is_blade,
+            record.aliases if aliases is None else aliases,
+            known=exact is not None,
+        )
         expanded = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
             "RMRP": r".+_RMRP",
@@ -1438,3 +1459,7 @@ def write_section_distributions(
                 "kind": "history" if record.export_window else "instant",
             }
     return written, entries
+
+
+#: The one reading of a record's section layout, named for the far-field products that take it.
+distributions_of = _distributions

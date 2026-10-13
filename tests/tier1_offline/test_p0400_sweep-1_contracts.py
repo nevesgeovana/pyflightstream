@@ -58,9 +58,10 @@ def test_p0400_cost_exclusion_authority():
 
 def test_p0400_group_fit_unknown_preserved(tmp_path, monkeypatch):
     """P0400-SWEEP-FIT-UNKNOWN: no estimate is not a judgment that a job fits."""
-    from tests.tier1_offline.test_p0350_batch_plan import _fixture, _plan
+    from tests.support_helpers import grouped_plan_fixture
+    from tests.tier1_offline.test_p0350_batch_plan import _plan
 
-    workspace, matrix = _fixture(tmp_path, walltimes=("30m", "30m"))
+    workspace, matrix = grouped_plan_fixture(tmp_path, walltimes=("30m", "30m"))
     plan = _plan(workspace, matrix)
     assert any(job.fits is None for job in plan.grouping.jobs)
 

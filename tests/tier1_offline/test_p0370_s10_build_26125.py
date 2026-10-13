@@ -25,7 +25,7 @@ from pyflightstream.cases.pproc import FORCE_PLOT_PARAMETERS
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.qa.specs import PROBE_SPECS
-from pyflightstream.script import Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.support import minimal_workflow, version_support
 from pyflightstream.versions import known_versions, manual_editions, resolve
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case
@@ -111,13 +111,16 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
         if "26.125" in e.versions
     }
     # 381 since item S6 entered SET_DIRECT_AEROELASTIC_MESH_MORPHING with its 26.125
-    # row; the probe campaign of 2026-10-05 moved 141 to verified and 2 to broken.
+    # row; the probe campaign of 2026-10-05 moved 141 to verified and 2 to broken, and the
+    # second gap-probes round of 2026-10-12 (RPT-166, CMP-26125_2026-10-12_gap-probes) moved
+    # 44 more to verified, 3 more to broken and 3 more to removed (the FSI executable and
+    # structural-nodes motion commands and the off-body streamline length).
     assert len(rows) == 381
     counts = {status: 0 for status in Status}
     for row in rows.values():
         counts[row.status] += 1
-    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (141, 2, 1)
-    assert counts[Status.DOCUMENTED] == 237
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 5, 4)
+    assert counts[Status.DOCUMENTED] == 187
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]
@@ -147,8 +150,16 @@ def test_the_new_commands_are_entered_on_26125_alone_with_a_probe_each():
 
 @pytest.mark.requirement("FR-423")
 def test_every_boundary_detection_takes_the_form_each_build_documents():
-    """P0370-S10-DETECTION (FR-423): AUTO_DETECT on 26.124, the -1 by-surface form on 26.125."""
+    """P0370-S10-DETECTION (FR-423): AUTO_DETECT on 26.124, the by-surface form on 26.125.
+
+    Trailing edges on 26.125 list the declared boundaries (a count beside their indices): the
+    solver marked zero edges with ``SURFACES -1`` (sweep-1), so an undeclared inventory is
+    refused and the other two kinds keep their -1 form.
+    """
     old, new = Script("26.124"), Script("26.125")
+    with pytest.raises(CommandArgumentError, match="declared boundary inventory"):
+        helpers.detect_every_boundary(Script("26.125"), "trailing_edges")
+    new.declare_existing(boundaries=2)
     for kind in ("trailing_edges", "base_regions", "wake_termination_nodes"):
         helpers.detect_every_boundary(old, kind)
         helpers.detect_every_boundary(new, kind)
@@ -159,7 +170,8 @@ def test_every_boundary_detection_takes_the_form_each_build_documents():
     ]
     assert new.render().splitlines() == [
         "DETECT_TRAILING_EDGES_BY_SURFACE",
-        "SURFACES -1",
+        "SURFACES 2",
+        "1,2",
         "",
         "DETECT_BASE_REGIONS_BY_SURFACE -1",
         "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1",
@@ -176,14 +188,15 @@ def test_a_raw_mesh_asking_for_automatic_detection_builds_on_both_builds(tmp_pat
     assert "DETECT_BASE_REGIONS_BY_SURFACE -1" in new
     assert "DETECT_WAKE_TERMINATION_NODES_BY_SURFACE -1" in new
     at = new.index("DETECT_TRAILING_EDGES_BY_SURFACE")
-    assert new[at + 1] == "SURFACES -1"
+    # The sidecar's mesh declares its two boundaries, so the count and indices are written.
+    assert new[at + 1 : at + 3] == ["SURFACES 2", "1,2"]
 
 
 @pytest.mark.requirement("FR-423")
 def test_the_minimal_workflow_builds_on_26125_and_names_no_missing_link():
     """P0370-S10-DETECTION (FR-423): the support ladder sees the 26.125 detection form."""
     text = minimal_workflow("26.125").render()
-    assert "DETECT_TRAILING_EDGES_BY_SURFACE\nSURFACES -1" in text
+    assert "DETECT_TRAILING_EDGES_BY_SURFACE\nSURFACES 1\n1" in text
     assert version_support("26.125").workflow_missing == ()
     assert "AUTO_DETECT_TRAILING_EDGES" in minimal_workflow("26.124").render()
 
@@ -315,5 +328,8 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
         assert "AUTO_DETECT" not in text, name
         built += 1
-    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17).
-    assert built == 230
+    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17); 227
+    # since the second round (RPT-166) measured three of them REMOVED on 26.125, which leaves
+    # them out of the build's view: the FSI executable and structural-nodes motion commands and
+    # the off-body streamline length.
+    assert built == 227

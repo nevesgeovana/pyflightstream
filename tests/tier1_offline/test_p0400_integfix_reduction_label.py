@@ -26,7 +26,7 @@ def _rows(path: Path) -> list[dict[str, str]]:
 
 
 def test_p0400_the_unsteady_polars_averaged_row_says_time_average(tmp_path):
-    """P0400-INTEGFIX-REDUCTION-LABEL (PFS-2105.043): the averaged row is labelled an average.
+    """P0400-INTEGFIX-REDUCTION-LABEL (FR-32, PFS-2105.043): the row is labelled an average.
 
     The rotor campaign's ``polars/P7001_AL-020_uns_avg.csv`` averages the plots
     history over steps 60 to 61. Its ``reduction`` and ``reduction_window``

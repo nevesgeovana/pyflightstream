@@ -74,7 +74,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-33e": "4507f2f995b281386ce86a912ae7b66f047b8b00f9ad958c7bfab7948a945edd",
     "FR-33f": "3bef69c8bf4fba7f3dfa9f3d65d4871242c99cfb960ecdde81cff008b6c4f132",
     "FR-37": "d3b1e6176d052ee3ac34b35b9a7ad8be473af7d0c4a461a24520d1e476deb2b8",
-    "FR-38": "186f35aa4709daba3f7658561d6ed922ab04a088763a99f1d9fb0d459a3fa4cd",
+    "FR-38": "b4916f1f182229ff90f3b1b625cc5500975ff2d53b67721da2ffae1830f995c1",
     "FR-39": "3748fbe9678f39d8603d5b63a9b871d6a909db8f0578fd514d90e7c41ef51519",
     "FR-40": "2efdeae31a69872594f1cee1e80c52a254cb52234bdab5c621763e5013169b71",
     "FR-41": "0534ca6beb9627469b240b07a50b9ad9107107099c4c79f3e355ee1a9156cac7",
@@ -116,10 +116,10 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-76": "3cb28a3d7cf0f45a83cca7a97d95f7f25640d89dc5c7bac0faac8c0623f7c483",
     "FR-77": "07354a1e2e84d651c5e47d29bce553da9b3efe3be4cf3ee7a75c93bfc6b26a2c",
     "FR-78": "995b8b0272bb525c52ba0173703516d3c50b725a880eff7b4741adcb58b3c357",
-    "FR-79": "e1e74a77acd32a8afaeecc25076a1756dad9e14750a28b4c64b85edc7f4c775d",
+    "FR-79": "8321f012156fd386774bf35fd4a570edae814e457d3315e41f3b03a9090ad966",
     "FR-80": "8e1f76156d38e3f80b9167b3bb8063aa7a4415096d2f634cb4abbfd41d450f64",
     "FR-81": "f5ca8649c6b3d4ca14e8a3b71e6f706ca28f1ee80561c497470989a96f6f8941",
-    "FR-82": "435361107c4a177165dc8c16a8fa866fa554e68fc0ff2ce0fde40e7b0ada4174",
+    "FR-82": "bb467b517c43897a16fb71d11421e3b2a7274f63762737dbc5fd7002102f4f3f",
     "FR-83": "06d1749cbe62f8c4968a599b2131275022117208620b15daf7073dbef1d7b668",
     "FR-84": "5df52436522049c7b66dafe25a34ab1df3e22ffd91cfe38ee1a5cabd9525576f",
     "FR-85": "b90bac59ca4247f0bab678f7a26c1e368a6541fdc98561252896e2b1328813b8",
@@ -157,7 +157,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-204": "38ab6e80f783d5745e248f892914608ce11e6df4fcb16cdf384d2880868ae8fe",
     "FR-205": "fd2fad8141eebc79df7b007b62df1691f2b2380adc75955f10451c04709fb4f2",
     "FR-206": "18ee729ddadaccb563e7d512bf77a9df6e4ee98e3b700b0882f0099841d918e6",
-    "FR-210": "2a50f26b3662a4a1cd9e3037e774847ed50b75b25b56591ede0206b9ab4e236c",
+    "FR-210": "41a9f50f936abaaf958bc011f1e1566ffc89fc97bed59a3272b4282baaaa75af",
     "FR-211": "63bb9577a0c3ca8edb142fcdc9a2f46d2053f9ac39dc029ccb7fb66e8721dbfa",
     "FR-212": "1a8b68e4e66f7f438bfe8ff867bf2be491b7cc56b3d2beca5793d683827523b6",
     "FR-213": "220120bd66475e9cbb90f4a683c6e2bda479480201fdaaff4fa597fe81b83c69",
@@ -200,7 +200,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-290": "6163a0b7e0ed4afa73cf6caa4037d79bf70c83d1e8f6d17eff728ce9613defe3",
     "FR-291": "fc0ec9e8b27ee1bc1652643b6976a65d0df2f3d2fb498bae1d9832b5856cb582",
     "FR-292": "322b8b0cbc22174b2b0bc16a3f2fdc77fe9c101fd4d240590cf30eea10bb2454",
-    "FR-293": "31146e571017e6b842e00b5c2a9fc2a99b862c5700d2c693d1d10e5fc9a32f90",
+    "FR-293": "f5d7ee9dd8044cc2e64395acd57beb7e57c7531bae5f7a0c6133b3da8834cfa2",
     "FR-294": "c66b89948f1bda585287c13ff71468732efd43e19ae0b98a2a685d0a977f4ea9",
     "FR-270": "bde453ecefe7ef545b6d528561ae428562dc3399cee6354d4c28d27919cf76cd",
     "FR-271": "7b6d7b72b44b2b12e828b31e00dbabb68780f78f7aeca02c9bc39ae9ef25dd50",
@@ -226,7 +226,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-117": "6a8d160b83f2eceb40be30a54aeda6a6f737752ece3cf4b3f7f599dad6a09744",
     "FR-118": "d84809322db90b026e2783fdde83bb2ad93eb0fbe8fa47e815b04b25572efee2",
     "FR-119": "a0c0882d807c87b275a64e681c7811ded5a3c0e66ec01878d20e1b399cb9e319",
-    "FR-120": "998ab7116b23be0c1837dac6cbec748e5433db28daf7f53237a904676d7c1b0b",
+    "FR-120": "7b0abf254a807e0e98e42b63e32d01b88c050d73f017b75068494ab9da2f6044",
     "FR-121": "0dc3ba601314ba189b19d781980edce07fbd5b8e36e536cbb4a5078801beb02b",
     "FR-122": "4857d59a8cba522cdac9c763dae5df6372258ddc12525221aadd784fe6746d75",
     "FR-123": "36f3a4c9603183ac79352e771ac1a9aff97856825311ca5116293506d36fbcee",
@@ -267,7 +267,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-173": "233cf206d739fcee22748d0bd67b03fc306b2ff95e309ac20767590b73d21584",
     "FR-174": "647d8bec00313c683fc54be379ceb69498058fc41590d9f6d77802bf6016edfc",
     "FR-175": "d35cc91d3b368d8692d2edca89994d5b176b3a2ff5b76163869096713c11bc21",
-    "FR-176": "491109b32d863400ee7e5cc9e5fe730d531cce570ce20889092e79bb99c955ce",
+    "FR-176": "594ffb855cbb81a8058cfe75fb47332d3ad9063733ad8c72d558d11c0f8a6f95",
     "FR-177": "b3c179a8b0b7fca5f964393bc0f1deeab415a1dc53cd142321ec4608af3f2a36",
     "FR-178": "04d4908d1db1350960aa2146cf77dbc0a4bc9d82eedbdb6b8ca72d0ac26bbfca",
     "FR-179": "dae5f9419158ddc59b2a852de71b4398ed56ab6f15fec3fd85438d0e7eaff100",
@@ -369,7 +369,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-374": "ad4809d336aa9198bf1b0873efe82a553c9289a5c8eceebd2472e5a397ab5341",
     "FR-375": "14ae31a640185e0e5ddc21536dba26005c96f42916c5037175ff60e3c417c611",
     "FR-376": "78c868ecd1e8db8258e23b13adb1eb55709e3a304d745f2dd5df5660d759935d",
-    "FR-377": "c1c31eafeac799ff0d86cee563f060a0e46de33c4cc9e94d5cdfba85b16b32ff",
+    "FR-377": "fb152e4092d3abd09a40e377de2212a2f3ba42b18b977d72d64ff4d89e02b76b",
     "FR-378": "e74d13aeeaa50224150914d9b7e3520fad1f709b6defe8a777af70830de46a35",
     "FR-379": "879e772f53ead85b670a58e87223bcf99589b494819eb82e355607d45731a6b9",
     "FR-380": "953ccba339c63c9cfb79625eea770be1e0682577212d085bb86f8ec491565ec8",
@@ -437,7 +437,7 @@ BASE_DIGESTS: dict[str, str] = {
     "NFR-03": "ad9f302a7260b92ac77afb6eed42a508e395e7a4f3cea79ccd8f1e34a44d59b3",
     "NFR-04": "aab5369189a115d86d4c73dfb22e805fd228a6effbdb4973d85a38a2653d22cd",
     "NFR-05": "ac6594eda020a38d7003865cf52db7569f58d3454bd29f0434465f9c33142d69",
-    "NFR-06": "a066d6ad2ea16508e86cee9c7b427b74fdcc860e3dc66269d9da818de28d6e7e",
+    "NFR-06": "92ba1080e63f26f8a87d787a22e169018aaf3cad31782d8da587a90df3030d6d",
     "NFR-07": "ed0c115e256463ea150a82f404e762c44c7fae001f697706f65ce35700573da6",
     "NFR-08": "9682005199206d4fde62060bbdeefabedf308d5752f71cce05d55e902c7f36dc",
     "NFR-09": "4c593de3a4be4aa1cdfd49a9934ae40632868b673ee97c26237faea140ba4dc9",
@@ -458,7 +458,7 @@ BASE_DIGESTS: dict[str, str] = {
     "NFR-24": "0d3189681baf8ac224b810d7a4744f1804a1ebe0a21a7b701fd263e01f3fa551",
     "NFR-25": "bd896b531a127f98394fa2c9188f05f6805ff9a365ee26a56919d1d6a71f6788",
     "NFR-26": "acfd58c5a069ea7625f3d2e08c715dc2d5f88e62faa1216c8df93f7a3bcfd943",
-    "NFR-27": "4f770d4569c660683b2a73e55d2e5dc5f0c3e3ce4a693e8f3d7a683cf0965fb1",
+    "NFR-27": "7148747ffc5909f1b74511e96a47361d1053d952035347d00253f942f47ab5e7",
     "NFR-28": "786f1d0b0cf0b7a1671fa93c8640979ad9f02959c61861ad7c1b7f215a4e7934",
     "NFR-29": "4395f54612d9fec3bab9686f278bc8b940ac3780a81984dd9139ab2c46df5710",
     "NFR-30": "16bde309bf04b63c24894ecd1bc98012298896cb377bd3106d0ef55992936cf3",
@@ -622,6 +622,10 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
     follows its 0.40.0 amendment by PFS-2105.043 and PFS-2105.046 (a native unsteady export states
     `last_step` and `last_time_step`); FR-101 follows its 0.40.0 amendment by PFS-2088.010
     (a rotor row on build 26.100 is refused by name until its angular-velocity unit is measured).
+    The 0.40.0 pins also follow the far-field lane (FR-38 ledgers, FR-79 probe-layout
+    home, NFR-06 numpy runtime), sweep-1 (FR-82 cost exclusions and FR-377 job labels),
+    docsfix (FR-210, FR-293 and FR-120 archive opt-in), mach (FR-176 advancing tip)
+    and the measured mypy recount (NFR-27, commit 6ee5e247). FR-419 remains pinned.
     """
     changed = []
     for page in PAGES:

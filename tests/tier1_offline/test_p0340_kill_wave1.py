@@ -45,6 +45,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases.settings import ReferenceData
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.fsi import driver
 from pyflightstream.fsi.loads import SectionFamilyMap
 from tests.tier1_offline.test_fsi_driver import CALL2, driver_config, stage_run
@@ -157,6 +158,23 @@ _ADMITTED = {
     ("pyfs-matrix", "space-in-use|top|--top"): {"type": ("int", "_top_rows")},
     # PFS-2094.051: restore --matrix takes a matrix path or its stem.
     ("pyfs-matrix", "restore|matrix|--matrix"): {"type": (None, "_matrix_stem")},
+    # PFS-2089.002: mark-failed --sims takes simulation words, as mark-converged does.
+    ("pyfs-matrix", "mark-failed|sims|--sims"): {"nargs": (None, "+")},
+}
+
+# Deliberate moves of a 0.33.1 option to another key: (program, key) -> (the key it is now
+# under, {field: (0.33.1 value, the value the release decided)}). PFS-2088.008 (sweep-1): the
+# pyfs-fsi output folder is --out, and --dir stays as a deprecated alias that parses to its own
+# destination (``legacy_dir``) with no default, so the option itself is kept and still accepted.
+_MOVED = {
+    ("pyfs-fsi", "init-dummy|dir|--dir"): (
+        "init-dummy|legacy_dir|--dir",
+        {"dest": ("dir", "legacy_dir"), "default": ("<CWD>", None)},
+    ),
+    ("pyfs-fsi", "step|dir|--dir"): (
+        "step|legacy_dir|--dir",
+        {"dest": ("dir", "legacy_dir"), "default": ("<CWD>", None)},
+    ),
 }
 
 
@@ -171,12 +189,13 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # P0340-KILL-P1..P5: a changed default, a dropped choice or a dropped
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
-    assert key in current, f"{program}: the 0.33.1 action {key!r} is gone"
+    moved_to, moved_fields = _MOVED.get((program, key), (key, {}))
+    assert moved_to in current, f"{program}: the 0.33.1 action {key!r} is gone"
     want = dict(_GOLDEN_0331[program][key])
-    for field, (old, new) in _ADMITTED.get((program, key), {}).items():
+    for field, (old, new) in {**_ADMITTED.get((program, key), {}), **moved_fields}.items():
         assert want[field] == old, f"{program}: {key!r} admitted change of {field} is stale"
         want[field] = new
-    got = current[key]
+    got = current[moved_to]
     assert got == want, f"{program}: {key!r} changed from {want} to {got}"
 
 
@@ -270,7 +289,16 @@ def _render_specs(workroot: Path) -> dict[str, dict]:
     for command, spec in sorted(PROBE_SPECS.items()):
         workdir = workroot / command
         workdir.mkdir()
-        script = generate_probe_script(spec, _spec_version(command), workdir, fsm=fsm)
+        try:
+            script = generate_probe_script(spec, _spec_version(command), workdir, fsm=fsm)
+        except CommandNotInVersionError:
+            # A command the licensed probes of 2026-10-12 MEASURED REMOVED (RPT-166) refuses
+            # to emit on any build, so its spec has no script to render; any other refusal
+            # is a defect, so only a recorded removal is let through.
+            registry = CommandRegistry.load()
+            statuses = {row.status for row in registry.commands[command].versions.values()}
+            assert Status.REMOVED in statuses, command
+            continue
         lines = script.render().splitlines()
         begin = next(i for i, ln in enumerate(lines) if ln == f"PRINT PYFS_PROBE_BEGIN_{command}")
         end = next(i for i, ln in enumerate(lines) if ln == f"PRINT PYFS_PROBE_END_{command}")

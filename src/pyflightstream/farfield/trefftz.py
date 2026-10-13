@@ -221,6 +221,11 @@ def trace_forces(
     -------
     TraceResult
         The forces of the traced configuration and the per-strip arrays.
+
+    Raises
+    ------
+    FarfieldInputError
+        If trace samples, density, symmetry or integration settings are invalid.
     """
     y = np.asarray(y, dtype=float)
     z = np.asarray(z, dtype=float)
@@ -327,6 +332,11 @@ def calibration_scale(raw_lift: float, *, cl_near: float, q: float, s_ref: float
         The solver's ``CL`` of the point.
     q, s_ref : float
         Dynamic pressure (Pa) and reference area (m2).
+
+    Returns
+    -------
+    float
+        Circulation scale, or NaN when lift cannot define it.
     """
     if not (math.isfinite(cl_near) and cl_near != 0.0):
         return float("nan")
@@ -349,6 +359,26 @@ def trace_coefficients(
     ``CL_T = L / (q SREF)`` and likewise, ``AR = BREF^2 / SREF`` and
     ``E_T = CL_T^2 / (pi AR CDI_T)``, NaN where ``CDI_T`` is zero or not finite
     or a reference value is missing.
+
+    Parameters
+    ----------
+    lift : float
+        Lift force in N.
+    side_force : float
+        Side force in N.
+    induced_drag : float
+        Induced drag force in N.
+    q : float
+        Free-stream dynamic pressure in Pa.
+    s_ref : float
+        Reference area in m2 used by the load coefficients.
+    b_ref : float
+        Reference span in m.
+
+    Returns
+    -------
+    dict[str, float]
+        Trefftz coefficients and aspect ratio, with NaN for undefined values.
     """
     nan = float("nan")
     if not (q > 0.0 and s_ref > 0.0 and math.isfinite(q * s_ref)):
@@ -411,6 +441,11 @@ def wake_crossings(lines: Sequence[np.ndarray], values: np.ndarray, *, x_t: floa
         that ends before the plane (``short`` counts them), starting nodes that
         share a span position, or a gap in the run of starting nodes larger
         than :data:`RUN_GAP_FACTOR` times their median gap.
+
+    Raises
+    ------
+    FarfieldInputError
+        If a wake polyline or its values have an invalid shape.
     """
     values = np.asarray(values, dtype=float)
     if len(lines) != len(values):
@@ -497,6 +532,20 @@ def plane_induced_drag(plane: PlaneFields, *, rho: float, v_inf: float) -> Plane
     ``D_i = (rho / 2) integral (v^2 + w^2) dS``: the crossflow-energy
     integrand of the balances advected by ``V`` and divided by it, so the
     balance and Trefftz C share one integrand (FR-450 R1). NaN at ``V = 0``.
+
+    Parameters
+    ----------
+    plane : PlaneFields
+        Rectangular probe-plane samples in free-stream axes.
+    rho : float
+        Density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+
+    Returns
+    -------
+    PlaneDrag
+        Fine and coarse induced drag in N, their difference and sample coverage.
     """
     v, w = plane["v"], plane["w"]
     integrand = crossflow_integrand(rho, v, w, v_inf)
@@ -528,6 +577,20 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
     function ``psi(P) = -(1 / (2 pi)) sum_Q xi_Q ln|P - Q| dS_Q`` (the cell's
     own logarithm integrated exactly), and ``D = (rho / 2) sum_P psi_P xi_P
     dS_P``. NaN where any sample is missing.
+
+    Parameters
+    ----------
+    plane : PlaneFields
+        Rectangular probe-plane samples in free-stream axes.
+    rho : float
+        Density in kg/m3.
+    chunk : int
+        Number of source cells processed together to bound temporary memory.
+
+    Returns
+    -------
+    float
+        Induced drag in N from the plane vorticity.
     """
     v, w = plane["v"], plane["w"]
     dy = float(plane.y[1] - plane.y[0])
@@ -564,6 +627,20 @@ def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float
     ``integral over p0 < p0_inf of [(p0_inf - p0) + (rho / 2) (u* - u)
     (u* + u - 2 V)] dS``. Zero by construction in a field that holds
     Bernoulli's relation; written as a diagnostic, never as a drag.
+
+    Parameters
+    ----------
+    plane : PlaneFields
+        Rectangular probe-plane samples in free-stream axes.
+    rho : float
+        Density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+
+    Returns
+    -------
+    float
+        Largest absolute stagnation-pressure residual divided by dynamic pressure.
     """
     u, v, w, p_prime = plane["u"], plane["v"], plane["w"], plane["p_prime"]
     deficit = -p_prime - 0.5 * rho * (u * u + v * v + w * w - v_inf * v_inf)
@@ -604,6 +681,22 @@ def rotor_channels(
     ``P_TOTAL = I[(p0 - p0_inf) u]`` and
     ``ETA_FF = T V / (T V + P_AXIAL + P_SWIRL + P_CROSSFLOW)`` with ``T`` the
     axial force between the first station and this one.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+    station : float
+        Outlet station coordinate x/R.
+
+    Returns
+    -------
+    RotorChannels
+        Rotor loss powers in W, axial force in N, efficiency and coverage.
     """
     index = fields.station_index(station)
     u = fields["u"]

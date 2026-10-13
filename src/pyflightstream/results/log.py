@@ -554,7 +554,18 @@ _IMPORTED_TRAILING_EDGES_LINE = re.compile(
 
 
 def lifting_log_warnings(log_text: str) -> list[str]:
-    """Name explicitly zero trailing-edge or growing-wake counts in a lifting log."""
+    """Name explicitly zero trailing-edge or growing-wake counts in a lifting log.
+
+    Parameters
+    ----------
+    log_text : str
+        Native solver log text to inspect.
+
+    Returns
+    -------
+    list[str]
+        Diagnostic warning strings for the lifting-surface log findings.
+    """
     messages = []
     if re.search(r"(?im)^\s*0 trailing edges? (?:found|marked|created)\b", log_text):
         messages.append(

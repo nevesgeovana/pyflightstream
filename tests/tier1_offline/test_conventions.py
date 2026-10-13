@@ -155,7 +155,7 @@ _DIMENSIONLESS_OR_DEBT = {
     # A DIRECTION AND NOT A LENGTH: the axis the disk is perpendicular to,
     # normalised on use, so its magnitude carries no meaning at all.
     "normal",  # ProbeCircle.normal
-    # FR-454 and FR-459 R2 (0.40.0): a survey lattice states its radii in tip
+    # A survey lattice states its radii in tip
     # radii r/R, the convention of probes.build_lattice whose parameters they are.
     "r_inner",  # LatticeShape.r_inner, r/R
     "r_outer",  # LatticeShape.r_outer, r/R
@@ -272,9 +272,9 @@ _DIMENSIONLESS_OR_DEBT = {
     # threshold, dimensionless as `convergence` is: the manual (SRC-753
     # p.390) states it with no unit, default 1E-3.
     "aeroelastic_convergence_threshold",  # SolverSettings
-    # 0.40.0 (FR-462): the same coupling threshold, stated by an external FSI input.
+    # The same coupling threshold, stated by an external FSI input.
     "convergence_threshold",  # ExternalStructure
-    # 0.40.0 (FR-461): a spring axis is a direction, a unit vector of no unit.
+    # A spring axis is a direction, a unit vector of no unit.
     "axis_body",  # SixDofSpringForce
     # A PERCENTAGE of the cross-section curve's length, a ratio, so no SI
     # suffix exists; `_pct` as in drift_limit_pct (SRC-753 p.298).

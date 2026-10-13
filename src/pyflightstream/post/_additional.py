@@ -118,7 +118,7 @@ def _current_extraction(
 def _warn_reopened_streamlines(run_id: str, prefix: str, files: list[str]) -> None:
     """Warn once per extraction that traced streamlines (FR-460 R6), in the post log's form.
 
-    The owner's decision of 2026-10-12: allowed in an additional pproc, and said.
+    Streamlines are allowed in an additional pproc and declared explicitly.
     """
     if not any(kind.startswith("streamlines_") for kind in classify_outputs(files)):
         return

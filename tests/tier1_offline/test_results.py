@@ -894,6 +894,9 @@ def test_the_excluded_set_is_exactly_the_three_structured_formats():
         "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": "nastran",
         # 26.125 (FR-423): a VTK file, so inside the vtk scoping of 2026-08-16.
         "FREE_SURFACE_EXPORT_TYPE": "vtk",
+        # 0.40.0: the 2D volume section's VTK export, a sibling of the one above, entered
+        # the export phase and is inside the same vtk scoping.
+        "EXPORT_VOLUME_SECTION_2D_VTK": "vtk",
     }, (
         "the excluded set moved. It is the author's scoping of 2026-08-16 and "
         "not an implementation convenience: a format leaving the default set "
@@ -1944,7 +1947,15 @@ def test_the_owed_tranche_is_the_boundary_layer_profile_and_the_plot_save():
         for command, entry in EXPORT_CONVERSIONS.items()
         if entry.verdict == EXPORT_OWED
     }
-    assert set(owed) == {"EXPORT_BL_VELOCITY_PROFILE", "SAVE_PLOT_TO_FILE"}
+    # 0.40.0: three exports entered the export phase with no parser written yet (surface
+    # streamlines, the 6-DOF trajectory after the march, the stability toolbox coefficients).
+    assert set(owed) == {
+        "EXPORT_BL_VELOCITY_PROFILE",
+        "SAVE_PLOT_TO_FILE",
+        "EXPORT_ALL_SURFACE_STREAMLINES",
+        "EXPORT_6DOF_TRAJECTORY",
+        "STABILITY_TOOLBOX_EXPORT",
+    }
     plot = owed["SAVE_PLOT_TO_FILE"].note
     assert "RPT-067" in plot and "never read as a coefficient source" in plot, plot
     note = owed["EXPORT_BL_VELOCITY_PROFILE"].note
@@ -1958,10 +1969,12 @@ def test_every_default_set_export_now_has_a_parser_and_a_conversion():
     """The acceptance of PFS-2014.02, read off the classification itself.
 
     Default set means: not excluded, and not one of the entries that
-    export nothing. Every member of it but two names a parser, that parser
-    resolves to a callable, and the two that do not are the format the
-    solver will not write unattended and the solver's own plot save, whose
-    file is a display of the solve (G04 of 0.27.0, RPT-067).
+    export nothing. Every member of it but five names a parser, that parser
+    resolves to a callable, and the five that do not are the format the
+    solver will not write unattended, the solver's own plot save, whose
+    file is a display of the solve (G04 of 0.27.0, RPT-067), and the three
+    exports that entered the export phase in 0.40.0 (surface streamlines,
+    the 6-DOF trajectory and the stability toolbox coefficients).
     """
     import importlib
 
@@ -1977,16 +1990,16 @@ def test_every_default_set_export_now_has_a_parser_and_a_conversion():
         for command, entry in EXPORT_CONVERSIONS.items()
         if entry.verdict not in (EXPORT_EXCLUDED, EXPORT_NOT_AN_EXPORT)
     }
-    assert len(default_set) == 12, (
-        f"the default set resolved {len(default_set)} command(s); twenty exports "
-        "less five excluded and three that export nothing is twelve"
+    assert len(default_set) == 15, (
+        f"the default set resolved {len(default_set)} command(s); twenty-five exports "
+        "less seven excluded and three that export nothing is fifteen"
     )
     parsed = {
         command: entry.parser
         for command, entry in default_set.items()
         if entry.verdict == EXPORT_PARSED
     }
-    assert len(parsed) == 10, f"ten of the twelve are parsed today, not {len(parsed)}"
+    assert len(parsed) == 10, f"ten of the fifteen are parsed today, not {len(parsed)}"
     for command, dotted in parsed.items():
         assert dotted is not None
         module_name, _, attribute = dotted.rpartition(".")

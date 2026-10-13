@@ -202,6 +202,12 @@ CANONICAL_FORMS = {
         "restore steps call this helper. It holds the function and writes "
         "nothing of its own."
     ),
+    "workspace/_query_files.py": (
+        "the raw bytes of an evidence file, or of a ZIP member read from its "
+        "stream in blocks, never decoded: the same canonical form as "
+        "workspace/storage.py. It is shown for binary evidence only and "
+        "writes nothing."
+    ),
     "workspace/_ledger_history.py": (
         "the raw bytes of a recorded script file, read whole and never decoded, "
         "compared with the script_sha256 the run record states: the same "

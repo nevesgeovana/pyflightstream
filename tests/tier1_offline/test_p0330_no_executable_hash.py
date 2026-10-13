@@ -71,6 +71,11 @@ LABEL = re.compile(r"(?i)(?:\bexe\b|_exe\b|\bexe_|\.exe\b|executable|fs_exe)")
 PACKAGE_FILE = re.compile(r"(?i)(?:\.(?:dll|exe|so)\b|\bScript\.txt\b)")
 #: A YAML, JSON or TOML key that opens a block or array.
 BLOCK_KEY = re.compile(r"""^(\s*)["']?([A-Za-z0-9_.-]+)["']?\s*[:=]\s*[{\[]?\s*$""")
+#: A key that is a solver COMMAND name (upper case with underscores, such as
+#: SET_MOTION_FSI_EXECUTABLE) names a probe's entry, not a digest label: the digests
+#: under it are those of the scripts the package wrote. A key that says what it holds
+#: (SHA, HASH or DIGEST in it) is a label whatever its case.
+COMMAND_KEY = re.compile(r"(?!.*(?:SHA|HASH|DIGEST))[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
 #: Absolute user paths: a profile folder, a home folder, a OneDrive folder, and
 #: the work and estate roots of a measuring machine, in either separator.
 USER_PATH = re.compile(
@@ -132,7 +137,7 @@ def _labelled(text: str) -> list[str]:
         if block is not None and line.strip() and indent <= block:
             block = None
         key = BLOCK_KEY.match(line)
-        if key and LABEL.search(key.group(2)):
+        if key and LABEL.search(key.group(2)) and not COMMAND_KEY.fullmatch(key.group(2)):
             block = len(key.group(1))
         is_row = line.lstrip().startswith("|")
         if not is_row:

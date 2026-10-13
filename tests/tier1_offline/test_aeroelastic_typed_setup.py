@@ -50,6 +50,8 @@ def coupled_case(tmp_path):
     rotor = FIXTURE_ROTOR.model_copy(
         update={
             "blade1": BladeDatum(azimuth_deg=0, zero="Z"),
+            # One blade, as the row states BLADES: 1; the block is the count (FR-68, PFS-2104.011).
+            "families_blades": ["Blade1"],
         }
     )
     cfg = make_uniform_blade_config(blade_count=1, omega_rad_per_s=40 * math.pi)

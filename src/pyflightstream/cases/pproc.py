@@ -514,7 +514,7 @@ def _the_radius_is_a_rotors(value: object) -> object:
     return value
 
 
-def _check_family_selection(value: object) -> str | list[str]:
+def check_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
     A bare word is one of the five selectors, an alias of the row's setup
@@ -568,7 +568,7 @@ class SectionDistribution(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
+    families: Annotated[str | list[str], BeforeValidator(check_family_selection)]
     frame: str = "MRP"
     planes: list[Plane] = Field(min_length=1)
     #: FR-76, the decision of 2026-09-10. `count` and `plot_direction` may be
@@ -811,7 +811,7 @@ class ForcePlotGroup(BaseModel):
 
     name: str = Field(min_length=1)
     frame: str = "MRP"
-    families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
+    families: Annotated[str | list[str], BeforeValidator(check_family_selection)]
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 

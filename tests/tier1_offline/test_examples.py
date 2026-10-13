@@ -774,6 +774,18 @@ def _resolve_category(relative: str, category: str) -> type:
         return builtin
     module = importlib.import_module(_module_name(relative))
     resolved = getattr(module, category, None)
+    if resolved is None:
+        # A lazy import inside a function is absent from the module namespace.
+        tree = ast.parse((PACKAGE / relative).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom) or node.module is None:
+                continue
+            for alias in node.names:
+                if (alias.asname or alias.name) == category:
+                    home = importlib.util.resolve_name(
+                        "." * node.level + node.module, module.__package__
+                    )
+                    resolved = getattr(importlib.import_module(home), alias.name, None)
     assert isinstance(resolved, type), (
         f"{relative} warns with {category!r} and {_module_name(relative)} exports no "
         "such class, so this walk cannot say whether the examples run promotes it; "
@@ -1313,6 +1325,7 @@ def test_the_walks_can_see_what_they_are_looking_for():
     assert issubclass(
         _resolve_category("_errors.py", PyflightstreamWarning.__name__), PyflightstreamWarning
     )
+    assert _resolve_category("fsi/cli.py", "PyflightstreamWarning") is PyflightstreamWarning
 
 
 def test_the_category_walk_reaches_every_file_the_ratchet_names():

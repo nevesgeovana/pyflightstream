@@ -266,4 +266,4 @@ __all__ = [
 
 # THE pyfs-workspace geometry GROUP (FR-471 to FR-477) registers itself at import:
 # it runs the solver, which this layer owns, and the workspace layer never imports it.
-from pyflightstream.run import _cli_geometry as _cli_geometry  # noqa: E402
+import pyflightstream.run._cli_geometry  # noqa: E402,F401

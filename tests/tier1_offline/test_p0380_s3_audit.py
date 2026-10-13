@@ -467,7 +467,10 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
     table = tmp_path / "audit.csv"
     code, said = _run("audit-mesh", str(level), "--against", str(src), "--out", str(table))
     out = capsys.readouterr().out
-    assert code == 0 and said == []
+    from pyflightstream.run._cli_geometry import alias_warning
+
+    # 0.40.0: the verb is an alias of `pyfs-workspace geometry audit` and says so, once.
+    assert code == 0 and said == [alias_warning("audit-mesh")]
     assert "every gate and check passed" in out and str(level.with_suffix(".audit.json")) in out
     with table.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.reader(handle))

@@ -196,7 +196,25 @@ def _short_warnings(standard: Callable[..., str]) -> Callable[..., str]:
 
 
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
-    """Report the actual CLI outcome once, without changing CLI semantics."""
+    """Report the actual CLI outcome once, without changing CLI semantics.
+
+    Parameters
+    ----------
+    function : Callable[P, R]
+        Console entry point whose return value and exceptions are preserved.
+
+    Returns
+    -------
+    Callable[P, R]
+        Wrapped entry point with scoped console reporting.
+
+    Examples
+    --------
+    >>> def main(argv=None):
+    ...     return 0
+    >>> callable(cli_entrypoint(main))
+    True
+    """
 
     @wraps(function)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:

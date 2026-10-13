@@ -450,7 +450,7 @@ def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
 def warn_pinned_states(points: Iterable[RunRecord]) -> None:
     """Warn in ``post.log`` for each point whose pinned state disagrees with p = rho R T.
 
-    0.40.0, a session decision under the owner's physics autonomy: a point
+    Since 0.40.0, a point
     pinning density, temperature and pressure all three is checked by
     :func:`~pyflightstream.workspace.flight_condition.pinned_state_mismatch`,
     the check the plan calls, and each distinct mismatch is warned once

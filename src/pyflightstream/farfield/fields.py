@@ -317,6 +317,11 @@ def plane_fields(y: object, z: object, fields: Mapping[str, np.ndarray]) -> Plan
     -------
     PlaneFields
         The frozen container the Trefftz C integrals take.
+
+    Raises
+    ------
+    FarfieldInputError
+        If coordinates or field arrays do not form the declared rectangular plane.
     """
     y_axis = _uniform_axis("y", y)
     z_axis = _uniform_axis("z", z)
@@ -369,6 +374,11 @@ def hub_frame_velocities(
     -------
     numpy.ndarray
         Hub-frame velocities, shape ``(n, 3)``, m/s.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the axis is not a supported axis letter.
     """
     direction = np.asarray(axis, dtype=float)
     norm = float(np.linalg.norm(direction))

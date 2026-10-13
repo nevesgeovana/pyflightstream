@@ -641,7 +641,7 @@ def boundary_labels(
     return labels, ambiguous
 
 
-def names_of(token: str, names: Sequence[str]) -> list[str]:
+def names_of(token: str, names: Sequence[str], *, refuse_indexed: bool = True) -> list[str]:
     """Return the names one cell token selects out of a declared inventory, in its order.
 
     The rule, and the reason for its order, are
@@ -652,6 +652,13 @@ def names_of(token: str, names: Sequence[str]) -> list[str]:
     holds when it judges by the surface rows of a loads table rather
     than by a label-to-index map, and it is the one home both readers
     call (the architecture lens of 2026-09-09 measured two).
+
+    An indexed token no name answers whose family the inventory carries (Blade3
+    over Blade1 and Blade2) is refused, since it once selected the whole family
+    (PFS-2104.001). A caller that only asks whether the family is there, and
+    decides the token's fate itself (the selection of PFS-2029.25, whose rule
+    for a member of a list is FR-320's), passes ``refuse_indexed=False`` and
+    receives the family.
     """
     if token in names:
         return [token]
@@ -661,7 +668,7 @@ def names_of(token: str, names: Sequence[str]) -> list[str]:
         return same
     wanted = family_of(token)
     family = [name for name in names if family_of(name) == wanted]
-    if family and wanted != folded:
+    if family and wanted != folded and refuse_indexed:
         raise MeshReadError(
             f"boundary token {token!r} carries an index but matches only the family "
             f"spanning {', '.join(family)}; name an existing surface or use {wanted!r} "

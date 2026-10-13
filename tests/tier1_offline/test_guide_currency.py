@@ -162,6 +162,7 @@ def curated_helper_names() -> set[str]:
         helpers.__name__,
         "pyflightstream.script._settings",
         "pyflightstream.script._relaxed_te",
+        "pyflightstream.script._wake_edge_file",
     }
     return {
         name

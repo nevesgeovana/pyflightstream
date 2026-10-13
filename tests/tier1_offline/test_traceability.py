@@ -91,7 +91,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: of requirements carrying a falsifying marked test, re-measured for 0.37.0.
 #: Raised from 203 to 211 on 2026-10-12 on lane/0.40.0/farfield: the far-field
 #: family's tests mark its requirements (P0400 markers). Raised from 211 to 226 on
-#: 2026-10-12 on the integrated 0.40.0 tree: the geometry stage (FR-470 to FR-477),
+#: 2026-10-12 on the integrated 0.40.0 tree: the geometry stage,
 #: the command-gap capabilities and the far-field proofs mark their requirements.
 MARKED_FLOOR = 226
 

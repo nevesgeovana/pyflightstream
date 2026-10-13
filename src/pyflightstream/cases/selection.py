@@ -82,7 +82,7 @@ def _family_names(token: str, inventory: Sequence[str], *, strict: bool) -> list
         inventory
         and token.casefold() not in folded
         and re.search(r"\D\d+$", token)
-        and names_of(token, inventory)
+        and names_of(token, inventory, refuse_indexed=False)
     ):
         reason = (
             f"the geometry lacks boundary {token!r}; existing boundaries: "
@@ -477,7 +477,7 @@ def _absent_members(
         # numbered member whose family the mesh carries (Blade2 over Blade1) is
         # not refused here, although it selects nothing, so a sector row still
         # plans; the plan's warning names it (`declared_names_the_geometry_lacks`).
-        elif not names_of(token, inventory) and (key, token) not in absent:
+        elif not names_of(token, inventory, refuse_indexed=False) and (key, token) not in absent:
             absent.append((key, token))
     return absent
 

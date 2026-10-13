@@ -96,6 +96,18 @@ def rectangle_points(rectangle: _Rectangle, scale: float) -> list[list[float]]:
     both with BOTH ENDS INCLUDED, so a declaration of 3 by 4 is twelve points
     and three of its corners are the three declared vertices. The order is v
     fastest within u, which is the reading order of a row of stations.
+
+    Parameters
+    ----------
+    rectangle : _Rectangle
+        Declared rectangular probe pattern.
+    scale : float
+        Factor converting declared coordinates to the output length unit.
+
+    Returns
+    -------
+    list[list[float]]
+        Probe coordinate triples in the output length unit.
     """
     origin = list(rectangle.origin)
     edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
@@ -131,6 +143,18 @@ def circle_points(circle: _Circle, scale: float) -> list[list[float]]:
     avoids the degenerate cross product a fixed choice hits when the normal
     happens to be that axis. ``math.cos`` and ``math.sin`` and not numpy's:
     the two may differ in the last bit and flip a fifth decimal of a script.
+
+    Parameters
+    ----------
+    circle : _Circle
+        Declared circular probe pattern.
+    scale : float
+        Factor converting declared coordinates to the output length unit.
+
+    Returns
+    -------
+    list[list[float]]
+        Probe coordinate triples in the output length unit.
     """
     normal = list(circle.normal)
     length = math.sqrt(sum(value * value for value in normal))
@@ -202,6 +226,11 @@ def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
     numpy.ndarray
         Positions ``(point_count, 3)`` in the frame, in the lattice's length
         unit (the tip radius times the nondimensional positions).
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the requested axis is not supported.
     """
     order = _CYCLIC.get(str(axis).strip().upper())
     if order is None:
@@ -272,6 +301,11 @@ def farfield_plane(
     -------
     FarfieldPlane
         The grid.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If direction, extent or spacing cannot define a finite plane.
     """
     d = np.asarray(direction, dtype=float)
     norm = float(np.linalg.norm(d))
@@ -371,6 +405,11 @@ def write_points_csv(points: np.ndarray, path: str | Path) -> int:
     -------
     int
         Number of probe rows written.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the point array is not a finite array of coordinate triples.
     """
     points = np.asarray(points, dtype=float)
     # PFS-2038.07. The last boundary before a solver-facing file, and it

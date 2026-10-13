@@ -1,29 +1,9 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: CMP-26124_2026-10-12_6dof-after-march
-last_modified_at: '2026-10-13T00:52:22.147003+00:00'
-last_modified_by:
-  provider: OpenAI
-  product: Codex
-  model: GPT-6
-  role: primary-agent
-dependencies:
-- reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml
-- reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Render the scoped after-march command evidence companion.
-revision_source: git
--->
-
 # Compat report: FlightStream 26.124 (2026-10-12)
 
 Scoped projection of the orchestrator's P4-04m probe. Only EXPORT_6DOF_TRAJECTORY is judged here.
 
 Evidence report: [reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md](../RPT-167_6dof-trajectory-export-after-march_2026-10-12.md).
-Source summary: C:\WORK\r040\gapprobes-run\out-p404m\26.124\summaries\P4-04m.json.
+Source summary: gapprobes-run/out-p404m/26.124/summaries/P4-04m.json.
 Solver identity: FlightStream version 26.1, build #8172026.
 Source summary package version: 0.39.0.
 

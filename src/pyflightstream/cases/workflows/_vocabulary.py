@@ -1309,9 +1309,10 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         BLADES_VARIABLE: InputKey(
             "The blade count of the row's reductions, where no rotor block of the "
-            "reference states it.",
+            "reference states it. It sets the passage window of per-step exports "
+            "and the post stage's per-blade reductions.",
             "a count",
-            unscripted="the post stage's reductions read it.",
+            "SET_NEW_UNSTEADY_SOLVER_ACTION",
         ),
         EXPORT_UNSTEADY_AFTER_ITER_VARIABLE: InputKey(
             "The time step from which the per-step exports begin, each file stamped with "
