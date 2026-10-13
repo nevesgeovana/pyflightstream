@@ -137,7 +137,21 @@ def few_stations_warning(family: str, per_side: int, stations: int) -> str:
     One sentence, said by the plan and by post alike: the family, its station
     count per side, the count ``[farfield.trefftz] stations`` asks for, and the
     strip bias of ``E_T`` the definitions page measured at the nearest count
-    (:data:`STRIP_BIAS_PERCENT`). Empty where the family has enough stations.
+    (:data:`STRIP_BIAS_PERCENT`).
+
+    Parameters
+    ----------
+    family : str
+        The family the trace is of.
+    per_side : int
+        Its station count per side of the symmetry plane.
+    stations : int
+        The count per side ``[farfield.trefftz] stations`` asks for.
+
+    Returns
+    -------
+    str
+        The sentence, or ``""`` where the family has enough stations.
     """
     if per_side >= stations:
         return ""
