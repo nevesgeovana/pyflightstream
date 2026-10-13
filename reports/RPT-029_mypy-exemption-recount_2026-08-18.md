@@ -130,17 +130,17 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 165 errors in 13 files (checked 342 source files)
->     Success: no issues found in 342 source files
+>     Found 165 errors in 13 files (checked 343 source files)
+>     Success: no issues found in 343 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-12: 165 errors in 13 of 342 modules.**
+**mypy recount 2026-10-13: 165 errors in 13 of 343 modules.**
 
-The quoted top block and the sentence above are the 2026-10-12 run recorded
-in the dated section at the end. The module total is the 342 of the 0.40.0 tree, forty-six
+The quoted top block and the sentence above are the 2026-10-13 run recorded
+in the dated section at the end. The module total is the 343 of the 0.40.0 tree, forty-seven
 modules more than the 296 of 0.39.0, each clean and none exempted, with 165 errors in thirteen
 dirty modules: three exempted modules (`pyflightstream.farfield`,
 `pyflightstream.fsi.driver`, `pyflightstream.script.entities`) are clean now and their overrides
@@ -470,11 +470,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 165 errors in 13 files (checked 342 source files)
+    Found 165 errors in 13 files (checked 343 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 342 source files
+    Success: no issues found in 343 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1319,3 +1319,7 @@ Why the move from 159 in 16 to 165 in 13, with the lane changes read through `gi
 - The environment also moved (numpy 2.5.3 to 2.5.4, pydantic 2.13.5 to 2.14.1); the 0.39.0 column above was measured on the current environment, so it is not part of the difference.
 
 The override list of `pyproject.toml` loses the three blocks and `MYPY_EXEMPTIONS` in `tests/tier1_offline/test_traceability.py` loses the three names in the same change. The sentence at the top of this report is this run's.
+
+## Re-count of 2026-10-13 (0.40.0)
+
+`python scripts/mypy_recount.py` on 2026-10-13, on the 0.40.0 integration tree with the integration's last round committed (clean, so the numbers reproduce from HEAD), the same environment as the run of 2026-10-12: 165 errors in 13 of 343 modules; the shipped configuration is green over all 343 (`Success: no issues found in 343 source files`). The package grew by one module, `post/_field_inputs.py` (the input template's far-field, streamline and probe-lattice example), clean and not exempted. The dirty set and its 165 errors are unchanged.
