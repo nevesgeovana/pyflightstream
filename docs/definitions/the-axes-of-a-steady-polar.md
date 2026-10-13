@@ -98,8 +98,13 @@ of each point. The rule reads the printed digits, so a trailing-edged surface
 whose induced drag rounds to zero is declined too. `SET_SIGNIFICANT_DIGITS`
 narrows that band. A polar rebuilt from point folders alone
 (`write_recorded_polar`) has no run record and declines nothing. The rule
-reads `CDi` only: a 26.125 export prints `CDp`, and no run has measured what
-it prints for a declined surface, so a 26.125 point declines nothing. The
+reads `CDi` only, so a 26.125 point declines nothing in the sums. On 26.125 a
+declined surface prints `CDp` exactly 0, as earlier builds print `CDi` 0
+(RPT-166, probes D-01 and D-01c: the same sphere prints `CDp` 0 on the list and
+-0.0005 off it). So `post.log` warns, once per point, for every surface the
+record puts on the list whose 26.125 `CDp` is exactly 0, naming the surface and
+the build. Build 26.124 cannot discriminate: its sphere prints `CDi` 0 both on
+and off the list. The
 fixed-width custom polar carries the same missing value as `nan` in the
 column's own width, since its format writes every number `%10.5f`.
 

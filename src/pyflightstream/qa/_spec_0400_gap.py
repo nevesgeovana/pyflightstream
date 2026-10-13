@@ -57,6 +57,7 @@ from pyflightstream.qa._spec_0400_gapkit import (
     _TRAJECTORY,
     _aero_frame,
     _after_the_march_trajectory,
+    _before_the_march_trajectory,
     _boundaries_at_least,
     _boundaries_grew,
     _cad_session,
@@ -950,7 +951,8 @@ def _p2_curves() -> list[GapProbe]:
     return probes
 
 
-def _p3() -> list[GapProbe]:
+def _p3_streamtube() -> list[GapProbe]:
+    """Build the streamtube probes of P3, with the line-only control P3-01c."""
     offbody = "offbody.txt"
     read = _states_read(offbody)
     solved = _solved_wing()
@@ -1038,6 +1040,15 @@ def _p3() -> list[GapProbe]:
             observe=read,
             effect_note="the off-body export holds the three seeds' lines",
         ),
+    ]
+
+
+def _p3() -> list[GapProbe]:
+    offbody = "offbody.txt"
+    read = _states_read(offbody)
+    solved = _solved_wing()
+    return [
+        *_p3_streamtube(),
         _g(
             "P3-02",
             "P3",
@@ -1271,12 +1282,11 @@ def _p4() -> list[GapProbe]:
         _g(
             "P4-04",
             "P4",
-            "trajectory export placed before the solve (its recorded phase): which file is "
-            "written and when",
-            "P4-04m, the export placed after the march",
-            primary=True,
+            "trajectory export placed before the solve, the placement the database recorded "
+            "(setup) before the second round: which file is written and when",
+            "P4-04m, the export placed after the march (the recorded phase since 0.40.0)",
             command="EXPORT_6DOF_TRAJECTORY",
-            build_target=_trajectory_export,
+            build_target=_before_the_march_trajectory,
             prelude=_sixdof_body(gravity=True),
             epilogue=_march(),
             effect_note="the trajectory file is written by the march",
@@ -1285,11 +1295,13 @@ def _p4() -> list[GapProbe]:
         _g(
             "P4-04m",
             "P4",
-            "trajectory export placed after the march, the placement the phase order refuses: "
-            "is the file written then (an evidence change, not a code workaround)",
+            "trajectory export placed after the march, the database phase since 0.40.0 "
+            "(RPT-166 P4-04: the export before the march holds the header and no row): "
+            "is the file written then",
             "P4-04, the export placed before the solve",
+            primary=True,
             command="EXPORT_6DOF_TRAJECTORY",
-            build_target=_after_the_march_trajectory,
+            build_target=_trajectory_export,
             prelude=_seq(_sixdof_body(gravity=True), _march()),
             effect_note="the trajectory file is written when the export follows the march",
             **spec_common,  # type: ignore[arg-type]

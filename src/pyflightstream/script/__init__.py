@@ -399,6 +399,9 @@ class Script:
         #: SCRIPT so a continuation, which imports nothing, is never held to
         #: a count its own script did not write.
         self.wake_edge_points: int | None = None
+        #: The id of the 6DOF motion a row's ``SIXDOF`` input created, or None.
+        #: The trajectory export (FR-461 R6) names it after the march.
+        self.sixdof_motion: int | None = None
         #: THE FOLDER THE SOLVER RUNS THIS SCRIPT IN, absolute, when the run
         #: layer knows it before the build, or None (G02). Set by the run: a
         #: point's ``datapoints/DP-<point>/``, or the simulation folder for a

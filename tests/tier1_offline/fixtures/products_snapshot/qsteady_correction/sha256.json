@@ -5,8 +5,8 @@
  "matriz/polars/P6001-PROP_qs_avg.csv": "e648621981f36b9d11ba4d046379cee8845b00f94f12168db8defe00a141c640",
  "matriz/polars/P6001-PROP_qs_avg_corrected.csv": "a2fb7c2da0e77f46bb63e7363eaa680cfdf223964181a79779dfc8badb617513",
  "matriz/polars/P6001-PROP_qs_positions.csv": "6cd76122b986129f0396097ad26b153aa7f56ccde251b3fa44d4def36a472907",
- "matriz/polars/P6001-PROP_rotor.csv": "7c96ed3b0a45b46c57ffbbff83b0b8b2896970066670921d6cb74fa5061fe4cf",
- "matriz/polars/P6001-PROP_rotor_corrected.csv": "5fe4eea0271681a1e961178e87f8d6c79c6dd566273a22089847144f45bf0e18",
+ "matriz/polars/P6001-PROP_rotor.csv": "85b07cbad61e5bd77b11224df7048dda3a759599a9222f512ed5823d46aec010",
+ "matriz/polars/P6001-PROP_rotor_corrected.csv": "8037f6cfd66cedb73b5b3718a50bafe73583655ab2afde49d224c9aa16dec815",
  "matriz/polars/P6002-M144RE438AL+000BE+000J+170_g01.csv": "2dfc82bf8869cf1275b31e68ad874b63a194d277cffe6ae2c4d2c28d30fd810d",
  "matriz/polars/P6002-M144RE438AL+000BE+000J+170_g02.csv": "731831a246c7f0d1fc43f9a4bac1abeb953b99e95b0bf50517e94729f9067292",
  "matriz/polars/SUPER-6001-M200RE1177AL+sweepBE+000_PROP.csv": "75f3c4a2215c9d27c2378a1eeacf20128f69508e022393994ff1f9910b29fa26",
@@ -23,5 +23,5 @@
  "matriz/provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json": "6d99ca5d646dad718eb6eb6500b219c1b1d3c7b592b609cc7bfc3544ac168391",
  "matriz/provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json": "29a4c3cd0e19d44b7845d378169f02d26483761da60eab856387d5d3c7debf09",
  "matriz/settings/matriz_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
- "matriz/settings/matriz_settings.csv": "bea4ba0a26b5c16bdd12c2e2d72d6fba71acbebba5f344b9374fcb911977bd87"
+ "matriz/settings/matriz_settings.csv": "32ae58c370073e8424c154882b5b486a05d0981576408046b2fa5b045cbceaa6"
 }

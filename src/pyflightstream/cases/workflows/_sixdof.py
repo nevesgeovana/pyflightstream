@@ -2,7 +2,9 @@
 
 :func:`_sixdof_motion` emits one 6DOF motion of the input's families about its
 body frame, in the setup phase, after the frames and before the solver is
-initialised, and the trajectory export the database records in the same phase.
+initialised. The trajectory export is NOT emitted with it: exported before the
+march the file holds its header and no row (RPT-166 probe P4-04), so the export
+block writes it after the march, with the other exports (FR-461 R6).
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ def sixdof_commands(spec: SixDofSpec) -> list[str]:
             commands.append(command)
     commands.append("SET_6DOF_MOTION_SYMMETRY_LOADS")
     if spec.export.trajectory:
-        commands.append("EXPORT_6DOF_TRAJECTORY")
+        commands.append("EXPORT_6DOF_TRAJECTORY")  # emitted after the march (R6)
     return commands
 
 
@@ -153,9 +155,7 @@ def _sixdof_motion(
     script.emit(
         "SET_6DOF_MOTION_SYMMETRY_LOADS", motion, "ENABLE" if spec.symmetry_loads else "DISABLE"
     )
-    if spec.export.trajectory:
-        assert trajectory_file is not None
-        script.emit("EXPORT_6DOF_TRAJECTORY", motion, trajectory_file)
+    script.sixdof_motion = motion
     if case.sixdof_provenance:
         _stage(
             case,

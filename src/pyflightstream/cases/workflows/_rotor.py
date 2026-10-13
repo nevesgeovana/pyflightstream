@@ -706,6 +706,35 @@ def _refuse_one_rotor_moved_twice(case: SimCase, rotors: Sequence[RotorBlock | N
     )
 
 
+def _boundaries_a_motion_turns(
+    case: SimCase, view: SimCase, labels: Mapping[str, int]
+) -> list[int]:
+    """Return the boundary indices the motion's moving-boundaries cell names, sorted."""
+    cell = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
+    # Names only: a token that is not a name is the motion's own to
+    # refuse or warn about, when it is emitted below.
+    return sorted(
+        {
+            index
+            for token in cell.split(",")
+            if token.strip()
+            for index in _resolve_token(case, token.strip(), labels)
+        }
+    )
+
+
+def _frames_a_motion_turns(
+    moving_frame: int, radical: str | None, blade_frames: Mapping[str, int]
+) -> list[int]:
+    """Return the rotor's moving frame, then the frames of its blades, which turn with it."""
+    turning = [moving_frame]
+    if radical:
+        turning += sorted(
+            {index for name, index in blade_frames.items() if name.startswith(f"{radical}_RMRP")}
+        )
+    return turning
+
+
 def _rotor_motions(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -821,18 +850,7 @@ def _rotor_motions(
         named[f"{stem}_SMRP"] = hub
         named[f"{stem}_RMRP"] = axis
         followers[f"{stem}_SMRP"] = [axis]
-        cell = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
-        # Names only: a token that is not a name is the motion's own to
-        # refuse or warn about, when it is emitted below.
-        turning = sorted(
-            {
-                index
-                for token in cell.split(",")
-                if token.strip()
-                for index in _resolve_token(case, token.strip(), labels)
-            }
-        )
-        spinning[f"{stem}_SMRP"] = turning
+        spinning[f"{stem}_SMRP"] = _boundaries_a_motion_turns(case, view, labels)
     # THE BLADE FRAMES JOIN `named` BEFORE THE ROTATIONS, not after them.
     # They were merged into `frames` on the line below the call, which is
     # after `_rotations` has run, so a rotation could not cite one and,
@@ -867,15 +885,7 @@ def _rotor_motions(
         # have been read in a frame that never moved. The technical
         # writing lens named the measurement rather than the outcome, and
         # the measurement said the docstring overstated (2026-09-10).
-        turning = [moving[number - 1]]
-        if radical:
-            turning += sorted(
-                {
-                    index
-                    for name, index in blade_frames.items()
-                    if name.startswith(f"{radical}_RMRP")
-                }
-            )
+        turning = _frames_a_motion_turns(moving[number - 1], radical, blade_frames)
         emit_rotor_motion(
             view,
             script,

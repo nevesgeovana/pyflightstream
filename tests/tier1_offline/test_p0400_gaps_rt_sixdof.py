@@ -110,8 +110,8 @@ def _script(tmp_path: Path, resolved, registry: CommandRegistry | None = None) -
 def _block(script: Script) -> str:
     lines = script.render().splitlines()
     first = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION 6DOF"))
-    last = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_6DOF_TRAJECTORY"))
-    return "\n".join(lines[first : last + 2]) + "\n"
+    last = next(i for i, line in enumerate(lines) if line.startswith("SET_6DOF_MOTION_SYMMETRY"))
+    return "\n".join(lines[first : last + 1]) + "\n"
 
 
 def test_p0400_sixdof_free_to_pitch_golden(tmp_path):
@@ -124,6 +124,20 @@ def test_p0400_sixdof_free_to_pitch_golden(tmp_path):
     assert _block(script) == (GOLDENS / "p0400_sixdof_free_to_pitch.txt").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0400-6DOFEXPORT")])
+def test_p0400_6dofexport_the_trajectory_is_exported_after_the_march(tmp_path):
+    """P0400-6DOFEXPORT (FR-461 R6): the export follows the march, never the motion's setup."""
+    resolved = _resolved(tmp_path)
+    assert resolved is not None
+    lines = _script(tmp_path, resolved).render().splitlines()
+    (export,) = [i for i, line in enumerate(lines) if line.startswith("EXPORT_6DOF_TRAJECTORY")]
+    march = next(i for i, line in enumerate(lines) if line.startswith("START_SOLVER"))
+    initialise = next(i for i, line in enumerate(lines) if line.startswith("INITIALIZE_SOLVER"))
+    assert initialise < march < export
+    assert lines[export] == "EXPORT_6DOF_TRAJECTORY 1"
+    assert lines[export + 1] == "P_trajectory_6dof.txt"
 
 
 def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path):

@@ -1,0 +1,341 @@
+schema: pyflightstream-physics-report/1
+fs_version: '26.125'
+date: '2026-10-12'
+package_version: 0.39.0
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: withheld; build 10052026
+executor: LocalExecutor, -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+source: matriz_physics.fs in workspace phys-ws2
+solver_identity:
+- Flightstream version 2612, build 10052026
+summary:
+  pass: 4
+  warn: 0
+  fail: 0
+  no_reference: 26
+cases:
+  PHY-01:
+    title: NACA wing polar (synthetic NACA 0012, AR 8)
+    geometry: row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE
+    error: null
+    points:
+    - label: sim_5001/V0300RHO12250AL+000
+      alpha_deg: 0.0
+      iterations: 51
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0079
+        Cy: -0.0
+        Cz: 0.0023
+        CL: 0.0023
+        CDp: 0.0
+        CDv: 0.0079
+        CMx: 0.0011
+        CMy: -0.0014
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+020
+      alpha_deg: 2.0
+      iterations: 54
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0035
+        Cy: -0.0
+        Cz: 0.1705
+        CL: 0.1706
+        CDp: 0.0012
+        CDv: 0.0082
+        CMx: 0.0011
+        CMy: -0.0437
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+040
+      alpha_deg: 4.0
+      iterations: 58
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0102
+        Cy: -0.0
+        Cz: 0.3378
+        CL: 0.3385
+        CDp: 0.0049
+        CDv: 0.0085
+        CMx: 0.0009
+        CMy: -0.0857
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+060
+      alpha_deg: 6.0
+      iterations: 62
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0325
+        Cy: -0.0
+        Cz: 0.5039
+        CL: 0.5057
+        CDp: 0.011
+        CDv: 0.0094
+        CMx: 0.0008
+        CMy: -0.1275
+        CMz: 0.0
+    metrics:
+      CL_a0: 0.0023
+      CL_a2: 0.1706
+      CL_a4: 0.3385
+      CL_a6: 0.5057
+      CL_slope_per_rad: 4.807402380045173
+      CDp_a4: 0.0049
+    verdicts:
+      CL_a0: no_reference
+      CL_a2: no_reference
+      CL_a4: no_reference
+      CL_a6: no_reference
+      CL_slope_per_rad: no_reference
+      CDp_a4: no_reference
+    reference: null
+  PHY-02:
+    title: Half versus full symmetry equivalence (NACA 0012, AR 8)
+    geometry: row 5002 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE;
+      row 5003 of matriz_physics.fs, steady workflow over 13_HALFWING_PHY.fsm under SYMMETRY MIRROR
+    error: null
+    points:
+    - label: sim_5002/V0300RHO12250AL+040
+      alpha_deg: 4.0
+      iterations: 58
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0102
+        Cy: -0.0
+        Cz: 0.3378
+        CL: 0.3385
+        CDp: 0.0049
+        CDv: 0.0085
+        CMx: 0.0009
+        CMy: -0.0857
+        CMz: 0.0
+    - label: sim_5003/V0300RHO12250AL+040
+      alpha_deg: 4.0
+      iterations: 64
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0103
+        Cy: 0.0
+        Cz: 0.3397
+        CL: 0.3404
+        CDp: 0.005
+        CDv: 0.0085
+        CMx: -0.0
+        CMy: -0.0865
+        CMz: 0.0
+    metrics:
+      CL_full_a4: 0.3385
+      CL_half_a4: 0.3404
+      delta_CL_a4: 0.0018999999999999573
+      delta_CDp_a4: 0.00010000000000000026
+    verdicts:
+      CL_full_a4: pass
+      CL_half_a4: pass
+      delta_CL_a4: pass
+      delta_CDp_a4: pass
+    reference:
+      fs_version_basis: '26.125'
+      updated: '2026-10-12'
+      reason: 'initial 26.125 reference: first PHY-02 run on 26.125 build 10052026, both points converged;
+        CDp is the pressure drag 26.125 prints (SRC-753 p.229), seeded under the case''s declared 26.125
+        bands'
+  PHY-05:
+    title: Rigid unsteady periodic propeller (generic BladeSpec blade)
+    geometry: row 5005 of matriz_physics.fs, unsteady_rotor workflow over 31_BLADE_PHY.fsm under SYMMETRY
+      PERIODIC
+    error: null
+    points:
+    - label: sim_5005/V0490RHO12250AL+000BE+000
+      alpha_deg: 0.0
+      iterations: 1051
+      converged: true
+      minimum_cp: -100.0
+      total:
+        Cx: -0.0443382
+        Cy: -0.045627
+        Cz: -5.6e-05
+        CL: -8.23e-05
+        CDp: -0.0450893
+        CDv: 0.0007512
+        CMx: -0.0256914
+        CMy: 0.0285465
+        CMz: -0.0005584
+    metrics:
+      CL: -8.23e-05
+      CDp: -0.0450893
+      CDv: 0.0007512
+      CMy: 0.0285465
+    verdicts:
+      CL: no_reference
+      CDp: no_reference
+      CDv: no_reference
+      CMy: no_reference
+    reference: null
+  PHY-06:
+    title: Steady versus unsteady polar equivalence (NACA 0012, AR 8)
+    geometry: row 5006 of matriz_physics.fs, unsteady workflow over 12_WING_PHY.fsm under SYMMETRY NONE;
+      row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE
+    error: null
+    points:
+    - label: sim_5001/V0300RHO12250AL+000
+      alpha_deg: 0.0
+      iterations: 51
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0079
+        Cy: -0.0
+        Cz: 0.0023
+        CL: 0.0023
+        CDp: 0.0
+        CDv: 0.0079
+        CMx: 0.0011
+        CMy: -0.0014
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+020
+      alpha_deg: 2.0
+      iterations: 54
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0035
+        Cy: -0.0
+        Cz: 0.1705
+        CL: 0.1706
+        CDp: 0.0012
+        CDv: 0.0082
+        CMx: 0.0011
+        CMy: -0.0437
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+040
+      alpha_deg: 4.0
+      iterations: 58
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0102
+        Cy: -0.0
+        Cz: 0.3378
+        CL: 0.3385
+        CDp: 0.0049
+        CDv: 0.0085
+        CMx: 0.0009
+        CMy: -0.0857
+        CMz: 0.0
+    - label: sim_5001/V0300RHO12250AL+060
+      alpha_deg: 6.0
+      iterations: 62
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0325
+        Cy: -0.0
+        Cz: 0.5039
+        CL: 0.5057
+        CDp: 0.011
+        CDv: 0.0094
+        CMx: 0.0008
+        CMy: -0.1275
+        CMz: 0.0
+    - label: sim_5006/V0300RHO12250AL+000
+      alpha_deg: 0.0
+      iterations: 1954
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0078
+        Cy: -0.0
+        Cz: 0.0031
+        CL: 0.0031
+        CDp: 0.0
+        CDv: 0.0078
+        CMx: -0.0
+        CMy: -0.0016
+        CMz: -0.0
+    - label: sim_5006/V0300RHO12250AL+020
+      alpha_deg: 2.0
+      iterations: 1962
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: 0.0034
+        Cy: -0.0
+        Cz: 0.1719
+        CL: 0.172
+        CDp: 0.0012
+        CDv: 0.0082
+        CMx: -0.0
+        CMy: -0.0439
+        CMz: -0.0
+    - label: sim_5006/V0300RHO12250AL+040
+      alpha_deg: 4.0
+      iterations: 1988
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0106
+        Cy: -0.0
+        Cz: 0.34
+        CL: 0.3407
+        CDp: 0.0047
+        CDv: 0.0085
+        CMx: -0.0
+        CMy: -0.086
+        CMz: -0.0
+    - label: sim_5006/V0300RHO12250AL+060
+      alpha_deg: 6.0
+      iterations: 2002
+      converged: true
+      minimum_cp: -100
+      total:
+        Cx: -0.0334
+        Cy: -0.0
+        Cz: 0.5069
+        CL: 0.5088
+        CDp: 0.0105
+        CDv: 0.0093
+        CMx: -0.0
+        CMy: -0.1279
+        CMz: -0.0
+    metrics:
+      delta_CL_a0: 0.0007999999999999999
+      delta_CD_a0: -0.00010000000000000113
+      delta_CMy_a0: -0.0002000000000000001
+      delta_CL_a2: 0.0013999999999999846
+      delta_CD_a2: 0.0
+      delta_CMy_a2: -0.0001999999999999988
+      delta_CL_a4: 0.0021999999999999797
+      delta_CD_a4: -0.00020000000000000052
+      delta_CMy_a4: -0.0002999999999999947
+      delta_CL_a6: 0.0030999999999999917
+      delta_CD_a6: -0.0006000000000000033
+      delta_CMy_a6: -0.00040000000000001146
+      CL_slope_steady_per_rad: 4.807402380045173
+      CMy_slope_steady_per_rad: -1.2040708064674246
+      CL_slope_unsteady_per_rad: 4.829461255157709
+      CMy_slope_unsteady_per_rad: -1.206076158750383
+    verdicts:
+      delta_CL_a0: no_reference
+      delta_CD_a0: no_reference
+      delta_CMy_a0: no_reference
+      delta_CL_a2: no_reference
+      delta_CD_a2: no_reference
+      delta_CMy_a2: no_reference
+      delta_CL_a4: no_reference
+      delta_CD_a4: no_reference
+      delta_CMy_a4: no_reference
+      delta_CL_a6: no_reference
+      delta_CD_a6: no_reference
+      delta_CMy_a6: no_reference
+      CL_slope_steady_per_rad: no_reference
+      CMy_slope_steady_per_rad: no_reference
+      CL_slope_unsteady_per_rad: no_reference
+      CMy_slope_unsteady_per_rad: no_reference
+    reference: null

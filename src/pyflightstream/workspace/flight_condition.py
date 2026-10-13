@@ -69,7 +69,9 @@ ideal-gas density of the pressure and temperature. So density, pressure
 and temperature satisfy ``p = rho R T`` unless the writer pinned all
 three, and whichever two of them the solver reads it meets the same
 state. Pins are emitted as written: a writer who pins all three owns
-their agreement.
+their agreement, and since 0.40.0 the plan and the post WARN when the
+three disagree with ``p = rho R T`` by more than half a percent
+(:func:`pinned_state_mismatch`); nothing is refused or withheld.
 
 A solved state is still not an altitude, and a consumer that reads
 it as one is misled, which is why :attr:`ResolvedCondition.density_source`
@@ -359,6 +361,56 @@ def _ideal_gas_pressure(density: float, temperature: float) -> float:
     it and the state's temperature (PFS-2104.050).
     """
     return density * ISA.gas_constant_j_per_kg_k * temperature
+
+
+#: The relative mismatch ``|p - rho R T| / p`` above which a point that pins
+#: density, temperature and pressure all three is warned about (0.40.0, a
+#: session decision under the owner's physics autonomy). Half a percent is
+#: above the rounding of a pin written to three or four significant figures
+#: and below any disagreement that moves a coefficient visibly.
+PINNED_STATE_TOLERANCE = 0.005
+
+#: The three pins whose agreement the ideal-gas law states.
+_STATE_PINS = ("RHOkgm3", "TK", "PPA")
+
+
+def pinned_state_mismatch(resolved: ResolvedCondition, *, pol: str) -> str | None:
+    """Return the warning a fully pinned, inconsistent state earns, else None.
+
+    Checked only when density, temperature and pressure are ALL pinned (by the
+    row or by its setup's defaults); a state with any of the three derived
+    satisfies ``p = rho R T`` by construction and is never checked. The one
+    check the plan and the post both call, so the two cannot disagree. Nothing
+    is refused: the pins are emitted as written.
+
+    Parameters
+    ----------
+    resolved : ResolvedCondition
+        The resolved state of one point.
+    pol : str
+        The POL (or simulation) the message names.
+
+    Returns
+    -------
+    str or None
+        The message naming the three values, the gas constant and the
+        relative mismatch, or None when the state is not fully pinned or
+        agrees within :data:`PINNED_STATE_TOLERANCE`.
+    """
+    if not all(key in resolved.pinned for key in _STATE_PINS):
+        return None
+    implied = _ideal_gas_pressure(resolved.density_kg_m3, resolved.temperature_k)
+    mismatch = abs(resolved.pressure_pa - implied) / resolved.pressure_pa
+    if mismatch <= PINNED_STATE_TOLERANCE:
+        return None
+    return (
+        f"the flight condition of POL {pol} pins RHOkgm3:{resolved.density_kg_m3:g}, "
+        f"TK:{resolved.temperature_k:g} and PPA:{resolved.pressure_pa:g}, which disagree "
+        f"with p = rho R T (R = {ISA.gas_constant_j_per_kg_k} J/(kg K), rho R T = "
+        f"{implied:g} Pa) by a relative mismatch of {mismatch:.2%}, above "
+        f"{PINNED_STATE_TOLERANCE:.1%}. The pins are emitted as written; pin two of the "
+        "three and let the third be derived, or correct the one that is wrong."
+    )
 
 
 def _density_from_reynolds(

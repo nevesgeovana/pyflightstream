@@ -230,6 +230,40 @@ def _decide(work: _Work) -> None:
         require_geometry_extra([*work.remesh, *bands])
 
 
+def _grid_with_complete_te_edges(
+    work: _Work, name: str, found: _grid.Grid | _blocks.Blocks
+) -> _grid.Grid | _blocks.Blocks | str:
+    """Return the recovered grid, or why the listed trailing-edge edges are not grid lines."""
+    if isinstance(found, _blocks.Blocks):
+        chains = [found.arcs[i] for i in found.te_arcs]
+    elif found.smooth:
+        chains = []
+    else:
+        chains = [found.ids[:, 0].tolist()]
+    represented = {
+        (min(a, b), max(a, b)) for chain in chains for a, b in zip(chain, chain[1:], strict=False)
+    }
+    if represented != work.te_edges[name]:
+        return "the listed trailing-edge edges are not complete grid lines; use remesh"
+    return found
+
+
+def _refuse_or_remesh(work: _Work, name: str, found: str) -> None:
+    """Refuse a family whose grid was demanded but not recovered, else choose its remesh."""
+    spec = work.specs[name]
+    if spec.keep_first_row:
+        raise _refuse(
+            f"{work.source} family {name} keep_first_row",
+            f"keep_first_row applies to a grid and no grid was recovered: {found}",
+        )
+    if spec.method == "grid":
+        raise _refuse(
+            f"{work.source} family {name}",
+            f"method is grid and no grid was recovered: {found}",
+        )
+    _remesh_or_keep(work, name, f"no grid recovered: {found}")
+
+
 def _decide_family(work: _Work, name: str) -> None:
     """Recover one selected family's grid, or choose its remesh, refusing before any work."""
     spec = work.specs[name]
@@ -241,30 +275,9 @@ def _decide_family(work: _Work, name: str) -> None:
         _kept_trailing_edge(work, name)
     found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
     if not isinstance(found, str) and work.te_edges[name]:
-        if isinstance(found, _blocks.Blocks):
-            chains = [found.arcs[i] for i in found.te_arcs]
-        elif found.smooth:
-            chains = []
-        else:
-            chains = [found.ids[:, 0].tolist()]
-        represented = {
-            (min(a, b), max(a, b))
-            for chain in chains
-            for a, b in zip(chain, chain[1:], strict=False)
-        }
-        if represented != work.te_edges[name]:
-            found = "the listed trailing-edge edges are not complete grid lines; use remesh"
+        found = _grid_with_complete_te_edges(work, name, found)
     if isinstance(found, str):
-        if spec.keep_first_row:
-            raise _refuse(
-                where, f"keep_first_row applies to a grid and no grid was recovered: {found}"
-            )
-        if spec.method == "grid":
-            raise _refuse(
-                f"{work.source} family {name}",
-                f"method is grid and no grid was recovered: {found}",
-            )
-        _remesh_or_keep(work, name, f"no grid recovered: {found}")
+        _refuse_or_remesh(work, name, found)
         return
     if isinstance(found, _blocks.Blocks):
         if spec.keep_first_row:
@@ -1108,12 +1121,25 @@ def _route_detected_te(work: _Work, stem: str) -> None:
     del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
     wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
     work.sidecar = _replace_key(
-        work.source, work.sidecar, "detect", table["detect"], "file", target, wanted
+        work.source,
+        work.sidecar,
+        "detect",
+        table["detect"],
+        new_key="file",
+        new=target,
+        wanted=wanted,
     )
 
 
 def _replace_key(
-    side: Path, text: str, key: str, old: object, new_key: str, new: str, wanted: dict[str, Any]
+    side: Path,
+    text: str,
+    key: str,
+    old: object,
+    *,
+    new_key: str,
+    new: str,
+    wanted: dict[str, Any],
 ) -> str:
     """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
 

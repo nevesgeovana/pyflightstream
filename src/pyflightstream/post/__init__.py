@@ -29,6 +29,14 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.section_distributions` tables the sectional
   loads and chordwise Cp, one table per recorded pproc distribution.
   Reached through its own module;
+* :mod:`pyflightstream.post.farfield_fields` samples the far-field probe
+  values of one point (the Trefftz C plane and the survey lattice), and
+  :mod:`pyflightstream.post.farfield_products` writes the Trefftz-plane and
+  balance tables of a simulation from them (0.40.0). Reached through their
+  own modules;
+* :mod:`pyflightstream.post.streamlines` writes the off-body streamlines of
+  a point as a legacy VTK polydata file, from the solver's own export
+  (0.40.0). Reached through its own module;
 * :mod:`pyflightstream.post.qsteady` tables a quasi-steady rotor's steady
   clockings and their average, and gives its sections the 1P reduced
   frequency of each station (0.30.0). Reached through its own module;
@@ -142,6 +150,8 @@ module, which is stated rather than left to be discovered:
   point's plots table), :mod:`pyflightstream.post._rotor_products` (a point's
   series and its quasi-steady, harmonic, noise and disc-map products),
   :mod:`pyflightstream.post._additional` (the products of the additional post),
+  :mod:`pyflightstream.post._transfer_functions` (the Bessel functions and the
+  Theodorsen and Sears transfer functions the quasi-steady corrections apply),
   :mod:`pyflightstream.post._products_campaign` (the campaign products'
   context, admission and native surface indexing, AD-23),
   :mod:`pyflightstream.post._settings_product` (the settings table and its

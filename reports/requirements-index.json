@@ -2,8 +2,8 @@
  "source": "docs/unpublished/requirements",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 471,
-  "total": 471,
+  "cited_by_a_test": 479,
+  "total": 479,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -1657,7 +1657,7 @@
   },
   {
    "id": "FR-210",
-   "text": "- Refused, nothing changed: an unknown kind; no archived copy, naming where it was looked for; a stamp no copy carries, naming the stamps there are; archives of several matrices and none named; a copy that is not readable JSON, or a manifest copy that is not a list of records; a restore of any kind while runs.json.lock is held, as during a sync, or while the restored record's own lease is held. - The writers of the storage record, the products record, the plan receipt and the additional-post record do not archive their file yet, so for those kinds the copies found are the ones a restore made.",
+   "text": "- Refused, nothing changed: an unknown kind; no archived copy, naming where it was looked for; a stamp no copy carries, naming the stamps there are; archives of several matrices and none named; a copy that is not readable JSON, or a manifest copy that is not a list of records; a restore of any kind while runs.json.lock is held, as during a sync, or while the restored record's own lease is held. - Storage, plan and additional records are archived on every write. Products are archived only when pyfs-matrix post --archive is used (FR-397); without it, a restore can find only copies made by another archive operation.",
    "priority": "M",
    "status": "implemented",
    "evidence": "",
@@ -2129,7 +2129,7 @@
   },
   {
    "id": "FR-293",
-   "text": "Before a matrix's plan.json is rewritten, by a plan or by a rename, and before a post rebuild removes and rewrites the matrix's products.json, the previous file shall be copied to post/<matrix>/archive/<stamp>/<name>, the form restore plan and restore products read. A plan of a campaign with no matrix, which keeps its plan at the workspace root, is not archived, since no restore kind reads it.",
+   "text": "Before a matrix's plan.json is rewritten, by a plan or by a rename, the previous file shall be copied to post/<matrix>/archive/<stamp>/<name>. A post rebuild archives products only when pyfs-matrix post --archive is given (FR-397). A plan of a campaign with no matrix, which keeps its plan at the workspace root, is not archived, since no restore kind reads it.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: P0320-RESTORE-ARCHIVE, GEO-066 2.3 item 1; products.json used to be removed before a rebuild (ARCHITECTURE.md 5.9). Evidence: tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_the_plan, ::test_p0320_restore_archive_the_products_record_is_archived_not_removed.*",
@@ -3268,7 +3268,7 @@
    "text": "Plan: PFS-2080.08 (0.39.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, a versioned file with a machine overlay read over it, and the acceptance stated by either of two routes. Verification: test, tests/tier1_offline/test_p0390_r03.py.*",
+   "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, and a versioned file with a machine overlay read over it. The 0.40.0 amendment restricts acceptance to the typed flag and the local executable build entry. Verification: test, tests/tier1_offline/test_p0390_r03.py.*",
    "verification": "test"
   },
   {
@@ -3373,6 +3373,70 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P5-Q1 to P5-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_fsiext.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-470",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, questions G-Q2 to G-Q4, G-Q12 to G-Q14). Verification: test, tests/tier1_offline/test_p0400_geometry_instruction.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-471",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q3 to G-Q8). Verification: test, tests/tier1_offline/test_p0400_geometry_build.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-472",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q9). Verification: test, tests/tier1_offline/test_p0400_geometry_sweep.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-473",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q6, G-Q7, G-Q8, G-Q11). Verification: test, tests/tier1_offline/test_p0400_geometry_plan.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-474",
+   "text": "Plan: PFS-2081.13 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decisions of 2026-10-12 (P1-Q1, P1-Q2, and the geometry stage that receives them). Verification: test, tests/tier1_offline/test_p0400_geometry_operations.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-475",
+   "text": "Plan: PFS-2081.14 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decisions of 2026-10-12 (P2-Q1 to P2-Q4, and G-Q12 of the geometry stage). Verification: test, tests/tier1_offline/test_p0400_geometry_cad.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-476",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q1, option A). Verification: test, tests/tier1_offline/test_p0400_geometry_migration.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-477",
+   "text": "Plan: PFS-2081.41 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q10). Verification: test, tests/tier1_offline/test_p0400_geometry_group.py.*",
    "verification": "test"
   },
   {

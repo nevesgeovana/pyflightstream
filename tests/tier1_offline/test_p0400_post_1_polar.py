@@ -1,8 +1,9 @@
-"""P0400-UNJUDGEDDRAG (PFS-2085.021): on a 26.125 table the declined-drag rule is said to be off.
+"""P0400-DECLINED125 (PFS-2085.021): a declined surface on 26.125 prints CDp 0 and is warned.
 
-The rule reads CDi, which a 26.125 export does not print, so a surface on the
-vorticity induced-drag list got numbers in its axis drag columns and nothing
-said the rule could not be applied.
+RPT-166 (D-01, D-01c): on 26.125 a surface with no trailing edge on the vorticity
+induced-drag list prints CDp exactly 0, as earlier builds print CDi 0. The rule
+reads CDi, which a 26.125 export does not print, so such a surface got numbers
+in its axis drag columns and nothing said the solver had not computed them.
 """
 
 from __future__ import annotations
@@ -14,22 +15,38 @@ import pytest
 
 from tests.tier1_offline.test_pfs2006_declined_induced_drag import _EVERY_BOUNDARY
 
+_B_CDP = "+0.0000333"
 
-@pytest.mark.parametrize((), [pytest.param(id="P0400-UNJUDGEDDRAG")])
-def test_p0400_unjudgeddrag_is_said_in_the_post_log(tmp_path, monkeypatch):
-    """P0400-UNJUDGEDDRAG: every point of a 26.125 polar with listed surfaces is warned."""
+
+def _log_of(tmp_path, monkeypatch, *, b_printed_at_zero: bool) -> list[str]:
     import tests.tier1_offline.test_post_superfile as sf
 
     setup = copy.deepcopy(sf._SOLVER_SETUP)
     setup["flags"]["SET_VORTICITY_DRAG_BOUNDARIES"] = dict(_EVERY_BOUNDARY)
     assert sf._LOADS.count("CL, CDi, CDo,") == 1
-    monkeypatch.setattr(sf, "_LOADS", sf._LOADS.replace("CL, CDi, CDo,", "CL, CDp, CDv,"))
+    loads = sf._LOADS.replace("CL, CDi, CDo,", "CL, CDp, CDv,")
+    if b_printed_at_zero:
+        assert loads.count(_B_CDP) == 1
+        loads = loads.replace(_B_CDP, "+0.0000000")
+    monkeypatch.setattr(sf, "_LOADS", loads)
     monkeypatch.setattr(sf, "_SOLVER_SETUP", setup)
     workspace = sf._workspace(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         sf._post(workspace)
     log = (workspace.products_dir("matriz") / "post.log").read_text(encoding="utf-8")
-    said = [line for line in log.splitlines() if "26.125 split" in line]
-    assert len(said) >= 2, log
-    assert all("W, B are on the vorticity induced-drag list" in line for line in said), said
+    return [line for line in log.splitlines() if "CDp exactly 0" in line]
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0400-DECLINED125")])
+def test_p0400_declined125_a_listed_surface_at_cdp_zero_is_warned(tmp_path, monkeypatch):
+    """P0400-DECLINED125: every point warns, naming the surface and the build 26.125."""
+    said = _log_of(tmp_path, monkeypatch, b_printed_at_zero=True)
+    assert len(said) >= 2, said
+    assert all("build 26.125" in line and "exactly 0 for B, on the" in line for line in said), said
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0400-DECLINED125")])
+def test_p0400_declined125_a_listed_surface_with_a_cdp_is_not_warned(tmp_path, monkeypatch):
+    """P0400-DECLINED125: a listed surface printing a real CDp was computed, so no warning."""
+    assert _log_of(tmp_path, monkeypatch, b_printed_at_zero=False) == []

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+    warn,
+)
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
@@ -72,7 +77,10 @@ from pyflightstream.workspace._matrix_binding import (
     _solver_from_setup,
     condition_defaults_origin,
 )
-from pyflightstream.workspace.flight_condition import resolve_flight_condition
+from pyflightstream.workspace.flight_condition import (
+    pinned_state_mismatch,
+    resolve_flight_condition,
+)
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import (
     PprocArtifact,
@@ -1187,6 +1195,7 @@ def _states_per_point(
     if len(points) < 2 or all(stated == stated_per_point[0] for stated in stated_per_point):
         return {}
     states: dict[str, PointState] = {}
+    mismatches: list[str | None] = []
     for point, stated in zip(points, stated_per_point, strict=True):
         resolved = resolve_flight_condition(
             stated,
@@ -1195,6 +1204,7 @@ def _states_per_point(
             defaults=defaults,
             defaults_origin=defaults_origin,
         )
+        mismatches.append(pinned_state_mismatch(resolved, pol=row.pol))
         states[point_state_key(point)] = PointState(
             mach=resolved.mach,
             velocity=resolved.velocity_m_per_s,
@@ -1216,7 +1226,14 @@ def _states_per_point(
                 (resolved.defaults_origin or "") if resolved.defaulted else ""
             ),
         )
+    _warn_pinned_states(mismatches)
     return states
+
+
+def _warn_pinned_states(mismatches: Iterable[str | None]) -> None:
+    """Warn each distinct pinned-state mismatch once (0.40.0); refuse nothing."""
+    for message in dict.fromkeys(message for message in mismatches if message):
+        warn(message, PyflightstreamWarning, stacklevel=2)
 
 
 def _additional_pprocs(
@@ -1674,6 +1691,10 @@ def _bind_states(binding: _Binding, row: MatrixRow, update: dict[str, object]) -
             defaults_origin=condition_defaults_origin(row.set_code),
         )
         binding.conditions[row.pol] = resolved
+        # 0.40.0: a fully pinned state that disagrees with p = rho R T is
+        # warned about once per row; a swept row warned per point above.
+        if not update["point_states"]:
+            _warn_pinned_states([pinned_state_mismatch(resolved, pol=row.pol)])
         # The three the case already has fields for. The rest of the
         # state -- density, temperature, viscosity, the length it was
         # measured against and WHICH branch produced the density --

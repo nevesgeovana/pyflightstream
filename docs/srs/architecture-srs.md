@@ -1448,7 +1448,7 @@ bodies and those under `TYPE_CHECKING` included.
 - `post/disc_maps.py`, in the post row, imports `_errors`, `_tokens`,
   `post._tables`, `post.axes` and `post.harmonics`. It tables a rotor's
   sectional load over its disc.
-- `post/inflow_tools.py`, in the post row, imports `_decimal`, `_errors`,
+- `post/inflow_tools.py`, in the post row, imports `_decimal`, `_deprecations`, `_errors`,
   `_textio` and `cases.qsteady`. It writes a product table in the installed frame and the
   blade-view harmonics of a custom inflow.
 - `post/qsteady_noise.py`, in the post row, imports only `_errors` from this
@@ -1479,8 +1479,8 @@ never decides it.
 
 The two ways back to a lost or overwritten `runs.json` are kept apart.
 `pyfs-matrix restore` puts back an archived copy of a records file byte for
-byte (the manifest, the storage record, the additional-post record, a
-matrix's products record or its plan receipt), previewing until applied,
+byte (the manifest, the storage record, the additional-post record, the
+products record of a matrix or its plan receipt), previewing until applied,
 archiving the current file first so a restore can be undone, and writing
 under the leases a sync holds, refusing while one writes. The writers of
 the storage record, the additional-post record and the plan receipt archive the
@@ -2200,3 +2200,220 @@ families are all grids loads neither.
 
 A workspace without either settings file parses every command exactly as
 0.38.0 did, and the refinement modules keep the layering rule of 0.38.0.
+
+## The 0.40.0 additions and their limits
+
+0.40.0 adds modules to four existing rows (`farfield`, `probes`, `cases` with
+`workspace`, and `run`) and no new row. The order of the stack is unchanged:
+`post` and `qa`, then `run`, then `workspace`, then `cases`, then `script` and
+`results`, then `commands`, then `versions`, then the floors; the `fsi` side
+branch keeps its place. Where the section names what a module imports, it names
+every `pyflightstream` module the file imports at any depth, deferred and
+annotation-only imports included. The layering rules of 0.40.0 stated under the
+architectural rules above (the private cross-package imports frozen by a
+shrink-only ratchet, AD-24) apply to every module below; the subsystems here
+add no rule of their own beyond the seams named in each.
+
+### The far-field family and the probes home
+
+`pyflightstream.farfield` is a facade over a numpy core with no input or output
+(FR-450 to FR-453, FR-457, FR-458). The modules, from the floor up:
+
+- `farfield/fields.py` holds the sampled fields of a survey (`LatticeFields`,
+  `PlaneFields`) and `FarfieldInputError`. It imports `_errors` and, under
+  `TYPE_CHECKING` only, `probes.lattice`.
+- `farfield/quadrature.py` holds every plane, ring and strip rule once
+  (FR-450 R1). It imports `farfield.fields`.
+- `farfield/balances.py` computes the mass, momentum, swirl and crossflow-energy
+  balances of a survey lattice (FR-38). It imports `farfield.fields` and
+  `farfield.quadrature`.
+- `farfield/trefftz.py` computes the Trefftz-plane variants: A and B from a
+  discrete trace, C from a probe plane (FR-451 to FR-453). It imports
+  `farfield.balances`, `farfield.fields` and `farfield.quadrature`.
+- `farfield/__init__.py` is the facade, off the G8 table. It imports
+  `farfield.balances`, `farfield.fields`, `farfield.quadrature`,
+  `farfield.trefftz` and `_retired_names`; its module `__getattr__` refuses the
+  retired names `lattice_dataset`, `rothalpy` and `irreversible_deficit` through
+  `_retired_names.retired_attribute`, naming the replacement (FR-457, FR-458).
+  `xarray` is no longer a runtime dependency (NFR-06 amended).
+
+The plan half lives in `cases`. `cases/_farfield_spec.py` is the input model of
+the pproc `[farfield]` table and the lattice shape of `[[probes]]`; it imports
+`cases.pproc` and `probes.lattice`. `cases/farfield_inputs.py` is the one
+resolver of what each analysis needs (`reused`, `added`, `not_applicable`,
+`refused`, FR-455), called by the plan and by the post; it imports
+`cases._farfield_spec`. `cases/workflows/_farfield.py` emits what the plan adds
+(a section distribution, the wake in the VTK export, the plane or lattice as
+probe points); it imports the sibling modules `_frames`, `_names` and `_rows`
+and `_errors`, `_mesh`, `cases`, `cases._farfield_spec`,
+`cases.farfield_inputs`, `commands`, `probes.geometry`, `probes.layouts` and
+`script`.
+
+The post half is a step of the post pipeline. `post/farfield_fields.py` samples
+the fields and writes nothing; it imports `_errors`, `_fsm`, `_lengths`,
+`cases`, `cases._farfield_spec`, `farfield`, `probes.lattice`, `probes.layouts`
+and `results.loads`. `post/farfield_products.py` writes the products under
+`farfield/`; it imports `_errors`, `cases`, `cases._farfield_spec`,
+`cases.farfield_inputs`, `farfield`, `post._condition`, `post._sim`,
+`post._tables`, `post.axes`, `post.farfield_fields`, `post.polar`,
+`post.section_distributions`, `results.loads`, `results.sectional_loads` and
+`results.wake`. `results/wake.py` reads the solver's wake VTK file (FR-452);
+it imports `results.core`.
+
+THE PROBES HOME (FR-459). `probes/lattice.py` (`ProbeLattice`, `build_lattice`)
+and `probes/layouts.py` (`line_points`, `rectangle_points`, `circle_points`,
+`lattice_points`, the far-field plane and the probe emitters and writers) are
+the one place probe positions are computed, the arithmetic order kept so every
+recorded output is byte-identical. `probes/lattice.py` imports `probes.errors`.
+`probes/layouts.py` imports `probes.errors`, `probes.lattice`, `script` and
+`script.toggles`. `probes/geometry.py` checks every point against the body at
+plan (a package-added point inside the body is refused, a declared one warned);
+it imports `_errors`, `_mesh`, `extras`, `probes.errors` and `probes.planar`.
+`probes/__init__.py` is a facade, off the G8 table; it imports `probes.errors`,
+`probes.lattice`, `probes.layouts` and `probes.planar`.
+
+The rule this keeps: `farfield` reaches `probes` only under `TYPE_CHECKING`;
+`post` reaches the numerical core through the `farfield` facade; and nothing in
+`farfield` reads or writes a file.
+
+### The geometry stage
+
+`pyfs-workspace geometry` builds, accepts, refines, audits and inventories a
+panel mesh from an instruction file `<name>.geometry.toml` (FR-470 to FR-477).
+The modules:
+
+- `cases/_geometry_instruction.py` is the model of the instruction file; it
+  imports `_lengths`, `cases._ccs` and `cases.mesh`.
+- `cases/_geometry_emit.py` renders the one script a build runs (source,
+  operations, export, no solve), reusing the run's CCS emitter; it imports
+  `cases`, `cases._ccs`, `cases._geometry_instruction`, `cases.ccs_wing`,
+  `cases.mesh`, `commands` and `script`. Its table of evidence-gated commands is
+  described below.
+- `workspace/_geometry_instruction.py` reads the instruction with its files; it
+  imports `_digest`, `_errors`, `cases._ccs`, `cases._geometry_instruction`,
+  `workspace.sidecars` and `workspace.wake_edges`.
+- `workspace/_geometry_build.py` plans a build, runs it through a runner the
+  command line hands it, reads the saved boundaries back, audits them and
+  records `<name>.build.json`; it imports `_textio` of the package root,
+  `_digest`, `_errors`, `_fsm`, `cases._geometry_emit`,
+  `cases._geometry_instruction`, `commands`, `versions`,
+  `workspace._geometry_instruction`, `workspace._geometry_sidecar`,
+  `workspace._geometry_vtk`, `workspace._refine._audit`, `workspace._refine._obj`
+  and `workspace.builds`.
+- `workspace/_geometry_vtk.py` writes the ParaView preview; it imports `_fsm`
+  and `workspace._refine._obj`.
+- `workspace/_geometry_convert.py` writes the instruction of an in-row geometry;
+  it imports `_errors`, `cases._ccs`, `cases._geometry_instruction`,
+  `cases.matrix`, `workspace._geometry_sidecar` and `workspace.sidecars`.
+- `workspace/_geometry_record.py` judges the geometry a row names (a stale body
+  refused; a resaved, unaccepted, audit-failed or other-build one warned) and is
+  called by the matrix binding; it imports `_digest`, `_errors`, `cases._ccs`,
+  `cases._geometry_instruction` and `cases.mesh`.
+- `run/_cli_geometry.py` is the command group. It sits in the `run` row because
+  `build --apply` runs the solver and the executor belongs to `run`; it imports
+  `_errors`, `run._cli_mesh`, `run._executors`, `workspace._geometry_build`,
+  `workspace._geometry_convert`, `workspace.builds` and `workspace.cli`.
+
+THE COMMAND GROUP IS REGISTERED UPWARD-FREE. `run/_cli_geometry.py` calls
+`workspace.cli.register_command_group("geometry", ...)` when it is imported, the
+`run` package imports it so the registration happens when the package loads, and
+`workspace/cli.py` iterates the registered groups without importing `run`: the
+same seam as `register_post_stage`. `workspace` imports no `run` module. The
+`pyfs-matrix` verbs `refine`, `audit-mesh`, `inventory` and `degenerate` remain
+as aliases that warn and name the new home (FR-477 R1).
+
+### Streamlines, SIXDOF and external FSI
+
+These three command-gap capabilities each enter through the workflow rows and
+none adds a layer.
+
+- STREAMLINES (FR-460). The pproc `[streamlines]` table is modelled in
+  `cases/pproc.py` and emitted by `cases/workflows/_streamlines.py` after the
+  solve and before the exports. That module imports the siblings `_frames`,
+  `_gap_evidence`, `_probes`, `_rows` and `_vocabulary`, and `cases`,
+  `cases.pproc` and `script`. `post/streamlines.py` writes the off-body VTK
+  product; it imports `_errors` and `results`.
+- SIXDOF (FR-461). The `unsteady` row key `SIXDOF` names an input file
+  `inputs/sixdof/d<id>.toml`. `cases/sixdof.py` is its model and imports no
+  other `pyflightstream` module. `workspace/sixdof_setup.py` resolves and hashes
+  it; it imports `_errors` and `cases.sixdof`. `cases/workflows/_sixdof.py`
+  emits the motion in the setup phase and the trajectory export; it imports the
+  siblings `_gap_evidence`, `_rows` and `_vocabulary`, and `cases`,
+  `cases.sixdof` and `script`.
+- EXTERNAL FSI (FR-462). An FSI input with `mode = "external"` names the user's
+  structural program and node file. `workspace/fsi_external_setup.py` resolves
+  it; it imports `_errors`, `fsi.errors` and `fsi.external`.
+  `cases/_fsi_external.py` emits the aeroelastic toolbox with its execution
+  command pointed at `pyfs-fsi external`; it imports `cases`,
+  `cases.fsi_workspace`, `commands`, `fsi.external` and `script`.
+  `fsi/external.py` runs the program at every coupling iteration and archives
+  and validates each call; it imports `fsi.errors`, `fsi.nodes` and `fsi.state`.
+
+EVIDENCE-GATED COMMAND EMISSION. A capability whose commands no recorded
+verification covers refuses before a seat is spent, at two places. At plan,
+`cases/workflows/_gap_evidence.py` holds the gated streamline and 6DOF commands
+and refuses, with a `CampaignConfigError` naming every unverified command, before
+the first emission of `_streamlines.py` or `_sixdof.py`; it imports `cases`,
+`commands` and `script`. At build, `cases/_geometry_emit.py` marks the mesh
+operations, the CAD commands and the CCS lofts it used and `workspace/_geometry_build.py`
+refuses to run a script that awaits evidence, while the preview still renders. A
+verified verdict enters through the command database and the gated row then
+plans with no code change.
+
+### The reachability guard
+
+`tests/tier1_offline/test_p0400_reach_guard.py` states the rule that every public
+capability is reached by a static path from the workspace entry points
+(`run.cli.main`, `workspace.cli.main` and the workbook adapter), or is a row of
+a shrink-only register with its reason. The graph is read with `ast` and never
+imported, so it follows imports, `importlib.import_module` and launcher strings,
+and it over-approximates: UNREACHED is the strong verdict.
+
+### The private sibling modules of the size ratchet
+
+Eleven private modules were split out of larger ones to hold the size limits of
+`scripts/arch_metrics.py`. Each sits in the row of its package, is re-exported or
+called by its parent so no import path changes, and reaches only the rows below
+its own.
+
+- `workspace/_free_space.py` in `workspace`: the recipe runner of
+  `pyfs-matrix free-space` and the file helpers it shares with storage; it
+  imports `_progress`, `workspace`, `workspace._links` and `workspace.naming`.
+- `run/_collect_notes.py` in `run`: the small steps of a collect (its log note,
+  its refused points, its clock); it imports `workspace`, `workspace.naming`,
+  `_errors` and `run._step_exports`.
+- `run/_rebuild_summary.py` in `run`: the report lines of `restore` and
+  `rebuild`, re-exported by `run._rebuild`; it imports no other module of the
+  package.
+- `run/_cli_parsers_storage.py` in `run`: the parsers of `space-in-use`,
+  `free-space`, `delete-sims` and `sync`, called by `run._cli_parsers`; it
+  imports `workspace.ledger`.
+- `run/_matrix_warnings.py` in `run`: the warnings `plan_matrix` prints once per
+  matrix, below `run.matrix`; it imports `_errors`, `cases`, `cases.matrix`,
+  `cases.qsteady`, `cases.workflows`, `run`, `workspace`, `workspace.matrix` and
+  `workspace.storage`.
+- `commands/_schema.py` in `commands`: the vocabulary of one command entry (its
+  enums, refusals and typed argument), re-exported by the `commands` package; it
+  imports `_errors`.
+- `script/_arg_checks.py` in `script`: the typed refusals behind `Script.emit`;
+  it imports `_errors` and `commands`.
+- `script/_ledger_tables.py` in `script`: the static command tables and frame
+  placements of the builder; it imports `_lengths` and `commands`.
+- `script/_wake_edge_file.py` in `script`: the parked wake-edge node file, its
+  route names and path checks, imported back into `script.helpers`; it imports
+  `_decimal`, `_digest` and `script`.
+- `post/_transfer_functions.py` in `post`: Bessel functions and the Theodorsen
+  and Sears transfer functions the quasi-steady corrections apply, split out of
+  `post.corrections`; it imports `_errors`.
+- `post/_products_campaign.py` in `post`: the campaign product context,
+  admission and native surface indexing, called by the products facade and never
+  importing it; it imports `_errors`, `cases`, `cases.matrix`, `cases.pproc`,
+  `post._installed_copies`, `post._settings_product`, `post._stage`,
+  `post._tables`, `post.provenance`, `post.series`, `post.superfile`, `results`,
+  `workspace`, `workspace.naming` and `workspace.storage`.
+
+### What 0.40.0 keeps
+
+A matrix without the new row keys, pproc tables or geometry files plans and runs
+exactly as 0.39.0 did. The retired far-field names refuse with a message naming
+the replacement, and every moved layout function keeps its arithmetic order.

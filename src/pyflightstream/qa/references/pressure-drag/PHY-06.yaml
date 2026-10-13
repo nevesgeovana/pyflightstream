@@ -1,0 +1,88 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-06
+fs_version_basis: '26.125'
+updated: '2026-10-12'
+reason: first 26.125 reference, measured 2026-10-12 by pyfs-qa physics on build 10052026 after the Blade1
+  alias and sweep solve-count fixes (reports/physics/PHY-26125_2026-10-12_all-cases.yaml)
+source_report: reports/physics/PHY-26125_2026-10-12_all-cases.yaml
+metrics:
+  delta_CL_a0:
+    value: 0.0007999999999999999
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a0:
+    value: -0.00010000000000000113
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a0:
+    value: -0.0002000000000000001
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CL_a2:
+    value: 0.0013999999999999846
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a2:
+    value: 0.0
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a2:
+    value: -0.0001999999999999988
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CL_a4:
+    value: 0.0021999999999999797
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a4:
+    value: -0.00020000000000000052
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a4:
+    value: -0.0002999999999999947
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CL_a6:
+    value: 0.0030999999999999917
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a6:
+    value: -0.0006000000000000033
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a6:
+    value: -0.00040000000000001146
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  CL_slope_steady_per_rad:
+    value: 4.807402380045173
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CMy_slope_steady_per_rad:
+    value: -1.2040708064674246
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_slope_unsteady_per_rad:
+    value: 4.829461255157709
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CMy_slope_unsteady_per_rad:
+    value: -1.206076158750383
+    warn: 0.02
+    fail: 0.05
+    kind: rel

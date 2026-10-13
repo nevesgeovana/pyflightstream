@@ -743,44 +743,59 @@ def regate(plan: Mapping[str, object] | None, gate: object | None) -> dict[str, 
     )
     moved = False
     for who, block in blocks:
-        entry = block.get("phase_locked")
-        clock = _number(block.get("steps_per_revolution"))
-        period = _number(block.get("period_steps"))
-        for name in _PASSAGE_REDUCTIONS:
-            held = block.get(name)
-            if period is None and isinstance(held, Mapping):
-                period = _number(held.get("period_steps"))
-        if entry is None or clock is None or clock <= 0:
-            continue
-        # A SKIP NO TABLE CURES STANDS: no blade count, no rotor speed. What moves
-        # is an entry that has windows, one a table planned, or a block that at
-        # least knows its passage length.
-        curable = (
-            (isinstance(entry, Mapping) and "windows" in entry)
-            or _from_the_table(entry)
-            or (period is not None and period >= 1)
-        )
-        if not curable:
-            continue
-        if gate is None and not _from_the_table(entry):
-            continue
-        average = block.get("per_blade")
-        if not isinstance(average, Mapping) or not average.get("windows"):
-            average = fresh.get("time_average")
-        stated = average.get("windows") if isinstance(average, Mapping) else None
-        if gate is None and (not stated or period is None or period < 1):
-            continue
-        span = (
-            (int(stated[0][0]), int(stated[-1][1])) if gate is None and stated else (1, int(last))
-        )
-        blades = _number(block.get("blades"))
-        block["phase_locked"] = phase_locked_plan(
-            gate,
-            last_step=int(last),
-            per_revolution=clock,
-            who=who,
-            span=span,
-            period=(clock / blades) if blades is not None and blades > 0 else float(period or 0),
-        )
-        moved = True
+        moved = _regate_block(who, block, fresh, gate, last) or moved
     return fresh if moved else None
+
+
+def _passage_period(block: Mapping[str, object]) -> float | None:
+    """Return the passage length in steps a block records, itself or in a passage reduction."""
+    period = _number(block.get("period_steps"))
+    for name in _PASSAGE_REDUCTIONS:
+        held = block.get(name)
+        if period is None and isinstance(held, Mapping):
+            period = _number(held.get("period_steps"))
+    return period
+
+
+def _regate_block(
+    who: str,
+    block: dict[str, object],
+    fresh: Mapping[str, object],
+    gate: object | None,
+    last: float,
+) -> bool:
+    """Move the phase-locked reduction of one block to the gate; True when it moved."""
+    entry = block.get("phase_locked")
+    clock = _number(block.get("steps_per_revolution"))
+    period = _passage_period(block)
+    if entry is None or clock is None or clock <= 0:
+        return False
+    # A SKIP NO TABLE CURES STANDS: no blade count, no rotor speed. What moves
+    # is an entry that has windows, one a table planned, or a block that at
+    # least knows its passage length.
+    curable = (
+        (isinstance(entry, Mapping) and "windows" in entry)
+        or _from_the_table(entry)
+        or (period is not None and period >= 1)
+    )
+    if not curable:
+        return False
+    if gate is None and not _from_the_table(entry):
+        return False
+    average = block.get("per_blade")
+    if not isinstance(average, Mapping) or not average.get("windows"):
+        average = fresh.get("time_average")
+    stated = average.get("windows") if isinstance(average, Mapping) else None
+    if gate is None and (not stated or period is None or period < 1):
+        return False
+    span = (int(stated[0][0]), int(stated[-1][1])) if gate is None and stated else (1, int(last))
+    blades = _number(block.get("blades"))
+    block["phase_locked"] = phase_locked_plan(
+        gate,
+        last_step=int(last),
+        per_revolution=clock,
+        who=who,
+        span=span,
+        period=(clock / blades) if blades is not None and blades > 0 else float(period or 0),
+    )
+    return True
