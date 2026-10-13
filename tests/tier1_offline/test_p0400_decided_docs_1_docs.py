@@ -38,7 +38,7 @@ def test_p0400_scope_nreq02_names_the_mesh_commands():
 
 
 def test_p0400_refine_out_names_the_python_keyword():
-    """P0400-REFINE-OUT (PFS-2081.06): the page maps refine --out to out_dir of refine_mesh."""
+    """P0400-REFINE-OUT (FR-424, PFS-2081.06): refine --out maps to Python out_dir."""
     text = _page("mesh/reference.md")
     (row,) = [line for line in text.splitlines() if line.startswith("| `--out DIR` | `refine` |")]
     assert "the `out_dir` keyword of `refine_mesh` in Python" in row, row
@@ -56,7 +56,7 @@ def test_p0400_architecture_srs_places_the_0390_modules():
 
 
 def test_p0400_builds_table_covers_every_registered_build():
-    """P0400-BUILDS-TABLE (PFS-2081.12): the run type by build table names every build."""
+    """P0400-BUILDS-TABLE (FR-423, PFS-2081.12): the run type by build table names every build."""
     text = _page("workflow-builds-and-hpc.md")
     (header,) = [line for line in text.splitlines() if line.startswith("| run type |")]
     named = set(re.findall(r"\d{2}\.\d{3}", header))

@@ -25,7 +25,7 @@ from tests.tier1_offline.test_p0390_taglen import _request
 @pytest.mark.parametrize("filename", ["pyfs.toml", "pyfs.local.toml"])
 @pytest.mark.parametrize("key", ["console", "verbose", "log_level", "pproc_warnings"])
 def test_p0400_log_defaults_remedy(tmp_path, filename, key):
-    """P0400-SWEEP-LOG-DEFAULTS: misplaced console keys name the [log] remedy."""
+    """P0400-SWEEP-LOG-DEFAULTS (FR-436): misplaced console keys name the [log] remedy."""
     (tmp_path / filename).write_text(f'[defaults]\n{key} = "normal"\n', encoding="utf-8")
     with pytest.raises(InputArtifactError, match=r"\[log\]"):
         read_workspace_settings(tmp_path)
@@ -34,7 +34,7 @@ def test_p0400_log_defaults_remedy(tmp_path, filename, key):
 @pytest.mark.parametrize("filename", ["pyfs.toml", "pyfs.local.toml"])
 @pytest.mark.parametrize("value", ["true", "false"])
 def test_p0400_acceptance_defaults_refused(tmp_path, filename, value):
-    """P0400-SWEEP-ACCEPTANCE: acceptance belongs to an entry or a typed flag."""
+    """P0400-SWEEP-ACCEPTANCE (FR-436): acceptance belongs to an entry or a typed flag."""
     (tmp_path / filename).write_text(
         f"[defaults]\naccept_unregistered_build = {value}\n", encoding="utf-8"
     )
@@ -44,7 +44,7 @@ def test_p0400_acceptance_defaults_refused(tmp_path, filename, value):
 
 @pytest.mark.parametrize("key,value", [("fs_exe", '"solver.exe"'), ("local", "true")])
 def test_p0400_machine_defaults_local_only(tmp_path, key, value):
-    """P0400-SWEEP-LOCAL-DEFAULTS: machine choices stay in the local overlay."""
+    """P0400-SWEEP-LOCAL-DEFAULTS (FR-436): machine choices stay in the local overlay."""
     path = tmp_path / "pyfs.toml"
     path.write_text(f"[defaults]\n{key} = {value}\n", encoding="utf-8")
     with pytest.raises(InputArtifactError, match="pyfs.local.toml"):

@@ -91,6 +91,7 @@ def test_p0400_review_grid_does_not_fill_a_wake_gap(tmp_path):
 
 @pytest.mark.parametrize("unit", ["MILLIMETER", None])
 def test_p0400_review_shared_target_has_honest_units(tmp_path, unit):
+    """P0400-SHARED-UNITS (FR-432 R3): metres only when import units convert to metres."""
     mesh = sheet_with_strips((("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),))
     src = write_source(tmp_path / "src", "wing", mesh)
     side = src.with_suffix(".boundaries.toml")
@@ -113,6 +114,7 @@ def test_p0400_review_shared_target_has_honest_units(tmp_path, unit):
 @pytest.mark.parametrize("angle", [0, 90, 180])
 @pytest.mark.parametrize("hand", [-1, 1])
 def test_p0400_review_trailing_edge_follows_family_orientation(tmp_path, angle, hand):
+    """P0400-TE-ORIENTATION (FR-430): the sharp trailing edge follows the family direction."""
     from tests.tier1_offline.test_p0390_firstrow import _tube_source
 
     mesh = _tube_source(sharp_le=True)

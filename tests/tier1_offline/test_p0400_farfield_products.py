@@ -284,7 +284,7 @@ def _add_outputs(manifest: Path, sim_id: str, suffixes: tuple[str, ...]) -> None
 
 @pytest.mark.requirement("FR-456")
 def test_p0400_ffout_the_super_file_block(tmp_path):
-    """P0400-FFOUT (FR-456 R9): TOTAL rows only, as CL_T_B, CDI_T_B, E_T_B, after every column."""
+    """P0400-FFOUT (FR-456 R9, NFR-19): the three columns append without renaming others."""
     from tests.tier1_offline.test_post_superfile import _post as post_matrix
     from tests.tier1_offline.test_post_superfile import _superfiles
     from tests.tier1_offline.test_post_superfile import _workspace as matrix_workspace
