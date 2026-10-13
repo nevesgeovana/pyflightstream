@@ -564,7 +564,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "The table is prepared for commit; this lane leaves all artifacts uncommitted "
         "under the requested sandbox constraint.\n",
     ]
-    return "\n".join(lines) + "\n"
+    # One newline at the end of the file, as the end-of-file hook keeps it.
+    return "\n".join(lines).rstrip("\n") + "\n"
 
 
 def main() -> None:
