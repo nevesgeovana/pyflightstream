@@ -852,7 +852,8 @@ def _audit(
     if midpoints:
         te_file = f"{mesh_name}.te.txt"
         write_te(mesh_dir / te_file, unit, numpy.asarray(midpoints, dtype=float))
-    export_unit = variant.instruction.mesh.units if variant.instruction.mesh is not None else unit
+    # The export follows the saved simulation unit, not the source import unit (RPT-170).
+    export_unit = unit
     text, notes = sidecar_text(
         variant.instruction.boundaries, export_unit, te_file, _carried(variant, mesh_name)
     )

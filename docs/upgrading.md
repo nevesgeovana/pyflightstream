@@ -126,6 +126,12 @@ unit-conversion verdict and route comparisons, so a gap of one printed unit
 reports `IMPORT CONVERTS`; `rotation_null.py` resolves the simulation ID from
 the leading token of each point name, for both angle signs.
 
+Geometry builds label their exported OBJ sidecars with `METER`, matching the
+simulation unit set before export even when the source mesh uses another unit.
+If an earlier 0.40.0 preview built a non-metre source, rebuild that geometry
+with `--overwrite` before using its OBJ in a case; its old sidecar may scale
+the exported coordinates incorrectly or fail the trailing-edge audit.
+
 ### Far-field signatures
 
 `pyflightstream.farfield` takes and returns numpy arrays and small frozen

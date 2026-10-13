@@ -105,7 +105,11 @@ def test_p0400_post_help_archive_opt_in():
         "post"
     ]
     help_text = " ".join(post.format_help().split())
-    assert "archived only with --archive" in help_text
+    assert "By default, rebuilds overwrite products in place without an archive." in help_text
+    assert "--archive" in help_text
+    assert "keep the files a rebuild replaces" in help_text
+    assert parser.parse_args(["post"]).archive is False
+    assert parser.parse_args(["post", "--archive"]).archive is True
 
 
 @pytest.mark.parametrize("version", ["25.000", "25.100"])
