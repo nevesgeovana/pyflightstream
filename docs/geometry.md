@@ -162,8 +162,13 @@ rebuild, else from the sidecar of the `[mesh]` source. With a carried
 operation that moves the body; `<name>.te.txt` stays beside the mesh. The
 build prints what it carried over.
 
+FR-471 requires an audit failure to retain the partial folder without
+promotion. The current implementation promotes these outputs before checking
+the failed gates; that implementation gap remains open.
+
 The exit status is 0 when the body is built and audited, 1 when it is built
-and an audit gate failed (the files stay), 2 when the build is refused and
+and an audit gate failed (nothing is promoted; built outputs stay in the
+partial folder for inspection), 2 when the build is refused and
 nothing was written, 3 when the solver or the read-back failed (nothing is
 promoted and the partial folder keeps the script and the log).
 
