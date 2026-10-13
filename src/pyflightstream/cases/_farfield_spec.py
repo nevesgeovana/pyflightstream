@@ -273,7 +273,7 @@ class LedgersSpec(LatticeShape):
     def _the_orders_fit_the_azimuths(self) -> LedgersSpec:
         _unique(list(self.balances), "[farfield.ledgers] balances")
         n_psi = self.build(1.0).n_psi
-        if self.m_max >= n_psi // 2:
+        if 2 * self.m_max >= n_psi:
             raise ValueError(
                 f"m_max = {self.m_max} needs more than {2 * self.m_max} azimuths to avoid "
                 f"aliasing, and the lattice has n_psi = {n_psi}"
