@@ -17,6 +17,7 @@ Run it from the root of a clean checkout of the release::
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import re
@@ -26,8 +27,6 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-if len(sys.argv) == 3 and sys.argv[1] == "--repo":
-    REPO = Path(sys.argv[2]).resolve()
 RECORD = REPO / "guide" / "pdf-release-record.json"
 CHEATSHEET_DIR = "guide/latex-sources/04-cheatsheet"
 SHARED_DIR = "guide/latex-sources/shared"
@@ -133,6 +132,13 @@ def _clean_intermediates() -> None:
 
 def main() -> int:
     """Refuse on a dirty tree, rebuild both PDFs and write the release record."""
+    global REPO, RECORD
+    parser = argparse.ArgumentParser(
+        description="Rebuild the two published PDFs and write the record."
+    )
+    parser.add_argument("--repo", type=Path, default=REPO, help="the clean checkout to build in")
+    REPO = parser.parse_args().repo.resolve()
+    RECORD = REPO / "guide" / "pdf-release-record.json"
     status = _git("status", "--porcelain")
     if status.strip():
         print("refusing: the tree is not clean before the build:\n" + status, file=sys.stderr)
