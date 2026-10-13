@@ -708,11 +708,13 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     wheel_run = next(run for run in runs if "AL+000" in run)
     columns, rows = read_csv_table(folder / rotor)
     axial = dict(rows[runs.index(wheel_run)])
+    # The raised cells keep the table's full precision (six significant figures since
+    # PFS-2081.53), so the offsets are the planted 0.002 and 0.0003 exactly.
     sector = dict(
         axial,
         **{
-            "CT_PROP": f"{float(axial['CT_PROP']) + 0.002:.5f}",
-            "CQ_PROP": f"{float(axial['CQ_PROP']) + 0.0003:.5f}",
+            "CT_PROP": repr(float(axial["CT_PROP"]) + 0.002),
+            "CQ_PROP": repr(float(axial["CQ_PROP"]) + 0.0003),
             "POL": "6003",
         },
     )

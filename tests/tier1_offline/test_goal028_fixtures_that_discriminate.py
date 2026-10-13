@@ -154,7 +154,8 @@ def test_every_row_of_the_written_rotor_table_is_normalised_by_its_own_point(tmp
     _columns, rows = read_csv_table(written)
     assert len(rows) == 2, rows
 
-    assert [row["J_PUSHER"] for row in rows] == ["0.83333", "2.50000"], rows
+    # J is a coefficient column, written at six significant figures (PFS-2081.53).
+    assert [row["J_PUSHER"] for row in rows] == ["0.833333", "2.50000"], rows
     assert [row["RPM_PUSHER"] for row in rows] == ["2400.00000", "1200.00000"], rows
 
     expected = [
