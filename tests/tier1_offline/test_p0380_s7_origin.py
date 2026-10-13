@@ -244,7 +244,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-150": "1b8d2cfc317b641324ef954d7cb49328922241c091e7b48f88f433aa3beb603f",
     "FR-151": "a28ec75640e86f1773e09e5ac6cec31d0e657006540570e31f6ddd49b92daced",
     "FR-152": "34938b2f296f6aedc72b3e0067cbc7b5cf6cb3501355a4ad10387afba599088d",
-    "FR-153": "5e012bf7ab2265bd2a9b196aeccaecfa31439ec34359f111ff9821b0c90b57e0",
+    # amended in 0.40.0 (tecplot-points field format revision line, owner decision of 2026-10-13)
+    "FR-153": "eac819b274dc91e183069bc7a2f7cf13987e20aa4aa8f5d8dd8ec042390dd674",
     "FR-154": "62abc4265d92de42d65dbbe59117b5f95eb50eefd35d84812b4d47d8a5ea03e8",
     "FR-155": "5cfecbbac0ca6e7a1dddbedf79a3424710a5b134ae572ed5fd5698b753cdfe85",
     "FR-156": "ea24cf13a3741972305bb46e1c70a106e71ef9bc85bd3dd2c6d9109a78f36786",
@@ -631,7 +632,8 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
     definitions link by PFS-2081.88 and R8 by PFS-2081.94), FR-46 (the six statuses read as
     the historical set, PFS-2081.82) and FR-79 (the probe-home amendment implemented,
     PFS-2081.86). NFR-06 moves once more with the promotion of its numpy-runtime amendment
-    to implemented and the evidence it cites (PFS-2139.007).
+    to implemented and the evidence it cites (PFS-2139.007). FR-153 follows its 0.40.0
+    revision line for the tecplot-points field format (owner decision of 2026-10-13).
     """
     changed = []
     for page in PAGES:
