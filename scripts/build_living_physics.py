@@ -54,6 +54,12 @@ def canonical(build: str) -> str:
     return f"{build[:2]}.{build[2:]}"
 
 
+def _superseded(path: Path) -> bool:
+    """Whether a physics report's header names the report that replaced it."""
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return isinstance(document, dict) and bool(document.get("superseded_by"))
+
+
 def builds_at_or_after(floor: str) -> dict[str, Path]:
     """Every per-build physics report the floor admits, newest last.
 
@@ -61,11 +67,13 @@ def builds_at_or_after(floor: str) -> dict[str, Path]:
     name. Two reports of one build on that same latest date are REFUSED:
     they differ only by a label (a full run beside a targeted rerun), and
     picking by label order let a rerun of a few cases replace the full run.
+    A report whose header names ``superseded_by`` is history kept beside the
+    report that replaced it, and is not read.
     """
     by_build: dict[str, list[tuple[str, Path]]] = {}
     for path in sorted(PHYSICS.glob("PHY-*.yaml")):
         match = PHY_FILE.match(path.name)
-        if not match:
+        if not match or _superseded(path):
             continue
         build = canonical(match.group(1))
         if build < floor:

@@ -1,6 +1,7 @@
 schema: pyflightstream-physics-report/1
 fs_version: '26.125'
 date: '2026-10-12'
+superseded_by: PHY-26125_2026-10-12_all-cases.yaml
 package_version: 0.39.0
 fs_exe: Flightstream_26125.exe
 fs_exe_sha256: withheld; build 10052026

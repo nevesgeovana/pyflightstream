@@ -135,7 +135,7 @@ def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(
         "wing_Base+100",
     ]
     assert all((item.folder / f"{item.folder.name}.fsm").is_file() for item in built)
-    with pytest.raises(InputArtifactError, match="--parallel 3"):
+    with pytest.raises(InputArtifactError, match=r"parallel \(CLI: --parallel\) 3"):
         apply_geometry_build(plan, runner=_body_runner(), parallel=3, overwrite=True)
 
 

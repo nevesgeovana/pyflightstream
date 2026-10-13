@@ -9,17 +9,18 @@ PFS-2018.06. This page is GENERATED from the per-build physics reports in this f
 
 **It does not judge.** Every verdict below is the one the per-build report already recorded. A case that never ran on a build reads `not run`, which is not a pass.
 
-| case | title | 26.123 |
-|---|---|---|
-| `PHY-01` | NACA wing polar (synthetic NACA 0012, AR 8) | 6 pass |
-| `PHY-02` | Half versus full symmetry equivalence (NACA 0012, AR 8) | 4 pass |
-| `PHY-05` | Rigid unsteady periodic propeller (generic BladeSpec blade) | 4 pass |
-| `PHY-06` | Steady versus unsteady polar equivalence (NACA 0012, AR 8) | 16 pass |
-| `SMI-01` | SMI isolated body (28_B, smallest corpus file) | 3 pass, 1 warn |
-| `SMI-02` | SMI full configuration (31_WBH_IH0, wing-body-tail) | 3 pass, 1 warn |
+| case | title | 26.123 | 26.125 |
+|---|---|---|---|
+| `PHY-01` | NACA wing polar (synthetic NACA 0012, AR 8) | 6 pass | 6 no_reference |
+| `PHY-02` | Half versus full symmetry equivalence (NACA 0012, AR 8) | 4 pass | 4 pass |
+| `PHY-05` | Rigid unsteady periodic propeller (generic BladeSpec blade) | 4 pass | 4 no_reference |
+| `PHY-06` | Steady versus unsteady polar equivalence (NACA 0012, AR 8) | 16 pass | 16 no_reference |
+| `SMI-01` | SMI isolated body (28_B, smallest corpus file) | 3 pass, 1 warn | not run |
+| `SMI-02` | SMI full configuration (31_WBH_IH0, wing-body-tail) | 3 pass, 1 warn | not run |
 
 ## What each build's report said in total
 
 | build | pass | warn | fail | no reference | measured |
 |---|---|---|---|---|---|
 | 26.123 | 36 | 2 | 0 | 0 | 2026-08-17 |
+| 26.125 | 4 | 0 | 0 | 26 | 2026-10-12 |

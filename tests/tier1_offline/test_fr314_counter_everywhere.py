@@ -202,6 +202,58 @@ def _strip_fr321_wake(text: str) -> str | None:
     return WAKE_DEFAULT_LINE.sub("", text, count=1)
 
 
+#: The delete a steady row's probe creation after its solve opens with (0.40.0, the
+#: cases-workflows lane, f6a5626d): probe points persist across solves (RPT-148).
+STEADY_PROBE_DELETE = "START_SOLVER\nDELETE_PROBE_POINTS\nNEW_PROBE_"
+
+
+def _strip_steady_probe_delete(text: str) -> str | None:
+    """The text with the one 0.40.0 steady probe delete removed, or None.
+
+    A steady row whose pproc creates probes after the solve deletes the points
+    first, so its script differs from v0.32.0 by one ``DELETE_PROBE_POINTS``
+    line between ``START_SOLVER`` and the first probe creation, and nothing else.
+    """
+    if text.count(STEADY_PROBE_DELETE) != 1:
+        return None
+    return text.replace(STEADY_PROBE_DELETE, "START_SOLVER\nNEW_PROBE_")
+
+
+#: The fluid block of a row stating a non-standard density (0.40.0, reviews2
+#: PFS-2104.050): its PRESSURE is the ideal-gas pressure of that density and
+#: temperature, where v0.32.0 wrote the standard 101325.0 beside it.
+FLUID_STATE = re.compile(
+    r"^DENSITY (?P<rho>\S+)\nPRESSURE (?P<p>\S+)\nTEMPERATURE (?P<t>\S+)\n", re.MULTILINE
+)
+
+
+def _restore_standard_pressure(text: str) -> str | None:
+    """The text with the one ideal-gas PRESSURE put back to 101325.0, or None.
+
+    Applies only to a single fluid block whose PRESSURE equals DENSITY times the
+    package's gas constant times TEMPERATURE and is not already 101325.0, so a
+    golden that differs from v0.32.0 by anything beside that line still fails.
+    """
+    from pyflightstream._atmosphere import ISA
+
+    blocks = list(FLUID_STATE.finditer(text))
+    if len(blocks) != 1:
+        return None
+    rho, p, temp = (float(blocks[0].group(k)) for k in ("rho", "p", "t"))
+    ideal = rho * ISA.gas_constant_j_per_kg_k * temp
+    if p == 101325.0 or abs(p - ideal) > 1e-9 * ideal:
+        return None
+    start, end = blocks[0].span("p")
+    return text[:start] + "101325.0" + text[end:]
+
+
+def _strip_0400(text: str) -> str | None:
+    """The text with the 0.40.0 differences above undone, or None when neither applies."""
+    restored = _strip_steady_probe_delete(text)
+    pressure = _restore_standard_pressure(restored if restored is not None else text)
+    return pressure if pressure is not None else restored
+
+
 def _admitted(name: str, text: str, digest: str) -> str | None:
     """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
     if _sha(text) == digest:
@@ -240,7 +292,13 @@ def _golden_classes(record: dict) -> tuple[set, set, set, set, set]:
     those that also carry the FR-321 termination line (0.34.0), and the 26.100 rotor rows
     PFS-2088.010 (0.40.0) refuses."""
     requirement = "FR-314"
-    classes: dict[str, set] = {"FR-314": set(), "FR-51": set(), "FR-331": set(), "": set()}
+    classes: dict[str, set] = {
+        "FR-314": set(),
+        "FR-51": set(),
+        "FR-331": set(),
+        "steady-probe": set(),
+        "": set(),
+    }
     fr321 = set()
     refused = set()
     for name, digest in sorted(record["digests"].items()):
@@ -251,6 +309,11 @@ def _golden_classes(record: dict) -> tuple[set, set, set, set, set]:
             refused.add(name)
             continue
         kind = _admitted(name, text, digest)
+        undone = _strip_0400(text) if kind is None else None
+        if undone is not None and _admitted(name, undone, digest) is not None:
+            # The 0.40.0 steady probe delete and ideal-gas pressure, each whole and
+            # alone, then the other admitted differences.
+            kind = _admitted(name, undone, digest) or "steady-probe"
         if kind is None:
             # The FR-321 line first, whole and alone, then the other admitted differences.
             wake = _strip_fr321_wake(text)
