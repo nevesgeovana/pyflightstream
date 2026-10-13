@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1, 0.27.0 item D07: the definition and workflow pages, each guarantee held by a test.
 
 THE OWNER'S SCOPE OF 2026-09-23, item D07: "the definition and workflow pages:
@@ -11,12 +22,11 @@ paragraph and G12's section), ``docs/post-processing-definitions.md`` (the
 additional post, the definition of record) and ``docs/flight-conditions.md``
 (a rotating free stream). This module holds them in four ways:
 
-* :data:`GUARANTEES` names every sentence of guarantee of those sections by a
-  phrase of it, with the tests that hold it. The SENTENCE the phrase sits in
-  must cite each of those tests by name, in backticks, so a sentence that loses
-  its citation, or a citation moved to another sentence, fails here by name;
-* every test any of the three pages cites is a test function of the suite, so
-  a citation cannot outlive its test;
+* :data:`GUARANTEES` maps every sentence of guarantee to the tests that hold it.
+  Under approved Docs Q5, this evidence lives here rather than in published
+  prose. Each phrase must occur in exactly one sentence with nonempty evidence;
+* every test in that map is a test function of the suite, so evidence cannot
+  outlive its test;
 * the two measured results are stated where the guarantee is: T09 (RPT-062) on
   the workflows page and the definition of record, T11 (RPT-060) with the sense
   of all three rates on the flight-conditions page;
@@ -53,7 +63,7 @@ FLIGHT = DOCS / "flight-conditions.md"
 PAGES = (WORKFLOWS, DEFINITIONS, FLIGHT)
 
 #: EVERY SENTENCE OF GUARANTEE of the D07 sections, by a phrase that sits in it
-#: once on its page, and the tests its sentence must cite. A phrase is matched
+#: once on its page, and the tests that hold its sentence. A phrase is matched
 #: on the page with its whitespace collapsed, as a reader sees it.
 GUARANTEES: dict[Path, tuple[tuple[str, tuple[str, ...]], ...]] = {
     WORKFLOWS: (
@@ -359,7 +369,7 @@ def _units(text: str) -> list[str]:
 
 
 def uncited(text: str, guarantees: tuple[tuple[str, tuple[str, ...]], ...]) -> list[str]:
-    """Every guarantee whose phrase is not on the page once, or whose sentence cites too little."""
+    """Every guarantee missing its sentence or its evidence in the private map."""
     units = _units(text)
     problems = []
     for phrase, tests in guarantees:
@@ -367,10 +377,8 @@ def uncited(text: str, guarantees: tuple[tuple[str, tuple[str, ...]], ...]) -> l
         if len(holding) != 1:
             problems.append(f"{phrase!r} sits in {len(holding)} sentences, not one")
             continue
-        (sentence,) = holding
-        missing = [test for test in tests if f"`{test}`" not in sentence]
-        if missing:
-            problems.append(f"{phrase!r}: its sentence cites none of {missing}: {sentence!r}")
+        if not tests:
+            problems.append(f"{phrase!r}: its sentence has no test evidence")
     return problems
 
 
@@ -384,13 +392,13 @@ def _defined_tests() -> set[str]:
 
 @pytest.mark.parametrize("page", PAGES, ids=[page.stem for page in PAGES])
 def test_d07_every_sentence_of_guarantee_cites_the_tests_that_hold_it(page):
-    """THE PROOF OF D07: each sentence of guarantee resolves to a test, named in it."""
+    """D07 under Docs Q5: each guarantee has one sentence and mapped test evidence."""
     problems = uncited(page.read_text(encoding="utf-8"), GUARANTEES[page])
     assert not problems, f"{page.name}:\n  " + "\n  ".join(problems)
 
 
 def test_d07_every_test_the_pages_cite_is_a_test_of_the_suite():
-    """A citation that outlived its test is a guarantee held by nothing."""
+    """A mapped citation that outlived its test is a guarantee held by nothing."""
     defined = _defined_tests()
     assert len(defined) > 1000, f"only {len(defined)} tests were read; the walk is broken"
     stray = {
@@ -399,31 +407,30 @@ def test_d07_every_test_the_pages_cite_is_a_test_of_the_suite():
     }
     stray = {name: tests for name, tests in stray.items() if tests}
     assert not stray, f"the pages cite tests the suite does not define: {stray}"
-    cited = {name for page in PAGES for name in _CITED.findall(page.read_text(encoding="utf-8"))}
     registered = {test for entries in GUARANTEES.values() for _, tests in entries for test in tests}
-    assert registered <= cited, sorted(registered - cited)
+    assert registered <= defined, sorted(registered - defined)
+    assert all(tests for entries in GUARANTEES.values() for _, tests in entries)
 
 
 def test_d07_the_citation_check_can_see_a_citation_lost():
-    """The witness: the workflows page with one citation removed fails the check, by its phrase."""
+    """Deleting a guarantee or its mapped evidence fails, even without public locators."""
     text = WORKFLOWS.read_text(encoding="utf-8")
     assert not uncited(text, GUARANTEES[WORKFLOWS]), "the control is not clean"
+    phrase = "an extraction that finds the original changed is recorded failed"
     lost = re.sub(
-        r"\s\(`test_g12_an_original_that_changes_during_the_extraction_fails_it`\)", "", text
+        r"an extraction that\s+finds the original changed is recorded failed",
+        "an extraction is recorded",
+        text,
     )
     assert lost != text, "the page no longer reads as expected"
     problems = uncited(lost, GUARANTEES[WORKFLOWS])
     assert len(problems) == 1 and "the original changed" in problems[0], problems
-    # And a citation moved into the NEXT sentence is not the sentence's own.
-    moved = re.sub(
-        r"never writes a probe\s+\((`test_g12_the_additional_script_never_solves_and_never_saves`)"
-        r"\)\. The copy is",
-        r"never writes a probe. The copy is (\1)",
-        text,
-    )
-    assert moved != text, "the page no longer reads as expected"
-    problems = uncited(moved, GUARANTEES[WORKFLOWS])
-    assert len(problems) == 1 and "never writes a probe" in problems[0], problems
+    missing = tuple((p, () if p == phrase else tests) for p, tests in GUARANTEES[WORKFLOWS])
+    problems = uncited(text, missing)
+    assert len(problems) == 1 and "no test evidence" in problems[0], problems
+    # A second occurrence cannot silently bind the evidence to the wrong sentence.
+    problems = uncited(text + f"\n\n{phrase}.\n", GUARANTEES[WORKFLOWS])
+    assert len(problems) == 1 and "2 sentences" in problems[0], problems
 
 
 def _flat(path: Path) -> str:
@@ -443,8 +450,10 @@ def test_d07_the_workflows_page_and_the_definition_state_the_t09_result():
     ):
         assert phrase in workflows, phrase
     definitions = _flat(DEFINITIONS)
-    for phrase in ("the licensed probe T09 on 26.124", "by up to 4 percent in speed", "RPT-062"):
+    for phrase in ("the licensed probe T09 on 26.124", "by up to 4 percent in speed"):
         assert phrase in definitions, phrase
+    assert "RPT-062" not in definitions  # Docs Q5: the report locator stays here.
+    assert len(list((REPO / "reports").glob("RPT-062_*.md"))) == 1
 
 
 def test_d07_the_flight_conditions_page_states_the_measured_sense_of_all_three_rates():
@@ -456,14 +465,27 @@ def test_d07_the_flight_conditions_page_states_the_measured_sense_of_all_three_r
         for cells in [[cell.strip() for cell in line.strip("|").split("|")]]
     }
     expected = {
-        "`roll_rate`": ("`ROTATION <frame> X -6.667`", "T11, RPT-060"),
-        "`pitch_rate`": ("`ROTATION <frame> Y 6.667`", "RPT-052"),
-        "`yaw_rate`": ("`ROTATION <frame> Z -6.667`", "T11, RPT-060"),
+        "`roll_rate`": (
+            "`ROTATION <frame> X -6.667`",
+            "The roll-and-yaw-rate measurement",
+            "RPT-060",
+        ),
+        "`pitch_rate`": (
+            "`ROTATION <frame> Y 6.667`",
+            "The rotating-free-stream measurement",
+            "RPT-052",
+        ),
+        "`yaw_rate`": (
+            "`ROTATION <frame> Z -6.667`",
+            "The roll-and-yaw-rate measurement",
+            "RPT-060",
+        ),
     }
-    for rate, (line, source) in expected.items():
+    for rate, (line, source, report) in expected.items():
         assert rate in rows, f"the page's table has no row for {rate}"
         assert rows[rate][2] == line and rows[rate][4] == source, rows[rate]
         assert "positive" in rows[rate][3], rows[rate]
+        assert len(list((REPO / "reports").glob(f"{report}_*.md"))) == 1
 
 
 # ------------------------------------------------------------ the rendering --

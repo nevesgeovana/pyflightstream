@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: wording pins of the main didactic refusals.
 
 Pipeline role: quality gate on the didactic policy (CONTRIBUTING.md item 8:
@@ -658,6 +669,27 @@ def test_the_diagnosis_carries_every_channel_and_not_the_first_one_it_finds():
 # --- the class: a library refusal never names a flag ALONE -------------------
 
 
+def _is_cli_module(module: Path) -> bool:
+    """Recognize the CLI entry points and their split command adapters."""
+    return module.name.endswith("cli.py") or module.stem.startswith("_cli_")
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("cli.py", True),
+        ("_cli_geometry.py", True),
+        ("_cli_mesh.py", True),
+        ("_cli_query_point.py", True),
+        ("geometry.py", False),
+        ("_geometry_build.py", False),
+        ("client.py", False),
+    ],
+)
+def test_the_library_refusal_walk_distinguishes_cli_adapters(name, expected):
+    assert _is_cli_module(Path(name)) is expected
+
+
 def _library_refusals_naming_a_flag() -> list[tuple[str, str, str]]:
     """Return every raise site under src/ whose message carries a --flag.
 
@@ -673,7 +705,7 @@ def _library_refusals_naming_a_flag() -> list[tuple[str, str, str]]:
     src = Path(__file__).resolve().parents[2] / "src"
     found: list[tuple[str, str, str]] = []
     for module in sorted(src.rglob("*.py")):
-        if module.name.endswith("cli.py"):
+        if _is_cli_module(module):
             continue
         tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
         for node in ast.walk(tree):

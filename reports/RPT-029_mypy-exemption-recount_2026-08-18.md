@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:20:00-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [release/0.40.0, integC integration evidence]
+authority: pyflightstream
+status: active
+confidentiality: internal
+change_summary: Align guards and measurements with release intent.
+revision_source: git
+-->
+
 # RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24, 2026-09-02, 2026-09-09 and 2026-09-29)
 
 > **Amended before this file was ever committed, and the amendment is the
@@ -130,17 +143,17 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 165 errors in 13 files (checked 344 source files)
->     Success: no issues found in 344 source files
+>     Found 165 errors in 13 files (checked 343 source files)
+>     Success: no issues found in 343 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-13: 165 errors in 13 of 344 modules.**
+**mypy recount 2026-10-13: 165 errors in 13 of 343 modules.**
 
 The quoted top block and the sentence above are the 2026-10-13 run recorded
-in the dated section at the end. The module total is the 344 of the 0.40.0 tree, forty-eight
+in the dated section at the end. The module total is the 343 of the 0.40.0 tree, forty-seven
 modules more than the 296 of 0.39.0, each clean and none exempted, with 165 errors in thirteen
 dirty modules: three exempted modules (`pyflightstream.farfield`,
 `pyflightstream.fsi.driver`, `pyflightstream.script.entities`) are clean now and their overrides
@@ -470,11 +483,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 165 errors in 13 files (checked 344 source files)
+    Found 165 errors in 13 files (checked 343 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 344 source files
+    Success: no issues found in 343 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1334,3 +1347,15 @@ across 344 source files. `cases/restart_records.py` is the additional clean modu
 relative to the preceding 343-module record. No exemption grew. The current
 summary and reproduction outputs above now quote this measurement; the preceding
 dated narrative is history, not a claim that this lane was clean.
+
+
+## Integration lane integC recount (2026-10-13)
+
+The memory-gated `scripts/mypy_recount.py` measured clean HEAD `266e255a`
+before this lane's edits. With overrides off: 165 errors in 13 files
+(checked 343 source files). With the shipped configuration: no issues
+found in 343 source files. Folding `cases.restart_records` into
+`cases.windows` in e5a48e33 removed the extra clean module counted by integD.
+The current summary and quoted output now reflect this fresh measurement.
+No exemption or error total changes. The integD narrative above remains
+history. Raw evidence: integC-mypy.log, maintained with the integration receipt.

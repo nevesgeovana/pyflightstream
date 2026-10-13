@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:20:00-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [release/0.40.0, integC integration evidence]
+authority: pyflightstream
+status: active
+confidentiality: internal
+change_summary: Align guards and measurements with release intent.
+revision_source: git
+-->
+
 # Flight conditions
 
 A run states the flow condition it wants, and the package resolves the
@@ -237,9 +250,9 @@ that very line in the licensed probes
 
 | rate | positive is | emitted for +40 deg/s | the solver's answer to that line | measured by |
 |---|---|---|---|---|
-| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | T11,  |
-| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate |  |
-| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | T11,  |
+| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | The roll-and-yaw-rate measurement |
+| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate | The rotating-free-stream measurement |
+| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | The roll-and-yaw-rate measurement |
 
 **What the solver does with a positive angular velocity is not documented by
 any edition of the manual**, so the sense was MEASURED on FlightStream 26.124,

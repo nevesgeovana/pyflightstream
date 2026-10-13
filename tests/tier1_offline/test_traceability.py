@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:20:00-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [release/0.40.0, integC integration evidence]
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Align guards and measurements with release intent.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: requirement markers resolve, and the covered set only grows.
 
 REV-002 finding PYFS-020, which is NFR-13 itself. The published
@@ -100,7 +111,9 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: mark FR-92 and FR-102. Compared with 6ee5e247, no live marked id left the set.
 #: Four work-item labels were corrected or removed: none was a requirement,
 #: and the coefficient-format regressions have no defined requirement to mark.
-MARKED_FLOOR = 235
+#: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks FR-477 on
+#: the four tests that falsify each geometry alias's replacement and deadline.
+MARKED_FLOOR = 236
 
 
 def _marked() -> dict[str, list[str]]:
@@ -241,7 +254,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-10-13: 165 errors in 13 of 344 modules, the 0.40.0 tree (forty-eight
+#: mypy recount 2026-10-13: 165 errors in 13 of 343 modules, the 0.40.0 tree (forty-seven
 #: modules more than 0.39.0, each clean, and pyflightstream.farfield, pyflightstream.fsi.driver
 #: and pyflightstream.script.entities clean, so they left the set); 2026-10-11 read 159 in 16 of
 #: 296, the 0.39.0 tree (three modules more, workspace/_settings_file.py and two
