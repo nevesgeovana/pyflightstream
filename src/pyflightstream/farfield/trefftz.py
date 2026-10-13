@@ -732,7 +732,7 @@ def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float
     Returns
     -------
     float
-        Largest absolute stagnation-pressure residual divided by dynamic pressure.
+        Integrated Betz-Maskell diagnostic in N over the total-pressure deficit region.
     """
     u, v, w, p_prime = plane["u"], plane["v"], plane["w"], plane["p_prime"]
     deficit = -p_prime - 0.5 * rho * (u * u + v * v + w * w - v_inf * v_inf)

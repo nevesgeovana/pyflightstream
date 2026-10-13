@@ -169,12 +169,12 @@ def parse_wake_export(text: str) -> WakeExport:
 
 
 def _read_points(rows: Iterator[str], words: list[str]) -> np.ndarray:
-    count = int(words[1])
+    count = _counts(words, 1)[0]
     return _numbers(_tokens(rows, 3 * count, "POINTS"), "POINTS", float).reshape(count, 3)
 
 
 def _read_lines(rows: Iterator[str], words: list[str]) -> np.ndarray:
-    cells, size = int(words[1]), int(words[2])
+    cells, size = _counts(words, 2)
     if size != 3 * cells:
         raise MalformedOutputError(
             f"the wake export's LINES state {cells} segments in {size} values; a wake "
@@ -187,7 +187,8 @@ def _read_lines(rows: Iterator[str], words: list[str]) -> np.ndarray:
 
 
 def _read_values(rows: Iterator[str], words: list[str], segments: np.ndarray | None) -> np.ndarray:
-    if segments is None or int(words[1]) != len(segments):
+    count = _counts(words, 1)[0]
+    if segments is None or count != len(segments):
         raise MalformedOutputError(
             f"the wake export declares CELL_DATA {words[1]} for "
             f"{0 if segments is None else len(segments)} segments"
@@ -215,7 +216,8 @@ _REFUSED_BLOCKS = {
 
 def _point_data(rows: Iterator[str], words: list[str], points: np.ndarray | None) -> None:
     """Consume the solver's redundant X, Y and Z point scalars, checking their counts."""
-    if points is None or int(words[1]) != len(points):
+    count = _counts(words, 1)[0]
+    if points is None or count != len(points):
         raise MalformedOutputError("the wake export's POINT_DATA count differs from POINTS")
     for name in ("X", "Y", "Z"):
         scalar = next(rows, "").split()
@@ -226,6 +228,25 @@ def _point_data(rows: Iterator[str], words: list[str], points: np.ndarray | None
         if not next(rows, "").strip().upper().startswith("LOOKUP_TABLE"):
             raise MalformedOutputError(f"the wake export's {name} scalar needs LOOKUP_TABLE")
         _numbers(_tokens(rows, len(points), name), name, float)
+
+
+def _counts(words: list[str], number: int) -> list[int]:
+    """Validate a block's nonnegative integer counts before consuming its payload."""
+    if len(words) < number + 1:
+        raise IncompleteOutputError(
+            f"the wake export's {words[0]} header is truncated; it needs {number} count(s)"
+        )
+    try:
+        counts = [int(value) for value in words[1 : number + 1]]
+    except ValueError as error:
+        raise MalformedOutputError(
+            f"the wake export's {words[0]} header needs nonnegative integer counts"
+        ) from error
+    if any(value < 0 for value in counts):
+        raise MalformedOutputError(
+            f"the wake export's {words[0]} header needs nonnegative integer counts"
+        )
+    return counts
 
 
 def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

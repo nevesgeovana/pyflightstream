@@ -346,6 +346,7 @@ def plane_values(
     flow: tuple[float, float, float, float],
     grid: tuple[float, float, float],
     per_m: float,
+    q_ref: float,
 ) -> dict[str, float]:
     """Return the Trefftz C values of a wing's plane, in N and m (FR-453 R1, R2, R5, R6).
 
@@ -364,6 +365,8 @@ def plane_values(
         Plane half width, half height and spacing, all in m.
     per_m : float
         Number of native simulation length units per metre.
+    q_ref : float
+        Recorded reference dynamic pressure in Pa, the basis of ``Cp_ref``.
 
     Returns
     -------
@@ -395,12 +398,11 @@ def plane_values(
             "point's free stream"
         )
     turned = samples.velocity[block] @ laid.axes.T
-    q = 0.5 * rho * speed * speed
     fields = {
         "u": turned[:, 0].reshape(shape),
         "v": turned[:, 1].reshape(shape),
         "w": turned[:, 2].reshape(shape),
-        "p_prime": (samples.cp[block] * q).reshape(shape),
+        "p_prime": (samples.cp[block] * q_ref).reshape(shape),
     }
     plane = plane_fields(laid.y, laid.z, fields)
     drag = plane_induced_drag(plane, rho=rho, v_inf=speed)

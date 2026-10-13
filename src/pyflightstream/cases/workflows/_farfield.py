@@ -334,29 +334,30 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
 
     count = stations if mirror else 2 * stations
     frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
-    indices = [script.resolve_boundary(name, context="far-field section") for name in missing]
     args = {arg.name for arg in script.registry.for_version(script.version)[_SECTION_COMMAND].args}
     sections = spec_sections(case)
-    script.section_blocks.append(
-        {
-            "distribution": len(sections.distributions) + 1,
-            "distribution_families": list(missing),
-            "families": list(missing),
-            "plane": "XZ",
-            "frame": "MRP",
-            "count": count,
-        }
-    )
-    script.emit(
-        _SECTION_COMMAND,
-        frame=frame,
-        plane="XZ",
-        num_sections=count,
-        plot_direction=str(sections.plot_direction),
-        **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
-        surfaces=len(indices),
-        surface_indices=indices,
-    )
+    for offset, name in enumerate(missing, start=1):
+        index = script.resolve_boundary(name, context="far-field section")
+        script.section_blocks.append(
+            {
+                "distribution": len(sections.distributions) + offset,
+                "distribution_families": [name],
+                "families": [name],
+                "plane": "XZ",
+                "frame": "MRP",
+                "count": count,
+            }
+        )
+        script.emit(
+            _SECTION_COMMAND,
+            frame=frame,
+            plane="XZ",
+            num_sections=count,
+            plot_direction=str(sections.plot_direction),
+            **({"include_symmetry": "DISABLE"} if "include_symmetry" in args else {}),
+            surfaces=1,
+            surface_indices=[index],
+        )
 
 
 def spec_sections(case: SimCase) -> Any:
