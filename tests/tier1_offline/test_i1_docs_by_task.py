@@ -70,10 +70,14 @@ def test_the_definition_of_record_is_an_index_under_reference():
     fixture = json.loads(
         (Path(__file__).parent / "data/p0360_doc_slugs.json").read_text(encoding="utf-8")
     )
+    # A retained legacy page is published and kept out of the nav (properdocs.yml not_in_nav).
+    retained = set(site_pages(DOCS)) - set(site_pages(DOCS, in_nav=True))
     expected = {
         Path(definition_page(heading["slug"])).name
         for heading in fixture["definitions"]
-        if heading["level"] == 2 and heading["slug"] != "contents"
+        if heading["level"] == 2
+        and heading["slug"] != "contents"
+        and definition_page(heading["slug"]) not in retained
     }
     assert {family.name for family in families} == expected
     for family in families:

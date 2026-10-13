@@ -50,4 +50,5 @@ def test_p0400_a_count_below_one_is_refused_naming_its_flag(tmp_path, capsys, ar
     with pytest.raises(SystemExit) as raised:
         cli.main([*argv, "--workspace", str(tmp_path)])
     assert raised.value.code == 2
-    assert f"{argv[1]} takes a whole number of at least 1" in capsys.readouterr().err
+    # The parameter beside its flag (test_error_messages: no refusal names a flag alone).
+    assert f"(CLI: {argv[1]}) takes a whole number of at least 1" in capsys.readouterr().err

@@ -338,48 +338,13 @@ def _established_aliases(
     )
 
 
-def _matching_distributions(
+def _geometry_that_settles(
     record: RunRecord,
-    pproc: PprocSpec,
     block: Mapping[str, object],
-    aliases: Mapping[str, Sequence[str]] | None = None,
-    rotors: Mapping[str, RotorBlock] | None = None,
-    literal: frozenset[str] = frozenset(),
-    ownership: bool = False,
-    geometry: Sequence[str] | None = None,
-) -> list[int]:
-    """Match current entries to recorded geometry, never to mutable positions.
-
-    ``geometry`` is the geometry's boundary names in the solver's order,
-    recorded with the run since 0.27.0 or recovered by the geometry's hash
-    (R03 and R04). The names are read ONLY for a block recorded in a common
-    frame, or where ``rotors`` holds the live rotor definitions; a block
-    recorded in a frame spelt like a rotor's (``<alias>_RMRP``,
-    ``<alias>_RMRP<n>``, ``<alias>_SMRP`` and its ``_ORIGINAL`` twin) with
-    no rotor definition in hand is matched as if no geometry were given,
-    because the builder resolved an expanding entry against the reference's
-    rotor families there, never over the names alone. Where they are read, a
-    selection is read by the export builder's own expansion over the names
-    the builder read, so a family stem, a numbered name, ``all`` and the
-    aliases resolve as they did at export, and a word that resolves to
-    nothing (a rotor's name no definition in hand spells) leaves its entry
-    uncertain, a possible owner, and the match refused. A geometry that
-    gives one name to two boundaries is read as no geometry, because the
-    builder leaves that name out and the rest no longer say what a selection
-    held.
-
-    Without it, ``ownership`` says the match assigns a legacy layout's
-    blocks to the recorded pproc's entries, which is a name and a grouping
-    for raw files: there the cuts are the only evidence and a selector
-    resolves over them. Integration is never matched that way, whoever
-    asks: it adds computed numbers, so a selector is knowable only by exact
-    recorded names, aliases and rotor definitions, and any other word leaves
-    membership uncertain. With the geometry, a block the builder's reading
-    leaves unowned goes by elimination to the one entry that could still
-    have emitted it (such as a rotor's name nothing in hand resolves), and
-    to no entry where two could.
-    """
-    literal = literal | _literal_frames(pproc)
+    rotors: Mapping[str, RotorBlock] | None,
+    geometry: Sequence[str] | None,
+) -> Sequence[str] | None:
+    """Return the geometry's names where they can settle a selection, else None."""
     if geometry is not None and boundary_labels(list(geometry))[1]:
         # A NAME TWO BOUNDARIES CARRY SETTLES NOTHING (the pre-push read of
         # block 3, both lenses). The builder leaves such a name out of its
@@ -432,6 +397,52 @@ def _matching_distributions(
         # export, whatever the names say, and with no rotor definition in hand
         # nothing here can tell which reading ran. The match is 0.26.0's.
         geometry = None
+    return geometry
+
+
+def _matching_distributions(
+    record: RunRecord,
+    pproc: PprocSpec,
+    block: Mapping[str, object],
+    aliases: Mapping[str, Sequence[str]] | None = None,
+    rotors: Mapping[str, RotorBlock] | None = None,
+    literal: frozenset[str] = frozenset(),
+    ownership: bool = False,
+    geometry: Sequence[str] | None = None,
+) -> list[int]:
+    """Match current entries to recorded geometry, never to mutable positions.
+
+    ``geometry`` is the geometry's boundary names in the solver's order,
+    recorded with the run since 0.27.0 or recovered by the geometry's hash
+    (R03 and R04). The names are read ONLY for a block recorded in a common
+    frame, or where ``rotors`` holds the live rotor definitions; a block
+    recorded in a frame spelt like a rotor's (``<alias>_RMRP``,
+    ``<alias>_RMRP<n>``, ``<alias>_SMRP`` and its ``_ORIGINAL`` twin) with
+    no rotor definition in hand is matched as if no geometry were given,
+    because the builder resolved an expanding entry against the reference's
+    rotor families there, never over the names alone. Where they are read, a
+    selection is read by the export builder's own expansion over the names
+    the builder read, so a family stem, a numbered name, ``all`` and the
+    aliases resolve as they did at export, and a word that resolves to
+    nothing (a rotor's name no definition in hand spells) leaves its entry
+    uncertain, a possible owner, and the match refused. A geometry that
+    gives one name to two boundaries is read as no geometry, because the
+    builder leaves that name out and the rest no longer say what a selection
+    held.
+
+    Without it, ``ownership`` says the match assigns a legacy layout's
+    blocks to the recorded pproc's entries, which is a name and a grouping
+    for raw files: there the cuts are the only evidence and a selector
+    resolves over them. Integration is never matched that way, whoever
+    asks: it adds computed numbers, so a selector is knowable only by exact
+    recorded names, aliases and rotor definitions, and any other word leaves
+    membership uncertain. With the geometry, a block the builder's reading
+    leaves unowned goes by elimination to the one entry that could still
+    have emitted it (such as a rotor's name nothing in hand resolves), and
+    to no entry where two could.
+    """
+    literal = literal | _literal_frames(pproc)
+    geometry = _geometry_that_settles(record, block, rotors, geometry)
     # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
     # OPEN in index order (`_inventory(script)` in cases/workflows/_names.py).
     exact = (
@@ -1039,6 +1050,39 @@ def _wheel_record(sim_dir: Path, record: RunRecord) -> QsteadyRecord | None:
     return quasi if len(quasi.positions) > 1 else None
 
 
+def _clocking_exports(
+    wheel: QsteadyRecord | None,
+    files: list[tuple[int | None, Path]],
+    *,
+    step: int | None,
+    kind: str,
+    stem: str,
+    relatives: Mapping[int, str],
+    skipped: dict[str, str],
+) -> dict[Path, int]:
+    """Append a wheel's further clocking exports to ``files``; return the clocking of each."""
+    clocking_of: dict[Path, int] = {}
+    if wheel is None or not files:
+        return clocking_of
+    own = files[0][1]
+    for position in wheel.positions:
+        clocking = position.index
+        if clocking == 0:
+            continue
+        name = clocking_section_export(position, _RECORDED_KIND[kind])
+        export = None if name is None else own.parent / Path(name).name
+        if export is None or not export.is_file():
+            for relative in relatives.values():
+                skipped[f"{relative}#clocking={clocking}"] = (
+                    f"no {stem}_{kind} export of clocking {clocking}"
+                    + ("" if export is None else f": {export.name} is not on disk")
+                )
+            continue
+        files.append((step, export))
+        clocking_of[export] = clocking
+    return clocking_of
+
+
 def write_section_distributions(
     *,
     sim_dir: Path,
@@ -1255,24 +1299,9 @@ def write_section_distributions(
             files = [(step, end)] if end.is_file() else []
         # 0.31.0: A WHEEL'S FURTHER CLOCKINGS, named by the point's record, after
         # clocking 0 and in their order; the clocking each file is of.
-        clocking_of: dict[Path, int] = {}
-        if wheel is not None and files:
-            own = files[0][1]
-            for position in wheel.positions:
-                clocking = position.index
-                if clocking == 0:
-                    continue
-                name = clocking_section_export(position, _RECORDED_KIND[kind])
-                export = None if name is None else own.parent / Path(name).name
-                if export is None or not export.is_file():
-                    for relative in relatives.values():
-                        skipped[f"{relative}#clocking={clocking}"] = (
-                            f"no {stem}_{kind} export of clocking {clocking}"
-                            + ("" if export is None else f": {export.name} is not on disk")
-                        )
-                    continue
-                files.append((step, export))
-                clocking_of[export] = clocking
+        clocking_of = _clocking_exports(
+            wheel, files, step=step, kind=kind, stem=stem, relatives=relatives, skipped=skipped
+        )
         rows: dict[int, list[tuple[object, ...]]] = {k: [] for k in names}
         integrated: dict[int, list[tuple[float, ...]]] = {k: [] for k in names}
         integration_errors = dict(matching_errors)

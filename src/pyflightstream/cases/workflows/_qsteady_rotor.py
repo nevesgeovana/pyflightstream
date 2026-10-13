@@ -280,18 +280,20 @@ def _refuse_what_is_not_the_rotor(
     blades_found = []
     exact = {name.casefold() for name in labels}
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    for member in rotor.members:
-        found = _resolve_token(case, member, labels)
-        owned.update(found)
+    # THE ROTOR'S MEMBERS ARE READ AS A LIST, members and not cells (the decision
+    # of 2026-10-12 on PFS-2029.25): a numbered blade the mesh lacks selects
+    # nothing and is not refused by name here, because the wheel and sector
+    # checks below say what a missing blade means for this run type.
+    members = [str(member) for member in rotor.members]
+    owned.update(labels[name] for name in select_group_members(members, ordered, case.aliases))
+    for member in members:
         # A BLADE IS PRESENT BY ITS OWN NAME, OR BY THE ALIAS THE ROW GIVES IT.
-        # The resolver reads a token ending in a digit as its family too, so
-        # `Blade3` would find `Blade1` on a mesh of two blades; a blade named
-        # with its number must be a label of its own or an alias of the row that
-        # selects a surface (the ownership check above resolves it the same
-        # way), and only a family token (no number) is answered by the family
-        # reading.
+        # A blade named with its number must be a label of its own or an alias
+        # of the row that selects a surface, never a sibling of its family, and
+        # only a family token (no number) is answered by the family reading.
         numbered = member[-1:].isdigit()
         aliased = bool(resolve_alias(member, ordered, case.aliases)) if numbered else False
+        found = () if numbered else _resolve_token(case, member, labels)
         if member in rotor.families_blades and (
             (member.casefold() in exact or aliased) if numbered else bool(found)
         ):

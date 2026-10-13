@@ -315,6 +315,7 @@
 \sub{apply-compat <report>}{promote database statuses from a committed compat report}
 \begin{flags}
 \item \fl{--root DIR} repository root the report is cited against (default \texttt{.})
+\item \fl{--commands-dir DIR} chapter YAML directory to promote into, under \fl{--root} (default \texttt{<root>/src/pyflightstream/commands})
 \end{flags}
 \sub{physics}{run the physics matrix of a workspace, reduce its records, write the physics report}
 \begin{flags}
@@ -341,6 +342,9 @@
 \sub{update-reference <case>}{update or seed one physics reference from a committed physics report}
 \begin{flags}
 \item \fl{--from-report FILE} \textbf{required} \quad \fl{--reason TEXT} \textbf{required}, recorded in the reference
+\item \fl{--root DIR} repository root the report is recorded relative to (default \texttt{.})
+\item \fl{--references-dir DIR} reference directory to write (default: the package's \texttt{qa/references/})
+\item \fl{--drop METRIC} a reference metric the report does not carry, removed deliberately; repeatable
 \end{flags}
 
 \columnbreak

@@ -60,6 +60,9 @@ from pyflightstream.run._rebuild_grouped import (
     simulation_home,
     with_job,
 )
+from pyflightstream.run._rebuild_summary import MINT_REMEDY, NOT_RECOVERABLE_NOTE
+from pyflightstream.run._rebuild_summary import REBUILT as REBUILT
+from pyflightstream.run._rebuild_summary import summary_lines as summary_lines
 from pyflightstream.run._record_files import (
     RecordsError,
     _now_stamp,
@@ -78,20 +81,6 @@ from pyflightstream.workspace.naming import (
 #: over. A folder written more recently stays SUBMITTED, since its job may
 #: still be writing (RST-7); 30 minutes is the window the prototype measured.
 QUIET_WINDOW_S = 1800.0
-
-#: The word every rebuilt record's warning starts with.
-REBUILT = "REBUILT"
-
-#: What to do about a row this version cannot mint again (FR-412 R3).
-_MINT_REMEDY = (
-    "rebuild with the pyflightstream version that ran it, or pass the matrix revision that "
-    "ran (CLI: --matrix FILE)"
-)
-
-_NOT_RECOVERABLE_NOTE = (
-    "do not run `pyfs-matrix run --resume` on a refused simulation: with no record, the "
-    "resume takes it as never run and runs it again"
-)
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +301,7 @@ def _mint(
     if plan.blocked:
         return (
             f"pyflightstream {context.version} refuses this row now, so its record cannot be "
-            f"minted again: {plan.blocked[0].error}; correct the row, or {_MINT_REMEDY}"
+            f"minted again: {plan.blocked[0].error}; correct the row, or {MINT_REMEDY}"
         )
     executor = SubmittingExecutor(
         profile or _stub_profile(),
@@ -341,7 +330,7 @@ def _mint(
     bad = [row for row in rows if row.get("status") != "SUBMITTED"]
     if bad or not rows:
         reason = f"{bad[0].get('status')}: {bad[0].get('error')}" if bad else "no record came out"
-        return f"the package could not mint this row's record again ({reason}); {_MINT_REMEDY}"
+        return f"the package could not mint this row's record again ({reason}); {MINT_REMEDY}"
     scripts = {str(row["script_path"]) for row in rows}
     rendered = "\n".join(
         (shadow / "sims" / f"sim_{sim}" / script).read_text(encoding="utf-8", errors="replace")
@@ -413,7 +402,7 @@ def _mint_one(
             _clear_shadow_run(shadow, sim)
             return (
                 "the package could not mint this row's record again: "
-                f"{type(error).__name__}: {error}; {_MINT_REMEDY}"
+                f"{type(error).__name__}: {error}; {MINT_REMEDY}"
             )
         _clear_shadow_run(shadow, sim)
         if isinstance(attempt, str):
@@ -567,7 +556,7 @@ def _complete_rows(
             out.refused[sim] = str(error)
             return
         except Exception as error:  # noqa: BLE001 - the model's refusal is the reason given
-            out.refused[sim] = f"the rebuilt record does not validate: {error}; {_MINT_REMEDY}"
+            out.refused[sim] = f"the rebuilt record does not validate: {error}; {MINT_REMEDY}"
             return
         done.append(record)
     out.records.extend(done)
@@ -1042,7 +1031,7 @@ def rebuild(
         "waiting_for_matrix": sorted(out_come.waiting),
         "never_ran": out_come.never_ran,
         "build_aliases": dict(out_come.aliases),
-        "notes": notes + ([_NOT_RECOVERABLE_NOTE] if out_come.refused else []),
+        "notes": notes + ([NOT_RECOVERABLE_NOTE] if out_come.refused else []),
     }
     if out_come.changes:
         entry["changes"] = out_come.changes
@@ -1098,69 +1087,6 @@ def rebuild(
         _replace_bytes(manifest, (json.dumps([*rows, *fresh], indent=2) + "\n").encode("utf-8"))
     entry.update(applied=True, written=DEFAULT_MANIFEST)
     return entry
-
-
-def _restore_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` prints for its entry."""
-    lines = [
-        f"restore {entry['kind']}: {entry['source']} -> {entry['target']} (stamp {entry['stamp']})",
-        f"  stamps available: {', '.join(entry['stamps_available'])}",
-    ]
-    if "records" in entry:
-        lines.append(f"  the archived manifest holds {entry['records']} record(s)")
-    if entry["same"]:
-        lines.append("  the current file already holds these bytes; nothing to do")
-    elif entry["applied"]:
-        kept = entry["archived_as"]
-        lines.append("  restored" + (f"; the current file was archived as {kept}" if kept else ""))
-    else:
-        lines.append("  preview only: add --apply to restore it")
-    return lines
-
-
-def summary_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` and ``rebuild`` print for an entry.
-
-    The entry is what :func:`~pyflightstream.run.records.restore` or
-    :func:`rebuild` returned: the lines say what was, or would be, written,
-    and name every refusal. A rebuild's lines end with the count rebuilt and
-    the count refused (FR-412 R3).
-    """
-    if "kind" in entry:
-        return _restore_lines(entry)
-    lines: list[str] = []
-    rebuilt, refused = entry["rebuilt"], entry["refused"]
-    lines.append(
-        f"rebuild: {len(rebuilt)} record(s) rebuilt with pyflightstream "
-        f"{entry['package_version']}, {len(refused)} simulation(s) refused"
-    )
-    for row in rebuilt:
-        lines.append(f"  sim_{row['sim']}: {REBUILT} {row['status']} {row['run_id']}")
-    for sim, reason in refused.items():
-        lines.append(f"  sim_{sim}: NOT RECOVERABLE: {reason}")
-    for run_id in entry["submitted"]:
-        lines.append(f"  SUBMITTED, for pyfs-matrix collect: {run_id}")
-    if entry["waiting_for_matrix"]:
-        lines.append(
-            "  waiting for the matrix revision that ran (--matrix FILE): "
-            + ", ".join(f"sim_{sim}" for sim in entry["waiting_for_matrix"])
-        )
-    for run_id in entry["never_ran"]:
-        lines.append(f"  never ran (no datapoint folder), no record: {run_id}")
-    for line in entry["notes"]:
-        lines.append(f"  note: {line}")
-    for line in entry.get("changes", [])[:30]:
-        lines.append(f"  the workspace changed during the rebuild: {line}")
-    if entry["applied"]:
-        kept = entry["archived_as"]
-        lines.append(
-            f"  wrote {entry['written']}"
-            + (f"; the previous runs.json was archived as {kept}" if kept else "")
-        )
-    else:
-        lines.append(f"  preview only: add --apply to write {entry['target']}")
-    lines.append(f"rebuild: {len(rebuilt)} rebuilt, {len(refused)} refused")
-    return lines
 
 
 def _rebuild_all(

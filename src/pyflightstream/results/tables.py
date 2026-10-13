@@ -98,6 +98,9 @@ from pyflightstream.results.core import (
     reduction_for_solver_mode,
     window_for_reduction,
 )
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.results.core import IncompleteOutputError as IncompleteOutputError
 from pyflightstream.results.exports import (
     FORCE_DISTRIBUTION_COLUMNS,
     OFF_BODY_STREAMLINE_COLUMNS,
@@ -956,33 +959,40 @@ def sweep_table(
             loads = None
         rows.append(_run_row(record, loads))
     if runs_with_loads == 0:
-        successful = [r for r in records if str(r.status) in _RAN_TO_OUTPUTS]
-        if successful:
-            hint = (
-                f"no collected output is named {loads_file!r}"
-                if loads_file is not None
-                else "no collected output parses as a loads spreadsheet"
-            )
-            # THE EXAMPLE IS A RECORD THAT COLLECTED SOMETHING, never simply
-            # the first: on a cluster row the first record is often a point
-            # whose outputs list is empty, and the hint then read "for
-            # example [] for run ..." (PFS-2010.01.04).
-            example = next((r for r in successful if r.outputs), None)
-            pointer = (
-                "Check the exported file name against the recorded outputs, for example "
-                f"{list(example.outputs)!r} for run {example.run_id!r}."
-                if example is not None
-                else "None of them recorded a collected output at all, so check that the "
-                "run exported a loads spreadsheet before checking its name."
-            )
-            complaint = (
-                f"none of the {len(successful)} successful runs yielded a coefficient "
-                f"table: {hint}. {pointer}"
-            )
-            if require_loads:
-                raise LoadsNotFoundError(complaint)
-            warn(complaint, PyflightstreamWarning, stacklevel=2)
+        _complain_no_loads(records, loads_file, require_loads)
     return pd.DataFrame(rows)
+
+
+def _complain_no_loads(records: list, loads_file: str | None, require_loads: bool) -> None:
+    """Raise or warn that no successful run of the sweep yielded a coefficient table."""
+    successful = [r for r in records if str(r.status) in _RAN_TO_OUTPUTS]
+    if not successful:
+        return
+    hint = (
+        f"no collected output is named {loads_file!r}"
+        if loads_file is not None
+        else "no collected output parses as a loads spreadsheet"
+    )
+    # THE EXAMPLE IS A RECORD THAT COLLECTED SOMETHING, never simply
+    # the first: on a cluster row the first record is often a point
+    # whose outputs list is empty, and the hint then read "for
+    # example [] for run ..." (PFS-2010.01.04).
+    example = next((r for r in successful if r.outputs), None)
+    pointer = (
+        "Check the exported file name against the recorded outputs, for example "
+        f"{list(example.outputs)!r} for run {example.run_id!r}."
+        if example is not None
+        else "None of them recorded a collected output at all, so check that the "
+        "run exported a loads spreadsheet before checking its name."
+    )
+    complaint = (
+        f"none of the {len(successful)} successful runs yielded a coefficient "
+        f"table: {hint}. {pointer}"
+    )
+    if require_loads:
+        raise LoadsNotFoundError(complaint)
+    # stacklevel 3: the caller of sweep_table, as it was when this lived inline.
+    warn(complaint, PyflightstreamWarning, stacklevel=3)
 
 
 def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:

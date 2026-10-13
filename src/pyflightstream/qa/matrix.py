@@ -370,6 +370,12 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
     PointResult
         The point's angle of attack, its Total loads row, its iteration count, its label and its
         convergence word.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the record's point has no ``alpha`` axis: a point of unknown incidence
+        cannot be judged.
     """
     if "alpha" not in record.point:
         # PFS-2102.009. Defaulting to 0 deg judged an unknown incidence as
@@ -609,6 +615,22 @@ def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
     return by_case
 
 
+def _require_one_build(records: list, path: Path) -> list[str]:
+    """Return the one requested version of ``records``; refuse a drift of version or binary."""
+    versions = sorted({record.fs_version_requested for record in records})
+    if len(versions) != 1:
+        raise PhysicsEnvironmentError(
+            f"the records of {path.name} name {len(versions)} solver versions "
+            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
+            "builds of one case set is a drift (pyfs-qa drift)."
+        )
+    # PFS-2085.017. One version can be two programs: a rebuilt hotfix
+    # prints the same version, and a resumed run after the registry entry
+    # was repointed records the new binary beside the old one.
+    _check_executable_records(records, path, versions[0])
+    return versions
+
+
 def reduce_physics(
     workspace: CampaignWorkspace,
     matrix: str | Path,
@@ -666,18 +688,11 @@ def reduce_physics(
         raise PhysicsEnvironmentError(
             f"the manifest {workspace.manifest_path} holds no record of {path.name} under "
             f"the campaign name {campaign!r}; run the matrix first (pyfs-qa physics runs "
-            "it, and pyfs-matrix run does), and reduce it under the name it ran with "
-            "(CLI: --name)."
+            "it, and pyfs-matrix run does), and reduce it under the name it ran with, "
+            "name (CLI: --name)."
         )
     records = [record for points in by_row.values() for record in points]
-    versions = sorted({record.fs_version_requested for record in records})
-    if len(versions) != 1:
-        raise PhysicsEnvironmentError(
-            f"the records of {path.name} name {len(versions)} solver versions "
-            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
-            "builds of one case set is a drift (pyfs-qa drift)."
-        )
-    _check_executable_records(records, path, versions[0])
+    versions = _require_one_build(records, path)
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
     for case_id, case in PHYSICS_CASES.items():

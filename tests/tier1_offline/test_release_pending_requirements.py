@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
+
 REPO = Path(__file__).resolve().parents[2]
 PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
 
@@ -79,7 +81,7 @@ def pending_owned(text: str, version: str) -> list[str]:
 
 
 def _live(page: str) -> str:
-    return (REPO / "docs" / "srs" / page).read_text(encoding="utf-8")
+    return (REPO / REQUIREMENTS_DIR / page).read_text(encoding="utf-8")
 
 
 def test_no_requirement_or_amendment_owned_by_this_release_is_pending():

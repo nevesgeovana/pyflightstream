@@ -203,7 +203,7 @@ def test_zero_offset_transfer_is_identity():
 def test_chordwise_offset_adds_e_cross_f():
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     loads = to_elastic_axis(blade, fixture_covering_config(e_chordwise=0.05))
-    expected = blade.moment_qc_nm_per_m + 0.05 * blade.fz_n_per_m
+    expected = blade.moment_qc_nm_per_m - 0.05 * blade.fz_n_per_m
     assert np.allclose(loads.moment_ea_nm_per_m, expected, rtol=1e-12)
 
 

@@ -128,7 +128,10 @@ def test_extracted_product_modules_preserve_the_public_surface():
                     if isinstance(target, ast.Name) and target.id != "__all__"
                 )
         assert defined, f"{module_name} defines no extracted names"
-        for name in sorted(defined):
+        # A module's own private helper (``_bounded_field``, ``_ascii_title``) is
+        # no spelling products ever offered, and products re-exports no private
+        # name through ``X as X`` (P0400-NOPRIVATEREEXPORT, PFS-2098.003).
+        for name in sorted(n for n in defined if not n.startswith("_")):
             product_name = _PRODUCTS_PRIVATE_ALIASES.get(name, name)
             assert hasattr(products, product_name), (
                 f"post.products no longer binds {module_name}.{name}"

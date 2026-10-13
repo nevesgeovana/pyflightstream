@@ -99,13 +99,9 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
                 steps = point["deleted_steps"]
                 shown = f"{steps[0]} to {steps[-1]}" if steps else "none"
                 print(f"    {point['folder']}: steps {shown} ({len(steps)} step(s))")
-            for sim, why in step["refused"].items():
-                print(f"    refused sim {sim}: {why}")
         elif step["mode"] == "compact_sims":
             sims = [str(item["sim_id"]) for item in step["sims"]]
             print(f"  compact_sims: {len(sims)} sim(s) {', '.join(sims)}")
-            for sim, why in step["refused"].items():
-                print(f"    refused sim {sim}: {why}")
         elif step["mode"] == "delete_extensions":
             size = sum(item["bytes"] for item in step["files"])
             print(
@@ -118,6 +114,10 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
                 f"  post_archives ({step['action']}): {len(step['archives'])} folder(s), "
                 f"{human_bytes(size)}"
             )
+        # Every mode that skips a simulation records why, and each is printed
+        # (PFS-2093.006: delete_extensions recorded its refusals and printed none).
+        for sim, why in step.get("refused", {}).items():
+            print(f"    refused sim {sim}: {why}")
         if list_paths:
             _print_free_space_paths(step, entry["applied"])
     if entry["applied"]:

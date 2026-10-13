@@ -393,6 +393,37 @@ def _attributes(
     return found, None
 
 
+def _polygons(
+    path: Path, lines: Iterator[tuple[int, str]], cells: int, size: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Read the ``size`` values of a POLYGONS block; return its offsets and connectivity."""
+    flat = _numbers(lines, size, "POLYGONS")
+    try:
+        raw = np.asarray(flat, dtype=np.int64)
+    except (ValueError, OverflowError) as error:
+        raise MalformedOutputError(
+            f"{path}'s POLYGONS hold an invalid or out-of-range integer"
+        ) from error
+    starts: list[int] = []
+    at = 0
+    for _ in range(cells):
+        if at >= len(raw) or raw[at] < 3:
+            raise MalformedOutputError(
+                f"{path}'s POLYGONS do not add up: {cells} polygons in {size} values"
+            )
+        starts.append(at)
+        at += int(raw[at]) + 1
+    if at != size:
+        raise MalformedOutputError(
+            f"{path}'s POLYGONS state {size} values and their polygons hold {at}"
+        )
+    sizes = raw[np.asarray(starts, dtype=np.int64)]
+    offsets = np.concatenate(([0], np.cumsum(sizes))).astype(np.int64)
+    keep = np.ones(len(raw), dtype=bool)
+    keep[np.asarray(starts, dtype=np.int64)] = False
+    return offsets, raw[keep]
+
+
 def read_vtk_surface(source: str | Path) -> VtkSurface:
     r"""Read a surface solution the solver exported as VTK legacy ASCII polydata.
 
@@ -467,31 +498,7 @@ def read_vtk_surface(source: str | Path) -> VtkSurface:
             points = _floats(_numbers(lines, 3 * count, "POINTS"), "POINTS").reshape(count, 3)
         elif keyword == "POLYGONS":
             cells, size = _stated(path, text, line, 1), _stated(path, text, line, 2)
-            flat = _numbers(lines, size, "POLYGONS")
-            try:
-                raw = np.asarray(flat, dtype=np.int64)
-            except (ValueError, OverflowError) as error:
-                raise MalformedOutputError(
-                    f"{path}'s POLYGONS hold an invalid or out-of-range integer"
-                ) from error
-            starts: list[int] = []
-            at = 0
-            for _ in range(cells):
-                if at >= len(raw) or raw[at] < 3:
-                    raise MalformedOutputError(
-                        f"{path}'s POLYGONS do not add up: {cells} polygons in {size} values"
-                    )
-                starts.append(at)
-                at += int(raw[at]) + 1
-            if at != size:
-                raise MalformedOutputError(
-                    f"{path}'s POLYGONS state {size} values and their polygons hold {at}"
-                )
-            sizes = raw[np.asarray(starts, dtype=np.int64)]
-            offsets = np.concatenate(([0], np.cumsum(sizes))).astype(np.int64)
-            keep = np.ones(len(raw), dtype=bool)
-            keep[np.asarray(starts, dtype=np.int64)] = False
-            connectivity = raw[keep]
+            offsets, connectivity = _polygons(path, lines, cells, size)
         elif keyword in ("VERTICES", "LINES", "TRIANGLE_STRIPS"):
             raise MalformedOutputError(
                 f"{path} carries {keyword}; a surface export carries POLYGONS alone, and a "
@@ -1036,6 +1043,135 @@ def _translation_auxdata(path: Path) -> dict[str, str]:
     return found
 
 
+def _surface_pairs(where: Path, vtk: str, dat: str) -> list[tuple[str, str]]:
+    """Return the (vtk, dat) pair of a translation, then those of its stamped exports."""
+    pairs: list[tuple[str, str]] = [(vtk, dat)]
+    source = Path(vtk)
+    stamped: list[tuple[int, str, str]] = []
+    if where.is_dir():
+        for candidate in where.iterdir():
+            if candidate.suffix != source.suffix:
+                continue
+            matched = _STAMP.match(candidate.stem)
+            if matched is None or matched.group("stem") != source.stem:
+                continue
+            step = int(matched.group("step"))
+            stamped.append((step, *stamped_translation(vtk, dat, step)))
+    pairs += [(one, other) for _, one, other in sorted(stamped)]
+    return pairs
+
+
+def _preserved_native_surface(
+    where: Path,
+    one: str,
+    other: str,
+    native_name: str,
+    *,
+    placed: SurfaceFrame,
+    copies: int | None,
+    previous_artifacts: Mapping[str, object],
+) -> tuple[str | None, dict[str, object] | None]:
+    """Check a ``.dat`` found beside its native source; return (problem, recorded artifact)."""
+    aux = _translation_auxdata(where / other)
+    valid = (
+        aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
+        and aux.get("SOURCE_NATIVE_TECPLOT_SHA256") == file_sha256(where / native_name)
+        and aux.get("SOURCE_FRAME") == f"the analysis loads frame, {placed.describe()}"
+    )
+    previous = previous_artifacts.get(other)
+    if valid and not isinstance(previous, Mapping):
+        # A header alone proves no data. Reconstruct expected bytes in
+        # isolation, without replacing the existing user-visible file.
+        try:
+            with tempfile.TemporaryDirectory(prefix="pyfs-surface-proof-") as scratch:
+                previous = translate_vtk_surface(
+                    where / one,
+                    Path(scratch) / Path(other).name,
+                    frame=placed,
+                    native_tecplot=where / native_name,
+                    periodic_copies=copies,
+                )
+        except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+            return f"{other} is preserved: content proof failed: {error}", None
+    if isinstance(previous, Mapping):
+        valid = (
+            valid
+            and previous.get("frame") == placed.record()
+            and previous.get("output_sha256") == file_sha256(where / other)
+        )
+    if not valid:
+        return f"{other} is preserved: source, frame or output provenance changed", None
+    return None, dict(previous) if isinstance(previous, Mapping) else None
+
+
+def _translate_pair(
+    where: Path,
+    one: str,
+    other: str,
+    native_base: object,
+    *,
+    placed: SurfaceFrame,
+    copies: int | None,
+    previous_artifacts: Mapping[str, object],
+) -> tuple[str | None, dict[str, object] | None]:
+    """Write or verify one ``.dat``; return (problem, artifact to record)."""
+    native_name = str(native_base) if native_base is not None else None
+    stamp = _STAMP.match(Path(one).stem)
+    if native_name is not None and stamp is not None:
+        native_name = stamped_translation(native_name, native_name, int(stamp.group("step")))[0]
+    if not (where / one).is_file():
+        return f"{other} was not written: the solver wrote no {one} in {where}", None
+    if native_name is not None and not (where / native_name).is_file():
+        return f"{other} was not written: missing native nodal source {native_name}", None
+    if (where / other).is_file():
+        if native_name is not None:
+            return _preserved_native_surface(
+                where,
+                one,
+                other,
+                native_name,
+                placed=placed,
+                copies=copies,
+                previous_artifacts=previous_artifacts,
+            )
+        # No native source, the default since 0.30.0: the header
+        # the translation wrote must name this VTK and this frame,
+        # or the file is not this translation's and is preserved
+        # as the native branch preserves it, never recorded written.
+        aux = _translation_auxdata(where / other)
+        if not (
+            aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
+            and aux.get("SOURCE_FRAME") == f"the analysis loads frame, {placed.describe()}"
+        ):
+            return f"{other} is preserved: source, frame or output provenance changed", None
+        # Matching source metadata does not prove that the data
+        # survived a partial write or a later edit. Reconstruct
+        # the expected bytes without replacing the existing file.
+        try:
+            with tempfile.TemporaryDirectory(prefix="pyfs-surface-proof-") as scratch:
+                expected = translate_vtk_surface(
+                    where / one,
+                    Path(scratch) / Path(other).name,
+                    frame=placed,
+                )
+        except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+            return f"{other} is preserved: content proof failed: {error}", None
+        if expected["output_sha256"] != file_sha256(where / other):
+            return f"{other} is preserved: source, frame or output provenance changed", None
+        return None, None
+    try:
+        result = translate_vtk_surface(
+            where / one,
+            where / other,
+            frame=placed,
+            native_tecplot=None if native_name is None else where / native_name,
+            periodic_copies=copies,
+        )
+    except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+        return f"{other} was not written from {one}: {error}", None
+    return None, result
+
+
 def _translate_surface_exports(
     folder: str | Path,
     translations: Sequence[Mapping[str, object]],
@@ -1090,19 +1226,7 @@ def _translate_surface_exports(
             entry.update(written=written, problems=[f"{dat} was not written: {error}"])
             recorded.append(entry)
             continue
-        pairs: list[tuple[str, str]] = [(vtk, dat)]
-        source = Path(vtk)
-        stamped: list[tuple[int, str, str]] = []
-        if where.is_dir():
-            for candidate in where.iterdir():
-                if candidate.suffix != source.suffix:
-                    continue
-                matched = _STAMP.match(candidate.stem)
-                if matched is None or matched.group("stem") != source.stem:
-                    continue
-                step = int(matched.group("step"))
-                stamped.append((step, *stamped_translation(vtk, dat, step)))
-        pairs += [(one, other) for _, one, other in sorted(stamped)]
+        pairs = _surface_pairs(where, vtk, dat)
         artifacts: dict[str, object] = {}
         previous_artifacts = translation.get("artifacts", {})
         previous_artifacts = previous_artifacts if isinstance(previous_artifacts, Mapping) else {}
@@ -1113,108 +1237,20 @@ def _translate_surface_exports(
         copies = translation.get("periodic_copies")
         copies = copies if isinstance(copies, int) and not isinstance(copies, bool) else None
         for one, other in pairs:
-            native_name = str(native_base) if native_base is not None else None
-            stamp = _STAMP.match(Path(one).stem)
-            if native_name is not None and stamp is not None:
-                native_name = stamped_translation(
-                    native_name, native_name, int(stamp.group("step"))
-                )[0]
-            if not (where / one).is_file():
-                problems.append(f"{other} was not written: the solver wrote no {one} in {where}")
+            problem, artifact = _translate_pair(
+                where,
+                one,
+                other,
+                native_base,
+                placed=placed,
+                copies=copies,
+                previous_artifacts=previous_artifacts,
+            )
+            if problem is not None:
+                problems.append(problem)
                 continue
-            if native_name is not None and not (where / native_name).is_file():
-                problems.append(
-                    f"{other} was not written: missing native nodal source {native_name}"
-                )
-                continue
-            if (where / other).is_file():
-                if native_name is not None:
-                    aux = _translation_auxdata(where / other)
-                    valid = (
-                        aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
-                        and aux.get("SOURCE_NATIVE_TECPLOT_SHA256")
-                        == file_sha256(where / native_name)
-                        and aux.get("SOURCE_FRAME")
-                        == f"the analysis loads frame, {placed.describe()}"
-                    )
-                    previous = previous_artifacts.get(other)
-                    if valid and not isinstance(previous, Mapping):
-                        # A header alone proves no data. Reconstruct expected bytes in
-                        # isolation, without replacing the existing user-visible file.
-                        try:
-                            with tempfile.TemporaryDirectory(
-                                prefix="pyfs-surface-proof-"
-                            ) as scratch:
-                                previous = translate_vtk_surface(
-                                    where / one,
-                                    Path(scratch) / Path(other).name,
-                                    frame=placed,
-                                    native_tecplot=where / native_name,
-                                    periodic_copies=copies,
-                                )
-                        except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
-                            problems.append(f"{other} is preserved: content proof failed: {error}")
-                            continue
-                    if isinstance(previous, Mapping):
-                        valid = (
-                            valid
-                            and previous.get("frame") == placed.record()
-                            and previous.get("output_sha256") == file_sha256(where / other)
-                        )
-                    if not valid:
-                        problems.append(
-                            f"{other} is preserved: source, frame or output provenance changed"
-                        )
-                        continue
-                    if isinstance(previous, Mapping):
-                        artifacts[other] = dict(previous)
-                else:
-                    # No native source, the default since 0.30.0: the header
-                    # the translation wrote must name this VTK and this frame,
-                    # or the file is not this translation's and is preserved
-                    # as the native branch preserves it, never recorded written.
-                    aux = _translation_auxdata(where / other)
-                    if not (
-                        aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
-                        and aux.get("SOURCE_FRAME")
-                        == f"the analysis loads frame, {placed.describe()}"
-                    ):
-                        problems.append(
-                            f"{other} is preserved: source, frame or output provenance changed"
-                        )
-                        continue
-                    # Matching source metadata does not prove that the data
-                    # survived a partial write or a later edit. Reconstruct
-                    # the expected bytes without replacing the existing file.
-                    try:
-                        with tempfile.TemporaryDirectory(prefix="pyfs-surface-proof-") as scratch:
-                            expected = translate_vtk_surface(
-                                where / one,
-                                Path(scratch) / Path(other).name,
-                                frame=placed,
-                            )
-                    except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
-                        problems.append(f"{other} is preserved: content proof failed: {error}")
-                        continue
-                    if expected["output_sha256"] != file_sha256(where / other):
-                        problems.append(
-                            f"{other} is preserved: source, frame or output provenance changed"
-                        )
-                        continue
-                written.append(other)
-                continue
-            try:
-                result = translate_vtk_surface(
-                    where / one,
-                    where / other,
-                    frame=placed,
-                    native_tecplot=None if native_name is None else where / native_name,
-                    periodic_copies=copies,
-                )
-            except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
-                problems.append(f"{other} was not written from {one}: {error}")
-                continue
-            artifacts[other] = result
+            if artifact is not None:
+                artifacts[other] = artifact
             written.append(other)
         if native_base is not None:
             entry["artifacts"] = artifacts

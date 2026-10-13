@@ -47,11 +47,6 @@ __all__ = [
     "EXPORT_KINDS",
     "EXPORT_KIND_MEANINGS",
     "EXPORT_KIND_SINCE",
-    "STREAMLINE_KINDS",
-    "TABLE_DECLARED_KINDS",
-    "StreamlineLine",
-    "StreamlineTube",
-    "StreamlinesSpec",
     "OPT_IN_EXPORT_KINDS",
     "PLOT_TYPES",
     "STEADY_ONLY_EXPORT_KINDS",
@@ -2308,17 +2303,20 @@ class PprocSpec(BaseModel):
         for source in sources:
             if source not in names:
                 names.append(source)
-        if self.streamlines is not None:
-            # FR-460 R2: the files the traces are exported to.
-            suffix = {kind: end for kind, end, _, _ in EXPORT_KINDS}
-            traced = [STREAMLINE_KINDS["surface"]] if self.streamlines.surface else []
-            if self.streamlines.off_body:
-                traced.append(STREAMLINE_KINDS["off_body"])
-            for kind in traced:
-                name = f"{{name}}{suffix[kind]}"
-                if name not in names:
-                    names.append(name)
+        for name in self._streamline_exports():
+            if name not in names:
+                names.append(name)
         return names
+
+    def _streamline_exports(self) -> list[str]:
+        """Return the files the streamline traces are exported to (FR-460 R2)."""
+        if self.streamlines is None:
+            return []
+        suffix = {kind: end for kind, end, _, _ in EXPORT_KINDS}
+        traced = [STREAMLINE_KINDS["surface"]] if self.streamlines.surface else []
+        if self.streamlines.off_body:
+            traced.append(STREAMLINE_KINDS["off_body"])
+        return [f"{{name}}{suffix[kind]}" for kind in traced]
 
     def samples_normal_probes(self) -> bool:
         """Whether an unsteady row samples this artifact's probes as NORMAL probe points.

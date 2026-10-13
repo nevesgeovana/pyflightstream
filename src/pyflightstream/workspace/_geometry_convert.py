@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._geometry_instruction import GEOMETRY_PAGE, INSTRUCTION_SUFFIX

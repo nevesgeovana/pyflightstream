@@ -26,7 +26,7 @@ from pyflightstream.cases._geometry_instruction import (
     GeometryInstruction,
     source_names,
 )
-from pyflightstream.workspace.sidecars import _read_trailing_edges, load_toml, obj_boundary_names
+from pyflightstream.workspace.sidecars import load_toml, obj_boundary_names, read_trailing_edges
 from pyflightstream.workspace.wake_edges import (
     matched_trailing_edge_points,
     read_trailing_edge_points,
@@ -195,7 +195,7 @@ def read_geometry_instruction(path: str | Path) -> GeometryInstruction:
         table = data["trailing_edges"]
         if not isinstance(table, dict):
             raise _refuse(path, "[trailing_edges] is not a table")
-        fields["trailing_edges"] = _read_trailing_edges(path, table)
+        fields["trailing_edges"] = read_trailing_edges(path, table)
     try:
         return GeometryInstruction.model_validate(fields)
     except ValidationError as error:

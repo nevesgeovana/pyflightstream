@@ -1329,11 +1329,6 @@ def _judge_the_clockings(
                     f"export {exported.name} was written at iteration "
                     f"{own.current_iteration}, so the residual is not that export's"
                 )
-        note = judged.note
-        if status is RunStatus.COMPLETED_MAX_ITER and _at_the_limit(job, history[-1].iteration):
-            # FR-434, per clocking as for a point's one solve.
-            status = RunStatus.MAX_ITER_REACHED
-            note = _limit_note(note, report.requested_iterations, history[-1].iteration)
         verdict: dict[str, object] = {
             "index": index,
             "clocking_deg": clocking.clocking_deg,

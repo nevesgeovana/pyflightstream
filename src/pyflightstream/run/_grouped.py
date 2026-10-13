@@ -176,9 +176,9 @@ def _read_grouping(
     None with no reason (the caller says the plan holds no grouping); a block
     of another shape or schema is None with the reason, never a traceback.
     """
-    from pyflightstream.workspace import _batches
+    from pyflightstream.workspace._batches import read_grouping
 
-    return _batches.read_grouping(workspace.plan_dir(matrix_stem) / "plan.json")
+    return read_grouping(workspace.plan_dir(matrix_stem) / "plan.json")
 
 
 def _job_ran(root: Path, job: GroupedJob, *, mode: str) -> bool:

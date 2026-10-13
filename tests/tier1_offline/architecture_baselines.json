@@ -3,8 +3,8 @@
  "module_code_lines": {
   "post/corrections.py": 1005,
   "post/input_template.py": 1455,
-  "run/matrix.py": 1279,
-  "workspace/storage.py": 1430
+  "run/matrix.py": 1241,
+  "workspace/storage.py": 1426
  },
  "function_lines": {
   "post/section_distributions.py:_matching_distributions": 328,
@@ -17,12 +17,6 @@
    "branches": 1,
    "statements": 4,
    "positional": 7
-  },
-  "_expressions.py:_check": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 25,
-   "positional": 2
   },
   "_fsm.py:_mesh_block": {
    "complexity": 22,
@@ -138,12 +132,6 @@
    "statements": 49,
    "positional": 5
   },
-  "fsi/driver.py:coupling_step": {
-   "complexity": 20,
-   "branches": 21,
-   "statements": 99,
-   "positional": 1
-  },
   "fsi/nodes.py:NodeOrderingMap._consistent": {
    "complexity": 12,
    "branches": 11,
@@ -235,9 +223,9 @@
    "positional": 4
   },
   "post/probe_fields.py:write_recorded_probe_fields": {
-   "complexity": 32,
-   "branches": 32,
-   "statements": 100,
+   "complexity": 29,
+   "branches": 29,
+   "statements": 96,
    "positional": 4
   },
   "post/products.py:_write_the_products": {
@@ -337,8 +325,8 @@
    "positional": 1
   },
   "post/superfile.py:measure_sections": {
-   "complexity": 15,
-   "branches": 15,
+   "complexity": 14,
+   "branches": 14,
    "statements": 45,
    "positional": 2
   },
@@ -395,12 +383,6 @@
    "branches": 12,
    "statements": 41,
    "positional": 2
-  },
-  "qa/cli.py:_cmd_drift": {
-   "complexity": 15,
-   "branches": 14,
-   "statements": 39,
-   "positional": 1
   },
   "qa/compat.py:_rewrite_version_line": {
    "complexity": 12,
@@ -480,12 +462,6 @@
    "statements": 45,
    "positional": 1
   },
-  "results/native_surface.py:_read_zone": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 31,
-   "positional": 4
-  },
   "results/native_surface.py:_rings": {
    "complexity": 12,
    "branches": 11,
@@ -504,16 +480,10 @@
    "statements": 41,
    "positional": 1
   },
-  "results/surface.py:_translate_surface_exports": {
-   "complexity": 21,
-   "branches": 20,
-   "statements": 78,
-   "positional": 2
-  },
   "results/surface.py:read_vtk_surface": {
-   "complexity": 21,
-   "branches": 22,
-   "statements": 68,
+   "complexity": 17,
+   "branches": 18,
+   "statements": 53,
    "positional": 1
   },
   "results/tables.py:to_table": {
@@ -521,12 +491,6 @@
    "branches": 14,
    "statements": 20,
    "positional": 1
-  },
-  "run/_assemble.py:assemble_records": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 32,
-   "positional": 2
   },
   "run/_continuation_frame.py:_rebuild": {
    "complexity": 3,
@@ -553,9 +517,9 @@
    "positional": 2
   },
   "run/_rebuild.py:_finalise": {
-   "complexity": 12,
-   "branches": 14,
-   "statements": 75,
+   "complexity": 10,
+   "branches": 12,
+   "statements": 68,
    "positional": 6
   },
   "run/_rebuild.py:_mint": {
@@ -603,7 +567,7 @@
   "run/_solver_windows.py:_native_windows": {
    "complexity": 14,
    "branches": 4,
-   "statements": 62,
+   "statements": 48,
    "positional": 1
   },
   "run/cli.py:_cmd_plan": {
@@ -649,9 +613,9 @@
    "positional": 5
   },
   "run/collect.py:_complete_sweep": {
-   "complexity": 16,
-   "branches": 16,
-   "statements": 62,
+   "complexity": 12,
+   "branches": 11,
+   "statements": 56,
    "positional": 4
   },
   "run/collect.py:_log_verdicts": {
@@ -667,9 +631,9 @@
    "positional": 1
   },
   "run/matrix.py:_extract": {
-   "complexity": 13,
+   "complexity": 12,
    "branches": 12,
-   "statements": 51,
+   "statements": 50,
    "positional": 3
   },
   "run/matrix.py:_plan_point": {
@@ -691,9 +655,9 @@
    "positional": 2
   },
   "run/rename.py:_rename_workspace_locked": {
-   "complexity": 25,
-   "branches": 24,
-   "statements": 69,
+   "complexity": 12,
+   "branches": 11,
+   "statements": 31,
    "positional": 1
   },
   "script/__init__.py:Script._render_command": {
@@ -701,24 +665,6 @@
    "branches": 22,
    "statements": 38,
    "positional": 2
-  },
-  "script/__init__.py:Script.emit": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 42,
-   "positional": 1
-  },
-  "script/__init__.py:_check_list": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 16,
-   "positional": 3
-  },
-  "script/__init__.py:_check_scalar": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 21,
-   "positional": 3
   },
   "script/entities.py:EntityRegistry._reject_index": {
    "complexity": 5,
@@ -733,15 +679,9 @@
    "positional": 2
   },
   "script/helpers.py:analysis_setup": {
-   "complexity": 15,
-   "branches": 15,
+   "complexity": 14,
+   "branches": 13,
    "statements": 39,
-   "positional": 1
-  },
-  "script/helpers.py:rotary_motion": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 34,
    "positional": 1
   },
   "script/helpers.py:rotate_surfaces": {
@@ -775,8 +715,8 @@
    "positional": 0
   },
   "script/solver_setup.py:_family_record": {
-   "complexity": 21,
-   "branches": 21,
+   "complexity": 19,
+   "branches": 19,
    "statements": 33,
    "positional": 3
   },
@@ -787,15 +727,15 @@
    "positional": 2
   },
   "utils/cli.py:main": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 34,
    "positional": 1
   },
   "utils/database.py:register_edition": {
-   "complexity": 21,
-   "branches": 21,
-   "statements": 64,
+   "complexity": 16,
+   "branches": 16,
+   "statements": 54,
    "positional": 2
   },
   "utils/manual.py:_parameters_after": {
@@ -918,6 +858,12 @@
    "statements": 47,
    "positional": 1
   },
+  "workspace/_free_space.py:_run_recipe": {
+   "complexity": 25,
+   "branches": 26,
+   "statements": 80,
+   "positional": 4
+  },
   "workspace/storage.py:_products_of": {
    "complexity": 11,
    "branches": 10,
@@ -931,22 +877,10 @@
    "positional": 3
   },
   "workspace/storage.py:_sync_one": {
-   "complexity": 18,
-   "branches": 18,
+   "complexity": 17,
+   "branches": 17,
    "statements": 71,
    "positional": 4
-  },
-  "workspace/storage.py:delete_sims": {
-   "complexity": 21,
-   "branches": 20,
-   "statements": 69,
-   "positional": 2
-  },
-  "workspace/storage.py:free_space": {
-   "complexity": 28,
-   "branches": 29,
-   "statements": 92,
-   "positional": 2
   },
   "workspace/wake_edges.py:read_trailing_edge_points": {
    "complexity": 11,
@@ -1079,12 +1013,6 @@
    "branches": 21,
    "statements": 76,
    "positional": 1
-  },
-  "cases/workflows/_registry.py:build_script": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 30,
-   "positional": 2
   },
   "cases/workflows/_rotor.py:_rotor_motions": {
    "complexity": 6,
@@ -1396,10 +1324,10 @@
  "facade_lines": {
   "__init__.py": 9,
   "cases/__init__.py": 1128,
-  "commands/__init__.py": 1199,
+  "commands/__init__.py": 867,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1954,
+  "script/__init__.py": 1671,
   "workspace/__init__.py": 2021
  },
  "facade_definitions": {
@@ -1605,6 +1533,7 @@
    "order": [
     "cli",
     "_cli_parsers",
+    "_cli_parsers_storage",
     "_cli_print",
     "_cli_query",
     "_cli_query_point",
@@ -1615,11 +1544,13 @@
     "_batch_plan",
     "records",
     "_rebuild",
+    "_rebuild_summary",
     "_rebuild_evidence",
     "_rebuild_grouped",
     "_mark_converged",
     "_assemble",
     "collect",
+    "_collect_notes",
     "_batch_collect",
     "_collect_logs",
     "_record_files",

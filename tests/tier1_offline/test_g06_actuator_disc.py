@@ -171,10 +171,27 @@ def test_g06_a_row_naming_an_actuator_emits_the_disc_before_the_solver_starts(ma
     )
 
 
+def _sweep_points(base):
+    """Three points of a steady row, each exporting to names of its own.
+
+    As the run layer names them (``case_at_point(..., outputs=...)``): a script
+    refuses a second export to one file (PFS-2093.004), so a sweep whose points
+    all carried the row's outputs would be refused before it measured the disc.
+    """
+    return [
+        case_at_point(
+            base,
+            {"alpha": alpha},
+            outputs=[f"point{alpha:g}_{name}" for name in base.outputs],
+        )
+        for alpha in (-2.0, 0.0, 2.0)
+    ]
+
+
 def test_g06_a_steady_sweep_emits_its_disc_once_with_the_setup():
     """A steady row of three points is one script; the disc is the row's, created once."""
     base = _with_disc(steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"))
-    points = [case_at_point(base, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
+    points = _sweep_points(base)
     script = Script("26.124")
     build_steady_sweep(points, script)
     lines = script.render().splitlines()
@@ -421,7 +438,7 @@ def test_g06_a_steady_sweep_names_one_copy_for_its_one_disc(tmp_path):
         actuator_profile=str(user),
         actuators={"PROP": PROP.model_copy(update={"blades": 3})},
     )
-    points = [case_at_point(base, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
+    points = _sweep_points(base)
     script = Script("26.124")
     script.working_dir = str(tmp_path / "sim")
     build_steady_sweep(points, script)

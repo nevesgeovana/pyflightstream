@@ -61,6 +61,7 @@ __all__ = [
     "read_compat_report",
     "read_compat_reports",
     "read_executable_baseline",
+    "resolve_commands_dir",
     "write_compat_report",
 ]
 

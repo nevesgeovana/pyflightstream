@@ -1838,7 +1838,7 @@ def _geometry_kept() -> list[GapProbe]:
 def gap_probes(fsi_standin: Path | None = None) -> tuple[GapProbe, ...]:
     """Return the ordered battery of the 0.40.0 command-gap probes.
 
-    The order is the owner's: P5 probe A first (stage ``first``), then what a
+    The order is fixed: P5 probe A first (stage ``first``), then what a
     saved geometry must keep (``G``), P1, P2, P3 and P4, then the rest of P5,
     which depends on probe A's answer.
 

@@ -674,7 +674,7 @@ def test_the_record_lists_new_modules_under_the_review_size(measured, monkeypatc
 
 
 def test_a_regenerated_record_cannot_hide_growth(measured, records, monkeypatch):
-    # P0330-G7: 500 lines added to the top module and the record regenerated
+    # P0330-G7: 1500 lines added to the top module and the record regenerated
     # from the mutant is still red against the table (QA-S1-17); a module
     # count the record does not state is red; a threshold changed without
     # the first record is red.
@@ -682,7 +682,7 @@ def test_a_regenerated_record_cannot_hide_growth(measured, records, monkeypatch)
     first, newest, _ = records
     top = max(tree.module_code_lines, key=lambda p: tree.module_code_lines[p])
     grown = tree.with_changes(
-        {top: tree.sources[top] + "".join(f"_P{i} = {i}\n" for i in range(500))}
+        {top: tree.sources[top] + "".join(f"_P{i} = {i}\n" for i in range(1500))}
     )
     regenerated = am.metrics(grown, coupling)
     findings = am.record_findings(regenerated, regenerated, BASELINES["metrics"], first)

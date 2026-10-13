@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
+
 REPO = Path(__file__).resolve().parents[2]
 #: Measured on 2026-10-03, opening 0.36.0 development from v0.35.1.
 MYPY_EXEMPT_MODULE_LIMIT = 16
@@ -35,9 +37,7 @@ def test_mypy_exempt_module_count_cannot_grow() -> None:
 
 def test_fr180_evidence_cites_the_per_revolution_test() -> None:
     """P0360-RV-VV-3 (FR-180): its evidence names the existing scale-rule test."""
-    text = (REPO / "docs/unpublished/requirements/functional-requirements.md").read_text(
-        encoding="utf-8"
-    )
+    text = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
     entry = re.search(r'^!!! requirement "FR-180\b.*?(?=^!!! |\Z)', text, re.M | re.S)
     assert entry, "FR-180 is absent from the functional requirements"
     evidence = re.search(r"\bEvidence:\s*(.*?)(?:\n\s*\n|\Z)", entry[0], re.S)
