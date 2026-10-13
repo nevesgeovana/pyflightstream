@@ -1,6 +1,6 @@
 # FSI workspace inputs
 
-The [workspace calibration example] creates
+The [workspace calibration example](examples/workspace_fsi_calibration.md) creates
 complete calculated and supplied inputs for the same synthetic solid blade, then
 checks their equivalence with one explicit matrix factor.
 
@@ -25,8 +25,8 @@ shell, spar, hollow-section, shear-center or second structural model.
 | Workflow | FSI in this release |
 | --- | --- |
 | `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release. |
-| `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route, [below]. |
-| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below], through the structural nodes or, on 26.125, by [direct mesh morphing]. Refused on a whole wheel. |
+| `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route, [below](#fixed-wing-fsi). |
+| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#fixed-wing-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing). Refused on a whole wheel. |
 
 On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
 each structural call the surface is the un-rotated blade carrying the
@@ -129,9 +129,9 @@ chord_m = [1.0, 1.0, 1.0]
 geometric_pitch_deg = [0.0, 0.0, 0.0]
 geometry_source = "Synthetic lens sections about the quarter chord, in metres"
 sections_m = [
- [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
- [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
- [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]]
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]]
 ]
 ```
 
@@ -405,8 +405,8 @@ geometric_pitch_deg = [0.0, 0.0]
 geometry_source = "Synthetic rectangular sections in SI units"
 torsion_grid_cells = 16
 sections_m = [
- [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]],
- [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]]
+  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]],
+  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]]
 ]
 ```
 

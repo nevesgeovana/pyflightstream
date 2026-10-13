@@ -21,10 +21,10 @@ reach it the same way. It holds the list and nothing else:
 # order of the file: how the solver numbers an OBJ's surfaces on import
 #. The package never rewrites this file. Add the [import] table with
 # the file's units, and the [trailing_edges] table, beneath the list
-#.
+# (docs/mesh/how-to.md).
 boundaries = [
- "Wing",
- "Tail",
+    "Wing",
+    "Tail",
 ]
 ```
 
@@ -91,7 +91,7 @@ SET_SIMULATION_LENGTH_UNITS METER
 
 Around the length unit come the operations and the trailing-edge marking the
 same sidecar declares, and the script goes on exactly as it does after
-opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres; after import, the setup's `simulation_length_unit` replaces that default. See [simulation geometry controls].
+opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres; after import, the setup's `simulation_length_unit` replaces that default. See [simulation geometry controls](../simulation-geometry-controls.md).
 the reference area, chord and span, a `TRANSLATE` distance, the frames the
 package places. The run record keeps the table as `mesh_import`, because the
 geometry's digest alone cannot tell a run in millimetres from the same file
@@ -131,7 +131,7 @@ detect = "auto"
 subdivisions and all CAD bodies. The inventory must match the inspected
 converted mesh. `units = "FILE"` uses the source CAD metadata; it is not a
 raw-mesh unit or a scale correction. STEP remains refused. See
-[CAD geometry inputs] for the supported IGES route, explicit
+[CAD geometry inputs](../cad-inputs.md) for the supported IGES route, explicit
 options, unit observations and mesh-quality limitations. OBJ/STL inputs do not
 accept CAD options.
 
@@ -140,7 +140,7 @@ accept CAD options.
 A CCS file is routed by a third table of
 the same `[import]`, `[import.ccs]`, which chooses what the solver builds from
 it. The table's keys, what each kind of geometry reads and what is refused are
-on [CCS geometry]; this page holds only its place in the
+on [CCS geometry](../ccs-geometry.md); this page holds only its place in the
 sidecar.
 
 ```toml
@@ -214,7 +214,7 @@ reads:
 
 ```text
 NEW_SIMULATION
-IMPORT...
+IMPORT ...
 SURFACE_SCALE 1 2.0 2.0 2.0 -1
 SURFACE_RENAME 1 Wing
 SURFACE_MIRROR 1 1 2 TRUE FALSE
@@ -273,9 +273,9 @@ boundaries = ["Wing"]
 units = "METER"
 
 [trailing_edges]
-file = "wing.te.txt" # the points file, beside the sidecar
-type = "STANDARD" # optional: STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING
-tolerance = 0.0001 # optional: in the simulation's metres
+file = "wing.te.txt"   # the points file, beside the sidecar
+type = "STANDARD"      # optional: STANDARD (the default), RELAXED, JET_OUTFLOW, VORTEX_SHEDDING
+tolerance = 0.0001     # optional: in the simulation's metres
 ```
 
 The points are checked against the mesh when the row is bound, converted to
@@ -298,7 +298,7 @@ default:
 
 ```toml
 [trailing_edges]
-detect = { surfaces = ["Wing"], sweep_angle = 60 } # or detect = "auto", every surface
+detect = { surfaces = ["Wing"], sweep_angle = 60 }   # or detect = "auto", every surface
 ```
 
 `detect = "auto"` emits `AUTO_DETECT_TRAILING_EDGES`. A table of `surfaces`
@@ -326,7 +326,7 @@ omission of the table equivalent to this declaration.
 
 ```toml
 [wake_termination]
-detect = { surfaces = ["Wing"] } # or detect = "auto", every surface
+detect = { surfaces = ["Wing"] }   # or detect = "auto", every surface
 
 [base_regions]
 detect = "auto"
@@ -358,6 +358,7 @@ SURFACES -1
 WAKE_TERMINATION_X DEFAULT
 SYMMETRY NONE
 
+...
 START_SOLVER
 ```
 
@@ -436,9 +437,31 @@ parses as a residual history, the log the package's own assessor would find.
 
 ### Which build runs what, and what is measured
 
-| What | Where it stands | Evidence |
-|---|---|---|
-| The file route: the import line, the node file, a file of mid-points | Runs on FlightStream 26.124, the one build it was run on. 26.122 and 26.123 document a form 26.124 refuses, and are refused naming the report; a build that does not carry the command is refused too. On the steady point measured, that order made the file route equal the other routes; an unsteady run takes the same order and is not measured. On the geometry tried before, neither command changed the saved state. The file route in millimetres and other builds are not measured; on the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. One manifest field is not a file digest and is named here so
+| What | Where it stands |
+|---|---|
+| The file route: the import line, the node file, a file of mid-points | Runs on FlightStream 26.124, the one build it was run on. 26.122 and 26.123 document a form 26.124 refuses, and are refused naming the report; a build that does not carry the command is refused too. |
+| What the file marks | Exactly the edges it names, since initialisation adds none. |
+| What detection marks | An edge where the surface creases, so the angle decides: on 26.124 a blade detected with the default angle marked 12 edges, and with 10 degrees 3 of them. |
+| `[base_regions]` | On 26.124 it marked the flat base of a body, the same faces the by-surface form marks when given the base boundary. |
+| `[wake_termination]` | On 26.124 the automatic form marked the root end of a twisted blade, on the detection route and on the file route between two initializations; right after a file import neither form marked anything. On the steady point measured, that order made the file route equal the other routes; an unsteady run takes the same order and is not measured. On the geometry tried before, neither command changed the saved state. |
+| The mesh operations | Not measured after an import: the grammar is the manual's, and the vertex split is carried over from the row's translation, where it was measured. |
+| `IMPORT`'s unit | Converts on 26.124: a wing OBJ in millimetres, trailing edge detected, equalled the one in metres to the print (above). The file route in millimetres and other builds are not measured; on the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. |
+| The surface names | An OBJ's are read from its groups in file order, the order `IMPORT` numbers them in; an STL's, which names no group, are trusted, not verified. |
+
+### What that content hash is, and what it leaves out
+
+Stated here because this page is where a user is told to trust it, and a
+checksum whose rule is unstated cannot settle the question it exists for: two
+people holding what they believe is the same input file must be able to tell
+whether they really do.
+
+**The algorithm is sha256, and there is no other.** Every digest this library
+writes into a manifest comes from `pyflightstream._digest`, which holds the
+algorithm as a value rather than as a sentence, so a tier 1 test spends it and
+a second algorithm cannot arrive quietly.
+
+**The canonical form is the raw bytes of the staged file**, read in blocks and
+never decoded. One manifest field is not a file digest and is named here so
 the rule is not over-read: `recipe_sha256` records the recipe function's
 SOURCE, and a source text is hashed as its UTF-8 encoding, which is the second
 canonical form `pyflightstream._digest` states.
@@ -457,7 +480,7 @@ endings on one machine and LF on another is two different files carrying two
 different digests. That is the digest being correct about the file rather than
 wrong about the content: the solver reads the file, not an idea of it. A
 `.fsm` artifact is binary and has no such ambiguity, which is a further reason
-the [supported pattern] treats it as immutable. Where a comparison has to survive a
+the [supported pattern](how-to.md#the-supported-pattern) treats it as immutable. Where a comparison has to survive a
 line-ending change, compare the parsed geometry rather than the manifest
 digest.
 
@@ -537,7 +560,7 @@ boundaries it lists did not change, unless `--overwrite` is given too. To
 clean every geometry of a workspace kept one per folder:
 
 ```text
-for d in inputs/geometries/*/; do n=$; f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done
+for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done
 ```
 
 **The plan warns too.** `pyfs-matrix plan` reads the geometry of
@@ -552,14 +575,14 @@ warnings.
 
 This section is the reference of `pyfs-matrix refine` and `pyfs-matrix
 audit-mesh`; the walk-through is
-[Refining or coarsening a mesh].
+[Refining or coarsening a mesh](how-to.md#refining-or-coarsening-a-mesh).
 
 ### The two commands
 
 ```text
 pyfs-matrix refine MESH [FACTOR] [--families A,B] [--chordwise F] [--spanwise F]
- [--config FILE] [--keep-first-row FAMILY[,FAMILY...]]
- [--out DIR] [--overwrite]
+                   [--config FILE] [--keep-first-row FAMILY[,FAMILY...]]
+                   [--out DIR] [--overwrite]
 pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 ```
 
@@ -940,14 +963,18 @@ Each of these is imported from `pyflightstream.workspace`.
  when it is a fan of triangles around one pole node or a zipper. Give any other
  cap a family of its own in the pre-processor and merge it back with
  `[components]`, as in
- [A solid blade kept structured by dummy families].
+ [A solid blade kept structured by dummy families](how-to.md#a-solid-blade-kept-structured-by-dummy-families).
 - **A grid that shares nodes with an earlier grid is remeshed.** Grid families
  are refined in the source's family order; a later grid that shares nodes with
  an earlier one is remeshed, or refused naming both under `method = "grid"`.
 - **Offline verification, not validation.** The tests verify the geometry of a
  level offline. Whether a level gives the solver the result of a mesh made at
  that size in the pre-processor is a licensed comparison, reported for one
- READING a
+ rotor case.
+
+## Mesh format policy
+
+The library's mesh seam is deliberately narrow: OBJ in and out. READING a
 mesh is a runtime capability through trimesh, because the
 trailing-edge extraction sits on the default path of a rotor campaign and a
 capability behind an extra makes the library promise what a default install

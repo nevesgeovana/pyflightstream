@@ -16,15 +16,15 @@ origin = [1.0, 0.0, 0.0]
 
 [PROP]
 kind = "actuator"
-frame = "HUB" # the frame the disc's axis belongs to
-axis = "X" # X, Y or Z of that frame
-offset_m = 0.0 # along the axis, from the frame's origin
+frame = "HUB"          # the frame the disc's axis belongs to
+axis = "X"             # X, Y or Z of that frame
+offset_m = 0.0         # along the axis, from the frame's origin
 tip_radius_m = 0.5
-hub_radius_m = 0.1 # 0 <= hub < tip
-rpm_sign = 1 # +1 the right-hand rule about axis, swirling as a rotor of +1 turns
-blades = 3 # needed by a row stating PROFILE
-swirl = 0.8 # optional: the fraction of the swirl velocity kept downstream
-profile_units = "NEWTONS" # the force unit a profile file is written in
+hub_radius_m = 0.1     # 0 <= hub < tip
+rpm_sign = 1           # +1 the right-hand rule about axis, swirling as a rotor of +1 turns
+blades = 3             # needed by a row stating PROFILE
+swirl = 0.8            # optional: the fraction of the swirl velocity kept downstream
+profile_units = "NEWTONS"   # the force unit a profile file is written in
 ```
 
 ```text
@@ -52,7 +52,7 @@ line:
 `pyfs-workspace profile` writes this file for you, from a POL's
 written sections or as the uniform or the Betz-Prandtl shape, scaled to a
 thrust or a CT, as `inputs/profiles/<stem>.csv` with its provenance record:
-see [actuator-disc profiles].
+see [actuator-disc profiles](actuator-profiles.md).
 
 Save it as any editor saves it. The solver is never handed your file: the run
 writes its own copy, `<stem>.actuator_profile.txt`, in the folder the point
@@ -155,7 +155,7 @@ naming both.
 
 ### What the disc was measured to do on 26.124
 
-A research study of the disc on 26.124, summarised in
+A research study of the disc on 26.124 (build 8172026)
 measured five things a reader would not assume. They are stated here with the
 case they were measured on; on another build they are unmeasured.
 
@@ -165,7 +165,7 @@ rotation about the block's `axis` by the right-hand rule, as for a rotor block.
 The script hands `SET_PROP_ACTUATOR_RPM` minus the block's sign times the
 row's speed, because a disc handed plus swirled against a rotor of the same
 `rpm_sign` on 26.124 and a disc handed minus swirled with it. The
-[migration record]
+[migration record](upgrading.md#older-layouts)
 explains how to update a study that used the older sign convention.
 
 **THE SWIRL IS ONE GLOBAL FACTOR.** The block's `swirl` is one global factor,
@@ -175,7 +175,10 @@ number and no command imposes a swirl profile, so a disc cannot be given the
 radial swirl of a bladed rotor.
 
 **ELLIPTICAL PLACED 0.62 OF THE THRUST ASKED IN THE WAKE.** On the one case
- This is a measured value, not a
+measured on 26.124, a disc loaded by `ACTUATOR_THRUST` (the ELLIPTICAL
+model) carried 0.62 of the thrust asked as axial momentum flux four radii
+downstream, at the thrust asked and at twice it alike, where the CUSTOM
+profiles carried 0.95 to 1.04 of it. This is a measured value, not a
 guaranteed one: the solver's elliptical definition is not readable from the
 manual, and a study that needs the thrust in the wake loads the disc by a
 profile.
@@ -185,7 +188,14 @@ block states `wake_type = "RELAXED"` gave the same wake for every loading
 profile and for the ELLIPTICAL model, and carried about half of the thrust
 asked as axial momentum flux four radii downstream. This is a measured value,
 not a guaranteed one. The plan warns on a row whose RELAXED disc names a
- The field varies within the YZ plane of the GLOBAL frame,
+`PROFILE`, naming the row and the disc, and never refuses it;
+a RIGID disc reads the profile.
+
+## One row, one custom free stream
+
+A row may replace the uniform free stream with a velocity field
+read from a file, the GUI's custom free stream, imported under the free
+stream's profile. The field varies within the YZ plane of the GLOBAL frame,
 which is how the solver reads it. The row names the file by its stem:
 
 ```text
@@ -205,21 +215,21 @@ manual ties them:
 ```text
 3 3
 0.0 -8.0 -4.0 20.0 0.0 0.0
-0.0 -8.0 0.0 30.0 0.0 0.0
-0.0 -8.0 4.0 40.0 0.0 0.0
-0.0 0.0 -4.0 20.0 0.0 0.0
-0.0 0.0 0.0 30.0 0.0 0.0
-0.0 0.0 4.0 40.0 0.0 0.0
-0.0 8.0 -4.0 20.0 0.0 0.0
-0.0 8.0 0.0 30.0 0.0 0.0
-0.0 8.0 4.0 40.0 0.0 0.0
+0.0 -8.0  0.0 30.0 0.0 0.0
+0.0 -8.0  4.0 40.0 0.0 0.0
+0.0  0.0 -4.0 20.0 0.0 0.0
+0.0  0.0  0.0 30.0 0.0 0.0
+0.0  0.0  4.0 40.0 0.0 0.0
+0.0  8.0 -4.0 20.0 0.0 0.0
+0.0  8.0  0.0 30.0 0.0 0.0
+0.0  8.0  4.0 40.0 0.0 0.0
 ```
 
 That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
 of z, over 16 m of span and 8 m of height. The unit behavior depends on `FREESTREAM_UNITS`: undeclared files use the legacy
 no-conversion route, whose MILLIMETER coverage is unverified; `SI` scales the
 file once into the simulation unit; `NATIVE` treats it as already in that unit.
-See [custom-field units].
+See [custom-field units](custom-field-units.md).
 
 THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
 custom field, so a row stating one states `ALPHA` and `BETA` as 0, or

@@ -8,7 +8,11 @@ row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
 values it needs come off the row and nowhere else, and a row missing one
 of them is refused before anything runs, naming the row and the cell.
 
- A finer time step raises the mean thrust
+**A mean taken from few revolutions, or at a coarse time step, sits below
+the developed wake.** An `unsteady_rotor` point's thrust and torque are still
+moving after the start-up revolution: on a six-blade research propeller
+measured on 26.124 the thrust gained about 0.5 % per revolution and had not
+levelled at revolution 6. A finer time step raises the mean thrust
 too, not only more revolutions: at the third revolution the thrust sat 8.4 %
 below the quasi-steady wheel's at 10 deg per step, 6.6 % at 5 deg and 4.0 %
 at 2.5 deg, and halving the step roughly doubled the gain per revolution, so
@@ -26,7 +30,7 @@ The rev/min, the seconds per step and the number of steps are what those
 work out to at the run's own velocity, so an `unsteady_rotor` row states
 the decisions and the package derives the rest.
 
-* `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / `, against
+* `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / (J D)`, against
  the velocity this row already resolves and the diameter `D`. **That diameter is the ROTOR'S OWN** where the motion names a
  rotor block of the reference, so one ratio written once gives rotors
  of different sizes different speeds; where no alias is cited it
@@ -90,11 +94,11 @@ A wing-body in a propeller's slipstream is
  run should reach, in rotor radii, in place of `REVOLUTIONS` or
  `TIME_ITERATIONS`. The row states it with exactly one of
  `DELTA_THETA` or `DELTA_TIME`, and the step count is
- `TIME_ITERATIONS = ceil`: R the tip radius of the
+ `TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))`: R the tip radius of the
  largest rotor the row turns, Omega its speed, dtheta the step in radians and
  V_ax the axial velocity. It is the conversion and the axial velocity rule of
  the wake termination's `wake_termination_length`: V_ax is the free stream,
- or the induced velocity `sqrt` of the setup's
+ or the induced velocity `sqrt(T / (2 rho A))` of the setup's
  `wake_termination_thrust_n` where that is larger. A positive target always
  marches at least one step, even below the conversion's roundoff tolerance.
  On a row turning 1200
@@ -143,7 +147,7 @@ The solver log is always exported through the pproc `[exports]` table. `LOG_OUTP
  run in. `EXPORT_UNSTEADY_LAST_REV: <turns>` and `EXPORT_UNSTEADY_LAST_ITER:
  <steps>` state the same exports from the END of the run instead: the last
  turns or the last steps, and the row still states at most one of the
- four. See [exports that begin after a threshold]
+ four. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
  for the worked example and what the run leaves.
 
 **The plan states how fast each rotor's tip moves.** For every
@@ -156,21 +160,21 @@ stream and speed of sound, one row per rotor per point under the title
 
 ```text
 Rotor Mach numbers
- POL point rotor M_tip M_hel M_adv
- 9001 M144RE438AL+000RPM03000 rotor PORT 0.554 0.572 0.572
- 9001 M144RE438AL+000RPM06000 rotor PORT 1.108 1.117 1.117
+  POL   point                    rotor       M_tip  M_hel  M_adv
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
 ```
 
 and warns, naming each point, when the advancing-tip Mach number is 1 or more
 
 ```text
-advancing-tip Mach M_adv >= 1 on 1 polar point: POL 9001 point M144RE438AL+000RPM06000,
-rotor PORT, M_adv 1.117....
+advancing-tip Mach M_adv >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+rotor PORT, M_adv 1.117 (M_hel 1.117). ...
 ```
 
-`M_adv = sqrt / a`, with `V_ax` the free-stream
+`M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`, with `V_ax` the free-stream
 component along the rotor axis and `V_ip` the component in the rotor plane.
-`M_hel = sqrt / a` bounds the tip only in axial flow, where
+`M_hel = sqrt(V^2 + (Omega R)^2) / a` bounds the tip only in axial flow, where
 `M_adv = M_hel`; in edgewise flow `M_adv = / a`
 is larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
 edgewise bound and the plan line says so.
@@ -179,12 +183,12 @@ A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing
 the warning. A rotor whose reference states no diameter for it has no known
 radius: the plan says so naming the row instead of a number. The
 definitions, and where else the two numbers appear, are in
-[the definition of record].
+[the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
-itself reads, which the [input glossary]
+itself reads, which the [input glossary](inputs.md#tables-and-reserved-keys)
 lists; a cell of yours that spells one of them is read by the package
-rather than ignored. The [upgrade index] links the release
+rather than ignored. The [upgrade index](upgrading.md) links the release
 records for retired spellings and changes to their interpretation.
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
@@ -338,7 +342,7 @@ beside it, never stated in a setup,
 which puts it inside the geometry's folder when the geometry has one:
 
 ```text
-pyfs-matrix inventory inputs/geometries/30_WB.fsm # writes 30_WB.boundaries.toml
+pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml
 ```
 
 An `.obj` gets its sidecar from its groups the same way, and from the plan
@@ -385,7 +389,7 @@ exported at every step of that window, `<point>_probes_iteration=<step>.txt`.
 A rotor run settles over its first revolutions, and the loads, sections
 and probes worth keeping are the ones after that. `EXPORT_UNSTEADY_AFTER_REV`
 states the revolution the per-step exports begin at; `EXPORT_UNSTEADY_AFTER_ITER`
-states it as a time step instead. Put one of them on row 7001 of [the workflow matrix],
+states it as a time step instead. Put one of them on row 7001 of [the workflow matrix](workspace-and-workflows.md),
 with the azimuthal clock:
 
 ```text
