@@ -57,15 +57,18 @@ def _sloads() -> str:
 
 
 def _wakes(*, half: bool = False) -> str:
-    nodes = -BREF / 2 + np.arange(1, STATIONS) * BREF / STATIONS
+    nodes = np.linspace(-BREF / 2, BREF / 2, STATIONS + 1)
+    centres = 0.5 * (nodes[:-1] + nodes[1:])
+    gamma = np.sqrt(1.0 - (2.0 * centres / BREF) ** 2)
+    shed = -np.diff(np.concatenate([[0.0], gamma, [0.0]]))
     if half:
+        shed = -shed[nodes > 0.0]
         nodes = nodes[nodes > 0.0]
-    gamma = np.sqrt(1.0 - (2.0 * nodes / BREF) ** 2)
     points, lines = [], []
     for index, y in enumerate(nodes):
         points += [(1.0, y, 0.0), (15.0, y, 0.0), (30.0, y, 0.0)]
         lines += [(3 * index, 3 * index + 1), (3 * index + 1, 3 * index + 2)]
-    values = np.repeat(gamma, 2)
+    values = np.repeat(shed, 2)
     return (
         "# vtk DataFile Version 3.0\nwake\nASCII\nDATASET POLYDATA\n"
         + f"POINTS {len(points)} float\n"

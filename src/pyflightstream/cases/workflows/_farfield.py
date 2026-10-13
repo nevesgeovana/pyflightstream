@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Sequence
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,12 @@ from pyflightstream.cases.farfield_inputs import (
     resolve_farfield,
 )
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.probes.layouts import FarfieldPlane, farfield_plane, lattice_points
+from pyflightstream.probes.layouts import (
+    FarfieldPlane,
+    emit_probe_import,
+    farfield_plane,
+    lattice_points,
+)
 from pyflightstream.script import Script
 
 from ._names import _inventory
@@ -636,6 +642,7 @@ def farfield_probes(
     if resolution is not None:
         _refuse(case, resolution)
     native_per_m = _from_metres(case, script, "far-field probe coordinates")
+    imported: list[tuple[float, float, float]] = []
     for what, points in _added_shapes(case, native_per_m, script, frames):
         native = np.round(points * native_per_m, 5)
         _check_added(case, native, what)
@@ -651,7 +658,7 @@ def farfield_probes(
             vertex += 1
             script.probe_points.append((vertex, float(x), float(y), float(z), "REFERENCE"))
             if not unsteady:
-                script.emit("NEW_PROBE_POINT", type="VOLUME", x=x, y=y, z=z)
+                imported.append((x, y, z))
                 continue
             for parameter in FARFIELD_PLOT_PARAMETERS:
                 script.emit(
@@ -661,4 +668,10 @@ def farfield_probes(
                     name=f"{parameter}{vertex}",
                     vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),
                 )
+    if imported:
+        payload = str(len(imported)) + "\n"
+        payload += "".join(f"{x},{y},{z},1\n" for x, y, z in imported)
+        path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
+        script.park_input_file(path, payload)
+        emit_probe_import(script, path, units=script.simulation_length_unit or "METER")
     return vertex

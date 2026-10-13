@@ -5,6 +5,7 @@ files, per the project style. Binary and local-only content guards run in
 pre-commit and in the CI guard job.
 """
 
+import hashlib
 import importlib.util
 import os
 import re
@@ -587,6 +588,21 @@ SYNTHETIC_GEOMETRY_ALLOWLIST = {
 # this output's LF-normalized bytes are admitted, never another VTK.
 RECORDED_WAKE_PATH = "tests/tier1_offline/fixtures/p0400_lita_solver_wake.vtk"
 RECORDED_WAKE_SHA256 = "156fc09059c485346ae83ea266a5c4418c488f2909a02d3c028bc6fe7c08dc8b"
+# Owner-authorized output-only wake fixtures for PFS-2081.51 and PFS-2081.52.
+# These are recorded solver exports, not synthetic surface geometry. Each
+# exception admits only pinned fixture bytes after LF normalization;
+# replacing coordinates, connectivity or scalar data is refused.
+RECORDED_WAKE_FIXTURES = {
+    "tests/tier1_offline/fixtures/p0400_litB_wake_26124.vtk": (
+        "7a0441d10c8fb78257049c3f5ed506f3f56e78968741a852eecf85c044725d50"
+    ),
+    "tests/tier1_offline/fixtures/p0400_litB_wake_26125.vtk": (
+        "2d69e11aae83a0ccfc9ad0a01bfa7604f03c58d451a1173f7d2e47da41e167bf"
+    ),
+    "tests/tier1_offline/fixtures/p0400_litB_wake_26125_fine.vtk.xz": (
+        "d1ab561feda76c8fa2b400df20b77832b5b07e5707ea2cb906d0ecd1f896c0ed"
+    ),
+}
 
 
 #: The one folder whose saved simulations are provably synthetic BY
@@ -640,14 +656,18 @@ def _geometry_offenses(relative_posix_paths, read=_read_tracked):
 
     def provably_synthetic(path):
         if path == RECORDED_WAKE_PATH:
-            import hashlib
-
             data = read(path)
             return (
                 isinstance(data, bytes) and hashlib.sha256(data).hexdigest() == RECORDED_WAKE_SHA256
             )
         if path in SYNTHETIC_GEOMETRY_ALLOWLIST:
             return True
+        if path in RECORDED_WAKE_FIXTURES:
+            data = read(path)
+            return (
+                data is not None
+                and hashlib.sha256(data).hexdigest() == RECORDED_WAKE_FIXTURES[path]
+            )
         if path.startswith(SYNTHETIC_LIBRARY) and path.lower().endswith(".fsm"):
             record = path[: -len(".fsm")] + ".provenance.toml"
             return record in tracked and _provenance_admits(read(path), read(record))
@@ -1276,7 +1296,7 @@ def test_no_tracked_text_file_carries_a_control_byte():
     # .fsm: the tier-3 library's saved simulations are the solver's own bytes,
     # pinned binary in .gitattributes and admitted only with a provenance
     # record (SYNTHETIC_LIBRARY); a control byte there is the format, not a leak.
-    binary_suffixes = {".obj", ".pdf", ".png", ".jpg", ".ico", ".stl", ".whl", ".gz", ".fsm"}
+    binary_suffixes = {".obj", ".pdf", ".png", ".jpg", ".ico", ".stl", ".whl", ".gz", ".xz", ".fsm"}
     for path in _tracked_files():
         if path.suffix.lower() in binary_suffixes:
             continue

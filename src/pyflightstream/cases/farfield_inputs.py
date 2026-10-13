@@ -46,7 +46,7 @@ _COMMANDS = {
     "sectional_loads_export": "EXPORT_SURFACE_SECTIONAL_LOADS",
     "vtk_export": "EXPORT_SOLVER_ANALYSIS_VTK",
     "vtk_wake": "SET_VTK_EXPORT_VARIABLES",
-    "probe_points": "NEW_PROBE_POINT",
+    "probe_points": "PROBE_POINTS_IMPORT",
     "probe_export": "EXPORT_PROBE_POINTS",
 }
 
@@ -299,9 +299,12 @@ class _Resolver:
         self.inputs.append(FarfieldInput(analysis, name, state, source, reason))
 
     def lacks(self, analysis: str, name: str) -> bool:
-        if self.has_command(_COMMANDS[name]):
+        command = _COMMANDS[name]
+        if name == "probe_points" and self.run_type in UNSTEADY_RUN_TYPES:
+            command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
+        if self.has_command(command):
             return False
-        self.item(analysis, name, "refused", reason=f"the selected build has no {_COMMANDS[name]}")
+        self.item(analysis, name, "refused", reason=f"the selected build has no {command}")
         return True
 
     def needed(self, analysis: str, name: str, declared: bool, source: str, added: str) -> None:

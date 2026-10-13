@@ -162,7 +162,12 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
 
 **Input.** The wake export `<name>_wakes.vtk`: the solver's wake lines, one per
 trailing-edge node, as chains of segments, each line carrying one value,
-proportional to the potential jump of its wake strip, constant along the line.
+the circulation each line sheds, constant along the line. Empty polygon blocks
+and redundant point-coordinate scalars are accepted. Connected node indices
+preserve both exported mirror halves. For a mirror model, post selects one
+half by its upstream nodes and reflects its strips once; coincident root lines
+are omitted. Zero-strength collapsed lines are omitted with a warning that
+their missing shed circulation can bias the result.
 Its coordinates are in the simulation's length unit, which post reads from the
 point's saved simulation; a point whose unit cannot be read is a named skip.
 
@@ -171,23 +176,33 @@ the most downstream point of the selected families. Each wake line is cut at its
 first crossing of the plane (linear interpolation on the straddling segment).
 The crossings are ordered along each sheet by where their lines start on the
 trailing edge, so a rolled-up sheet keeps its order. Each crossing is a trace
-point with `Gamma = k value`; then [The discrete trace](#the-discrete-trace), in
-`(y, z)`.
+edge of a strip. On a mirror half, ordered from root to tip, the raw strip
+circulation between lines `j` and `j+1` is the negative sum of exported values
+from line `j+1` through the tip. It is placed at the midpoint of those crossings.
+On a full sheet with signed filament strengths, sum the negative values from
+the first edge through line `j`. Mirror halves include the central strip
+between their innermost crossings with the accumulated root circulation.
+Apply the force equations of [The discrete trace](#the-discrete-trace) at
+these midpoints, using the actual wake crossings as filament positions,
+with `Gamma = k Gamma_raw`. Signed edge projections preserve folded topology;
+crossings are never re-sorted after roll-up.
 
 **The scale, calibrated from the near field.** The scale of the exported value
 is not documented by the solver. `k` is the factor that makes the trace's lift
 equal the solver's own `CL` of the point:
 
-    k = CL_near q SREF / (rho V sum_i value_i dy_i)
+    k = CL_near q SREF / (rho V sum_i Gamma_raw_i dy_i)
 
 so `CL_T` of variant B equals the solver's `CL` by construction and carries no
 information of its own; `CDI_T`, which scales with `k^2`, and `E_T`, which does
 not depend on `k`, are what B adds. The factor is written as `GAMMA_SCALE`. A
 point without a near-field `CL`, or with a zero one, writes `E_T` only.
 
-**Agreement with A.** On a flat trace whose crossings are A's stations and whose
-values are A's circulation, B returns A's numbers: the two variants differ only
-in where the trace and the circulation come from.
+**Agreement with A.** On a flat wake whose lines bound A's strips and whose
+shed values reconstruct A's circulation, B returns A's numbers. Reading the
+line value itself as strip circulation is incorrect: it changes the lift scale
+and span efficiency with refinement. The recorded fine-mesh comparison gives
+raw lift within 3 percent of the near field and efficiency within 0.03 of A.
 
 **Assumptions and validity.**
 
@@ -354,6 +369,13 @@ declares a lattice under `lattices`, beside `lines`, `rectangles` and
 `circles`; a declared one is reused by the far field, and one the far field
 needs and the artifact does not declare is added by the plan. They are fixed in
 space, also on a coupled row: they sample the flow, not the structure.
+
+On a steady row the added plane and lattice are written to one staged
+`X,Y,Z,TYPE` CSV in the simulation length unit and appended by one
+`PROBE_POINTS_IMPORT`. The file starts with its point count, uses volume
+type 1 and preserves the recorded order, plane before lattice. Distinct
+point sets have distinct content-derived filenames. Unsteady rows keep
+their per-step fluid plots.
 
 <a id="what-the-plan-adds"></a>
 

@@ -553,8 +553,11 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     rho, speed, alpha, beta = _flow(point)
     turn = farfield_axes(alpha, beta)
     lines = [(line / per_m) @ turn.T for line in wake.lines]
-    x_t = max(float(line[0, 0]) for line in lines) + spec.distance_bref * ctx.reference.bref_m
-    trace = wake_crossings(lines, wake.values, x_t=x_t)
+    x_t = max((float(line[0, 0]) for line in lines), default=0.0)
+    x_t += spec.distance_bref * ctx.reference.bref_m
+    mirror, half = _symmetry(ctx)
+    lines, shed_values = _wake_sheet(ctx, point, lines, wake.values, mirror=mirror)
+    trace = wake_crossings(lines, shed_values, x_t=x_t)
     if trace.problem is not None:
         # FR-452 R3, R4: the point's B row is written NA, never dropped, and
         # the WARNING says why; a short wake states the length the run had.
@@ -568,9 +571,8 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
         _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
         values = {"FAMILY": "TOTAL", "VARIANT": "B", "X_T_M": x_t}
         return [_row(ctx, point, _NA, values)]
-    mirror, half = _symmetry(ctx)
     try:
-        raw = trace_forces(trace.y, trace.z, trace.values, rho=rho, v_inf=speed, mirror=mirror)
+        raw = trace.forces(rho=rho, v_inf=speed, mirror=mirror)
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the trace cannot be formed: {error}")
         return []
@@ -602,6 +604,35 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
         extra={"X_T_M": x_t, "GAMMA_SCALE": k},
         blank=() if calibrated else ("CL_T", "CDI_T", "CY_T"),
     )
+
+
+def _wake_sheet(
+    ctx: SimContext,
+    point: PolarPoint,
+    lines: list[np.ndarray],
+    values: np.ndarray,
+    *,
+    mirror: bool,
+) -> tuple[list[np.ndarray], np.ndarray]:
+    """Select one exported mirror half and omit zero-strength collapsed lines."""
+    starts = np.array([line[0, 1] for line in lines])
+    keep = np.ones(len(lines), dtype=bool)
+    if mirror:
+        # Both halves, including two coincident root lines, are exported.
+        # Select by upstream nodes, before roll-up moves the crossings.
+        keep &= starts < -1e-9 if np.any(starts < -1e-9) else starts > 1e-9
+    collapsed = np.array([np.ptp(line[:, 0]) == 0.0 for line in lines], dtype=bool)
+    omitted = collapsed & (values == 0.0)
+    if np.any(keep & omitted):
+        warn(
+            f"point={point.name} product=farfield: {int(np.count_nonzero(keep & omitted))} "
+            "zero-strength collapsed wake lines omitted; their shed circulation is missing "
+            "from the export, so Trefftz B can underestimate lift before calibration",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    keep &= ~omitted
+    return [line for line, use in zip(lines, keep, strict=True) if use], values[keep]
 
 
 @dataclass(frozen=True)

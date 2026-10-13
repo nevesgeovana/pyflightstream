@@ -317,7 +317,7 @@ def calibration_scale(raw_lift: float, *, cl_near: float, q: float, s_ref: float
     """Return the scale ``k`` that makes a trace's lift the solver's own (FR-452 R2).
 
     The wake export's value is proportional to the circulation with a scale the
-    solver does not document; ``Gamma = k value`` with
+    solver does not document; ``Gamma = k Gamma_raw`` with
     ``k = CL_near q SREF / L_raw``, ``L_raw`` the lift the raw values give, so
     ``CL_T`` of variant B equals the solver's ``CL`` by construction. NaN where
     the near-field ``CL`` is missing or zero, or the raw lift is zero.
@@ -401,7 +401,7 @@ class WakeTrace:
     y, z : numpy.ndarray
         The crossings in span order, m.
     values : numpy.ndarray
-        The exported value of each crossing's line.
+        The circulation shed by each crossing's line, with the exported sign.
     short : int
         How many lines end before the plane.
     problem : str or None
@@ -414,6 +414,98 @@ class WakeTrace:
     values: np.ndarray
     short: int
     problem: str | None
+
+    def forces(self, *, rho: float, v_inf: float, mirror: bool = False) -> TraceResult:
+        """Integrate the circulation shed by the lines between their crossings.
+
+        Parameters
+        ----------
+        rho, v_inf : float
+            Density in kg/m3 and free-stream speed in m/s.
+        mirror : bool
+            The crossings are one half of a mirror model. Sum the negative
+            exported strengths from the tip inwards, then reflect the strips.
+            For a full sheet, sum signed strengths from its first edge.
+
+        Returns
+        -------
+        TraceResult
+            Forces and strip data. Each strip lies between two wake lines,
+            with circulation accumulated from the exterior zero value.
+
+        Raises
+        ------
+        FarfieldInputError
+            If the crossings do not form an integrable sheet.
+        """
+        if self.problem is not None:
+            raise FarfieldInputError(f"the wake crossings cannot be integrated: {self.problem}")
+        y, z, values = self.y, self.z, self.values
+        if mirror:
+            if not (np.all(y > 0.0) or np.all(y < 0.0)):
+                raise FarfieldInputError("a mirrored wake needs crossings on one side of y = 0")
+            # Keep upstream topology through roll-up. Work tip to root on the
+            # negative half, then reflect edges and circulation once.
+            positive = y[0] > 0.0
+            if positive:
+                y, z, values = -y[::-1], z[::-1], values[::-1]
+            half_gamma = -np.cumsum(values)
+            gamma = np.concatenate([half_gamma, half_gamma[-2::-1]])
+            y = np.concatenate([y, -y[::-1]])
+            z = np.concatenate([z, z[::-1]])
+            original = np.zeros(len(gamma), dtype=bool)
+            if positive:
+                original[len(half_gamma) :] = True
+            else:
+                original[: len(half_gamma) - 1] = True
+        else:
+            gamma = -np.cumsum(values)[:-1]
+            original = np.ones(len(gamma), dtype=bool)
+        return _edge_trace(y, z, gamma, original, rho=rho, v_inf=v_inf)
+
+
+def _edge_trace(
+    ey: np.ndarray,
+    ez: np.ndarray,
+    gamma: np.ndarray,
+    original: np.ndarray,
+    *,
+    rho: float,
+    v_inf: float,
+) -> TraceResult:
+    """Integrate a wake sheet at its actual edges, preserving folded topology."""
+    if len(gamma) < 1:
+        raise FarfieldInputError("the wake needs at least two crossings to bound a strip")
+    y, z = 0.5 * (ey[:-1] + ey[1:]), 0.5 * (ez[:-1] + ez[1:])
+    dy, dz = np.diff(ey), np.diff(ez)
+    ds = np.hypot(dy, dz)
+    if np.any(ds == 0.0):
+        raise FarfieldInputError("two wake crossings coincide, so a strip has zero width")
+    d_gamma = np.diff(np.concatenate([[0.0], gamma, [0.0]]))
+    v, w = _induced(y, z, ey, ez, d_gamma)
+    vn = (-dz * v + dy * w) / ds
+    lift = rho * v_inf * float((gamma * dy).sum())
+    side = -rho * v_inf * float((gamma * dz).sum())
+    drag = -0.5 * rho * float((gamma * vn * ds).sum())
+    return TraceResult(
+        lift=lift,
+        side_force=side,
+        induced_drag=drag,
+        sheets=(0,),
+        sheet_lift=np.array([lift]),
+        sheet_side_force=np.array([side]),
+        sheet_drag_share=np.array([drag]),
+        sheet_drag_isolated=np.array([drag]),
+        y=y,
+        z=z,
+        dy=dy,
+        dz=dz,
+        ds=ds,
+        gamma=gamma,
+        normalwash=vn,
+        sheet=np.zeros(len(gamma), dtype=int),
+        original=original,
+    )
 
 
 def wake_crossings(lines: Sequence[np.ndarray], values: np.ndarray, *, x_t: float) -> WakeTrace:

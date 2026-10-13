@@ -477,6 +477,9 @@ def _built_from_the_mesh(
             "force_rerun (CLI: --force-rerun) of run_matrix, as in "
             "pyfs-matrix run --force-rerun <point>."
         ) from error
+    for name, payload in scratch.script.pending_input_files.items():
+        if name in scratch.recorded_text:
+            script.park_input_file(name, payload)
     return scratch
 
 
