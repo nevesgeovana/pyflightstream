@@ -651,8 +651,32 @@ def test_the_freeze_record_is_pinned(records):
     assert found[0][1].name == _FREEZE_RECORD
     assert {k: first[k] for k in _FREEZE} == _FREEZE
     assert set(am.MONOTONE) <= set(_FREEZE)
+    # The 0.40.0 re-pin moves the two test-coupling numbers alone, upward from
+    # the first record's, and the reduction back is planned (PFS-2081.47).
+    assert set(am.COUPLING_REPIN) == {"private_test_names", "monkeypatch_targets"}
+    assert all(am.COUPLING_REPIN[k] >= _FREEZE[k] for k in am.COUPLING_REPIN)
+    floor = am.freeze_floor(_FREEZE)
     for key in am.MONOTONE:
-        assert BASELINES["metrics"][key] <= _FREEZE[key], key
+        assert BASELINES["metrics"][key] <= floor[key], key
+
+
+def test_the_coupling_repin_moves_only_the_coupling(records):
+    # P0400-COUPLING-REPIN: the re-pin cannot loosen any other number of the
+    # first record, and a table worse than the re-pinned coupling is still red.
+    first, newest, _ = records
+    worse = {
+        **BASELINES["metrics"],
+        "private_test_names": am.COUPLING_REPIN["private_test_names"] + 1,
+    }
+    assert any(
+        f.startswith("private_test_names: the metrics table")
+        for f in am.record_findings(newest, newest, worse, first)
+    )
+    looser = {**BASELINES["metrics"], "top1_share": _FREEZE["top1_share"] + 1}
+    assert any(
+        f.startswith("top1_share: the metrics table")
+        for f in am.record_findings(newest, newest, looser, first)
+    )
 
 
 def test_the_record_lists_new_modules_under_the_review_size(measured, monkeypatch):

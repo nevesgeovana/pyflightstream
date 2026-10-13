@@ -1553,21 +1553,21 @@
   }
  },
  "metrics": {
-  "top1_share": 1.8,
-  "top5_share": 8.1,
-  "top13_share": 16.7,
-  "modules_over_1000": 7,
+  "top1_share": 1.4,
+  "top5_share": 5.6,
+  "top13_share": 12.1,
+  "modules_over_1000": 6,
   "modules_over_2000": 0,
-  "functions_over_100": 71,
-  "functions_over_200": 15,
-  "functions_over_300": 4,
-  "functions_over_limits": 221,
+  "functions_over_100": 64,
+  "functions_over_200": 8,
+  "functions_over_300": 1,
+  "functions_over_limits": 181,
   "cross_package_sccs": 1,
   "largest_fan_out": 36,
   "largest_fan_out_deferred": 10,
-  "private_test_names": 240,
-  "monkeypatch_targets": 83,
+  "private_test_names": 323,
+  "monkeypatch_targets": 140,
   "workspace_to_run_imports": 0,
-  "root_facade_lines": 9046
+  "root_facade_lines": 5569
  }
 }

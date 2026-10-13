@@ -125,6 +125,20 @@ MONOTONE = (
     "root_facade_lines",
 )
 
+# THE TEST-COUPLING FREEZE RE-PINNED AT 0.40.0, and nothing else of the first
+# record: the release decision of 2026-10-12 (capabilities first, rigor in its
+# own release) accepted the coupling the 0.40.0 lanes' tests brought, listed
+# per module in RPT-168, and planned the reduction back to the numbers of the
+# first record (242 private names, 83 patch targets) as PFS-2081.47 (0.42.0).
+# The metrics table is compared with these two numbers in place of the first
+# record's; raising either is an edit of this line, visible in review.
+COUPLING_REPIN = {"private_test_names": 323, "monkeypatch_targets": 140}
+
+
+def freeze_floor(freeze: Mapping) -> dict:
+    """Return the first record's numbers the metrics table may not be worse than, re-pinned."""
+    return {**freeze, **COUPLING_REPIN}
+
 
 def over_limits(measures: Mapping[str, int]) -> bool:
     """Whether a function exceeds any G2 limit."""
@@ -496,7 +510,7 @@ def record_findings(
         for label, low, high in (
             ("the tree", measured, newest),
             ("the newest record", newest, table),
-            ("the metrics table", table, freeze),
+            ("the metrics table", table, freeze_floor(freeze)),
         ):
             if key not in low or key not in high:
                 out.append(f"{key}: missing from {label} or from what it is compared with")
