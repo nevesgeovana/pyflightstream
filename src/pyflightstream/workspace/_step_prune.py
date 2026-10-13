@@ -16,10 +16,13 @@ The file deleting and the protection of a record's files stay in
 
 from __future__ import annotations
 
+import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+
+from pyflightstream.workspace.manifest import RunStatus
 
 #: The keys of a ``[[prune_step_exports]]`` table (FR-416): the selection of
 #: simulations of 0.30.0 and the two ways to say which steps go.
@@ -201,3 +204,65 @@ def step_export_groups(
         by_step = groups.setdefault(path.parent, {}).setdefault(export, {})
         by_step[int(matched.group("step"))] = path
     return groups
+
+
+#: The keys each recipe table other than [[prune_step_exports]] reads (PFS-2093.007).
+_RECIPE_KEYS = {
+    "compact_sims": ("sims", "status", "older_than_days"),
+    "delete_extensions": ("extensions", "sims", "status"),
+    "post_archives": ("action", "keep_latest", "older_than_days"),
+}
+
+
+def table_problem(
+    table: str, spec: Mapping[str, Any], protected_suffixes: Sequence[str]
+) -> str | None:
+    """Return what a step would refuse in one recipe table, or None.
+
+    Asked of the whole recipe before the first step touches a file (PFS-2096.028):
+    the steps used to check their own tables when reached, after an earlier one
+    had deleted. A key no table reads used to become the widest default
+    (PFS-2093.007), and a status string was read one character at a time
+    (PFS-2097.020).
+    """
+    keys = _RECIPE_KEYS.get(table, PRUNE_KEYS)
+    unknown, statuses = sorted(set(spec) - set(keys)), sorted(s.value for s in RunStatus)
+    status, days = spec.get("status", []), spec.get("older_than_days", 0)
+    extensions, keep = (
+        spec.get("extensions", [] if table == "delete_extensions" else [".vtk"]),
+        spec.get("keep_latest", 0),
+    )
+    if unknown:
+        hint = " (keep_last is spelled keep_latest here)" if "keep_last" in unknown else ""
+        return f"does not read {unknown}; the keys it accepts are {', '.join(keys)}{hint}"
+    if spec.get("sims", "all") != "all" and not isinstance(spec.get("sims"), list):
+        return 'sims is "all" or a list of simulation ids, e.g. sims = ["1001"]'
+    if not isinstance(status, list) or not all(isinstance(s, str) for s in status):
+        return 'status is a list, e.g. status = ["CONVERGED"]; the statuses are ' + ", ".join(
+            statuses
+        )
+    if wrong := sorted({s.upper() for s in status} - set(statuses)):
+        return f"status names {wrong}, no run status; the statuses are {', '.join(statuses)}"
+    if (
+        isinstance(days, bool)
+        or not isinstance(days, int | float)
+        or not math.isfinite(days)
+        or days < 0
+    ):
+        return "older_than_days is a number of days, e.g. older_than_days = 30"
+    if (
+        not isinstance(extensions, list)
+        or not extensions
+        or not all(isinstance(e, str) and e.startswith(".") for e in extensions)
+    ):
+        return 'needs extensions = [".vtk", ...]'
+    if protected := sorted({e.lower() for e in extensions} & set(protected_suffixes)):
+        return (
+            f"{protected} is never deleted by a recipe: the saved simulation is what a later "
+            "post or continuation reopens, and the recipe is rejected before it touches a file"
+        )
+    if spec.get("action", "delete") not in ("compact", "delete"):
+        return 'action is "compact" or "delete"'
+    if isinstance(keep, bool) or not isinstance(keep, int) or keep < 0:
+        return "keep_latest is a whole number of stamps kept, 0 or more, e.g. keep_latest = 2"
+    return None

@@ -1634,7 +1634,12 @@ def _bind_row_variables(
         bound = _bind_motion(
             binding.workspace, {"ROTOR_ORIGIN": flat_origin}, row.pol, where="the row"
         )
-        update["variables"] = {**case.variables, **bound}
+        # On the variables an earlier phase stated, as the branch below reads them
+        # (PFS-2095.029): case.variables still holds the row-setup keys that phase
+        # moved to the solver, and putting them back made the builder refuse the row.
+        stated = update.get("variables")
+        base = stated if isinstance(stated, Mapping) else case.variables
+        update["variables"] = {**base, **bound}
     # THE INVOCATION'S OWN CHOICE, written onto the row's variables so
     # the builders read it like any other variable and never learn that
     # a command line exists (PFS-2035.13, the design of 2026-09-10).

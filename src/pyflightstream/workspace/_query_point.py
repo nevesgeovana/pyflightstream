@@ -120,6 +120,7 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
         c for c in record.get("conditions") or [] if c.get("within") is False
     ]
     matrix = str(record.get("matrix_stem") or "products")
+    point = str(record.get("point_name") or record["run_id"].rsplit("/", 1)[-1])
     result = {
         "outcome": outcome,
         "evidence": evidence,
@@ -130,10 +131,12 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
             "continued_by": [
                 r["run_id"] for r in raw if isinstance(r, dict) and r.get("continues") == run_id
             ],
+            # The point's own archive folder, as _archive_locations reads it (PFS-2094.020):
+            # the name as a substring took the archives of A01 into the card of A0.
             "archives": [
                 path
                 for name, path in _files(ledger, str(record["sim_id"])).items()
-                if "/archive/" in f"/{name}" and record["run_id"].rsplit("/", 1)[-1] in name
+                if f"datapoints/DP-{point}/archive/" in name
             ],
         },
         "identity": {"run_id": run_id, "sim_id": record["sim_id"], **_take(record, _IDENTITY)},

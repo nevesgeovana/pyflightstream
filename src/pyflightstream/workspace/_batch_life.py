@@ -13,27 +13,32 @@ file names are job scripts and not loads exports.
 "Running" is a batch folder whose job has not ended: the job entry of a record
 names it, and none of the end evidence is there (the local end record
 ``<stem>.end.json``, the job's final log ``<stem>.job-log.txt``, every
-``job_end_files`` glob of the HPC profile). ``run`` reads the same evidence in
-``run._batch_collect.job_ended`` and adds a settling watch; a command that only
-refuses to touch a folder takes the files as they are.
+``job_end_files`` glob of the HPC profile, a point whose own wall-clock state
+says it fired). :func:`end_evidence` is the file-only verdict; ``run`` reads
+the same four in ``run._batch_collect.job_ended`` and adds a settling watch, and
+a command that only refuses to touch a folder takes the files as they are.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases.workflows import (
     BATCH_STEM_PREFIX,
     FULL_POLAR_STEM,
     JOB_END_SUFFIX,
     JOB_LOG_SUFFIX,
+    WALLTIME_CLOCK_STATE,
 )
 from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._batches import batch_dirs, batch_sim_dirs
+from pyflightstream.workspace._links import is_reparse
+from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace
@@ -41,17 +46,23 @@ if TYPE_CHECKING:
 __all__ = [
     "batch_files",
     "batch_report",
+    "end_evidence",
     "is_kept_name",
+    "is_log_name",
     "mark_running",
     "remove_sim_folders",
     "running_batches",
     "running_sims",
+    "sim_sync_files",
     "submitted_sims",
+    "walltime_stop",
 ]
 
 _SUBMITTED = "SUBMITTED"
 _KEPT_NAMES = ("fs_runtime_output.txt", "flightstreamlog.txt")
-_LOG_ENDINGS = ("log.txt", ".log")
+#: A point's log (``P<sim>-<point>_log.txt``), a job's log (``<stem>.job-log.txt``)
+#: and a scheduler's (``*.log``); with :data:`_KEPT_NAMES`, the one log-name rule.
+_LOG_ENDINGS = ("_log.txt", "-log.txt", ".log")
 
 
 def is_job_script(name: str) -> bool:
@@ -86,7 +97,29 @@ def is_kept_name(name: str) -> bool:
     bool
         True for the solver's runtime logs and the job scripts.
     """
-    return name.lower() in _KEPT_NAMES or is_job_script(name)
+    return is_log_name(name) or is_job_script(name)
+
+
+def is_log_name(name: str) -> bool:
+    """Say whether a file name is a log: the one rule sync and ``free-space`` read (PFS-2087.002).
+
+    The two used to disagree: the sync took ``FS_runtime_output.txt`` and
+    ``*_log.txt`` by exact case and missed ``FlightStreamLog.txt``, while
+    ``free-space`` compared without case and also kept ``*.log``.
+
+    Parameters
+    ----------
+    name : str
+        A file name.
+
+    Returns
+    -------
+    bool
+        True for the solver's runtime logs and any ``*_log.txt``, ``*-log.txt``
+        or ``*.log``, in any case.
+    """
+    lowered = name.lower()
+    return lowered in _KEPT_NAMES or lowered.endswith(_LOG_ENDINGS)
 
 
 def _field(row: Any, key: str) -> Any:
@@ -110,22 +143,145 @@ def _end_globs(root: Path) -> tuple[str, ...]:
     return tuple(getattr(profile, "job_end_files", ()) or ())
 
 
-def _ended(root: Path, job: Mapping[str, Any], globs: Sequence[str]) -> bool:
+def walltime_stop(state_path: Path) -> dict | None:
+    """Where a point's wall-clock watchdog stopped it, or None if it did not.
+
+    The file-only reading of ``actions/pfs_walltime_clock.json`` that
+    ``run._pending._walltime_stop`` makes, here so the workspace's end verdict
+    reads the same fourth piece of evidence as collect's (PFS-2094.044). None
+    covers no clock, a clock that never fired, and a state the program never
+    got to write; a stop is believed only when the final callback count
+    matches the step it claims.
+
+    Parameters
+    ----------
+    state_path : Path
+        The clock state file of one point.
+
+    Returns
+    -------
+    dict or None
+        The ``stopped_at`` record, or None.
+    """
+    if not state_path.is_file():
+        return None
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(state, dict) or not state.get("fired"):
+        return None
+    stopped = state.get("stopped_at")
+    if not isinstance(stopped, dict):
+        return None
+    observed, claimed = state.get("steps"), stopped.get("step")
+    if (
+        not isinstance(observed, int)
+        or isinstance(observed, bool)
+        or not isinstance(claimed, int)
+        or isinstance(claimed, bool)
+        or claimed < 1
+        or observed != claimed
+    ):
+        return None
+    return dict(stopped)
+
+
+def _point_folders(root: Path, job: Mapping[str, Any]) -> list[Path]:
+    """Every datapoint folder of a job, where the job is writing them."""
     folder = root / str(job["dir"])
-    stem = PurePosixPath(str(job["script"])).stem
-    if (folder / f"{stem}{JOB_END_SUFFIX}").is_file() or (
-        folder / f"{stem}{JOB_LOG_SUFFIX}"
-    ).is_file():
-        return True
+    if job.get("kind") == "batch":
+        sims = [
+            item
+            for items in batch_sim_dirs(root).values()
+            for item in items
+            if item.parent == folder
+        ]
+    else:
+        sims = [folder]
+    return sorted(p for sim in sims for p in (sim / SIM_DATAPOINTS_DIR).glob("*") if p.is_dir())
+
+
+def _end_files(folder: Path, job: Mapping[str, Any], globs: Sequence[str]) -> str | None:
+    """Name the files matching EVERY ``job_end_files`` glob, or None.
+
+    A glob that names a value the job did not record cannot be read for that
+    job, and that is said rather than taken silently as "running" (PFS-2094.050).
+    """
     values = job.get("values") or {}
+    matched: list[Path] = []
     for pattern in globs:
         try:
-            found = [p for p in folder.glob(pattern.format(**values)) if p.is_file()]
-        except (KeyError, IndexError, ValueError):
-            return False
+            formatted = pattern.format(**values)
+        except (KeyError, IndexError, ValueError, TypeError, AttributeError) as error:
+            recorded_values = sorted(values) if isinstance(values, Mapping) else repr(values)
+            warn(
+                f"the job in {job['dir']} recorded the values {recorded_values}, and the "
+                f"job_end_files glob {pattern!r} of the HPC profile cannot be formatted with "
+                f"them ({type(error).__name__}: {error}). The glob is not read for this job: "
+                "it counts as running until its end record, its log or a fired clock is "
+                "there. Correct the glob, or end the job by hand with collect.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return None
+        found = [p for p in folder.glob(formatted) if p.is_file()]
         if not found:
-            return False
-    return bool(globs)
+            return None
+        matched += found
+    return ", ".join(path.name for path in matched) if matched else None
+
+
+def end_evidence(
+    root: Path,
+    job: Mapping[str, Any],
+    globs: Sequence[str],
+    *,
+    steady: Callable[[list[Path]], bool] | None = None,
+) -> str | None:
+    """Name the file that says a grouped job ended, or None while it runs.
+
+    The file-only verdict (PFS-2094.041): the end record, the job log, every
+    ``job_end_files`` glob, then a point whose clock fired. ``run``'s collect
+    reads the same four and adds a settling watch; a command that only refuses
+    to touch a folder takes the files as they are.
+
+    Parameters
+    ----------
+    root : Path
+        The campaign workspace root.
+    job : mapping
+        The job entry of a record (``submission["job"]``).
+    globs : sequence of str
+        The HPC profile's ``job_end_files``.
+    steady : callable, optional
+        Collect's settling watch for job logs and fired-clock point files.
+        File management reads the evidence immediately when it is omitted.
+
+    Returns
+    -------
+    str or None
+        The evidence, or None.
+    """
+    folder = root / str(job["dir"])
+    stem = PurePosixPath(str(job["script"])).stem
+    end = folder / f"{stem}{JOB_END_SUFFIX}"
+    if end.is_file():
+        return f"the local end record {end.name}"
+    log = folder / f"{stem}{JOB_LOG_SUFFIX}"
+    if log.is_file() and (steady is None or steady([log])):
+        return f"the job's log {log.name}" + (", settled" if steady is not None else "")
+    matched = _end_files(folder, job, globs)
+    if matched:
+        return f"the job_end_files of the HPC profile: {matched}"
+    for point in _point_folders(root, job):
+        if walltime_stop(point / WALLTIME_CLOCK_STATE) is not None:
+            files = [path for path in point.iterdir() if path.is_file()]
+            if steady is None or steady(files):
+                return f"the clock of {point.name} fired" + (
+                    " and its files settled" if steady is not None else ""
+                )
+    return None
 
 
 def running_batches(root: str | Path, rows: Iterable[Any]) -> dict[str, set[str]]:
@@ -156,7 +312,7 @@ def running_batches(root: str | Path, rows: Iterable[Any]) -> dict[str, set[str]
     running: dict[str, set[str]] = {}
     for label, (job, sims) in jobs.items():
         globs = _end_globs(base) if globs is None else globs
-        if not _ended(base, job, globs):
+        if end_evidence(base, job, globs) is None:
             folder = base / str(job["dir"])
             inside = {
                 sim
@@ -325,22 +481,38 @@ def batch_report(root: str | Path, ids: Iterable[str]) -> dict[str, list[str]]:
 
 def _files(folder: Path) -> Iterable[Path]:
     """Every regular file below ``folder``, never through a link or a junction."""
+    if is_reparse(folder):
+        return
     for here, children, names in os.walk(folder):
-        children[:] = [
-            child
-            for child in children
-            if not os.path.islink(os.path.join(here, child))
-            and not os.path.isjunction(os.path.join(here, child))
-        ]
+        children[:] = [child for child in children if not is_reparse(Path(here) / child)]
         for name in names:
-            yield Path(here) / name
+            path = Path(here) / name
+            if path.is_file() and not is_reparse(path):
+                yield path
 
 
-def _sim_files(sim: Path, rank: int) -> set[Path]:
-    """Return what a sync of level ``rank`` brings from one simulation folder."""
+def sim_sync_files(sim: Path, rank: int) -> set[Path]:
+    """Return what a sync of level ``rank`` brings from one simulation folder.
+
+    The one per-simulation rule (PFS-2087.002): ``sims/sim_<id>`` and a batch's
+    ``sim_<id>`` both call it, where each used to carry its own copy.
+
+    Parameters
+    ----------
+    sim : Path
+        The simulation folder.
+    rank : int
+        The index of the sync level in the ordered levels (3 is ``all``).
+
+    Returns
+    -------
+    set of Path
+        The scripts and logs at every level, the saved simulations from
+        ``fsm``, and everything but ``inputs/`` at ``all``.
+    """
     out = set(_files(sim / "scripts"))
-    for file in _files(sim / "datapoints"):
-        if file.name == "FS_runtime_output.txt" or file.name.endswith("_log.txt"):
+    for file in _files(sim / SIM_DATAPOINTS_DIR):
+        if is_log_name(file.name):
             out.add(file)
         elif rank >= 2 and file.suffix.lower() == ".fsm":
             out.add(file)
@@ -378,10 +550,10 @@ def batch_files(ws: Path, rank: int, skip_sims: set[str]) -> set[Path]:
     for folder in batch_dirs(ws):
         for entry in sorted(folder.iterdir()):
             if entry.is_dir() and entry.name.startswith("sim_"):
-                if entry.name[len("sim_") :] not in skip_sims and not os.path.islink(entry):
-                    out |= _sim_files(entry, rank)
+                if entry.name[len("sim_") :] not in skip_sims and not is_reparse(entry):
+                    out |= sim_sync_files(entry, rank)
             elif entry.is_file() and (
-                rank >= 3 or is_job_script(entry.name) or entry.name.endswith(_LOG_ENDINGS)
+                rank >= 3 or is_job_script(entry.name) or is_log_name(entry.name)
             ):
                 out.add(entry)
     return out

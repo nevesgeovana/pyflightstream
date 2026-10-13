@@ -6,13 +6,17 @@ members are read in place; no query expands, locks or repairs its evidence.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
 from zipfile import ZipFile
+
+from pyflightstream._digest import file_sha256
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -71,14 +75,85 @@ def _text(ledger: Ledger, path: str) -> str:
     return (ledger.root / path).read_text(encoding="utf-8", errors="replace")
 
 
+#: How much of a file's end ``show`` reads for its last lines.
+_TAIL_BYTES = 64 * 1024
+
+
+@contextmanager
+def _stream(ledger: Ledger, path: str) -> Iterator[IO[bytes]]:
+    """Open a file, or a ZIP member read in place, as a binary stream."""
+    archive, separator, member = path.partition("!/")
+    if separator:
+        with ZipFile(ledger.root / archive) as source, source.open(member) as stream:
+            yield stream
+    else:
+        with (ledger.root / path).open("rb") as stream:
+            yield stream
+
+
+def _tail(ledger: Ledger, path: str) -> tuple[bytes, int]:
+    """Return the last bytes of a file and its size, never holding the whole file."""
+    with _stream(ledger, path) as stream:
+        if "!/" not in path and stream.seekable():
+            size = stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, size - _TAIL_BYTES))
+            return stream.read(), size
+        tail, size = b"", 0
+        for chunk in iter(lambda: stream.read(_TAIL_BYTES), b""):
+            size += len(chunk)
+            tail = (tail + chunk)[-_TAIL_BYTES:]
+        return tail, size
+
+
+def _tail_text(tail: bytes, size: int) -> str | None:
+    """Decode a text tail, or identify binary bytes without replacement characters."""
+    if b"\x00" in tail:
+        return None
+    start = 0
+    if len(tail) < size:
+        # A seek can start inside one UTF-8 character; at most three continuation bytes.
+        while start < min(3, len(tail)) and 0x80 <= tail[start] <= 0xBF:
+            start += 1
+    try:
+        return tail[start:].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 def _evidence(ledger: Ledger, path: str | None, *, lines: int = 5) -> dict[str, Any]:
+    """Return one evidence file's last lines, or a binary file's size and sha256.
+
+    PFS-2101.004: the whole file was read and decoded to print five lines, so a
+    surface export was loaded in full and a binary one printed replacement
+    characters. The end is read now; NUL bytes or bytes that are not UTF-8
+    identify binary evidence, shown by size and digest. A ZIP member's digest
+    is computed in chunks from its stream.
+    """
     if path is None:
         return {"path": None, "state": "absent", "last_lines": []}
-    return {
-        "path": path,
-        "state": "present",
-        "last_lines": _text(ledger, path).splitlines()[-lines:],
-    }
+    tail, size = _tail(ledger, path)
+    decoded = _tail_text(tail, size)
+    if decoded is None:
+        if "!/" in path:
+            with _stream(ledger, path) as stream:
+                hashed = hashlib.sha256()
+                for chunk in iter(lambda: stream.read(_TAIL_BYTES), b""):
+                    hashed.update(chunk)
+                digest = hashed.hexdigest()
+        else:
+            digest = file_sha256(ledger.root / path)
+        return {
+            "path": path,
+            "state": "present",
+            "binary": True,
+            "bytes": size,
+            "sha256": digest,
+            "last_lines": [],
+        }
+    found = decoded.splitlines()
+    if len(tail) < size:
+        found = found[1:]  # the first line read may begin inside a line
+    return {"path": path, "state": "present", "last_lines": found[-lines:]}
 
 
 def _point_files(record: dict[str, Any], files: dict[str, str]) -> dict[str, str]:
