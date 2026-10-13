@@ -19,6 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
@@ -157,3 +158,39 @@ def test_goal020_physics_report_says_not_run_rather_than_nothing(tmp_path, monke
     monkeypatch.setattr(module, "PHYSICS", physics)
     rendered = module.build_report()
     assert "not run" in rendered
+
+
+def _report(path: Path, date: str, verdict: str, **header: str) -> None:
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "date": date,
+                **header,
+                "summary": {"pass": 1, "warn": 0, "fail": 0, "no_reference": 0},
+                "cases": {"PHY-01": {"title": "a case", "verdicts": {"CL": verdict}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_p0400_a_superseded_report_is_history_and_a_same_day_tie_still_refuses(
+    tmp_path, monkeypatch
+):
+    """P0400-PHY-SUPERSEDED: a report naming ``superseded_by`` is skipped; a bare tie refuses."""
+    module = _module()
+    physics = tmp_path / "physics"
+    physics.mkdir()
+    _report(physics / "PHY-26130_2026-02-02_all-cases.yaml", "2026-02-02", "pass")
+    _report(
+        physics / "PHY-26130_2026-02-02_partial.yaml",
+        "2026-02-02",
+        "fail",
+        superseded_by="PHY-26130_2026-02-02_all-cases.yaml",
+    )
+    monkeypatch.setattr(module, "PHYSICS", physics)
+    admitted = module.builds_at_or_after(module.OLDEST_BUILD)
+    assert admitted["26.130"].name == "PHY-26130_2026-02-02_all-cases.yaml"
+    _report(physics / "PHY-26130_2026-02-02_rerun.yaml", "2026-02-02", "warn")
+    with pytest.raises(ValueError, match="nothing says which one"):
+        module.builds_at_or_after(module.OLDEST_BUILD)
