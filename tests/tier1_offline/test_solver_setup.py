@@ -522,6 +522,7 @@ def test_unsteady_mode_needs_both_time_arguments():
 
 def test_steady_mode_and_bulk_separation_emit():
     script = Script(version="26.120")
+    script.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     helpers.solver_settings(
         script,
         vorticity_drag_boundaries="all",
@@ -541,6 +542,12 @@ def test_steady_mode_and_bulk_separation_emit():
             script, vorticity_drag_boundaries="all", bulk_separation={"name": "x"}
         )
 
+
+#: CREATE_BULK_SEPARATION is broken on 26.120 since 2026-10-12 (RPT-166: the
+#: solver deprecates it for CREATE_CYLINDRICAL_BULK_SEPARATION and stops at the
+#: line). The tests below test the grammar and order the renderer writes, which
+#: no solver reads, so they emit it under the recorded waiver.
+_BULK_GRAMMAR = "renderer grammar test; no solver reads this script"
 
 # --- round trip: snapshot -> json -> script_from_setup ----------------------
 
@@ -581,6 +588,7 @@ ROUND_TRIP_KWARGS = dict(
 
 def test_round_trip_regenerates_identical_lines():
     first = Script(version="26.120")
+    first.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     setup = helpers.solver_settings(first, **ROUND_TRIP_KWARGS)
     helpers.start_solver(first)
     assert first.solver_setup is setup
@@ -590,6 +598,7 @@ def test_round_trip_regenerates_identical_lines():
     assert restored == setup
 
     second = Script(version="26.120")
+    second.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     regenerated = script_from_setup(second, restored)
     helpers.start_solver(second)
     assert second.render() == first.render()
@@ -1026,6 +1035,7 @@ def test_the_erase_precedes_the_bulk_create_so_one_call_can_rebuild():
     and delete it, while the snapshot recorded it as emitted.
     """
     script = Script(version="26.120")
+    script.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     setup = helpers.solver_settings(
         script,
         bulk_separation={"name": "GEAR", "separation_type": "FLAT_PLATE", "diameter": 0.2},
@@ -1209,6 +1219,7 @@ def test_the_bulk_model_still_emits_its_own_grammar_through_the_shared_renderer(
     renderer produces from the model's field order.
     """
     script = Script(version="26.120")
+    script.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     helpers.solver_settings(
         script,
         bulk_separation=BulkSeparation(
@@ -1218,6 +1229,7 @@ def test_the_bulk_model_still_emits_its_own_grammar_through_the_shared_renderer(
     assert "CREATE_BULK_SEPARATION GEAR FLAT_PLATE 2 0.2\n1,3" in script.render()
 
     every = Script(version="26.120")
+    every.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     helpers.solver_settings(
         every,
         bulk_separation=BulkSeparation(name="GEAR", separation_type="CYLINDRICAL", diameter=0.2),
@@ -1265,6 +1277,7 @@ def test_bulk_separation_is_refused_on_a_build_whose_grammar_drops_the_type():
     # The control: the four-argument form is exactly right on 26.120, so
     # the refusal is about the version and not about the model.
     working = Script(version="26.120")
+    working.allow_broken("CREATE_BULK_SEPARATION", reason=_BULK_GRAMMAR)
     helpers.solver_settings(
         working,
         bulk_separation=BulkSeparation(name="GEAR", separation_type="FLAT_PLATE", diameter=0.2),

@@ -179,11 +179,12 @@ SET_MOTION_START_TIME:
     "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "measured 2026-10-12 on build #7012026 (RPT-166) on a 6DOF motion: the saved simulation changes across the command. The abort of 2026-08-08 was the solver refusing a start time for the ROTARY motion of that probe prelude (RPT-026), not a defect of the command"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.122": {status: documented, note: "SRC-750 p.337, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so neither the abort of 2026-08-08 nor the verified 26.120 run answers for it"}
     "26.123": {status: documented, note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: documented, note: "SRC-752 p.337, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.344, unchanged from SRC-752 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "SRC-752 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "SRC-753 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
   notes: >
     Start of the motion within the solver physical time; enables
     converging a steady base flow before the motion begins.
@@ -298,12 +299,13 @@ SET_MOTION_FSI_EXECUTABLE:
     "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.334-335, same grammar as 26.120"}
-    "26.120": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.340, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
+    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "SRC-741 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "SRC-725 pp.334-335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "SRC-003 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: documented, note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
   notes: >
     FSI seam (FR-23): FlightStream calls the external structural
     executable per coupling step; the executable path follows on the
@@ -313,8 +315,11 @@ SET_MOTION_FSI_EXECUTABLE:
     reports/RPT-005): build 7012026 rejects this command as
     unrecognized despite the manual-exact grammar; the implemented
     interface is the Aeroelastic Coupling Toolbox family (SRC-003
-    pp.375-376, aeroelastic_coupling.yaml). Candidate broken;
-    promotion via the next validity sweep (PLN-019).
+    pp.375-376, aeroelastic_coupling.yaml). Measured refused as an
+    unrecognised command on 26.100, 26.101, 26.120, 26.124 and 26.125
+    (RPT-166); the user's program reaches the coupling through
+    SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND instead, verified on
+    26.124 and 26.125 by the same probe round.
 
 SET_MOTION_FSI_STRUCTURAL_NODES:
   layout: inline
@@ -332,20 +337,21 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
     "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
-    "26.120": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.341, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
+    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "SRC-741 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "SRC-725 p.335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "SRC-003 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
     "26.123": {status: documented, note: "SRC-751 p.341, unchanged from SRC-750 p.341"}
-    "26.124": {status: documented, note: "SRC-752 p.341, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.348, unchanged from SRC-752 p.341"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.341 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
   notes: >
     Imports the structural displacement node set; the file path
     follows on the line after the motion index. Dry run finding
     (2026-07-21, reports/RPT-005): build 7012026 rejects this command
     as unrecognized; the implemented import is
     IMPORT_AEROELASTIC_STRUCTURAL_NODES (SRC-003 p.375,
-    aeroelastic_coupling.yaml). Candidate broken; promotion via the
-    next validity sweep (PLN-019).
+    aeroelastic_coupling.yaml). Measured refused as an unrecognised
+    command on 26.100, 26.101, 26.120, 26.124 and 26.125 (RPT-166).
 
 DELETE_MOTION:
   layout: inline
@@ -570,8 +576,8 @@ SET_MOTION_MASS_PROPERTIES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
   notes: >
     Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
     the manual states; the six inertia components are named as moments
@@ -605,8 +611,8 @@ SET_MOTION_GRAVITY:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
   notes: >
     Gravity vector for a 6DOF motion, in the REFERENCE coordinate
     system. Its neighbours SET_MOTION_6DOF_INITIAL_VELOCITY and
@@ -681,8 +687,8 @@ SET_MOTION_6DOF_INITIAL_VELOCITY:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: documented, note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
   notes: >
     Initial velocity of a 6DOF body, in the BODY coordinate system, not
     the reference one its gravity vector uses. No unit is stated.
@@ -710,8 +716,8 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: documented, note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
   notes: >
     Initial angular velocity of a 6DOF body, in the body coordinate
     system. No unit is stated, and unlike SET_MOTION_ROTOR_RPM, which
@@ -738,8 +744,8 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: documented, note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
   notes: >
     Frees or locks each degree of freedom, one per line after the
     command: U, V and W are the velocity components and P, Q and R the
@@ -797,8 +803,8 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: documented, note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     A force applied at a point of the body for a window of time. Both
     the application point and the force vector are in the BODY frame.
@@ -831,8 +837,8 @@ CREATE_NEW_6DOF_CUSTOM_FORCE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: documented, note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
   notes: >
     A force profile read from a text file, the path on the following
     line. The two tokens use UNDERSCORES where the motion table's
@@ -877,8 +883,8 @@ CREATE_NEW_6DOF_SPRING_FORCE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: documented, note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
   notes: >
     A spring attached to the body. ELEVEN arguments, and the manual's
     heading WRAPS with SPRING_RATE alone on the second line, which is
@@ -941,8 +947,8 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: documented, note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
   notes: >
     Includes the loads on the symmetry boundary in a 6DOF motion, which
     the page's own sample comment describes as converting the motion

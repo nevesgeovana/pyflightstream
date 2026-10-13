@@ -374,6 +374,9 @@ def test_bulk_separation_renders_the_grammar_of_its_target_version():
     # 26.1 versus 26.12 manual delta (SRC-725 p.341 / SRC-003 p.342):
     # 26.12 inserts SEPARATION_TYPE as the second argument.
     later = Script(version="26.120")
+    # Broken on 26.120 since 2026-10-12 (RPT-166); the waiver keeps this a test
+    # of the grammar the renderer writes, which is all it ever was.
+    later.allow_broken("CREATE_BULK_SEPARATION", reason="grammar test, no solver")
     later.emit("CREATE_BULK_SEPARATION", "GEAR", "FLAT_PLATE", 3, 0.2, [1, 3, 5])
     assert later.render() == "CREATE_BULK_SEPARATION GEAR FLAT_PLATE 3 0.2\n1,3,5\n\n"
     earlier = Script(version="26.101")
@@ -2413,8 +2416,10 @@ def test_a_payload_of_the_wrong_length_is_refused_naming_the_corruption():
         ("SET_MOTION_MOVING_FRAMES", "26.100", (1, -1)),
         ("SET_MOTION_COORDINATE_SYSTEM", "26.100", (1, 1)),
         ("SET_MOTION_START_TIME", "26.100", (1, 0.5)),
-        ("SET_MOTION_FSI_EXECUTABLE", "26.100", (1, "DISABLE", "ENABLE", "beam.exe")),
-        ("SET_MOTION_FSI_STRUCTURAL_NODES", "26.100", (1, "nodes.txt")),
+        # SET_MOTION_FSI_EXECUTABLE and SET_MOTION_FSI_STRUCTURAL_NODES left
+        # this list on 2026-10-12: the 26.100 solver refuses both names as
+        # unrecognised (RPT-166), so their rows are removed and the emitter
+        # refuses them, which test_p0400_probes_database.py pins.
         ("DELETE_MOTION", "26.100", (1,)),
         ("SET_MOTION_ROTOR_AXIS", "26.101", (1, "X")),
         ("SET_MOTION_ROTOR_RPM", "26.101", (1, -1000.0)),
@@ -2425,7 +2430,7 @@ def test_a_payload_of_the_wrong_length_is_refused_naming_the_corruption():
     ],
 )
 def test_the_backfilled_early_build_rows_are_emittable(command, version, args):
-    """Thirteen rows added on 2026-08-07, asserted one by one.
+    """Thirteen rows added on 2026-08-07, eleven still emittable, asserted one by one.
 
     Each is a command the February or May 2026 manual documents whose
     entry carried no row for that build, so the emitter refused it
