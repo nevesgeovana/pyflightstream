@@ -247,6 +247,8 @@ Run `pyfs-matrix post` to rebuild products from recorded solver exports.
 - Re-run saved-state probes whose evidence matched only a numeric substring; unsupported preludes or effect-instrument errors record affected probes as `unprobed`.
 - Physics reduction refuses mixed executable identities, unknown incidence and PHY-01 polars without two distinct angles and a 4-degree point; reference promotion refuses unconverged or incomplete paired reports.
 - Use an absolute reference band for a zero baseline; zero-centred relative bands refuse before updating references.
+- `WingSpec` and `BladeSpec` refuse a cambered four-digit section whose camber-position digit is zero; correct the designation.
+- Containment culling refuses an open mesh passed as an object, and position verification refuses non-finite exported rows; pass a closed mesh and re-export the probe positions.
 
 ## 0.39.0
 

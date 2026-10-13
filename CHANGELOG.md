@@ -115,14 +115,9 @@ FlightStream versions.
 - The generated input template carries the example `inputs/pproc/p003.toml`,
   covering `[streamlines]` lines and tubes, `[[probes.lattices]]` and
   `[farfield]` with `trefftz` and `ledgers` (FR-460, FR-450).
-- cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer. (no requirement: PFS-2098.004 fix)
-- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers. (no requirement: PFS-2085.021 fix)
-- Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings. (no requirement: PFS-2105.042 fix)
 - `farfield.plane_lift`: the Kutta-Joukowski lift of the streamwise vorticity a Trefftz C plane holds. The C row of a wing states it as `CL_T`, and post warns where it departs from the solver's CL by more than 10 percent: the probe field then does not hold the circulation the loads shed (FR-453 R9, PFS-2081.95, RPT-171).
 - Every row of `farfield/<group>_trefftz.csv`, `farfield/<group>_ledgers.csv` and `sections/<point>_trefftz_<family>.csv` ends with `STATUS`, the point's solver termination status as `campaign_sweep.csv` writes it (FR-456 R10, PFS-2081.97).
 - The run record carries `farfield_layout`, the far-field plane and lattice each point laid or reused (a steady job keys it by point name), and `plan.json` states it under the row's `farfield` `probes` (FR-455 R4, PFS-2081.58).
-- `pyfs-workspace init` and `migrate-geometries` accept `--workspace PATH`, as every other subcommand but `archive` does; their positional root still works, and two different folders are refused (no requirement: PFS-2089.004 fix).
-- A refinement file that selects a family with no `[families.<name>]` table warns, naming the family and the remedy, and `refine.json` records it under `missing_families_tables` (no requirement: PFS-2089.003 fix).
 
 ### Changed
 
@@ -132,7 +127,6 @@ FlightStream versions.
   the exempted set falls from sixteen modules to thirteen, and the error total inside it moves from 159
   to 165 (`qa.probes` 79 to 92, `script.helpers` 2 to 4, `script` 17 to 13, `post.writers` 2 to 1). The
   forty-six modules the package gained since 0.39.0 are all clean and none is exempted (NFR-27, RPT-029).
-- `pyfs-workspace archive SIM_ID --workspace ROOT` names the campaign folder like the other subcommands; the positional `archive ROOT SIM_ID` still works and warns that it is deprecated (no requirement: the archive subcommand takes --workspace like the others).
 - `pyflightstream.farfield` takes and returns numpy arrays and small frozen containers; `xarray` is no longer a required dependency (FR-457). The numbers are unchanged to the last bit.
 - `pyflightstream.probes` is the one home of probe geometry: the line, rectangle and circle layouts, the survey lattice and the far-field plane (FR-459).
 - A row naming a CCS, IGES or STL file, or a sidecar whose import operations scale, rename or mirror, is warned at plan with its replacement; it still runs as before, and 0.41.0 refuses it (FR-476).
@@ -154,26 +148,9 @@ FlightStream versions.
   over `Blade11` and `Blade12`) matches no recorded block for integration;
   its raw columns are kept. Over a legacy layout's cuts alone, with no known
   geometry, the family reading is kept (FR-435).
-- A `--png` request without matplotlib raises `MissingExtraError` naming
-  `pyflightstream[plot]` (no requirement: integration fix of the geometry
-  stage's hand-written remedy).
-- `minimal_workflow("26.125")` declares its one imported boundary, so its
-  trailing-edge detection writes `SURFACES 1` and `1` (no requirement:
-  follows PFS-2104.051).
-- The export verdicts name four export commands of 0.40.0:
-  `EXPORT_VOLUME_SECTION_2D_VTK` is excluded like its 3D sibling;
-  `EXPORT_ALL_SURFACE_STREAMLINES`, `EXPORT_6DOF_TRAJECTORY` and
-  `STABILITY_TOOLBOX_EXPORT` are owed a parser (no requirement: export
-  classification).
-- PFS-2084.004, PFS-2084.005, PFS-2094.040, PFS-2100.019, PFS-2104.032, PFS-2104.035 (no requirement: identifiers retained from the correction fragment).
 
-- Script.park_input_file applies the shared case-insensitive collision rule.
-  Script.observe_commands records accepted emissions within a scope; cases use
-  these public APIs and Script.entry instead of private builder state. (no requirement: shared script APIs for existing workflows).
 - Restart records have declared ExportThresholdRecord and StoppedStepRecord
   types. The persisted export_window key remains compatible. (FR-409).
-- Matrix selection precedes build and artifact resolution; excluded rows do
-  not refuse a missing default build or change the selected run's HIDDEN mode. (no requirement: correction of excluded-row handling).
 - Run, post, collect and regeneration overwrite products without an archive by
   default. collect --archive and delete-sims --archive preserve replaced products.
   post --force-overwrite explicitly selects no archive and still confirms it. (FR-397).
@@ -183,22 +160,12 @@ FlightStream versions.
   at plan. Additional marches resolve LAST windows against their new end. (FR-409).
 - Point names retain the historical binary half-even rounding, so existing
 datapoint folders remain readable after upgrading. A sweep whose rounded names
-collide is refused before planning; 10.45 and 10.50 degrees keep AL+104 and AL+105. (no requirement: preserve historical point names and refuse collisions).
+collide is refused before planning; 10.45 and 10.50 degrees keep AL+104 and AL+105. (FR-102, FR-408).
 
 - Collection files and records an existing optional wake VTK beside its declared
 surface export. No wake companion is required when the solver writes none. (FR-452).
 
-- CSV coefficient columns now retain at least six significant figures when five
-decimals lose precision, including small induced-drag values. Readers must
-accept scientific notation. Settings retain their stated form and drift
-percentages keep five decimals. The optional legacy custom polar format keeps
-its external fixed-width, five-decimal contract. (no requirement: preserve small coefficient values when writing CSV).
 
-- Forced reruns support Windows archive paths longer than the ordinary path limit
-and tolerate an output that disappears during archiving. An archive
-failure retains the old manifest records, and a later failure restores any
-superseded record for which no replacement was written. Existing output
-archives remain available for recovery. (no requirement: preserve records during Windows archive failures).
 - PFS-2081.49: Steady far-field planes and lattices append their points through
 one bulk CSV import. The staged file keeps the recorded point order and the
 simulation length unit; each distinct set has a content-derived filename.
@@ -217,76 +184,50 @@ raw lift within 3 percent of the near field and efficiency within 0.03 of
 Trefftz A. The real solver fixture exports use LF line endings; their
 coordinates, connectivity and scalar values are unchanged. (FR-452).
 - The rotor Mach numbers gain the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` (FR-176 R1): `M_hel` bounds the tip only in axial flow, and `M_adv` equals it there and is `(Omega R + V) / a` edgewise. `pyfs-matrix plan` prints an `M_adv` column and warns on `M_adv >= 1` (still a warning, never a refusal), `plan.json` and the run record carry `mach_advancing` beside `mach_helical`, and the rotor table gains `MADV_<alias>` as its last column. A row whose rotor axis cannot be resolved takes the edgewise bound and the plan line says so. `M_hel` is unchanged.
-- An unsteady simulation with no resolvable window keeps its group polars from the last time step, now labelled kind: instant in the table entries, and post.log warns once naming the simulation. (no requirement: PFS-2105.011 fix)
-- Custom polar fields now always keep a blank before each number; long values may be written with fewer decimals or digits, and a value that cannot fit raises ProductError. (no requirement: PFS-2105.012 fix)
-- The inflow result is renamed InflowStationHarmonics. The old inflow_tools.StationHarmonics import warns and remains available until 1.0.0. The loads-harmonics class keeps its name. (no requirement: PFS-2089.007 fix)
-- Native file lists are now relative to the products folder, matching product keys. Resolve these paths from the folder containing products.json. (no requirement: PFS-2089.001 fix)
-- Sections measurement expected and emitted now list all block counts, including duplicates. (no requirement: PFS-2105.021 fix)
 - EXPORT_6DOF_TRAJECTORY is now an export-phase command, and a row's SIXDOF trajectory is written after the march with the other exports, where it was written in the setup phase and held its header and no row on 26.124 and 26.125 (FR-461 R6, RPT-166 P4-04). A script of your own that places it before the march keeps working only through raw text.
 - The 6DOF trajectory columns are in the solver's units, which the probes did not settle; the package does not convert them (docs/sixdof-motion.md). (FR-461)
-- Small dimensional CSV values retain significant digits where five decimal
-  places would lose precision. This covers viscosity, time (including the
-  native plots clock), positions, sectional loads, velocities, boundary-layer
-  lengths, and dimensional rotor and group columns. Coefficients keep five
-  decimal places. Readers must accept scientific notation in physical columns. (no requirement: PFS-2105.041 fix)
-- A probe history containing `NA` or blank cells keeps its other values and
-  produces a probes table. Previously one such cell could skip the whole table. (no requirement: PFS-2105.016 fix)
-- Malformed recorded reduction windows are listed under that reduction's
-  `skipped` key instead of aborting the post. Each window must contain two
-  bounds, the first and last solver steps. (no requirement: PFS-2095.016 fix)
-- Truncated VTK vector blocks raise `IncompleteOutputError`; malformed vector
-  rows and non-UTF-8 frames raise `MalformedOutputError`, instead of raw Python
-  indexing, conversion or decoding exceptions. (no requirement: PFS-2095.020 fix)
-- A failing post keeps its original exception if a log write, log close or
-  interrupted-manifest write also fails, including when the log reader sees
-  partial JSON from that failed rewrite. The secondary failure is attached
-  as an exception note. A log failure after a successful post still raises. (no requirement: PFS-2086.002 fix)
-- A rerun whose export now declares zero sections or zero probe points retires
-  the previous table under both archive settings. Under `--force-overwrite` it
-  removes the old file and records the skipped product. (no requirement: PFS-2100.004 fix)
-- Harmonics now require angular coverage as well as distinct sample counts.
-  See [the fit definition](definitions/the-per-station-harmonics.md) for the
-  180-degree maximum-gap rule, omitted terms and `HarmonicFit.reason`. (no requirement: PFS-2086.007 fix)
+
 When adopting 0.40.0, account for these changes in probe evidence, physics
 references and command-line refusals.
 
+
 - **PFS-2100.023, PFS-2104.015:** migration: `emit_probe_import` documents that
   coordinates use simulation length units and types `frame` as `int | str`.
-  The unit of the CSV is now a required argument (no default). (no requirement: PFS-2100.023 fix)
+  The unit of the CSV is now a required argument (no default). (FR-80)
 - **PFS-2097.008, PFS-2095.022:** migration: containment culling now refuses an
   open mesh supplied as an object. Position verification refuses non-finite
-  exported rows and accepts empty plans, including after JSON loading. (no requirement: PFS-2097.008 fix)
+  exported rows and accepts empty plans, including after JSON loading. (FR-459, FR-79)
 - **PFS-2102.013:** migration: saved-state probe assertions require the correct
   numeric value, including sign and exponent. A substring of another number
-  no longer verifies a command; re-run probes whose old evidence depended on it. (no requirement: PFS-2102.013 fix)
+  no longer verifies a command; re-run probes whose old evidence depended on it. (FR-25)
 - **PFS-2102.033, PFS-2102.028:** migration: an unsupported prelude argument or
   an exception in an effect instrument records the affected probes as
-  `unprobed` instead of terminating the probe run. (no requirement: PFS-2102.033 fix)
+  `unprobed` instead of terminating the probe run. (FR-25)
 - **PFS-2102.005:** migration: `WingSpec` and `BladeSpec` refuse a cambered
-  four-digit section with a zero camber-position digit at construction. (no requirement: PFS-2102.005 fix)
+  four-digit section with a zero camber-position digit at construction. (FR-27)
 - **PFS-2102.003:** migration: executable identity is `unknown` when the version
   registry has no build number, even if the executable prints one. Record a
-  build from identity evidence before treating the executable as confirmed. (no requirement: PFS-2102.003 fix)
+  build from identity evidence before treating the executable as confirmed. (FR-25)
 - **PFS-2102.030, PFS-2102.010, PFS-2102.002:** migration: malformed compatibility
   reports and unreadable physics evidence now raise `QaEvidenceError`.
   Invalid reference fields are refused through the same error type.
   `pyfs-qa probe` reports missing executables and evidence refusals with exit 2;
-  `pyfs-qa cost` reports unreadable manifests with exit 2. (no requirement: PFS-2102.030 fix)
+  `pyfs-qa cost` reports unreadable manifests with exit 2. (FR-25)
 - **PFS-2085.017, PFS-2102.007, PFS-2102.009:** migration: physics reduction
   refuses mixed executable identities, unknown incidence, and a PHY-01 polar
   without both two distinct angles and a 4-degree point. A failed case reduction
-  is recorded as a case error; a failure after execution is reported as such. (no requirement: PFS-2085.017 fix)
+  is recorded as a case error; a failure after execution is reported as such. (FR-26)
 - **PFS-2102.015:** migration: report labels must be portable file-name tokens,
   without separators, whitespace, control characters, or Windows-forbidden
-  characters. Invalid labels are refused before the solver starts. (no requirement: PFS-2102.015 fix)
+  characters. Invalid labels are refused before the solver starts. (FR-25)
 - **PFS-2102.036:** migration: a relative reference band centred on exactly zero
   is refused. Drift reports such a baseline without a reference band. Reference
-  updates refuse a zero-centred relative band before replacing the reference. (no requirement: PFS-2102.036 fix)
+  updates refuse a zero-centred relative band before replacing the reference. (FR-26)
 - **PFS-2085.016, PFS-2102.011 (review correction):** migration: reference
   promotion checks the source report itself for unconverged steady points,
   including the steady half of PHY-06. Historical reports are checked too;
   completed unsteady points remain eligible. Incomplete paired-polar reports
-  are refused. (no requirement: PFS-2085.016 fix)
+  are refused. (FR-26)
 - Far-field post now uses the planning selector grammar, including numbered
 family stems and nested aliases. Missing Trefftz A families each receive their
 own section distribution, so their exported loads can be attributed and posted. (FR-455).
@@ -334,15 +275,6 @@ message naming the record and missing input key, instead of raising KeyError. (F
   unit instead of the source mesh's import unit. Millimetre-source builds
   retain their physical dimensions on re-import and pass valid trailing-edge
   audits for both OBJ-only and FSM-plus-OBJ outputs.
-- The CLI scheduler regression now exercises the scheduler on Windows and isolates its selected profile. The mark-failed mutation test follows the per-point implementation. Command parsing, record marking, renaming and sweep collection retain their behavior while shared steps are factored into helpers to satisfy source limits (no requirement: test and internal helper changes, no behaviour change).
-- Workspace storage and batch commands read one end rule for a grouped job: the end record, the job log, every `job_end_files` glob, or a point whose wall-clock state says it fired; delete-sims, free-space and sync now treat a clock-stopped batch as ended, as collect does (no requirement: PFS-2094.041, PFS-2094.044 fix).
-- Sync and free-space share one log-name rule: `FS_runtime_output.txt`, `FlightStreamLog.txt`, `*_log.txt`, `*-log.txt` and `*.log`, in any case (no requirement: PFS-2087.002 fix).
-- `ledger diff` normalises each executed script against its own run root and words a changed command as `a ...` and `b ...` (no requirement: PFS-2103.013 fix).
-- `show` reads only the end of an evidence file and reports a binary file by size and sha256 (no requirement: PFS-2101.004 fix).
-- `log --sims 20` no longer selects simulation `20-b`; a row's own `sim_id` or `sims` decides before its text (no requirement: PFS-2094.043 fix).
-- A thin blade's rows all run from the leading edge, and a blunt trailing edge ends the mean line at the midpoint of its base (no requirement: PFS-2099.001, PFS-2099.002 fix).
-- A thin blade cut from a multi-body OBJ carries only the mesh operations that act on it, and names the ones left out in its sidecar (no requirement: PFS-2099.003, PFS-2099.013 fix).
-- Refined meshes order faces within one source face by vertex index, then distance, so a millimetre mesh orders as a metre one does, and a one-row or one-column grid is written in the source's own run (no requirement: PFS-2099.019, PFS-2099.018 fix).
 
 ### Fixed
 
@@ -508,6 +440,76 @@ message naming the record and missing input key, instead of raising KeyError. (F
 - A refinement table stating only `keep_first_row` names the fix (PFS-2093.013).
 - A refinement or trailing-edge points file that is not UTF-8 is refused (PFS-2099.004).
 - An empty family selection is refused before anything is written (PFS-2099.005).
+- cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer. (no requirement: PFS-2098.004 fix)
+- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers. (no requirement: PFS-2085.021 fix)
+- Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings. (no requirement: PFS-2105.042 fix)
+- `pyfs-workspace init` and `migrate-geometries` accept `--workspace PATH`, as every other subcommand but `archive` does; their positional root still works, and two different folders are refused (no requirement: PFS-2089.004 fix).
+- A refinement file that selects a family with no `[families.<name>]` table warns, naming the family and the remedy, and `refine.json` records it under `missing_families_tables` (no requirement: PFS-2089.003 fix).
+- `pyfs-workspace archive SIM_ID --workspace ROOT` names the campaign folder like the other subcommands; the positional `archive ROOT SIM_ID` still works and warns that it is deprecated (no requirement: the archive subcommand takes --workspace like the others).
+- A `--png` request without matplotlib raises `MissingExtraError` naming
+  `pyflightstream[plot]` (no requirement: integration fix of the geometry
+  stage's hand-written remedy).
+- `minimal_workflow("26.125")` declares its one imported boundary, so its
+  trailing-edge detection writes `SURFACES 1` and `1` (no requirement:
+  follows PFS-2104.051).
+- The export verdicts name four export commands of 0.40.0:
+  `EXPORT_VOLUME_SECTION_2D_VTK` is excluded like its 3D sibling;
+  `EXPORT_ALL_SURFACE_STREAMLINES`, `EXPORT_6DOF_TRAJECTORY` and
+  `STABILITY_TOOLBOX_EXPORT` are owed a parser (no requirement: export
+  classification).
+- PFS-2084.004, PFS-2084.005, PFS-2094.040, PFS-2100.019, PFS-2104.032, PFS-2104.035 (no requirement: identifiers retained from the correction fragment).
+- Script.park_input_file applies the shared case-insensitive collision rule.
+  Script.observe_commands records accepted emissions within a scope; cases use
+  these public APIs and Script.entry instead of private builder state. (no requirement: shared script APIs for existing workflows).
+- Matrix selection precedes build and artifact resolution; excluded rows do
+  not refuse a missing default build or change the selected run's HIDDEN mode. (no requirement: correction of excluded-row handling).
+- CSV coefficient columns now retain at least six significant figures when five
+decimals lose precision, including small induced-drag values. Readers must
+accept scientific notation. Settings retain their stated form and drift
+percentages keep five decimals. The optional legacy custom polar format keeps
+its external fixed-width, five-decimal contract. (no requirement: preserve small coefficient values when writing CSV).
+- Forced reruns support Windows archive paths longer than the ordinary path limit
+and tolerate an output that disappears during archiving. An archive
+failure retains the old manifest records, and a later failure restores any
+superseded record for which no replacement was written. Existing output
+archives remain available for recovery. (no requirement: preserve records during Windows archive failures).
+- An unsteady simulation with no resolvable window keeps its group polars from the last time step, now labelled kind: instant in the table entries, and post.log warns once naming the simulation. (no requirement: PFS-2105.011 fix)
+- Custom polar fields now always keep a blank before each number; long values may be written with fewer decimals or digits, and a value that cannot fit raises ProductError. (no requirement: PFS-2105.012 fix)
+- The inflow result is renamed InflowStationHarmonics. The old inflow_tools.StationHarmonics import warns and remains available until 1.0.0. The loads-harmonics class keeps its name. (no requirement: PFS-2089.007 fix)
+- Native file lists are now relative to the products folder, matching product keys. Resolve these paths from the folder containing products.json. (no requirement: PFS-2089.001 fix)
+- Sections measurement expected and emitted now list all block counts, including duplicates. (no requirement: PFS-2105.021 fix)
+- Small dimensional CSV values retain significant digits where five decimal
+  places would lose precision. This covers viscosity, time (including the
+  native plots clock), positions, sectional loads, velocities, boundary-layer
+  lengths, and dimensional rotor and group columns. Coefficients keep five
+  decimal places. Readers must accept scientific notation in physical columns. (no requirement: PFS-2105.041 fix)
+- A probe history containing `NA` or blank cells keeps its other values and
+  produces a probes table. Previously one such cell could skip the whole table. (no requirement: PFS-2105.016 fix)
+- Malformed recorded reduction windows are listed under that reduction's
+  `skipped` key instead of aborting the post. Each window must contain two
+  bounds, the first and last solver steps. (no requirement: PFS-2095.016 fix)
+- Truncated VTK vector blocks raise `IncompleteOutputError`; malformed vector
+  rows and non-UTF-8 frames raise `MalformedOutputError`, instead of raw Python
+  indexing, conversion or decoding exceptions. (no requirement: PFS-2095.020 fix)
+- A failing post keeps its original exception if a log write, log close or
+  interrupted-manifest write also fails, including when the log reader sees
+  partial JSON from that failed rewrite. The secondary failure is attached
+  as an exception note. A log failure after a successful post still raises. (no requirement: PFS-2086.002 fix)
+- A rerun whose export now declares zero sections or zero probe points retires
+  the previous table under both archive settings. Under `--force-overwrite` it
+  removes the old file and records the skipped product. (no requirement: PFS-2100.004 fix)
+- Harmonics now require angular coverage as well as distinct sample counts.
+  See [the fit definition](definitions/the-per-station-harmonics.md) for the
+  180-degree maximum-gap rule, omitted terms and `HarmonicFit.reason`. (no requirement: PFS-2086.007 fix)
+- The CLI scheduler regression now exercises the scheduler on Windows and isolates its selected profile. The mark-failed mutation test follows the per-point implementation. Command parsing, record marking, renaming and sweep collection retain their behavior while shared steps are factored into helpers to satisfy source limits (no requirement: test and internal helper changes, no behaviour change).
+- Workspace storage and batch commands read one end rule for a grouped job: the end record, the job log, every `job_end_files` glob, or a point whose wall-clock state says it fired; delete-sims, free-space and sync now treat a clock-stopped batch as ended, as collect does (no requirement: PFS-2094.041, PFS-2094.044 fix).
+- Sync and free-space share one log-name rule: `FS_runtime_output.txt`, `FlightStreamLog.txt`, `*_log.txt`, `*-log.txt` and `*.log`, in any case (no requirement: PFS-2087.002 fix).
+- `ledger diff` normalises each executed script against its own run root and words a changed command as `a ...` and `b ...` (no requirement: PFS-2103.013 fix).
+- `show` reads only the end of an evidence file and reports a binary file by size and sha256 (no requirement: PFS-2101.004 fix).
+- `log --sims 20` no longer selects simulation `20-b`; a row's own `sim_id` or `sims` decides before its text (no requirement: PFS-2094.043 fix).
+- A thin blade's rows all run from the leading edge, and a blunt trailing edge ends the mean line at the midpoint of its base (no requirement: PFS-2099.001, PFS-2099.002 fix).
+- A thin blade cut from a multi-body OBJ carries only the mesh operations that act on it, and names the ones left out in its sidecar (no requirement: PFS-2099.003, PFS-2099.013 fix).
+- Refined meshes order faces within one source face by vertex index, then distance, so a millimetre mesh orders as a metre one does, and a one-row or one-column grid is written in the source's own run (no requirement: PFS-2099.019, PFS-2099.018 fix).
 
 ### Removed
 
