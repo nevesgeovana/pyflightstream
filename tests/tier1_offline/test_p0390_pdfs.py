@@ -474,3 +474,75 @@ def test_the_release_record_checks_fail_without_the_line_or_on_another_pdf(tmp_p
         assert receipt_defects(receipts, {pdf.name: copy}) == [
             f"{pdf.name}: the committed PDF is not the one the receipt digests"
         ]
+
+
+def _blob(revision: str, path: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(REPO), "rev-parse", f"{revision}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_git_env(),
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def linkage_defects(receipts: list[dict], head: str = "HEAD") -> list[str]:
+    """Return what keeps a receipt from linking its PDF to the sources now at ``head``."""
+    defects: list[str] = []
+    for receipt in receipts:
+        name = receipt.get("name", "?")
+        revision = str(receipt.get("source_revision", ""))
+        if not revision or not _is_ancestor(revision, head):
+            defects.append(f"{name}: source_revision {revision!r} is not an ancestor of {head}")
+            continue
+        if receipt.get("source_tree_clean") is not True:
+            defects.append(f"{name}: source_tree_clean is not true")
+        inputs = receipt.get("source_inputs")
+        if not inputs:
+            defects.append(f"{name}: the receipt lists no source_inputs")
+            continue
+        for item in inputs:
+            path, blob = item["path"], item["blob"]
+            if _blob(revision, path) != blob:
+                defects.append(f"{name}: {path} has another blob at {revision[:8]} than the record")
+            elif _blob(head, path) != blob:
+                defects.append(f"{name}: {path} changed after the build; rebuild the PDFs")
+    return defects
+
+
+def test_the_release_record_links_each_pdf_to_its_unchanged_sources():
+    """P0390-PDFS (NFR-46) the record revision is an ancestor, clean, and no source changed."""
+    receipts = _record()["receipts"]
+    assert not linkage_defects(receipts)
+    for receipt in receipts:
+        paths = {item["path"] for item in receipt["source_inputs"]}
+        assert "guide/pyflightstream_user_guide.tex" in paths
+        assert any("latex-sources/04-cheatsheet/" in p for p in paths)
+        assert any("latex-sources/shared/" in p for p in paths)
+
+
+def test_a_changed_blob_a_dirty_tree_or_a_foreign_revision_fails_the_linkage_check(monkeypatch):
+    """P0390-PDFS (NFR-46) mutants: each change to the record is refused by the linkage check."""
+    receipts = _record()["receipts"]
+    assert not linkage_defects(receipts)
+
+    changed = json.loads(json.dumps(receipts))
+    changed[0]["source_inputs"][0]["blob"] = "0" * 40
+    assert linkage_defects(changed)
+
+    dirty = json.loads(json.dumps(receipts))
+    dirty[1]["source_tree_clean"] = False
+    assert linkage_defects(dirty)
+
+    foreign = json.loads(json.dumps(receipts))
+    foreign[0]["source_revision"] = "0" * 40
+    assert linkage_defects(foreign)
+
+    # A source edited after the build: at the head the file has another blob.
+    real = _blob
+    monkeypatch.setattr(
+        "tests.tier1_offline.test_p0390_pdfs._blob",
+        lambda revision, path: "f" * 40 if revision == "HEAD" else real(revision, path),
+    )
+    assert linkage_defects(receipts)
