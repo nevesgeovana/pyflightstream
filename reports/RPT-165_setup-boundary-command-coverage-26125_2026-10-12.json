@@ -1279,6 +1279,7 @@
         "src/pyflightstream/cases/_fsi_external.py:validate_external_fsi",
         "src/pyflightstream/cases/_geometry_emit.py:render_geometry_script",
         "src/pyflightstream/cases/fsi_workspace.py:validate_workspace_fsi",
+        "src/pyflightstream/cases/workflows/_farfield.py:farfield_probes",
         "src/pyflightstream/cases/workflows/_freestream.py:_free_stream",
         "src/pyflightstream/cases/workflows/_geometry.py:_geometry_simulation_controls",
         "src/pyflightstream/cases/workflows/_geometry.py:_mark_trailing_edges_from_file",
@@ -1533,7 +1534,6 @@
       "evidence": [
         "src/pyflightstream/cases/_matrix_upgrade.py:_drop_fs_script_and_name_pproc",
         "src/pyflightstream/cases/_matrix_upgrade.py:_insert_workflow_cell",
-        "src/pyflightstream/cases/workflows/_probes.py:emit",
         "src/pyflightstream/script/_settings.py:start_solver"
       ],
       "database_note": "SRC-753 p.350, unchanged from SRC-752 p.343"
@@ -2026,7 +2026,9 @@
         "src/pyflightstream/cases/pproc.py:outputs",
         "src/pyflightstream/cases/pproc.py:samples_normal_probes",
         "src/pyflightstream/cases/workflows/_additional.py:refuse_what_a_saved_point_cannot_give",
-        "src/pyflightstream/cases/workflows/_farfield.py:_declares_lattice",
+        "src/pyflightstream/cases/workflows/_farfield.py:_complete_declared_plots",
+        "src/pyflightstream/cases/workflows/_farfield.py:_lattice_choice",
+        "src/pyflightstream/cases/workflows/_farfield.py:_plane_choice",
         "src/pyflightstream/cases/workflows/_farfield.py:farfield_probes",
         "src/pyflightstream/cases/workflows/_pproc.py:_pproc_plots",
         "src/pyflightstream/cases/workflows/_probes.py:_built_from_the_mesh",
