@@ -266,6 +266,18 @@ depart from that relation. In a field that carries total-pressure loss the same
 integral is the profile drag (Betz, Maskell); no column of 0.40.0 names it a
 drag.
 
+**The plane's own lift, a check of the field.** From the same vorticity,
+
+    L_plane = rho V sum_P y_P xi_P dS_P
+
+the Kutta-Joukowski lift of the trailing vorticity the plane holds (for a flat sheet
+of strip circulation `Gamma` it is `rho V integral Gamma dy`, and roll-up does not
+change it), written as `CL_T` of the C row. A plane that holds the wake the loads
+shed carries the solver's lift; where `CL_T` departs from the solver's `CL` by more
+than 10 percent, the probe field does not hold that circulation and its crossflow
+energy is not the loads' induced drag: the row is written and post writes a
+WARNING with both values. `E_T` of the C row is formed with the solver's `CL`.
+
 **Rotor channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:
 
@@ -357,6 +369,13 @@ averaging window (`LAST_REVS_AVG` or `LAST_ITERS_AVG`, the window the unsteady
 products use), of the balance of each step: every flux is computed on each
 step's field and then averaged, never computed on an averaged field, because
 the fluxes are not linear in the velocity.
+
+**What the balances measure.** They integrate the probe field the solver exported,
+and close against the near-field thrust and torque only where that field holds the
+circulation of the solver's own wake. A field whose swirl does not follow its own
+wake lines (Stokes' theorem) gives balances that move from station to station while
+the mass flow stays constant; they are then a check of the probe field, not a
+far-field thrust.
 
 **Assumptions and validity.** The lateral cylinder is at free stream unless its
 rings say otherwise; the swirl and induced channels are the transverse components

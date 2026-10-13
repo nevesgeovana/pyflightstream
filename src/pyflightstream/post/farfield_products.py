@@ -126,6 +126,11 @@ _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: Above this Mach number the C row is written with a WARNING that the
 #: incompressible relations of the definitions page are used (FR-453 R7).
 _INCOMPRESSIBLE_MACH = 0.3
+#: A Trefftz C plane whose own lift (its vorticity's first moment) departs from
+#: the solver's CL by more than this fraction is flagged: its field does not hold
+#: the circulation the loads shed, so its crossflow energy is not their induced
+#: drag (FR-453 R9; RPT-170 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
+_PLANE_LIFT_TOLERANCE = 0.10
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
@@ -824,6 +829,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         cells = {
             "FAMILY": "TOTAL",
             "VARIANT": "C",
+            "CL_T": plane["L"] / qs,
             "CDI_T": cdi,
             "E_T": e,
             "AR": aspect,
@@ -881,6 +887,8 @@ def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], ta
         return
     if "plane" in sets[0][1] or "rotor" in sets[0][1]:
         _warn_compressible(ctx, point)
+    if "plane" in sets[0][1]:
+        _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
     for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
@@ -918,6 +926,35 @@ def _last_step(record: object) -> object:
     plan = getattr(record, "reductions", None) or {}
     last = plan.get("time_iterations") if isinstance(plan, Mapping) else None
     return int(last) if isinstance(last, int | float) and not isinstance(last, bool) else _NA
+
+
+def _flag_a_plane_short_of_the_lift(
+    ctx: SimContext, point: PolarPoint, plane: Mapping[str, float]
+) -> None:
+    """Warn where the C plane's own lift is not the solver's CL (FR-453 R9, PFS-2081.95).
+
+    The plane's lift is the Kutta-Joukowski lift of the vorticity it holds,
+    which roll-up does not change; a plane holding the wake the loads shed
+    carries the solver's lift. Where it departs by more than
+    :data:`_PLANE_LIFT_TOLERANCE`, the probe field does not hold that
+    circulation (RPT-170) and the row's crossflow energy is not the loads'
+    induced drag: the row is written, and flagged here.
+    """
+    rho, speed, _alpha, _beta = _flow(point)
+    qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    cl_plane, cl_near = plane["L"] / qs, _near_field(point)[0]
+    if not (math.isfinite(cl_plane) and math.isfinite(cl_near) and cl_near):
+        return
+    ratio = cl_plane / cl_near
+    if abs(ratio - 1.0) > _PLANE_LIFT_TOLERANCE:
+        warn(
+            f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
+            f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            "the probe field does not hold the circulation the loads shed, so its crossflow "
+            "energy is not their induced drag (FR-453 R9, RPT-170)",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _warn_compressible(ctx: SimContext, point: PolarPoint) -> None:

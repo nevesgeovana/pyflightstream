@@ -226,7 +226,9 @@ def test_p0400_ffout_the_trefftz_table(posted):
     assert float(b["X_T_M"]) == pytest.approx(upstream + 0.25 * BREF, abs=1e-5)
     assert a["X_T_M"] == "NA"
     assert float(c["CDI_T"]) == pytest.approx(0.0, abs=1e-9), "a uniform stream has no drag"
-    assert float(c["COVERAGE"]) == 1.0 and c["CL_T"] == "NA"
+    # FR-453 R9 (PFS-2081.95): C states the lift of its own vorticity; this
+    # fixture's plane holds none, so it is zero (and post flags it).
+    assert float(c["COVERAGE"]) == 1.0 and float(c["CL_T"]) == pytest.approx(0.0, abs=1e-9)
     assert a["P_AXIAL_W"] == "NA" and a["CDI_NEAR_PRESSURE"] == "0.0012418"
 
 
