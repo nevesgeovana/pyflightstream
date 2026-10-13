@@ -145,7 +145,7 @@ def test_history_reads_present_archived_and_datapoint_records(workspace, capsys)
 
 
 def test_diff_compares_recorded_fields_and_attributes_script_lines(workspace, capsys):
-    """P0350-QUERY-DIFF FR-391: stamped run ids and rebuild's input-attributed comparison."""
+    """P0350-QUERY-DIFF FR-391: stamped run ids and comparison of the two executed scripts."""
     code, out, _ = _call(workspace, capsys, "diff", f"{RUN}@{STAMP}", NEXT, "--json")
     rows = json.loads(out)["rows"]
     fields = {row["field"]: row for row in rows}
@@ -158,7 +158,8 @@ def test_diff_compares_recorded_fields_and_attributes_script_lines(workspace, ca
     assert fields["status"]["a"] == "WALLTIME_REACHED"
     assert fields["inputs_sha256.pproc/p1.toml"]["b"] == "b" * 64
     detail = fields["script_comparison"]["detail"]
-    assert "line 1" in detail and "inputs/pproc/p1.toml" in detail
+    assert "line 1" in detail and "a 'SET_PLOT_TYPE | old_plot'" in detail
+    assert "b 'SET_PLOT_TYPE | new_plot'" in detail and "inputs/pproc/p1.toml" not in detail
     assert "old_plot" in detail and "new_plot" in detail
     assert diff(workspace, f"{RUN}@{STAMP}", NEXT) == rows
 

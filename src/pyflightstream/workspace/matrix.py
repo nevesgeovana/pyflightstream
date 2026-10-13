@@ -132,6 +132,7 @@ from pyflightstream.workspace import SetupArtifact as SetupArtifact
 from pyflightstream.workspace import WorkspaceError as WorkspaceError
 from pyflightstream.workspace import matrix_by_stem as matrix_by_stem
 from pyflightstream.workspace import wake_edges as wake_edges
+from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._matrix_binding import (
     _FLIGHT_CONDITION_TABLE as _FLIGHT_CONDITION_TABLE,
 )
@@ -302,6 +303,7 @@ from pyflightstream.workspace.inputs import read_raw_mesh_conditions as read_raw
 from pyflightstream.workspace.inputs import resolve_build as resolve_build
 from pyflightstream.workspace.inputs import rotor_integration_groups as rotor_integration_groups
 from pyflightstream.workspace.naming import group_token as group_token
+from pyflightstream.workspace.storage import COMPACTED_SUFFIX
 
 __all__ = [
     "GEOMETRY_VARIABLE",
@@ -498,11 +500,16 @@ def renumber_repeated_pols(
     claimed_elsewhere = {row.pol for rows in siblings.values() for row in rows}
     records = workspace.read_manifest() if workspace.manifest_path.is_file() else []
     sims = Path(workspace.root) / "sims"
-    folders = (
-        [entry.name[len("sim_") :] for entry in sims.iterdir() if entry.name.startswith("sim_")]
-        if sims.is_dir()
-        else []
-    )
+    # A compacted sims/sim_<id>.zip and a batch's sims/batch/<label>/sim_<id> claim their id
+    # as a folder does (PFS-2085.020); '123.zip' failed the digit test and was dropped.
+    folders = [
+        *(
+            entry.name[len("sim_") :].removesuffix(COMPACTED_SUFFIX)
+            for entry in (sims.iterdir() if sims.is_dir() else ())
+            if entry.name.startswith("sim_")
+        ),
+        *batch_sim_dirs(Path(workspace.root)),
+    ]
     every = [
         *claimed_elsewhere,
         *(row.pol for row in mine),

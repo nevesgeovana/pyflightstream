@@ -1,5 +1,12 @@
 """The ``pyfs-workspace`` command line.
 
+Every subcommand but ``archive`` accepts ``--workspace PATH`` (0.40.0,
+PFS-2089.004), defaulting to the current directory. For example,
+``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
+``init`` and ``migrate-geometries`` still take the positional root, and naming
+two different folders is refused; ``archive ROOT SIM_ID`` keeps its positional
+root, the form 0.33.1 pinned.
+
 Pipeline role: drives the managed campaign workspace from a terminal.
 ``pyfs-workspace init <root>`` creates the full campaign tree (the
 input-artifact library skeleton under ``inputs/``, ``sims/``,
@@ -195,6 +202,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=".",
         help="campaign root carrying inputs/geometries/ (default: the current directory)",
     )
+    # THE CAMPAIGN IS NAMED AS EVERY OTHER SUBCOMMAND NAMES IT (PFS-2089.004): --workspace,
+    # beside the positional root these two always took. archive keeps its required
+    # positional root, the 0.33.1 surface tests/fixtures/cli_actions_0331.json pins.
+    for command in (init, migrate):
+        command.add_argument(
+            "--workspace",
+            help="campaign workspace (default: the current directory); the positional "
+            "root names the same folder",
+        )
     _add_field_commands(subparsers)
     _add_profile_commands(subparsers)
     for _, add, _ in _COMMAND_GROUPS:
@@ -777,8 +793,32 @@ def typed_value(args: argparse.Namespace, flag: str) -> object:
     return None if dest in invocation().sources else getattr(args, dest)
 
 
+def _campaign_root(args: argparse.Namespace) -> str:
+    """Return the campaign folder a command names by --workspace or by its positional root.
+
+    Both spellings name one folder (PFS-2089.004); two different folders are refused,
+    after the command's titled block, as every refusal is.
+    """
+    named = getattr(args, "workspace", None)
+    root = str(getattr(args, "root", "."))
+    if named is None:
+        return root
+    if root not in (".", named):
+        raise WorkspaceError(
+            f"the campaign is named twice: --workspace {named!r} and the positional root "
+            f"{root!r}. Name it once."
+        )
+    return str(named)
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
-    workspace = CampaignWorkspace.init(args.root)
+    # Refused like every sibling subcommand (PFS-2095.059): a bad root is a message and
+    # exit 2, never a traceback.
+    try:
+        workspace = CampaignWorkspace.init(_campaign_root(args))
+    except (OSError, WorkspaceError, InputArtifactError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
     # `.root` is already absolute; the workspace resolves it once at
     # construction. Re-resolving here would tell a reader it might not be.
     say_summary(f"campaign workspace ready at {workspace.root}")
@@ -810,10 +850,10 @@ def _cmd_archive(args: argparse.Namespace) -> int:
 
 def _cmd_migrate_geometries(args: argparse.Namespace) -> int:
     """Move a flat geometry library into folders; the refusal is the migration's own."""
-    workspace = CampaignWorkspace(args.root)
     try:
+        workspace = CampaignWorkspace(_campaign_root(args))
         migration = migrate_geometry_layout(workspace.inputs_dir)
-    except (OSError, InputArtifactError) as error:
+    except (OSError, WorkspaceError, InputArtifactError) as error:
         print(str(error), file=sys.stderr)
         return 2
     for source, target in migration.moved:

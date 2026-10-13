@@ -12,6 +12,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._query_files import _files, _groups, _json, _text, matrix_stem
 from pyflightstream.workspace.storage import read_storage_calls
 
@@ -31,19 +33,35 @@ def _activity(ledger: Ledger) -> list[dict[str, Any]]:
             if name.endswith("activity.log.jsonl")
         )
     rows = []
+    skipped: list[str] = []
     for path in sorted(paths):
         for number, line in enumerate(_text(ledger, path).splitlines(), 1):
             if not line.strip():
                 continue
+            # A TORN OR MALFORMED LINE IS SET ASIDE AND NAMED (PFS-2081.25): an append-only
+            # log a process stopped while writing ends in half a line, and that line used
+            # to refuse the whole query. Every other event is still read.
             try:
                 row = json.loads(line)
-                if not isinstance(row, dict):
-                    raise ValueError("event must be an object")
             except ValueError as error:
-                raise ValueError(
-                    f"workspace (CLI: --workspace): {path} line {number}: {error}"
-                ) from error
+                skipped.append(f"{path} line {number} ({error})")
+                continue
+            if not isinstance(row, dict):
+                skipped.append(f"{path} line {number} (an event is a JSON object)")
+                continue
+            if _stamp(row) and _parsed(_stamp(row)) is None:
+                skipped.append(
+                    f"{path} line {number} (timestamp {_stamp(row)!r} is not an ISO time)"
+                )
+                continue
             rows.append({**row, "source": path})
+    if skipped:
+        warn(
+            f"{len(skipped)} activity line(s) could not be read and are left out of the "
+            f"query: {'; '.join(skipped)}. The other events are shown.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     return sorted(rows, key=_chronology)
 
 
@@ -60,6 +78,14 @@ def _time(text: str) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+def _parsed(text: str) -> datetime | None:
+    """Return the time a stamp states, or None when it is no ISO time."""
+    try:
+        return _time(text)
+    except ValueError:
+        return None
+
+
 def _since(text: str | None) -> datetime | None:
     if text is None:
         return None
@@ -70,21 +96,27 @@ def _since(text: str | None) -> datetime | None:
     try:
         return _time(text)
     except ValueError as error:
-        raise ValueError("since (CLI: --since) needs an ISO time or duration such as 2h") from error
+        raise WorkspaceError(
+            "since (CLI: --since) needs an ISO time or duration such as 2h"
+        ) from error
 
 
 def _mentions(row: dict[str, Any], token: str) -> bool:
     """Match an id on token boundaries, including recorded paths and nested details."""
     text = json.dumps(row, ensure_ascii=False).replace("\\\\", "/")
-    return re.search(r"(?<![\w])" + re.escape(token) + r"(?![\w])", text) is not None
+    # A hyphen continues an id (PFS-2094.043): sim ids may hold one, so sim_20 is not
+    # read inside sim_20-b.
+    return re.search(r"(?<![\w-])" + re.escape(token) + r"(?![\w-])", text) is not None
 
 
 def _sim_matches(row: dict[str, Any], sim: str) -> bool:
-    if str(row.get("sim_id", "")) == sim:
-        return True
-    sims = row.get("sims", [])
-    if isinstance(sims, list) and sim in [str(s) for s in sims]:
-        return True
+    # A row's own ids decide before its text (PFS-2094.043); a `sims` list of records
+    # (a storage call's) is read through its children instead.
+    if isinstance(row.get("sim_id"), str | int):
+        return str(row["sim_id"]) == sim
+    sims = row.get("sims")
+    if isinstance(sims, list) and sims and all(isinstance(s, str | int) for s in sims):
+        return sim in [str(s) for s in sims]
     if _mentions(row, f"sim_{sim}"):
         return True
     return any(_sim_matches(child, sim) for child in _children(row))
@@ -175,9 +207,9 @@ def _post_rows(ledger: Ledger, matrix: str) -> list[dict[str, Any]]:
     path = ledger.root / "post" / matrix_stem(matrix) / "post.log.json"
     document = _json(path, {"records": []})
     if not isinstance(document, dict) or not isinstance(document.get("records"), list):
-        raise ValueError(f"post (CLI: --post): {path} needs an object with records")
+        raise WorkspaceError(f"post (CLI: --post): {path} needs an object with records")
     if any(not isinstance(row, dict) for row in document["records"]):
-        raise ValueError(f"post (CLI: --post): {path} has a non-object record")
+        raise WorkspaceError(f"post (CLI: --post): {path} has a non-object record")
     return document["records"]
 
 
@@ -205,5 +237,7 @@ def _storage(ledger: Ledger) -> list[dict[str, Any]]:
 def _additional(ledger: Ledger) -> list[dict[str, Any]]:
     rows = _json(ledger.root / "additional.json", [])
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
-        raise ValueError("additional (CLI: --additional): additional.json needs a list of objects")
+        raise WorkspaceError(
+            "additional (CLI: --additional): additional.json needs a list of objects"
+        )
     return rows

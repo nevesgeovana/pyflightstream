@@ -33,6 +33,8 @@ from typing import TypeGuard
 
 from pyflightstream._cli import _SELECTED_COST_FILE
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream.script import CommandArgumentError
+from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace.sidecars import load_toml
 
 __all__ = [
@@ -170,7 +172,9 @@ def select_cost_file(name: str | None) -> None:
     Returns
     -------
     None
-        Held in a context variable, so it belongs to the invocation.
+        Held in a context variable, so it belongs to the invocation: a console
+        command restores it when it ends (PFS-2094.045), and a Python caller
+        sets it plainly.
     """
     from pyflightstream._cli import for_this_invocation
 
@@ -419,15 +423,27 @@ def unmarked_cost_files(root: str | Path, *, skip: Collection[str] = ("tests",))
     return sorted(p for p in found if SYNTHETIC_WORD not in p.read_text(encoding="utf-8").lower())
 
 
+def _enabled(value: object) -> bool:
+    """Whether a row variable sets a flag, read as the solver settings read a toggle.
+
+    PFS-2094.046: the row's values arrive as text, so a truthiness test counted
+    ``DISABLE`` as set. A value that is no toggle at all is not counted.
+    """
+    try:
+        return resolve_toggle(value)
+    except CommandArgumentError:
+        return False
+
+
 def _flags_of(cost: CostFile, case: object) -> list[str]:
-    """List the flags of ``cost`` the case sets (a truthy solver setting or row variable)."""
+    """List the flags of ``cost`` the case sets (a truthy solver setting or an enabled variable)."""
     solver = getattr(case, "solver", None)
     variables = getattr(case, "variables", None) or {}
     upper = {str(k).upper(): v for k, v in variables.items()}
     return [
         name
         for name in cost.flags
-        if getattr(solver, name, None) or upper.get(name.upper()) not in (None, False, 0, "", "0")
+        if getattr(solver, name, None) or _enabled(upper.get(name.upper()))
     ]
 
 

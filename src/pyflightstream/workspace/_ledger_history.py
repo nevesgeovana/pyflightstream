@@ -21,7 +21,12 @@ from pydantic import ValidationError
 
 from pyflightstream.workspace import RunRecord, WorkspaceError
 from pyflightstream.workspace._effective import _points_of
-from pyflightstream.workspace._script_comparison import compare_scripts, drift
+from pyflightstream.workspace._script_comparison import (
+    _INTERPRETER,
+    _changed_commands,
+    _Comparison,
+    slashes,
+)
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -246,9 +251,12 @@ def _script_candidates(ledger: Ledger, row: Mapping[str, Any]) -> Iterator[tuple
             for candidate in _files(path):
                 if candidate.name == name:
                     yield candidate.relative_to(ledger.root).as_posix(), candidate.read_bytes()
-    recorded = ledger.root / str(record.get("script_path") or "")
-    if recorded.is_file() and recorded.resolve().is_relative_to(ledger.root):
-        yield recorded.relative_to(ledger.root).as_posix(), recorded.read_bytes()
+    # script_path is relative to the simulation folder (RunRecord.script_path), so it is
+    # looked for in each folder of the simulation, not at the root (PFS-2103.039).
+    for folder in ledger.sim_folders(str(record["sim_id"])):
+        recorded = ledger.root / folder / str(record.get("script_path") or "")
+        if recorded.is_file() and recorded.resolve().is_relative_to(ledger.root.resolve()):
+            yield recorded.relative_to(ledger.root).as_posix(), recorded.read_bytes()
 
 
 def _script(ledger: Ledger, row: Mapping[str, Any]) -> tuple[str | None, str | None]:
@@ -257,6 +265,24 @@ def _script(ledger: Ledger, row: Mapping[str, Any]) -> tuple[str | None, str | N
         if digest and hashlib.sha256(payload).hexdigest() == digest:
             return source, payload.decode("utf-8")
     return None, None
+
+
+def _run_root(ledger: Ledger, record: Mapping[str, Any]) -> str:
+    """Return the workspace root a run ran under: its working folder above ``sims/``.
+
+    A record without a working folder under ``sims/`` ran here, under this root.
+    """
+    cwd = slashes(str(record.get("cwd") or ""))
+    head, found, _ = cwd.partition("/sims/")
+    return head if found and head else slashes(str(ledger.root))
+
+
+def _normalised(script: str, root: str) -> list[str]:
+    """Return a script's lines with its root and its interpreter each set to one token."""
+    return [
+        _INTERPRETER.sub('"<python>"', slashes(line).replace(root, "<workspace>"))
+        for line in script.splitlines()
+    ]
 
 
 def _script_diff(
@@ -273,18 +299,31 @@ def _script_diff(
                 "detail": "unavailable: no script matching the recorded digest",
             }
         ]
-    compared = compare_scripts(b, a, ledger.root)
+    # BOTH SIDES RAN, so each is normalised by its own root (PFS-2103.013): compare_scripts
+    # finds the run's root only where the RENDERED side names this workspace, and a run on
+    # a cluster names its own, so every root-bearing line differed and the answer depended
+    # on the order of the two runs.
+    compared = _Comparison(
+        False,
+        None,
+        _normalised(b, _run_root(ledger, right["record"])),
+        _normalised(a, _run_root(ledger, left["record"])),
+    )
+    compared.same = compared.rendered == compared.executed
     if compared.same:
         return []
-    inputs = sorted(
-        set(left["record"].get("inputs_sha256", {})) | set(right["record"].get("inputs_sha256", {}))
+    detail = (
+        "; ".join(
+            f"line {line + 1}: a {first[:90] or '(nothing)'!r}, b {second[:90] or '(nothing)'!r}"
+            for line, first, second in _changed_commands(compared)
+        )
+        or f"a {len(compared.executed)} lines, b {len(compared.rendered)} lines"
     )
-    inputs = [name.removeprefix("inputs/") for name in inputs]
     return [
         {
             "field": "script_comparison",
             "a": path_a,
             "b": path_b,
-            "detail": drift(compared, ledger.root / "inputs", inputs, limit=None),
+            "detail": detail,
         }
     ]

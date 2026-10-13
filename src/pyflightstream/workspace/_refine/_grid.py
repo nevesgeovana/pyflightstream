@@ -1205,9 +1205,17 @@ def _source_sweep(grid: Grid, faces: Faces) -> _Sweep | None:
         return None
     pos = {c: ps[0] for c, ps in cells.items()}
     p00 = pos.get((0, 0), 0)
-    k_major = abs(pos.get((1, 0), 0) - p00) > abs(pos.get((0, 1), 0) - p00)
-    i_dir = 1 if pos.get((0, 1), 0) > p00 else -1
-    k_dir = 1 if pos.get((1, 0), 0) > p00 else -1
+    # ONE ROW OR ONE COLUMN OF CELLS STATES NO STEP ACROSS IT (PFS-2099.018): the missing
+    # neighbour read as position 0 reversed that direction and turned a one-row sheet,
+    # refined spanwise, into columns from the far station. Such a source runs along its
+    # one direction, forward across the other.
+    one_row, one_column = (1, 0) not in pos, (0, 1) not in pos
+    if one_row or one_column:
+        k_major = one_row
+    else:
+        k_major = abs(pos[(1, 0)] - p00) > abs(pos[(0, 1)] - p00)
+    i_dir = 1 if one_column or pos[(0, 1)] > p00 else -1
+    k_dir = 1 if one_row or pos[(1, 0)] > p00 else -1
     first_row = [c for c in cells if c[0] == (0 if k_dir == 1 else k - 2)]
     if not first_row:
         return None

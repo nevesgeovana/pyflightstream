@@ -25,7 +25,39 @@ import os
 import shutil
 import stat
 import sys
+import zipfile
+from collections.abc import Sequence
 from pathlib import Path
+
+
+def _copy_inputs_problem(inputs: Path, origins: Sequence[Path], reason: str | None) -> str | None:
+    """Refuse copying through links before any source is written (PFS-2095.062)."""
+    if origins and (_is_link(inputs) or not inputs.is_dir()):
+        return (
+            f"cannot stage into {inputs}: {reason}. Copying through a link would "
+            "write the sources into the folder it points at. Remove the inputs "
+            "link by hand and stage again; no input was copied."
+        )
+    for origin in origins:
+        target = inputs / origin.name
+        if _is_link(target) or (target.exists() and target.stat().st_nlink > 1):
+            return (
+                f"cannot stage {origin}: the destination {target} is a linked file. "
+                "Copying over it could overwrite a user's input outside the "
+                "simulation. Remove the staged link or choose another simulation; "
+                "no input was copied."
+            )
+    return None
+
+
+def _write_sim_archive(sim: Path, temporary: Path) -> None:
+    """Write simulation evidence, recording staged links without following them."""
+    with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for path in _sim_files(sim):
+            bundle.write(path, path.relative_to(sim))
+        link = sim / "inputs"
+        if _is_link(link):
+            bundle.writestr("inputs/STAGED_AS_LINK.txt", os.path.realpath(link) + "\n")
 
 
 def is_reparse(path: Path) -> bool:

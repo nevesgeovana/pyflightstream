@@ -131,7 +131,7 @@ def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, A
         if (
             path.suffix.lower() in _PROTECTED_SUFFIXES
             or "scripts" in path.relative_to(folder).parts
-            or lowered.endswith(("_log.txt", ".log"))
+            # A log by the one log-name rule, or a job script (PFS-2087.002).
             or batch_life.is_kept_name(lowered)
         ):
             keep.add(path.resolve())

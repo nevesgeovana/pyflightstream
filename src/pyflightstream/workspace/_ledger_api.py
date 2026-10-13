@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from pyflightstream.workspace import WorkspaceError
 from pyflightstream.workspace._ledger_history import diff_rows, history_rows
 from pyflightstream.workspace._query_files import _category, _json
 from pyflightstream.workspace._query_logs import (
@@ -57,7 +58,8 @@ def bind_reader(reader: Callable[..., Ledger]) -> None:
 def _snapshot(root: str | Path | Ledger, runs: str | None) -> Ledger:
     if isinstance(root, (str, Path)):
         if _reader is None:
-            raise RuntimeError(
+            # Use the documented refusal class rather than leaking RuntimeError (PFS-2095.028).
+            raise WorkspaceError(
                 "the ledger reader is bound when pyflightstream.workspace.ledger loads"
             )
         return _reader(root, runs=runs)
@@ -286,7 +288,13 @@ def activity_rows(
     Raises
     ------
     WorkspaceError
-        If an activity line is not a JSON object.
+        If ``since`` is neither an ISO time nor a duration.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        Naming each activity line left out: a torn or malformed line, one that
+        is not a JSON object, or one whose timestamp is no ISO time.
 
     Examples
     --------
@@ -321,6 +329,11 @@ def post_log_groups(
     -------
     list of dict
         Each category, family and shape with a count and one example.
+
+    Raises
+    ------
+    WorkspaceError
+        If the matrix's post log is not an object holding a list of records.
 
     Examples
     --------
