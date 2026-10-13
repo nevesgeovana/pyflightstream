@@ -1,6 +1,6 @@
 """P0400-REACH2: the workspace route runs the public probe and far-field functions (PFS-2140.011).
 
-The owner's rule of 2026-10-12: every public capability is reached from the
+The rule of PFS-2140.011: every public capability is reached from the
 workspace. Where the route did the job with a duplicate of a public function,
 the route now calls the function, and each test pins both halves: the public
 function is what the route runs (a spy that the duplicate never called), and
@@ -16,8 +16,27 @@ import pytest
 import pyflightstream.post.farfield_fields as farfield_fields
 from pyflightstream.cases._farfield_spec import LedgersSpec
 from pyflightstream.farfield import sample_coverage, transverse_flux, transverse_force
+from pyflightstream.script import helpers
+from tests.tier1_offline.test_p0400_cases_workflows_probes import _rendered, _steady_with
 
 _REQUIREMENT = "P0400-REACH2"
+
+#: A steady entry with one line of three points and a two-by-two rectangle.
+_STEADY_ENTRY = {
+    "frame": "REFERENCE",
+    "parameters": ["VX"],
+    "points": 3,
+    "lines": [{"start": [1.0, -0.5, 0.0], "end": [1.0, 0.5, 0.0]}],
+    "rectangles": [
+        {
+            "origin": [2.0, -0.5, -0.25],
+            "along_u": [2.0, 0.5, -0.25],
+            "along_v": [2.0, -0.5, 0.25],
+            "points_u": 2,
+            "points_v": 2,
+        }
+    ],
+}
 
 
 class _Rotor:
@@ -52,8 +71,11 @@ def _sheared_fields():
 
 @pytest.mark.requirement("FR-38")
 def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monkeypatch):
-    """P0400-REACH2 (PFS-2139.008): FY and FZ are transverse_force's plane term, COVERAGE
-    is sample_coverage, and each value is the one the ledger wrote before."""
+    """P0400-REACH2 (PFS-2139.008): the ledger runs transverse_force and sample_coverage.
+
+    FY and FZ are transverse_force's plane term and COVERAGE is
+    sample_coverage, each value the one the ledger wrote before.
+    """
     spec, fields = _sheared_fields()
     forces = _spy(monkeypatch, farfield_fields, "transverse_force", transverse_force)
     coverages = _spy(monkeypatch, farfield_fields, "sample_coverage", sample_coverage)
@@ -72,3 +94,25 @@ def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monke
                 [float(fy[index] - fy[0]), float(fz[index] - fz[0])],
             )
     assert any(np.isfinite(row.get("FZ_PLANE_N", np.nan)) for row in rows[1:])
+
+
+@pytest.mark.requirement("FR-79")
+def test_p0400_reach2_a_steady_row_creates_its_probes_through_the_script_helpers(
+    tmp_path, monkeypatch
+):
+    """P0400-REACH2 (PFS-2140.001): lines and drawn points go through the public helpers.
+
+    The script carries the lines the route wrote before, one ``NEW_PROBE_LINE``
+    per declared line and one ``NEW_PROBE_POINT VOLUME`` per rectangle node.
+    """
+    lines_called = _spy(monkeypatch, helpers, "probe_line", helpers.probe_line)
+    points_called = _spy(monkeypatch, helpers, "probe_points", helpers.probe_points)
+    lines, _ = _rendered(_steady_with(tmp_path, _STEADY_ENTRY))
+    assert len(lines_called) == 1 and len(points_called) == 4, _REQUIREMENT
+    assert lines.count("NEW_PROBE_LINE 3 1.0 -0.5 0.0 1.0 0.5 0.0") == 1
+    assert [line for line in lines if line.startswith("NEW_PROBE_POINT")] == [
+        "NEW_PROBE_POINT VOLUME 2.0 -0.5 -0.25",
+        "NEW_PROBE_POINT VOLUME 2.0 -0.5 0.25",
+        "NEW_PROBE_POINT VOLUME 2.0 0.5 -0.25",
+        "NEW_PROBE_POINT VOLUME 2.0 0.5 0.25",
+    ]

@@ -129,8 +129,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # and the three off-body streamline names (RX-16) left on the release, all now reached.
 # The owner confirms the growth over the release's 312.
 # 285: the far-field ledgers run transverse_force and sample_coverage (RX-01, RX-02 deleted).
-_REGISTER_CEILING = 285
-_REGISTER_DIGEST = "0238f66bdeb78ee7b81bdbce7483c6375c9092fd91ad2f66455dbbc2291cd5a2"
+# 283: a steady row creates its probe lines and points through script.helpers (RX-07).
+_REGISTER_CEILING = 283
+_REGISTER_DIGEST = "fe0b87f5e81556b92acc42172fe20594a5f8a5b1db9a9e5cc25f9e9c06574ae7"
 
 REASONS = (
     "routed later",

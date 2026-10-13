@@ -36,6 +36,7 @@ from pyflightstream.cases import (
 from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
+    helpers,
 )
 
 from ._clock import (
@@ -727,16 +728,14 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             )
             for line in probes.lines
         ]
+        # THROUGH THE SCRIPT HELPER (PFS-2140.001): the public helper is what the
+        # workspace runs, so the two cannot disagree on the command's grammar.
         for first_x, first_y, first_z, last_x, last_y, last_z in ends:
-            script.emit(
-                "NEW_PROBE_LINE",
-                numpts=probes.points,
-                x1=first_x,
-                y1=first_y,
-                z1=first_z,
-                x2=last_x,
-                y2=last_y,
-                z2=last_z,
+            helpers.probe_line(
+                script,
+                points=probes.points,
+                start=(first_x, first_y, first_z),
+                end=(last_x, last_y, last_z),
             )
 
     # FR-79: A RECTANGLE AND A CIRCLE ARE EMITTED POINT BY POINT, by the
@@ -784,12 +783,12 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # command's `type` is required on every build, and this line was
             # emitted without it from FR-79 until 0.28.0, so a steady row
             # drawing a rectangle or a circle never planned (found by the
-            # input template's test, G47); `helpers.new_probe_points` and the
+            # input template's test, G47); `helpers.probe_points`, which emits it, and the
             # survey file (`TYPE` 1) say VOLUME for the same point. The command
             # takes no frame either, so the point goes into the reference frame
             # the way a steady line's ends do (reading B30).
             x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
-            script.emit("NEW_PROBE_POINT", type="VOLUME", x=x, y=y, z=z)
+            helpers.probe_points(script, [(x, y, z)], kind="VOLUME")
     return vertex
 
 
@@ -1045,7 +1044,7 @@ def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) 
                     vertex=" ".join(str(value / factor) for value in point),
                 )
         else:
-            script.emit("NEW_PROBE_POINT", x=point[0], y=point[1], z=point[2], type="VOLUME")
+            helpers.probe_points(script, [(point[0], point[1], point[2])], kind="VOLUME")
     script.probe_field_layout.append(
         {
             "entry": len(case.pproc.probes) + 1,

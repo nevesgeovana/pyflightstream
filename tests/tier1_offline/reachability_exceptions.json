@@ -57,9 +57,7 @@
    "node": "PFS-2140.001",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.script.helpers.export_probes",
-    "pyflightstream.script.helpers.probe_line",
-    "pyflightstream.script.helpers.probe_points"
+    "pyflightstream.script.helpers.export_probes"
    ]
   },
   {
