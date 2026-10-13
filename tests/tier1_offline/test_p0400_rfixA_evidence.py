@@ -22,8 +22,8 @@ def test_p0400_rfixa_signed_wake_requirement_matches_the_edge_fixture():
         / "docs/unpublished/requirements/functional-requirements.md"
     ).read_text(encoding="utf-8")
     box = text.split('!!! requirement "FR-452 ', 1)[1].split("!!! requirement ", 1)[0]
-    assert "shed circulation at a strip edge" in box
-    assert "[-1,-1,0,1,1]" in box and "[1,2,2,1]" in box
+    assert "signed shed circulation at strip edges" in box
+    assert "[-1, -1, 0, 1, 1]" in box and "[1, 2, 2, 1]" in box
     assert "p0400_litB_wake_26125_fine.vtk.xz" in box
     assert "test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post" in box
     assert "crossings coincide with the stations" not in box

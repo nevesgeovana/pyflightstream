@@ -276,7 +276,9 @@ def resolve_farfield(
                 reason="this row type takes no probes (a steady coupled FSI row)",
             )
         else:
-            declared = declares_lattice if analysis == "ledgers" else declares_plane
+            # A rotor's Trefftz C reads a lattice station, as _Resolver.probes says (PFS-2081.101).
+            reads_lattice = analysis == "ledgers" or resolver.rotor
+            declared = declares_lattice if reads_lattice else declares_plane
             resolver.probes(analysis, declared)
     return FarfieldResolution(tuple(resolver.inputs))
 
