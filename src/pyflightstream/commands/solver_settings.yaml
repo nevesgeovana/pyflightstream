@@ -194,9 +194,10 @@ CREATE_BULK_SEPARATION:
           type: int_list
           cites: boundaries
           required: false
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "measured 2026-10-12 on build #7012026 by the registered probe (RPT-166): the solver warns that the command is deprecated in favour of CREATE_CYLINDRICAL_BULK_SEPARATION and stops at the line, as RPT-015 found for all four documented forms on 2026-08-02. CREATE_CYLINDRICAL_BULK_SEPARATION has no entry in this database yet"}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "measured 2026-10-12 on build #7012026 by the registered probe (RPT-166): the solver warns that the command is deprecated in favour of CREATE_CYLINDRICAL_BULK_SEPARATION and stops at the line, as RPT-015 found for all four documented forms on 2026-08-02; the successor is the CREATE_CYLINDRICAL_BULK_SEPARATION entry below, documented from 26.121"}
     "26.121":
       status: removed
+      successor: CREATE_CYLINDRICAL_BULK_SEPARATION
       note: >-
         SRC-740 does not print this name; it prints
         CREATE_CYLINDRICAL_BULK_SEPARATION at SRC-740 pp.345-346 and in its
@@ -206,6 +207,7 @@ CREATE_BULK_SEPARATION:
         licence. The row exists so that 26.120 cannot answer for it.
     "26.122":
       status: removed
+      successor: CREATE_CYLINDRICAL_BULK_SEPARATION
       note: >-
         SRC-750 does not print this name; it prints
         CREATE_CYLINDRICAL_BULK_SEPARATION at SRC-750 p.347 and in its

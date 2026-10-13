@@ -45,17 +45,28 @@ EMITTABLE = {
     "25.000": 268,
     "25.100": 270,
     "26.000": 274,
-    "26.100": 344,
-    "26.101": 363,
-    "26.120": 363,
-    "26.121": 368,
+    # 2026-10-12, measured removals and not lost rows (RPT-166): the solver
+    # refuses SET_MOTION_FSI_EXECUTABLE and SET_MOTION_FSI_STRUCTURAL_NODES as
+    # unrecognised on 26.100, 26.101, 26.120, 26.124 and 26.125, and
+    # DELETE_VALAREZO_CRITERION_BOUNDARIES on 26.100
+    # (CMP-<build>_2026-10-12_pfs2135-items, _gap-probes). The rows stay, as
+    # removed: 26.100 344 to 341, 26.101 and 26.120 363 to 361.
+    "26.100": 341,
+    "26.101": 361,
+    "26.120": 361,
+    # 2026-10-12: CREATE_BULK_SEPARATION removed by the edition, which prints
+    # CREATE_CYLINDRICAL_BULK_SEPARATION instead (SRC-740 pp.345-346): 368 to 367.
+    "26.121": 367,
     # Registered 2026-08-10. Ten entries of its own, six rows catching up
     # with what 26.121 added (inheritance runs from the base release, so
     # a sibling hotfix's rows do not reach here), and the rest inherited
     # from 26.120 less FOUR: the two commands this edition replaces, and
     # two that the preceding hotfix has a negative record for, which
     # inheritance from the base would otherwise have overturned.
-    "26.122": 375,
+    # 2026-10-12: CREATE_BULK_SEPARATION removed by the edition (SRC-750 p.347),
+    # 375 to 374. The FSI pair and SET_MOTION_START_TIME gained documented
+    # rows of their own, so the 26.120 records no longer reach here.
+    "26.122": 374,
     # Registered 2026-08-17 inheriting NOTHING, so it started at zero and
     # every one of these is a row somebody wrote or measured on THIS
     # build. That is the whole point of the flag: the other two hotfixes
@@ -104,7 +115,10 @@ EMITTABLE = {
     # build answers SET_VORTICITY_LIFT_MODEL as an unrecognized command
     # (RPT-068). The row stays, as removed. SET_UNSTEADY_VISCOUS_COUPLING_
     # ITERATION gained a removed row on the same run and was never counted here.
-    "26.124": 370,
+    # FELL by three on 2026-10-12, measured removals (RPT-166): the FSI motion
+    # pair and SET_OFF_BODY_STREAMLINE_LENGTH, refused as unrecognised
+    # (CMP-26124_2026-10-12_gap-probes). The rows stay, as removed.
+    "26.124": 367,
     # 2026-10-05 (item S10), registered with its own edition, SRC-753, which
     # documents 380 commands: 330 carried word for word from SRC-752, 37 read
     # anew, 12 entered for the first time; the thirteenth new one,
@@ -113,7 +127,9 @@ EMITTABLE = {
     # SET_OUTFLOW_TRAILING_EDGES keeps its removed row naming the successor,
     # so it is not counted. 380 since S6 entered the thirteenth on its
     # SRC-753 p.388 row.
-    "26.125": 380,
+    # FELL by three on 2026-10-12, the same three measured removals as 26.124,
+    # printed by 26.125 on its standard output (CMP-26125_2026-10-12_gap-probes).
+    "26.125": 377,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -132,7 +148,9 @@ VERIFIED = {
     # emitters were then measured through the workflow on this build
     # (RPT-043, CMP-26120_2026-09-08_rotor-path), all thirteen documented
     # to verified: 79.
-    "26.120": 79,
+    # +1 on 2026-10-12: SET_MOTION_START_TIME on a 6DOF motion
+    # (CMP-26120_2026-10-12_pfs2135-items, RPT-166): 80.
+    "26.120": 80,
     "26.121": 84,
     # It had zero of its own until 2026-08-11, deriving `operational`
     # from 26.120's records by hotfix inheritance, and the comment here
@@ -182,10 +200,14 @@ VERIFIED = {
     # +3 in 0.35.0 (FR-342): the pyfs-qa probe run of RPT-127
     # (CMP-26124_2026-10-02_t1-probe) verified ROTATE_SURFACE,
     # SET_NEW_UNSTEADY_SOLVER_ACTION and SET_WAKE_TERMINATION_TIME_STEPS: 118.
-    "26.124": 118,
+    # +44 on 2026-10-12 (RPT-166): 43 registered command-gap probes
+    # (CMP-26124_2026-10-12_gap-probes) and SET_MOTION_START_TIME
+    # (CMP-26124_2026-10-12_pfs2135-items): 162.
+    "26.124": 162,
     # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
     # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
-    "26.125": 141,
+    # +44 on 2026-10-12, the same runs on this build (CMP-26125_2026-10-12_*): 185.
+    "26.125": 185,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
