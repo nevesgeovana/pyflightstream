@@ -7,7 +7,7 @@ The row keys `ROTATE` and `TRANSLATE`, which turn or move part of the geometry f
 An installed rotor's incidence is a parametric study: the same mesh, the
 blade and spinner families turned a few degrees in pitch or in toe, one
 run per angle. A row states that turn in its cell
-(PFS-2034.02, the design of 2026-09-09) and the geometry file stays what
+ and the geometry file stays what
 it was:
 
 ```text
@@ -92,7 +92,7 @@ frame: the blades turn and the axis stays, which is a physics call the row
 may mean, so it is not refused.
 
 What the solver does with the rotated mesh is the measurement of the seat
-run the reference study books (PFS-2034.05): the package emits the rotation the
+run the reference study books: the package emits the rotation the
 manual documents, citing a frame the manual's own sample cites, and the
 run record is where the accepted geometry will be read from.
 
@@ -130,7 +130,7 @@ is written in both frames.
 
 **A MOVED SET COMES AWAY FROM WHAT IT TOUCHES.** Each surface is moved with its
 vertices split from its neighbours, so every vertex of the set moves exactly
-once and every other surface stays where it was (RPT-048, on 26.123). Moving
+once and every other surface stays where it was. Moving
 the whole aircraft leaves it whole. Moving a wing alone leaves the body whole
 and the wing root no longer joined to it: that was observed on the saved mesh
 and not solved, and whether such a model is acceptable is the study's call.

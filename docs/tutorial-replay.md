@@ -4,7 +4,7 @@ A campaign finishes, months pass, and somebody asks whether a number in
 a report is still true. This page is about answering that from the
 record rather than from memory.
 
-The promise is NFR-07: the manifest record plus the staged inputs
+The promise is: the manifest record plus the staged inputs
 reproduce the run's INPUTS and INVOCATION. Not its numbers: solver
 determinism is a property of FlightStream, which this package measures
 and does not own, and the requirement says so. What follows is how to collect on it, and what to do
@@ -19,7 +19,7 @@ when the answer is that they no longer do.
 from pyflightstream.workspace import CampaignWorkspace
 
 workspace = CampaignWorkspace("runs/polar")
-record = workspace.read_manifest()[0]
+record = workspace.read_manifest[0]
 ```
 
 The record carries four kinds of thing, and the split is worth knowing
@@ -61,7 +61,7 @@ manifest carrying one was edited or written by hand, and `read_manifest`
 refuses it naming `runs.json`, the run id and the flag by command and
 keyword (`SET_VORTICITY_DRAG_BOUNDARIES`, the `vorticity_drag_boundaries`
 keyword), and says the row is what to fix; it names no argument for
-removal, because none was written (PFS-2012.01). Replaying such a
+removal, because none was written. Replaying such a
 snapshot through `script_from_setup` is refused the same way.
 
 Two fields are about the tooling rather than the run.
@@ -95,11 +95,11 @@ the executor may have gained a flag, or lost one, since the run.
 <!-- skip: next -->
 ```python
 if rebuilt.faithful:
-    print("every artifact still hashes to what the record says")
+ print("every artifact still hashes to what the record says")
 else:
-    for name, state in rebuilt.verified.items():
-        if state != "match":
-            print(f"{name}: {state}")
+ for name, state in rebuilt.verified.items:
+ if state != "match":
+ print(f"{name}: {state}")
 ```
 
 `verified` maps each artifact to one of three states, `"match"`,
@@ -179,6 +179,6 @@ installation, which is as far as a file-level record can go.
 And a record can only be as honest as the run that wrote it. A point
 that used a command a probe measured broken says so in
 `waived_commands` (the retired key `broken_commands` still reads, with a warning naming its removal release), with the report and the reason; a point built with
-`Script.raw()` says so in `raw_flag`. Both are worth reading before
+`Script.raw` says so in `raw_flag`. Both are worth reading before
 trusting the numbers, and both are there precisely so that trusting
 them is a decision rather than an assumption.

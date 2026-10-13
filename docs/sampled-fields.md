@@ -26,15 +26,14 @@ establish the actual native indices; this limitation is not repaired by the
 probe adapter. New locations or histories require recorded samples or a supported
 extraction; post-processing cannot reconstruct an unrecorded flow field.
 
-On an unsteady row an entry with `kind = "normal"` (0.37.0, FR-418) is sampled
+On an unsteady row an entry with `kind = "normal"` is sampled
 by probe points after the time march, as on a steady row: its layout records
 the steady probe-points export, its fields and `<stem>.inflow.dat` are the ones a
 steady row writes from the same probe values, and the file is named and
-recorded for the run's last time step (`<point>_field_NN_step_<N>`, with
-`sampled_at = "last-time-step"` and the step in its provenance). Nothing is
+recorded for the run's last time step. Nothing is
 averaged over time. This serves an unsteady run without a rotor that settles
 to a steady regime, whose last time step gives a custom inflow for a
-quasi-steady rotor. RPT-153 measured the normal sample as the end-of-march state, within the vector criterion. It is not the step-N fluid-plot sample. The evidence covers 26.124 build 8172026 and 26.125 build 10052026, on twelve steps; no rotor-frame probe was tested.
+quasi-steady rotor. It is not the step-N fluid-plot sample. The evidence covers 26.124 build 8172026 and 26.125 build 10052026, on twelve steps; no rotor-frame probe was tested.
 
 Each unsteady STEP of a fluid-plot entry produces a separate file. Positions in the resulting field
 are in REFERENCE coordinates and metres; velocity is absolute, in REFERENCE
@@ -52,7 +51,7 @@ produce a named diagnostic instead of a guessed placement.
 Native fluid-plot conventions are verified for FlightStream 26.124 build 8172026
 with the recorded executable digest, independently in METER and MILLIMETER
 simulations. Build 8242026 of 26.124 is registered with the same conventions by
-decision of 2026-10-01, not by measurement ([RPT-136](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-136_fr153-build-8242026_2026-10-01.md)):
+decision of 2026-10-01, not by measurement:
 its fields are written with no warning, and its rows say "not measured". Fluid-plot command vertices use metres in both cases; the saved
 layout retains native coordinates for frame placement. The measured velocity
 components are already absolute REFERENCE components in m/s, even when the sampling
@@ -74,7 +73,7 @@ the blades still and turns the free stream about the shaft, so the probe
 velocities of a quasi-steady run are expressed in the rotating frame of the
 blade, not in a fixed frame: the swept velocity of the blade is in them, with
 the other sign. Measured on 26.124 (build 8172026) by the research study
-[RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+
 summarises: outside the slipstream, at 1.5 rotor radii and an advance ratio of
 1.8, a probe read a tangential velocity of -2.618 times the free-stream speed,
 which is the blade's rotation times that radius over the free-stream speed.
@@ -133,7 +132,7 @@ A delayed motion start has no measured timing on any build and is still
 refused. A run of another solver version, another unit or another export family
 has no evidence at all, and its fields are still refused with "native velocity
 convention has no evidence for this export/build/unit", or, for a rotating
-frame, as an unknown sampling frame (FR-153).
+frame, as an unknown sampling frame.
 
 **How the convention was established.** One unsteady rotor run sampled VX, VY
 and VZ at nineteen positions over six actual STEPs: an axis sample, and
@@ -144,7 +143,7 @@ sample at every STEP. The exported components of every coinciding pair were
 equal: the components are absolute velocities in REFERENCE axes, in m/s, with
 no origin shift, no rotation into the local basis and no subtraction of the
 angular velocity crossed with the radius. A MILLIMETER twin of the run matched
-the METER run in all 76 columns. [RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+the METER run in all 76 columns.
 records the comparison and its receipts.
 
 **Measuring it on your build.** Run, on that build, an unsteady rotor row whose
@@ -199,7 +198,7 @@ table in `pyflightstream.script.motion`, one row per solver version, unit and
 build. Registering your build is one row in each, citing your comparison, in a
 change to the package. A run of a registered build is proven, and its fields
 carry no warning. A row registered by decision and not by a comparison, as
-8242026 is (RPT-136), says "not measured" in its evidence.
+8242026 is, says "not measured" in its evidence.
 
 ## Surface-property histories
 
@@ -252,5 +251,5 @@ exactly between units; using metre-valued arguments in the MILLIMETER case did
 not match. REFERENCE and a translated fixed frame rotated 90 degrees about Z
 returned matching values. The measured velocity components were REFERENCE
 components in m/s. This control does not establish behavior for a moving
-surface-probe frame. See [RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+surface-probe frame. See
 for the measured domain and the retained BL failure.

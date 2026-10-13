@@ -17,7 +17,7 @@ show no section.
 The script chooses each plot with `SET_PLOT_TYPE` (`RESIDUALS`, `LOADS`,
 `SECTIONS_CP`) and saves it with `SAVE_PLOT_TO_FILE`, the file on the line
 after the command, after every other export of the point and before its log.
-Both commands are `verified` on 26.124 (RPT-067) and documented, never run,
+Both commands are `verified` on 26.124 and documented, never run,
 on every other build.
 
 **What a file holds.** The plotted SERIES as text, not an image: the run header
@@ -40,7 +40,7 @@ log, and again in the wall clock's rescue, which is the end of the run; never
 inside the per-step exports, which would save the same growing file at every
 step. After an unsteady solve on 26.124 each file holds the series of the
 whole march, one row per INNER iteration (857 rows over 12 time steps), and the
-last plotted lift is the exported CL (RPT-076). A history per time step is the
+last plotted lift is the exported CL. A history per time step is the
 unsteady force plot, `<point>_plots.txt` through `[plots]`, as before. **The
 section Cp plot joins supported unsteady rows in 0.29.0**: it is saved once
 after the march when the pproc declares section distributions, never by each
@@ -51,5 +51,4 @@ for the measured final-export control and history-coverage limits.
 
 **Run as a campaign writes it.** A point saves each plot to its own name,
 relative to its working directory, as every export of the point does; two saves
-in a row on 26.124 left both files in the working directory (RPT-067 and its
-addendum).
+in a row on 26.124 left both files in the working directory.

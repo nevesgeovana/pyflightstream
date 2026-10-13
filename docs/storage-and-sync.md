@@ -14,7 +14,7 @@ pass `--apply`. Run the preview first, read it, then apply.
 ### space-in-use
 
 ```bash
-pyfs-matrix space-in-use --workspace .
+pyfs-matrix space-in-use --workspace.
 ```
 
 Prints the sizes on disk in three groupings, in this order: by top level
@@ -26,13 +26,13 @@ default is 15.
 You can also write it as a flag on the main command line:
 
 ```bash
-pyfs-matrix --workspace . --space-in-use
+pyfs-matrix --workspace. --space-in-use
 ```
 
 ### free-space
 
 ```bash
-pyfs-matrix free-space m001 --workspace . --apply
+pyfs-matrix free-space m001 --workspace. --apply
 ```
 
 Runs a recipe named `m<id>`, read from
@@ -46,13 +46,13 @@ format of each.
 The top-level flag form works here too:
 
 ```bash
-pyfs-matrix --workspace . --free-space m001
+pyfs-matrix --workspace. --free-space m001
 ```
 
 Add `--list` to see the detail:
 
 ```bash
-pyfs-matrix free-space m001 --workspace . --list
+pyfs-matrix free-space m001 --workspace. --list
 ```
 
 Without it the preview of `post_archives` (and of the other tables) shows only
@@ -68,7 +68,7 @@ lines are read from the entry the call records in `storage_management.json`;
 ### delete-sims
 
 ```bash
-pyfs-matrix delete-sims 4001,2009 --workspace . --apply
+pyfs-matrix delete-sims 4001,2009 --workspace. --apply
 ```
 
 Deletes the named simulations outright: the `sims/sim_<id>` folder (or its
@@ -80,9 +80,9 @@ If a post product mixes the deleted simulation's points with points from
 other simulations, applying the command needs `--matrix-products`:
 
 - `points-only` leaves that product on disk, recorded as stale (it still
-  holds the deleted points, and nothing rebuilds it for you);
+ holds the deleted points, and nothing rebuilds it for you);
 - `regenerate` reruns that matrix's post without the deleted points, so the
-  product on disk agrees with what remains.
+ product on disk agrees with what remains.
 
 Without one of the two, `--apply` refuses and names the product it cannot
 decide about. Preview (no `--apply`) never needs the flag: it only reports
@@ -94,7 +94,7 @@ status of its records: everything else is as above (`runs.json` archived
 first, the note row, the matrix-products rule, links undone so the mesh
 survives). The preview (no `--apply`) names each `SUBMITTED` simulation that
 `--force` would delete, and the call recorded in `storage_management.json`
-states `force` and the statuses each simulation's records had (FR-306).
+states `force` and the statuses each simulation's records had.
 
 See "What a deleted simulation leaves behind" below for what happens to its
 row in `runs.json` and whether its id can be used again.
@@ -102,7 +102,7 @@ row in `runs.json` and whether its id can be used again.
 ### sync
 
 ```bash
-pyfs-matrix sync post --workspace . --apply
+pyfs-matrix sync post --workspace. --apply
 ```
 
 Brings runs and results from the other workspaces named in
@@ -131,11 +131,11 @@ that, and a table states at most one of them:
 ```toml
 [[prune_step_exports]]
 sims = "all"
-keep_last = 12          # keep the last 12 steps of each export
+keep_last = 12 # keep the last 12 steps of each export
 
 [[prune_step_exports]]
 sims = "all"
-delete_steps = [5, 9]   # delete steps 5 to 9 (inclusive), keep every other step
+delete_steps = [5, 9] # delete steps 5 to 9 (inclusive), keep every other step
 ```
 
 For an unsteady row that exports at every step
@@ -150,24 +150,24 @@ in the file name (`<name>_iteration=<step>`).
 
 - `sims` and `status` select simulations exactly as for `compact_sims`.
 - `keep_last = K` (a positive whole number, default 1) keeps the last `K`
-  steps of each export and deletes the earlier ones. A `K` at or above the
-  number of steps on disk deletes nothing.
+ steps of each export and deletes the earlier ones. A `K` at or above the
+ number of steps on disk deletes nothing.
 - `delete_steps = [A, B]` (two positive whole numbers, `A <= B`) deletes the
-  steps from `A` to `B` inclusive of each export and keeps every other step.
-  A range that holds no step on disk deletes nothing.
+ steps from `A` to `B` inclusive of each export and keeps every other step.
+ A range that holds no step on disk deletes nothing.
 - Stating both `keep_last` and `delete_steps`, a value that is not as above,
-  or any key other than `sims`, `status`, `keep_last` and `delete_steps` is
-  refused before any file is touched, naming the key and the accepted ones.
-  Deleting nothing is not an error: the recorded call says what was deleted.
+ or any key other than `sims`, `status`, `keep_last` and `delete_steps` is
+ refused before any file is touched, naming the key and the accepted ones.
+ Deleting nothing is not an error: the recorded call says what was deleted.
 - Each export is read on its own steps: a probe export that stopped one step
-  before the loads keeps its own last step, it is not deleted for want of the
-  later one.
+ before the loads keeps its own last step, it is not deleted for want of the
+ later one.
 - A simulation with any run still `SUBMITTED` is refused and keeps every
-  step.
+ step.
 - The declared outputs, the scripts, the logs and every file a run record
-  names are never deleted (see "What is protected, and why" below), and
-  nothing under a simulation's `inputs` is read, whether it is a link into
-  the geometry library or a staged copy.
+ names are never deleted (see "What is protected, and why" below), and
+ nothing under a simulation's `inputs` is read, whether it is a link into
+ the geometry library or a staged copy.
 
 The recorded call states `keep_last` or `delete_steps` as the table did
 (nothing is added for a table that states neither), and lists, for each point
@@ -179,20 +179,20 @@ and when, because that manifest never names a file that is not on disk.
 What happens to the post afterwards:
 
 - A product made before the call stays as it was: the series table, the
-  time-averaged surface or the section distribution built from every step
-  keeps its file and its entry in `products.json`. A later `post` does not
-  rebuild it, marks the entry `kept_after_pruning` with the reason, and does
-  not archive it.
+ time-averaged surface or the section distribution built from every step
+ keeps its file and its entry in `products.json`. A later `post` does not
+ rebuild it, marks the entry `kept_after_pruning` with the reason, and does
+ not archive it.
 - A product a later `post` would build from a window that includes a
-  deleted step is refused, never written from the steps that remain. The
-  refusal is recorded in `products.json` under `skipped`, under the
-  product's name, and names the missing steps, the first missing file, the
-  call of `storage_management.json` that deleted them and what that call
-  kept ("the last step of each export only", "the last 12 steps of each
-  export only" or "every step outside 5 to 9 of each export").
+ deleted step is refused, never written from the steps that remain. The
+ refusal is recorded in `products.json` under `skipped`, under the
+ product's name, and names the missing steps, the first missing file, the
+ call of `storage_management.json` that deleted them and what that call
+ kept ("the last step of each export only", "the last 12 steps of each
+ export only" or "every step outside 5 to 9 of each export").
 - A step that was never exported, which no storage call deleted, keeps the
-  rule it had before: the series is written from the steps that exist, and
-  the time-averaged surface is skipped naming the step.
+ rule it had before: the series is written from the steps that exist, and
+ the time-averaged surface is skipped naming the step.
 
 Run the post you need over the full window before pruning, and prune only
 the simulations whose per-step history you will not need again.
@@ -207,16 +207,16 @@ older_than_days = 30
 ```
 
 - `sims` is `"all"` or a list of simulation ids, for example
-  `["4001", "4002"]`.
+ `["4001", "4002"]`.
 - `status` is optional: only simulations whose every recorded run carries
-  one of the named statuses are eligible. Leave it out to consider every
-  simulation regardless of status. `MAX_ITER_REACHED` is a steady point
-  that reached its iteration limit without settling (FR-434): list it with
-  the ended runs as above, or leave it out to keep such unsettled runs
-  untouched until you have looked at them.
+ one of the named statuses are eligible. Leave it out to consider every
+ simulation regardless of status. `MAX_ITER_REACHED` is a steady point
+ that reached its iteration limit without settling: list it with
+ the ended runs as above, or leave it out to keep such unsettled runs
+ untouched until you have looked at them.
 - `older_than_days` is optional: only a folder whose modification time is
-  at least this many days in the past is eligible. Leave it out to
-  consider every eligible folder regardless of age.
+ at least this many days in the past is eligible. Leave it out to
+ consider every eligible folder regardless of age.
 
 A simulation with any run still `SUBMITTED` is refused, never compacted,
 because collecting that run still needs the folder.
@@ -236,7 +236,7 @@ sims = "all"
 ```
 
 - `extensions` names the file extensions to delete under `sims/`, for
-  example `[".vtk", ".png"]`. Every entry must start with a dot.
+ example `[".vtk", ".png"]`. Every entry must start with a dot.
 - `sims` is `"all"` or a list of ids, exactly as for `compact_sims`.
 
 An extension a run record needs to reopen its post processing can never be
@@ -255,9 +255,9 @@ older_than_days = 14
 ```
 
 - `action` is `"compact"` (zip the archived folder, then remove it) or
-  `"delete"` (remove it outright); when omitted, it defaults to `"delete"`.
+ `"delete"` (remove it outright); when omitted, it defaults to `"delete"`.
 - `keep_latest` is how many of the newest archived folders, per matrix, are
-  left alone regardless of age. The default is 0.
+ left alone regardless of age. The default is 0.
 - `older_than_days` is optional, exactly as above.
 
 When a matrix's post writes a new copy of a product over an old one, the
@@ -276,9 +276,9 @@ even when their extension is named in `delete_extensions`:
 - the saved simulation, `.fsm`;
 - everything under a `scripts/` folder;
 - every log file (anything ending `_log.txt` or `.log`, and the solver's
-  own runtime log by name);
+ own runtime log by name);
 - every file a run record names or hashes: a declared output, a staged
-  input, the executed script.
+ input, the executed script.
 
 These are what a later `post` needs to extract the post processing again,
 or what a person needs to see why a run ended the way it did. Deleting them
@@ -308,12 +308,12 @@ takes their place:
 
 ```json
 {
-  "run_id": "deleted/sim_4001/20260928-101500",
-  "deleted_sim": "4001",
-  "deleted_at": "2026-09-28T10:15:00+00:00",
-  "deleted_run_ids": ["camp/sim_4001/AL+000"],
-  "note": "this simulation id belonged to a simulation deleted by pyfs-matrix delete-sims; the full entry is call 7 of storage_management.json",
-  "storage_entry": 7
+ "run_id": "deleted/sim_4001/20260928-101500",
+ "deleted_sim": "4001",
+ "deleted_at": "2026-09-28T10:15:00+00:00",
+ "deleted_run_ids": ["camp/sim_4001/AL+000"],
+ "note": "this simulation id belonged to a simulation deleted by pyfs-matrix delete-sims; the full entry is call 7 of storage_management.json",
+ "storage_entry": 7
 }
 ```
 
@@ -371,14 +371,14 @@ The level you pass is cumulative, each one bringing everything the level
 before it brings, plus more:
 
 - `runs`: the run records in `runs.json`, and the provenance every record
-  needs to be believed, each simulation's `scripts/` folder and its
-  datapoint logs.
+ needs to be believed, each simulation's `scripts/` folder and its
+ datapoint logs.
 - `post`: the above, plus the `post/` folder, the products and the
-  provenance that explains them.
+ provenance that explains them.
 - `fsm`: the above, plus the saved simulation of every datapoint.
 - `all`: the above, plus everything else under `sims/`, except an `inputs`
-  folder that is a junction into the input library, which is never
-  followed or copied.
+ folder that is a junction into the input library, which is never
+ followed or copied.
 
 At every level, each simulation folder the sync brings gets its `inputs`
 LINKED into the main workspace's own `inputs/geometries/`, to the same

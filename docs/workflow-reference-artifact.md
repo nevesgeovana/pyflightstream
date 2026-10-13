@@ -57,14 +57,14 @@ This artifact is where a study says what its boundaries are
 CALLED, and it is the first thing to write when you set a workspace up: the
 rows that come later cite these names and nothing else. Three tables carry
 it, and the paragraphs above them are written for a configuration with ONE
-rotor (FR-59, FR-60, FR-72).
+rotor.
 
-    [aliases]                  a name for a set of boundaries; a member
-                               may be another alias, resolved to the end
-    [[frames]]                 the custom coordinate systems, moved here
-                               from the setup preset
-    [<ROTOR>] kind = "rotor"  one block per rotor, and the block's NAME
-                               is an alias over everything it owns
+ [aliases] a name for a set of boundaries; a member
+ may be another alias, resolved to the end
+ [[frames]] the custom coordinate systems, moved here
+ from the setup preset
+ [<ROTOR>] kind = "rotor" one block per rotor, and the block's NAME
+ is an alias over everything it owns
 
 A fourth kind of block sits beside them: `[<DISC>] kind =
 "actuator"`, an actuator disc a row names by its block's name
@@ -115,25 +115,23 @@ resolved matrix it closes over:
 from pyflightstream.workspace.matrix import resolve_matrix
 
 resolved = resolve_matrix(
-    "matrix_registry.fs",
-    workspace,
-    name="matrix",
-    fs_version="26.120",
-    recipes={"003": "steady"},
-)
+ "matrix_registry.fs",
+ workspace,
+ name="matrix",
+ fs_version="26.120",
+ recipes={"003": "steady"},
 
 
 def recipe(case, script):
-    # The ROW's code, not a literal: a case carries the codes of the row
-    # it came from, so this reads the artifact that row named.
-    reference = resolved.references[case.variables["matrix_ref"]]
-    rotor = reference.rotor
-    if rotor is None:
-        raise ValueError(
-            f"{case.sim_id}: this recipe places a probe line per blade and the "
-            "reference artifact describes no rotor"
-        )
-    blades = rotor.n_blades   # the RESOLVED count, one under a periodic sector
+ # The ROW's code, not a literal: a case carries the codes of the row
+ # it came from, so this reads the artifact that row named.
+ reference = resolved.references[case.variables["matrix_ref"]]
+ rotor = reference.rotor
+ if rotor is None:
+ raise ValueError(
+ f"{case.sim_id}: this recipe places a probe line per blade and the "
+ "reference artifact describes no rotor"
+ blades = rotor.n_blades # the RESOLVED count, one under a periodic sector
 ```
 
 The guard on the way to `blades` is the point rather than ceremony:
@@ -214,15 +212,15 @@ vocabulary, and saying to correct the name or to add it to the reference's
 Three refusals stay as they are, even where the vocabulary holds every name:
 
 - a `*_families` key every cited name of which selects nothing on the row is
-  refused, because an empty selection is the solver's every-boundary default,
-  a different selection and not a smaller one;
+ refused, because an empty selection is the solver's every-boundary default,
+ a different selection and not a smaller one;
 - a pproc none of whose groups selects a boundary of the row's model is
-  refused;
+ refused;
 - a skip in `base_regions`, or of a `create` entry of
-  `base_region_operations`, on a row whose setup addresses a
-  `base_region_operations` entry by an `index` other than `all`, is refused
-  naming the skipped name and the indexed entry, because the skip renumbers
-  the base regions that index counts.
+ `base_region_operations`, on a row whose setup addresses a
+ `base_region_operations` entry by an `index` other than `all`, is refused
+ naming the skipped name and the indexed entry, because the skip renumbers
+ the base regions that index counts.
 
 `--ignore-missing-families false` turns every skip into a refusal of the row,
 naming the key, the name and the flag, on every key above, whether or not the

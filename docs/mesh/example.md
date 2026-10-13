@@ -18,13 +18,13 @@ import numpy as np
 
 from pyflightstream.qa.geometry import WingSpec, wing_triangles
 
-spec = WingSpec(naca="0012", chord_m=1.0, span_m=4.0, n_chord=12, n_span=8)
-corners = wing_triangles(spec).reshape(-1, 3) * 1000.0  # metres to millimetres
-vertices, faces = np.unique(corners.round(6), axis=0, return_inverse=True)
-with open("inputs/geometries/wing.obj", "w", encoding="utf-8") as obj:
-    obj.write("o wing_skin\n")
-    obj.writelines(f"v {x:.4f} {y:.4f} {z:.4f}\n" for x, y, z in vertices)
-    obj.writelines(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in faces.reshape(-1, 3))
+spec = WingSpec
+corners = wing_triangles.reshape * 1000.0 # metres to millimetres
+vertices, faces = np.unique
+with open as obj:
+ obj.write
+ obj.writelines
+ obj.writelines
 ```
 
 **The sidecar** names the surface as the file holds it, states the unit,
@@ -66,36 +66,36 @@ MILLIMETER
 the smallest that serve this wing:
 
 ```toml title="inputs/references/r001.toml"
-area_m2 = 4.0      # SREF, chord x span
-chord_m = 1.0      # CREF
-span_m = 4.0       # BREF
+area_m2 = 4.0 # SREF, chord x span
+chord_m = 1.0 # CREF
+span_m = 4.0 # BREF
 
 [moment_point]
-x_m = 0.25         # the quarter chord, in metres like every length here
+x_m = 0.25 # the quarter chord, in metres like every length here
 y_m = 0.0
 z_m = 0.0
 ```
 
 ```toml title="inputs/setups/s001.toml"
-NITER = 300        # SOLVER_SET_ITERATIONS
+NITER = 300 # SOLVER_SET_ITERATIONS
 ```
 
 ```toml title="inputs/pproc/p001.toml"
 [groups]
-"1" = "Wing"       # the name the rename gave the surface
+"1" = "Wing" # the name the rename gave the surface
 ```
 
 **The row** names the mesh, sweeps two angles and runs on 26.124, the build
 the file route was run on:
 
 ```text title="wing.fs"
-POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION                    | FLIGHT_CONDITION                | SWEEP_VALUES | GEOMETRY | REF  | SET  | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
+POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-1001 |    0   |  1  | Wing     | -             | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0      | wing.obj | r001 | s001 | p001  | NONE     | -              | -     | -        | 26.124   | steady   |
+1001 | 0 | 1 | Wing | - | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0 | wing.obj | r001 | s001 | p001 | NONE | - | - | - | 26.124 | steady |
 ```
 
 With `inputs/executables.toml` naming your 26.124 installation, as for any
-row ([workspaces and workflows](../workspace-and-workflows.md)), plan it and run
+row, plan it and run
 it from the workspace root:
 
 ```text
@@ -138,13 +138,13 @@ coordinate line the solver consumes, and the eight points in metres:
 1.0,1.75,0.0
 ```
 
-**Read the unit once more before copying this.** Conversion was measured on 26.124 with detected edges: the millimetre OBJ matched the metre version to the print (RPT-069). The millimetre file route and other builds are not measured. The file route in millimetres and other builds remain unmeasured.
+**Read the unit once more before copying this.** Conversion was measured on 26.124 with detected edges: the millimetre OBJ matched the metre version to the print. The millimetre file route and other builds are not measured. The file route in millimetres and other builds remain unmeasured.
 none of this example's points lies on it, and the count check records each
 point `FAILED_SCRIPT` rather than letting a solve of the wrong body pass.
 Written in metres, the mesh and the points file both, the example does not
 depend on the answer.
 
-The suite runs this example as printed: `tests/tier1_offline/test_mesh_inputs_page.py`
+The suite runs this example as printed: `tests/tier1_offline/.py`
 writes every titled block above into a temporary workspace, runs the python
 block there, plans the matrix with the command above, and renders both points
 without a solver. It fails when the scripts the package builds and the two

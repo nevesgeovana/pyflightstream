@@ -31,13 +31,13 @@ its unit in its own spelling, deliberately. Five CONSTRAIN the state:
 | Key | Unit | What it constrains |
 |---|---|---|
 | `MACH` | dimensionless | velocity, through the speed of sound at the state's own temperature |
-| `TASmps` | metres per second | velocity directly (true airspeed) |
+| `TASmps` | metres per second | velocity directly |
 | `REmi` | **millions** -- `5.5` means 5 500 000 | density [^re] |
 | `ALTFT` | **feet** | pressure, and temperature through the standard lapse |
 | `dISA` | **Celsius, as a DELTA** | temperature, as an offset on the standard value |
 
 and five PIN it, each replacing what the standard atmosphere would
-otherwise supply, and each recorded on the run as pinned (v0.11.0):
+otherwise supply, and each recorded on the run as pinned:
 
 | Key | Unit | What it replaces |
 |---|---|---|
@@ -53,8 +53,8 @@ this package's own sea-level atmosphere gives 1.7892976260350732e-05 and
 340.293988026089, and that is a different fluid in the fourth digit.
 
 [^re]: A Reynolds number is density times velocity times reference
-    length over viscosity. Velocity and the length come from elsewhere on
-    the row, so stating `REmi` is what pins the density.
+ length over viscosity. Velocity and the length come from elsewhere on
+ the row, so stating `REmi` is what pins the density.
 
 The names are ugly on purpose. `ALTITUDE:10000` would be ambiguous
 between feet and metres, and this repository has already shipped a solver
@@ -70,17 +70,17 @@ one key. A key written twice is refused rather than taking the last one.
 
 The ten keys above are about the AIR. Seven more are about what the
 aircraft is doing in it, and the same cell carries them because a point
-is both (FR-69, FR-70):
+is both:
 
 | Key | Unit | What it states |
 |---|---|---|
 | `ALPHA` | degrees | the incidence of the free stream |
 | `BETA` | degrees | the sideslip of the free stream |
 | `ADVANCE_RATIO` | dimensionless | the speed of every motion of the row that states none of its own |
-| `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own (0.21.0) |
-| `roll_rate` | deg/s, signed | the roll rate of the aircraft, about the REF's moment point (0.21.0) |
-| `pitch_rate` | deg/s, signed | the pitch rate, about the same point (0.21.0) |
-| `yaw_rate` | deg/s, signed | the yaw rate, about the same point (0.21.0) |
+| `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own |
+| `roll_rate` | deg/s, signed | the roll rate of the aircraft, about the REF's moment point |
+| `pitch_rate` | deg/s, signed | the pitch rate, about the same point |
+| `yaw_rate` | deg/s, signed | the yaw rate, about the same point |
 
 They are parsed here and NEVER handed to the resolver above: an angle
 constrains no fluid property, and asking the resolver about one would be
@@ -94,7 +94,7 @@ was nowhere to write one: a row sweeping the advance ratio reached the
 solver at incidence zero, and the only record of the incidence was that
 nobody had written one. An angle the row holds is carried at every point
 of the sweep, so it names the run, which is the subject of
-[its own section below](#one-variable-sweeps-and-it-is-one-that-defines-the-condition).
+[its own section below].
 
 ### One variable sweeps, and it is one that defines the condition
 
@@ -103,7 +103,7 @@ applied to a variable that DEFINES the flight condition, and to exactly
 one variable.** The swept key carries the word `sweep` where its value
 would be, and `SWEEP_VALUES` holds its values:
 
-    MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0   |   0,2,4
+ MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 | 0,2,4
 
 A row with no `sweep`, or with two, is refused naming the keys. Two swept
 variables were the paired `AL/BE` sweep, which retires with the
@@ -125,7 +125,7 @@ from pyflightstream.cases.matrix import SWEEP_WORD
 
 # The cell a generator is about to write out.
 condition = {"MACH": 0.2, "REmi": 5.5, "ALPHA": SWEEP_WORD, "BETA": 0.0}
-swept = [key for key, value in condition.items() if value == SWEEP_WORD]
+swept = [key for key, value in condition.items if value == SWEEP_WORD]
 # -> ['ALPHA']
 ```
 
@@ -156,8 +156,7 @@ attitude is the one warm job it has always been.
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
 `AL+040BE+000`, which are the same three points the paired row it was
-upgraded from produced (`a-04.0_b+00.0` and its siblings, under the tag of
-0.20.x). The point's name ends the `run_id` in every manifest, so the
+upgraded from produced. The point's name ends the `run_id` in every manifest, so the
 converter is held to more than lossless content: it does not rename a run,
 and a `--resume` after an upgrade finds the records it already has.
 
@@ -167,23 +166,23 @@ putting it in would have renamed every run that has one, which is the same
 cost running the other way. The NAME of a point carries every
 variable the cell declares, held or swept, which is a different question
 from what the point MAPPING carries; see
-[How a point is named](workflow-run-matrix.md#how-a-point-is-named).
+[How a point is named].
 
 ## The rotor speed, the advance ratio and the velocity
 
-They are one relation, V = J x (RPM/60) x D, with D the diameter of the rotor
+They are one relation, V = J x x D, with D the diameter of the rotor
 `CLOCK_MOTION` names. State any two and the third follows:
 
 * `RPM` with a velocity: the ratio is what the two work out to, as before.
-* `ADVANCE_RATIO` with a velocity: the speed is derived, n = V / (J D), as
-  before.
-* **`RPM` with `ADVANCE_RATIO` and no velocity** (0.21.0): the VELOCITY is
-  computed from them. This is the form a rotor study writes, where the rig
-  states what the rotor does and the free stream follows. A row in this form
-  naming no `CLOCK_MOTION` rotor with a diameter is refused by name, because
-  there is no D to measure against.
+* `ADVANCE_RATIO` with a velocity: the speed is derived, n = V /, as
+ before.
+* **`RPM` with `ADVANCE_RATIO` and no velocity**: the VELOCITY is
+ computed from them. This is the form a rotor study writes, where the rig
+ states what the rotor does and the free stream follows. A row in this form
+ naming no `CLOCK_MOTION` rotor with a diameter is refused by name, because
+ there is no D to measure against.
 * All three: refused by name. The three over-state the point and nothing here
-  can know which two were meant.
+ can know which two were meant.
 
 A `MOTIONS` record naming its own speed keeps it, whatever the cell says: the
 cell states the row's speed for every motion that states none.
@@ -193,32 +192,27 @@ cell states the row's speed for every motion that states none.
 A row states ONE body rate, in deg/s and in flight-mechanics signs, and the
 script writes
 
-    SET_FREESTREAM ROTATION <frame of the moment point> <axis> <rev/min>
+ SET_FREESTREAM ROTATION <frame of the moment point> <axis> <rev/min>
 
 instead of `SET_FREESTREAM CONSTANT`. That is how a run states a pull-up, a
 roll or a yaw rather than straight flight: the free stream turns about the
 MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote
-(`test_goal024_freestream_rotation_a_pitch_rate_turns_the_free_stream`). The
+The
 rate is a key of the cell like any other, so a row can sweep it
-(`test_goal024_freestream_rotation_a_rate_sweeps_like_any_other_variable`).
 
 **Which axis is which belongs to the configuration.** A mesh is built in
 whatever orientation its author chose, so the reference artifact says it:
 
-    [body_axes]
-    roll = "X"
-    pitch = "Y"
-    yaw = "Z"
+ [body_axes]
+ roll = "X"
+ pitch = "Y"
+ yaw = "Z"
 
 A row stating a rate against a reference that declares none is refused by name
-(`test_goal024_freestream_rotation_a_reference_declaring_no_axes_is_refused_by_name`),
 and so is a row stating two non-zero rates: the free stream turns about one
 axis at one speed, and two rates would be composed into an axis the row does
-not write (`test_goal024_freestream_rotation_two_non_zero_rates_are_refused_by_name`,
-`test_goal024_freestream_rotation_a_case_authored_in_python_is_refused_too`).
+not write.
 Every rate zero, or no rate at all, writes `CONSTANT`
-(`test_goal024_freestream_rotation_every_rate_zero_writes_constant`,
-`test_goal024_freestream_rotation_a_row_with_no_rate_at_all_writes_constant`).
 
 **The sign of the emitted rotation is the sign of its body axis in the
 geometry's frame**. Positive p is right wing down, q nose up and
@@ -227,44 +221,17 @@ frame, the one a loads export states its forces in, points x aft, y right and
 z up, and the solver turns the free stream as a right-hand rotation about the
 frame axis it is given. So p = -omega_x, q = +omega_y and r = -omega_z: a row
 stating `roll_rate:40` writes `ROTATION <frame> X -6.667`, `pitch_rate:40`
-writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667` (rev/min, rounded here;
-`test_goal024_freestream_rotation_each_rate_turns_in_the_flight_mechanics_sense`,
-`test_goal024_freestream_rotation_each_rate_takes_its_own_axis`). The sign per
+writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667`. The sign per
 axis is the diagonal of the turn the post takes a loads export into body axes
 by, so the two cannot part
-(`test_goal024_freestream_rotation_the_sign_per_rate_is_the_export_to_body_turn`).
 
 **The measured sense of all three**, on FlightStream 26.124: for each rate, the
 line the package emits today for +40 deg/s, and what the solver answered to
 that very line in the licensed probes
-(`test_the_emitted_rotation_is_the_one_the_probe_recorded_producing_that_rate`
-looks the line up in the recorded evidence and checks the sign of the answer):
 
 | rate | positive is | emitted for +40 deg/s | the solver's answer to that line | measured by |
 |---|---|---|---|---|
-| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | T11, RPT-060 |
-| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate | RPT-052 |
-| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | T11, RPT-060 |
-
-**What the solver does with a positive angular velocity is not documented by
-any edition of the manual**, so the sense was MEASURED on FlightStream 26.124,
-one axis at a time, on one half wing-body:
-
-- **Pitch**, three rates, reported in
-  `reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`: a
-  positive rotation about y came back with the nose-down moment increment that
-  opposes a nose-up rotation.
-- **Roll and yaw**, the licensed probe T11 on build 8172026 of 26.124, seven
-  converged solves, reported in
-  `reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md`: a
-  positive rotation about x gave the left wing more lift and a positive rolling
-  increment, the damping of a NEGATIVE roll rate, and a positive rotation about
-  z gave the left wing less lift, the response of a NEGATIVE yaw rate.
-
-**A row of 0.21.0 to 0.26.0 stating `roll_rate` or `yaw_rate` was solved at the
-opposite rate.** Those releases emitted all three rates with one sign of +1,
-right for pitch (RPT-052) and reversed for roll and yaw (T11, RPT-060), so the
-coefficients of such a row are those of -p or -r. Such a point is found by its
+ Such a point is found by its
 name, which carries the rate (`P` for roll, `R` for yaw), or by the script its
 run record names, whose free-stream line turns about `X` or `Z` with the sign
 of the rate the row states. A row stating `pitch_rate` is unaffected. The
@@ -273,28 +240,27 @@ build the same line was emitted and its response is unmeasured.
 
 A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
 the axis it declares with its rate's sign above
-(`test_goal024_freestream_rotation_a_permuted_axis_turns_with_its_rates_sign`);
 no probe has measured such a mesh.
 
 ## Which quantity gets solved for
 
 * `ALTFT` and `dISA` fix the **temperature**, and therefore the speed of
-  sound and the viscosity. Both have defaults: an absent altitude is sea
-  level and an absent `dISA` is zero. Those defaults are what make a
-  short set legal at all.
+ sound and the viscosity. Both have defaults: an absent altitude is sea
+ level and an absent `dISA` is zero. Those defaults are what make a
+ short set legal at all.
 * A `TK` pin replaces that temperature, and everything derived from the
-  temperature follows it: the speed of sound `a = sqrt(gamma R T)`, the
-  Sutherland viscosity, the Mach to velocity conversion and the density.
-  Only an `ASMPS` or `MUPas` pin of its own replaces those.
+ temperature follows it: the speed of sound `a = sqrt(gamma R T)`, the
+ Sutherland viscosity, the Mach to velocity conversion and the density.
+ Only an `ASMPS` or `MUPas` pin of its own replaces those.
 * Exactly one of `MACH` or `TASmps` fixes the **velocity**. State
-  exactly one of the two: stating neither leaves the state
-  under-determined and is refused, and stating both is a contradiction
-  and is refused.
+ exactly one of the two: stating neither leaves the state
+ under-determined and is refused, and stating both is a contradiction
+ and is refused.
 * `REmi` fixes the **density**, by solving the Reynolds definition for
-  it. If you do not state it, density is the ideal-gas density of the
-  altitude's pressure (or a `PPA` pin) at the state's temperature, which
-  is the atmosphere's own value when nothing is pinned, and the Reynolds
-  number becomes an outcome.
+ it. If you do not state it, density is the ideal-gas density of the
+ altitude's pressure (or a `PPA` pin) at the state's temperature, which
+ is the atmosphere's own value when nothing is pinned, and the Reynolds
+ number becomes an outcome.
 
 ### An ISA deviation moves temperature and leaves pressure alone
 
@@ -355,7 +321,7 @@ PPA = 101325
 and the rows then state only what varies:
 
 ```text
-3207 | ... | MACH:0.2, REmi:11.7716754 | ... | s001 | ...
+3207 |... | MACH:0.2, REmi:11.7716754 |... | s001 |...
 ```
 
 Pin names in that table match **case-insensitively**, exactly as they do
@@ -376,11 +342,11 @@ The table holds the five pins and nothing else, and the two exclusions
 are the design rather than caution.
 
 * `MACH`, `TASmps` and `REmi` are what the resolver solves for, and a
-  preset several rows share cannot state them. A row inheriting a Mach
-  number would be a case nobody wrote, and it would look exactly like a
-  row that stated one.
+ preset several rows share cannot state them. A row inheriting a Mach
+ number would be a case nobody wrote, and it would look exactly like a
+ row that stated one.
 * `ALTFT` and `dISA` select a point IN the atmosphere, which the pins
-  exist to replace rather than to locate.
+ exist to replace rather than to locate.
 
 One default can be superseded without contradicting anything, and it is
 `RHOkgm3`. A ROW stating both it and `REmi` is refused, because each
@@ -426,7 +392,7 @@ than typing numbers into columns.
 | `MACH:nan`, `REmi:inf` | refused: a flow condition cannot be a NaN or an infinity | `MatrixError` |
 | `MACH:0.2, MACH:0.35` | refused as a duplicate, rather than taking the last | `MatrixError` |
 | `MACH 0.2` (no colon) | refused: the cell holds `KEY:value` pairs | `MatrixError` |
-| `MACH:0.20,,REmi:5.5` | refused: an empty entry between commas is a typo, not a constraint | `MatrixError` |
+| `MACH:0.20,REmi:5.5` | refused: an empty entry between commas is a typo, not a constraint | `MatrixError` |
 | an empty cell | refused: the cell is mandatory, exactly as `RE` and `MACH` were | `MatrixError` |
 | `ALTFT:10000` alone | refused as under-determined, naming which keys supply a velocity | `FlightConditionError` |
 | `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone | `FlightConditionError` |
@@ -452,14 +418,14 @@ The table is ordered by the three, because the boundary between them is the
 thing worth knowing before you write an `except` clause:
 
 * **`MatrixError`** means **the cell is malformed.** The defect is in the file,
-  and no flight condition was ever constructed to complain about. Every parse
-  refusal above is this one.
+ and no flight condition was ever constructed to complain about. Every parse
+ refusal above is this one.
 * **`FlightConditionError`** means **the cell parsed and the state cannot be
-  resolved**: no velocity, two velocities, a Reynolds number on a row with no
-  reference length, or a condition that states nothing at all.
+ resolved**: no velocity, two velocities, a Reynolds number on a row with no
+ reference length, or a condition that states nothing at all.
 * **`AtmosphereError`** means **the cell is fine, the state is determined, and
-  the physics does not reach there**: an altitude outside the model's range, or
-  a temperature at or below absolute zero.
+ the physics does not reach there**: an altitude outside the model's range, or
+ a temperature at or below absolute zero.
 
 A fourth class, **`InputArtifactError`**, reaches a reader through a
 flight-condition mistake made in a SETUP file rather than in a cell, and

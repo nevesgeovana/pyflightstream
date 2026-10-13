@@ -3,7 +3,7 @@
 The query verbs of `pyfs-matrix` are `status`, `show`, `log`, `trace`, `history` and `diff`; each writes nothing.
 
 `pyfs-matrix status --workspace campaign` prints one row per polar, a polar
-being one simulation and its sweep (FR-379). A row states the simulation id,
+being one simulation and its sweep. A row states the simulation id,
 the polar name, the swept variable, the datapoints as recorded over planned,
 the matrix and the status. When every datapoint of the polar has the same
 status the row states that word; a mixed polar states the count of each word.
@@ -11,19 +11,19 @@ Rows are ordered by matrix and then by simulation id taken as a number.
 `--sims` (with or without square brackets), `--matrix`, `--status WORD`
 (repeatable) and `--failed` narrow the rows, `--points` prints one row per
 datapoint, and `--json` (schema `pyfs-status/1`) and `--csv` print the same
-rows for a script (FR-380, FR-385). Each datapoint is counted once, by its
-effective record: a run that was continued is not counted again (FR-381).
+rows for a script. Each datapoint is counted once, by its
+effective record: a run that was continued is not counted again.
 
 A point that a plan names and that no record carries is counted with the
 status `planned`, written in lower case because it is derived and never a
 recorded word. A footer states, for each matrix, whether its plan was made from
 the matrix as it is on disk and whether its post indexes every recorded run and
-is complete (FR-382). Recorded words are printed as recorded (FR-384).
-`RAN_MISSING_LOG` (FR-413), a run that ended with its outputs and whose solver
+is complete. Recorded words are printed as recorded.
+`RAN_MISSING_LOG`, a run that ended with its outputs and whose solver
 log is absent, is counted among the runs that ended and apart from
 `CONVERGED`; `show` prints its `residual_note`, which names what the absent log
 would have carried.
-`MAX_ITER_REACHED` (FR-434), a steady point stopped at the iteration limit its
+`MAX_ITER_REACHED`, a steady point stopped at the iteration limit its
 run requested without its residual settling, is likewise an ended run that is
 not a failure, counted apart from `CONVERGED`; `show` prints the limit and the
 iterations reached, from its `residual_note`, and its record carries
@@ -32,22 +32,22 @@ of an unsteady run that ended its time loop and of a steady point whose
 evidence does not show both the counter at the limit and the unsettled
 residual.
 `status --additional` lists the additional runs register with its recorded
-fields and no derived one (FR-393).
+fields and no derived one.
 
 `show` prints the record of one datapoint, taken from a simulation
 id and a point, a run id or its alias, outcome first: the status, the verdict
 a `mark-failed` or a `mark-converged` gave (with its reason), the warnings and the stopping reason, then the evidence
 files with their last lines, the log entries that name the point, the chain of
 the run it continues and the run that continued it, the identity of the
-package, build and script, and the inputs (FR-386). A coupled point also names
-its coupling records, the files it lacks and its last exchange row (FR-394).
+package, build and script, and the inputs. A coupled point also names
+its coupling records, the files it lacks and its last exchange row.
 
 `log` prints the activity log oldest first, filtered by `--sims`,
 `--run`, `--stage` and `--since`; `--problems` keeps the events with a problem,
 `--open` lists the stages that started and have no finish, and `--post MATRIX`
 prints the post log grouped by category, product family and message shape with
-a count and one example each, as `--pproc-warnings` groups it (FR-387).
-`log --storage` lists the storage calls as they were recorded (FR-392).
+a count and one example each, as `--pproc-warnings` groups it.
+`log --storage` lists the storage calls as they were recorded.
 Torn or malformed activity lines and non-ISO timestamps are named in a warning
 and skipped; the remaining events are still shown.
 
@@ -55,9 +55,9 @@ and skipped; the remaining events are still shown.
 simulation, post options and runs a product holds, with the identity of each
 run and the paths of its provenance document and sidecar; `trace --run RUN_ID`
 prints the provenance document as a tree of inputs, script and outputs with
-their digests (FR-389).
+their digests.
 
-Every query verb writes no file and takes no lock (FR-383).
+Every query verb writes no file and takes no lock.
 
 `pyfs-matrix history 2006 --workspace campaign` prints the recorded attempts
 of simulation 2006. A point name or a full run id narrows the selection.
@@ -96,8 +96,8 @@ import json
 from tempfile import TemporaryDirectory
 from pyflightstream.workspace.ledger import status_rows
 
-with TemporaryDirectory() as root:
-    assert json.dumps(status_rows(root)) == "[]"
+with TemporaryDirectory as root:
+ assert json.dumps(status_rows(root)) == "[]"
 ```
 
 History returns exit code 1 when its target has no recorded run. Invalid

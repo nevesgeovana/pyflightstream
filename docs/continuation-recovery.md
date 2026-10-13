@@ -26,10 +26,10 @@ and continuations without Tecplot, retain their existing route.
 
 ## Executable offline example
 
-[continuation_frame_recovery.py](examples/continuation_frame_recovery.md)
+[continuation_frame_recovery.py]
 accepts an existing workspace, a resolved SimCase JSON, a point and a build.
 It does not initialize a workspace or submit a solver. Save the resolved case
-with case.model_dump_json(); the JSON must retain its RESTART request.
+with case.model_dump_json; the JSON must retain its RESTART request.
 
 From the checkout, use Python to avoid shell-specific JSON quoting:
 
@@ -37,22 +37,18 @@ From the checkout, use Python to avoid shell-specific JSON quoting:
 ```python
 from examples.continuation_frame_recovery import main
 
-main([
-    "campaign", "resolved-case.json",
-    "--point", '{"alpha": 0.0}',
-    "--fs-version", "26.123",
-])
+main
 ```
 
 The example prints the resolved saved state and recovery evidence. Its same
-entry point is exercised by test_g58_documented_example_executes_without_a_solver.
+entry point is exercised by.
 For handwritten recipes, call resolve_continuation with the actual recipe
 callable, as the normal campaign runner does.
 
 ## What a RESTART row continues (0.33.0)
 
 A row stating `RESTART` continues, point by point, the latest recorded run
-of each point (FR-96):
+of each point:
 
 | latest run of the point | `{FINISH_PENDING}` | `{ADDITIONAL_ITERS=n}`, `{ADDITIONAL_REVS=n}` |
 |---|---|---|

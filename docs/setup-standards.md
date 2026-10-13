@@ -3,7 +3,7 @@
 Generate the guide and standard setup library while planning:
 
 ```console
-pyfs-matrix plan matrix.fs --workspace . --fs-version 26.123 --setup-guidelines --setup-standards
+pyfs-matrix plan matrix.fs --workspace. --fs-version 26.123 --setup-guidelines --setup-standards
 ```
 
 Both flags work independently. Generation requires an explicit `--fs-version` so
@@ -76,10 +76,9 @@ value in the setup. The inspection record includes this choice.
 
 Mach mode requires the resolved velocity, Mach and sound speed to agree. On
 builds whose fluid command takes the heat-capacity ratio, the sound speed must
-also agree with `sqrt(gamma * pressure / density)` and the emitted temperature
+also agree with `sqrt` and the emitted temperature
 using the package's canonical dry-air gas constant. The native manual states that
-modern sonic velocity follows temperature and specific-heat ratio (26.120 User
-Guide, p.328). Missing fluid data, an
+modern sonic velocity follows temperature and specific-heat ratio. Missing fluid data, an
 inconsistent independent sound-speed pin, or a conflicting sonic override is
 refused before settings emission. Use velocity mode to preserve such independently
 specified states; switching the native setter must not change the physics.
@@ -88,10 +87,10 @@ Coefficient normalization is a separate choice: `reference_velocity_m_per_s`,
 `reference_mach`, or the explicit `disable_reference_velocity = true` reset.
 Only one may be stated. With none present, the existing freestream reference
 velocity remains explicit. On 26.124/build 8172026, the measured reset changed
-a held 47.513 m/s reference to the 30 m/s freestream (RPT-081) and then followed a subsequent
+a held 47.513 m/s reference to the 30 m/s freestream and then followed a subsequent
 40 m/s freestream change. The saved override flag changed from true to false.
 
-The same build (RPT-081), at Mach 0.13, temperature 288.15 K and gamma 1.4, saved
+The same build, at Mach 0.13, temperature 288.15 K and gamma 1.4, saved
 44.2381515552 m/s through the Mach setter versus 44.2382184434 m/s through the
 velocity setter. The 1.51 ppm difference falls inside the 2 ppm acceptance bound
 for this control only. Mach and fluid inputs are not adjusted to hide native
@@ -106,7 +105,7 @@ in the existing free-variable cell:
 ACTUATOR: {ACTUATOR: Left / ACTUATOR_RPM: 2000 / ACTUATOR_THRUST: 100}, {ACTUATOR: Right / ADVANCE_RATIO: 0.5 / ACTUATOR_THRUST: 200}
 ```
 
-Each referenced actuator block may state `thrust_units` and `wake_type`; `ACTUATOR_THRUST` uses that block's `thrust_units` (default `NEWTONS`).
+Each referenced actuator block may state `thrust_units` and `wake_type`; `ACTUATOR_THRUST` uses that block's `thrust_units`.
 
 Each name selects its own reference actuator block. An advance ratio uses that
 block's diameter and the point velocity; RPM and loading belong to that record.
@@ -119,10 +118,10 @@ emission are checked offline; native multi-disc operation requires its own test.
 
 The reference block may additionally choose `wake_type = "RIGID"` or
 `"RELAXED"`. Omission preserves the native default. `thrust_units` selects
-`NEWTONS` (the existing default), `POUNDS`, or `COEFFICIENT` for that block's
+`NEWTONS`, `POUNDS`, or `COEFFICIENT` for that block's
 `ACTUATOR_THRUST` value; profile-file force units remain `profile_units`.
 The coefficient convention is native and must match the intended formulation;
-dimensional thrust avoids that ambiguity (FlightStream User Guide, p.187).
+dimensional thrust avoids that ambiguity.
 These newly exposed variants require the separate native controls recorded by
 this release; their typed acceptance alone is not proof of a wake or load effect.
 
@@ -187,7 +186,7 @@ uppercased. An omitted `profile_variable` requests no profile. Selecting one
 requires that MATRIX variable to name a file under `inputs/profiles/`.
 No numeric condition or profile filename is copied into the geometry or setup.
 The workspace example and emitted commands are tested in
-`test_boundary_artifact_separation.py`.
+`.py`.
 
 The surface names are exact after import renames. Velocity values are passed
 unchanged in simulation velocity units. The current manual is inconsistent:

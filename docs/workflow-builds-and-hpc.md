@@ -8,8 +8,7 @@ Linux is the cluster: a workspace that carries a submission profile submits
 from Linux and runs locally on Windows, and no cell says so. When the Linux
 machine is a workstation, or the point is a smoke test on the machine itself,
 `pyfs-matrix run --local` keeps the run on that machine: the cluster is not
-asked, the executable resolves as on Windows (the `FS_BUILD` column through
-`inputs/executables.toml`, or `--fs-exe`), each point runs and writes its
+asked, the executable resolves as on Windows, each point runs and writes its
 outputs in its own `datapoints/DP-<point>/` as any point does, and every
 record's `executor` entry says
 `forced_local`. The flag changes nothing on a machine that would not have
@@ -61,19 +60,18 @@ What each run type does on each registered build:
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
-documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
-first documented in 26.122): the plots are declared before one solver
+documents no unsteady solver action: the plots are declared before one solver
 start that runs every time step the row states, and every export is
 taken after it. It is also how a row asking for none of the features
-below runs on every build. Such a row (FR-314), on a build
+below runs on every build. Such a row, on a build
 that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
-local run (FR-129) appears on every unsteady row; its script differs from
+local run appears on every unsteady row; its script differs from
 the one 0.32.0 wrote by those three lines only, and its `march_strategy`
-stays `single_march`. RPT-112 measured no effect from the counter on 26.124, build 8172026. The per-step history of
+stays `single_march`. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 
@@ -82,14 +80,12 @@ them for one is BLOCKED at plan time, before any solver time is spent,
 with a sentence naming the build, the feature, the builds that document
 the actions and the change to the row that runs where you asked:
 
-- snapshots from a threshold (`EXPORT_UNSTEADY_AFTER_ITER`,
-  `EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_LAST_ITER`,
-  `EXPORT_UNSTEADY_LAST_REV`), because the step counter is an action;
-- the wall clock inside the run (`WALLTIME`), because the clock and its
-  stop are actions; size `TIME_ITERATIONS` to the queue instead and
-  continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;
+- snapshots from a threshold, because the step counter is an action;
+- the wall clock inside the run, because the clock and its
+ stop are actions; size `TIME_ITERATIONS` to the queue instead and
+ continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;
 - a continuation that reads their records, `RESTART: {FINISH_PENDING}` and
-  `RESTART: {ADDITIONAL_REVS=n}`.
+ `RESTART: {ADDITIONAL_REVS=n}`.
 
 Nothing is emulated. The plan's `march_strategy` and the run record's
 `march_strategy` carry `actions` or `single_march` for every unsteady
@@ -102,21 +98,20 @@ command. The package writes a Euclidean motion whose angular velocity is
 the row's speed converted to rad/s along its axis, marked as a rotor
 with `SET_MOTION_IS_ROTOR`. On 26.000 a blade driven this way turned
 exactly as the rotary motion at the same speed turns it on 26.120, in
-the same sense (RPT-049); 25.100 prints the same grammar and was not
+the same sense; 25.100 prints the same grammar and was not
 run.
 
 **On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
-the mark and its solver answers it as an unrecognized command (RPT-049).
+the mark and its solver answers it as an unrecognized command.
 The package refuses rotor motions and rotor-speed rows on this build during
 plan rehearsal until a rotation null test settles the angular-velocity unit
-(RPT-051):
 
 - the unit is a maintainer decision, while that build's manual tutorial
-  gives rad/s for the field and 26.000 measured rad/s;
+ gives rad/s for the field and 26.000 measured rad/s;
 - the sense of rotation is not measured on that build;
 - the solver is never told the motion is a rotor.
 
-The 26.100 build-compare sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT despite the rev/min input and absent rotor mark (build-compare finding 4; answer G77-0335).
+The 26.100 build-compare sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT despite the rev/min input and absent rotor mark.
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default
@@ -136,8 +131,7 @@ plan` with the `FS_BUILD` you mean first.
 
 On a cluster each point of a row is submitted as its own job and runs in its
 own datapoint folder, `sims/sim_<id>/datapoints/DP-<tag>/`, which is where
-its outputs are filed. The scheduler's descriptor (`submit.yaml` or the name
-the profile gives it), the unsteady action program with its export script,
+its outputs are filed. The scheduler's descriptor, the unsteady action program with its export script,
 and the wall clock with its state are written there, so every point of a
 swept row is submitted in one invocation and no queued job shares a file with
 another. The run record names the folder as `working_dir`, and
@@ -149,7 +143,7 @@ than in the folder every point of the row shares; the script is the same
 either way, since its exports are named relative to the working directory and
 its inputs by absolute path. A steady row, which is ONE job over all its
 points and one script, submits from and runs in the simulation folder, and
-collection files each point's outputs in its own folder. FR-99 states the
+collection files each point's outputs in its own folder. states the
 requirement.
 
 **A steady job's log on a machine that exports none.** Where the profile
@@ -162,10 +156,8 @@ point waits for a log of its own, so `collect --watch` does not wait for files n
 export, and each point's `residual_note`, and the job's, names the job's log. A
 row that imports its trailing edges from a file holds every point to the count
 in that one log
-(`test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once`,
-`test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log`).
 
-**A job that ended without its log (FR-311).** `collect` waits
+**A job that ended without its log.** `collect` waits
 for the solver log (`native_log`, or the declared `_log.txt`), and a job that
 died before writing it used to stay `SUBMITTED` for ever, looking like a job
 still running. The profile can name the files its scheduler writes when a job
@@ -197,7 +189,7 @@ system, or a job the scheduler requeued, can be misjudged.
 
 A point whose declared outputs are all present and
 settled while the solver log its script exports (`EXPORT_LOG`) is absent is
-recorded `RAN_MISSING_LOG` (FR-413): the log was deleted after the run, or never came
+recorded `RAN_MISSING_LOG`: the log was deleted after the run, or never came
 back. `collect` decides it before it waits for the log and before it reads the
 end-of-job files above, for a point submitted alone, a steady job and a point
 of a grouped job (`--batch`, `--polar-sweep`) alike, so such a point is neither
@@ -221,7 +213,7 @@ grouped collect and rebuild then decide the point on those names. The recorded
 field is authoritative whenever it is present, an empty list included: the
 script is read only when the field is absent, and its names are never added to
 a present field. A record with neither the field nor a readable script has no
-declared log, and the rule does not fire (FR-413 R8).
+declared log, and the rule does not fire.
 
 The decision is a reading of files: a job still running, caught in the moment
 between its last export and `EXPORT_LOG`, would read the same way; `collect
@@ -259,7 +251,7 @@ one profile needs no option. The top-level key `max_walltime`, written
 `HH:MM:SS` (hours may exceed 24), states the longest walltime the queue
 accepts. A grouped plan caps the walltime of every job at it, with a warning
 that suggests a larger number of batches, and refuses a row whose own
-`WALLTIME` cell is above it (FR-364, FR-377). A value that does not parse is
+`WALLTIME` cell is above it. A value that does not parse is
 refused naming the key, and a profile without the key states no limit. The
 sum rule for the walltime of a job, and the value `BEST`, are in
 [Planning a campaign and what it costs](workflow-plan-and-cost.md).
@@ -282,8 +274,8 @@ name = "submit.yaml"
 
 [descriptor.fields]
 ApplicationId = "{application_id}"
-version       = "{fs_build_alias}"
-master_file   = "{script_path}"
+version = "{fs_build_alias}"
+master_file = "{script_path}"
 
 [submit]
 command = ["esub", "{descriptor_path}"]

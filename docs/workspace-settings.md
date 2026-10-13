@@ -5,7 +5,7 @@ the `pyfs-matrix` options a campaign types on every command: the version, the
 HPC profile, the cost file, the acceptance of the installed build and how much
 the console says. With them, `pyfs-matrix plan polars.fs` and `pyfs-matrix run
 polars.fs` typed without those options give the plan and the run the options
-would give, and an option typed on one command still wins (FR-436).
+would give, and an option typed on one command still wins.
 
 ## The two files
 
@@ -57,7 +57,7 @@ does not. Each value has the type its option takes.
 
 | table | keys |
 |---|---|
-| `[defaults]` | `fs_version`, `hpc`, `cost_file`,  `fs_exe`, `point_name`, `recipe`, `workflow`, `ignore_missing_families`, `check_frozen`, `progress_every`, `local` |
+| `[defaults]` | `fs_version`, `hpc`, `cost_file`, `fs_exe`, `point_name`, `recipe`, `workflow`, `ignore_missing_families`, `check_frozen`, `progress_every`, `local` |
 | `[log]` | `console` (`"quiet"`, `"normal"` or `"verbose"`), `pproc_warnings` |
 
 Each of these is refused before any work, with a message naming the key (or
@@ -65,8 +65,8 @@ the parse error) and the file; nothing is written in the workspace and the
 command exits non-zero:
 
 - a key that acts on one invocation: `apply`, `yes`, `overwrite`, `resume`,
-  `force_rerun`, `force_rerun_all`, `discard_walltime`, `sims`, `points`,
-  `no_post`, `update_ids`, `watch`, `rounds`, `from_sims`;
+ `force_rerun`, `force_rerun_all`, `discard_walltime`, `sims`, `points`,
+ `no_post`, `update_ids`, `watch`, `rounds`, `from_sims`;
 - a key no command takes, a misspelling among them, and `workspace`;
 - a table other than `[defaults]` and `[log]`;
 - a value of the wrong type, and a `console` value outside the three levels;
@@ -115,9 +115,9 @@ the build is accepted. It is accepted by either of two routes:
 
 - `--accept-unregistered-build` typed on the command;
 - the entry acceptance: `accept_unregistered_build = true` on the table-valued
-  build entry of `inputs/executables.local.toml` that the row selects, which
-  accepts the installed build of that entry only; a row naming another version
-  whose installed build differs is still refused.
+ build entry of `inputs/executables.local.toml` that the row selects, which
+ accepts the installed build of that entry only; a row naming another version
+ whose installed build differs is still refused.
 
 ```toml title="inputs/executables.local.toml"
 "26.124" = { path = "C:/builds/26124/FlightStream.exe", version = "26.124", accept_unregistered_build = true }
@@ -138,9 +138,9 @@ source is the first that accepts of: typed, then the entry. For example:
 
 ```json
 "settings_sources": {
-  "accept_unregistered_build": "executables.local.toml",
-  "cost_file": "pyfs.toml",
-  "hpc": "pyfs.local.toml"
+ "accept_unregistered_build": "executables.local.toml",
+ "cost_file": "pyfs.toml",
+ "hpc": "pyfs.local.toml"
 }
 ```
 

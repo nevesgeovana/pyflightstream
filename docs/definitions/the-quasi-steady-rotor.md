@@ -24,8 +24,8 @@ rotor's force and moment, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`,
 `CMN` and `CMS` are then computed from those mean loads:
 
 ```text
-F_mean = (1/k) sum_i F_i        M_hub,mean = (1/k) sum_i M_hub,i
-ETA    = J CT(F_mean) / CP(M_hub,mean)     never (1/k) sum_i ETA_i
+F_mean = (1/k) sum_i F_i M_hub,mean = (1/k) sum_i M_hub,i
+ETA = J CT(F_mean) / CP(M_hub,mean) never (1/k) sum_i ETA_i
 ```
 
 The table's `products.json` entry says `"source": "mean of k clockings"`
@@ -41,18 +41,18 @@ Two products are the run type's own, and a wheel point's sections
 gain its clockings and its validity.
 
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row
-  per point and clocking, the shape of the unsteady rotor's phase-locked table
-  (one row per azimuth). `REDUCTION` is `qsteady_position`; `AZIMUTH` is where
-  blade one is at that clocking, `(blade1.azimuth_deg + sense * theta_i) mod 360`
-  with `sense` the sign of the rotor's speed, by the one rule the sections
-  table's `AZIMUTH` follows (`pyflightstream.post.axes.clocked_blade_azimuth_deg`),
-  so the two agree for either hand; `POSITION` is `i`
-  and `POSITIONS` is `k`. Each value is an
-  INSTANT, the steady solve at that clocking.
+ per point and clocking, the shape of the unsteady rotor's phase-locked table
+ (one row per azimuth). `REDUCTION` is `qsteady_position`; `AZIMUTH` is where
+ blade one is at that clocking, `(blade1.azimuth_deg + sense * theta_i) mod 360`
+ with `sense` the sign of the rotor's speed, by the one rule the sections
+ table's `AZIMUTH` follows (`pyflightstream.post.axes.clocked_blade_azimuth_deg`),
+ so the two agree for either hand; `POSITION` is `i`
+ and `POSITIONS` is `k`. Each value is an
+ INSTANT, the steady solve at that clocking.
 - **The average table**, `polars/P<sim>-<ALIAS>_qs_avg.csv`: one row per
-  point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
-  loads column. It is the quasi-steady counterpart of the unsteady time
-  average, and it is an AVERAGE over clockings, never over time.
+ point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
+ loads column. It is the quasi-steady counterpart of the unsteady time
+ average, and it is an AVERAGE over clockings, never over time.
 
 In both tables `J_CLOCK` and `RPM_CLOCK` state what the rotor ran at, from the
 speed of the point's own record, the diameter of the rotor's block and the
@@ -99,8 +99,8 @@ in its XY plane `F = Fx e_x + Fz e_y` and `r = Offset e_z`, and with
 counted positive) stated in the same frame's axes:
 
 ```text
-thrust per unit span  t = F . a
-torque per unit span  q = (r x F) . a
+thrust per unit span t = F. a
+torque per unit span q = (r x F). a
 THRUST_PCT_K_GT_0_1 = 100 sum_{k > 0.1} t w / sum t w
 TORQUE_PCT_K_GT_0_1 = 100 sum_{k > 0.1} q w / sum q w
 ```
@@ -111,8 +111,7 @@ with `w` each station's strip, so the torque comes from the in-plane
 clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
 `z` for a shaft stated as a vector, because every such frame is the hub frame
 turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
-`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
-RPT-006); the reading of an XY cut was measured on the 0.31.0 short licensed
+`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records; the reading of an XY cut was measured on the 0.31.0 short licensed
 confirmation of a clocked wheel, where the strip integrals of `Fx`, `Fz` and
 `Fz Offset` over blade one matched the blade's force along the shaft, its
 in-plane force and its moment about the shaft to about 2 per cent. **A share

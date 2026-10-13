@@ -7,6 +7,7 @@ rendering source is ``pyflightstream.reference``, shared with the
 ``pyflightstream.help()`` offline HTML fallback.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -21,6 +22,18 @@ from pyflightstream.reference import (
     markdown_reference_pages,
     percent_script_markdown,
 )
+
+
+def _public_reference_text(content: str) -> str:
+    """Remove internal evidence locators from generated user references."""
+    content = re.sub(r"\([^()\n]*(?:FR|NFR|PFS|RPT)-\d+[^()\n]*\)", "", content)
+    content = re.sub(r"\b(?:FR|NFR|PFS|RPT)-\d+(?:\.\d+)*\b(?:\s+R\d+)?", "", content)
+    content = re.sub(r"\btest_[A-Za-z0-9_]+\b", "", content)
+    content = re.sub(r"[ \t]+([,.;:])", r"\1", content)
+    content = re.sub(r",\s*,", ",", content)
+    content = re.sub(r"(?m)^[ \t]*[.,;:)]+[ \t]*\r?\n", "", content)
+    return content
+
 
 # The API and command-line references are rendered by helpers beside this
 # script; the plugin runs it by path, so its directory is not on sys.path.
@@ -94,12 +107,12 @@ with mkdocs_gen_files.open("fsi-tutorial.md", "w") as page:
 # name of its __all__ an mkdocstrings entry, so the page renders the docstring.
 for path, content in api_reference_pages().items():
     with mkdocs_gen_files.open(f"api/{path}", "w") as page:
-        page.write(content)
+        page.write(_public_reference_text(content))
 
 # The command-line reference (NFR-29 R3), from the tools' own argument parsers.
 for path, content in cli_reference_pages().items():
     with mkdocs_gen_files.open(f"cli/{path}", "w") as page:
-        page.write(content)
+        page.write(_public_reference_text(content))
 
 # The exceptions catalog (NFR-29 R6), from pyflightstream.exceptions.
 with mkdocs_gen_files.open("exceptions.md", "w") as page:

@@ -33,7 +33,7 @@ only their own, and one post's silenced sweep table silences no other post.
 After the log is written, the post re-emits its warnings to its caller's warning
 filters, outside every sink. A warning raised during a post by code outside the
 package is not logged. A thread the post itself started would not inherit the
-sink; the post starts none (`reports/RPT-058`, closed in 0.27.0).
+sink; the post starts none.
 
 `post.log.json` beside it carries the same records for a
 program. It holds the header, as `version`, `workspace`, `matrix`, `time` and
@@ -67,14 +67,14 @@ Existing-output protection still requires an explicit rebuild request.
 refusals for affected averages and reference mismatches; the warning is still
 written to `post.log`.
 One status is never refused, with or without the check: `RAN_MISSING_LOG`
-(FR-413), a point whose outputs are all present
+a point whose outputs are all present
 and whose solver log is absent. Its freeze cannot be read, so the check has
 nothing to refuse it on: every product of the point is written, and `post.log`
 carries exactly one WARNING for it, naming the status and what is unavailable
 (the residual history, the convergence verdict, the frozen-point reading, the
 solver clock and its iteration count), and, with the check, that its freeze
 cannot be read.
-`MAX_ITER_REACHED` (FR-434), a steady point stopped at its requested iteration
+`MAX_ITER_REACHED`, a steady point stopped at its requested iteration
 limit without settling, is admitted as `COMPLETED_MAX_ITER` is: every product
 of the point is written, and `post.log` carries one WARNING for it naming the
 point and the limit, because its outputs are not a settled solution.
@@ -122,7 +122,7 @@ A residual page stopped before its closing separator is unread. A terminal marke
 log has already printed at least one residual page in an unsteady marker block.
 A log whose markers never carry pages is not classified as cut. With earlier
 pages present, a cut after `Iterat`, before the `Iteration` anchor finishes,
-is unread (RPT-055). A page-less
+is unread. A page-less
 marker followed immediately by another marker for the same step is a repeat
 associated with per-step export actions; it is skipped without resetting the
 residual evidence. It is not a terminal cut.

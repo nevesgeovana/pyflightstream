@@ -2,7 +2,7 @@
 
 This page is the CONTRACT for the optional all-numeric settings table
 that `pyflightstream.post.settings_table` writes. It is not a
-description of the code: `tests/tier1_offline/test_settings_codebook.py` reads this
+description of the code: `tests/tier1_offline/.py` reads this
 page and fails when the library disagrees with it, so the two cannot
 drift. That direction matters. If the only thing holding the encoding
 still were a page describing the code, they would part the first time a
@@ -16,7 +16,7 @@ different flag.
 
 ## What this file is for, and what it is not
 
-The settings record beside every post-processing file (PFS-2012.11)
+The settings record beside every post-processing file
 holds strings, citations and mixed types, because it is the RECORD. A
 plotting script or a spreadsheet cannot treat that as data, so this
 second form carries nothing but numbers.
@@ -58,7 +58,7 @@ kind codes below; the existing code meanings and codebook version remain
 unchanged. A fill sentinel may replace an absent kind, never a value.
 
 Column ORDER is documented and not guaranteed. A reader resolves a
-column by its label (the convention recorded 2026-08-17, NFR-19).
+column by its label.
 
 ## Provenance codes
 
