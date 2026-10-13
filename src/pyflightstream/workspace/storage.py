@@ -72,9 +72,8 @@ from pyflightstream.workspace import (
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
-from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
 from pyflightstream.workspace._free_space import (
+    _PROTECTED_SUFFIXES,
     _both_refusal,
     _check_selections,
     _check_step_values,
@@ -87,6 +86,8 @@ from pyflightstream.workspace._free_space import (
     _walk_files,
     _zip_path,
 )
+from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
+from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
@@ -747,9 +748,8 @@ def _select_sims(
 ) -> list[str]:
     wanted = spec.get("sims", "all")
     candidates = sorted(present)
+    # The shapes of sims and status, and the status names, are read_recipe's (PFS-2096.028).
     if wanted != "all":
-        if not isinstance(wanted, list):
-            raise StorageError("'sims' is \"all\" or a list of simulation ids")
         named = {str(item) for item in wanted}
         missing = named.difference(candidates)
         if missing:
@@ -758,9 +758,6 @@ def _select_sims(
     statuses = spec.get("status")
     if statuses is not None:
         allowed = {str(item).upper() for item in statuses}
-        unknown = allowed.difference(status.value for status in RunStatus)
-        if unknown:
-            raise StorageError(f"unknown run status {sorted(unknown)}")
         candidates = [
             sim
             for sim in candidates
@@ -790,6 +787,10 @@ def read_recipe(root: Path, recipe: str) -> tuple[Path, dict[str, Any]]:
         if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
             raise StorageError(f"{path}: {table} is written [[{table}]], one table per step")
     step_prune.check_prune_tables(path, document.get(PRUNE_MODE, []), StorageError)
+    for table in _RECIPE_TABLES:
+        for spec in document.get(table, []):
+            if (problem := step_prune.table_problem(table, spec, _PROTECTED_SUFFIXES)) is not None:
+                raise StorageError(f"{path}: [[{table}]] {problem}")
     _check_step_values(path, document, StorageError)
     return path, document
 
@@ -1493,18 +1494,8 @@ def _sync_files(
             if rank >= 3 and sim.name.endswith(COMPACTED_SUFFIX):
                 out.add(sim)
             continue
-        out.update(_walk_files(sim / "scripts"))
-        for file in _walk_files(sim / "datapoints"):
-            if file.name == "FS_runtime_output.txt" or file.name.endswith("_log.txt"):
-                out.add(file)
-            elif rank >= 2 and file.suffix.lower() == ".fsm":
-                out.add(file)
-        if rank >= 3:
-            for file in _walk_files(sim):
-                parts = file.relative_to(sim).parts
-                if parts and parts[0] == "inputs":
-                    continue
-                out.add(file)
+        # The one per-simulation rule, which a batch's sim_<id> follows too (PFS-2087.002).
+        out |= batch_life.sim_sync_files(sim, rank)
     out |= batch_life.batch_files(ws, rank, skip_sims)
     if rank >= 1:
         out.update(_walk_files(ws / "post"))
@@ -2057,10 +2048,10 @@ def sync_workspaces(
     for name in names:
         if name not in spaces:
             raise StorageError(
-                f"from (CLI: --from) {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})"
+                f"source (CLI: --from) {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})"
             )
         if name == main_name:
-            raise StorageError(f"from (CLI: --from) {name!r} is the main workspace itself")
+            raise StorageError(f"source (CLI: --from) {name!r} is the main workspace itself")
     owners = read_matrix_owners(main.root)
     unknown = sorted(set(owners.values()).difference(spaces))
     if unknown:

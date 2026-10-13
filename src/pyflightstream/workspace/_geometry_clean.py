@@ -126,10 +126,26 @@ def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
     if reset.text == text:
         return CleanedGeometry(actions=(), backup=None, note=reset.note)
     backup = path.with_name(f"{path.name}.bak-{stamp}")
-    shutil.copy2(path, backup)
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    _textio.write_text(temporary, reset.text, encoding="latin-1")
-    os.replace(temporary, path)
+    # A refused write is a refusal naming the file, and the temporary file never stays
+    # beside the geometry (PFS-2099.012): a .fsm the solver holds open refuses the replace.
+    try:
+        shutil.copy2(path, backup)
+        _textio.write_text(temporary, reset.text, encoding="latin-1")
+        os.replace(temporary, path)
+    except OSError as error:
+        raise InputArtifactError(
+            f"{path.name}: the cleaned file could not be written ({error}); the file is "
+            "unchanged. Close it in FlightStream, or any program holding it, and run again."
+        ) from error
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError as error:
+            raise InputArtifactError(
+                f"{path.name}: temporary file {temporary.name} could not be removed ({error}); "
+                "close any program holding it and remove that temporary file before retrying."
+            ) from error
     after: object
     try:
         after = (boundary_names(path), _kept(path.read_bytes().decode("latin-1")))

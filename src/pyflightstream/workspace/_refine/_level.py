@@ -1234,6 +1234,7 @@ def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]
         "specs": specs,
         "components": work.request.components,
         "ignored_families_tables": list(work.request.ignored),
+        "missing_families_tables": list(work.request.missing),
         "unchanged_grids": list(work.unchanged),
         "families": {
             n: work.report.get(n, {"method": "copied"}) for n in work.names if n not in work.bands

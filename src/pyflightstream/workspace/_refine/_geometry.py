@@ -421,12 +421,15 @@ def order_like(pts: Points, new_faces: Faces, verts: Points, faces: Faces) -> Fa
     _, c_old = normals_and_centroids(verts, faces)
     _, c_new = normals_and_centroids(pts, new_faces)
     _, j = NearestIndex(c_old).query(c_new)
-    sub = numpy.zeros(len(new_faces))
+    # The nearest vertex's index and its distance are two sort keys (PFS-2099.019): one
+    # number, index + 0.001 * distance, let a length outweigh the index in a millimetre mesh.
+    rank = numpy.zeros(len(new_faces), dtype=numpy.int64)
+    near = numpy.zeros(len(new_faces))
     for n, (k, c) in enumerate(zip(j, c_new, strict=True)):
         d = numpy.linalg.norm(verts[faces[k]] - c, axis=1)
-        sub[n] = numpy.argmin(d) + 0.001 * d.min()
+        rank[n], near[n] = numpy.argmin(d), d.min()
     out: Faces = []
-    for i in numpy.lexsort((sub, j)):
+    for i in numpy.lexsort((near, rank, j)):
         f, ref = new_faces[i], faces[j[i]]
         s = int(numpy.argmin(numpy.linalg.norm(pts[f] - verts[ref[0]], axis=1)))
         out.append(f[s:] + f[:s])

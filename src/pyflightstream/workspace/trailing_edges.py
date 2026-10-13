@@ -91,6 +91,7 @@ not been marked by a file on a licensed machine.
 from __future__ import annotations
 
 import heapq
+import numbers
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -526,7 +527,12 @@ def _sectioned(
     vertices: numpy.ndarray, unit_axis: numpy.ndarray, hub_point: numpy.ndarray, sections: Any
 ) -> _Sections:
     """Cut the span into sections, orient each chord aft, pick each aftmost vertex."""
-    if not isinstance(sections, int) or isinstance(sections, bool) or sections < 2:
+    # Any integer type counts, numpy's included (PFS-2095.061); a boolean never does.
+    if (
+        not isinstance(sections, numbers.Integral)
+        or isinstance(sections, bool | numpy.bool_)
+        or sections < 2
+    ):
         raise InputArtifactError(
             f"the extraction was asked for {sections!r} chordwise sections, and a "
             "trailing edge is a line along the span: one section yields one point, "
@@ -534,6 +540,7 @@ def _sectioned(
             f"all. Ask for two or more (the default is {DEFAULT_SECTIONS})",
             kind=_KIND,
         )
+    sections = int(sections)
 
     offset = vertices - hub_point
     radial_vectors = offset - numpy.outer(offset @ unit_axis, unit_axis)

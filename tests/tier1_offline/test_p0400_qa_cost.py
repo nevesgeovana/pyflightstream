@@ -35,7 +35,8 @@ def _record(run_id: str, *, wall_time_s: float, status=RunStatus.CONVERGED, **ex
 
 def _job() -> RunRecord:
     ran = [
-        {"tag": tag, "point": {"alpha_deg": alpha}, "status": "converged"}
+        # A run status as the manifest writes it (PFS-2093.005 reads it at load).
+        {"tag": tag, "point": {"alpha_deg": alpha}, "status": "CONVERGED"}
         for tag, alpha in (("AL+000", 0.0), ("AL+002", 2.0), ("AL+004", 4.0))
     ]
     return _record("c/sim_1/sweep", wall_time_s=90.0, points_ran=ran)

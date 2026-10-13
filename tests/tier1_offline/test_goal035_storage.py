@@ -798,9 +798,10 @@ def _mutant_module(tmp_path: Path, old: str, new: str, tag: str, *, source: Path
     path.write_text(mutated, encoding="utf-8")
     module_name = f"_storage_mutant_{tag}_{id(path)}"
     spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    spec.loader.exec_module(module)
     return module
 
 

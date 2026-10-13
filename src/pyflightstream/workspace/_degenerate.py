@@ -29,20 +29,26 @@ WHAT IS COMPUTED, in the mesh's own frame and length unit:
    merged first, so such an edge is joined. Its two ends are the two loop
    points farthest apart (the leading and the trailing edge, in either
    order), and the two halves of the loop between them are the blade's two
-   sides.
+   sides. A blunt trailing edge, a short base across the chord with a corner
+   at each end, ends the chord at the base's midpoint, each side at its own
+   corner.
 4. THE MEAN SURFACE. Each side is projected on its chord, resampled at the
    cosine stations ``(1 - cos(pi k / n)) / 2`` of :data:`CHORD_PANELS`
    panels, and the thin blade's point at each station is the mean of the two
    sides there (FR-330 R2): the surface midway between them, from the root
-   to the tip, with the solid section's leading and trailing edge.
+   to the tip, with the solid section's leading and trailing edge. The root
+   row runs from the leading edge, the end where the two sides stand farther
+   apart, and every row above it runs the way the row below it runs.
 
 WHAT IS WRITTEN. ``<stem>_thin_blade.obj`` beside the source, one group named
 as the source's boundary, in triangles; and its ``<stem>_thin_blade.boundaries.toml``
 naming that group, stating the root offset used and, where the source states
 it, the ``[import]`` table: the saved simulation's length unit, or the OBJ
-sidecar's unit and mesh operations whole, because the thin blade lies in the
-blade's own frame and the same operations place it. The source is only read
-(FR-330 R4).
+sidecar's unit and the mesh operations that act on the blade (on every surface,
+or on the blade by its name or a name an earlier rename gave it), because the
+thin blade lies in the blade's own frame and the same operations place it; an
+operation naming another body is left out and named in a comment. The source
+is only read (FR-330 R4).
 
 WHAT IS REFUSED, by name and with the reason, before anything is written
 (FR-330 R6): a file that is not a saved simulation or an OBJ, one that cannot
@@ -89,6 +95,7 @@ from pyflightstream._fsm import (
     surface_mesh,
 )
 from pyflightstream.cases import MeshOperation
+from pyflightstream.cases.mesh import EVERY_SURFACE
 from pyflightstream.workspace.sidecars import inventory_sidecar, read_mesh_import
 
 __all__ = [
@@ -129,6 +136,12 @@ RING_SHARE = 0.9
 
 #: Lengths below this fraction of the span are round-off.
 SPAN_TOLERANCE = 1e-9
+
+#: The longest base of a blunt trailing edge, as a fraction of the chord.
+BLUNT_FRACTION = 0.05
+
+#: The turn of the loop, in degrees, at each corner of a blunt trailing edge's base.
+BASE_TURN_DEGREES = 60.0
 
 #: The share of the span at each end whose vertices say how far that end lies
 #: from the origin, for telling the root from the tip.
@@ -590,29 +603,107 @@ def _ends(points: Points) -> tuple[int, int]:
 
 
 def _resampled(side: Points, start: Points, chord: Points, stations: Points) -> Points:
-    """Return one side resampled at the chord fractions ``stations``."""
-    xi = numpy.maximum.accumulate((side - start) @ chord / float(chord @ chord))
+    """Return one side resampled at the chord fractions ``stations``.
+
+    The fractions are clipped to [0, 1] before they are made non-decreasing
+    (PFS-2099.002): a point projecting past the chord's end used to leave the
+    accumulated fractions above the forced last 1.0, which numpy.interp does
+    not define.
+    """
+    xi = numpy.maximum.accumulate(
+        numpy.clip((side - start) @ chord / float(chord @ chord), 0.0, 1.0)
+    )
     xi[0], xi[-1] = 0.0, 1.0
     return numpy.stack(
         [numpy.interp(stations, xi, side[:, 0]), numpy.interp(stations, xi, side[:, 1])], 1
     )
 
 
+def _turn(incoming: Points, outgoing: Points) -> float:
+    """Return the angle, in degrees, a loop turns through from one step to the next."""
+    sizes = float(numpy.linalg.norm(incoming) * numpy.linalg.norm(outgoing))
+    if sizes == 0.0:
+        return 0.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, float(incoming @ outgoing) / sizes))))
+
+
+def _base_corner(points: Points, end: int, other: int) -> tuple[int, int] | None:
+    """Return the far corner of a blunt edge at ``end`` and the loop direction to it, or None.
+
+    A BLUNT TRAILING EDGE (PFS-2099.002) is a short base across the chord whose
+    two corners each turn the loop through at least :data:`BASE_TURN_DEGREES`:
+    the side runs into one corner, the base crosses the chord, and the other
+    side leaves the far corner back along the chord. A sharp edge's steps run
+    along the chord, and a rounded leading edge turns a little at each point,
+    so neither is read as a base.
+    """
+    n = len(points)
+    axis = points[end] - points[other]
+    length = float(numpy.linalg.norm(axis))
+    unit = axis / length
+    for step in (1, -1):
+        incoming = points[end] - points[(end - step) % n]
+        corner, crossing = end, points[(end + step) % n] - points[end]
+        if _turn(incoming, crossing) < BASE_TURN_DEGREES:
+            continue
+        while True:
+            following = (corner + step) % n
+            across = points[following] - points[corner]
+            size = float(numpy.linalg.norm(across))
+            if (
+                following == other
+                or size == 0.0
+                or float(numpy.linalg.norm(points[following] - points[end]))
+                > BLUNT_FRACTION * length
+                or abs(float(across @ unit)) > 0.5 * size
+                or (corner != end and _turn(crossing, across) >= BASE_TURN_DEGREES)
+            ):
+                break
+            corner, crossing = following, across
+        if corner == end:
+            continue
+        leaving = points[(corner + step) % n] - points[corner]
+        if _turn(crossing, leaving) >= BASE_TURN_DEGREES:
+            return corner, step
+    return None
+
+
 def _mean_line(points: Points, panels: int) -> Points | None:
-    """Return the mean line of one closed section, None when its two sides cannot be told."""
+    """Return the mean line of one closed section, None when its two sides cannot be told.
+
+    It runs from the leading edge, the end where the two sides stand farther
+    apart (PFS-2099.001), and a blunt trailing edge ends it at the midpoint of
+    its base, each side stopping at its own corner (PFS-2099.002).
+    """
     n = len(points)
     if n < 6:
         return None
     a, b = _ends(points)
-    forward = points[[(a + k) % n for k in range((b - a) % n + 1)]]
-    backward = points[[(a - k) % n for k in range((a - b) % n + 1)]]
+    base = _base_corner(points, b, a)
+    if base is None and (base := _base_corner(points, a, b)) is not None:
+        a, b = b, a
+    far_forward = far_backward = b
+    end = points[b]
+    if base is not None:
+        corner, step = base
+        if step == 1:
+            far_backward = corner
+        else:
+            far_forward = corner
+        end = 0.5 * (points[b] + points[corner])
+    forward = points[[(a + k) % n for k in range((far_forward - a) % n + 1)]]
+    backward = points[[(a - k) % n for k in range((a - far_backward) % n + 1)]]
     if len(forward) < 3 or len(backward) < 3:
         return None
     stations = 0.5 * (1.0 - numpy.cos(numpy.pi * numpy.arange(panels + 1) / panels))
-    chord = points[b] - points[a]
+    chord = end - points[a]
     first = _resampled(forward, points[a], chord, stations)
     second = _resampled(backward, points[a], chord, stations)
-    return 0.5 * (first + second)
+    line = 0.5 * (first + second)
+    thickness = numpy.linalg.norm(first - second, axis=1)
+    if thickness[stations >= 0.75].mean() > thickness[stations <= 0.25].mean():
+        line = line[::-1]
+    return line
 
 
 # --- the sheet ---------------------------------------------------------------------
@@ -622,7 +713,7 @@ def _mean_surface(source: Path, blade: _Blade, frame: _Frame, stations: Points) 
     """Return the thin blade's grid, (stations, CHORD_PANELS + 1, 3), refusing a section."""
     local = frame.local(blade.vertices)
     tolerance = SPAN_TOLERANCE * float(numpy.ptp(local[:, 2]))
-    rows = []
+    rows: list[Points] = []
     for station in stations:
         where = f"the section at span {float(station)!r} (along {frame.span.round(6).tolist()})"
         loops = _section(local, blade.faces, float(station), tolerance)
@@ -647,6 +738,12 @@ def _mean_surface(source: Path, blade: _Blade, frame: _Frame, stations: Points) 
                 source,
                 f"{where} holds {len(loop)} points, too few for its two sides to be separated",
             )
+        # EVERY ROW RUNS THE WAY THE ONE BELOW IT RUNS (PFS-2099.001): a row from the
+        # other edge joined each leading edge to a trailing edge and folded the sheet.
+        if rows and numpy.linalg.norm(line[0] - rows[-1][-1, :2]) < numpy.linalg.norm(
+            line[0] - rows[-1][0, :2]
+        ):
+            line = line[::-1]
         rows.append(numpy.column_stack([line, numpy.full(len(line), station)]))
     return frame.glob(numpy.asarray(rows))
 
@@ -689,18 +786,54 @@ def _sidecar_text(source: Path, mesh: Path, blade: _Blade, root_offset: float) -
             f"# {source.name} states no length unit; write [import] units beneath this list."
         )
         return "\n".join(lines) + "\n"
+    kept, dropped = _blade_operations(blade)
     lines += [
         "",
         f"# The [import] table is {source.name}'s: the thin blade lies in the blade's own",
         "# frame, so the same unit and mesh operations place it as they place the blade.",
+        *(
+            f"# Left out: operation {number} ({operation.op} of {operation.surface!r}), "
+            "which names a surface the thin blade does not hold."
+            for number, operation in dropped
+        ),
         "[import]",
         f"units = {json.dumps(blade.unit, ensure_ascii=False)}",
     ]
-    for operation in blade.operations:
+    for operation in kept:
         lines += ["", "[[import.operations]]"]
         for key, value in operation.model_dump(exclude_none=True).items():
             lines.append(f"{key} = {_toml_value(value)}")
     return "\n".join(lines) + "\n"
+
+
+def _blade_operations(
+    blade: _Blade,
+) -> tuple[list[MeshOperation], list[tuple[int, MeshOperation]]]:
+    """Split the source's mesh operations into those the thin blade takes and those it does not.
+
+    PFS-2099.003 and PFS-2099.013: a blade cut out of a file holding other
+    bodies carried every operation of the source, and one naming a surface the
+    thin blade lacks (a mirror of the spinner, say) refused the thin blade's
+    own plan. An operation is kept when it acts on every surface or on the
+    blade, by its own name or by the name an earlier kept rename gave it.
+
+    Returns
+    -------
+    tuple
+        The kept operations in order, and the left-out ones with their
+        1-based position in the source's list.
+    """
+    name = blade.boundary
+    kept: list[MeshOperation] = []
+    dropped: list[tuple[int, MeshOperation]] = []
+    for number, operation in enumerate(blade.operations, start=1):
+        if operation.surface not in (EVERY_SURFACE, name):
+            dropped.append((number, operation))
+            continue
+        kept.append(operation)
+        if operation.op == "rename" and operation.to is not None:
+            name = operation.to
+    return kept, dropped
 
 
 def _toml_value(value: object) -> str:

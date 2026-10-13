@@ -1,5 +1,13 @@
 """The ``pyfs-workspace`` command line.
 
+Every subcommand accepts ``--workspace PATH`` (0.40.0,
+PFS-2089.004), defaulting to the current directory. For example,
+``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
+``init`` and ``migrate-geometries`` still take the positional root, and naming
+two different folders is refused. ``archive SIM_ID --workspace ROOT`` names
+the campaign the same way; ``archive ROOT SIM_ID`` still works and warns that
+the positional root is deprecated.
+
 Pipeline role: drives the managed campaign workspace from a terminal.
 ``pyfs-workspace init <root>`` creates the full campaign tree (the
 input-artifact library skeleton under ``inputs/``, ``sims/``,
@@ -7,7 +15,7 @@ input-artifact library skeleton under ``inputs/``, ``sims/``,
 the managed layout instead of hand-built folders; identity stays in
 the manifest, never in names (SAD Section 6).
 
-``pyfs-workspace archive <root> <sim_id>`` zips one manifest-recorded
+``pyfs-workspace archive <sim_id> --workspace <root>`` zips one manifest-recorded
 simulation under ``archive/`` and removes its folder, through
 :meth:`CampaignWorkspace.archive_sim`. It exists because two refusals
 already told the user to run it (OPS-2009.01.10): the collection
@@ -77,6 +85,7 @@ from typing import Any
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import command_help
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
 from pyflightstream.workspace import (
     INPUT_KINDS,
@@ -170,7 +179,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "do not archive a simulation whose run is still going."
         ),
     )
-    archive.add_argument("root", help="campaign root carrying runs.json and sims/")
+    archive.add_argument(
+        "root",
+        nargs="?",
+        help="deprecated positional alias of --workspace; still accepted with a warning",
+    )
     archive.add_argument(
         "sim_id",
         help="the simulation to archive, as the manifest records it (the folder is "
@@ -195,6 +208,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=".",
         help="campaign root carrying inputs/geometries/ (default: the current directory)",
     )
+    # THE CAMPAIGN IS NAMED AS EVERY OTHER SUBCOMMAND NAMES IT (PFS-2089.004): --workspace,
+    # beside the positional roots retained for compatibility.
+    for command in (init, migrate, archive):
+        command.add_argument(
+            "--workspace",
+            help="campaign workspace (default: the current directory); the positional "
+            "root names the same folder",
+        )
     _add_field_commands(subparsers)
     _add_profile_commands(subparsers)
     for _, add, _ in _COMMAND_GROUPS:
@@ -777,8 +798,32 @@ def typed_value(args: argparse.Namespace, flag: str) -> object:
     return None if dest in invocation().sources else getattr(args, dest)
 
 
+def _campaign_root(args: argparse.Namespace) -> str:
+    """Return the campaign folder a command names by --workspace or by its positional root.
+
+    Both spellings name one folder (PFS-2089.004); two different folders are refused,
+    after the command's titled block, as every refusal is.
+    """
+    named = getattr(args, "workspace", None)
+    root = str(getattr(args, "root", None) or ".")
+    if named is None:
+        return root
+    if root not in (".", named):
+        raise WorkspaceError(
+            f"the campaign is named twice: --workspace {named!r} and the positional root "
+            f"{root!r}. Name it once."
+        )
+    return str(named)
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
-    workspace = CampaignWorkspace.init(args.root)
+    # Refused like every sibling subcommand (PFS-2095.059): a bad root is a message and
+    # exit 2, never a traceback.
+    try:
+        workspace = CampaignWorkspace.init(_campaign_root(args))
+    except (OSError, WorkspaceError, InputArtifactError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
     # `.root` is already absolute; the workspace resolves it once at
     # construction. Re-resolving here would tell a reader it might not be.
     say_summary(f"campaign workspace ready at {workspace.root}")
@@ -796,8 +841,16 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 def _cmd_archive(args: argparse.Namespace) -> int:
     """Archive one recorded simulation; the refusals are ``archive_sim``'s own."""
-    workspace = CampaignWorkspace(args.root)
     try:
+        workspace = CampaignWorkspace(_campaign_root(args))
+        if args.root is not None:
+            warn(
+                "archive's positional root is deprecated since 0.40.0; it is an alias of "
+                "--workspace, which gives the identical result: write "
+                f"pyfs-workspace archive {args.sim_id} --workspace {args.root}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         bundle = workspace.archive_sim(args.sim_id)
     except (OSError, WorkspaceError) as error:
         print(str(error), file=sys.stderr)
@@ -810,10 +863,10 @@ def _cmd_archive(args: argparse.Namespace) -> int:
 
 def _cmd_migrate_geometries(args: argparse.Namespace) -> int:
     """Move a flat geometry library into folders; the refusal is the migration's own."""
-    workspace = CampaignWorkspace(args.root)
     try:
+        workspace = CampaignWorkspace(_campaign_root(args))
         migration = migrate_geometry_layout(workspace.inputs_dir)
-    except (OSError, InputArtifactError) as error:
+    except (OSError, WorkspaceError, InputArtifactError) as error:
         print(str(error), file=sys.stderr)
         return 2
     for source, target in migration.moved:

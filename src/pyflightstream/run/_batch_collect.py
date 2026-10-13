@@ -33,8 +33,6 @@ import pyflightstream._textio as _textio
 from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.cases.workflows import (
     CUMULATIVE_LOG_SUFFIX,
-    JOB_END_SUFFIX,
-    JOB_LOG_SUFFIX,
     WALLTIME_CLOCK_STATE,
 )
 from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, REINIT_VERB
@@ -42,14 +40,14 @@ from pyflightstream.results.log import point_log_text, split_job_log
 from pyflightstream.run._collect_logs import _profile_glob
 from pyflightstream.run._pending import _walltime_stop
 from pyflightstream.workspace import (
-    SIM_DATAPOINTS_DIR,
     CampaignWorkspace,
     RunRecord,
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace._batch_life import end_evidence
 from pyflightstream.workspace._batch_relocate import copy_point, move_sim, relink_inputs
-from pyflightstream.workspace._batches import JobEntry, batch_sim_dirs, job_of
+from pyflightstream.workspace._batches import JobEntry, job_of
 from pyflightstream.workspace._missing_log import point_absent_logs
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
@@ -127,10 +125,6 @@ def _job_dir(workspace: CampaignWorkspace, job: JobEntry) -> Path:
     return workspace.root / job["dir"]
 
 
-def _job_stem(job: JobEntry) -> str:
-    return PurePosixPath(job["script"]).stem
-
-
 def _formatted(pattern: str, job: JobEntry) -> str | None:
     """Format a profile glob with the job's values (reading 9); None when it names another key."""
     return _profile_glob("profile glob", pattern, job["values"])[0]
@@ -139,44 +133,6 @@ def _formatted(pattern: str, job: JobEntry) -> str | None:
 def _matches(folder: Path, pattern: str | None, job: JobEntry) -> list[Path]:
     glob = _formatted(pattern, job) if pattern else None
     return sorted(path for path in folder.glob(glob) if path.is_file()) if glob else []
-
-
-def _end_files(job_dir: Path, job: JobEntry, profile: HpcProfile | None) -> str | None:
-    """Name the files matching EVERY ``job_end_files`` glob of the profile, or None."""
-    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
-    matched: list[Path] = []
-    for pattern in patterns:
-        found = _matches(job_dir, pattern, job)
-        if not found:
-            return None
-        matched += found
-    return ", ".join(path.name for path in matched) if matched else None
-
-
-def _point_folders(workspace: CampaignWorkspace, job: JobEntry) -> list[Path]:
-    """Every datapoint folder of a job, where the job is writing them."""
-    job_dir = _job_dir(workspace, job)
-    if job["kind"] == "batch":
-        sims = [
-            folder
-            for folders in batch_sim_dirs(workspace.root).values()
-            for folder in folders
-            if folder.parent == job_dir
-        ]
-    else:
-        sims = [job_dir]
-    return sorted(p for sim in sims for p in (sim / SIM_DATAPOINTS_DIR).glob("*") if p.is_dir())
-
-
-def _fired_point(workspace: CampaignWorkspace, job: JobEntry, watch: _Watch) -> str | None:
-    """Name a point whose own clock state fired and whose files settled, or None."""
-    for folder in _point_folders(workspace, job):
-        if _walltime_stop(folder / WALLTIME_CLOCK_STATE) is None:
-            continue
-        files = [path for path in folder.iterdir() if path.is_file()]
-        if watch.steady(files):
-            return f"the clock of {folder.name} fired and its files settled"
-    return None
 
 
 def job_ended(
@@ -214,20 +170,11 @@ def job_ended(
     JobEndVerdict
         Ended or running, with the evidence.
     """
-    job_dir = _job_dir(workspace, job)
     watch = _Watch(observer, settled, sleep, interval)
-    end = job_dir / f"{_job_stem(job)}{JOB_END_SUFFIX}"
-    if end.is_file():
-        return JobEndVerdict(True, f"the local end record {end.name}")
-    log = job_dir / f"{_job_stem(job)}{JOB_LOG_SUFFIX}"
-    if log.is_file() and watch.steady([log]):
-        return JobEndVerdict(True, f"the job's log {log.name}, settled")
-    matched = _end_files(job_dir, job, profile)
-    if matched:
-        return JobEndVerdict(True, f"the job_end_files of the HPC profile: {matched}")
-    fired = _fired_point(workspace, job, watch)
-    if fired:
-        return JobEndVerdict(True, fired)
+    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
+    evidence = end_evidence(workspace.root, job, patterns, steady=watch.steady)
+    if evidence is not None:
+        return JobEndVerdict(True, evidence)
     return JobEndVerdict(
         False,
         "running: no end record, no settled job log, no job_end_files match, no fired clock",

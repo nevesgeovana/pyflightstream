@@ -2417,9 +2417,9 @@
    "choices": null,
    "default": null,
    "dest": "root",
-   "nargs": null,
+   "nargs": "?",
    "option_strings": [],
-   "required": true,
+   "required": false,
    "type": null
   },
   "archive|sim_id|": {
@@ -2430,6 +2430,18 @@
    "nargs": null,
    "option_strings": [],
    "required": true,
+   "type": null
+  },
+  "archive|workspace|--workspace": {
+   "action": "_StoreAction",
+   "choices": null,
+   "default": null,
+   "dest": "workspace",
+   "nargs": null,
+   "option_strings": [
+    "--workspace"
+   ],
+   "required": false,
    "type": null
   },
   "field fill-interior|apply|--apply": {

@@ -1004,6 +1004,27 @@ class RunRecord(BaseModel):
             )
         return window
 
+    @field_validator("points_ran")
+    @classmethod
+    def _points_ran_entries_are_readable(cls, entries: list[dict]) -> list[dict]:
+        """Refuse an entry whose status is no RunStatus or whose tag is no text (PFS-2093.005).
+
+        Read here, so the row is unreadable when the manifest is read, rather
+        than a bare ValueError later in every per-point consumer of :meth:`as_points`.
+        """
+        known = {status.value for status in RunStatus}
+        for index, entry in enumerate(entries):
+            status = entry.get("status")
+            if status is not None and (not isinstance(status, str) or status not in known):
+                raise ValueError(
+                    f"entry {index} has status {status!r}, which is not a run status this "
+                    f"release reads ({', '.join(sorted(known))})"
+                )
+            tag = entry.get("tag")
+            if tag is not None and not isinstance(tag, str):
+                raise ValueError(f"entry {index} has tag {tag!r}, and a tag is text")
+        return entries
+
     def as_points(self) -> list[RunRecord]:
         """Return this record as one record per POINT.
 

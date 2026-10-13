@@ -7,6 +7,15 @@ land, where the record of what happened is kept. That is the whole idea.
 A study that organises itself by folder names is a study whose evidence
 lives in your memory, and folder names are never authoritative here.
 
+Every `pyfs-workspace` subcommand accepts `--workspace PATH`, with
+the current directory as its default. For example,
+`pyfs-workspace init --workspace campaign` creates the input library and run
+folders in `campaign`. `init` and `migrate-geometries` still take the folder as
+a positional root; naming two different folders is refused. To archive one recorded
+simulation and remove its run folder, use
+`pyfs-workspace archive 9001 --workspace campaign`. The old `archive ROOT SIM_ID`
+form still works and warns that the positional root is deprecated.
+
 Two things live in a workspace and they are worth separating in your
 head before anything else.
 
