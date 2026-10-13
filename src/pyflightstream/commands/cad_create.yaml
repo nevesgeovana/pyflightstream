@@ -827,9 +827,8 @@ CAD_CREATE_CURVE_EXPORT_CCS:
     cross-sectional geometry format and the manual's own example names
     a .csv, so the extension does not identify the content.
 
-    Its phase is GEOMETRY and not export, although it writes a file,
-    which follows EXPORT_SURFACE_MESH rather than the export commands
-    it is named like. The phase is not a statement about what a command
+    Its phase is GEOMETRY and not export, although it writes a file.
+    The phase is not a statement about what a command
     does; it is the position the ordering rule assigns it, and the
     builder refuses anything whose phase precedes the highest reached.
     Filing a curve export under export would let it be emitted once and

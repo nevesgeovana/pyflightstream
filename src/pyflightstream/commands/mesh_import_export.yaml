@@ -78,7 +78,7 @@ CCS_IMPORT:
 
 EXPORT_SURFACE_MESH:
   layout: inline
-  phase: geometry
+  phase: control
   args:
     - name: file_type
       type: enum
@@ -106,6 +106,13 @@ EXPORT_SURFACE_MESH:
     Exports one geometry surface (first surface is index 1) or all
     surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
     the next line (SRC-003 pp.307-308).
+    The OBJ uses the simulation length unit in force at export. Set
+    SET_SIMULATION_LENGTH_UNITS before exporting to avoid depending on
+    the fresh simulation's default (RPT-170, 26.124 and 26.125).
+    The control phase preserves the current script phase: the export
+    can follow geometry operations or unit setup and SAVEAS, as measured
+    in RPT-170; it changes neither geometry nor solver setup. Trailing-edge
+    marks are saved in the .fsm and are not carried by the OBJ.
 
 DELETE_SURFACES:
   layout: inline
