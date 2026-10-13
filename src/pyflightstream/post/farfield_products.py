@@ -60,7 +60,7 @@ from pyflightstream.post.farfield_fields import (
     unsteady_samples,
 )
 from pyflightstream.post.section_distributions import distributions_of
-from pyflightstream.results.loads import parse_unsteady_plots
+from pyflightstream.results.loads import drag_pair, parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -252,13 +252,22 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
 def _near_field(point: PolarPoint) -> tuple[float, float, float]:
     """Return the solver's CL and its pressure and vorticity induced drags (FR-456 R2).
 
-    The solver prints one induced drag, ``CDi``: from the vorticity where the
-    run selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from
-    the surface pressures otherwise; the other column is ``NA``.
+    The solver prints one induced drag: from the vorticity where the run
+    selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from the
+    surface pressures otherwise; the other column is ``NA``. It is the first
+    column of the printed drag split (:func:`~pyflightstream.results.loads.drag_pair`):
+    ``CDi`` up to 26.124, ``CDp`` on 26.125, which takes the vorticity value
+    when the run selects it and leaves ``CDv`` unchanged, as ``CDi`` does
+    beside ``CDo`` (PFS-2081.98, RPT-170). A table printing neither split
+    gives ``NA``.
     """
     total = point.loads.total
     cl = float(total.get("CL", _NA))
-    cdi = float(total.get("CDi", _NA))
+    try:
+        induced, _profile = drag_pair(total)
+    except PyflightstreamError:
+        return cl, _NA, _NA
+    cdi = float(total.get(induced, _NA))
     if point.vorticity_selection:
         return cl, _NA, cdi
     return cl, cdi, _NA

@@ -94,6 +94,22 @@ sense used is the one the field was solved in.
   exported field; their departure from the near-field thrust and torque on such a row is a property of the solver's
   probe field, stated in FR-38 R8.
 
+## Annex: the induced drag in the 26.125 loads table (PFS-2081.98)
+
+The far-field rows copy the solver's induced drag beside their own (`CDI_NEAR_PRESSURE`,
+`CDI_NEAR_VORTICITY`). 26.125 prints the split `CDp, CDv` where 26.124 prints `CDi, CDo`.
+On the same wing, mesh and setup on 26.125, the run with surface-pressure drag and the run
+selecting the vorticity induced drag (`SET_VORTICITY_DRAG_BOUNDARIES`) print:
+
+| Run | Total CDp | Total CDv | log, last "CDi (vorticity)" |
+|---|---|---|---|
+| pressure drag | 0.0183510 | 0.0172941 | 0.02066 |
+| vorticity drag selected | 0.0206644 | 0.0172941 | 0.02066 |
+
+`CDp` takes the vorticity value when the run selects it and `CDv` does not move, which is
+how `CDi` and `CDo` behave on 26.124. The far-field rows read the first column of the
+printed split on both builds; the polar keeps each split under its printed names (FR-423).
+
 What the package does: every Trefftz C row of a wing states `CL_T`, the lift of the plane's own streamwise vorticity,
 and post writes a WARNING where it departs from the solver's CL by more than 10 percent (FR-453 R9); the C row and
 its numbers are still written. The ledgers are written as measured, with the limit stated (FR-38 R8). Not settled:
