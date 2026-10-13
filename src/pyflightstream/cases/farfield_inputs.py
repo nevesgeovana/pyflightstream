@@ -22,8 +22,10 @@ __all__ = [
     "FarfieldInput",
     "FarfieldResolution",
     "ROTOR_RUN_TYPES",
+    "STRIP_BIAS_PERCENT",
     "UNSTEADY_RUN_TYPES",
     "applies",
+    "few_stations_warning",
     "resolve_farfield",
 ]
 
@@ -33,6 +35,10 @@ FARFIELD_STATES: tuple[str, ...] = ("reused", "added", "not_applicable", "refuse
 #: The run types whose rows are rotors: a helical wake is not a streamwise sheet.
 ROTOR_RUN_TYPES = frozenset({"unsteady_rotor", "qsteady_rotor"})
 UNSTEADY_RUN_TYPES = frozenset({"unsteady", "unsteady_rotor"})
+#: The strip bias of E_T on an elliptic loading, in percent, at the station
+#: counts per side the definitions page measured (The far-field family, The
+#: discretization bias).
+STRIP_BIAS_PERCENT: dict[int, float] = {40: 1.05, 80: 0.52, 160: 0.26}
 
 #: The command each input reaches, checked against the selected build (FR-455 R6).
 _COMMANDS = {
@@ -123,6 +129,24 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
         if run_type in UNSTEADY_RUN_TYPES:
             return "variants A and B serve steady rows in 0.40.0"
     return ""
+
+
+def few_stations_warning(family: str, per_side: int, stations: int) -> str:
+    """Return the WARNING of a family traced on fewer stations than asked (FR-451 R10).
+
+    One sentence, said by the plan and by post alike: the family, its station
+    count per side, the count ``[farfield.trefftz] stations`` asks for, and the
+    strip bias of ``E_T`` the definitions page measured at the nearest count
+    (:data:`STRIP_BIAS_PERCENT`). Empty where the family has enough stations.
+    """
+    if per_side >= stations:
+        return ""
+    nearest = min(STRIP_BIAS_PERCENT, key=lambda count: (abs(count - per_side), count))
+    return (
+        f"family {family} has {per_side} stations per side, fewer than the {stations} of "
+        f"[farfield.trefftz]; the strip bias of E_T measured on the definitions page is "
+        f"{STRIP_BIAS_PERCENT[nearest]} percent at {nearest} stations per side (FR-451 R10)"
+    )
 
 
 def _analyses(spec: FarfieldSpec) -> list[str]:

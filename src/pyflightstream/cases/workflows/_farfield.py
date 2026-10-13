@@ -31,6 +31,7 @@ from pyflightstream.cases.farfield_inputs import (
     ROTOR_RUN_TYPES,
     FarfieldResolution,
     applies,
+    few_stations_warning,
     resolve_farfield,
 )
 from pyflightstream.commands import CommandRegistry
@@ -118,6 +119,16 @@ def needs_fresh_probes(case: SimCase) -> bool:
     return _needs_plane(case) or _needs_lattice(case)
 
 
+def _normal(case: SimCase) -> bool:
+    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417)."""
+    if case.pproc is None:
+        return False
+    try:
+        return bool(case.pproc.samples_normal_probes())
+    except CampaignConfigError:
+        return False
+
+
 def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list[str]:
     """Return ``names`` with the exports the far field reads added (FR-455 R3).
 
@@ -134,7 +145,9 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if "trefftz:wake" in analyses:
         wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
     if needs_fresh_probes(case):
-        kind = "plots" if workflow.startswith("unsteady") else "probes"
+        # FR-455 R9: an unsteady row whose [[probes]] entries are of kind normal
+        # samples the far field with them, as probe points exported once.
+        kind = "plots" if workflow.startswith("unsteady") and not _normal(case) else "probes"
         wanted.append((kind, f"{{name}}_{kind}.txt", "trefftz:plane or ledgers"))
     out = list(names)
     present = classify_outputs(out)
@@ -181,19 +194,54 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
     return covered
 
 
+def _warn_few_stations(
+    case: SimCase, inventory: Sequence[str], reused: Sequence[str], mirror: bool
+) -> None:
+    """Warn per reused family whose declared distribution has too few stations (FR-451 R10).
+
+    The stations per side of a family are those of the densest declared
+    distribution that covers it: its count on a mirrored half model, half its
+    count on a full one, as the plan lays its own (``stations`` per side).
+    """
+    spec = _spec(case)
+    if case.pproc is None or spec is None or spec.trefftz is None or not reused:
+        return
+    sections = case.pproc.sections
+    aliases = _the_names_a_rotor_answers_to(case)
+    per_side: dict[str, int] = {}
+    for entry in sections.distributions:
+        if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
+            continue
+        count = int(entry.count or sections.count)
+        side = count if mirror else count // 2
+        for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
+            for name in group or inventory:
+                per_side[name] = max(per_side.get(name, 0), side)
+    for name in reused:
+        few = few_stations_warning(name, per_side.get(name, 0), spec.trefftz.stations)
+        if few:
+            warn(f"case {case.sim_id!r}: {few}.", PyflightstreamWarning, stacklevel=3)
+
+
 def _lattice_key(shape: LatticeShape) -> dict[str, Any]:
     return {name: getattr(shape, name) for name in LatticeShape.model_fields}
 
 
 def _declares_lattice(case: SimCase, spec: FarfieldSpec) -> bool:
-    """Whether a ``[[probes]]`` entry declares the far field's lattice, by identity (R2)."""
+    """Whether a ``[[probes]]`` entry declares the far field's lattice, by identity (R2).
+
+    A rotor's lattice is declared in an entry of the reference frame and a
+    frame's lattice in an entry of its own frame (FR-459 R2), which is where
+    :func:`declared_lattice_points` lays it.
+    """
     if spec.ledgers is None or case.pproc is None:
         return False
     wanted = _lattice_key(spec.ledgers)
+    home = "REFERENCE" if spec.ledgers.rotor is not None else str(spec.ledgers.frame).upper()
     return any(
         _lattice_key(shape) == wanted
         for entry in case.pproc.probes
-        if entry.frame.strip().upper() == "REFERENCE"
+        if entry.frame.strip().upper() == home
         for shape in entry.lattices
     )
 
@@ -267,13 +315,15 @@ def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
     _refuse(case, resolution)
     inventory = _inventory(script)
     covered = _covered(case, inventory)
-    missing = [name for name in _selected(case, spec, inventory) if name not in covered]
+    selected = _selected(case, spec, inventory)
+    missing = [name for name in selected if name not in covered]
+    stations = spec.trefftz.stations if spec.trefftz is not None else 80
+    mirror = str(_variable(case, "SYMMETRY") or "").strip().upper() == "MIRROR"
+    _warn_few_stations(case, inventory, [name for name in selected if name in covered], mirror)
     if not missing:
         return
     from ._frames import _pproc_frame
 
-    stations = spec.trefftz.stations if spec.trefftz is not None else 80
-    mirror = str(_variable(case, "SYMMETRY") or "").strip().upper() == "MIRROR"
     count = stations if mirror else 2 * stations
     frame = _pproc_frame(case, frames, "MRP", "the far-field section distribution", missing)
     indices = [script.resolve_boundary(name, context="far-field section") for name in missing]
