@@ -99,8 +99,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # switches of `pyfs-matrix`'s storage commands, per call for the same reason.
     # `--workspace` is the campaign the field is written into, spelled as every
     # sibling command that names a workspace spells it (the 0.31.0 release
-    # review); `init`, `archive` and `migrate-geometries` keep their positional
-    # `root`.
+    # review); 0.40.0 also offers it on init and migrate-geometries, beside their
+    # positional root; archive keeps its required root, the 0.33.1 surface.
     ("pyfs-workspace", "workspace"): SUBJECT,
     ("pyfs-workspace", "field"): SUBJECT,
     ("pyfs-workspace", "total"): SUBJECT,
@@ -669,7 +669,16 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
     ("pyfs-workspace", "workspace"): frozenset(
-        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
+        {
+            "init",
+            "migrate-geometries",
+            "fill-interior",
+            "mirror",
+            "move",
+            "profile",
+            "subtract",
+            "time-mean",
+        }
     ),
     ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
     ("pyfs-workspace", "field"): frozenset({"fill-interior", "mirror", "move"}),
