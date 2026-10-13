@@ -131,7 +131,8 @@ repos:
         # and admitted by the tier-1 guard only with a provenance record beside
         # them (test_house_style.SYNTHETIC_LIBRARY); the hook lets that folder
         # through and the guard, which has the mutation proof, judges it.
-        exclude: '^(tests/tier1_offline/fixtures/cube\.obj|tests/tier1_offline/goldens/planar_probes\.vtk|tests/tier3_licensed/inputs/geometries/[^/]+\.fsm)$'
+        # Owner-authorized recorded wake output; the tier-1 guard pins its bytes.
+        exclude: '^(tests/tier1_offline/fixtures/cube\.obj|tests/tier1_offline/goldens/planar_probes\.vtk|tests/tier1_offline/fixtures/p0400_lita_solver_wake\.vtk|tests/tier3_licensed/inputs/geometries/[^/]+\.fsm)$'
       # Spreadsheets (OPS-2010.23, the same invariant 5 and NFR-14). A
       # spreadsheet is the generic container point coordinates of a
       # proprietary mesh actually travel in, and it is opaque to a diff and

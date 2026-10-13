@@ -340,7 +340,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     stem = "P3207-M200AL-020"
     table = workspace.root / "post" / "products" / "polars" / f"{stem}_g01.csv"
     assert table.is_file()
-    assert ",0.02743,0.00000,0.18716," in table.read_text(encoding="utf-8")
+    assert ",0.0274326,0.00000,0.187158," in table.read_text(encoding="utf-8")
     manifest = json.loads((table.parent.parent / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/M200AL-020"]
     # A SECOND RUN ARCHIVES AND REWRITES since 0.17.0, her instruction of

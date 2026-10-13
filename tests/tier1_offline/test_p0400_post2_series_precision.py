@@ -1,4 +1,4 @@
-"""P0400-SIGDIGITS: MU and time_s are written at significant digits, coefficients at five decimals.
+"""P0400-SIGDIGITS: MU, time_s and coefficients are written at significant digits.
 
 At the 0.40.0 base every float of every product went through the five-decimal
 funnel, so sea-level viscosity was written 0.00002 (one significant digit, 12
@@ -16,15 +16,15 @@ from tests.tier1_offline.test_post_products import SLOADS, _series_call
 MU = 1.7892976260350732e-05
 
 
-def test_p0400_sigdigits_the_funnel_keeps_mu_and_time_and_five_decimal_coefficients(tmp_path):
-    """P0400-SIGDIGITS: MU and time_s keep six digits; CL and a whole time keep five decimals."""
+def test_p0400_sigdigits_the_funnel_keeps_mu_time_and_coefficients(tmp_path):
+    """P0400-SIGDIGITS: quantities keep six digits; exact values keep five decimals."""
     table = write_csv_table(
         tmp_path / "t.csv",
         ("time_s", "MU", "CL"),
         [(2.78e-5, MU, 0.123456789), (1234.56789, MU, 1.0)],
     )
     _, rows = read_csv_table(table)
-    assert rows[0] == {"time_s": "2.78e-05", "MU": "1.7893e-05", "CL": "0.12346"}
+    assert rows[0] == {"time_s": "2.78e-05", "MU": "1.7893e-05", "CL": "0.123457"}
     assert rows[1] == {"time_s": "1234.56789", "MU": "1.7893e-05", "CL": "1.00000"}
 
 
@@ -71,4 +71,4 @@ def test_p0400_sigdigits_small_dimensional_cells_keep_their_scale(tmp_path, colu
     table = write_csv_table(tmp_path / "physical.csv", [column, "CL_PROP"], [[small, small]])
     _, rows = read_csv_table(table)
     assert float(rows[0][column]) == pytest.approx(small, rel=1e-5)
-    assert rows[0]["CL_PROP"] == "0.00000"
+    assert float(rows[0]["CL_PROP"]) == pytest.approx(small, rel=1e-5)

@@ -550,6 +550,13 @@ def run_campaign(
         accepted_builds=accepted_builds,
     )
     _resolve_campaign_schedule(state)
+    superseded = [run_id for _, _, ids in state.to_supersede for run_id in ids]
+    with workspace._keep_records_on_failure(superseded):
+        return _run_scheduled_campaign(state)
+
+
+def _run_scheduled_campaign(state: _CampaignState) -> list[RunRecord]:
+    """Execute the resolved schedule, keeping replacement failures recoverable."""
     _preflight_campaign_schedule(state)
     _start_campaign_progress(state)
     for case, build, pending in state.scheduled:
@@ -1476,14 +1483,6 @@ def _supersede_recorded_points(
     may need to look at afterwards.
     """
     run_ids = [run_id for _, _, ids in superseding for run_id in ids]
-    copied = workspace.supersede_records(run_ids)
-    if copied is not None:
-        warnings.warn(
-            f"force_rerun: the manifest was copied to {terminal_path(copied)} before "
-            f"{len(run_ids)} record(s) were superseded.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
     # ONE LINE PER SIMULATION ON A CONSOLE WITHOUT --verbose (0.30.0, the
     # clean-log rule L3): ten points of one simulation printed ten
     # near-identical warnings. Every point's move is still written to the
@@ -1520,6 +1519,16 @@ def _supersede_recorded_points(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+    # Keep every old record until all output archives have succeeded. The
+    # caller restores missing records if execution then fails without a new row.
+    copied = workspace.supersede_records(run_ids)
+    if copied is not None:
+        warnings.warn(
+            f"force_rerun: the manifest was copied to {terminal_path(copied)} before "
+            f"{len(run_ids)} record(s) were superseded.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
 
 
 @workspace_activity("preparation")

@@ -234,12 +234,12 @@ SECTION_COLUMNS: tuple[str, ...] = (
 #: normalises by its reference velocity and the product by the free stream.
 _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CDP_", "CDV_", "CD_")
 
-#: Decimals written for every coefficient and section value, the reference precision.
+#: Fixed decimals for cells without a column-specific precision rule.
 _DECIMALS = 5
 
 #: Dimensional columns whose small values need significant digits. Include the
 #: native plots clock and the physical quantities of sections and probe exports,
-#: not only the series clock and viscosity. Coefficients keep five decimals.
+#: not only the series clock and viscosity.
 _SIGNIFICANT_DIGIT_COLUMNS: frozenset[str] = frozenset(
     {
         "MU",
@@ -328,6 +328,15 @@ _DIMENSIONAL_PREFIXES = (
     "MZ_",
 )
 _SIGNIFICANT_DIGITS = 6
+
+#: Aerodynamic coefficient names, including native and alias-qualified columns.
+#: Settings are not coefficients, and a coefficient's drift percentage retains
+#: its fixed-decimal format. The pattern excludes physical names such as CREF.
+_COEFFICIENT_COLUMN = re.compile(
+    r"(?:^|[_ ])(?:C[LDYNRMTPQSFXZ](?:[BWSXYZ]|[IPV0]|[BWS]25)?|CM[XYZ]|"
+    r"(?:CR|CM|CN)[BWS]?25|E_T|ETA|ETAW|J)(?:_.*)?$",
+    re.IGNORECASE,
+)
 
 
 #: What a cell writes when the column does not apply to that row.
@@ -467,7 +476,7 @@ def _significant_cell(value: object) -> str:
 def write_csv_table(
     path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
-    """Write one CSV table: a header line and one line per row, floats at five decimals.
+    """Write one CSV table, retaining six significant figures in coefficient columns.
 
     The header names pass the cells' rule too (G16): no name holds a comma or a
     double quote, so nothing on any line is quoted.
@@ -481,8 +490,10 @@ def write_csv_table(
     decimals already hold exactly is written as it always was. Dimensional
     force, moment, rotor speed and diameter columns keep this rule when a
     group or rotor alias is appended to their name. Fluid velocity histories
-    keep it when a probe number is appended. Dimensionless coefficients and
-    unknown columns retain the reference precision.
+    keep it when a probe number is appended. Unknown columns retain the
+    reference precision. Coefficient columns use
+    the same six-significant-digit rule; their drift percentages retain five
+    decimals. Settings passed as exact text retain their stated form.
 
     Parameters
     ----------
@@ -517,6 +528,10 @@ def write_csv_table(
                     if (
                         name in _SIGNIFICANT_DIGIT_COLUMNS
                         or name.startswith(_DIMENSIONAL_PREFIXES)
+                        or (
+                            _COEFFICIENT_COLUMN.search(name)
+                            and not name.upper().endswith("_DRIFT_PCT")
+                        )
                         or re.fullmatch(
                             r"(?:VELOCITY|V[XYZ]|BL_(?:MOMENTUM|DISPLACEMENT|TOTAL)_THICKNESS)\d+",
                             name,

@@ -18,7 +18,7 @@ as `CLOCK_MOTION`, and three stamped loads exports so the per-step series exists
 polar and the rotor table.
 
 THE NUMBERS. The export states a free stream of 68.058 m/s, so
-`J = V / (n D) = 68.058 / (2200 / 60 * 2.0) = 0.92806` at the products' five decimals.
+`J = V / (n D) = 68.058 / (2200 / 60 * 2.0) = 0.928064` at six significant figures.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ ROTOR_TABLE = "polars/P7001-PUSHER_rotor.csv"
 SERIES = "series/AL-020_loads_series.csv"
 
 #: What the clock rotor ran at, as every product prints it.
-J_CLOCK = "0.92806"
+J_CLOCK = "0.928064"
 RPM_CLOCK = "2200.00000"
 
 
@@ -61,7 +61,9 @@ def _posted_rotor_campaign(tmp_path, clock_motion: str = "PUSHER") -> Path:
     # THE PER-STEP SERIES needs the stamped exports a submitted point leaves in its
     # datapoint folder, and a record whose export window names their steps.
     folder = workspace.sim_dir("7001") / "datapoints" / "DP-AL-020"
-    for step in range(int(WINDOW["first_step"]), int(WINDOW["time_iterations"]) + 1):
+    first, last = WINDOW["first_step"], WINDOW["time_iterations"]
+    assert isinstance(first, int) and isinstance(last, int)
+    for step in range(first, last + 1):
         (folder / f"AL-020_iteration={step}.txt").write_text(
             LOADS.replace("Steady", "Unsteady"), encoding="utf-8"
         )
