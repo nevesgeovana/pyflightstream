@@ -142,7 +142,7 @@ def _surface_of(fsm: Path, surface: str) -> tuple[list[Point], list[tuple[int, .
 
 
 def write_sweep_vtk(
-    target: Path, variants: Sequence[tuple[str, Path]], surface: str
+    target: Path, variants: Sequence[tuple[int, str, Path]], surface: str
 ) -> Path | None:
     """Overlay the control surface of every built variant in one file (FR-472 R7).
 
@@ -150,30 +150,38 @@ def write_sweep_vtk(
     ----------
     target : Path
         The ``<name>.sweep.vtk`` to write.
-    variants : sequence of (tag, saved simulation)
-        The variants built, in the order of ``angle_deg``.
+    variants : sequence of (ordinal, tag, saved simulation)
+        The variants built, in the order of ``angle_deg``, carrying their original
+        one-based positions even when only a subset is built.
     surface : str
         The swept control surface; its boundaries are those named after it.
 
     Returns
     -------
     Path or None
-        The file, or None when no variant's saved file could be read.
+        The file, or None when no variants were supplied.
+
+    Raises
+    ------
+    MeshReadError
+        A variant cannot be read or has no faces of the selected surface.
     """
     points: list[Point] = []
     faces: list[tuple[int, ...]] = []
     owners: list[int] = []
     tags: list[str] = []
-    for tag, fsm in variants:
+    for ordinal, tag, fsm in variants:
         try:
             vertices, local = _surface_of(fsm, surface)
-        except MeshReadError:
-            continue
+        except MeshReadError as error:
+            raise MeshReadError(f"variant {tag}: {error}") from error
+        if not local:
+            raise MeshReadError(f"variant {tag}: no faces of control surface {surface}")
         tags.append(tag)
         offset = len(points)
         points += vertices
         faces += [tuple(offset + index for index in face) for face in local]
-        owners += [len(tags)] * len(local)
+        owners += [ordinal] * len(local)
     if not tags:
         return None
     rows = [
