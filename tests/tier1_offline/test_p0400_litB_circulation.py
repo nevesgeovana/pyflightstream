@@ -1,4 +1,6 @@
-"""The fine real wake gives unit lift scale and the independent Trefftz A efficiency."""
+"""FR-452: the recorded signed wake and circulation reconstruction.
+
+The fine real wake gives unit lift scale and the independent Trefftz A efficiency."""
 # ruff: noqa: N999 - the assigned lane name is litB.
 
 import numpy as np
@@ -7,9 +9,8 @@ import pytest
 from pyflightstream.farfield import WakeTrace, trace_forces
 from tests.tier1_offline.test_p0400_litB_post import post_wake
 
-pytestmark = pytest.mark.requirement("P0400-LITB-CIRCULATION")
 
-
+@pytest.mark.requirement("FR-452")
 def test_p0400_litb_shed_circulation_agrees_with_the_recorded_sections(tmp_path):
     row, messages, skipped = post_wake(tmp_path, "p0400_litB_wake_26125_fine.vtk.xz")
     assert not skipped, messages
@@ -18,7 +19,9 @@ def test_p0400_litb_shed_circulation_agrees_with_the_recorded_sections(tmp_path)
     assert float(row["E_T"]) == pytest.approx(0.992, abs=0.03)
 
 
+@pytest.mark.requirement("FR-452")
 def test_p0400_litb_signed_full_sheet_reconstructs_the_strip_loading():
+    """FR-452: retain the recorded wake geometry and signed strip circulation."""
     edges = np.arange(-2.0, 3.0)
     gamma = np.array([1.0, 2.0, 2.0, 1.0])
     shed = -np.diff(np.r_[0.0, gamma, 0.0])
@@ -30,6 +33,7 @@ def test_p0400_litb_signed_full_sheet_reconstructs_the_strip_loading():
     assert b.induced_drag == pytest.approx(a.induced_drag)
 
 
+@pytest.mark.requirement("FR-452")
 def test_p0400_litb_either_mirror_half_gives_the_same_forces():
     negative = WakeTrace(
         np.array([-3.0, -2.0, -1.0]), np.zeros(3), np.array([-1.0, -0.5, -0.25]), 0, None

@@ -107,16 +107,32 @@ this page rather than lifted from the suite, and shows each row's
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
 sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`.
 
-## Worked examples
+## Where this example comes from
 
-The recipe example uses matrix_registry.fs; the workflow example uses
-workflow_rotor_matrix.fs. Their input files, calls and expected run identifiers
-are checked by the offline suite. The workflow matrix builds each row without
-a Python recipe.
+Every artefact on these pages is lifted from the test suite rather than
+written for the page. The first matrix is
+`tests/tier1_offline/fixtures/matrix_registry.fs` byte for byte; the input library,
+the recipe and the call are those of
+the recorded matrix execution in
+the example's evidence map, and the four run identifiers of [the run matrix](workflow-run-matrix.md) are the
+ones that test asserts.
 
-The code blocks are marked to skip execution during the docs build. They need
-a temporary directory, a staged input library and a stub standing in for
-FlightStream. The offline suite executes that setup and checks the outcomes.
+The workflow matrix is `tests/tier1_offline/fixtures/workflow_rotor_matrix.fs` byte
+for byte, and the test that runs it is
+`test_the_committed_matrix_drives_the_workflow_with_no_python_recipe` in
+`tests/tier1_offline/test_workflows.py`, which builds every row of it and asserts that
+no `module:function` reference appears anywhere in the call.
+
+That is the point of doing it this way. An example written for a page is
+true the day it is written and quietly false afterwards; an example
+lifted from an executed test fails CI when it stops being true.
+`tests/tier1_offline/test_docs_example_currency.py` holds the two together, so this
+page cannot drift from the suite without the suite going red.
+
+The code blocks are not executed by the docs build, and are marked so.
+They need a temporary directory, a staged input library and a stub
+standing in for FlightStream, none of which belong in a documentation
+build. The guarantee is carried by the lift, not by the block.
 
 ## What does not exist yet
 
@@ -124,44 +140,45 @@ Said plainly, because a page that documents an unbuilt capability is
 worse than no page at all.
 
 - **A row's `BLADES` count changes no emitted line, and no cell chooses
- the solver model.** `BLADES` sizes the phase-locked and per-blade
- windows of a row that names NO rotor by alias, and nothing else: it
- does not configure the rotor and does not interact with `SYMMETRY`.
- A row that names its rotors takes each blade count from
- that rotor's own block. The solver model is the setup preset's
- `solver_model`, `INCOMPRESSIBLE` when the preset states none; the row's
- `MACH` does not choose it. The reference and the fluid state of
- the flight condition reach the script.
+  the solver model.** `BLADES` sizes the phase-locked and per-blade
+  windows of a row that names NO rotor by alias, and nothing else: it
+  does not configure the rotor and does not interact with `SYMMETRY`.
+  A row that names its rotors takes each blade count from
+  that rotor's own block (FR-68). The solver model is the setup preset's
+  `solver_model`, `INCOMPRESSIBLE` when the preset states none; the row's
+  `MACH` does not choose it. The reference (`REF`) and the fluid state of
+  the flight condition reach the script.
 
 - **You cannot add a workflow of your own.** The table is this
- package's, and there is deliberately no way to register into it: a
- type this package builds is a type it can also refuse before it runs,
- and that guarantee is exactly what a user-supplied entry would remove.
- Your own physics goes in a recipe, which is what recipes are for.
+  package's, and there is deliberately no way to register into it: a
+  type this package builds is a type it can also refuse before it runs,
+  and that guarantee is exactly what a user-supplied entry would remove.
+  Your own physics goes in a recipe, which is what recipes are for.
 - **A raw mesh's scale and names are stated, and neither is measured
- yet.** A workflow imports an `.obj` or `.stl` in the unit its sidecar's
- `[import]` table states into a simulation in metres, and whether
- `IMPORT` converts the file's unit into the simulation's has been
- measured on no build. Its boundary names are the sidecar's, written by
- hand, and nothing checks them against the file before the run
-The other mesh formats `IMPORT`
- documents are refused by a workflow; a recipe of your own imports them,
- declaring the units itself.
+  yet.** A workflow imports an `.obj` or `.stl` in the unit its sidecar's
+  `[import]` table states into a simulation in metres, and whether
+  `IMPORT` converts the file's unit into the simulation's has been
+  measured on no build. Its boundary names are the sidecar's, written by
+  hand, and nothing checks them against the file before the run
+  ([mesh inputs](mesh/how-to.md)). The other mesh formats `IMPORT`
+  documents are refused by a workflow; a recipe of your own imports them,
+  declaring the units itself.
 - **A raw mesh's trailing edge by file runs on 26.124 only, and its wake
- termination is measured on a steady point only.** The file route was run
- on that build alone, and the other builds are refused; detection runs on
- every build that carries it. On the file route the sidecar's
- `[wake_termination]` detection runs between two initializations of the
- solver, the order that marked a blade's root node on a steady point; an
- unsteady run takes the same order, not yet measured there
+  termination is measured on a steady point only.** The file route was run
+  on that build alone, and the other builds are refused; detection runs on
+  every build that carries it. On the file route the sidecar's
+  `[wake_termination]` detection runs between two initializations of the
+  solver, the order that marked a blade's root node on a steady point; an
+  unsteady run takes the same order, not yet measured there
+  ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
- nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
- did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
- refused at plan time naming the key, so rename the key
- to `GEOMETRY` when you move it.
+  nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
+  did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
+  refused at plan time naming the key, so rename the key
+  to `GEOMETRY` when you move it.
 - **There is no result-array facade.** No interpolation along a named
- axis, no re-parameterisation, no trim extraction. carries that
- promise and is `pending`.
+  axis, no re-parameterisation, no trim extraction. FR-20 carries that
+  promise and is `pending`.
 
 Where a capability above matters to you, the roadmap and the SRS
 requirement statuses are where its state is tracked, and the changelog

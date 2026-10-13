@@ -130,17 +130,17 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 165 errors in 13 files (checked 343 source files)
->     Success: no issues found in 343 source files
+>     Found 165 errors in 13 files (checked 344 source files)
+>     Success: no issues found in 344 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-13: 165 errors in 13 of 343 modules.**
+**mypy recount 2026-10-13: 165 errors in 13 of 344 modules.**
 
 The quoted top block and the sentence above are the 2026-10-13 run recorded
-in the dated section at the end. The module total is the 343 of the 0.40.0 tree, forty-seven
+in the dated section at the end. The module total is the 344 of the 0.40.0 tree, forty-eight
 modules more than the 296 of 0.39.0, each clean and none exempted, with 165 errors in thirteen
 dirty modules: three exempted modules (`pyflightstream.farfield`,
 `pyflightstream.fsi.driver`, `pyflightstream.script.entities`) are clean now and their overrides
@@ -470,11 +470,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 165 errors in 13 files (checked 343 source files)
+    Found 165 errors in 13 files (checked 344 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 343 source files
+    Success: no issues found in 344 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1323,3 +1323,14 @@ The override list of `pyproject.toml` loses the three blocks and `MYPY_EXEMPTION
 ## Re-count of 2026-10-13 (0.40.0)
 
 `python scripts/mypy_recount.py` on 2026-10-13, on the 0.40.0 integration tree with the integration's last round committed (clean, so the numbers reproduce from HEAD), the same environment as the run of 2026-10-12: 165 errors in 13 of 343 modules; the shipped configuration is green over all 343 (`Success: no issues found in 343 source files`). The package grew by one module, `post/_field_inputs.py` (the input template's far-field, streamline and probe-lattice example), clean and not exempted. The dirty set and its 165 errors are unchanged.
+
+
+## Integration lane integD recount (2026-10-13)
+
+The memory-gated `scripts/mypy_recount.py --out C:/WORK/r040/integfix-logs/integD-mypy`
+run measured the uncommitted lane tree at HEAD `8a239446`: 344 tracked modules,
+165 errors in 13 modules with overrides off, and the shipped configuration clean
+across 344 source files. `cases/restart_records.py` is the additional clean module
+relative to the preceding 343-module record. No exemption grew. The current
+summary and reproduction outputs above now quote this measurement; the preceding
+dated narrative is history, not a claim that this lane was clean.

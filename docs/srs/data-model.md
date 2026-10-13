@@ -1,25 +1,26 @@
 # Data and evidence model
 
-Three data structures anchor the package: the command database, the run manifest, and
-the workspace. Each is the single authority
+Three data structures anchor the package: the command database (what
+the solver accepts), the run manifest (what actually happened), and
+the workspace (where everything lives). Each is the single authority
 over its domain.
 
 ## The command database
 
 A set of YAML files, one per manual chapter, loaded into a validated
-registry.
+registry (pydantic models).
 
 Each command entry records:
 
 | Field | Meaning |
 |---|---|
 | name | The literal script command token |
-| layout | The emission grammar |
-| phase | The pipeline phase enforced at build time |
+| layout | The emission grammar (inline, keyword block, parameter lines, ...) |
+| phase | The pipeline phase (geometry, setup, init, exec, analysis, export, control) enforced at build time |
 | args | Typed argument specifications, with enums and optional flags |
 | manual_ref | The manual page citation backing the entry; exclusive with `probe_ref` |
 | probe_ref | A committed probe report backing an entry no manual edition documents; exclusive with `manual_ref` |
-| versions | Per-version presence, status, and per-version argument grammars, each stating its DIFFERENCE from the entry-level grammar rather than replacing it |
+| versions | Per-version presence, status, and (where they differ) per-version argument grammars, each stating its DIFFERENCE from the entry-level grammar rather than replacing it |
 | default / default_ref | Optional evidence-cited default value of a settings flag, including an empty boundary selection, a default that emits no line |
 
 ### A per-version grammar states its difference
@@ -49,7 +50,7 @@ written, so a row may still state a different argument SET.
 What a version row still cannot override is the LAYOUT. Ten readings
 across four commands are withheld for that reason rather than recorded
 in a shape that would emit the newer form under the older edition's
-citation.
+citation (`PLN-20260810-1200`).
 
 ### What an argument declares, and when it must
 
@@ -61,21 +62,22 @@ argument's name. Each was added after that guess was measured wrong.
 **`values` is the accepted vocabulary**: everything the manual page
 says the solver takes for that argument, in every spelling the page
 states or samples. The rule was in force and unwritten until
-2026-09-09: one entry listed the letters and the digits
+2026-09-09 (PFS-2003.03): one entry listed the letters and the digits
 its page accepts for an axis while ten neighbours listed the letters
 alone, so a reader could not tell whether `values` meant what the
 solver accepts or what this library offers. It means the former, for
 one reason: the emitter reads `values` to REFUSE, and a refusal of a
 token the solver accepts is a false refusal with a page citation
-beside it. A narrowing this library chooses to offer belongs to the helper and its
+beside it. A narrowing this library chooses to offer (a helper that
+exposes three of six spellings, say) belongs to the helper and its
 docstring, never to `values`; should such a narrowing ever need to be
 data, its field is `offered`, and no entry has needed one. The axis
 family is the measured case: six arguments whose page states or
 samples the index form list `X, Y, Z, "1", "2", "3"`, ten whose page
 names the letters alone list the letters, and
-`tests/tier1_offline/.py` pins every member of
+`tests/tier1_offline/test_command_db_grammar.py` pins every member of
 both halves. An integer passed where the digit is accepted is printed
-as that digit.
+as that digit (PFS-2003.04).
 
 | Field | Declare it when |
 |---|---|
@@ -152,7 +154,7 @@ probe harness had no `removed` outcome to write, so a build that lacked
 a command recorded as `broken`, a claim about a command that is
 present; a measured removal was therefore a run a human wrote down, and
 `probe_ref` said so rather than dressing prose as machine-checked
-evidence. The harness now has the outcome, recognised from
+evidence. The harness now has the outcome (RPT-026), recognised from
 the solver's own refusal of the name, so a removal it measures is
 promoted by `pyfs-qa apply-compat` and cites the compat yaml through
 `report` like every other promoted status. `probe_ref` keeps the
@@ -185,7 +187,7 @@ The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers
 use the YY.XXX scheme; display aliases record the vendor release name
 of each build and resolve only where that name identifies exactly one
-build.
+build (FR-02c).
 
 ## The run manifest
 
@@ -201,10 +203,10 @@ handed to a scheduler and not yet collected, and
 FAILED_MARKED, a run the person marked failed with `pyfs-matrix
 mark-failed`, whose record keeps under `marked` the status it had, when
 and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../upgrading.md#older-layouts); and
-RAN_MISSING_LOG, a run whose outputs are all present
+RAN_MISSING_LOG (FR-413), a run whose outputs are all present
 and whose declared solver log is absent, not a failure, whose `residual_note`
 names what the log would have carried; a reader must support it to read a
-`runs.json` holding it; and MAX_ITER_REACHED, a steady point that
+`runs.json` holding it; and MAX_ITER_REACHED (FR-434), a steady point that
 stopped at the iteration limit it requested without the residual settling,
 whose record states that limit in `iterations_requested` beside the
 `iterations` reached; a 0.38.0 reader refuses a `runs.json` holding it),
@@ -229,30 +231,30 @@ The managed folder tree of a campaign:
 
 ```
 <root>/
- inputs/ the reusable input-artifact library
- geometries/ geometry files, registered by filename stem, flat or one folder per geometry
- 30_WB/ the recommended form (PFS-2032.04): the geometry file,
- its boundary inventory and its provenance record in one place;
- GEOMETRY: 30_WB.fsm reads the folder first and the flat file second
- references/ reference-data artifacts (areas, lengths, moment points, rotor data)
- setups/ named solver-setup presets
- pproc/ post-processing artifacts (named boundary groups and the product tables)
- profiles/ input profiles (e.g. actuator loading shapes)
- freestreams/ custom free-stream fields a row's FREESTREAM names (G15): <stem>.txt or <stem>.dat
- calibrations/ quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml (0.31.0)
- hpc/ how a cluster is asked to run a job; read on Linux
- fsi/ structural configurations a row's FSI names: f<id>.toml (0.29.0)
- matrices/ run matrices kept inside the library; new files go here, and a
- matrix at the workspace root keeps its location (0.29.0)
- management/ storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
- sync-workspaces.toml the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
- executables.toml the build-id to executable registry, with an
- optional declared version per build
- sims/sim_<id>/ per-simulation staged inputs, scripts and raw outputs
- post/ post-processing outputs
- archive/ archived simulations (zip)
- runs.json the manifest
- storage_management.json the record of every storage and sync call (0.30.0)
+  inputs/            the reusable input-artifact library
+    geometries/      geometry files, registered by filename stem, flat or one folder per geometry
+      30_WB/         the recommended form (PFS-2032.04): the geometry file,
+                     its boundary inventory and its provenance record in one place;
+                     GEOMETRY: 30_WB.fsm reads the folder first and the flat file second
+    references/      reference-data artifacts (areas, lengths, moment points, rotor data)
+    setups/          named solver-setup presets
+    pproc/           post-processing artifacts (named boundary groups and the product tables)
+    profiles/        input profiles (e.g. actuator loading shapes)
+    freestreams/     custom free-stream fields a row's FREESTREAM names (G15): <stem>.txt or <stem>.dat
+    calibrations/    quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml (0.31.0)
+    hpc/             how a cluster is asked to run a job; read on Linux
+    fsi/             structural configurations a row's FSI names: f<id>.toml (0.29.0)
+    matrices/        run matrices kept inside the library; new files go here, and a
+                     matrix at the workspace root keeps its location (0.29.0)
+    management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
+    sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
+    executables.toml the build-id to executable registry, with an
+                     optional declared version per build
+  sims/sim_<id>/     per-simulation staged inputs, scripts and raw outputs
+  post/              post-processing outputs
+  archive/           archived simulations (zip)
+  runs.json          the manifest
+  storage_management.json  the record of every storage and sync call (0.30.0)
 ```
 
 Input artifacts are declarative TOML validated by pydantic, resolved

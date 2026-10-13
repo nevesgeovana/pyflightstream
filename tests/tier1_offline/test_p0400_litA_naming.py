@@ -9,7 +9,7 @@ from pyflightstream.cases.matrix import MATRIX_COLUMNS, read_matrix
 from pyflightstream.cases.naming import name_field
 
 
-@pytest.mark.requirement("P0400-LITA-NAMING")
+@pytest.mark.requirement("FR-102")
 @pytest.mark.parametrize(
     ("angle", "recorded"),
     [
@@ -29,7 +29,7 @@ def test_p0400_lita_existing_angle_names_survive_upgrade(angle, recorded):
     assert name_field("ALPHA", angle) == recorded
 
 
-@pytest.mark.requirement("P0400-LITA-NAMING")
+@pytest.mark.requirement("FR-102")
 def test_p0400_lita_the_two_study_angles_plan_with_their_existing_names(tmp_path):
     row = dict.fromkeys(MATRIX_COLUMNS, "NA")
     row.update(

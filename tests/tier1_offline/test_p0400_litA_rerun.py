@@ -26,7 +26,7 @@ def _first_run(tmp_path):
     return campaign, workspace, record
 
 
-@pytest.mark.requirement("P0400-LITA-FORCE-RERUN")
+@pytest.mark.requirement("FR-108")
 def test_p0400_lita_a_missing_recorded_output_is_rerun_and_recorded(tmp_path, monkeypatch):
     campaign, workspace, record = _first_run(tmp_path)
     output = workspace.sim_dir(record.sim_id) / record.outputs[0]
@@ -53,7 +53,7 @@ def test_p0400_lita_a_missing_recorded_output_is_rerun_and_recorded(tmp_path, mo
     assert output.is_file()
 
 
-@pytest.mark.requirement("P0400-LITA-FORCE-RERUN")
+@pytest.mark.requirement("FR-108")
 def test_p0400_lita_an_archive_failure_keeps_the_manifest_record(tmp_path, monkeypatch):
     campaign, workspace, record = _first_run(tmp_path)
     original = Path.replace
@@ -77,7 +77,7 @@ def test_p0400_lita_an_archive_failure_keeps_the_manifest_record(tmp_path, monke
     assert workspace.read_manifest() == [record]
 
 
-@pytest.mark.requirement("P0400-LITA-FORCE-RERUN")
+@pytest.mark.requirement("FR-108")
 def test_p0400_lita_a_failure_after_superseding_keeps_a_record(tmp_path, monkeypatch):
     campaign, workspace, record = _first_run(tmp_path)
     from pyflightstream.run import _campaign
@@ -99,7 +99,7 @@ def test_p0400_lita_a_failure_after_superseding_keeps_a_record(tmp_path, monkeyp
     assert workspace.read_manifest() == [record]
 
 
-@pytest.mark.requirement("P0400-LITA-FORCE-RERUN")
+@pytest.mark.requirement("FR-108")
 def test_p0400_lita_a_long_archive_destination_keeps_the_existing_output(tmp_path):
     from pyflightstream.workspace.naming import PointName
 

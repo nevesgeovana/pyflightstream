@@ -12,7 +12,7 @@ from pyflightstream.workspace.naming import PointName
 WAKE_BYTES = (Path(__file__).parent / "fixtures/p0400_lita_solver_wake.vtk").read_bytes()
 
 
-@pytest.mark.requirement("P0400-LITA-WAKE-COLLECT")
+@pytest.mark.requirement("FR-92")
 @pytest.mark.parametrize("ran_in_datapoint", [False, True])
 def test_p0400_lita_collect_files_the_optional_wake_and_records_it(tmp_path, ran_in_datapoint):
     workspace = CampaignWorkspace(tmp_path / "campaign")
@@ -34,7 +34,7 @@ def test_p0400_lita_collect_files_the_optional_wake_and_records_it(tmp_path, ran
     assert not (sim / "surface_wakes.vtk").exists()
 
 
-@pytest.mark.requirement("P0400-LITA-WAKE-COLLECT")
+@pytest.mark.requirement("FR-92")
 def test_p0400_lita_a_held_wake_refuses_before_the_surface_is_moved(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "campaign")
     sim = workspace.create_sim("9001")
@@ -50,7 +50,7 @@ def test_p0400_lita_a_held_wake_refuses_before_the_surface_is_moved(tmp_path):
     assert surface.is_file() and wake.is_file()
 
 
-@pytest.mark.requirement("P0400-LITA-WAKE-COLLECT")
+@pytest.mark.requirement("NFR-14")
 def test_p0400_lita_only_the_authorized_recorded_wake_bytes_are_admitted():
     from tests.tier1_offline.test_house_style import RECORDED_WAKE_PATH, _geometry_offenses
 

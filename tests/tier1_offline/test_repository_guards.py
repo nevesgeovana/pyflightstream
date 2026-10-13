@@ -364,3 +364,23 @@ def _assert_exemption_policy(config) -> None:
         }
     )
     assert set(config.exempt_trees) == {"guide/", "docs/"}
+
+
+def test_xz_text_is_scanned_in_full_and_a_compressed_identifier_is_refused():
+    """Compressed fixtures are text carriers; compression grants no exemption."""
+    import lzma
+
+    checker = _shipped_surface_module()
+    config = checker.load_config(SHIPPED_SURFACE_CONFIG)
+    clean = b"ASCII synthetic wake\n" * 10000
+    good = checker.scan([("fixture.vtk.xz", lzma.compress(clean))], config)
+    assert good.scanned == ["fixture.vtk.xz"] and not good.undecodable
+    assert not good.findings and good.examined_chars > 100000
+    # Use the checker's assembled token so the test ships no forbidden name.
+    bad = checker.scan(
+        [("fixture.vtk.xz", lzma.compress(clean + checker._INSTITUTION.encode()))], config
+    )
+    assert bad.scanned == ["fixture.vtk.xz"] and not bad.undecodable
+    assert any("an institution name" in finding for finding in bad.findings)
+    broken = checker.scan([("fixture.vtk.xz", lzma.compress(clean)[:-10])], config)
+    assert broken.undecodable == ["fixture.vtk.xz"] and not broken.scanned

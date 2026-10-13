@@ -1,4 +1,8 @@
-"""Reproduce write_csv_table with the study's small induced-drag coefficients."""
+"""Reproduce write_csv_table with small induced-drag coefficients.
+
+These regression tests have no defined requirement for their numeric format;
+the lane label is a work item, not a requirement identifier.
+"""
 
 # ruff: noqa: N999 - the release lane requires this filename.
 
@@ -7,7 +11,6 @@ import pytest
 from pyflightstream.post._tables import read_csv_table, write_csv_table
 
 
-@pytest.mark.requirement("P0400-LITA-COEFFICIENT-PRECISION")
 @pytest.mark.parametrize(
     "column",
     [
@@ -36,7 +39,6 @@ def test_p0400_lita_coefficients_keep_six_significant_figures(tmp_path, column):
     assert float(rows[0][column]) == pytest.approx(value, rel=5e-6)
 
 
-@pytest.mark.requirement("P0400-LITA-COEFFICIENT-PRECISION")
 def test_p0400_lita_settings_and_drift_keep_their_stated_format(tmp_path):
     table = write_csv_table(
         tmp_path / "product.csv",
