@@ -720,8 +720,10 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
   notes: >
     Initial angular velocity of a 6DOF body, in the body coordinate
-    system. No unit is stated, and unlike SET_MOTION_ROTOR_RPM, which
-    names revolutions per minute, this one leaves it open.
+    system. The manual states no unit; the value is in radians per
+    second on 26.124 and 26.125 (RPT-169: a raw 1.0 turned the body
+    0.02 rad per 0.02 s step), unlike SET_MOTION_ROTOR_RPM, which
+    names revolutions per minute.
 
 SET_MOTION_6DOF_ACTIVE_VARIABLES:
   layout: payload_lines
