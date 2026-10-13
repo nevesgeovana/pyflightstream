@@ -226,9 +226,19 @@ def test_p0400_numpy_no_module_of_the_package_imports_xarray():
 
 @pytest.mark.requirement("FR-457")
 def test_p0400_numpy_xarray_left_the_required_dependencies():
-    """P0400-NUMPY (FR-457): ``[project] dependencies`` carries no xarray."""
+    """P0400-NUMPY (FR-457, NFR-06, NFR-22): xarray leaves the dependency envelope.
+
+    This release removes xarray and preserves the surviving declared ranges;
+    it does not claim the pending bound-by-bound CI obligation of NFR-22.
+    """
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert not [d for d in project["dependencies"] if d.split("[")[0].split(">")[0] == "xarray"]
+    assert project["dependencies"] == [
+        "numpy>=2.2",
+        "pandas>=2.3",
+        "pydantic>=2",
+        "pyyaml",
+        "trimesh>=4.12,<6",
+    ]
 
 
 @pytest.mark.requirement("FR-457")

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_p0400_clip_in_report(tmp_path):
-    """P0400-SWEEP-CP-CLIP: the report states the clip beside each point's numbers."""
+    """P0400-SWEEP-CP-CLIP (FR-26): the report states the clip beside each point's numbers."""
     assert "minimum_cp" in {field.name for field in dataclasses.fields(_points()[0])}
     run = _run([dataclasses.replace(point, minimum_cp=-20.0) for point in _points()])
     report, markdown = write_physics_report(run, tmp_path, date="2026-10-12")
@@ -67,7 +67,7 @@ def test_p0400_group_fit_unknown_preserved(tmp_path, monkeypatch):
 
 
 def test_p0400_manual_help_inputs():
-    """P0400-SWEEP-MANUAL-HELP: root help explains required inputs and page ranges."""
+    """P0400-SWEEP-MANUAL-HELP (FR-44): root help explains required inputs and page ranges."""
     from pyflightstream.utils.cli import _parser
 
     help_text = _parser().format_help()

@@ -54,7 +54,7 @@ def _report(root, commands):
 
 
 def test_p0400_compat_a_missing_observation_reads_missing(tmp_path):
-    """P0400-COMPAT (PFS-2003.10.03) the expectation is never printed as the observation."""
+    """P0400-COMPAT (FR-01, FR-25, PFS-2003.10.03): missing observation stays missing."""
     result = ProbeResult(
         command="STOP",
         outcome=ProbeOutcome.VERIFIED,

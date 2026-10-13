@@ -31,7 +31,7 @@ def _assert_twins(root: Path, report: dict) -> None:
 
 
 def test_p0400_g67_every_command_has_one_column_and_twins_regenerate():
-    """P0400-G67: the full database/emitter rebuild equals both filed representations."""
+    """P0400-G67 (FR-151, FR-152): every setup/BC command has a route or a reason."""
     report = build_coverage()
     assert len(report["rows"]) >= 150, "an empty or narrowed inventory cannot satisfy coverage"
     assert {row["chapter"] for row in report["rows"]} == set(CHAPTERS)
