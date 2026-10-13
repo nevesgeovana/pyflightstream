@@ -19,6 +19,7 @@ named skip, never a guess.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,6 +77,7 @@ __all__ = [
 ]
 
 _NA = float("nan")
+_REFERENCE = "REFERENCE"
 #: The columns of ``farfield/<group>_ledgers*.csv`` after ``POL``, ``STEP`` and the
 #: condition block (FR-456 R4).
 LEDGER_COLUMNS: tuple[str, ...] = (
@@ -108,7 +110,16 @@ LEDGER_COLUMNS: tuple[str, ...] = (
 #: The cyclic order carrying a lattice's own axes onto a frame whose axis letter
 #: is the shaft, as :func:`pyflightstream.probes.layouts.lattice_points` lays it.
 _CYCLIC = {"X": (0, 1, 2), "Y": (1, 2, 0), "Z": (2, 0, 1)}
-_TOLERANCE = 1e-4
+#: How far an exported coordinate may stand from the laid one, per component: one
+#: unit of the last significant digit the export printed it with (read from the
+#: export; the solver's default is seven), plus the five decimals of the native
+#: unit the script writes a probe in. Never scaled by another point's coordinate,
+#: and a layout whose points this cannot tell apart is refused (PFS-2081.103).
+_DEFAULT_DIGITS = 7
+_PRINTED_ABSOLUTE = 1e-5
+_NUMBER = re.compile(r"^\s*[-+]?(\d*)\.(\d+)[Ee][-+]?\d+\s*$")
+#: The tolerance must stay below this fraction of the layout's own spacing.
+_SPACING_FRACTION = 0.25
 
 
 @dataclass(frozen=True)
@@ -123,11 +134,21 @@ class ProbeSamples:
         ``(n, 3)`` velocity in m/s, in the export frame (x aft, y right, z up).
     cp : numpy.ndarray
         ``(n,)`` pressure coefficient on the reference velocity.
+    frames : tuple of str, optional
+        The frame each position is recorded in, upper case, for samples read
+        from the recorded positions of an unsteady run (a declared entry's points
+        stand in its own frame there); None for a steady export, whose positions
+        are all in the reference frame.
+    digits : int, optional
+        The significant digits the export printed the positions with; None
+        where the positions are the recorded ones (five decimals, native).
     """
 
     positions: np.ndarray
     velocity: np.ndarray
     cp: np.ndarray
+    frames: tuple[str, ...] | None = None
+    digits: int | None = None
 
 
 def native_per_m(sim_dir: Path, outputs: Sequence[str], version: str | None) -> float | None:
@@ -193,7 +214,31 @@ def steady_samples(text: str) -> ProbeSamples:
         raise PyflightstreamError(
             f"the probe export carries no {error}; it states {', '.join(report.columns)}"
         ) from error
-    return ProbeSamples(values[:, xyz], values[:, uvw], values[:, cp])
+    return ProbeSamples(values[:, xyz], values[:, uvw], values[:, cp], digits=_printed_digits(text))
+
+
+def _printed_digits(text: str) -> int:
+    """Return the significant digits a probe export prints its positions with.
+
+    Read from the nonzero X, Y and Z of the data rows (the mantissa's digits,
+    leading zeros left out; an exact zero says nothing of the format); the
+    solver's default where no coordinate reads.
+    """
+    lines = text.splitlines()
+    counts: list[int] = []
+    for at, line in enumerate(lines):
+        if line.strip().startswith("X, Y, Z"):
+            for row in lines[at + 1 :]:
+                cells = row.split(",")
+                if len(cells) <= 3:
+                    continue
+                for cell in cells[:3]:
+                    match = _NUMBER.match(cell)
+                    digits = (match.group(1) + match.group(2)).lstrip("0") if match else ""
+                    if digits:
+                        counts.append(len(digits))
+            break
+    return min(counts) if counts else _DEFAULT_DIGITS
 
 
 def unsteady_samples(
@@ -231,36 +276,70 @@ def unsteady_samples(
     )
     velocity = np.array([[at(f"{c}{n}") for c in ("VX", "VY", "VZ")] for n in vertices])
     cp = np.array([at(f"CP_REF{n}") for n in vertices])
-    return ProbeSamples(xyz, velocity.reshape(-1, 3), cp)
+    # PFS-2081.102: each vertex keeps the frame it was recorded in, so a set is
+    # matched among its own entry's points, in that frame's coordinates.
+    frames = tuple(
+        str(list(positions[n])[3]).strip().upper() if len(list(positions[n])) > 3 else _REFERENCE
+        for n in vertices
+    )
+    return ProbeSamples(xyz, velocity.reshape(-1, 3), cp, frames)
 
 
-def _starts(positions: np.ndarray, expected: np.ndarray, *, by_shape: bool) -> list[int]:
+def _tolerance(points: np.ndarray, digits: int | None) -> np.ndarray:
+    """Return the per-component tolerance of exported coordinates near ``points`` (native).
+
+    One unit of the last printed significant digit of each coordinate where the
+    export printed them (``digits``), plus the native unit's fifth decimal.
+    """
+    relative = 10.0 ** (1 - digits) if digits else 0.0
+    return relative * np.abs(points) + _PRINTED_ABSOLUTE
+
+
+def _spacing(expected: np.ndarray) -> float:
+    """Return the smallest nonzero step between consecutively laid points, native."""
+    if len(expected) < 2:
+        return math.inf
+    steps = np.linalg.norm(np.diff(expected, axis=0), axis=1)
+    steps = steps[steps > 0.0]
+    return float(steps.min()) if len(steps) else math.inf
+
+
+def _starts(
+    positions: np.ndarray, expected: np.ndarray, *, by_shape: bool, digits: int | None
+) -> list[int]:
     """Return every start where ``expected`` is a contiguous run of ``positions``.
 
     ``by_shape`` matches the offsets from the run's first point (a layout whose
     placement the record does not hold); otherwise the positions themselves.
-    The tolerance is 1e-4 of the largest coordinate, far below any probe
-    spacing and far above the seven digits a probe export prints.
+    Each component is compared within the printed precision of the export
+    (:func:`_tolerance`), which depends on that coordinate alone, never on the
+    distance of another point from the origin (PFS-2081.103).
     """
     count, total = len(expected), len(positions)
     if count == 0 or total < count:
         return []
-    scale = max(1.0, float(np.abs(expected).max(initial=0.0)))
     if by_shape:
-        scale = max(scale, float(np.abs(positions).max(initial=0.0)))
         expected = expected - expected[0]
-    tolerance = _TOLERANCE * scale
-    if by_shape:
         spans = positions[count - 1 :] - positions[: total - count + 1]
-        starts = np.flatnonzero(np.all(np.abs(spans - expected[-1]) <= tolerance, axis=1))
+        slack = _tolerance(positions[count - 1 :], digits) + _tolerance(
+            positions[: total - count + 1], digits
+        )
+        starts = np.flatnonzero(np.all(np.abs(spans - expected[-1]) <= slack, axis=1))
     else:
-        starts = np.flatnonzero(np.all(np.abs(positions - expected[0]) <= tolerance, axis=1))
+        starts = np.flatnonzero(
+            np.all(np.abs(positions - expected[0]) <= _tolerance(expected[0], digits), axis=1)
+        )
     found = []
     for start in starts.tolist():
         window = positions[start : start + count]
+        if len(window) != count:
+            continue
         if by_shape:
+            slack = _tolerance(window, digits) + _tolerance(window[0], digits)
             window = window - window[0]
-        if len(window) == count and np.all(np.abs(window - expected) <= tolerance):
+        else:
+            slack = _tolerance(expected, digits)
+        if np.all(np.abs(window - expected) <= slack):
             found.append(int(start))
     return found
 
@@ -287,6 +366,9 @@ class FarLayout:
     lattice_origin_m : numpy.ndarray or None
         Where the run placed the lattice's origin (a rotor's hub), m; None
         for a layout the run did not record.
+    lattice_frame : str or None
+        The frame the run recorded the lattice's positions in (upper case);
+        None for a layout derived from the table, whose owner is unknown.
     plane_placed, lattice_placed : bool
         True where the set is placed, so every position is matched where it
         stands: always for a layout the run recorded, and for a rotor's lattice
@@ -304,6 +386,7 @@ class FarLayout:
     lattice_origin_m: np.ndarray | None = None
     plane_placed: bool = True
     lattice_placed: bool = True
+    lattice_frame: str | None = None
 
 
 def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
@@ -354,15 +437,15 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
                 axis = str(shape["axis"])
                 origin = np.asarray([float(v) for v in shape["origin_m"]])
                 points = lattice_points(lattice, axis=axis) + origin
-                local = None
-                if str(shape.get("positions_frame", "REFERENCE")).upper() != "REFERENCE":
-                    local = points - origin
+                frame = str(shape.get("positions_frame", _REFERENCE)).strip().upper()
+                local = points - origin if frame != _REFERENCE else None
                 found.update(
                     lattice=lattice,
                     lattice_m=points,
                     axis=axis,
                     lattice_local_m=local,
                     lattice_origin_m=origin,
+                    lattice_frame=frame,
                 )
                 count = len(points)
             else:
@@ -429,33 +512,68 @@ def derived_layout(
 
 
 def _locate_one(
-    positions: np.ndarray, expected_native: list[np.ndarray], *, by_shape: bool, what: str
-) -> tuple[slice | None, str]:
-    """Find one far-field set exactly once among the positions, or say why not."""
-    for expected in expected_native:
-        starts = _starts(positions, expected, by_shape=by_shape)
-        if len(starts) == 1:
-            return slice(starts[0], starts[0] + len(expected)), ""
-        if len(starts) > 1:
-            return None, (
-                f"the probe export holds the {what} {len(starts)} times, so which the run "
-                "laid cannot be told"
-            )
-    how = "the shape of" if by_shape else "the positions of"
-    return None, f"the probe export holds no point set at {how} the {what} the run laid"
+    samples: ProbeSamples,
+    expected: np.ndarray,
+    *,
+    frame: str | None,
+    by_shape: bool,
+    what: str,
+) -> tuple[slice | np.ndarray | None, str]:
+    """Find one far-field set exactly once among the samples, or say why not.
+
+    ``frame`` names the frame the set's positions were recorded in: on samples
+    that carry their frames (an unsteady run), only that frame's points are
+    candidates, in that frame's coordinates (PFS-2081.102); None, every point is.
+    Every match is counted, so a set found twice is refused rather than the
+    first taken.
+    """
+    positions = np.asarray(samples.positions, dtype=float)
+    candidates = np.arange(len(positions))
+    if frame is not None and samples.frames is not None:
+        candidates = np.flatnonzero(np.asarray(samples.frames) == frame)
+    starts = _starts(positions[candidates], expected, by_shape=by_shape, digits=samples.digits)
+    # The tolerance must stay well inside the set's own spacing where the set
+    # stands (the matched points for a set placed by shape), so two layouts
+    # that differ by a step are never taken for one another (PFS-2081.103).
+    spacing = _spacing(expected)
+    stands = [positions[candidates][start : start + len(expected)] for start in starts]
+    reach = max(
+        [float(np.abs(points).max(initial=0.0)) for points in stands]
+        + ([] if by_shape else [float(np.abs(expected).max(initial=0.0))])
+        + [0.0]
+    )
+    if 2.0 * float(_tolerance(np.array([reach]), samples.digits)[0]) > _SPACING_FRACTION * spacing:
+        return None, (
+            f"the {what} the run laid has points {spacing:.3g} native units apart, closer than "
+            "the printed precision of the export can tell apart at its coordinates"
+        )
+    if len(starts) > 1:
+        return None, (
+            f"the probe export holds the {what} {len(starts)} times, so which the run laid "
+            "cannot be told"
+        )
+    if not starts:
+        how = "the shape of" if by_shape else "the positions of"
+        return None, f"the probe export holds no point set at {how} the {what} the run laid"
+    chosen = candidates[starts[0] : starts[0] + len(expected)]
+    if np.all(np.diff(chosen) == 1):
+        return slice(int(chosen[0]), int(chosen[-1]) + 1), ""
+    return chosen, ""
 
 
 def far_samples(
     samples: ProbeSamples, layout: FarLayout, *, per_m: float
-) -> tuple[slice | None, slice | None, str]:
+) -> tuple[slice | np.ndarray | None, slice | np.ndarray | None, str]:
     """Locate the lattice and the plane among a point's probes (FR-455 R2, PFS-2081.58).
 
     Every exported position of a set must match the layout, each set exactly
-    once: where the run recorded the layout, where it stands; for a record
-    without one, the plane and a frame's lattice by their shape and a rotor's
-    lattice where its hub places it. A set not found, or found twice, is
-    returned as None with the reason, never as the points that happen to be
-    last or to number as many.
+    once: where the run recorded the layout, where it stands, in the one frame
+    it recorded the positions in; for a record without one, the plane and a
+    frame's lattice by their shape and a rotor's lattice where its hub places
+    it, among every point. Positions are compared within the export's printed
+    precision of each coordinate (PFS-2081.103). A set not found, or found
+    twice, is returned as None with the reason, never as the points that happen
+    to be last or to number as many.
 
     Parameters
     ----------
@@ -469,24 +587,34 @@ def far_samples(
 
     Returns
     -------
-    tuple[slice | None, slice | None, str]
-        Lattice slice, plane slice and the reasons a set in the layout is missing.
+    tuple
+        The lattice's and the plane's sample selection (a slice, or the indices
+        where the set's points are not consecutive), and the reasons a set in the
+        layout is missing.
     """
-    plan = layout
-    positions = np.asarray(samples.positions, dtype=float)
     lattice = plane = None
     reasons: list[str] = []
-    if plan.lattice_m is not None:
-        options = [plan.lattice_m * per_m]
-        if plan.lattice_local_m is not None:
-            options.append(plan.lattice_local_m * per_m)
+    if layout.lattice_m is not None:
+        frame = layout.lattice_frame
+        recorded_in_frame = samples.frames is not None and frame is not None and frame != _REFERENCE
+        if recorded_in_frame and layout.lattice_local_m is not None:
+            expected = layout.lattice_local_m * per_m
+        else:
+            expected = layout.lattice_m * per_m
+        # A steady export states every position in the reference frame.
+        owner = frame if samples.frames is not None else None
         lattice, why = _locate_one(
-            positions, options, by_shape=not plan.lattice_placed, what="lattice"
+            samples, expected, frame=owner, by_shape=not layout.lattice_placed, what="lattice"
         )
         reasons += [why] if why else []
-    if plan.plane_m is not None:
+    if layout.plane_m is not None:
+        owner = _REFERENCE if layout.plane_placed and samples.frames is not None else None
         plane, why = _locate_one(
-            positions, [plan.plane_m * per_m], by_shape=not plan.plane_placed, what="plane"
+            samples,
+            layout.plane_m * per_m,
+            frame=owner,
+            by_shape=not layout.plane_placed,
+            what="plane",
         )
         reasons += [why] if why else []
     return lattice, plane, "; ".join(reasons)
@@ -541,7 +669,7 @@ def rotor_lattice(shape: LatticeShape, rotor: Any) -> tuple[ProbeLattice, np.nda
 
 def plane_values(
     samples: ProbeSamples,
-    block: slice,
+    block: slice | np.ndarray,
     *,
     flow: tuple[float, float, float, float],
     grid: tuple[float, float, float],
@@ -557,7 +685,7 @@ def plane_values(
     ----------
     samples : ProbeSamples
         Probe positions, velocity components and pressure coefficients.
-    block : slice
+    block : slice or numpy.ndarray
         Slice selecting the plane points from the probe samples.
     flow : tuple[float, float, float, float]
         Density in kg/m3, speed in m/s, incidence and sideslip in degrees.
@@ -620,7 +748,7 @@ def plane_values(
 
 def lattice_samples(
     samples: ProbeSamples,
-    block: slice,
+    block: slice | np.ndarray,
     lattice: ProbeLattice,
     axis: str,
     *,

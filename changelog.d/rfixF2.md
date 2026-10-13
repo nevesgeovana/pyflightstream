@@ -1,0 +1,4 @@
+## Fixed
+- Far-field post matched an unsteady run's probes without their recorded frames, taking the first coordinate convention that matched, so a declared lattice of a translated frame followed by a reference-frame entry at its reference positions read that entry's velocities. A set is now matched only among the points of the frame it was recorded in, in that frame's coordinates, and a set found twice is refused (FR-455 R4, PFS-2081.58, PFS-2081.102).
+- The far-field matching tolerance grew with the distance from the origin, so a plane of another grid far from the origin was integrated with the recorded area. Each coordinate is now compared within the export's own printed precision, and a layout that precision cannot resolve is refused (FR-455 R4, PFS-2081.103).
+- The plan said a rotor's Trefftz C added probe points while it reused the declared lattice the ledgers reuse; its state now follows the lattice it reads (FR-455 R4, PFS-2081.101).
