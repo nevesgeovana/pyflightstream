@@ -30,6 +30,7 @@ import re
 from pathlib import Path
 
 from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
+from tests.support_helpers import REGISTRY_FIXTURE
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
@@ -37,6 +38,10 @@ PAGE = WORKFLOW_DOCS
 FIXTURE = REPO / "tests" / "tier1_offline" / "fixtures" / "matrix_registry.fs"
 LIFTED_FROM = "test_run_matrix_executes_and_records_every_point"
 SOURCE_TEST = REPO / "tests" / "tier1_offline" / "test_matrix_run.py"
+# Docs Q5 keeps provenance in the test's evidence map, outside published prose.
+EXAMPLE_EVIDENCE = {
+    "docs/workflow-run-matrix.md": (SOURCE_TEST, LIFTED_FROM, FIXTURE),
+}
 
 
 def _blocks(text: str) -> list[tuple[str, str]]:
@@ -95,17 +100,23 @@ def test_the_page_explains_the_workspace_before_it_shows_a_signature():
 
 
 def test_the_page_cites_the_executed_test_its_example_comes_from():
-    """The citation is load-bearing: it is what makes the example rot-proof."""
-    text = PAGE.read_text(encoding="utf-8")
-    assert LIFTED_FROM in text, "the page does not name the test its example is lifted from"
-    assert "tests/tier1_offline/test_matrix_run.py" in text
-    source = SOURCE_TEST.read_text(encoding="utf-8")
-    assert f"def {LIFTED_FROM}(" in source, (
-        f"the page cites {LIFTED_FROM}, which no longer exists in "
+    """The evidence map binds the published example to an executed test and fixture."""
+    source_path, test_name, fixture = EXAMPLE_EVIDENCE["docs/workflow-run-matrix.md"]
+    assert source_path == SOURCE_TEST and test_name == LIFTED_FROM and fixture == FIXTURE
+    assert (REPO / "docs/workflow-run-matrix.md").is_file()
+    source = source_path.read_text(encoding="utf-8")
+    assert f"def {test_name}(" in source, (
+        f"the evidence map cites {test_name}, which no longer exists in "
         "tests/tier1_offline/test_matrix_run.py; "
         "a citation to a deleted test is worse than no citation, because it reads as "
         "evidence"
     )
+    assert fixture == REGISTRY_FIXTURE
+    body = source.split(f"def {test_name}(", 1)[1].split("\ndef ", 1)[0]
+    assert re.search(r"run_matrix\(\s*REGISTRY_FIXTURE,", body)
+    text = PAGE.read_text(encoding="utf-8")
+    assert LIFTED_FROM not in text
+    assert "tests/tier1_offline/test_matrix_run.py" not in text
 
 
 def test_the_matrix_on_the_page_is_the_fixture_the_suite_runs():

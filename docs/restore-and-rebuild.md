@@ -20,10 +20,10 @@ Both preview by default and change nothing; `--apply` writes.
 ## Restore a file from the archive
 
 ```text
-pyfs-matrix restore runs --workspace. # which copy, and what it holds
-pyfs-matrix restore runs --workspace. --apply # put it back
-pyfs-matrix restore runs --workspace. --stamp 20260929-120000 --apply
-pyfs-matrix restore products --workspace. --matrix matrix-lnx --apply
+pyfs-matrix restore runs --workspace .              # which copy, and what it holds
+pyfs-matrix restore runs --workspace . --apply      # put it back
+pyfs-matrix restore runs --workspace . --stamp 20260929-120000 --apply
+pyfs-matrix restore products --workspace . --matrix matrix-lnx --apply
 ```
 
 The kinds are `runs`, `storage`, `additional`, `products` and `plan`. The
@@ -58,10 +58,10 @@ Every write archives `storage_management.json`, `plan.json` and `additional.json
 ## Rebuild records from the simulation folders
 
 ```text
-pyfs-matrix rebuild --workspace. # which records, and why not the others
-pyfs-matrix rebuild --workspace. --apply # add them to runs.json
-pyfs-matrix rebuild --workspace. --out runs-rebuilt.json --apply
-pyfs-matrix rebuild --workspace. --all-sims --out runs-compare.json --apply
+pyfs-matrix rebuild --workspace .                   # which records, and why not the others
+pyfs-matrix rebuild --workspace . --apply           # add them to runs.json
+pyfs-matrix rebuild --workspace . --out runs-rebuilt.json --apply
+pyfs-matrix rebuild --workspace . --all-sims --out runs-compare.json --apply
 ```
 
 For each simulation folder the package runs its matrix row again in a
@@ -176,8 +176,8 @@ A run can end `CONVERGED` and still be wrong, which you find only later,
 reading its products. `mark-failed` records that verdict:
 
 ```text
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" # preview
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply # write
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh"           # preview
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply   # write
 ```
 
 Every record of each named simulation becomes `FAILED_MARKED`, whatever it

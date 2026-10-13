@@ -111,7 +111,7 @@ is the 1P reduced frequency of each blade station,
 ```text
 Omega = 2 pi RPM / 60
 V_rel = sqrt(V^2 + (Omega r)^2)
-k = Omega c / (2 V_rel)
+k     = Omega c / (2 V_rel)
 ```
 
 with `r` the station's radius, `c` its chord and `V` the point's free-stream
@@ -255,9 +255,7 @@ still and turns the free stream, so the probe velocities of a quasi-steady run
 are expressed in the rotating frame of the blade: the velocity a probe reports
 carries minus the rotation times its radius, and a fixed-frame field is that
 velocity with the rotation times the radius added back. Measured on 26.124
-(build 8172026) by the research study
-
-summarises, where a probe at 1.5 rotor radii read a tangential velocity of
+(build 8172026) in a research study, where a probe at 1.5 rotor radii read a tangential velocity of
 -2.618 times the free-stream speed at an advance ratio of 1.8. The probe frame
 is described with the other probe conventions in
 [sampled velocity fields](sampled-fields.md).

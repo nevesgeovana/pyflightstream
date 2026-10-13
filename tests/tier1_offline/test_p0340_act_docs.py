@@ -9,8 +9,9 @@ run are in the rotating frame of the blade (R1); the disc's swirl is one
 global factor (R2); the ELLIPTICAL model placed 0.62 of the thrust asked in
 the wake (R3); a RELAXED disc ignored a custom profile and carried about half
 of the thrust (R4). Each statement is read on its page, in one paragraph with
-its fact and its citation of RPT-137, so a page that drops or changes the fact
-fails. The plan warns, and never refuses, on a RELAXED disc whose row names a
+its fact, so a page that drops or changes the fact fails. The unpublished
+requirement register binds those pages to RPT-137 under Docs Q5. The plan
+warns, and never refuses, on a RELAXED disc whose row names a
 profile (R5): the warning names the row, the disc and RPT-137, every point
 plans READY, and the plan written is the same bytes as without the warning;
 a RIGID disc naming a profile and a RELAXED disc loaded by its thrust are the
@@ -33,6 +34,7 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 from tests.tier1_offline.test_g06_actuator_disc import RECIPES, _profile_workspace
 
 REPO = Path(__file__).resolve().parents[2]
@@ -57,10 +59,21 @@ def _the_paragraph(page: Path, anchor: str) -> str:
 
 def _says(page: Path, anchor: str, *facts: str) -> None:
     paragraph = _the_paragraph(page, anchor)
-    for fact in (*facts, REPORT):
+    for fact in facts:
         assert fact in paragraph, (
             f"{page.name}: the paragraph saying {anchor!r} no longer says {fact!r}: {paragraph}"
         )
+    requirement = "FR-331" if anchor == "THE HAND." else "FR-332"
+    register = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
+    section = register.split(f'!!! requirement "{requirement} ', 1)[1].split(
+        '!!! requirement "', 1
+    )[0]
+    assert REPORT in section
+    if requirement == "FR-332":
+        assert page.relative_to(REPO).as_posix() in section
+    (report,) = (REPO / "reports").glob(f"{REPORT}_*.md")
+    assert REPORT in report.read_text(encoding="utf-8").splitlines()[0]
+    assert REPORT not in paragraph
 
 
 @pytest.mark.parametrize("page", [PROBES_PAGE, QSTEADY_PAGE], ids=["probes", "qsteady"])

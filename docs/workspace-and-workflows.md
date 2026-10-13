@@ -50,19 +50,19 @@ has one home, and every other page links to it.
 
 | Page | What it holds |
 |---|---|
-| [The run matrix, a campaign and its record] | what a run matrix is, how a point is named and redone, several matrices, what comes back |
-| [The input library and the solver presets] | the library the identifiers resolve against, the solver presets, renamed names |
-| [The reference artifact] | the lengths, the study's vocabulary |
-| [The steady workflow] | `steady`, and one sweep per row |
-| [The unsteady workflow] | `unsteady`, and the reductions of an unsteady point |
-| [The unsteady rotor workflow] | `unsteady_rotor`, rotor rows, several rotors, exports after a threshold |
-| [The quasi-steady rotor] | `qsteady_rotor` |
-| [One row, one actuator disc or one custom free stream] | the row keys that replace the uniform free stream |
-| [One row, one geometry, turned or moved] | `ROTATE` and `TRANSLATE` |
-| [Planning a campaign and what it costs] | what `plan` prints, the cost table |
-| [Builds, local runs and clusters] | the build as an input, where a point runs |
-| [Storage and sync], [Excel matrix synchronization] | the storage and sync commands |
-| [The post-processing artifact and its products], [extracting more from a finished point] | the post-processing side of a row |
+| [The run matrix, a campaign and its record](workflow-run-matrix.md) | what a run matrix is, how a point is named and redone, several matrices, what comes back |
+| [The input library and the solver presets](workflow-input-library.md) | the library the identifiers resolve against, the solver presets, renamed names |
+| [The reference artifact](workflow-reference-artifact.md) | the lengths, the study's vocabulary |
+| [The steady workflow](workflow-steady.md) | `steady`, and one sweep per row |
+| [The unsteady workflow](workflow-unsteady.md) | `unsteady`, and the reductions of an unsteady point |
+| [The unsteady rotor workflow](workflow-unsteady-rotor.md) | `unsteady_rotor`, rotor rows, several rotors, exports after a threshold |
+| [The quasi-steady rotor](workflow-qsteady-rotor.md) | `qsteady_rotor` |
+| [One row, one actuator disc or one custom free stream](workflow-row-flow-inputs.md) | the row keys that replace the uniform free stream |
+| [One row, one geometry, turned or moved](workflow-row-geometry-motion.md) | `ROTATE` and `TRANSLATE` |
+| [Planning a campaign and what it costs](workflow-plan-and-cost.md) | what `plan` prints, the cost table |
+| [Builds, local runs and clusters](workflow-builds-and-hpc.md) | the build as an input, where a point runs |
+| [Storage and sync](storage-and-sync.md), [Excel matrix synchronization](excel-matrices.md) | the storage and sync commands |
+| [The post-processing artifact and its products](pproc-artifact.md), [extracting more from a finished point](workflow-additional-post.md) | the post-processing side of a row |
 
 ## Writing no Python at all: the workflow
 
@@ -71,9 +71,9 @@ is the way out of that. Name a run type in the `WORKFLOW` column and the
 package builds the whole script itself, from the row and from what the
 row's identifiers resolved to.
 
-Four types ship today: [`steady`],
-[`unsteady`], [`unsteady_rotor`]
-and [`qsteady_rotor`].
+Four types ship today: [`steady`](workflow-steady.md),
+[`unsteady`](workflow-unsteady.md), [`unsteady_rotor`](workflow-unsteady-rotor.md)
+and [`qsteady_rotor`](workflow-qsteady-rotor.md).
 
 Each opens the row's `GEOMETRY` first when the row names one, and each
 initializes the solver under the row's `SYMMETRY`.
@@ -81,11 +81,11 @@ initializes the solver under the row's `SYMMETRY`.
 This is the matrix the suite runs for `steady`, `unsteady` and `unsteady_rotor`, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
-POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
+POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 | 1 | 1 | RotorRig | - | ROTOR_UNSTEADY | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | unsteady_rotor | RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / LAST_REVS_AVG: 0.25
-7002 | 1 | 1 | RotorRig | - | STEADY_REFERENCE | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | steady |
-7003 | 1 | 1 | RotorRig | - | UNSTEADY_NO_ROTOR | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | unsteady | DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480 / LAST_ITERS_AVG: 480
+7001 |    1   |  1  | RotorRig  | -             | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady_rotor | RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / LAST_REVS_AVG: 0.25
+7002 |    1   |  1  | RotorRig  | -             | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0        | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | steady         |
+7003 |    1   |  1  | RotorRig  | -             | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady       | DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480 / LAST_ITERS_AVG: 480
 ```
 
 **NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
@@ -100,39 +100,23 @@ this page rather than lifted from the suite, and shows each row's
 `VAR_NAMES_VALUES` tail with the rest elided:
 
 ```text
-7001... | unsteady_rotor | GEOMETRY: blade_sector.fsm / RPM: 1200 /...
-7002... | steady | GEOMETRY: blade_sector.fsm
+7001 ... | unsteady_rotor | GEOMETRY: blade_sector.fsm / RPM: 1200 / ...
+7002 ... | steady         | GEOMETRY: blade_sector.fsm
 ```
 
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
 sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`.
 
-## Where this example comes from
+## Worked examples
 
-Every artefact on these pages is lifted from the test suite rather than
-written for the page. The first matrix is
-`tests/tier1_offline/fixtures/matrix_registry.fs` byte for byte; the input library,
-the recipe and the call are those of
-`` in
-`tests/tier1_offline/.py`, and the four run identifiers of [the run matrix] are the
-ones that test asserts.
+The recipe example uses matrix_registry.fs; the workflow example uses
+workflow_rotor_matrix.fs. Their input files, calls and expected run identifiers
+are checked by the offline suite. The workflow matrix builds each row without
+a Python recipe.
 
-The workflow matrix is `tests/tier1_offline/fixtures/workflow_rotor_matrix.fs` byte
-for byte, and the test that runs it is
-`` in
-`tests/tier1_offline/.py`, which builds every row of it and asserts that
-no `module:function` reference appears anywhere in the call.
-
-That is the point of doing it this way. An example written for a page is
-true the day it is written and quietly false afterwards; an example
-lifted from an executed test fails CI when it stops being true.
-`tests/tier1_offline/.py` holds the two together, so this
-page cannot drift from the suite without the suite going red.
-
-The code blocks are not executed by the docs build, and are marked so.
-They need a temporary directory, a staged input library and a stub
-standing in for FlightStream, none of which belong in a documentation
-build. The guarantee is carried by the lift, not by the block.
+The code blocks are marked to skip execution during the docs build. They need
+a temporary directory, a staged input library and a stub standing in for
+FlightStream. The offline suite executes that setup and checks the outcomes.
 
 ## What does not exist yet
 

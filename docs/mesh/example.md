@@ -18,13 +18,13 @@ import numpy as np
 
 from pyflightstream.qa.geometry import WingSpec, wing_triangles
 
-spec = WingSpec
-corners = wing_triangles.reshape * 1000.0 # metres to millimetres
-vertices, faces = np.unique
-with open as obj:
- obj.write
- obj.writelines
- obj.writelines
+spec = WingSpec(naca="0012", chord_m=1.0, span_m=4.0, n_chord=12, n_span=8)
+corners = wing_triangles(spec).reshape(-1, 3) * 1000.0  # metres to millimetres
+vertices, faces = np.unique(corners.round(6), axis=0, return_inverse=True)
+with open("inputs/geometries/wing.obj", "w", encoding="utf-8") as obj:
+    obj.write("o wing_skin\n")
+    obj.writelines(f"v {x:.4f} {y:.4f} {z:.4f}\n" for x, y, z in vertices)
+    obj.writelines(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in faces.reshape(-1, 3))
 ```
 
 **The sidecar** names the surface as the file holds it, states the unit,
@@ -66,32 +66,32 @@ MILLIMETER
 the smallest that serve this wing:
 
 ```toml title="inputs/references/r001.toml"
-area_m2 = 4.0 # SREF, chord x span
-chord_m = 1.0 # CREF
-span_m = 4.0 # BREF
+area_m2 = 4.0      # SREF, chord x span
+chord_m = 1.0      # CREF
+span_m = 4.0       # BREF
 
 [moment_point]
-x_m = 0.25 # the quarter chord, in metres like every length here
+x_m = 0.25         # the quarter chord, in metres like every length here
 y_m = 0.0
 z_m = 0.0
 ```
 
 ```toml title="inputs/setups/s001.toml"
-NITER = 300 # SOLVER_SET_ITERATIONS
+NITER = 300        # SOLVER_SET_ITERATIONS
 ```
 
 ```toml title="inputs/pproc/p001.toml"
 [groups]
-"1" = "Wing" # the name the rename gave the surface
+"1" = "Wing"       # the name the rename gave the surface
 ```
 
 **The row** names the mesh, sweeps two angles and runs on 26.124, the build
 the file route was run on:
 
 ```text title="wing.fs"
-POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
+POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION                    | FLIGHT_CONDITION                | SWEEP_VALUES | GEOMETRY | REF  | SET  | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-1001 | 0 | 1 | Wing | - | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0 | wing.obj | r001 | s001 | p001 | NONE | - | - | - | 26.124 | steady |
+1001 |    0   |  1  | Wing     | -             | OBJ_wing_trailing_edge_by_file | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0,4.0      | wing.obj | r001 | s001 | p001  | NONE     | -              | -     | -        | 26.124   | steady   |
 ```
 
 With `inputs/executables.toml` naming your 26.124 installation, as for any

@@ -12,7 +12,7 @@ The pproc key `singularity_strength` decides whether the surface carries the
 strength. It is off by default:
 
 ```toml
-singularity_strength = true # a top-level key of the pproc artifact
+singularity_strength = true   # a top-level key of the pproc artifact
 ```
 
 Off, the point exports the VTK alone. Its `.dat` carries every VTK variable,
