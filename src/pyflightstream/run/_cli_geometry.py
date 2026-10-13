@@ -289,18 +289,22 @@ def _cmd_build(args: argparse.Namespace) -> int:
     status = 0
     for item in built:
         print(
-            f"built {item.folder.name}: {item.record.name}; open "
-            f"{item.record.name.replace('.build.json', '.preview.vtk')} in ParaView"
+            f"built {item.folder.name}: {item.record}; open "
+            f"{item.record.with_name(item.record.name.replace('.build.json', '.preview.vtk'))} "
+            "in ParaView"
         )
         for note in item.notes:
             print(f"  {note}")
         if not item.passed:
-            print(f"  the audit failed: {', '.join(item.failed_gates)}", file=sys.stderr)
+            print(
+                f"  the audit failed: {', '.join(item.failed_gates)}; nothing was promoted; "
+                f"built outputs are kept in {item.folder}",
+                file=sys.stderr,
+            )
             status = 1
-    print(
-        "accept after inspection: pyfs-workspace geometry accept "
-        + ",".join(item.folder.name for item in built)
-    )
+    accepted = [item.folder.name for item in built if item.passed]
+    if accepted:
+        print("accept after inspection: pyfs-workspace geometry accept " + ",".join(accepted))
     return status
 
 
