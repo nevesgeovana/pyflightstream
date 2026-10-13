@@ -1,11 +1,12 @@
 """The ``pyfs-workspace`` command line.
 
-Every subcommand but ``archive`` accepts ``--workspace PATH`` (0.40.0,
+Every subcommand accepts ``--workspace PATH`` (0.40.0,
 PFS-2089.004), defaulting to the current directory. For example,
 ``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
 ``init`` and ``migrate-geometries`` still take the positional root, and naming
-two different folders is refused; ``archive ROOT SIM_ID`` keeps its positional
-root, the form 0.33.1 pinned.
+two different folders is refused. ``archive SIM_ID --workspace ROOT`` names
+the campaign the same way; ``archive ROOT SIM_ID`` still works and warns that
+the positional root is deprecated.
 
 Pipeline role: drives the managed campaign workspace from a terminal.
 ``pyfs-workspace init <root>`` creates the full campaign tree (the
@@ -14,7 +15,7 @@ input-artifact library skeleton under ``inputs/``, ``sims/``,
 the managed layout instead of hand-built folders; identity stays in
 the manifest, never in names (SAD Section 6).
 
-``pyfs-workspace archive <root> <sim_id>`` zips one manifest-recorded
+``pyfs-workspace archive <sim_id> --workspace <root>`` zips one manifest-recorded
 simulation under ``archive/`` and removes its folder, through
 :meth:`CampaignWorkspace.archive_sim`. It exists because two refusals
 already told the user to run it (OPS-2009.01.10): the collection
@@ -84,6 +85,7 @@ from typing import Any
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._console import command_help
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._progress import command_console, say_summary
 from pyflightstream.workspace import (
     INPUT_KINDS,
@@ -177,7 +179,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "do not archive a simulation whose run is still going."
         ),
     )
-    archive.add_argument("root", help="campaign root carrying runs.json and sims/")
+    archive.add_argument(
+        "root",
+        nargs="?",
+        help="deprecated positional alias of --workspace; still accepted with a warning",
+    )
     archive.add_argument(
         "sim_id",
         help="the simulation to archive, as the manifest records it (the folder is "
@@ -203,9 +209,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="campaign root carrying inputs/geometries/ (default: the current directory)",
     )
     # THE CAMPAIGN IS NAMED AS EVERY OTHER SUBCOMMAND NAMES IT (PFS-2089.004): --workspace,
-    # beside the positional root these two always took. archive keeps its required
-    # positional root, the 0.33.1 surface tests/fixtures/cli_actions_0331.json pins.
-    for command in (init, migrate):
+    # beside the positional roots retained for compatibility.
+    for command in (init, migrate, archive):
         command.add_argument(
             "--workspace",
             help="campaign workspace (default: the current directory); the positional "
@@ -800,7 +805,7 @@ def _campaign_root(args: argparse.Namespace) -> str:
     after the command's titled block, as every refusal is.
     """
     named = getattr(args, "workspace", None)
-    root = str(getattr(args, "root", "."))
+    root = str(getattr(args, "root", None) or ".")
     if named is None:
         return root
     if root not in (".", named):
@@ -836,8 +841,16 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 def _cmd_archive(args: argparse.Namespace) -> int:
     """Archive one recorded simulation; the refusals are ``archive_sim``'s own."""
-    workspace = CampaignWorkspace(args.root)
     try:
+        workspace = CampaignWorkspace(_campaign_root(args))
+        if args.root is not None:
+            warn(
+                "archive's positional root is deprecated since 0.40.0; it is an alias of "
+                "--workspace, which gives the identical result: write "
+                f"pyfs-workspace archive {args.sim_id} --workspace {args.root}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         bundle = workspace.archive_sim(args.sim_id)
     except (OSError, WorkspaceError) as error:
         print(str(error), file=sys.stderr)
