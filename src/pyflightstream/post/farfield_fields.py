@@ -48,10 +48,12 @@ from pyflightstream.farfield import (
     plane_lift,
     plane_vorticity_drag,
     rotor_channels,
+    sample_coverage,
     shaft_torque,
     spurious_diagnostic,
     symmetry_floor,
     transverse_flux,
+    transverse_force,
 )
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
@@ -884,15 +886,16 @@ def ledger_values(
     stations = [float(x) for x in fields.stations]
 
     flux = axial_flux(fields, rho, speed)
-    fy = transverse_flux(fields, rho, component="v")
-    fz = transverse_flux(fields, rho, component="w")
     fy_h = transverse_flux(fields, rho, component="v", method="harmonic")
     fz_h = transverse_flux(fields, rho, component="w", method="harmonic")
     energy = crossflow_kinetic_energy(fields, rho)
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
     floor = symmetry_floor(fields["u"], fields.psi, m_max=spec.m_max)
-    coverage = np.isfinite(fields["u"]).mean(axis=(-2, -1))
+    # The public balance and coverage functions are what the ledger runs
+    # (PFS-2139.008): the plane term of transverse_force is T(x) - T(x_in),
+    # and sample_coverage is the finite fraction of each station's samples.
+    coverage = sample_coverage(fields["u"])
     far = float(flux[-1] - flux[0])
     spurious = spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
     rows = []
@@ -916,8 +919,12 @@ def ledger_values(
             if "axial" in chosen:
                 row["FX_N"] = float(flux[index] - flux[0])
             if "transverse" in chosen:
-                row["FY_PLANE_N"] = float(fy[index] - fy[0])
-                row["FZ_PLANE_N"] = float(fz[index] - fz[0])
+                row["FY_PLANE_N"] = transverse_force(
+                    fields, rho, inlet=stations[0], outlet=station, component="v"
+                ).plane_term
+                row["FZ_PLANE_N"] = transverse_force(
+                    fields, rho, inlet=stations[0], outlet=station, component="w"
+                ).plane_term
                 row["FY_PLANE_HARMONIC_N"] = float(fy_h[index] - fy_h[0])
                 row["FZ_PLANE_HARMONIC_N"] = float(fz_h[index] - fz_h[0])
         rows.append(row)

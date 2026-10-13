@@ -128,8 +128,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # classified by the pattern of its siblings; probes_from_file left on the integration fix
 # and the three off-body streamline names (RX-16) left on the release, all now reached.
 # The owner confirms the growth over the release's 312.
-_REGISTER_CEILING = 288
-_REGISTER_DIGEST = "f423979639508662b15ffa38e28c31b22b6a01fdba39a747a774c62a706b1165"
+# 285: the far-field ledgers run transverse_force and sample_coverage (RX-01, RX-02 deleted).
+_REGISTER_CEILING = 285
+_REGISTER_DIGEST = "0238f66bdeb78ee7b81bdbce7483c6375c9092fd91ad2f66455dbbc2291cd5a2"
 
 REASONS = (
     "routed later",

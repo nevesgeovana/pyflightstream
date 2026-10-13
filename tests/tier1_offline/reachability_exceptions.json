@@ -10,27 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-01",
-   "capability": "Far-field conservation ledgers (mass, axial and transverse momentum, shaft torque, in-plane moment, crossflow kinetic energy)",
-   "reason": "routed later",
-   "node": "PFS-2139.008",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.farfield.TransverseForce",
-    "pyflightstream.farfield.transverse_force"
-   ]
-  },
-  {
-   "id": "RX-02",
-   "capability": "Far-field lattice dataset, annular quadrature, azimuthal harmonics and the spurious-drag diagnostic, selected by a [farfield] table of the pproc",
-   "reason": "routed later",
-   "node": "PFS-2139.005",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.farfield.sample_coverage"
-   ]
-  },
-  {
    "id": "RX-04",
    "capability": "Cylindrical survey lattice of probe points and its emission, and the lattice dataset point writer",
    "reason": "routed later",
