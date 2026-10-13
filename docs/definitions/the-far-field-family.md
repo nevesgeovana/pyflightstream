@@ -362,8 +362,9 @@ in-plane moment are also written from the harmonics (Parseval, every order the
 grid carries); the two paths are independent and their difference is a check.
 The lateral term `D_lat` is the momentum and pressure flux through the lateral
 cylinder, from the lateral rings where the lattice has them. The plane term and
-`D_lat` are written apart (`FZ_PLANE_N`, `FZ_LATERAL_N`), the plane term by
-`pyflightstream.farfield.transverse_force`.
+`D_lat` are written apart (`FZ_PLANE_N`, `FZ_LATERAL_N`), `D_lat` as the
+lateral term of `pyflightstream.farfield.transverse_force`, which never folds it
+into the plane term.
 
 **Diagnostics, written and not judged.**
 

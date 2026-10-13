@@ -886,15 +886,18 @@ def ledger_values(
     stations = [float(x) for x in fields.stations]
 
     flux = axial_flux(fields, rho, speed)
+    # THE TWO INDEPENDENT PATHS OF THE TRANSVERSE FLUX (DLV-006 Sec. 3.3), each
+    # run here and each written: the quadrature for FY_PLANE_N and FZ_PLANE_N,
+    # the harmonics for their _HARMONIC_ twins.
+    fy = transverse_flux(fields, rho, component="v")
+    fz = transverse_flux(fields, rho, component="w")
     fy_h = transverse_flux(fields, rho, component="v", method="harmonic")
     fz_h = transverse_flux(fields, rho, component="w", method="harmonic")
     energy = crossflow_kinetic_energy(fields, rho)
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
     floor = symmetry_floor(fields["u"], fields.psi, m_max=spec.m_max)
-    # The public balance and coverage functions are what the ledger runs
-    # (PFS-2139.008): the plane term of transverse_force is T(x) - T(x_in),
-    # and sample_coverage is the finite fraction of each station's samples.
+    # sample_coverage is the finite fraction of each station's samples (PFS-2139.008).
     coverage = sample_coverage(fields["u"])
     far = float(flux[-1] - flux[0])
     spurious = spurious_diagnostic(near[0], far, rho_inf=rho, v_inf=speed, s_ref=near[1])
@@ -919,12 +922,8 @@ def ledger_values(
             if "axial" in chosen:
                 row["FX_N"] = float(flux[index] - flux[0])
             if "transverse" in chosen:
-                row["FY_PLANE_N"] = transverse_force(
-                    fields, rho, inlet=stations[0], outlet=station, component="v"
-                ).plane_term
-                row["FZ_PLANE_N"] = transverse_force(
-                    fields, rho, inlet=stations[0], outlet=station, component="w"
-                ).plane_term
+                row["FY_PLANE_N"] = float(fy[index] - fy[0])
+                row["FZ_PLANE_N"] = float(fz[index] - fz[0])
                 row["FY_PLANE_HARMONIC_N"] = float(fy_h[index] - fy_h[0])
                 row["FZ_PLANE_HARMONIC_N"] = float(fz_h[index] - fz_h[0])
         rows.append(row)
@@ -935,8 +934,14 @@ def _control_volume(fields: LatticeFields, chosen: set, rho: float, speed: float
     inlet = float(fields.stations[0])
     out: dict[str, float] = {}
     if "transverse" in chosen:
-        out["FY_LATERAL_N"] = _lateral(fields, rho, inlet, outlet, "v")
-        out["FZ_LATERAL_N"] = _lateral(fields, rho, inlet, outlet, "w")
+        # THE CONTROL VOLUME IS transverse_force's RECORD (PFS-2139.008): the
+        # lateral term it reports separately, never folded into the plane term,
+        # is the column; its plane term equals FY_PLANE_N and FZ_PLANE_N.
+        for column, component in (("FY_LATERAL_N", "v"), ("FZ_LATERAL_N", "w")):
+            lateral = _lateral(fields, rho, inlet, outlet, component)
+            out[column] = transverse_force(
+                fields, rho, inlet=inlet, outlet=outlet, component=component, lateral_flux=lateral
+            ).lateral_term
     if "in_plane_moment" in chosen:
         out.update(_moments(fields, rho, speed, outlet))
     return out

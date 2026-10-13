@@ -80,7 +80,8 @@ def _sheared_fields():
 def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monkeypatch):
     """P0400-REACH2 (PFS-2139.008): the ledger runs transverse_force and sample_coverage.
 
-    FY and FZ are transverse_force's plane term and COVERAGE is
+    The lateral columns are transverse_force's lateral term, the plane columns
+    the quadrature flux difference (its plane term), and COVERAGE is
     sample_coverage, each value the one the ledger wrote before.
     """
     spec, fields = _sheared_fields()
@@ -100,6 +101,15 @@ def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monke
                 [row["FY_PLANE_N"], row["FZ_PLANE_N"]],
                 [float(fy[index] - fy[0]), float(fz[index] - fz[0])],
             )
+            inlet, station = float(fields.stations[0]), float(fields.stations[index])
+            np.testing.assert_array_equal(
+                [row["FY_LATERAL_N"], row["FZ_LATERAL_N"]],
+                [
+                    farfield_fields._lateral(fields, 1.2, inlet, station, "v"),
+                    farfield_fields._lateral(fields, 1.2, inlet, station, "w"),
+                ],
+            )
+    assert all("lateral_flux" in kwargs for _, kwargs in forces)
     assert any(np.isfinite(row.get("FZ_PLANE_N", np.nan)) for row in rows[1:])
 
 
