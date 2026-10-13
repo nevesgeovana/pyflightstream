@@ -2217,7 +2217,13 @@ add no rule of their own beyond the seams named in each.
 ### The far-field family and the probes home
 
 `pyflightstream.farfield` is a facade over a numpy core with no input or output
-(FR-450 to FR-453, FR-457, FR-458). The modules, from the floor up:
+(FR-450 to FR-453, FR-457, FR-458). The solver sign, unit and frame adaptation
+is owned by post: solver metadata, exported signs and units, and solver-frame
+components are interpreted before the numerical core receives its arrays.
+The pure vector transforms `cylindrical_components` and `hub_frame_velocities`
+remain in `farfield.fields`; they project components or add the frame velocity
+with explicit axes and angular velocity, without interpreting solver files or conventions
+(FR-450 R3). The modules, from the floor up:
 
 - `farfield/fields.py` holds the sampled fields of a survey (`LatticeFields`,
   `PlaneFields`) and `FarfieldInputError`. It imports `_errors` and, under
