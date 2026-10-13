@@ -1068,6 +1068,39 @@ def _refuse_a_retired_spelling(data: Mapping[str, Any], path: Path) -> None:
             )
 
 
+def _lifted_table(path: Path, table: str, value: Any) -> Any:
+    """Return a reference artifact's ``[aliases]`` or ``[[frames]]`` value, refusing a wrong shape.
+
+    PFS-2095.058: a ``[frames]`` table (single brackets) or a list of aliases
+    crashed with AttributeError or ValueError. Refused here in the words
+    :func:`resolve_setup` uses for the same mistakes in a preset.
+    """
+    if table == FRAMES_TABLE and (
+        not isinstance(value, list) or not all(isinstance(entry, dict) for entry in value)
+    ):
+        raise InputArtifactError(
+            f"the reference artifact {path} states [{FRAMES_TABLE}] as {value!r}, "
+            f"and the table is a list of records: write [[{FRAMES_TABLE}]] once per frame "
+            "with name, origin and optionally x_axis and y_axis.",
+            kind="reference",
+        )
+    if table == ALIASES_TABLE and (
+        not isinstance(value, dict) or not all(isinstance(v, list) for v in value.values())
+    ):
+        bad = (
+            sorted(k for k, v in value.items() if not isinstance(v, list))
+            if isinstance(value, dict)
+            else [repr(value)]
+        )
+        raise InputArtifactError(
+            f"the reference artifact {path} states [{ALIASES_TABLE}] with "
+            f"{', '.join(bad)} not a list: an alias is a name and the list of boundary names "
+            f'or families it stands for, as lifters = ["LiftBlade", "Hub1"].',
+            kind="reference",
+        )
+    return value
+
+
 def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     """Sort a reference file's top-level tables into the model's fields (FR-59, FR-60, FR-72).
 
@@ -1092,8 +1125,8 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     """
     _refuse_a_retired_spelling(data, path)
     rest = dict(data)
-    aliases = dict(rest.pop(ALIASES_TABLE, {}) or {})
-    frames = rest.pop(FRAMES_TABLE, []) or []
+    aliases = dict(_lifted_table(path, ALIASES_TABLE, rest.pop(ALIASES_TABLE, {})))
+    frames = _lifted_table(path, FRAMES_TABLE, rest.pop(FRAMES_TABLE, []))
     rotors: dict[str, Any] = {}
     points: dict[str, Any] = {}
     actuators: dict[str, Any] = {}
