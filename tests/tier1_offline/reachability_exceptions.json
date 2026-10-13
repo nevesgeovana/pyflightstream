@@ -17,7 +17,6 @@
    "release": "0.40.0",
    "names": [
     "pyflightstream.post.write_tecplot_points",
-    "pyflightstream.probes.emit_probe_export",
     "pyflightstream.probes.emit_probe_points",
     "pyflightstream.probes.write_points_csv",
     "pyflightstream.probes.write_probe_csv"
@@ -48,16 +47,6 @@
     "pyflightstream.exceptions.SurfaceMeshExportError",
     "pyflightstream.probes.geometry.apply_geometry_gate",
     "pyflightstream.run.export_surface_mesh"
-   ]
-  },
-  {
-   "id": "RX-07",
-   "capability": "Script probe helpers the pproc probe route reimplements (line, file and export helpers)",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.script.helpers.export_probes"
    ]
   },
   {

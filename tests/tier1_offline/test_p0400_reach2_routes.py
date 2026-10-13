@@ -13,9 +13,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import pyflightstream.cases.workflows._exports as exports_module
 import pyflightstream.post.farfield_fields as farfield_fields
 from pyflightstream.cases._farfield_spec import LedgersSpec
 from pyflightstream.farfield import sample_coverage, transverse_flux, transverse_force
+from pyflightstream.probes.layouts import emit_probe_export
 from pyflightstream.script import helpers
 from tests.tier1_offline.test_p0400_cases_workflows_probes import _rendered, _steady_with
 
@@ -116,3 +118,23 @@ def test_p0400_reach2_a_steady_row_creates_its_probes_through_the_script_helpers
         "NEW_PROBE_POINT VOLUME 2.0 0.5 -0.25",
         "NEW_PROBE_POINT VOLUME 2.0 0.5 0.25",
     ]
+
+
+@pytest.mark.requirement("FR-81")
+def test_p0400_reach2_a_steady_row_exports_its_probes_through_the_probes_home(
+    tmp_path, monkeypatch
+):
+    """P0400-REACH2 (PFS-2140.001): the probe export goes through probes.emit_probe_export.
+
+    One ``UPDATE_PROBE_POINTS`` with the other updates, then the export to the
+    row's probes file, as before; the export register names the entry point.
+    """
+    exports_called = _spy(monkeypatch, exports_module, "emit_probe_export", emit_probe_export)
+    helper_called = _spy(monkeypatch, helpers, "export_probes", helpers.export_probes)
+    lines, script = _rendered(_steady_with(tmp_path, _STEADY_ENTRY))
+    assert len(exports_called) == 1 and len(helper_called) == 1, _REQUIREMENT
+    update = lines.index("UPDATE_PROBE_POINTS")
+    export = lines.index("EXPORT_PROBE_POINTS")
+    assert lines[export + 1] == "point_probes.txt" and lines.count("EXPORT_PROBE_POINTS") == 1
+    assert update < export and lines.count("UPDATE_PROBE_POINTS") == 1
+    assert script._exported_paths["point_probes.txt"] == "emit_probe_export"

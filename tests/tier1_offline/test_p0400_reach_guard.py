@@ -130,8 +130,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # The owner confirms the growth over the release's 312.
 # 285: the far-field ledgers run transverse_force and sample_coverage (RX-01, RX-02 deleted).
 # 283: a steady row creates its probe lines and points through script.helpers (RX-07).
-_REGISTER_CEILING = 283
-_REGISTER_DIGEST = "fe0b87f5e81556b92acc42172fe20594a5f8a5b1db9a9e5cc25f9e9c06574ae7"
+# 281: the probe export goes through probes.emit_probe_export (RX-07 deleted, RX-04 shrinks).
+_REGISTER_CEILING = 281
+_REGISTER_DIGEST = "894c4065ed8f4339722e4de06a7657e589df82dbe77251ae7da6d6b312877227"
 
 REASONS = (
     "routed later",
