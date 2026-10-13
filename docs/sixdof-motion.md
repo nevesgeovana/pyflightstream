@@ -76,8 +76,10 @@ mirrored half model.
 After the frames and before the solver is initialised, the script creates one
 6DOF motion of the families about the body frame, states the mass and inertia,
 gravity, the initial velocities, the six freedoms (in the order U V W P Q R),
-each force in the order written, the symmetry loads, and the trajectory export
-to `<point>_trajectory_6dof.txt`, which joins the row's outputs. The initial
+each force in the order written, and the symmetry loads. The trajectory is
+exported to `<point>_trajectory_6dof.txt`, which joins the row's outputs, after
+the march with the row's other exports: exported before the march the file holds
+its header and no row (FR-461 R6). The initial
 angular velocity is written in radians per second, the unit measured for the
 solver's other angular velocity.
 
@@ -102,6 +104,10 @@ digest and its parsed content) and any custom force file, hashed.
 
 ## What is not here yet
 
-The trajectory file is kept as the solver writes it; a package table of the
+The trajectory file is kept as the solver writes it, and the package does not
+convert it: its columns are in the solver's units, which the probes did not
+settle (a gravity run reads a column of -981 to -950, and a roll-rate run reads
+neither 4 degrees nor 229 radians cleanly; RPT-166, probe P4). Read the columns
+against your own known case before relying on a unit. A package table of the
 trajectory waits for its grammar to be read from a licensed run. A prescribed
 motion read from a table (the solver's CUSTOM motion) is a later capability.

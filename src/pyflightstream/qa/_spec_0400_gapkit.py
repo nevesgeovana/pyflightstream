@@ -887,6 +887,20 @@ def _trajectory_then_march(symmetry: str = "NONE") -> Build:
     return _seq(_trajectory_export, _march(symmetry=symmetry))
 
 
+def _before_the_march_trajectory(script: Script, workdir: Path) -> None:
+    """Write the trajectory export before the march, a placement the phase order refuses.
+
+    The database phase of the command is export since 0.40.0 (RPT-166 P4-04), so
+    the placement the first batch measured, which held the header and no row, is
+    appended unvalidated, as :func:`_after_the_march_trajectory` was while the
+    recorded phase was setup. The script is flagged raw.
+    """
+    scratch = Script(script.version, registry=script.registry)
+    scratch.declare_existing(motions=script.num_motions)
+    scratch.emit("EXPORT_6DOF_TRAJECTORY", 1, workdir / _TRAJECTORY)
+    script.raw(scratch.render())
+
+
 def _after_the_march_trajectory(script: Script, workdir: Path) -> None:
     """Write the trajectory export after the march, a placement the phase order refuses.
 

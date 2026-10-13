@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.82.0 |
+| Version | 1.83.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -104,6 +104,7 @@ is still pending.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.83.0 | 2026-10-12 | FR-461 amended by R6 (RPT-166 probe P4-04): `EXPORT_6DOF_TRAJECTORY` is emitted after the march, with the row's other exports, where R2 emitted it with the motion in the setup phase and the file held its header and no row on 26.124 and 26.125; R2 no longer lists it. Implemented with P0400-6DOFEXPORT. |
 | 1.82.0 | 2026-10-12 | FR-101 amended: a rotor row on 26.100 is refused at plan time by name until a rotation null probe measures the unit of that build's angular velocity, where it was written in rev/min as a maintainer decision (RPT-051); the refusal shipped in 0.40.0 (PFS-2088.010). |
 | 1.81.0 | 2026-10-12 | FR-176 amended by R1 (PFS-2113.031): the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` joins `M_tip` and `M_hel` in the plan, the run record and the rotor table, and the plan warns on `M_adv >= 1`; `M_hel` is unchanged; implemented with P0400-MADV. |
 | 1.80.0 | 2026-10-12 | The geometry stage completes the accepted design: FR-471 gains R10 (a rebuilt mesh's sidecar carries over the operations and tables the run reads), FR-472 gains R5 to R7 (`--rows`, `--parallel` and the overlaid sweep preview) and FR-473 gains R5 (the warning on a mirrored row whose body carries a deflected control surface). No other requirement changes. |
