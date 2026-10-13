@@ -269,7 +269,9 @@ percent. Two differences from the tests' picture:
   both builds with its loads present ("a collected solver log holds another
   number of solves than this point solved"): the solve-count check of the
   release head refuses every point after the first of a sweep. A release
-  regression, not a CCS one.
+  regression, not a CCS one. After its fix (a0be2112, merged with cd8d3647)
+  rows 9101 and 9102 were run again in a fresh workspace: all four points
+  CONVERGED, with the same loads (CL 0.2840 and 0.2838 at alpha 4).
 - `pyfs-matrix run` warns that building a .csv geometry inside the run is a
   route the geometry stage replaces and 0.41.0 refuses; the campaign used it
   because the CCS rows of the lanes' tests do.
@@ -282,5 +284,11 @@ full symmetry) was measured and its 26.125 reference seeded from that report
 through `pyfs-qa update-reference` (CL full 0.3385, CL half 0.3404, delta CL
 0.0019, delta CDp 0.0001). PHY-01 and PHY-06 aborted on the same solve-count
 check as section 8; PHY-05 (the rotor) was not planned, the workspace refusing
-its blade alias ("the geometry lacks boundary 'Blade1'"). Their references wait
-for those two regressions.
+its blade alias ("the geometry lacks boundary 'Blade1'").
+
+After both fixes (3fbdb589, a0be2112) the matrix ran again with all five rows
+active and wrote `reports/physics/PHY-26125_2026-10-12_all-cases.yaml`: 11
+points converged, PHY-02 passes its four metrics against its reference, and
+PHY-01 (CL 0.3385 at 4 deg, slope 4.807 per rad), PHY-05 (the rotor) and PHY-06
+(steady against unsteady, |delta CL| at most 0.0031) were seeded from it through
+`pyfs-qa update-reference`. Every 26.125 physics case now has a reference.
