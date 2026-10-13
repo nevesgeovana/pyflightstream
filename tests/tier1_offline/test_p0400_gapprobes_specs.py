@@ -206,15 +206,17 @@ def test_every_gap_command_has_its_registered_probe(probes):
 def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
     """P0400-GAPPROBES-BUILDS: validated emission on 26.124 and 26.125, the target after BEGIN.
 
-    Raw text is the after-the-march trajectory export, by design: it measures a
-    placement the phase order refuses (P4-04m, its target), and since the second
+    Raw text is the BEFORE-the-march trajectory export of P4-04 since 0.40.0 (the
+    database phase is export, RPT-166), and the after-the-march export of the other
+    P4 trajectory runs, by design: each measures a placement the phase order
+    refuses. Since the second
     round it is the instrument of every P4 trajectory run (the ``m`` runs, P4-06s
     and P4-11), because the export before the march holds no row (P4-04). The
     raw targets besides are the two streamtube forms (P3-01a, P3-01b). None of
     them is registered: the registered P4 probes read the saved simulation.
     """
     fsm = _source(tmp_path)
-    raw_ids = {"P4-04m", "P4-06s", "P4-11", "P3-01a", "P3-01b"}
+    raw_ids = {"P4-04", "P4-06s", "P4-11", "P3-01a", "P3-01b"}
     view = CommandRegistry.load().for_version(build)
     for probe in probes:
         workdir = tmp_path / build / probe.probe_id
@@ -227,7 +229,7 @@ def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
             continue
         script = generate_probe_script(probe.spec, build, workdir, fsm=fsm)
         expected = probe.probe_id in raw_ids or (
-            probe.capability == "P4" and probe.probe_id.endswith("m")
+            probe.capability == "P4" and probe.probe_id.endswith("m") and probe.probe_id != "P4-04m"
         )
         assert script.raw_flag is expected, probe.probe_id
         assert not (script.raw_flag and probe.primary), probe.probe_id
@@ -235,8 +237,9 @@ def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
         marker = f"PYFS_PROBE_BEGIN_{probe.spec.command}"
         assert marker in text, probe.probe_id
         assert probe.spec.command in text.split(marker, 1)[1], probe.probe_id
-    raw = [p for p in probes if p.probe_id == "P4-04m"][0]
-    assert not raw.primary
+    registered = [p for p in probes if p.probe_id == "P4-04m"][0]
+    assert registered.primary
+    assert not [p for p in probes if p.probe_id == "P4-04"][0].primary
 
 
 def test_the_iges_file_holds_two_sheets_in_the_fixed_layout():
