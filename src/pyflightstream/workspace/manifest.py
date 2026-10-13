@@ -34,6 +34,7 @@ from pydantic import (
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import BoundaryAliases, RawCommand
+from pyflightstream.cases.restart_records import ExportThresholdRecord, StoppedStepRecord
 from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
 from pyflightstream.script import MarchStrategy
 from pyflightstream.script._surface_averaging import SurfaceAverageWindow, SurfaceAveragingWindow
@@ -418,14 +419,16 @@ class RunRecord(BaseModel):
         run rather than asserted (PFS-2012.04); None on a point where
         no solver ran, and on every row written before 0.13.0. Adding
         it did not move :data:`MANIFEST_SCHEMA`.
-    export_window : dict or None
+    export_window : ExportThresholdRecord or None
         The export threshold the row states for its unsteady exports
         (PFS-2031.18), as resolved for this run: ``stated_form``
         (``revolutions`` or ``iterations``, the key the row wrote),
         ``stated_value``, ``first_step`` (the first time step whose
-        export runs) and ``time_iterations``. None for a row that states
-        neither key, and for a row that predates the field. Adding it
-        did not move :data:`MANIFEST_SCHEMA`.
+        export runs) and the local ``time_iterations``. ``step_offset`` is
+        the absolute step where this march begins. A count-only march carries
+        the clock and offset without threshold fields. None when no counter
+        is staged, or for older records. This is distinct from the public
+        averaging ExportWindow; the persisted key remains compatible.
     solver_setup : dict, optional
         Serialized solver-setup snapshot
         (:class:`pyflightstream.script.solver_setup.SolverSetup`) of
@@ -638,7 +641,7 @@ class RunRecord(BaseModel):
     #: it. The program that stops the run is the only thing that knows, so
     #: it writes the number down before the solver goes away; without it
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
-    stopped_at: dict | None = None
+    stopped_at: StoppedStepRecord | None = None
     #: The ``run_id`` of the run this record CONTINUES (0.24.0); None on a run
     #: that continues nothing and on every record written before 0.24.0.
     #:
@@ -836,7 +839,7 @@ class RunRecord(BaseModel):
     #: always; ``step_deg``, the azimuth per step in degrees, on the rotor
     #: run type alone, absent on a rotorless row. A record written before
     #: carries neither, and the series tables leave the time blank for it.
-    export_window: dict[str, float | int | str] | None = None
+    export_window: ExportThresholdRecord | None = None
     #: Solver surface averaging as emitted, never re-derived from an edited pproc.
     #: Only a record written before 0.28.0 carries one; none has since.
     surface_time_averaging: SurfaceAveragingWindow | None = None

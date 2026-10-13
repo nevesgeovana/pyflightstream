@@ -65,8 +65,10 @@ from pyflightstream.cases import (
 from pyflightstream.cases import point_name as point_name
 from pyflightstream.cases.matrix import (
     MatrixError,
+    MatrixRow,
     read_matrix,
     refuse_silent_rows_without_default,
+    to_campaign,
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
@@ -110,7 +112,7 @@ from pyflightstream.run._matrix_warnings import (
     _warn_when_the_points_may_not_fit,
 )
 from pyflightstream.script import Script
-from pyflightstream.versions import resolve
+from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import (
     ADDITIONAL_DIR,
     ARCHIVE_DIR,
@@ -260,7 +262,11 @@ def _default_version(
     return default_fs_version
 
 
-def _refuse_a_run_that_names_no_build(path: str | Path, default: str | None) -> None:
+def _refuse_a_run_that_names_no_build(
+    path: str | Path,
+    default: str | None,
+    rows: list[MatrixRow] | None = None,
+) -> None:
     """Refuse, before anything is bound, a run with no build named anywhere.
 
     Both entry points call this BETWEEN resolving the default and calling
@@ -277,7 +283,47 @@ def _refuse_a_run_that_names_no_build(path: str | Path, default: str | None) -> 
     the same call, so a caller that converts a matrix without planning it
     meets the same refusal.
     """
-    refuse_silent_rows_without_default(read_matrix(path), default, path)
+    refuse_silent_rows_without_default(read_matrix(path) if rows is None else rows, default, path)
+
+
+def _selected_rows(
+    path: str | Path,
+    workspace: CampaignWorkspace,
+    name: str,
+    recipes: Mapping[str, str],
+    sims: Sequence[str] | None,
+    points: Sequence[str] | None,
+) -> list[MatrixRow] | None:
+    """Select rows before resolving builds or input artifacts.
+
+    The scratch campaign's nominal registered version only validates its data
+    model; it selects no executable and emits no script. Actual builds are
+    resolved after filtering. It reuses the point-name and alias rules.
+    """
+    if not sims and not points:
+        return None
+    rows = read_matrix(path)
+    if sims:
+        missing = set(sims) - {row.pol for row in rows}
+        if missing:
+            raise MatrixError(
+                f"sims names {', '.join(sorted(missing))}, which this matrix does not carry"
+            )
+        rows = [row for row in rows if row.pol in sims]
+    campaign = to_campaign(
+        path,
+        name=name,
+        fs_version=known_versions()[0].canonical,
+        fs_exe="",
+        recipes=recipes,
+        require_outputs=False,
+        defer_raw_files=True,
+        rows=rows,
+    )
+    scratch = ResolvedMatrix(campaign=campaign, row_builds=tuple(row.fs_build for row in rows))
+    selected = narrow_to_selection(scratch, sims, points, workspace)
+    kept = {case.sim_id for case in selected.campaign.sims}
+    return [row for row in rows if row.pol in kept]
 
 
 def _bind_row_builds(
@@ -537,7 +583,8 @@ def plan_matrix(
     >>> print(plan.summary())               # doctest: +SKIP
     """
     default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
-    _refuse_a_run_that_names_no_build(path, default)
+    selected_rows = _selected_rows(path, workspace, name, recipes, sims, points)
+    _refuse_a_run_that_names_no_build(path, default, selected_rows)
     resolved = resolve_matrix(
         path,
         workspace,
@@ -546,6 +593,7 @@ def plan_matrix(
         recipes=recipes,
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
+        rows=selected_rows,
     )
     planned_order = whole_sweeps(resolved)
     resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
@@ -693,8 +741,9 @@ def _campaign_executor(
         # (hidden=None); an explicit True or False still wins, because a
         # caller who names it means it.
         if hidden is None:
-            rows = read_matrix(path)
-            hidden = all(row.hidden for row in rows) if rows else True
+            hidden = all(
+                case.variables.get("matrix_hidden", True) for case in resolved.campaign.sims
+            )
         # FR-99: THE CODE SEES LINUX AND THAT
         # IS THE CLUSTER. No cell selects it, so the same matrix, unchanged
         # in every cell, runs locally on Windows and submits on Linux.
@@ -1074,7 +1123,8 @@ def run_matrix(
     ... )
     """
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
-    _refuse_a_run_that_names_no_build(path, default)
+    selected_rows = _selected_rows(path, workspace, name, recipes, sims, points)
+    _refuse_a_run_that_names_no_build(path, default, selected_rows)
     resolved = resolve_matrix(
         path,
         workspace,
@@ -1083,6 +1133,7 @@ def run_matrix(
         recipes=recipes,
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
+        rows=selected_rows,
     )
     resolved = narrow_to_selection(resolved, sims, points, workspace, redoing=force_rerun_all)
     if force_rerun_all:

@@ -205,9 +205,4 @@ def _emit_force(
 
 def _stage(case: SimCase, script: Script, name: str, content: str | bytes) -> None:
     """Stage one point input beside the script, refusing a collision of names."""
-    existing = script.pending_input_files.get(name)
-    if existing is not None and existing != content:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: SIXDOF input {name} collides with another"
-        )
-    script._pending_input_files[name] = content
+    script.park_input_file(name, content)

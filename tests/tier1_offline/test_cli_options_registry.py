@@ -227,9 +227,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # each record as given; a default would put one sentence on every mark.
     ("pyfs-matrix", "reason"): RECORD,
     # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
-    # both on `post` alone: a rebuild archives what is there, this is the
-    # escape that destroys it instead, and `--yes` answers the question it
-    # asks. `inventory` keeps the plain `--overwrite` it always had, which
+    # both on `post` alone: explicit no-archive rebuilding still asks for
+    # confirmation, and `--yes` answers it. `inventory` keeps the plain
+    # `--overwrite` it always had, which
     # refuses rather than destroys because a boundary sidecar is derived
     # from a mesh and can be rebuilt from it.
     ("pyfs-matrix", "force_overwrite"): SWITCH,
@@ -570,7 +570,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "refine", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
-    ("pyfs-matrix", "archive"): frozenset({"post"}),
+    ("pyfs-matrix", "archive"): frozenset({"post", "collect", "delete-sims"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "discard_walltime"): frozenset({"collect"}),

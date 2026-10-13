@@ -127,6 +127,7 @@
 \item \fl{--rounds N} stop a watch after N sweeps
 \item \fl{--sims IDS} only these simulations, e.g. \texttt{2006,2007}, and their post
 \item \fl{--no-post} collect only, do not rebuild products
+\item \fl{--archive} keep replaced post products; default: overwrite in place
 \item \fl{--hpc NAME} use \texttt{inputs/hpc/NAME.toml} when the workspace holds several profiles
 \item \fl{--check-frozen} REFUSE (not warn) averages touched by a frozen solve or an unread log block
 \item \fl{--workspace}, \fl{--runs NAME}, \fl{--pproc-warnings}, \fl{--verbose}
@@ -165,7 +166,7 @@
 \end{flags}
 
 \stage{5. POST-PROCESS (NO SOLVER, NO SEAT)}
-\sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Old products are archived in \texttt{post/<matrix>/archive/}}
+\sub{post [matrix]}{rebuild polars, sections and plot tables under \texttt{post/<matrix>/}; no matrix = every matrix in the manifest. Overwrite in place by default; \fl{--archive} keeps replaced products}
 \begin{flags}
 \item \fl{--sims IDS} only these simulations' products, in place (super files kept)
 \item \fl{--runs NAME} read another manifest (e.g. a rebuilt one)
@@ -176,7 +177,7 @@
 \item \fl{--strict} exit 3 when a product was skipped by design (e.g. polar under sideslip)
 \item \fl{--check-frozen} refuse instead of warn (see \cmd{collect})
 \item \fl{--archive} keep the replaced products under \fl{archive/} (default: overwrite in place)
-\item \fl{--force-overwrite} DESTROY products instead of archiving (asks; \fl{--yes} answers it)
+\item \fl{--force-overwrite} explicitly select no archive (asks; \fl{--yes} answers it); cannot be combined with \fl{--archive}
 \item \fl{--workspace}, \fl{--pproc-warnings}, \fl{--verbose}
 \item \fl{--log-level LEVEL}, \fl{--no-check-frozen}, \fl{--no-local}, \fl{--no-pproc-warnings}: as in \cmd{run}
 \end{flags}

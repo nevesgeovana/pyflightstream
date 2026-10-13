@@ -420,6 +420,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
                 apply=args.apply,
                 runs=args.runs,
                 force=args.force,
+                archive=args.archive,
             )
             _print_delete_sims(entry)
             return 0
@@ -664,9 +665,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
     def _post(ws: CampaignWorkspace, matrix: str | None, sims: list[str] | None = None) -> None:
         # THE PRODUCTS ARE REBUILT ONLY WHERE SOMETHING WAS COLLECTED, which
-        # `collect_and_post` decides: a rebuild ARCHIVES what it replaces, so
-        # a watch that posted on every sweep would fill the archive with
-        # copies of an unchanged answer.
+        # `collect_and_post` decides. With --archive, a watch that posted on
+        # every sweep would fill the archive with unchanged answers.
         #
         # PER MATRIX, AND AS `post` DOES IT (0.24.0). This called `stage(ws)`:
         # no matrix, so the stage selected the records that name none and left
@@ -674,7 +674,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # writes, and the command exited 0 having written nothing. And no
         # `overwrite`, so where products of that matrix already stood, the
         # second sweep of a watch among them, the stage refused them instead
-        # of archiving them as the paragraph above says it does.
+        # of replacing them under the chosen archive policy.
         note_post_ran()
         for stage in post_stages():
             # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
@@ -683,7 +683,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             stage(
                 ws,
                 overwrite=True,
-                archive=True,
+                archive=args.archive,
                 matrix_stem=matrix,
                 **({"check_frozen": True} if args.check_frozen else {}),
                 # FR-307: the post of `collect --sims` is limited to the same simulations.
@@ -864,7 +864,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
         if args.force_overwrite and not _confirmed_destruction(args.yes):
             print(
                 "--force-overwrite was not confirmed; nothing was written. Confirm the "
-                "rebuild with --yes, or omit the deprecated confirmation option.",
+                "rebuild with --yes to overwrite without an archive, or remove "
+                "--force-overwrite and pass --archive to keep the replaced products.",
                 file=sys.stderr,
             )
             return 2

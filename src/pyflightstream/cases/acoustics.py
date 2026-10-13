@@ -694,7 +694,7 @@ def emit_acoustic_setup(
         source = Path(request.observers_file)
         read_observers_file(source)
         copy = _in_the_point_folder(script, f"{source.stem}{OBSERVERS_COPY_SUFFIX}")
-        script._pending_input_files[copy] = source.read_bytes()
+        script.park_input_file(copy, source.read_bytes())
         script.emit("ACOUSTIC_OBSERVERS_IMPORT", copy)
     if request.time is not None:
         script.emit(
@@ -804,12 +804,13 @@ def emit_acoustic_signals(
         f"the OFFSET, INNER_RADIUS and OUTER_RADIUS of {ACOUSTIC_SECTION_VARIABLE}"
     )
     folder = _in_the_point_folder(script, f"{_point_stem(case)}{ACOUSTIC_SECTION_SUFFIX}")
-    script._pending_input_files[str(PurePath(folder) / ACOUSTIC_SECTION_NOTE)] = (
+    script.park_input_file(
+        str(PurePath(folder) / ACOUSTIC_SECTION_NOTE),
         "pyflightstream acoustic section of this point\n"
         f"frame {frame}\nplane {section.plane}\noffset_m {section.offset_m}\n"
         f"radial_observers {section.radial_observers}\n"
         f"azimuth_observers {section.azimuth_observers}\n"
-        f"inner_radius_m {section.inner_radius_m}\nouter_radius_m {section.outer_radius_m}\n"
+        f"inner_radius_m {section.inner_radius_m}\nouter_radius_m {section.outer_radius_m}\n",
     )
     script.emit(
         "CREATE_ACOUSTIC_SECTION",

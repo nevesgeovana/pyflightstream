@@ -400,12 +400,9 @@ def _qsteady_free_stream(
         omega_rad_s=speed.rpm * RAD_PER_S_PER_REV_PER_MIN,
     )
     assert field.payload is not None  # The rotating field always writes a file of its own.
-    existing = script.pending_input_files.get(field.path)
-    if existing is not None and existing != field.payload:
-        raise CampaignConfigError("The prepared custom field conflicts with another input.")
-    script._pending_input_files[field.path] = field.payload
-    script._pending_input_files[field.path + ".provenance.json"] = (
-        json.dumps(dict(field.provenance), indent=2) + "\n"
+    script.park_input_file(field.path, field.payload)
+    script.park_input_file(
+        field.path + ".provenance.json", json.dumps(dict(field.provenance), indent=2) + "\n"
     )
     helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
 
@@ -764,7 +761,7 @@ def _park_the_qsteady_record(
         ),
         validity=qsteady_validity(case),
     )
-    script._pending_input_files[_qsteady.record_file_name(loads)] = record.to_text()
+    script.park_input_file(_qsteady.record_file_name(loads), record.to_text())
     return loads
 
 

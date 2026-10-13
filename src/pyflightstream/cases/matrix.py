@@ -1631,6 +1631,7 @@ def to_campaign(
     recipes: Mapping[str, str],
     require_outputs: bool = True,
     defer_raw_files: bool = False,
+    rows: list[MatrixRow] | None = None,
 ) -> Campaign:
     """Convert a run matrix into a native :class:`Campaign`.
 
@@ -1657,6 +1658,8 @@ def to_campaign(
     defer_raw_files : bool, optional
         Leave out a raw-command record that names a file instead of refusing it; only the caller
         that resolves those files against a workspace passes True.
+    rows : list of MatrixRow, optional
+        Already selected active rows; when omitted, read all active rows from path.
 
     Returns
     -------
@@ -1673,7 +1676,7 @@ def to_campaign(
         while ``require_outputs`` is true, a raw-command record names a file while
         ``defer_raw_files`` is false, or no row is active and ``fs_version`` is blank.
     """
-    rows = read_matrix(path)
+    rows = read_matrix(path) if rows is None else rows
     # Read once and judged before anything is built, so the refusal below
     # happens with no Campaign in existence (PFS-2009.08.03). Hoisted out
     # of the loop header for that reason alone; the iteration is unchanged.

@@ -26,6 +26,7 @@ from pathlib import (
 )
 from typing import (
     NoReturn,
+    cast,
 )
 
 from pyflightstream._errors import (
@@ -45,6 +46,7 @@ from pyflightstream.cases import (
     SimCase,
 )
 from pyflightstream.cases._skipped_families import names_a_row_can_cite
+from pyflightstream.cases.restart_records import ExportThresholdRecord, StoppedStepRecord
 from pyflightstream.script import (
     Script,
     ScriptReferenceError,
@@ -1394,7 +1396,7 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
     CONVERGED. Found by the independent lens of the 0.18.0 release round,
     2026-09-14, which measured it rather than reading it.
     """
-    stopped = record.get("stopped_at")
+    stopped = cast(StoppedStepRecord | None, record.get("stopped_at"))
     reached: int | None = None
     if isinstance(stopped, Mapping):
         step = stopped.get("step")
@@ -1412,7 +1414,7 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
         )
     reached = reached or 0
     if request.form == RESTART_FINISH_PENDING:
-        window = record.get("export_window")
+        window = cast(ExportThresholdRecord | None, record.get("export_window"))
         asked = 0
         if isinstance(window, Mapping):
             asked = int(window.get("time_iterations") or 0)
@@ -1433,7 +1435,7 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
     if request.form == RESTART_ADDITIONAL_ITERS:
         return int(request.value or 0)
     # ADDITIONAL_REVS, turned into steps by the clock the row already states.
-    window = record.get("export_window")
+    window = cast(ExportThresholdRecord | None, record.get("export_window"))
     step_deg = None
     if isinstance(window, Mapping):
         step_deg = window.get("step_deg")
