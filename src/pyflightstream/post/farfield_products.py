@@ -106,6 +106,8 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     "P_CROSSFLOW_W",
     "P_TOTAL_W",
     "ETA_FF",
+    # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
+    "STATUS",
 )
 #: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-456 R3).
 SPANWISE_COLUMNS: tuple[str, ...] = (
@@ -120,6 +122,7 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
     "ALPHA_I_DEG",
     "DI_N_M",
     "CDI_LOCAL",
+    "STATUS",
 )
 _NA = float("nan")
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
@@ -131,6 +134,12 @@ _INCOMPRESSIBLE_MACH = 0.3
 #: the circulation the loads shed, so its crossflow energy is not their induced
 #: drag (FR-453 R9; RPT-170 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
 _PLANE_LIFT_TOLERANCE = 0.10
+#: Trefftz A over families whose traced lift departs from the solver's CL by
+#: more than this fraction is warned: another family or a body carries the
+#: rest, so CDI_T and E_T are of the traced families alone (FR-451 R13). A wing
+#: traced alone agreed to 0.15 percent (RPT-170's wing); a wing traced without
+#: its body departed by 6.6 and 7 percent.
+_TRACED_LIFT_TOLERANCE = 0.05
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
@@ -259,9 +268,20 @@ def _context(ctx: SimContext, point: PolarPoint) -> tuple[object, ...]:
     return tuple(context_row(ctx.condition(point), ctx.reference.as_lengths()))
 
 
+def _status(ctx: SimContext, point: PolarPoint) -> str:
+    """Return the point's solver termination status, as the sweep table writes it (FR-456 R10)."""
+    status = getattr(ctx.record_of[point.name], "status", None)
+    return str(getattr(status, "value", status) or "NA")
+
+
 def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, object]):
     _cl, pressure, vorticity = _near_field(point)
-    merged = {"CDI_NEAR_PRESSURE": pressure, "CDI_NEAR_VORTICITY": vorticity, **values}
+    merged = {
+        "CDI_NEAR_PRESSURE": pressure,
+        "CDI_NEAR_VORTICITY": vorticity,
+        "STATUS": _status(ctx, point),
+        **values,
+    }
     cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
     return (ctx.sim_id, step, *_context(ctx, point), *cells)
 
@@ -348,6 +368,7 @@ def _spanwise(
                 math.degrees(math.atan2(float(w[index]), speed)),
                 float(di[index]),
                 float(di[index]) / (q * chord) if chord and math.isfinite(chord) else _NA,
+                _status(ctx, point),
             )
         )
     path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{name}.csv")
@@ -503,9 +524,39 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
             result=_sheet(result, index),
             chords=chords[index],
         )
+    factor = 0.5 if half else 1.0
+    _warn_traced_lift(ctx, point, result.lift * factor, chosen)
     return _trace_rows(
-        ctx, point, result, variant="sections", names=chosen, factor=0.5 if half else 1.0, extra={}
+        ctx, point, result, variant="sections", names=chosen, factor=factor, extra={}
     )
+
+
+def _warn_traced_lift(
+    ctx: SimContext, point: PolarPoint, lift: float, families: Sequence[str]
+) -> None:
+    """Warn where the families A traced do not carry the solver's lift (FR-451 R13, PFS-2081.96).
+
+    A trace over a subset of the lifting surfaces (a wing without its body)
+    sheds the circulation of those surfaces alone and ends at their root with
+    whatever their loading holds there, so its induced drag and span
+    efficiency are not the configuration's. The row is written; the WARNING
+    names the families, both lifts and their ratio.
+    """
+    rho, speed, _alpha, _beta = _flow(point)
+    cl_traced = lift / (0.5 * rho * speed * speed * float(ctx.reference.sref_m2))
+    cl_near = _near_field(point)[0]
+    if not (math.isfinite(cl_traced) and math.isfinite(cl_near) and cl_near):
+        return
+    ratio = cl_traced / cl_near
+    if abs(ratio - 1.0) > _TRACED_LIFT_TOLERANCE:
+        warn(
+            f"point={point.name} product=farfield: Trefftz A traces {', '.join(families)} with "
+            f"a lift CL_T = {cl_traced:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            "the traced families do not carry the configuration's lift, so their CDI_T and "
+            "E_T are of those families alone, not of the configuration (FR-451 R13)",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _output(ctx: SimContext, point: PolarPoint, kind: str) -> Path | None:
@@ -851,7 +902,7 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     context = _context(ctx, point)
     rows = []
     for station in values["ledgers"]:
-        cells = {"LATTICE": name, **station}
+        cells = {"LATTICE": name, "STATUS": _status(ctx, point), **station}
         rows.append((ctx.sim_id, step, *context, *(cells.get(c, _NA) for c in LEDGER_COLUMNS)))
     return rows
 

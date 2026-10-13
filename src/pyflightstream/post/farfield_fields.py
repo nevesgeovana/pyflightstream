@@ -102,6 +102,8 @@ LEDGER_COLUMNS: tuple[str, ...] = (
     "MASS_SPREAD",
     "SYMMETRY_FLOOR",
     "SPURIOUS_COUNTS",
+    # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
+    "STATUS",
 )
 #: The cyclic order carrying a lattice's own axes onto a frame whose axis letter
 #: is the shaft, as :func:`pyflightstream.probes.layouts.lattice_points` lays it.

@@ -21,7 +21,9 @@ The analyses and where they are written:
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane or lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `[farfield.ledgers]` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
-`<group>` is the stem of the simulation's polar table. On an unsteady row each
+`<group>` is the stem of the simulation's polar table. Every row of these files, and
+of the spanwise files, ends with `STATUS`, the point's solver termination status as
+`campaign_sweep.csv` writes it, so a point that is not converged says so on its rows. On an unsteady row each
 file is written twice, `<group>_<analysis>_instant.csv` (the last time step)
 and `<group>_<analysis>_average.csv` (the average over the row's averaging
 window), and each manifest entry states `reduction` as `instant` or `average`.
@@ -155,6 +157,10 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
 - On a coupled FSI row the section cut is fixed in space, so the trace is the
   projected span of the deformed surface.
 - Rotors are not traced: a helical wake is not a streamwise sheet.
+- The trace holds the lift of the selected families only. Where it departs from the
+  solver's `CL` by more than 5 percent (a wing selected without its body), post
+  writes a WARNING with both lifts: the drag and the span efficiency are then those
+  of the traced families, not the configuration's.
 
 <a id="trefftz-b"></a>
 

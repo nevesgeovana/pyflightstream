@@ -216,7 +216,8 @@ def test_p0400_ffout_the_trefftz_table(posted):
     rows = {row["VARIANT"]: row for row in _table(path)}
     assert set(rows) == {"A", "B", "C"}
     header = path.read_text(encoding="utf-8").splitlines()[0].split(",")
-    assert header[:2] == ["POL", "STEP"] and header[-1] == "ETA_FF"
+    # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
+    assert header[:2] == ["POL", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
     a, b, c = rows["A"], rows["B"], rows["C"]
     assert float(a["CL_T"]) == pytest.approx(CL, rel=2e-3)
     assert 1.0 < float(a["E_T"]) < 1.012, "the elliptic bias of 80 stations per side"
