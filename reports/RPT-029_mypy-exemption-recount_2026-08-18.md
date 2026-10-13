@@ -130,17 +130,22 @@ brought it to 236 modules and left the error total at 160 in 16. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 159 errors in 16 files (checked 296 source files)
->     Success: no issues found in 296 source files
+>     Found 165 errors in 13 files (checked 342 source files)
+>     Success: no issues found in 342 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-11: 159 errors in 16 of 296 modules.**
+**mypy recount 2026-10-12: 165 errors in 13 of 342 modules.**
 
-The quoted top block and the sentence above are the 2026-10-11 run recorded
-in the dated section at the end. The module total is the 296 of the 0.39.0 tree, whose three
+The quoted top block and the sentence above are the 2026-10-12 run recorded
+in the dated section at the end. The module total is the 342 of the 0.40.0 tree, forty-six
+modules more than the 296 of 0.39.0, each clean and none exempted, with 165 errors in thirteen
+dirty modules: three exempted modules (`pyflightstream.farfield`,
+`pyflightstream.fsi.driver`, `pyflightstream.script.entities`) are clean now and their overrides
+are deleted, and the error total rose from 159 to 165 inside the remaining thirteen.
+The 296 were the total of the 0.39.0 tree, whose three
 new modules (`workspace/_settings_file.py`, `workspace/_refine/_remesh_group.py`,
 `workspace/_refine/_remesh_pairs.py`) are clean, with 159 errors in sixteen dirty modules.
 The 294 were the tracked package on the 0.39.0 lane of FR-436 (293 on `rel/0-38` after the
@@ -465,11 +470,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 159 errors in 16 files (checked 296 source files)
+    Found 165 errors in 13 files (checked 342 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 242 source files
+    Success: no issues found in 342 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1278,3 +1283,39 @@ run's.
 ## Re-count of 2026-10-11 (0.39.0)
 
 `python scripts/mypy_recount.py` on 2026-10-11, on the 0.39.0 integration tree (clean, so the numbers reproduce from HEAD), python 3.12.0: 159 errors in 16 of 296 modules; the shipped configuration is green over all 296 (`Success: no issues found in 296 source files`). The package grew by three modules since the recount of 2026-10-10, `workspace/_refine/_remesh_group.py`, `workspace/_refine/_remesh_pairs.py` and the `workspace/_settings_file.py` that the earlier recount counted before git tracked it; none is exempted and each is clean. The dirty set and its 159 errors are unchanged.
+
+## Re-count of 2026-10-12 (0.40.0)
+
+`python scripts/mypy_recount.py` on 2026-10-12, on the 0.40.0 integration tree (every lane merged), python 3.12.0, numpy 2.5.4, xarray 2026.9.0, pandas 3.0.6 and pydantic 2.14.1 (the script printed mypy's version as unknown): 165 errors in 13 of 342 modules on 69 distinct source lines; the shipped configuration is green over all 342 (`Success: no issues found in 342 source files`). The package grew by forty-six modules since the 296 of the 0.39.0 recount, each clean and none exempted. The dirty set is smaller and its error total larger than at 0.39.0 (159 errors in 16 modules):
+
+| module | 0.39.0 | 0.40.0 | delta |
+|---|---|---|---|
+| `qa.probes` | 79 | 92 | +13 |
+| `script.solver_setup` | 22 | 22 | 0 |
+| `script` | 17 | 13 | -4 |
+| `fsi.nodes` | 10 | 10 | 0 |
+| `cases.matrix` | 6 | 6 | 0 |
+| `probes.planar` | 6 | 6 | 0 |
+| `script.helpers` | 2 | 4 | +2 |
+| `workspace.inputs` | 4 | 4 | 0 |
+| `commands` | 2 | 2 | 0 |
+| `probes.geometry` | 2 | 2 | 0 |
+| `workspace.naming` | 2 | 2 | 0 |
+| `cases` | 1 | 1 | 0 |
+| `post.writers` | 2 | 1 | -1 |
+| `farfield` | 2 | 0 | -2 (override deleted) |
+| `fsi.driver` | 1 | 0 | -1 (override deleted) |
+| `script.entities` | 1 | 0 | -1 (override deleted) |
+| total | 159 in 16 modules | 165 in 13 modules | +6 |
+
+The 0.39.0 column was measured by running the same bare configuration over the `v0.39.0` tag, not read from the earlier tables, which carried only the large modules. By code the 165 are 138 `arg-type`, 11 `return-value`, 4 `operator`, 4 `misc`, 4 `assignment`, 3 `union-attr` and 1 `attr-defined` (0.39.0: 121 `arg-type`, 12 `return-value`, 7 `union-attr`, 5 `operator`, 5 `assignment`, 4 `call-overload`, 4 `misc`, 1 `attr-defined`). The six sites with the most findings hold 48 of the 165 errors: `script/solver_setup.py:1081` (13) and five lines of `qa/probes.py` at seven each; the `call-overload` code is gone (two in `farfield` and two in `script`).
+
+Why the move from 159 in 16 to 165 in 13, with the lane changes read through `git log v0.39.0..HEAD -- <file>`. Where a reading is inferred from the diff and not from a commit message, it is marked inferred.
+
+- Three modules left the debt. `farfield` (a package, `farfield/__init__.py`) had two `call-overload` errors on `ndarray.max(skipna=...)`, an xarray keyword on a numpy array; the far-field family was rewritten on a numpy core in PFS-2139.007 (commit f99e0dc8), which removes that call (inferred: the diff removes the xarray-shaped calls). `fsi.driver` had one `union-attr` on an optional tuple at line 1129, and was rewritten by the FSI lane (commits e984435f and 4366300a), which typed the access (inferred). `script.entities` had one `operator` error comparing an int with an optional int at line 243, and the script lane (35dc4fee) typed it (inferred).
+- `post.writers` fell from two to one: the PFS-2139.007 commit moved 47 lines out of it into the far-field family, taking the `assignment` error at line 235 with them (inferred); the remaining error is the `return-value` of line 528.
+- `script` fell from 17 to 13: the script lane (35dc4fee, 8e4141aa), the SIXDOF export (d99059d8) and the integration fixes cut 831 lines and added 417 in `script/__init__.py` (inferred: the removed lines carried four of the errors, among them the two `call-overload` ones at the former lines 559 and 811).
+- `script.helpers` rose from 2 to 4 and `qa.probes` from 79 to 92: these are the two modules the 0.40.0 lanes grew (helpers: twelve commits, +261 -227 lines, among them the licensed-item rows PFS-2135.060 and .066; qa.probes: nine commits, +195 -56 lines, the gap probes PFS-2081.13 to .17, PFS-2085.021 and the licensed-item probes of PFS-2135). Both are exempted modules, so the new lines are not checked and the added call sites repeat the `arg-type` pattern the file already carries (inferred, as in the earlier recounts: the run measures the tree and assigns no share to a commit).
+- The environment also moved (numpy 2.5.3 to 2.5.4, pydantic 2.13.5 to 2.14.1); the 0.39.0 column above was measured on the current environment, so it is not part of the difference.
+
+The override list of `pyproject.toml` loses the three blocks and `MYPY_EXEMPTIONS` in `tests/tier1_offline/test_traceability.py` loses the three names in the same change. The sentence at the top of this report is this run's.

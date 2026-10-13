@@ -90,8 +90,10 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: Raised from 201 to 203 on 2026-10-05, measured on rel/0-37: the count
 #: of requirements carrying a falsifying marked test, re-measured for 0.37.0.
 #: Raised from 203 to 211 on 2026-10-12 on lane/0.40.0/farfield: the far-field
-#: family's tests mark its requirements (P0400 markers).
-MARKED_FLOOR = 211
+#: family's tests mark its requirements (P0400 markers). Raised from 211 to 226 on
+#: 2026-10-12 on the integrated 0.40.0 tree: the geometry stage (FR-470 to FR-477),
+#: the command-gap capabilities and the far-field proofs mark their requirements.
+MARKED_FLOOR = 226
 
 
 def _marked() -> dict[str, list[str]]:
@@ -225,8 +227,11 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-10-11: 159 errors in 16 of 296 modules, the 0.39.0 tree (three
-#: modules more, workspace/_settings_file.py and two workspace/_refine/_remesh_*, clean);
+#: mypy recount 2026-10-12: 165 errors in 13 of 342 modules, the 0.40.0 tree (forty-six
+#: modules more than 0.39.0, each clean, and pyflightstream.farfield, pyflightstream.fsi.driver
+#: and pyflightstream.script.entities clean, so they left the set); 2026-10-11 read 159 in 16 of
+#: 296, the 0.39.0 tree (three modules more, workspace/_settings_file.py and two
+#: workspace/_refine/_remesh_*, clean);
 #: 2026-10-06 read 159 in 16 of 293, the
 #: 0.38.0 branch rel/0-38 with every package merged (eleven modules more, each clean); before
 #: that the 0.34.0 branch rel/0-34 with the wave-2 packages merged: two modules more than the
@@ -244,8 +249,10 @@ MYPY_EXEMPTIONS = frozenset(
         "pyflightstream.cases",
         "pyflightstream.cases.matrix",
         "pyflightstream.commands",
-        "pyflightstream.farfield",
-        "pyflightstream.fsi.driver",
+        # `pyflightstream.farfield` stood here until 2026-10-12 and is REMOVED with its
+        # override: it is clean at the 0.40.0 recount.
+        # `pyflightstream.fsi.driver` stood here until 2026-10-12 and is REMOVED with its
+        # override: it is clean at the 0.40.0 recount.
         "pyflightstream.fsi.nodes",
         "pyflightstream.post.writers",
         "pyflightstream.probes.geometry",
@@ -260,7 +267,8 @@ MYPY_EXEMPTIONS = frozenset(
         # be the drift it exists to catch. Deleting `_as_workspace` took
         # the module's last type error with it.
         "pyflightstream.script",
-        "pyflightstream.script.entities",
+        # `pyflightstream.script.entities` stood here until 2026-10-12 and is REMOVED with its
+        # override: it is clean at the 0.40.0 recount.
         "pyflightstream.script.helpers",
         "pyflightstream.script.solver_setup",
         "pyflightstream.workspace.inputs",
