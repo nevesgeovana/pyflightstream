@@ -88,6 +88,25 @@ def _refuse(expression: str, what: str) -> InputArtifactError:
     )
 
 
+def _check_call(node: ast.Call, expression: str) -> None:
+    """Refuse a call that is not a plain call of one allowed function."""
+    called = node.func.id if isinstance(node.func, ast.Name) else None
+    if called not in ALLOWED_FUNCTIONS:
+        shown = called if called is not None else ast.unparse(node.func)
+        raise _refuse(expression, f"calls {shown!r}, which is not one of its functions")
+    if node.keywords or not node.args:
+        raise _refuse(expression, f"calls {called}() without plain positional arguments")
+    fewest, most = _ARITY[called]
+    if len(node.args) < fewest or (most is not None and len(node.args) > most):
+        wanted = str(fewest) if most == fewest else f"at least {fewest}"
+        given = f"{len(node.args)} argument" + ("" if len(node.args) == 1 else "s")
+        raise _refuse(expression, f"calls {called}() with {given}; it takes {wanted}")
+    for argument in node.args:
+        if isinstance(argument, ast.Starred):
+            raise _refuse(expression, f"unpacks an argument of {called}()")
+        _check(argument, expression)
+
+
 def _check(node: ast.AST, expression: str) -> None:
     """Refuse the first node of ``node`` that is outside the grammar."""
     if isinstance(node, ast.Constant):
@@ -108,21 +127,7 @@ def _check(node: ast.AST, expression: str) -> None:
         _check(node.operand, expression)
         return
     if isinstance(node, ast.Call):
-        called = node.func.id if isinstance(node.func, ast.Name) else None
-        if called not in ALLOWED_FUNCTIONS:
-            shown = called if called is not None else ast.unparse(node.func)
-            raise _refuse(expression, f"calls {shown!r}, which is not one of its functions")
-        if node.keywords or not node.args:
-            raise _refuse(expression, f"calls {called}() without plain positional arguments")
-        fewest, most = _ARITY[called]
-        if len(node.args) < fewest or (most is not None and len(node.args) > most):
-            wanted = str(fewest) if most == fewest else f"at least {fewest}"
-            given = f"{len(node.args)} argument" + ("" if len(node.args) == 1 else "s")
-            raise _refuse(expression, f"calls {called}() with {given}; it takes {wanted}")
-        for argument in node.args:
-            if isinstance(argument, ast.Starred):
-                raise _refuse(expression, f"unpacks an argument of {called}()")
-            _check(argument, expression)
+        _check_call(node, expression)
         return
     raise _refuse(expression, f"holds a {type(node).__name__}, which is not arithmetic")
 

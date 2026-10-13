@@ -87,8 +87,8 @@ SET_CAD_CREATE_SPLINE_SEGMENTS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: documented, note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
   default: 200
   default_ref: "SRC-003 p.289"
   notes: >
@@ -111,8 +111,8 @@ SET_CAD_CREATE_SPLINE_LOFT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: documented, note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
   default: C2
   default_ref: "SRC-003 p.289"
   notes: >
@@ -134,8 +134,8 @@ SET_CAD_CURVATURE_REFINEMENT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: documented, note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
   default: 80
   default_ref: "SRC-003 p.289"
   notes: >
@@ -188,8 +188,8 @@ CAD_CREATE_BOX:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: documented, note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
   notes: >
     X, Y and Z are the FIRST CORNER VERTEX rather than the centre, and
     the three lengths run from that corner along the frame's axes
@@ -218,8 +218,8 @@ CAD_CREATE_SPHERE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: documented, note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
   notes: >
     X, Y and Z are the CENTRE here, unlike the box above, which takes a
     corner. The two commands sit on one manual page and differ on this
@@ -252,8 +252,8 @@ CAD_CREATE_CYLINDER:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: documented, note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
   notes: >
     R1 and R2 are the radii at the two ends, so a cone is a cylinder
     with unequal radii and there is no separate cone command. The axis
@@ -285,8 +285,8 @@ CAD_CREATE_SHEET:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: documented, note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
   notes: >
     A flat rectangle in one plane of the frame. OFFSET moves it along
     that plane's normal and MAY BE NEGATIVE, which the manual states
@@ -456,8 +456,8 @@ CAD_CREATE_CURVE_UNSELECT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
   notes: >
     Removes one curve from the selection; -1 removes every one
     (SRC-003 p.294).
@@ -580,8 +580,8 @@ CAD_CREATE_ROTATE_CURVES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: documented, note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
   notes: >
     Rotates the selected virtual curves about one axis of the given
     coordinate system. Frame 1 is the reference system, which the
@@ -614,8 +614,8 @@ CAD_CREATE_TRANSLATE_CURVES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: documented, note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
   notes: >
     Translation vector for the selected virtual curves. It takes NO
     frame argument, unlike the rotation and the mirror, and the manual
@@ -639,8 +639,8 @@ CAD_CREATE_SCALE_CURVES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: documented, note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
   notes: >
     ONE scale value for all three axes: the command has no per-axis
     form, so a non-uniform scaling is not available here. What the
@@ -750,8 +750,8 @@ CAD_CREATE_REORDER_CURVES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: documented, note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
   notes: >
     Sorts the selected curves along an axis, and the token is SIGNED:
     the six values are the three axes each way round, so a leading minus
@@ -819,8 +819,8 @@ CAD_CREATE_CURVE_EXPORT_CCS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
   notes: >
     Writes the SELECTED virtual curves to a file, the command name on
     one line and the path on the next. CCS is the vendor's
@@ -873,8 +873,8 @@ CAD_CREATE_IMPORT_CURVE_TXT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.295, unchanged from SRC-750 p.295"}
-    "26.124": {status: documented, note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.300, unchanged from SRC-752 p.295"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.300, unchanged from SRC-752 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Reads curve points from a text file. DIMENSIONS decides what the two
     arguments after it mean: under 2D the points are two-dimensional and
@@ -964,8 +964,8 @@ CAD_CREATE_IMPORT_CURVE_P3D:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.295, unchanged from SRC-750 p.295"}
-    "26.124": {status: documented, note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.300, unchanged from SRC-752 p.295"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.300, unchanged from SRC-752 p.295"}
   notes: >
     Reads curves from a Plot3D structured grid. SWAP_DIRECTION chooses
     which way the walk over the grid's node data proceeds when building
@@ -1332,8 +1332,8 @@ CAD_CREATE_MIRROR_CURVES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: documented, note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
   notes: >
     Mirrors the SELECTED virtual curves across a plane. It takes no
     curve index: which curves are mirrored comes from the selection made

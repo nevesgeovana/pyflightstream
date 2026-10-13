@@ -80,16 +80,14 @@ def test_p0400_uniform_tag_limit(tmp_path):
     assert _config.tag_selection(request, ["Wing"]) == ["Wing"]
 
 
-@pytest.mark.parametrize("route", ["group", "family", "family-list", "alias"])
+@pytest.mark.parametrize("route", ["group", "family", "family-list"])
 def test_p0400_numbered_boundary_exact(route):
-    """P0400-SWEEP-BOUNDARY-EXACT: an absent numbered label never selects its siblings."""
+    """P0400-SWEEP-BOUNDARY-EXACT: an absent numbered label cited alone is refused by name."""
     inventory = ["Hub2", "Hub3", "MainWing"]
 
     def operation(**options):
         if route == "group":
             return select_group_members(["Hub1"], inventory, **options)
-        if route == "alias":
-            return resolve_alias("hubs", inventory, {"hubs": ["Hub1"]}, **options)
         selection = "Hub1" if route == "family" else ["Hub1"]
         return select_families(selection, inventory, lambda name: False, **options)
 
@@ -98,6 +96,38 @@ def test_p0400_numbered_boundary_exact(route):
     assert select_group_members(["Hub"], inventory) == ["Hub2", "Hub3"]
     with pytest.warns(PyflightstreamWarning, match="Hub1"):
         assert operation(strict=False) == []
+
+
+@pytest.mark.parametrize("route", ["group", "family-list", "alias", "nested-alias"])
+@pytest.mark.parametrize("strict", [True, False])
+def test_p0400_numbered_member_exact(route, strict):
+    """P0400-SWEEP-BOUNDARY-EXACT: a numbered MEMBER selects its exact name, never refused.
+
+    The decision of 2026-10-12 on PFS-2029.25: a member of a list, a group or
+    an alias the geometry lacks is left to the FR-320 warning and the FR-435
+    rule, and it never selects its numbered siblings.
+    """
+    inventory = ["Hub2", "Hub3", "MainWing"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        if route == "group":
+            found = select_group_members(["Hub1", "MainWing"], inventory, strict=strict)
+        elif route == "family-list":
+            found = select_families(
+                ["Hub1", "MainWing"], inventory, lambda name: False, strict=strict
+            )
+        elif route == "alias":
+            found = resolve_alias("hubs", inventory, {"hubs": ["Hub1", "MainWing"]})
+        else:
+            found = select_families(
+                "outer",
+                inventory,
+                lambda name: False,
+                {"outer": ["hubs"], "hubs": ["Hub1"]},
+                strict=strict,
+            )
+    expected = {"family-list": [["MainWing"]], "nested-alias": []}
+    assert found == expected.get(route, ["MainWing"])
 
 
 @pytest.mark.parametrize("number", [1, 2, 3, 4, 5])

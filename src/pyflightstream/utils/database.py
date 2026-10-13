@@ -51,9 +51,11 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NoReturn
 
 import yaml
 
@@ -192,7 +194,11 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
     pending: dict[Path, Path] = {}
     try:
         for path, text in edited.items():
-            temporary = path.with_name(f"{path.name}.register-tmp")
+            handle, name = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".register-tmp", dir=path.parent
+            )
+            os.close(handle)
+            temporary = Path(name)
             pending[path] = temporary
             _textio.write_text(temporary, text)
     except OSError as error:
@@ -208,15 +214,66 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
             os.replace(temporary, path)
             replaced.append(path)
     except OSError as error:
+        failed_path = path
         for path in replaced:
-            path.write_bytes(originals[path].encode("utf-8"))
+            _textio.write_text(path, originals[path])
         for temporary in pending.values():
             temporary.unlink(missing_ok=True)
         raise ManualDraftError(
-            f"could not replace {path.name} ({error}); the chapters already replaced "
+            f"could not replace {failed_path.name} ({error}); the chapters already replaced "
             f"({', '.join(p.name for p in replaced) or 'none'}) were put back, so no "
             "chapter changed"
         ) from error
+
+
+def _refuse_unlabelled_build(build: str, labels: Sequence[str]) -> NoReturn:
+    """Refuse a build the manifest has no row labelled, naming the closest true cause."""
+    # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
+    # for the input that most needs it. Membership was tested before
+    # anything resolved, so `--fs-version 26.0` against a correctly
+    # labelled manifest was told "no row labelled '26.0'", while the
+    # tool already knew, one line later, that 26.0 names 26.000 and
+    # that the manifest carries THAT. The reader went editing a
+    # manifest that was right. Resolving costs nothing and opens no
+    # manual, so it is asked here.
+    # BOTH ALIAS SHAPES, not only the unique one. The first version
+    # of this branch caught `AmbiguousVersionAliasError` into a bare
+    # None and fell through to the generic message, so a reader who
+    # typed the release name off their manual's cover was told
+    # nothing about which of the four registered builds their
+    # edition is, by a tool that had just computed the list.
+    try:
+        resolved = resolve(build)
+    except AmbiguousVersionAliasError as ambiguous:
+        carried = [name for name in ambiguous.candidates if name in labels]
+        if carried:
+            raise ManualDraftError(
+                f"the manifest has no row labelled {build!r}, and {build} is a "
+                f"vendor release name shared by "
+                f"{', '.join(ambiguous.candidates)}. The manifest carries "
+                f"{', '.join(carried)}; re-run with the canonical identifier of "
+                "the edition you actually read, since a documented row is keyed "
+                "by that identifier and one edition documents one build."
+            ) from None
+        raise ManualDraftError(
+            f"the manifest has no row labelled {build!r}, and {build} is a "
+            f"vendor release name shared by "
+            f"{', '.join(ambiguous.candidates)}, none of which the manifest "
+            "carries either. Add the row for the edition you read, keyed by "
+            "its canonical identifier."
+        ) from None
+    except UnknownVersionError:
+        resolved = None
+    if resolved is not None and resolved.canonical in labels:
+        raise ManualDraftError(
+            f"the manifest has no row labelled {build!r}, but {build} is a vendor "
+            f"display name for {resolved.canonical}, which the manifest DOES carry. "
+            f"Re-run with {resolved.canonical}: a documented row is keyed by the "
+            "canonical identifier, so the label and the key are one string."
+        )
+    raise ManualDraftError(
+        f"the manifest has no row labelled {build!r}; it carries " + ", ".join(labels)
+    )
 
 
 def register_edition(
@@ -266,52 +323,7 @@ def register_edition(
     """
     labels = [edition.label for edition in editions]
     if build not in labels:
-        # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
-        # for the input that most needs it. Membership was tested before
-        # anything resolved, so `--fs-version 26.0` against a correctly
-        # labelled manifest was told "no row labelled '26.0'", while the
-        # tool already knew, one line later, that 26.0 names 26.000 and
-        # that the manifest carries THAT. The reader went editing a
-        # manifest that was right. Resolving costs nothing and opens no
-        # manual, so it is asked here.
-        # BOTH ALIAS SHAPES, not only the unique one. The first version
-        # of this branch caught `AmbiguousVersionAliasError` into a bare
-        # None and fell through to the generic message, so a reader who
-        # typed the release name off their manual's cover was told
-        # nothing about which of the four registered builds their
-        # edition is, by a tool that had just computed the list.
-        try:
-            resolved = resolve(build)
-        except AmbiguousVersionAliasError as ambiguous:
-            carried = [name for name in ambiguous.candidates if name in labels]
-            if carried:
-                raise ManualDraftError(
-                    f"the manifest has no row labelled {build!r}, and {build} is a "
-                    f"vendor release name shared by "
-                    f"{', '.join(ambiguous.candidates)}. The manifest carries "
-                    f"{', '.join(carried)}; re-run with the canonical identifier of "
-                    "the edition you actually read, since a documented row is keyed "
-                    "by that identifier and one edition documents one build."
-                ) from None
-            raise ManualDraftError(
-                f"the manifest has no row labelled {build!r}, and {build} is a "
-                f"vendor release name shared by "
-                f"{', '.join(ambiguous.candidates)}, none of which the manifest "
-                "carries either. Add the row for the edition you read, keyed by "
-                "its canonical identifier."
-            ) from None
-        except UnknownVersionError:
-            resolved = None
-        if resolved is not None and resolved.canonical in labels:
-            raise ManualDraftError(
-                f"the manifest has no row labelled {build!r}, but {build} is a vendor "
-                f"display name for {resolved.canonical}, which the manifest DOES carry. "
-                f"Re-run with {resolved.canonical}: a documented row is keyed by the "
-                "canonical identifier, so the label and the key are one string."
-            )
-        raise ManualDraftError(
-            f"the manifest has no row labelled {build!r}; it carries " + ", ".join(labels)
-        )
+        _refuse_unlabelled_build(build, labels)
     position = labels.index(build)
     if position == 0:
         raise ManualDraftError(

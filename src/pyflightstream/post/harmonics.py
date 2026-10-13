@@ -534,6 +534,88 @@ def station_harmonics(
     return result
 
 
+def _station_radius(rotor: HarmonicRotor, row: Mapping[str, str]) -> float | None:
+    """Return the radius of one blade-block row, or None where it cannot be placed."""
+    offset = float(row["Offset"])
+    if rotor.section_frames is None:
+        return abs(offset)
+    plane = row.get("PLANE", "")
+    frame = rotor.section_frames.get((row.get("FAMILY", ""), plane))
+    if frame is None:
+        return None
+    radius = _radius_from_the_hub(
+        frame, plane, offset, hub_m=rotor.hub_m, axis_vector=rotor.axis_vector
+    )
+    return None if radius is None else abs(radius)
+
+
+def _matched_stations(
+    result: StationHarmonics,
+    alias: str,
+    radii: Sequence[Sequence[float | None]],
+    largest: float,
+) -> list[tuple[int, float | None]]:
+    """Return the stations of the first sample that every sample places at one radius."""
+    reference = radii[0]
+    fitted: list[tuple[int, float | None]] = []
+    for station, radius in enumerate(reference):
+        if radius is None or any(block[station] is None for block in radii):
+            fitted.append((station, None))
+            continue
+        off = [
+            abs(float(block[station] or 0.0))
+            for block in radii
+            if abs(abs(float(block[station] or 0.0)) - radius) > STATION_MATCH_TOLERANCE * largest
+        ]
+        if off:
+            result.skipped[f"#rotor={alias}#station={station + 1}"] = (
+                f"station {station + 1} of rotor {alias!r} is at r = {radius:.6g} m in the "
+                f"first sample and at {sorted(set(off))} m in {len(off)} other(s), more than "
+                f"{STATION_MATCH_TOLERANCE:g} of the largest radius {largest:.6g} m apart"
+            )
+            continue
+        fitted.append((station, radius))
+    return fitted
+
+
+def _count_short_fit(
+    fit: HarmonicFit,
+    short: dict[int, int],
+    narrow: dict[int, int],
+    fewest: dict[int, int],
+) -> None:
+    """Tally the harmonic orders one fit could not resolve."""
+    for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items():
+        if fit.distinct < needed:
+            short[order] += 1
+            fewest[order] = min(fewest.get(order, fit.distinct), fit.distinct)
+        elif (fit.h1_amp if order == 1 else fit.h2_amp) is None:
+            narrow[order] += 1
+
+
+def _note_short_fits(
+    result: StationHarmonics,
+    alias: str,
+    short: dict[int, int],
+    narrow: dict[int, int],
+    fewest: dict[int, int],
+) -> None:
+    """Write the notes for the harmonic orders that read NA in some rows."""
+    for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items():
+        if short[order]:
+            result.notes.append(
+                f"rotor {alias!r}: the {order}P harmonic is NA in {short[order]} row(s), whose "
+                f"stations hold as few as {fewest[order]} distinct azimuth(s); a {order}P fit "
+                f"needs {needed}"
+            )
+        if narrow[order]:
+            result.notes.append(
+                f"rotor {alias!r}: the {order}P harmonic is NA in {narrow[order]} row(s), whose "
+                f"samples do not go round the circle: a {order}P fit needs the angles "
+                f"{order} psi with no gap over {_LARGEST_GAP_DEG:g} deg"
+            )
+
+
 def _fit_rotor(
     result: StationHarmonics,
     rotor: HarmonicRotor,
@@ -554,23 +636,8 @@ def _fit_rotor(
             f"a block of rotor {alias!r} states no Offset, so its stations have no radius"
         )
         return
-
-    def radius_of(row: Mapping[str, str]) -> float | None:
-        offset = float(row["Offset"])
-        if rotor.section_frames is None:
-            return abs(offset)
-        plane = row.get("PLANE", "")
-        frame = rotor.section_frames.get((row.get("FAMILY", ""), plane))
-        if frame is None:
-            return None
-        radius = _radius_from_the_hub(
-            frame, plane, offset, hub_m=rotor.hub_m, axis_vector=rotor.axis_vector
-        )
-        return None if radius is None else abs(radius)
-
-    radii = [[radius_of(row) for row in block] for _, block in taken]
-    reference = radii[0]
-    largest = max((r for r in reference if r is not None), default=0.0)
+    radii = [[_station_radius(rotor, row) for row in block] for _, block in taken]
+    largest = max((r for r in radii[0] if r is not None), default=0.0)
     if any(radius is None for block in radii for radius in block):
         result.notes.append(
             f"rotor {alias!r}: station radius and R_OVER_R read NA where the recorded "
@@ -585,24 +652,7 @@ def _fit_rotor(
     short: dict[int, int] = {1: 0, 2: 0}
     narrow: dict[int, int] = {1: 0, 2: 0}
     fewest: dict[int, int] = {}
-    fitted: list[tuple[int, float | None]] = []
-    for station, radius in enumerate(reference):
-        if radius is None or any(block[station] is None for block in radii):
-            fitted.append((station, None))
-            continue
-        off = [
-            abs(float(block[station] or 0.0))
-            for block in radii
-            if abs(abs(float(block[station] or 0.0)) - radius) > STATION_MATCH_TOLERANCE * largest
-        ]
-        if off:
-            result.skipped[f"#rotor={alias}#station={station + 1}"] = (
-                f"station {station + 1} of rotor {alias!r} is at r = {radius:.6g} m in the "
-                f"first sample and at {sorted(set(off))} m in {len(off)} other(s), more than "
-                f"{STATION_MATCH_TOLERANCE:g} of the largest radius {largest:.6g} m apart"
-            )
-            continue
-        fitted.append((station, radius))
+    fitted = _matched_stations(result, alias, radii, largest)
     for quantity in quantities:
         for station, radius in fitted:
             pairs = [
@@ -613,12 +663,7 @@ def _fit_rotor(
             if not pairs:
                 continue
             fit = fit_harmonics([p for p, _ in pairs], [v for _, v in pairs])
-            for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items():
-                if fit.distinct < needed:
-                    short[order] += 1
-                    fewest[order] = min(fewest.get(order, fit.distinct), fit.distinct)
-                elif (fit.h1_amp if order == 1 else fit.h2_amp) is None:
-                    narrow[order] += 1
+            _count_short_fit(fit, short, narrow, fewest)
             result.rows.append(
                 (
                     alias,
@@ -628,19 +673,7 @@ def _fit_rotor(
                     fit,
                 )
             )
-    for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items():
-        if short[order]:
-            result.notes.append(
-                f"rotor {alias!r}: the {order}P harmonic is NA in {short[order]} row(s), whose "
-                f"stations hold as few as {fewest[order]} distinct azimuth(s); a {order}P fit "
-                f"needs {needed}"
-            )
-        if narrow[order]:
-            result.notes.append(
-                f"rotor {alias!r}: the {order}P harmonic is NA in {narrow[order]} row(s), whose "
-                f"samples do not go round the circle: a {order}P fit needs the angles "
-                f"{order} psi with no gap over {_LARGEST_GAP_DEG:g} deg"
-            )
+    _note_short_fits(result, alias, short, narrow, fewest)
 
 
 def write_harmonics_table(

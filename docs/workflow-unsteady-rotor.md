@@ -110,7 +110,7 @@ the decisions and the package derives the rest.
   1.8288 m), at `DELTA_THETA: 10` (Omega / dtheta = 720 per second),
 
     ```text
-    VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / RUN_WAKE_LENGTH_R: 4 / LAST_REVS_AVG: 0.25
+    RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / RUN_WAKE_LENGTH_R: 4 / LAST_REVS_AVG: 0.25
     ```
 
     marches `ceil(4 x 1.8288 x 720 / 30) = 176` steps, 4.89 revolutions of 36
@@ -238,7 +238,9 @@ LEGACY row with `FOO_BAR: 1` appended plans READY.
 `VELOCITY` is registered on every run type and is unreachable from a
 matrix row: the mandatory `FLIGHT_CONDITION` column resolves the
 velocity onto the case and the builders read that first, so the key is
-read for a case authored in Python and nowhere else. `ADVANCE_RATIO` is
+read for a case authored in Python and nowhere else. A matrix row that also
+states `VELOCITY` warns that it is ignored; remove the key and specify the
+velocity through `TASmps` or `MACH` in `FLIGHT_CONDITION`. `ADVANCE_RATIO` is
 registered on every run type because the point NAME reads it (the `J`
 field, PFS-2029.19) and the export names carry it into the script.
 
@@ -408,7 +410,7 @@ states it as a time step instead. Put one of them on row 7001 of [the workflow m
 with the azimuthal clock:
 
 ```text
-VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_AFTER_REV: 2
+RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_AFTER_REV: 2
 ```
 
 Ten degrees a step and three revolutions are 108 steps, and two
@@ -479,7 +481,7 @@ is `TIME_ITERATIONS`. On row 7001 above, three revolutions of 36 steps, the last
 revolution is
 
 ```text
-VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_LAST_REV: 1
+RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_LAST_REV: 1
 ```
 
 and exports steps 73 to 108. From the first step on, the script, the counter

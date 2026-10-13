@@ -14,6 +14,7 @@ from tests.tier1_offline.test_plan_cost import saved_simulation, steady_case
 
 
 def test_p0400_the_estimate_learns_nothing_from_a_run_that_did_not_end(tmp_path):
+    # Verifies FR-82.
     """P0400-COST-SAMPLES (PFS-2094.014): a fast failure and a run stopped by its clock.
 
     Every record with a wall time was a sample, so a FAILED_EXECUTION after one second, a

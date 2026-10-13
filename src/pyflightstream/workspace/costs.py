@@ -27,11 +27,11 @@ import dataclasses
 import math
 import warnings
 from collections.abc import Collection, Mapping, Sequence
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeGuard
 
+from pyflightstream._cli import _SELECTED_COST_FILE
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace.sidecars import load_toml
 
@@ -63,9 +63,6 @@ _TABLES: dict[str, frozenset[str]] = {
     "steps": frozenset({"exponent"}),
     "flags": frozenset(),
 }
-
-#: The stem selected by ``--cost-file NAME``, or None.
-_SELECTED_COST_FILE: ContextVar[str | None] = ContextVar("pyflightstream_cost_file", default=None)
 
 
 @dataclass(frozen=True)
@@ -175,7 +172,9 @@ def select_cost_file(name: str | None) -> None:
     None
         Held in a context variable, so it belongs to the invocation.
     """
-    _SELECTED_COST_FILE.set(None if name is None else Path(name).stem)
+    from pyflightstream._cli import for_this_invocation
+
+    for_this_invocation(_SELECTED_COST_FILE, None if name is None else Path(name).stem)
 
 
 def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:

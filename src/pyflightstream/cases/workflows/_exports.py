@@ -414,6 +414,9 @@ def _export_block(
     # command the profile exists to remove reached the one machine that aborts
     # at it, after the queue wait.
     exports_its_log = _exports_its_log(case)
+    # EVERY POSITION THIS LOOP WRITES TO is claimed against LOG_OUTPUT, not the
+    # loads table's alone: a log pointed at the VTK was written over it.
+    claimed: list[int] = [names.index(kinds["loads"]) + 1]
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
         # FR-460 R2, FR-461 R2: the surface trace and the trajectory are written
         # where their commands sit (`_pproc_streamlines`, `_sixdof_motion`).
@@ -421,6 +424,7 @@ def _export_block(
             continue
         if kind == "log" and (declared_log or not exports_its_log):
             continue
+        claimed.append(names.index(kinds[kind]) + 1)
         if not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
             script.emit(verb, kinds[kind])
     if "tecplot" in kinds:
@@ -451,7 +455,7 @@ def _export_block(
             }
         )
     if declared_log:
-        _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
+        _export_log(conventions, case, script, claimed=tuple(claimed))
 
 
 #: The kinds whose export reads the surface sections, the sectional loads or

@@ -21,6 +21,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
+
 REPO = Path(__file__).resolve().parents[2]
 
 _ID = re.compile(r"\b[A-Z]{2,5}-\d+[a-z]?\b")
@@ -125,7 +127,7 @@ def uncited(bullets: list[str], defined: set[str]) -> list[str]:
     ]
 
 
-_DEFINED: set[str] = defined_ids(REPO / "docs" / "srs")
+_DEFINED: set[str] = defined_ids(REPO / "docs" / "srs") | defined_ids(REPO / REQUIREMENTS_DIR)
 _RELEASES: dict[str, list[str]] = release_bullets(
     (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
 )

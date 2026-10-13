@@ -1,5 +1,7 @@
 """Documentation paths and publication policy for the approved reader structure."""
 
+import importlib.util
+import types
 from pathlib import Path
 
 import yaml
@@ -40,3 +42,22 @@ def site_pages(docs: Path, *, in_nav: bool = False) -> dict[str, Path]:
         for page in docs.rglob("*.md")
         if not excluded.match_file(page.relative_to(docs).as_posix())
     }
+
+
+def _load_requirements_paths() -> types.ModuleType:
+    """Load scripts/_requirements_paths.py by file path, as tests load arch_metrics."""
+    spec = importlib.util.spec_from_file_location(
+        "requirements_paths_under_test", ROOT / "scripts" / "_requirements_paths.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_REQ = _load_requirements_paths()
+REQUIREMENTS_DIR: Path = _REQ.REQUIREMENTS_DIR
+FUNCTIONAL_REQUIREMENTS: Path = _REQ.FUNCTIONAL_REQUIREMENTS
+NONFUNCTIONAL_REQUIREMENTS: Path = _REQ.NONFUNCTIONAL_REQUIREMENTS
+REQUIREMENTS_INDEX: Path = _REQ.REQUIREMENTS_INDEX
+REQUIREMENTS_FRAGMENTS_DIR: Path = _REQ.REQUIREMENTS_FRAGMENTS_DIR

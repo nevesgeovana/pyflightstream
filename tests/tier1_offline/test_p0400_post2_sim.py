@@ -14,13 +14,14 @@ import pyflightstream.post._sim as sim
 def test_p0400_groupkey_a_rotor_group_clash_writes_no_group_polar(monkeypatch):
     """P0400-GROUPKEY: a declared group disagreeing with a rotor stops every group polar."""
     drawn: list[str] = []
-    monkeypatch.setattr(sim, "_group_polar", lambda _ctx, group, *_rest: drawn.append(group))
+    monkeypatch.setattr(sim, "_group_polar", lambda _ctx, group, *_rest, **_kw: drawn.append(group))
     ctx = SimpleNamespace(
         pproc=SimpleNamespace(
             products=SimpleNamespace(polars=True), groups={"PORT": ["Wing"], "1": ["all"]}
         ),
         live=SimpleNamespace(rotors={"PORT": SimpleNamespace(members=["Blade1"])}),
         window=None,
+        points=[],
         skipped={},
         sim_id="7001",
     )
@@ -32,11 +33,13 @@ def test_p0400_groupkey_a_rotor_group_clash_writes_no_group_polar(monkeypatch):
 def test_p0400_groupkey_agreeing_groups_are_all_drawn(monkeypatch):
     """P0400-GROUPKEY control: with no clash every group, the rotor's included, is drawn."""
     drawn: list[str] = []
-    monkeypatch.setattr(sim, "_group_polar", lambda _ctx, group, *_rest: drawn.append(group))
+    # `instant` is the keyword the instant group polars of PFS-2105.011 pass.
+    monkeypatch.setattr(sim, "_group_polar", lambda _ctx, group, *_rest, **_kw: drawn.append(group))
     ctx = SimpleNamespace(
         pproc=SimpleNamespace(products=SimpleNamespace(polars=True), groups={"1": ["all"]}),
         live=SimpleNamespace(rotors={"PORT": SimpleNamespace(members=["Blade1"])}),
         window=None,
+        points=[],
         skipped={},
         sim_id="7001",
     )

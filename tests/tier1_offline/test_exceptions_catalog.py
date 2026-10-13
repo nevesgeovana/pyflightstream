@@ -142,8 +142,12 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "ExecutorConfigurationError": ValueError,
         "FarfieldInputError": ValueError,
         "FieldNotInExportError": KeyError,
+        # 0.40.0: an external FSI input or a row's 6DOF input refused at plan.
+        # ValueError because the file's CONTENT is refused, as FsiSetupError.
+        "FsiExternalSetupError": ValueError,
         "FsiInputError": ValueError,
         "FsiSetupError": ValueError,
+        "SixDofSetupError": ValueError,
         "GeometryEngineMissingError": ImportError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
@@ -714,15 +718,15 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 13 entries in two tranches, over 16 raise sites: it
+#: The set holds 12 entries in two tranches, over 15 raise sites: it
 #: is keyed on (definition, exception type) since 2026-08-18, and THREE
 #: definitions raise the same type twice: `_run_row`, `_checked` and
-#: `_validate_block_boundaries`. Thirteen pairs plus those three second
-#: raises is sixteen. NO pair raises ``TypeError`` any more; ONE raises
+#: `_validate_block_boundaries`. Twelve pairs plus those three second
+#: raises is fifteen. NO pair raises ``TypeError`` any more; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
 #: reduced from three to one the same day when the three writers were
-#: given one home; the other 12 are the reachability tranche and are
+#: given one home; the other 11 are the reachability tranche and are
 #: almost all ``ValueError``.
 #:
 #: THE TYPEERROR TRANCHE WAS THREE RAISES AND IS NONE
@@ -806,7 +810,8 @@ _RATCHET = {
     # RE-KEYED in 0.40.0 (FR-457), not re-decided: the far field split into a
     # numpy core and the azimuth check moved to `farfield.quadrature` with its site.
     "pyflightstream.farfield.quadrature._delta_psi -> ValueError",
-    "pyflightstream.fsi.driver._verified_layout -> ValueError",
+    # `fsi.driver._verified_layout` left in 0.40.0: it raises the catalogued
+    # `FsiInputError` now.
     # RE-KEYED in 0.33.0 (AD-10, P0330-WP2), not re-decided: the parser moved
     # from `fsi.loads` to `results.sectional_loads` and the exemption followed
     # the site. The debt is unchanged and still owed.
@@ -838,7 +843,7 @@ _RATCHET = {
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
 #: inherit the exemption in silence. Three definitions raise twice; the
-#: rest raise once: 13 pairs, 16 raises, re-measured 2026-08-19 as the
+#: rest raise once: 12 pairs, 15 raises, re-measured 2026-08-19 as the
 #: TypeError tranche emptied, `to_table` leaving with two raises and
 #: `EntityRegistry` with one.
 #:
@@ -853,7 +858,6 @@ _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.farfield.quadrature._delta_psi -> ValueError": 1,
-    "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,
     "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError": 2,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
     "pyflightstream.post.writers._checked -> ValueError": 2,

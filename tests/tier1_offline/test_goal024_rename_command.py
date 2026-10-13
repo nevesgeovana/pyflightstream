@@ -496,9 +496,9 @@ def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_pat
         assert tail == str(row["point_name"]), (row["run_id"], row["point_name"])
         assert tail.startswith("M200RE230AL"), row["run_id"]
         assert not tail.startswith("P3207-"), row["run_id"]
-        for entry in row.get("points_ran") or []:
-            assert entry["tag"] == entry["tag"].lstrip("P"), entry
-            assert "P3207-" not in entry["tag"], entry
+        # A per-point record lists no points_ran (the loop that once checked its entries
+        # never ran), so the tag stays the whole identity after the rename (PFS-2135.039).
+        assert not row.get("points_ran"), row["run_id"]
         # AND THE PATHS ARE PATHS: the folder and the stem, both moved.
         for output in row["outputs"]:
             assert output.startswith("datapoints/DP-M200RE230AL"), output

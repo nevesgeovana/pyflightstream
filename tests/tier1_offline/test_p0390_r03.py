@@ -137,9 +137,8 @@ def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys, 
         "accept_unregistered_build = true }\n",
         encoding="utf-8",
     )
-    code, out, err = call(
-        capsys, matrix_main, ["plan", "polars.fs", "--cost", "--workspace", str(root)]
-    )
+    plan = ["plan", "polars.fs", "--cost", "--workspace", str(root)]
+    code, out, err = call(capsys, matrix_main, plan)
     assert code == 0, err
     assert observed[0].application_id == "app-h002"
     written = plan_json(root)
@@ -210,8 +209,8 @@ def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
     )
     if local is not None:
         (root / "pyfs.local.toml").write_text(f'[defaults]\nhpc = "{local}"\n', encoding="utf-8")
-    argv = ["plan", "polars.fs", "--workspace", str(root)]
-    code, _out, err = call(capsys, matrix_main, argv + (["--hpc", typed] if typed else []))
+    argv = ["plan", "polars.fs", "--workspace", str(root)] + (["--hpc", typed] if typed else [])
+    code, _out, err = call(capsys, matrix_main, argv)
     assert code == 0, err
     assert observed[0].application_id == f"app-{selected}"
     assert plan_json(root)["settings_sources"].get("hpc") == source
@@ -617,6 +616,37 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
 
 # --- R10: no file, no change -------------------------------------------------------
 
+#: The products whose bytes 0.40.0 changes on purpose (PFS-2105.020): the settings
+#: table writes a finite float at its shortest exact spelling (``1e-05``, ``30.0``),
+#: where 0.38.0 wrote it at five decimals (``0.00001``, ``30.00000``).
+SETTINGS_TABLE_SUFFIX = "_settings.csv"
+
+
+def settings_spelling_admitted(new: str, captured: str) -> bool:
+    """Whether a settings table differs from its 0.38.0 capture by the PFS-2105.020 spelling only.
+
+    Line by line and cell by cell: a cell is admitted where it is equal, or where it
+    reads as a number whose five-decimal spelling is the captured cell. A row, a
+    column or any other cell that differs is not admitted.
+    """
+    new_lines, old_lines = new.split("\n"), captured.split("\n")
+    if len(new_lines) != len(old_lines):
+        return False
+    for new_line, old_line in zip(new_lines, old_lines, strict=True):
+        new_cells, old_cells = new_line.split(","), old_line.split(",")
+        if len(new_cells) != len(old_cells):
+            return False
+        for cell, old in zip(new_cells, old_cells, strict=True):
+            if cell == old:
+                continue
+            try:
+                number = float(cell)
+            except ValueError:
+                return False
+            if f"{number:.5f}" != old:
+                return False
+    return True
+
 
 @pytest.mark.skipif(
     sys.platform != "win32",
@@ -665,6 +695,10 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
+        if name.endswith(SETTINGS_TABLE_SUFFIX):
+            # The one admitted difference, named: PFS-2105.020's full-precision cells.
+            assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
+            continue
         assert text.encode("utf-8") == captured[name], (
             name
             + "\n"

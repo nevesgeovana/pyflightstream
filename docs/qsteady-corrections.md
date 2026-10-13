@@ -160,6 +160,14 @@ average, the wheel's the mean of its clockings) and writes, for `THRUST`,
 `THRUST = CT rho n^2 D^4` and `TORQUE = CQ rho n^2 D^5` of each row, gains 1, a
 1P gain of 1 and a phase of 0, at the wheel's `J`, with both run ids recorded.
 
+The sector's row must hold the whole rotor's loads, since the wheel's does and
+the package never multiplies a sector by its copies. The helper reads the
+sector run's script, hashed as recorded: a solve under a `SYMMETRY` other than
+`NONE` is accepted only with `SET_ANALYSIS_SYMMETRY_LOADS ENABLE` (the row's
+`SYMMETRY_LOADS`), and a script that cannot be read, or no longer hashes as
+recorded, is refused too. The refusal names the sector run and what its
+script states.
+
 ## The diagnostic
 
 `diagnostic = "theodorsen"` writes `sections/<point>_theodorsen.csv` for each

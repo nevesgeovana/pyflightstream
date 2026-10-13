@@ -14,7 +14,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import (
     CampaignErrors,
@@ -109,16 +108,20 @@ def test_p0400_a_point_the_submit_command_cannot_name_is_refused_by_name(tmp_pat
     """P0400-SUBMIT-PLACEHOLDERS (PFS-2094.010): ``{walltime}`` and a row that states none.
 
     The KeyError of the argv format left the campaign as a traceback; it is now the
-    package's refusal naming the profile and what the point can supply.
+    package's refusal naming the profile and what the point can supply, returned as
+    this point's failed result (PFS-2094.037) with no descriptor written.
     """
     profile = read_hpc_profile(_profile(tmp_path, '["esub", "--time={walltime}"]'))
     executor = SubmittingExecutor(profile, values={"fs_build": "26.120"}, submit=False)
     executor.bind_point({"sim": "5001", "point": "AL+000"}, replace=True)
     script = tmp_path / "s.txt"
     script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
-    with pytest.raises(CampaignConfigError, match="walltime") as refused:
-        executor.run_script(script, tmp_path / "work")
-    assert "h001.toml" in str(refused.value)
+    result = executor.run_script(script, tmp_path / "work")
+    assert result.failed and result.return_code == 2, result
+    assert "{walltime}" in result.stderr and "h001.toml" in result.stderr, result.stderr
+    assert "What it can:" in result.stderr, result.stderr
+    assert executor.descriptor_path is None
+    assert not (tmp_path / "work" / profile.descriptor_name).exists()
 
 
 def test_p0400_a_submit_command_that_hangs_is_this_points_failure(tmp_path):
@@ -139,8 +142,8 @@ def test_p0400_a_refused_submission_is_the_rows_record_and_the_run_returns(tmp_p
     """P0400-SUBMIT-REFUSAL-RECORDED (PFS-2094.010): a descriptor field this row cannot fill.
 
     The refusal raised inside run_script left the campaign loop with no record for the row,
-    after earlier rows were submitted; the row is now recorded FAILED_SCRIPT, naming it,
-    and run_matrix returns.
+    after earlier rows were submitted; the row is now recorded as this point's failed
+    submission (FAILED_EXECUTION, PFS-2094.037), naming it, and run_matrix returns.
     """
     workspace, matrix = _steady_sweep_matrix(tmp_path)
     path = _profile(tmp_path / "w", '["esub", "{descriptor_path}"]')
@@ -162,7 +165,7 @@ def test_p0400_a_refused_submission_is_the_rows_record_and_the_run_returns(tmp_p
             executor=executor,
         )
     records = failed.value.records
-    assert records and all(r.status is RunStatus.FAILED_SCRIPT for r in records), records
+    assert records and all(r.status is RunStatus.FAILED_EXECUTION for r in records), records
     assert all("walltime" in (r.error or "") for r in records)
     assert [r.run_id for r in workspace.read_manifest()] == [r.run_id for r in records]
 

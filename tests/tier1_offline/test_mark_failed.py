@@ -180,10 +180,16 @@ def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
 def test_mutant_leaving_the_status_turns_the_check_red_fr_309(tmp_path):
     # Verifies FR-309.
     source = Path(records_module.__file__).read_text(encoding="utf-8")
-    old = '        unit["status"] = str(RunStatus.FAILED_MARKED)\n'
-    folded = '    row["status"] = str(worst)\n'
-    assert source.count(old) == source.count(folded) == 1
-    mutant = source.replace(old, "").replace(folded, "")
+    # Both status writes of the marking (PFS-2103.010 marks each point, then the
+    # record takes its worst point's status): a record is its own one unit, so
+    # leaving one write alone still marks it.
+    mutant = source
+    for old in (
+        '        unit["status"] = str(RunStatus.FAILED_MARKED)\n',
+        '    row["status"] = str(worst)\n',
+    ):
+        assert source.count(old) == 1, old
+        mutant = mutant.replace(old, "")
     assert mutant != source
     spec = importlib.util.spec_from_loader("records_mutant_mark", loader=None)
     module = importlib.util.module_from_spec(spec)

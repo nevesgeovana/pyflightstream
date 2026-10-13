@@ -167,6 +167,23 @@ class FrameAverage:
 _TECPLOT_TEXT_RECORDS = ("TITLE", "DATASETAUXDATA", "AUXDATA")
 
 
+def _zone_keywords(upper: str) -> tuple[int | None, float | None]:
+    """Return the declared point count and the solution time a ZONE record states."""
+    declared = re.search(r"(?<![A-Z])I\s*=\s*(\d+)", upper)
+    declared_points = int(declared.group(1)) if declared is not None else None
+    stated = re.search(r"SOLUTIONTIME\s*=\s*\"?([^\s,\"]*)", upper)
+    if stated is None:
+        return declared_points, None
+    token = stated.group(1)
+    try:
+        return declared_points, float(token)
+    except ValueError as error:
+        raise MalformedOutputError(
+            f"the zone record declares SOLUTIONTIME={token!r}, which is not a "
+            "number, so the frame cannot say when it was written"
+        ) from error
+
+
 def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float | None]:
     """Read one Tecplot ASCII ordered POINT zone."""
     names: list[str] = []
@@ -201,19 +218,9 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
             # The declared point count lets a truncated table be refused
             # rather than returned short; anchored so the I of a longer
             # keyword cannot match.
-            declared = re.search(r"(?<![A-Z])I\s*=\s*(\d+)", upper)
-            if declared is not None:
-                declared_points = int(declared.group(1))
-            stated = re.search(r"SOLUTIONTIME\s*=\s*\"?([^\s,\"]*)", upper)
-            if stated is not None:
-                token = stated.group(1)
-                try:
-                    solution_time = float(token)
-                except ValueError as error:
-                    raise MalformedOutputError(
-                        f"the zone record declares SOLUTIONTIME={token!r}, which is not a "
-                        "number, so the frame cannot say when it was written"
-                    ) from error
+            declared_points, stated_time = _zone_keywords(upper)
+            if stated_time is not None:
+                solution_time = stated_time
             continue
         try:
             rows.append([float(token) for token in re.split(r"[,\s]+", stripped)])

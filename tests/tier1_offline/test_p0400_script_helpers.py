@@ -83,7 +83,7 @@ def test_p0400_axiscase_a_lowercase_axis_is_read_on_every_vocabulary(version):
 
 
 def test_p0400_rotorunit_a_rotor_on_the_unmarked_build_is_refused_citing_the_report():
-    """P0400-ROTORUNIT (PFS-2088.010): the helper preserves its declared contract."""
+    """P0400-ROTORUNIT (PFS-2088.010, FR-101): a rotor row on 26.100 is refused by name."""
     script = Script(version="26.100")
     frame = _rotor_frame(script)
     before = script.render()

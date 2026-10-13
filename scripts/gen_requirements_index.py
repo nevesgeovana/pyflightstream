@@ -80,8 +80,11 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
-SRS = REPO / "docs" / "unpublished" / "requirements"
+SRS = REPO / REQUIREMENTS_DIR
 OUT = REPO / "reports" / "requirements-index.json"
 TESTS = REPO / "tests"
 
@@ -396,7 +399,7 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
     """
     entries = collect(srs_dir)
     return {
-        "source": "docs/unpublished/requirements",
+        "source": REQUIREMENTS_DIR.as_posix(),
         "generated_by": "scripts/gen_requirements_index.py",
         "traceability": traceability([e["id"] for e in entries], tests_dir),
         "requirements": entries,

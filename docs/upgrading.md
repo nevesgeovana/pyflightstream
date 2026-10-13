@@ -22,6 +22,34 @@ rule. Rebuild post products to apply the full span integration.
 This release also changes documentation page URLs. Old page links do not
 redirect and must be updated to the new site structure.
 
+A rotor table of a row whose rotors turn at different speeds averages each
+rotor over the row's `LAST_REVS_AVG` turns counted on that rotor's own
+steps per revolution; the tables of rotors other than the clock rotor, and
+the `windows` of their manifest entries, change when the campaign is posted
+again. No re-run is needed.
+
+The settings table (`settings/*_settings.csv`) writes each value at its
+shortest exact spelling (`30.0` where it wrote `30.00000`, `1e-05` where it
+wrote `0.00001`); the values read back are unchanged or more exact.
+
+The installed-frame copy of a product table negates `CQ` and `YMOM` and maps
+each harmonic phase `H<k>_PHASE_DEG` to its mirror, so the copy keeps
+`CP = 2 pi CQ sign(RPM)`.
+
+A point that cannot make one group's polar is skipped under
+`polars/<file>#<point>`, once per failing group, where a whole-run refusal
+was recorded before.
+
+`sector_offset_calibration` refuses a sector run whose recorded script does
+not show whole-rotor loads, naming the run.
+
+A requested free-stream velocity is compared with the loads export at half a
+count of the last digit the export printed it with.
+
+A rotor row on build 26.100 (`unsteady_rotor`, `qsteady_rotor`, a rotor speed, a
+`rotary_motion` call) is refused at plan time: the unit of that build's angular
+velocity is not measured. Run rotor rows on a build with a measured rotor unit.
+
 New capabilities, nothing to migrate: a pproc may state `[streamlines]`
 ([Streamlines from the pproc artifact](streamlines.md)); the `unsteady` row key
 `SIXDOF: d<id>` names a 6DOF input of `inputs/sixdof/`
@@ -40,8 +68,15 @@ is refused at plan, naming the command.
 Workspace settings refuse `runs` and `accept_unregistered_build`. Use `--runs`
 per command, and accept builds on `inputs/executables.local.toml` entries or
 with the typed flag. `fs_exe` and `local` belong only in `pyfs.local.toml`.
-Periodic symmetry refuses nonzero angle of attack and sideslip. An absent
-numbered boundary is refused by name; select its unnumbered family instead.
+Periodic symmetry refuses nonzero angle of attack and sideslip. A numbered
+boundary name selects that exact boundary and never its numbered siblings
+(`Hub1` no longer selects `Hub2` and `Hub3`). Cited alone, in a matrix cell or
+as a families or group entry of that one name, an absent numbered boundary
+whose family the geometry carries is refused at plan by name (post warns and
+skips it); select its unnumbered family instead. As a member of a longer
+list, a group or an alias it is never refused for that: it is left out like
+any other name the geometry lacks, so a sector row lacking some blades still
+plans READY with the warning it gave before.
 Long uniform refinement tags are shortened to the same summary form as other
 long tags. Automatic trailing-edge detection on 26.125 requires a declared
 inventory and emits explicit indices. Probe imports require their coordinate
@@ -49,6 +84,13 @@ unit. CDp and CDv physics metrics use independent pressure-drag references,
 seeded through update-reference from a measured 26.125 report; old induced-drag
 references are never substituted. Explicit zero wake or trailing-edge counts
 and rotor efficiency above 1 warn in post.log and leave run status unchanged.
+The maintenance programs `tests/tier3_licensed/actions_probe.py`, `duct.py`,
+`mesh_routes.py` and `rotation_null.py` change behaviour: `actions_probe.py`
+and `duct.py` start as scripts from any working directory with no `PYTHONPATH`
+setting; `mesh_routes.py` applies a relative `1e-9` rounding slack to its
+unit-conversion verdict and route comparisons, so a gap of one printed unit
+reports `IMPORT CONVERTS`; `rotation_null.py` resolves the simulation ID from
+the leading token of each point name, for both angle signs.
 
 ### Far-field signatures
 

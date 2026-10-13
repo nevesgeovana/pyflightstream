@@ -50,10 +50,11 @@ def test_the_control_surface_is_emitted_in_the_ten_argument_parametric_form_fr_3
     assert tokens[-2:] == ["PARAMETRIC", "Y"]
 
 
-def test_the_section_export_probe_reads_the_folder_because_the_manual_names_no_file_fr_334():
-    """FR-334 R1, marker P0340-PROBE-2001-05: the one-section export has no file argument."""
+def test_the_section_export_probe_supplies_its_own_line_filename_fr_334():
+    """FR-334 R1, marker P0340-PROBE-2001-05: preserve the following command."""
     row = chapter_rows()["EXPORT_SURFACE_SECTIONS"]
-    assert [arg["name"] for arg in row["args"]] == ["index"]
+    assert [arg["name"] for arg in row["args"]] == ["index", "filename"]
+    assert row["args"][1]["own_line"] is True
     entry = specs.PROBE_SPECS["EXPORT_SURFACE_SECTIONS"]
     assert "folder" in entry.effect_note
     assert entry.prelude is not None, "the working folder is listed when the script is built"

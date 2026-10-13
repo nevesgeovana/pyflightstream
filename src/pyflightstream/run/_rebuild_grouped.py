@@ -109,9 +109,9 @@ def rendered_at_home(rendered: str, shadow: Path, sim: str, label: str | None) -
 
 def _receipt(base: Path, stem: str) -> GroupingReceipt | None:
     """Read the grouping receipt of ``post/<stem>/plan.json``; None when there is none."""
-    from pyflightstream.workspace import _batches
+    from pyflightstream.workspace._batches import read_grouping
 
-    return _batches.read_grouping(base / "post" / stem / "plan.json")[0]
+    return read_grouping(base / "post" / stem / "plan.json")[0]
 
 
 def _entry(

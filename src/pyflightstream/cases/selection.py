@@ -60,13 +60,30 @@ def warn_a_selector_that_guesses(word: str) -> NoReturn:
 
 def _literal_names(token: str, inventory: Sequence[str]) -> list[str]:
     """Resolve a numbered token exactly, and an unnumbered token as a family."""
-    if token not in inventory and re.search(r"\d+$", token):
+    folded = {name.casefold() for name in inventory}
+    if token.casefold() not in folded and re.search(r"\d+$", token):
         return []
     return names_of(token, inventory)
 
 
 def _family_names(token: str, inventory: Sequence[str], *, strict: bool) -> list[str]:
-    if token not in inventory and re.search(r"\d+$", token):
+    # AN EMPTY INVENTORY IS AN UNKNOWN GEOMETRY, not one that lacks the name: an
+    # offline render knows no boundary, and refusing there refused every
+    # numbered cell of every row. Only a known inventory can lack a boundary.
+    # A token of digits alone is a POSITION, not a numbered name, and a name
+    # the inventory carries under another case is that name (`names_of`).
+    # And the refusal is for the case the old family reading got WRONG: a
+    # name whose siblings the inventory carries (Hub1 over Hub2 and Hub3)
+    # once selected them. A name no boundary answers at all selected nothing
+    # then and selects nothing now, and the caller's own rule for a name the
+    # geometry lacks (FR-73, FR-320) still decides.
+    folded = {name.casefold() for name in inventory}
+    if (
+        inventory
+        and token.casefold() not in folded
+        and re.search(r"\D\d+$", token)
+        and names_of(token, inventory)
+    ):
         reason = (
             f"the geometry lacks boundary {token!r}; existing boundaries: "
             f"{', '.join(inventory)}. Select the family by its unnumbered name."
@@ -95,12 +112,14 @@ def select_families(
     entry that resolves to nothing is an empty result and the caller
     skips it. ``all`` is the empty list standing for the command's own
     every-boundary form, which the caller spells as -1; as a list member it
-    adds every surface of the inventory. An ALIAS of the
-    row's setup (the design decision of 2026-09-09) is read before the five
-    selector words, as the bare string and as a list member, so
-    ``airframe`` and ``blades`` are the setup's own where it defines them
-    and refused as selectors where it does not (since 0.15.0);
-    a bare word that is neither is a family name.
+    adds every surface of the inventory. A cited word is read as a
+    ``[groups]`` member is: an exact boundary name of the inventory first,
+    then an ALIAS of the row's setup (the design decision of 2026-09-09),
+    then a family, and only then as one of the five selector words, as the
+    bare string and as a list member. So an exact boundary wins over an
+    alias of the same spelling, and ``airframe`` and ``blades`` are the
+    setup's own where it defines them and refused as selectors where it
+    does not (since 0.15.0).
 
     Parameters
     ----------
@@ -114,7 +133,12 @@ def select_families(
     aliases : mapping of str to sequence of str, optional
         The ``[aliases]`` table of the row's setup.
     strict : bool, optional
-        Refuse absent numbered boundaries at plan; False warns and skips in post.
+        Refuse, at plan, a numbered boundary the entry cites ALONE (a bare
+        word, or a list of that one word) that the geometry lacks while it
+        carries the family; False warns and skips it in post. A member of a
+        longer list or of an alias selects its exact name only and is never
+        refused here: one the geometry lacks is the caller's to warn about
+        (FR-320) or refuse (FR-435).
 
     Returns
     -------
@@ -124,7 +148,10 @@ def select_families(
     """
     blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
-        aliased = resolve_alias(selection, inventory, aliases, strict=strict)
+        # ONE READING FOR A CITED WORD, the one `select_group_members` uses
+        # (PFS-2104.029/.030): a word that is both a boundary and an alias
+        # selected the alias in a plot and the boundary in a [groups] entry.
+        aliased = _resolve_token(selection, inventory, aliases, strict=strict, alone=True)
         if aliased is not None:
             return [aliased] if aliased else []
         if selection == "all":
@@ -140,15 +167,21 @@ def select_families(
             return [[name] for name in inventory]
         if selection == "each_blade":
             return [[name] for name in blades]
-        # A bare word outside the five and the aliases is a family (the reference
-        # p001 of 2026-09-09); one the inventory lacks is an empty result.
-        names = _family_names(selection, inventory, strict=strict)
-        return [names] if names else []
+        # A bare word outside the five and the aliases was read as a family
+        # above (the reference p001 of 2026-09-09); one the inventory lacks is
+        # an empty result.
+        return []
     chosen: list[str] = []
+    alone = len(selection) == 1
     for item in selection:
-        aliased = resolve_alias(item, inventory, aliases, strict=strict)
-        if aliased is not None:
-            names = aliased
+        # A list member resolves as the bare word does, family fallback
+        # included (the interface lens of 2026-09-09: the same word selected
+        # six blades written alone and nothing written in a list). Only a
+        # numbered member the geometry lacks differs: one of several selects
+        # nothing and the caller's rule for a lacked name decides (FR-320).
+        resolved = _resolve_token(str(item), inventory, aliases, strict=strict, alone=alone)
+        if resolved is not None:
+            names = resolved
         elif item in _SELECTORS_THAT_GUESS:
             warn_a_selector_that_guesses(item)
         elif item == EVERY_FAMILY:
@@ -157,11 +190,7 @@ def select_families(
             # entry was left out with a warning (PFS-2104.002).
             names = list(inventory)
         else:
-            # A list member resolves as the bare word does, family
-            # fallback included (the interface lens of 2026-09-09: the
-            # same word selected six blades written alone and nothing
-            # written in a list).
-            names = _family_names(str(item), inventory, strict=strict)
+            names = []
         chosen.extend(name for name in names if name not in chosen)
     return [chosen] if chosen else []
 
@@ -224,8 +253,6 @@ def resolve_alias(
     token: str,
     inventory: Sequence[str],
     aliases: Mapping[str, Sequence[str]] | None,
-    *,
-    strict: bool = True,
 ) -> list[str] | None:
     """Resolve one cited name as an alias of the setup, or None when it is not one.
 
@@ -236,8 +263,11 @@ def resolve_alias(
     a name does, an exact name of the inventory first and a family (the
     label without its trailing number) second; a member the inventory
     does not carry is ignored, which is how one setup serves a wing-body
-    and a rotor. The names come back in member order, each once; an
-    alias every member of which is absent resolves to an empty list, and
+    and a rotor. A NUMBERED member is that exact name and never its
+    numbered siblings: ``Hub1`` over a mesh carrying ``Hub2`` and ``Hub3``
+    selects nothing, and is not refused. The names come back in member
+    order, each once; an alias every member of which is absent resolves to
+    an empty list, and
     the caller says what that means for its key.
 
     THE DESIGN OF 2026-09-10 ADDED ONE THING and it changes this
@@ -254,8 +284,6 @@ def resolve_alias(
         The boundary names the row's geometry carries.
     aliases : mapping of str to sequence of str or None
         The ``[aliases]`` table of the row's setup.
-    strict : bool, optional
-        Refuse absent numbered members at plan; False warns and skips in post.
 
     Returns
     -------
@@ -278,7 +306,7 @@ def resolve_alias(
     key = _alias_key(token, aliases)
     if key is None:
         return None
-    return _resolve_alias_key(key, inventory, aliases, seen=(), strict=strict)
+    return _resolve_alias_key(key, inventory, aliases, seen=())
 
 
 def _alias_key(token: str, aliases: Mapping[str, Sequence[str]]) -> str | None:
@@ -294,7 +322,6 @@ def _resolve_alias_key(
     aliases: Mapping[str, Sequence[str]],
     *,
     seen: tuple[str, ...],
-    strict: bool = True,
 ) -> list[str]:
     """Resolve one alias to boundary names, following members that are aliases.
 
@@ -307,49 +334,74 @@ def _resolve_alias_key(
     names: list[str] = []
     path = (*seen, key)
     for member in aliases[key]:
-        token = str(member)
-        # THE INVENTORY IS ASKED FIRST, and it has to be. A member that
-        # names a boundary the mesh carries is that boundary, whatever
-        # else shares its spelling; only a member the mesh does not carry
-        # is looked up as an alias. Without this order an alias `wing`
-        # whose member is the family `Wing` resolves to ITSELF, because
-        # an alias is matched case folded, and the reader reports a cycle
-        # over a file that has none (measured 2026-09-10 against
-        # test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members).
-        if token in inventory:
-            if token not in names:
-                names.append(token)
-            continue
-        nested = _alias_key(token, aliases)
-        # A MEMBER THAT NAMES ITS OWN ALIAS IS NOT A RING, it is the
-        # 0.14.0 case of an alias resolving to nothing: `wing = ["Wing"]`
-        # over a mesh whose wing was renamed matches the alias itself when
-        # names are folded, and that file has no ring in it. It falls
-        # through to the FAMILY reading, which finds the wings of a mesh
-        # that has them and nothing of one whose wing was renamed, which
-        # is what it did before aliases could nest. Saying "it resolves to
-        # nothing" was the RENAMED case mistaken for the rule, and a
-        # technical-writing pass caught it in three places at once
-        # (2026-09-10). A ring needs two distinct aliases, and that is what is
-        # refused below.
-        if nested is not None and nested == key:
-            nested = None
-        if nested is not None and nested in path:
-            raise AliasCycleError(
-                f"the alias {key!r} resolves through {token!r}, which resolves back to "
-                f"{nested!r}: {' -> '.join(repr(name) for name in (*path, nested))}. An "
-                "alias may name another alias, and the reader follows to the end, so a "
-                "ring has no end; break it in the reference"
-            )
-        resolved = (
-            _resolve_alias_key(nested, inventory, aliases, seen=path, strict=strict)
-            if nested is not None
-            else _family_names(token, inventory, strict=strict)
-        )
-        for name in resolved:
+        resolved = _resolve_token(str(member), inventory, aliases, seen=path, alone=False)
+        for name in resolved or []:
             if name not in names:
                 names.append(name)
     return names
+
+
+def _resolve_token(
+    token: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None,
+    *,
+    seen: tuple[str, ...] = (),
+    strict: bool = True,
+    alone: bool,
+) -> list[str] | None:
+    """Read one cited token: an exact boundary, then an alias, then a family.
+
+    The one reading of a cited word (PFS-2104.029/.030), shared by
+    :func:`select_families`, :func:`select_group_members` and an alias's
+    members, so one word selects the same surfaces in a plot, a section, a
+    ``[groups]`` entry and a nested alias. ``seen`` is the alias path when the
+    token is a member of an alias, its last entry the alias that lists it.
+    ``alone`` says the entry cites this one word (a matrix cell, a bare
+    families word, a one-word list or group); only such a word is refused
+    when it is a numbered boundary the geometry lacks (PFS-2029.25). None
+    means the token is none of the three, and the caller reads it as a
+    selector word or as nothing.
+    """
+    # THE INVENTORY IS ASKED FIRST, and it has to be. A token that names a
+    # boundary the mesh carries is that boundary, whatever else shares its
+    # spelling. Without this order an alias `wing` whose member is the family
+    # `Wing` resolves to ITSELF, because an alias is matched case folded, and
+    # the reader reports a cycle over a file that has none (measured
+    # 2026-09-10 against
+    # test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members).
+    if token in inventory:
+        return [token]
+    nested = _alias_key(token, aliases) if aliases else None
+    # A MEMBER THAT NAMES ITS OWN ALIAS IS NOT A RING, it is the 0.14.0 case of
+    # an alias resolving to nothing: `wing = ["Wing"]` over a mesh whose wing
+    # was renamed matches the alias itself when names are folded, and that
+    # file has no ring in it. It falls through to the FAMILY reading, which
+    # finds the wings of a mesh that has them and nothing of one whose wing
+    # was renamed. A ring needs two distinct aliases, and that is what is
+    # refused below.
+    if seen and nested == seen[-1]:
+        nested = None
+    if nested is not None and nested in seen:
+        raise AliasCycleError(
+            f"the alias {seen[-1]!r} resolves through {token!r}, which resolves back to "
+            f"{nested!r}: {' -> '.join(repr(name) for name in (*seen, nested))}. An "
+            "alias may name another alias, and the reader follows to the end, so a "
+            "ring has no end; break it in the reference"
+        )
+    if nested is not None and aliases is not None:
+        return _resolve_alias_key(nested, inventory, aliases, seen=seen)
+    # THE REFUSAL IS FOR A WORD CITED ALONE (the decision of 2026-10-12 on
+    # PFS-2029.25). Refusing an absent numbered name by its exact spelling was
+    # decided for the boundary a matrix cell cites. A MEMBER of a list, a group or an alias is
+    # one name among several that one file gives every model of a study, and a
+    # member the geometry lacks is ignored (the alias decision of 2026-09-09)
+    # and then warned about or refused by the caller's own rule (FR-320,
+    # FR-435): a sector row lacking four blades plans READY. Either way a
+    # numbered name selects that exact name and never its numbered siblings.
+    if not alone:
+        return _literal_names(token, inventory) or None
+    return _family_names(token, inventory, strict=strict) or None
 
 
 def alias_members_missing(
@@ -377,9 +429,11 @@ def alias_members_missing(
     resolves, gives an empty list. A RING RAISES, exactly as
     :func:`resolve_alias` does and with the same message: a reporter that
     answered confidently for a file the resolver refuses is a second
-    reading of one file (the QA lens of 2026-09-10, measured).
+    reading of one file (the QA lens of 2026-09-10, measured). A token that
+    is an exact boundary of the inventory is that boundary and not the alias
+    of its spelling, so it gives an empty list (PFS-2104.029).
     """
-    if not aliases:
+    if not aliases or token in inventory:
         return []
     key = _alias_key(token, aliases)
     if key is None:
@@ -419,7 +473,11 @@ def _absent_members(
             for pair in _absent_members(nested, inventory, aliases, seen=path):
                 if pair not in absent:
                     absent.append(pair)
-        elif not _literal_names(token, inventory) and (key, token) not in absent:
+        # THE REFUSAL'S READING OF A NAME IS THE FAMILY'S (FR-320 R4, R5): a
+        # numbered member whose family the mesh carries (Blade2 over Blade1) is
+        # not refused here, although it selects nothing, so a sector row still
+        # plans; the plan's warning names it (`declared_names_the_geometry_lacks`).
+        elif not names_of(token, inventory) and (key, token) not in absent:
             absent.append((key, token))
     return absent
 
@@ -461,8 +519,11 @@ def select_group_members(
     aliases : mapping of str to sequence of str, optional
         The ``[aliases]`` table of the row's setup.
     strict : bool, optional
-        Refuse an absent numbered boundary during planning. Post-processing
-        passes False to warn and leave that member out instead.
+        Refuse, during planning, a numbered boundary a ONE-MEMBER entry cites
+        (a matrix cell's reading) that the geometry lacks while it carries
+        the family. Post-processing passes False to warn and leave it out
+        instead. A member of a longer entry selects its exact name only and
+        is left out without a refusal (FR-320, FR-435).
 
     Returns
     -------
@@ -472,17 +533,12 @@ def select_group_members(
     if not members:
         return list(inventory)
     chosen: list[str] = []
+    alone = len(members) == 1
     for member in members:
         if isinstance(member, int):
             continue
         token = str(member)
-        names = (
-            [token]
-            if token in inventory
-            else resolve_alias(token, inventory, aliases, strict=strict)
-        )
-        if names is None:
-            names = _family_names(token, inventory, strict=strict)
+        names = _resolve_token(token, inventory, aliases, strict=strict, alone=alone) or []
         if not names and token == EVERY_FAMILY:
             # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE (0.24.0).
             # A group is ONE alias as a string, an empty list was every family, and

@@ -384,6 +384,41 @@ def _numbers(cells: Sequence[str], path: Path, number: int) -> list[float]:
         ) from None
 
 
+def _reference_count_and_group(target: Path, line: str) -> tuple[int, int]:
+    """Read the reference count and the group number of the fourth header line."""
+    counts = line.split()
+    if len(counts) != 2:
+        raise ProductError(
+            f"{target} line 4 should be the reference count and the group number; it reads {line!r}"
+        )
+    try:
+        return int(counts[0]), int(counts[1])
+    except ValueError:
+        raise ProductError(
+            f"{target} line 4 should be the reference count and the group number as digits; "
+            f"it reads {line!r}"
+        ) from None
+
+
+def _custom_rows(
+    target: Path, data: list[str], columns: tuple[str, ...], row_count: int
+) -> list[dict[str, float]]:
+    """Read the data rows of a custom polar file, each checked against the stated counts."""
+    if len(data) != row_count:
+        raise ProductError(
+            f"{target} line 7 states {row_count} rows and the file holds {len(data)}"
+        )
+    rows: list[dict[str, float]] = []
+    for number, line in enumerate(data, start=10):
+        cells = line.split()
+        if len(cells) != len(columns):
+            raise ProductError(
+                f"{target} line {number} carries {len(cells)} values for {len(columns)} columns"
+            )
+        rows.append(dict(zip(columns, _numbers(cells, target, number), strict=True)))
+    return rows
+
+
 def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     """Read a custom polar format file back, as :func:`write_custom_polar_format` specifies it.
 
@@ -426,19 +461,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"{target} line 2 should be the polar identifier and a two-digit Mach code; "
             f"it reads {lines[1]!r}"
         )
-    counts = lines[3].split()
-    if len(counts) != 2:
-        raise ProductError(
-            f"{target} line 4 should be the reference count and the group number; "
-            f"it reads {lines[3]!r}"
-        )
-    try:
-        reference_count, group = int(counts[0]), int(counts[1])
-    except ValueError:
-        raise ProductError(
-            f"{target} line 4 should be the reference count and the group number as digits; "
-            f"it reads {lines[3]!r}"
-        ) from None
+    reference_count, group = _reference_count_and_group(target, lines[3])
     names = tuple(lines[4].split())
     values = lines[5].split()
     if len(names) != reference_count or len(values) != reference_count:
@@ -454,19 +477,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
         raise ProductError(
             f"{target} line 8 states {column_count} columns and line 9 names {len(columns)}"
         )
-    data = lines[9:]
-    if len(data) != row_count:
-        raise ProductError(
-            f"{target} line 7 states {row_count} rows and the file holds {len(data)}"
-        )
-    rows: list[dict[str, float]] = []
-    for number, line in enumerate(data, start=10):
-        cells = line.split()
-        if len(cells) != column_count:
-            raise ProductError(
-                f"{target} line {number} carries {len(cells)} values for {column_count} columns"
-            )
-        rows.append(dict(zip(columns, _numbers(cells, target, number), strict=True)))
+    rows = _custom_rows(target, lines[9:], columns, row_count)
     mach = reference_values.pop("MNOM", None)
     if mach is None:
         raise ProductError(f"{target} line 5 names no MNOM column; it names {names}")

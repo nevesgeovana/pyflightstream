@@ -68,6 +68,27 @@ def make_run(tmp_path, references_dir=None) -> PhysicsRun:
     )
 
 
+FROZEN_TODAY = "2031-02-03"
+
+
+@pytest.fixture
+def frozen_today(monkeypatch):
+    """The date source of the report helpers, fixed, so a test that crosses local midnight
+    between the writer's call and its own cannot disagree with it (PFS-2135.013)."""
+    import datetime
+    import types
+
+    from pyflightstream.qa import reports
+
+    class _Date(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(FROZEN_TODAY)
+
+    monkeypatch.setattr(reports, "datetime", types.SimpleNamespace(date=_Date))
+    return FROZEN_TODAY
+
+
 def test_band_judgment_covers_pass_warn_fail():
     relative = ReferenceBand(value=1.0, warn=0.02, fail=0.05, kind="rel")
     assert relative.judge(1.015) is Verdict.PASS
@@ -429,7 +450,7 @@ def test_a_build_registered_later_is_inside_the_minimum_without_an_edit():
             )
 
 
-def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path):
+def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path, frozen_today):
     """The two-arm guard compat has, which physics did not.
 
     `INC-20260817-2210` happened because the date default lived in the
@@ -447,9 +468,7 @@ def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path)
     construction", which was true of `report_paths` and false of the two
     helpers that wrap it.
     """
-    import datetime
-
-    today = datetime.date.today().isoformat()
+    today = frozen_today  # the report date source is fixed (PFS-2135.013)
 
     yaml_path, md_path = physics_report_paths(tmp_path, version="26.120", label="probe")
     assert yaml_path.name == f"PHY-26120_{today}_probe.yaml"

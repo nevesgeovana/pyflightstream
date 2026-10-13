@@ -73,13 +73,9 @@ exports remain the route for per-step surface sequences.
 
 from __future__ import annotations
 
-import math
-import os
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
@@ -91,6 +87,46 @@ from pyflightstream.commands import (
     ListSeparator,
     Phase,
     Status,
+)
+from pyflightstream.script._arg_checks import (
+    CommandArgumentError,
+    ScriptLineBreakError,
+    _bind_line_tokens,
+    _check_list,
+    _check_one_line_each,
+    _check_scalar,
+)
+from pyflightstream.script._ledger_tables import (
+    _COUNT_ARG_NAMES,
+    _COUNT_REFERENCE_ARGS,
+    _CREATION_COMMANDS,
+    _DELETION_COMMANDS,
+    _FRAME_FOLLOWERS,
+    _INITIALIZATION_COMMAND,
+    _LOADS_FRAME_COMMAND,
+    _MINIMUM_CP_COMMAND,
+    _NEW_MODEL_COMMANDS,
+    _REFERENCE_PLACEMENT_INDEX,
+    _SURFACE_TRANSFORM_COMMANDS,
+    _UNFOLLOWED_FRAME_COMMANDS,
+    _VOLUME_SECTION_CREATES,
+    _VOLUME_SECTION_DELETE,
+    _VOLUME_SECTION_DELETE_ALL,
+    LENGTH_UNIT_COMMAND,
+    BrokenCommandUse,
+    FramePlacement,
+    UnsteadyActionUse,
+    _placed_by_origin,
+    _reference_kind,
+)
+from pyflightstream.script._ledger_tables import (
+    _FOLLOWED_FRAME_COMMANDS as _FOLLOWED_FRAME_COMMANDS,
+)
+from pyflightstream.script._ledger_tables import (
+    _FRAME_NEUTRAL_COMMANDS as _FRAME_NEUTRAL_COMMANDS,
+)
+from pyflightstream.script._ledger_tables import (
+    _UNCOUNTED_CREATIONS as _UNCOUNTED_CREATIONS,
 )
 from pyflightstream.script._surface_averaging import (
     SurfaceAverageWindow,
@@ -148,208 +184,6 @@ _ORDERED_PHASES = (
     Phase.EXPORT,
 )
 
-# Argument names that declare how many items the list argument after
-# them carries. The solver reads the count, then reads that many tokens,
-# so a count disagreeing with its list makes the solver consume the next
-# command line as data: a silent corruption, never a syntax error.
-#
-# The vendor spells this argument differently per command, so the set is
-# a name list and not a type rule. That is the hazard: a command whose
-# count carries a new spelling escapes the check entirely and nothing
-# says so. `test_every_declared_count_is_a_known_count_name` in
-# tests/tier1_offline/test_script.py closes that class by walking the database and
-# failing on any int scalar that introduces a list from outside this set.
-# It was added after two commands were found escaping (PFS-8, 2026-08-02).
-_COUNT_ARG_NAMES = {
-    "boundaries",
-    "count",
-    "num_boundaries",
-    "num_frames",
-    "num_index",
-    "num_sections",
-    "num_variables",
-    "numpts",
-    # SURFACE_COMBINE's count of the surfaces it merges (SRC-003 p.312).
-    # Added 2026-08-07 with the Mesh Operations chapter; the tier-1 guard
-    # over this set is what reported the omission, before the entry could
-    # ship a count nothing compares against its own list.
-    "surface_count",
-    "surfaces",
-    # WRAPPER_SET_INPUT's count of the surfaces the wrap is built over
-    # (SRC-003 p.314). Added 2026-08-08 with the Mesh Wrapper chapter,
-    # reported by the same guard the same way. This is the FOURTH
-    # spelling for a count of surfaces in the database, after
-    # 'surface_count', 'surfaces' and 'boundaries', and all four are the
-    # manual's own on their own pages; the entries mirror them rather
-    # than harmonising, which is the design decision of 2026-08-08.
-    # The cost of that decision is exactly this set, which is why the
-    # set is guarded rather than trusted.
-    "num_surfaces",
-    # BOOLEAN_UNITE_MESH's count of the mesh BODIES it unites (SRC-003
-    # p.316), added 2026-08-08 with the Mesh Unite chapter. Fifth
-    # spelling of a count in this set and the first counting something
-    # other than surfaces, bodies being a different inventory again.
-    "num_bodies",
-    # BOOLEAN_UNITE_GEOMETRY's count of the GEOMETRY bodies it unites
-    # (SRC-749 p.272), added 2026-08-10 with the commands only the
-    # pre-26.100 editions document. Sixth spelling, and the one that
-    # makes the point of this set best: it counts the same kind of thing
-    # as num_bodies directly above, for a command printed on the SAME
-    # PAGE as the one that spells it num_bodies. The two are the
-    # vendor's, one per keyword, and they are mirrored rather than
-    # harmonised for the reason recorded above.
-    "bodies",
-}
-
-# Cross-reference ledger (SAD Section 4.2): commands that create an
-# indexed auxiliary object, commands that delete one, and the argument
-# names that cite one. Frame index 1 is the reference frame and always
-# exists (SRC-003 p.329); created local frames take indices 2 upward.
-# Mesh boundaries are cited but never created by a command: their
-# inventory comes from declare_existing() and -1 selects all of them.
-_CREATION_COMMANDS = {
-    "CREATE_NEW_COORDINATE_SYSTEM": "frames",
-    # A copy is appended as a new frame, and MIRROR duplicates before it
-    # mirrors, so the original survives and the mirrored copy is appended
-    # (coordinate_systems.yaml). Uncounted until 0.40.0, so the next
-    # CREATE_NEW_COORDINATE_SYSTEM was given the copy's index (PFS-2104.017).
-    "DUPLICATE_COORDINATE_SYSTEM": "frames",
-    "MIRROR_COORDINATE_SYSTEM": "frames",
-    "CREATE_NEW_ACTUATOR": "actuators",
-    "CREATE_NEW_MOTION": "motions",
-    # 25.000 creates a motion by one command per type and has no
-    # CREATE_NEW_MOTION (SRC-749); uncounted until 0.40.0 (PFS-2104.018).
-    "CREATE_NEW_MOTION_EUCLIDEAN": "motions",
-    "CREATE_NEW_MOTION_CUSTOM": "motions",
-    "CREATE_NEW_MOTION_6DOF": "motions",
-    "CREATE_NEW_MOTION_FSI": "motions",
-}
-#: The CREATE_NEW_* commands that make nothing the entity registry counts:
-#: a force, an observer, a region, an inlet or outlet, a surface or a section.
-#: Every CREATE_NEW_* of the database is here or in ``_CREATION_COMMANDS``, and
-#: a tier-1 guard walks the database for one in neither (PFS-2104.018).
-_UNCOUNTED_CREATIONS = frozenset(
-    {
-        "CREATE_NEW_6DOF_CUSTOM_FORCE",
-        "CREATE_NEW_6DOF_EXTERNAL_FORCE",
-        "CREATE_NEW_6DOF_SPRING_FORCE",
-        "CREATE_NEW_ACOUSTIC_OBSERVER",
-        "CREATE_NEW_BASE_REGION",
-        "CREATE_NEW_CIRCLE_VOLUME_SECTION",
-        "CREATE_NEW_INLET",
-        "CREATE_NEW_OUTLET",
-        "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
-        "CREATE_NEW_SURFACE_FROM_SELECTION",
-        "CREATE_NEW_SURFACE_SECTION",
-    }
-)
-#: Each deletion command, the kind it deletes and the argument naming the
-#: index, which the registry needs to renumber the labels above it (RPT-021
-#: section 3; PFS-2104.025).
-_DELETION_COMMANDS = {
-    "DELETE_ACTUATOR": ("actuators", "actuator_index"),
-    "DELETE_MOTION": ("motions", "motion_id"),
-    "DELETE_COORDINATE_SYSTEM": ("frames", "frame"),
-}
-
-#: THE COMMANDS THAT MOVE, SCALE, MIRROR OR COPY MESH SURFACES, named one by one
-#: (PFS-2104.020). A prefix rule recorded ROTATE_SURFACE and the two
-#: TRANSLATE_SURFACE_* and missed SURFACE_ROTATE, SURFACE_SCALE and
-#: SURFACE_MIRROR, so the custom-field envelope was computed from a body those
-#: commands had changed. A tier-1 guard walks the mesh-operations chapter for a
-#: transform missing from this set.
-_SURFACE_TRANSFORM_COMMANDS = frozenset(
-    {
-        "ROTATE_SURFACE",
-        "SURFACE_ROTATE",
-        "TRANSLATE_SURFACE_IN_FRAME",
-        "TRANSLATE_SURFACE_BY_FRAME",
-        "SURFACE_SCALE",
-        "SURFACE_MIRROR",
-        "SURFACE_LINEAR_COPY_PASTE",
-        "SURFACE_CIRCULAR_COPY_PASTE",
-        "TRANSFORM_SELECTED_NODES",
-    }
-)
-
-#: The commands that discard the model the script built and start another.
-_NEW_MODEL_COMMANDS = frozenset({"OPEN", "NEW_SIMULATION"})
-#: The minimum-Cp limiter, whose library default a settings call emits only
-#: while the script carries none (PFS-2104.023).
-_MINIMUM_CP_COMMAND = "SOLVER_MINIMUM_CP"
-#: The command that initialises the solver. The script keeps where it last
-#: emitted it, which :meth:`Script.emit_after_initialization` needs (G02).
-_INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
-
-#: The command that states the simulation's length unit (G05, G06 of 0.27.0).
-#: Its one home (AD-10); script.helpers reads the unit vocabulary from it.
-LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
-#: The command that names the analysis loads frame, in which the solver writes
-#: its VTK surface export (RPT-074).
-_LOADS_FRAME_COMMAND = "SET_SOLVER_ANALYSIS_LOADS_FRAME"
-
-#: The commands that add a volume section to the solver's list, remove one by
-#: its index, and remove them all (G05 of 0.27.0).
-_VOLUME_SECTION_CREATES = frozenset(
-    {"CREATE_NEW_RECTANGLE_VOLUME_SECTION", "CREATE_NEW_CIRCLE_VOLUME_SECTION"}
-)
-_VOLUME_SECTION_DELETE = "DELETE_VOLUME_SECTION"
-_VOLUME_SECTION_DELETE_ALL = "DELETE_ALL_VOLUME_SECTIONS"
-
-
-def _vector(bound: Mapping[str, object], *names: str) -> _Vector:
-    """Read three bound arguments as one vector, for the frame ledger."""
-    x, y, z = (float(bound[name]) for name in names)  # type: ignore[arg-type]
-    return (x, y, z)
-
-
-def _reference_kind(spec: ArgSpec) -> str | None:
-    """Return the entity kind an argument cites, or None if it cites none.
-
-    ONE MECHANISM SINCE 2026-08-08: the argument's own declaration, and
-    nothing else. There were two until then, this one and a pair of
-    global maps from argument NAME to entity kind, and the maps were the
-    original.
-
-    They went because a name is a guess about an argument and a
-    declaration is the argument saying so. The maps could not carry a
-    spelling that means different things on different pages, which the
-    2026-08-07 review found: the Mesh Operations chapter spells a
-    surface reference ``index``, which elsewhere is a separation index,
-    a surface-section index and a volume-section index. Mapping it would
-    have refused valid section indices; leaving it out let
-    ``SURFACE_DELETE`` accept a declared label while ``SURFACE_INVERT``
-    did not, by no rule a caller could see.
-
-    So the maps were already the fallback rather than the rule, and a
-    fallback that silently covers 101 arguments is not a fallback. Those
-    101 now declare ``cites`` on their own entries
-    (PLN-20260807-1410), which also makes the database say what the
-    emitter does: reading an entry now tells you whether its index is
-    checked, where before you had to know the map.
-
-    Parameters
-    ----------
-    spec : ArgSpec
-        The argument specification, from the per-version view.
-
-    Returns
-    -------
-    str or None
-        Entity kind name as :mod:`pyflightstream.script.entities`
-        spells it, or None when the argument cites no entity.
-    """
-    return str(spec.cites) if spec.cites is not None else None
-
-
-# Count arguments that state how many mesh boundaries the command
-# selects; checked against the declared inventory, -1 meaning all.
-_COUNT_REFERENCE_ARGS = {
-    "num_boundaries": "boundaries",
-    "boundaries": "boundaries",
-    "surfaces": "boundaries",
-}
-
 
 class ScriptOrderError(PyflightstreamError, ValueError):
     """A command was emitted after its phase had already passed.
@@ -360,15 +194,6 @@ class ScriptOrderError(PyflightstreamError, ValueError):
     motions before solver initialization. Control commands are exempt,
     and a setup command that acts on an initialised solver passes
     through :meth:`Script.emit_after_initialization` alone.
-    """
-
-
-class CommandArgumentError(PyflightstreamError, ValueError):
-    """An emitted argument does not satisfy the database specification.
-
-    The message names the command, the argument, the expectation, and
-    the manual citation of the entry, so the fix can be checked against
-    the manual directly.
     """
 
 
@@ -395,546 +220,6 @@ class BrokenCommandError(PyflightstreamError, RuntimeError):
     their case. :meth:`Script.allow_broken` is that answer, and it
     records what it waived (see :class:`BrokenCommandUse`).
     """
-
-
-class BrokenCommandUse(BaseModel):
-    """One command emitted although its record in this version is broken.
-
-    Provenance, not configuration: the script collects one of these per
-    waived command and the run manifest carries them, so a run that
-    depended on a command known not to work says so in its own record
-    instead of looking like every other run (the same promise
-    ``raw_flag`` makes for unvalidated text, FR-07).
-
-    Attributes
-    ----------
-    command : str
-        Command name as emitted.
-    version : str
-        Canonical identifier of the build the script was written for,
-        which is what it has always held. Unchanged deliberately: it
-        travels inside ``RunRecord.waived_commands``, every row carries a
-        manifest stamp, and that identifier's own rule is that it bumps
-        when a field CHANGES MEANING. Redefining this one would have made
-        a reader of an existing manifest read two meanings under one key
-        with nothing to tell them apart, which is the defect this release
-        is named for, on the one surface that cannot be regenerated.
-
-        The stamp itself is no longer a single value and this sentence
-        used to name one: it said "every row is stamped
-        ``pyfs-manifest/1``", which stopped being true on 2026-08-19 when
-        ``source_version`` below became required and the stamp moved to
-        ``pyfs-manifest/2`` (PFS-2012.03). What did NOT change is this
-        field, which is the point of the paragraph.
-    source_version : str
-        Canonical identifier of the version whose record is broken,
-        which differs from ``version`` when a hotfix build inherits its
-        base release's record. That is the build the cited ``report``
-        was run on.
-
-        **Required since 2026-08-19** (PFS-2012.03, manifest schema
-        ``pyfs-manifest/2``). It was ``str | None`` with a None default,
-        and the default was the only route to an empty one: the single
-        construction site has always passed the evidence's own source,
-        which the command database types as a plain ``str``. So the
-        optionality described no live path and only left room for a
-        waiver record that cites a report without saying which build the
-        report was run on, which is a provenance row asserting nothing.
-        A row that predates the field is refused on read by
-        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
-        naming the manifest and the stamp it was written under, rather
-        than loading with the field empty.
-
-        THE EMPTY STRING IS REFUSED TOO, by ``min_length=1``, and that is
-        not decoration. Requiredness alone still admits ``""``, and the
-        manifest reader treats an empty ``source_version`` exactly as it
-        treats a missing one, so without this the model would ACCEPT a
-        value its own reader refuses: the row would be written, and the
-        manifest it landed in would be unreadable by the release that
-        wrote it. The constraint is on this field alone rather than on
-        every ``str`` here because this is the one whose emptiness the
-        reader is known to refuse; widening it is a separate decision
-        with its own evidence.
-
-        AND SO IS THE BLANK STRING, by the ``pattern`` beside it, which
-        is the hostile pass's finding against the line above rather than
-        a second thought: ``min_length=1`` accepts ``" "``, and a waiver
-        naming a build of one space satisfies every check while saying
-        exactly as much as the empty one it replaced. The pattern demands
-        one non-whitespace character and nothing more. It deliberately
-        does NOT strip the value: a stored identifier is evidence, and
-        silently rewriting evidence to make it pass is the failure mode
-        this field exists to prevent. What a version identifier may
-        otherwise look like belongs to :mod:`pyflightstream.versions`,
-        not here.
-    report : str
-        Repository-relative path of the committed probe report that
-        recorded the breakage. Never optional: ``broken`` cannot exist
-        without it (evidence rule, CONTRIBUTING.md invariant 3).
-    note : str, optional
-        The database's paraphrase of what the probe observed, when the
-        record carries one.
-    reason : str
-        The caller's justification, as passed to
-        :meth:`Script.allow_broken`. This is the field no automated
-        check can supply, which is why the method demands it.
-    first_line : str
-        The script line the first waived emission rendered. The reason
-        is written for a particular call, and a script-lifetime waiver
-        covers every later one, so a reader who has only the reason
-        cannot tell which emission it was written for: the QA prelude's
-        justification, for instance, holds at an altitude of zero and
-        nowhere else. This is the fact that lets them check.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    command: str
-    version: str
-    source_version: str = Field(min_length=1, pattern=r"\S")
-    report: str
-    note: str | None = None
-    reason: str
-    first_line: str = ""
-
-
-#: A point or a direction in the reference frame's axes.
-_Vector = tuple[float, float, float]
-
-#: The reference frame, index 1, which every script has and no command
-#: places: at the origin, with the reference axes.
-_REFERENCE_PLACEMENT_INDEX = 1
-
-
-class FramePlacement(BaseModel):
-    """Placement retained from explicit coordinate-system commands (FR-100).
-
-    Origin values retain the numeric convention of emitted frame commands.
-    Axes are the named X, Y and Z directions in REFERENCE. Explicit-unit
-    origins are converted through the recorded simulation unit; while no
-    unit is recorded (no SET_SIMULATION_LENGTH_UNITS and no decoded saved
-    head) an origin stated in METER is kept as written and one stated in any
-    other unit is forgotten rather than converted, because nothing in the
-    command says what the native unit is (GEO-060 A1a). Physical
-    interpretation requires a measured native unit contract; this ledger does
-    not establish it. Unfollowed placement commands clear affected values.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    origin: _Vector | None
-    axes: tuple[_Vector, _Vector, _Vector] | None
-
-
-#: The coordinate-system commands that move or re-index a frame in a way
-#: the ledger does not follow. A frame they touch loses its placement, and
-#: a delete loses every placement, because it shifts the indices above it.
-_UNFOLLOWED_FRAME_COMMANDS = frozenset(
-    {
-        "SET_COORDINATE_SYSTEM_AXIS",
-        "NORMALIZE_COORDINATE_SYSTEM",
-        "TRANSLATE_COORDINATE_SYSTEM",
-    }
-)
-
-#: The commands that name a frame, or make one, and leave where every frame
-#: stands as it was: a creation (placed by the EDIT that follows it), a rename,
-#: a copy (whose new frame the ledger does not place, so it has no entry), and
-#: the two of other chapters that ASSIGN a frame, to a motion and to the
-#: aeroelastic bodies, and state no origin or axis for it. Every
-#: command whose name says it is about a coordinate system is in this set, in
-#: ``_UNFOLLOWED_FRAME_COMMANDS``, or in ``_FRAME_FOLLOWERS``, and a tier-1 guard
-#: walks the database for one that is in none, which is how a command added
-#: later is kept from leaving a stale placement behind in silence.
-_FRAME_NEUTRAL_COMMANDS = frozenset(
-    {
-        "CREATE_NEW_COORDINATE_SYSTEM",
-        "SET_COORDINATE_SYSTEM_NAME",
-        "DUPLICATE_COORDINATE_SYSTEM",
-        "MIRROR_COORDINATE_SYSTEM",
-        "SET_MOTION_COORDINATE_SYSTEM",
-        "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
-    }
-)
-
-
-def _placed_by_edit(
-    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
-) -> None:
-    """``EDIT_COORDINATE_SYSTEM`` states origin and axes in the reference (SRC-751 p.334)."""
-    placements[frame] = FramePlacement(
-        origin=_vector(bound, "origin_x", "origin_y", "origin_z"),
-        axes=(
-            _vector(bound, "vector_x_x", "vector_x_y", "vector_x_z"),
-            _vector(bound, "vector_y_x", "vector_y_y", "vector_y_z"),
-            _vector(bound, "vector_z_x", "vector_z_y", "vector_z_z"),
-        ),
-    )
-
-
-def _placed_by_origin(
-    placements: dict[int, FramePlacement],
-    frame: int,
-    bound: Mapping[str, object],
-    *,
-    simulation_unit: str | None = None,
-) -> None:
-    """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
-
-    UNKNOWN UNIT, FORGOTTEN (GOAL-034 Q4, GEO-060 A1a, CX-1): the command's
-    explicit unit is converted through the one length table into the native
-    unit of the placement ledger only when the script knows the simulation's
-    length unit (set by the script or read from the opened save). While that
-    unit is unknown an origin in ``METER`` is kept as written, as before
-    0.29.0, and one in any other unit is forgotten rather than converted, so
-    a translation of that frame is refused.
-    """
-    from pyflightstream._lengths import scale
-
-    held = placements.get(frame)
-    units = str(bound.get("units"))
-    if simulation_unit is None:
-        factor = 1.0 if units == "METER" else None
-    else:
-        factor = scale(units, simulation_unit)
-    values = _vector(bound, "x", "y", "z")
-    origin = (
-        None if factor is None else (values[0] * factor, values[1] * factor, values[2] * factor)
-    )
-    placements[frame] = FramePlacement(origin=origin, axes=held.axes if held is not None else None)
-
-
-def _placed_by_turn(
-    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
-) -> None:
-    """``ROTATE_COORDINATE_SYSTEM`` turns by a sign the manual does not state.
-
-    The axes are forgotten; the origin survives only when the frame sits at the
-    origin of the frame it turns about, which a turn about that point cannot
-    move whatever its sign.
-    """
-    # NO ZERO-TURN SHORTCUT (GOAL-034 Q4, GEO-060 A1b/A1c): that a turn by 0
-    # leaves a frame in place is a claim about the solver with no owner decision
-    # and no recorded native export behind it, so the turn is treated as any other.
-    held = placements.get(frame)
-    pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
-    stays = (
-        held is not None
-        and pivot is not None
-        and held.origin is not None
-        and held.origin == pivot.origin
-    )
-    placements[frame] = FramePlacement(
-        origin=held.origin if stays and held is not None else None, axes=None
-    )
-
-
-def _placed_by_delete(
-    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
-) -> None:
-    """Forget every placement but the reference's: a delete shifts every index above it."""
-    reference = placements[_REFERENCE_PLACEMENT_INDEX]
-    placements.clear()
-    placements[_REFERENCE_PLACEMENT_INDEX] = reference
-
-
-#: THE COMMANDS THE LEDGER FOLLOWS, AND HOW, as one table. The set of followed
-#: names is this table's keys and nothing else, so a name cannot be declared
-#: followed without the code that follows it (the architecture lens, 2026-09-14).
-_FRAME_FOLLOWERS = {
-    "EDIT_COORDINATE_SYSTEM": _placed_by_edit,
-    "SET_COORDINATE_SYSTEM_ORIGIN": _placed_by_origin,
-    "ROTATE_COORDINATE_SYSTEM": _placed_by_turn,
-    "DELETE_COORDINATE_SYSTEM": _placed_by_delete,
-}
-_FOLLOWED_FRAME_COMMANDS = frozenset(_FRAME_FOLLOWERS)
-
-
-class UnsteadyActionUse(BaseModel):
-    """One action the solver runs after each unsteady time step.
-
-    Provenance, like :class:`BrokenCommandUse`: the script collects one
-    per registered action so the run record can say what ran beside the
-    solver, under which name, and on what evidence.
-
-    THE EVIDENCE FIELD IS THE POINT. SET_NEW_UNSTEADY_SOLVER_ACTION is
-    documented on the two newest builds and PROBED ON NONE, so a
-    workflow resting on it rests on a page rather than on a run. The
-    status is read from the command database at the moment the action is
-    registered and carried here, so it is stated once, at build time,
-    instead of being assumed by every reader downstream.
-
-    Attributes
-    ----------
-    name : str
-        Action name as registered, unique within one script.
-    kind : str
-        ``SCRIPT`` for a FlightStream script, ``COMMAND_LINE`` for a
-        shell command.
-    filename : str
-        The path the registration line names, exactly as passed. WHAT IT
-        IS RELATIVE TO IS UNSTATED BY BOTH EDITIONS: no manual page says
-        which working directory the solver runs an action from
-        (RPT-030), so this library records the caller's own string and
-        claims nothing about how the solver resolves it. On 26.123 the
-        action was measured to run from the simulation folder (RPT-041, the
-        script-action re-read probe).
-    evidence : str or None
-        Recorded status of the command on the script's build
-        (``documented``, ``verified``, ``broken``), or None where the
-        database holds no record for it.
-    inherited : bool
-        Whether that status was recorded for this build or inherited
-        from its base release. An inherited status is an assumption, and
-        a record that cannot show the difference presents one as a
-        measurement.
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    name: str
-    kind: str
-    filename: str
-    evidence: str | None = None
-    inherited: bool = False
-
-
-class ScriptLineBreakError(CommandArgumentError):
-    """A value would have become more than one line of the script.
-
-    FlightStream reads a script one command per physical line, and this
-    library's contract is that every line it writes came from a
-    validated command. A line terminator inside an argument breaks both
-    at once: the text after it is not an argument any more, it is the
-    next COMMAND, and the manifest still presents the script as fully
-    validated because ``raw_flag`` was never set.
-
-    The escape hatch for genuinely unvalidated text is
-    :meth:`Script.raw`, which exists precisely so that this refusal has
-    an answer: it appends the text and sets ``raw_flag``, so the script
-    carries the fact that something in it was not checked (FR-07).
-
-    Subclasses :class:`CommandArgumentError` so existing handlers keep
-    working; caught on its own it identifies this one cause.
-    """
-
-
-def _is_one_line(text: str) -> bool:
-    r"""Report whether ``text`` renders as exactly one physical line.
-
-    Defined by ``str.splitlines`` rather than by a list of forbidden
-    characters, because the property that matters is not "contains
-    ``\n``" but "the number of lines this renders as is not one". Python
-    breaks lines on a dozen code points beyond CR and LF (form feed, next
-    line, the Unicode line and paragraph separators), and a check written
-    as a character denylist would pass a value that still arrives at the
-    solver as two lines. A trailing terminator counts: ``"A\n"`` is one
-    line of text plus a break, and appending it would silently merge with
-    whatever came next.
-    """
-    return text == "" or text.splitlines() == [text]
-
-
-def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
-    """Refuse a value that would become more than one script line."""
-    if _is_one_line(value):
-        return
-    # Split the SAME way the guard decides, with splitlines, so the message
-    # describes the value the check actually saw. An earlier version
-    # partitioned on "\n", which is only two of the nine terminators
-    # splitlines recognizes: for CR, VT, FF, FS, NEL and the two Unicode
-    # separators it found nothing, so it reported "the value ends with a line
-    # break" (false) and offered the WHOLE injected string back as the safe
-    # prefix. A didactic refusal that misnames its own cause is worse than a
-    # terse one, and it was wrong on seven of the nine cases the guard covers.
-    parts = value.splitlines()
-    first = parts[0] if parts else ""
-    injected = next((part.strip() for part in parts[1:] if part.strip()), "")
-    # splitlines drops a trailing terminator, so count it back: "A\n" is one
-    # line of text plus a break and would merge with whatever came next. The
-    # keepends form is what distinguishes "A\n" (two) from "A\nB" (two) from
-    # "A\nB\n" (three) without special-casing any of them.
-    kept = value.splitlines(keepends=True)
-    ends_with_break = bool(kept) and kept[-1] != parts[-1]
-    lines = len(parts) + (1 if ends_with_break else 0)
-    if injected:
-        consequence = f"the text after the break would become the next command ({injected!r})"
-    else:
-        consequence = (
-            "the value ends with a line break, so the next command would be appended to this line"
-        )
-    raise ScriptLineBreakError(
-        f"{entry.name}: argument {spec.name!r} contains a line terminator, so it "
-        f"would render as {lines} script lines instead of one, and {consequence}. "
-        f"FlightStream reads one command per line, so this would emit a command "
-        f"nobody validated while the script still reported itself as fully "
-        f"validated. Remove the break (the value up to it is {first!r}), or, if "
-        f"unvalidated script text is genuinely wanted, append it with "
-        f"Script.raw(), which sets raw_flag so the script records that it was "
-        f"not checked ({entry.citation})"
-    )
-
-
-def _type_error(entry: CommandEntry, spec: ArgSpec, expected: str, value: object) -> None:
-    raise CommandArgumentError(
-        f"{entry.name}: argument {spec.name!r} expects {expected}, got {value!r} ({entry.citation})"
-    )
-
-
-def _reject_non_finite(entry: CommandEntry, spec: ArgSpec, value: float) -> None:
-    """Refuse NaN and the infinities in a solver argument.
-
-    REV010-004. Type checking a FLOAT accepted ``math.nan`` because NaN
-    IS a float, and rendering is ``str(value)``, so
-    ``Script("26.121").emit("SOLVER_SET_CONVERGENCE", math.nan)``
-    produced the line ``SOLVER_SET_CONVERGENCE nan``. The higher-level
-    :class:`SolverSettings` helpers guard finiteness, but ``emit`` is a
-    documented public interface and goes straight past them, which is
-    the shape REV-010 names: a guard at one layer and the same
-    invariant false at the layer below it.
-
-    There is no honest value for the solver to make of ``nan``: it is
-    rejected late, ignored, or absorbed into solver state, and none of
-    those three is distinguishable afterwards from a run that was
-    simply configured differently.
-    """
-    if math.isnan(value) or math.isinf(value):
-        raise CommandArgumentError(
-            f"{entry.name}: argument {spec.name!r} is {value!r}, which is not a "
-            "finite number. A solver argument is a physical quantity or a "
-            "numerical control, and neither has a NaN or an infinite value; "
-            "emitting it would put the token into the script for FlightStream "
-            f"to reject late, ignore, or absorb silently ({entry.citation})"
-        )
-
-
-def _match_enum(entry: CommandEntry, spec: ArgSpec, value: object) -> str:
-    """Return the member ``value`` spells, or refuse naming every spelling.
-
-    A string matches case-insensitively. An integer matches the member
-    it prints as, so a caller transcribing ``CAD_BODY_ROTATE 1 2 15.0``
-    off the manual page passes two integers and a float rather than
-    one integer, one quoted digit and a float (PFS-2003.04). Until
-    0.13.0 the refusal listed ``2`` among the accepted values and then
-    rejected the integer 2, naming no remedy. A bool is not an integer
-    here: ``True`` prints as ``True``, never as ``1``.
-    """
-    if isinstance(value, str):
-        for member in spec.values:
-            if member.upper() == value.upper():
-                return member
-    elif isinstance(value, int) and not isinstance(value, bool):
-        for member in spec.values:
-            if member == str(value):
-                return member
-    digits = [member for member in spec.values if member.isdigit()]
-    remedy = " (a listed digit may be passed as an int)" if digits else ""
-    _type_error(entry, spec, f"one of {', '.join(spec.values)}{remedy}", value)
-    raise AssertionError("unreachable")
-
-
-#: How :meth:`Script.emit_line` names a token of each typed argument it cannot read.
-_LINE_TOKEN_EXAMPLES = {
-    ArgType.INT: "a whole number such as 300",
-    ArgType.FLOAT: "a number such as 1.0",
-    ArgType.BOOL: "ENABLE or DISABLE (or True or False)",
-}
-_LINE_BOOLS = {"ENABLE": True, "TRUE": True, "DISABLE": False, "FALSE": False}
-#: What :func:`_line_token` returns for a token that is not its argument's type.
-_UNREAD = object()
-
-
-def _line_token(spec: ArgSpec, token: str, *, element: bool) -> object:
-    """Read one token of a script line as the value ``spec`` declares.
-
-    ``element`` reads the token as one item of a list argument. Returns
-    :data:`_UNREAD` when the token is not that type, which for a list ends
-    the run of tokens the list takes.
-    """
-    kind = spec.type
-    if element:
-        kind = {
-            ArgType.INT_LIST: ArgType.INT,
-            ArgType.FLOAT_LIST: ArgType.FLOAT,
-        }.get(kind, ArgType.STR)
-    try:
-        if kind is ArgType.INT:
-            return int(token)
-        if kind is ArgType.FLOAT:
-            return float(token)
-    except ValueError:
-        return _UNREAD
-    if kind is ArgType.BOOL:
-        return _LINE_BOOLS.get(token.upper(), _UNREAD)
-    return token
-
-
-def _check_scalar(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
-    if spec.type is ArgType.INT:
-        if isinstance(value, bool) or not isinstance(value, int):
-            _type_error(entry, spec, "an integer", value)
-        return value
-    if spec.type is ArgType.FLOAT:
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            _type_error(entry, spec, "a real number", value)
-        _reject_non_finite(entry, spec, float(value))
-        return value
-    if spec.type is ArgType.PATH:
-        if not isinstance(value, (str, os.PathLike)):
-            _type_error(entry, spec, "a path", value)
-        rendered = str(value)
-        # A path is the likeliest carrier: it comes from user input, from a
-        # directory listing, or from a filename the operator typed, and none
-        # of those forbid a newline.
-        _reject_line_break(entry, spec, rendered)
-        return rendered
-    if spec.type is ArgType.STR:
-        if not isinstance(value, str):
-            _type_error(entry, spec, "a string", value)
-        _reject_line_break(entry, spec, value)
-        return value
-    if spec.type is ArgType.ENUM:
-        return _match_enum(entry, spec, value)
-    if spec.type is ArgType.BOOL:
-        if not isinstance(value, bool):
-            _type_error(entry, spec, "True or False", value)
-        return value
-    raise AssertionError(f"unhandled scalar type {spec.type}")
-
-
-def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
-    if isinstance(value, str) or not isinstance(value, Sequence):
-        _type_error(entry, spec, "a sequence of values", value)
-    items = list(value)
-    if spec.fixed_length is not None and len(items) != spec.fixed_length:
-        raise CommandArgumentError(
-            f"{entry.name}: argument {spec.name!r} takes exactly "
-            f"{spec.fixed_length} value(s) and {len(items)} were given. The command "
-            "writes them as consecutive payload lines with no count before them, so "
-            "the solver reads a fixed number and then resumes reading commands; a "
-            "short payload makes it read the NEXT COMMAND as data, and a long one "
-            f"leaves a stray line the solver rejects. ({entry.citation})"
-        )
-    if spec.type is ArgType.INT_LIST:
-        for item in items:
-            if isinstance(item, bool) or not isinstance(item, int):
-                _type_error(entry, spec, "a sequence of integers", value)
-        return items
-    if spec.type is ArgType.FLOAT_LIST:
-        for item in items:
-            if isinstance(item, bool) or not isinstance(item, (int, float)):
-                _type_error(entry, spec, "a sequence of real numbers", value)
-            # Per element, not per sequence: one NaN among finite neighbours
-            # is the case that reads as ordinary in the emitted line.
-            _reject_non_finite(entry, spec, float(item))
-        return items
-    if spec.type is ArgType.STR_LIST:
-        for item in items:
-            if not isinstance(item, str):
-                _type_error(entry, spec, "a sequence of strings", value)
-            _reject_line_break(entry, spec, item)
-        return items
-    return [_match_enum(entry, spec, item) for item in items]
 
 
 class Script:
@@ -1046,42 +331,7 @@ class Script:
         # delta_time), for the snapshot of a settings call that states no mode
         # (PFS-2103.037); None while no such call ran.
         self._unsteady_regime: tuple[int, float] | None = None
-        #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
-        #: point in creation order: the vertex number, its x, y and z as
-        #: emitted, and the NAME of the frame they are measured in.
-        #:
-        #: The vertex number is the suffix an unsteady fluid plot carries
-        #: in its own name, so `MACH7` in a plots export is entry 7 here.
-        #: That is the join a reader of an unsteady probe table has no
-        #: other way to make: the export writes the numbers and never the
-        #: positions.
-        #:
-        #: Filled by the loop that EMITS the point, so the coordinates
-        #: recorded cannot drift from the coordinates emitted. Empty for a
-        #: script whose row declares no probes, and empty for one whose
-        #: entry cites a user's points file, since the package does not
-        #: parse a survey the user wrote.
-        self.probe_points: list[tuple[int, float, float, float, str]] = []
-        #: Exact sample IDs, field requests and native-to-SI conversion per entry.
-        self.probe_field_layout: list[dict[str, object]] = []
-        #: Native surface-property plot identities, separate from off-body velocity samples.
-        self.surface_probe_layout: list[dict[str, object]] = []
-        #: Surface averaging window emitted by the workflow, for run provenance.
-        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
-        #: a continuation carries the one its stopped run recorded.
-        self.surface_time_averaging: SurfaceAveragingWindow | None = None
-        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
-        #: where the workflow resolves the pproc's ``[time_averaging]``. No
-        #: command carries it: the run exports the surface at every step of it
-        #: and the post averages those exports.
-        self.surface_average_window: SurfaceAverageWindow | None = None
-        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
-        #: per Tecplot output the script exports, filled by the workflow that
-        #: emits the VTK in its place, for the reason ``section_blocks`` is
-        #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
-        #: and ``frame``, the loads frame the VTK is written in as this script
-        #: placed it (:meth:`loads_frame_record`).
-        self.surface_translations: list[dict[str, object]] = []
+        self._init_probe_and_surface_records()
         # THE ANALYSIS LOADS FRAME, as far as THIS SCRIPT set it (G45), read
         # through :attr:`loads_frame`; the reference frame until a
         # SET_SOLVER_ANALYSIS_LOADS_FRAME says otherwise, which is the solver's
@@ -1203,6 +453,45 @@ class Script:
         # are: the script layer is text-only, and the file lands through the
         # run layer's writer before the solver starts.
         self._pending_input_files: dict[str, str | bytes] = {}
+
+    def _init_probe_and_surface_records(self) -> None:
+        """Create the empty probe and surface records the workflows fill."""
+        #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
+        #: point in creation order: the vertex number, its x, y and z as
+        #: emitted, and the NAME of the frame they are measured in.
+        #:
+        #: The vertex number is the suffix an unsteady fluid plot carries
+        #: in its own name, so `MACH7` in a plots export is entry 7 here.
+        #: That is the join a reader of an unsteady probe table has no
+        #: other way to make: the export writes the numbers and never the
+        #: positions.
+        #:
+        #: Filled by the loop that EMITS the point, so the coordinates
+        #: recorded cannot drift from the coordinates emitted. Empty for a
+        #: script whose row declares no probes, and empty for one whose
+        #: entry cites a user's points file, since the package does not
+        #: parse a survey the user wrote.
+        self.probe_points: list[tuple[int, float, float, float, str]] = []
+        #: Exact sample IDs, field requests and native-to-SI conversion per entry.
+        self.probe_field_layout: list[dict[str, object]] = []
+        #: Native surface-property plot identities, separate from off-body velocity samples.
+        self.surface_probe_layout: list[dict[str, object]] = []
+        #: Surface averaging window emitted by the workflow, for run provenance.
+        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
+        #: a continuation carries the one its stopped run recorded.
+        self.surface_time_averaging: SurfaceAveragingWindow | None = None
+        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
+        #: where the workflow resolves the pproc's ``[time_averaging]``. No
+        #: command carries it: the run exports the surface at every step of it
+        #: and the post averages those exports.
+        self.surface_average_window: SurfaceAverageWindow | None = None
+        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
+        #: per Tecplot output the script exports, filled by the workflow that
+        #: emits the VTK in its place, for the reason ``section_blocks`` is
+        #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
+        #: and ``frame``, the loads frame the VTK is written in as this script
+        #: placed it (:meth:`loads_frame_record`).
+        self.surface_translations: list[dict[str, object]] = []
 
     @property
     def unsteady_actions(self) -> tuple[UnsteadyActionUse, ...]:
@@ -1453,25 +742,8 @@ class Script:
         # the script exactly as it found it: no waiver listed for a line
         # never written, no phase reached by a command that is not there.
         waiver = self._check_not_broken(entry)
-        if entry.name in _NEW_MODEL_COMMANDS and (
-            self.num_local_frames
-            or self.num_actuators
-            or self.num_motions
-            or self.num_boundaries is not None
-        ):
-            raise CommandArgumentError(
-                f"{entry.name}: cannot replace a model whose entities this Script already "
-                "tracks. Its labels, placements and loads records belong to that model. "
-                "Create a new Script for the new model instead (PFS-2088.009)"
-            )
-        if label is not None:
-            if entry.name not in _CREATION_COMMANDS:
-                raise CommandArgumentError(
-                    f"{entry.name} does not create a frame, actuator, or motion, so "
-                    "label= does not apply; labels name script-created entities at "
-                    f"their creation command ({entry.citation})"
-                )
-            self.entities.assert_label_free(_CREATION_COMMANDS[entry.name], label)
+        self._check_not_a_model_replacement(entry)
+        self._check_label_applies(entry, label)
         bound = self._bind(entry, args, kwargs)
         if entry.name == _INITIALIZATION_COMMAND:
             periodic = (
@@ -1500,25 +772,55 @@ class Script:
         ]
         for path in exports:
             self._refuse_export_collision(path, asker=entry.name)
-        # The choke point, and the reason this guard is here rather than only
-        # in the type checks above. Those close the two argument types known
-        # to carry text today; this closes the INVARIANT, which is that one
-        # element of _lines renders as exactly one physical line. Every route
-        # into the script passes through here, so a future argument type, a
-        # new layout, or a formatter that learns to interpolate cannot
-        # reopen the hole without tripping this. It is cheap: a string scan
-        # over a handful of short lines per command.
-        for line in block:
-            if not _is_one_line(line):
-                raise ScriptLineBreakError(
-                    f"{entry.name} rendered a line containing a line terminator "
-                    f"({line!r}), so the script would carry a command that no "
-                    "argument check saw. Every value reaching a script line is "
-                    "validated one line at a time; if this command has an "
-                    "argument type that is not line-checked, that check is the "
-                    f"fix, not this message ({entry.citation})"
-                )
+        _check_one_line_each(entry, block)
         # ACCEPTED: from here on the emission is committed.
+        self._commit_state(entry, bound, phase)
+        self._lines.extend(block)
+        if waiver is not None and entry.name not in self._broken_uses:
+            # Retain the first accepted line covered by this waiver.
+            self._broken_uses[entry.name] = waiver.model_copy(
+                update={"first_line": block[0] if block else ""}
+            )
+        if multiline:
+            self._lines.append("")
+        for path in exports:
+            self._exported_paths[path] = entry.name
+        self._follow_emitted(entry, bound, block, multiline)
+        self._follow_entities(entry, bound, label)
+
+    def _check_not_a_model_replacement(self, entry: CommandEntry) -> None:
+        """Refuse a command that discards a model this script already tracks."""
+        if entry.name in _NEW_MODEL_COMMANDS and (
+            self.num_local_frames
+            or self.num_actuators
+            or self.num_motions
+            or self.num_boundaries is not None
+        ):
+            raise CommandArgumentError(
+                f"{entry.name}: cannot replace a model whose entities this Script already "
+                "tracks. Its labels, placements and loads records belong to that model. "
+                "Create a new Script for the new model instead (PFS-2088.009)"
+            )
+
+    def _check_label_applies(self, entry: CommandEntry, label: str | None) -> None:
+        """Refuse ``label=`` on a command that creates nothing, or a label already taken."""
+        if label is None:
+            return
+        if entry.name not in _CREATION_COMMANDS:
+            raise CommandArgumentError(
+                f"{entry.name} does not create a frame, actuator, or motion, so "
+                "label= does not apply; labels name script-created entities at "
+                f"their creation command ({entry.citation})"
+            )
+        self.entities.assert_label_free(_CREATION_COMMANDS[entry.name], label)
+
+    def _commit_state(
+        self,
+        entry: CommandEntry,
+        bound: Mapping[str, object],
+        phase: tuple[int, tuple[str, int]] | None,
+    ) -> None:
+        """Move the phase and the solver-state flags a command accepted by ``emit`` sets."""
         if phase is not None:
             self._phase_index, self._phase_setter = phase
         if entry.name == _MINIMUM_CP_COMMAND:
@@ -1529,7 +831,12 @@ class Script:
             self.custom_field_coverage = None
             self._minimum_cp_emitted = False
             self._unsteady_regime = None
+            self._incidence.clear()
+            self._periodic_symmetry = False
         if entry.name == _INITIALIZATION_COMMAND:
+            periodic = (
+                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
+            )
             self._initialized_at = len(self._lines) + 1
             self._reinitialization_owed = None
             copies = bound.get("symmetry_copies", bound.get("symmetry_periodicity"))
@@ -1543,23 +850,13 @@ class Script:
                 self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
                 self._sets_loads_frame = True
         elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
-            self._incidence[entry.name] = float(bound["angle"])
-        self._lines.extend(block)
-        if waiver is not None and entry.name not in self._broken_uses:
-            # Retain the first accepted line covered by this waiver.
-            self._broken_uses[entry.name] = waiver.model_copy(
-                update={"first_line": block[0] if block else ""}
-            )
-        if multiline:
-            self._lines.append("")
-        for path in exports:
-            self._exported_paths[path] = entry.name
-        if entry.name in {"OPEN", "NEW_SIMULATION"}:
-            self._incidence.clear()
-            self._periodic_symmetry = False
-            self.surface_operations.clear()
-            self.custom_field_extent_m = None
-            self.custom_field_coverage = None
+            self._incidence[entry.name] = float(bound["angle"])  # type: ignore[arg-type]
+
+    def _follow_emitted(
+        self, entry: CommandEntry, bound: Mapping[str, object], block: list[str], multiline: bool
+    ) -> None:
+        """Keep every ledger in step with the block just appended to the lines."""
+        line = len(self._lines) - len(block) + (0 if multiline else 1)
         if entry.name in _SURFACE_TRANSFORM_COMMANDS:
             frame_index = bound.get("frame")
             placement = (
@@ -1572,7 +869,7 @@ class Script:
                     "length_unit": self.simulation_length_unit,
                     "frame": placement.model_dump() if placement is not None else None,
                     "boundary_count": self.num_boundaries,
-                    "line": len(self._lines) - len(block) + (0 if multiline else 1),
+                    "line": line,
                 }
             )
         self._follow_frame_placement(entry.name, bound)
@@ -1580,13 +877,18 @@ class Script:
         self._motion_ledger.follow(
             entry.name,
             bound,
-            line=len(self._lines) - len(block) + (0 if multiline else 1),
+            line=line,
             next_motion=self.num_motions + 1,
         )
         if entry.name == _LOADS_FRAME_COMMAND:
             self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
             self._sets_loads_frame = True
         self._follow_volume_sections(entry.name, bound)
+
+    def _follow_entities(
+        self, entry: CommandEntry, bound: Mapping[str, object], label: str | None
+    ) -> None:
+        """Create or delete the entity a creation or deletion command names."""
         if entry.name in _CREATION_COMMANDS:
             kind = _CREATION_COMMANDS[entry.name]
             created = self.entities.create(kind, label=label)
@@ -1927,48 +1229,7 @@ class Script:
                 "has no place in it. State what the block sets through the preset's own "
                 "keys or the row's, or drop the entry"
             )
-        # BY NAME, because a list argument takes a run of tokens rather than
-        # one, and an optional list left out must not shift the tokens after
-        # it onto the wrong argument (PFS-2095.054, PFS-2093.012). A list takes
-        # every following token its element type reads, which is how the
-        # inline renderer wrote it (items joined by spaces); the first token
-        # it cannot read goes to the next argument.
-        bound: dict[str, object] = {}
-        position = 0
-        for argument in spec.args:
-            if position >= len(arguments):
-                break
-            if argument.is_list:
-                items: list[object] = []
-                while position < len(arguments):
-                    item = _line_token(argument, arguments[position], element=True)
-                    if item is _UNREAD:
-                        break
-                    items.append(item)
-                    position += 1
-                if items:
-                    bound[argument.name] = items
-                continue
-            token = arguments[position]
-            value = _line_token(argument, token, element=False)
-            if value is _UNREAD:
-                raise CommandArgumentError(
-                    f"{name}: argument {argument.name!r} is {token!r}, which is not "
-                    f"{argument.type.value}; write it as the manual prints it, "
-                    f"{_LINE_TOKEN_EXAMPLES.get(argument.type, 'one token')}"
-                )
-            bound[argument.name] = value
-            position += 1
-        left = arguments[position:]
-        if left:
-            raise CommandArgumentError(
-                f"{name}: the line carries {len(left)} token(s) no argument of the "
-                f"command reads ({' '.join(left)!r}). A line is split on whitespace, "
-                "so a value containing a space (a path under 'Program Files') arrives "
-                "as several tokens, and a list is read only where the command declares "
-                "one. Neither form is supported on one line: emit the command with "
-                "Script.emit, which takes each argument whole"
-            )
+        bound = _bind_line_tokens(name, spec.args, arguments)
         self.emit(name, **bound)
 
     def raw(self, text: str) -> None:
@@ -2439,35 +1700,59 @@ class Script:
         if entry.layout is Layout.BARE:
             return [entry.name], False
         if entry.layout is Layout.INLINE:
-            inline_parts = [entry.name]
-            tail_lines: list[str] = []
-            for spec, value in provided:
-                if spec.own_line:
-                    tail_lines.append(self._format_scalar(value))
-                elif spec.is_list:
-                    inline_parts.append(" ".join(self._format_scalar(item) for item in value))
-                else:
-                    inline_parts.append(self._format_scalar(value))
-            return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
+            return self._render_inline(entry, provided)
         if entry.layout is Layout.PAYLOAD_LINES:
-            inline_parts = [entry.name]
-            tail_lines = []
-            for spec, value in provided:
-                if spec.is_list:
-                    tail_lines.extend(self._list_lines(spec, value))
-                else:
-                    inline_parts.append(self._format_scalar(value))
-            return [" ".join(inline_parts), *tail_lines], True
+            return self._render_payload_lines(entry, provided)
         if entry.layout is Layout.PARAM_LINES:
-            lines = [entry.name]
-            for spec, value in provided:
-                if spec.is_list:
-                    lines.extend(self._list_lines(spec, value))
-                elif spec.type is ArgType.PATH:
-                    lines.append(self._format_scalar(value))
-                else:
-                    lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
-            return lines, True
+            return self._render_param_lines(entry, provided)
+        return self._render_keyword_block(entry, provided)
+
+    def _render_inline(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render an inline command: its values on one line, own-line values after it."""
+        inline_parts = [entry.name]
+        tail_lines: list[str] = []
+        for spec, value in provided:
+            if spec.own_line:
+                tail_lines.append(self._format_scalar(value))
+            elif spec.is_list:
+                inline_parts.append(" ".join(self._format_scalar(item) for item in value))  # type: ignore[attr-defined]
+            else:
+                inline_parts.append(self._format_scalar(value))
+        return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
+
+    def _render_payload_lines(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a payload-lines command: scalars inline, each list on lines after it."""
+        inline_parts = [entry.name]
+        tail_lines: list[str] = []
+        for spec, value in provided:
+            if spec.is_list:
+                tail_lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
+            else:
+                inline_parts.append(self._format_scalar(value))
+        return [" ".join(inline_parts), *tail_lines], True
+
+    def _render_param_lines(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a param-lines command: one ``NAME value`` line per argument."""
+        lines = [entry.name]
+        for spec, value in provided:
+            if spec.is_list:
+                lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
+            elif spec.type is ArgType.PATH:
+                lines.append(self._format_scalar(value))
+            else:
+                lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")
+        return lines, True
+
+    def _render_keyword_block(
+        self, entry: CommandEntry, provided: list[tuple[ArgSpec, object]]
+    ) -> tuple[list[str], bool]:
+        """Render a keyword-block command: values on its line first, then one keyword per line."""
         lines = [entry.name]
         for spec, value in provided:
             if spec.on_command_line:
@@ -2477,7 +1762,7 @@ class Script:
                 # so lines[0] is still the command name here.
                 lines[0] += f" {self._format_scalar(value)}"
             elif spec.is_list:
-                lines.extend(self._list_lines(spec, value))
+                lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
             elif spec.type is ArgType.BOOL:
                 # Presence keyword (SRC-003 p.307): True is the bare keyword
                 # line, False emits nothing.

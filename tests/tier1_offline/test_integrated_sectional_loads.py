@@ -222,7 +222,8 @@ def test_descending_offsets_tile_the_same_interval(tmp_path, monkeypatch):
 
 
 def _reordered_case(tmp_path, monkeypatch, *, legacy=False, ambiguous=False):
-    workspace = _case(tmp_path, monkeypatch, blocks=[OFFSETS, OFFSETS])
+    # Strip-centred stations, so the extended rule (PFS-2081.40) tiles exactly [0, 1].
+    workspace = _case(tmp_path, monkeypatch, blocks=[CENTERED, CENTERED])
     record = workspace.read_manifest()[0]
     for position, (block, family) in enumerate(
         zip(record.sections_layout, ("Wing", "Blade1"), strict=True), 1

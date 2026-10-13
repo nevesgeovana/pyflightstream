@@ -461,7 +461,7 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
         level.folder = tmp_path  # type: ignore[misc]
     record = _json(level.folder / f"{stem}.refine.json")
     faces = {n: len(fs) for n, fs in read_mesh(level.obj)[1].items()}
-    assert record["schema_version"] == 1 and record["source"] == "wing.obj"
+    assert record["schema_version"] == 2 and record["source"] == "wing.obj"
     assert record["level"] == stem and record["faces"] == faces
     g, t, u = (record["families"][n] for n in ("G", "T", "U"))
     assert g["method"] == "grid" and g["reason"].startswith("a sheet of 9 stations by 19")
@@ -1183,7 +1183,17 @@ def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allo
     assert _reaching(_file_imports(refine / "_audit.py"), PRIVATE) == []
     found = _file_imports(PACKAGE / "run" / "_cli_mesh.py")
     assert _reaching(found, (REFINE,)) == []
-    public = [m.rpartition(".")[2] for m in found if m.startswith("pyflightstream.workspace.")]
+    # The names bound from the package itself. The module also holds the inventory
+    # command (moved from run/cli.py by the 0.40.0 architecture ratchet), whose
+    # imports of workspace.inputs and workspace._geometry_clean reach no refinement
+    # module, which the _reaching check above already proves.
+    submodules = {p.stem for p in (PACKAGE / "workspace").iterdir()}
+    public = [
+        name
+        for m in found
+        if m.startswith("pyflightstream.workspace.") and m.count(".") == 2
+        if (name := m.rpartition(".")[2]) not in submodules
+    ]
     assert "refine_mesh" in public and "audit_mesh" in public
     assert all(name in workspace.__all__ and not name.startswith("_") for name in public)
     planted = _imports(

@@ -61,6 +61,7 @@ __all__ = [
     "read_compat_report",
     "read_compat_reports",
     "read_executable_baseline",
+    "resolve_commands_dir",
     "write_compat_report",
 ]
 
@@ -934,6 +935,12 @@ def _rewritten_flow_entry(
         # real absent command and a token that was never a command
         # (RPT-026).
         note = str(existing.get("note") or "")
+        if existing.get("status") == status and existing.get("report") == citation:
+            # The row was edited deliberately from THIS report already, as the
+            # refusal below asks: its page note is the reading that edit made.
+            # Re-applying the report (for the other commands it judges) has
+            # nothing to decide about this one and leaves the line as it is.
+            return line
         if _EDITION_PAGE.search(note):
             raise QaEvidenceError(
                 f"{chapter}: {name} records {canonical!r} with a page citation of that "

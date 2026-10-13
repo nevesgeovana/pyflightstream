@@ -108,6 +108,15 @@ _PYTEST_FAILED = 1
 _PYTEST_NO_TESTS = 5
 
 
+def classify(returncode: int, output: str) -> str:
+    """Classify pytest by exit code and summary; an infrastructure error proves no kill."""
+    if returncode == _PYTEST_FAILED and " failed" in output:
+        return "KILLED"
+    if returncode == 0 and " passed" in output:
+        return "SURVIVED"
+    return "INCONCLUSIVE"
+
+
 def verdict(test: str, timeout_s: float = 900.0) -> tuple[str, str]:
     """Run one test selection and classify the outcome in THREE values.
 
@@ -120,9 +129,9 @@ def verdict(test: str, timeout_s: float = 900.0) -> tuple[str, str]:
     denying, and all four were counted as kills, after which the battery
     printed "N of N mutants killed" and exited 0. A mutant that stops the
     suite from importing proves nothing about the guard, and a selector
-    that matches nothing proves less. The pattern is lifted from
-    ``prove_evidence_guards.py``, which had it from the start and whose
-    docstring is where this reasoning was already written down.
+    that matches nothing proves less. The classifier is shared by the
+    evidence and extras batteries; their earlier copies interpreted
+    output text without consistently checking pytest's exit code.
 
     NO TESTS SELECTED IS ITS OWN TRAP and is why the numeric code is read
     rather than only the summary text: a battery whose test id drifts
@@ -152,11 +161,8 @@ def verdict(test: str, timeout_s: float = 900.0) -> tuple[str, str]:
     tail = " | ".join(line for line in out.splitlines()[-3:] if line.strip())
     if done.returncode == _PYTEST_NO_TESTS:
         return "INCONCLUSIVE", f"no test matched {test!r}: {tail}"
-    if done.returncode == _PYTEST_FAILED and " failed" in out:
-        return "KILLED", tail
-    if done.returncode == 0 and " passed" in out:
-        return "SURVIVED", tail
-    return "INCONCLUSIVE", f"exit {done.returncode}: {tail}"
+    scored = classify(done.returncode, out)
+    return scored, f"exit {done.returncode}: {tail}" if scored == "INCONCLUSIVE" else tail
 
 
 def apply_mutant(path: Path, live: str, stale: str) -> bytes:

@@ -850,7 +850,7 @@ def read_observers_file(path: str | Path) -> tuple[tuple[float, float, float], .
     where = Path(path)
     try:
         # utf-8-sig: a spreadsheet's "CSV UTF-8" opens with a byte order mark,
-        # which read as text made the count line '﻿3' (PFS-2095.039).
+        # which read as text made the count line '\ufeff3' (PFS-2095.039).
         lines = [line.strip() for line in where.read_text(encoding="utf-8-sig").splitlines()]
     except (OSError, UnicodeDecodeError) as error:
         raise CampaignConfigError(

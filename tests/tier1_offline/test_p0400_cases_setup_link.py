@@ -11,7 +11,8 @@ from pyflightstream.script import Script
     ("families", "expected"),
     [
         (["Hub", "Blade"], [1, 2, 3]),
-        (["Hub", "blade1"], [1, 2, 3]),
+        # A case variant of one label is that label (PFS-2104.001), not its family.
+        (["Hub", "blade1"], [1, 2]),
         (["Blade"], [2, 3]),
         (["Hub", "rotor"], [1, 2, 3]),
     ],

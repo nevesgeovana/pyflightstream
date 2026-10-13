@@ -13,6 +13,10 @@ calls, so the dispatcher imports nothing of this module. The handler reaches
 the audit only through :func:`pyflightstream.workspace.audit_mesh` (FR-424
 R14), so the command and a Python caller run the same code.
 
+The geometry verbs ``inventory`` and ``degenerate`` (FR-308, FR-312, FR-330) name
+their handlers the same way; :func:`cmd_geometry` is the one entry the dispatcher
+calls for any command of :data:`GEOMETRY_COMMANDS`.
+
 A mesh verb needs no executable, no matrix and no workspace: it reads the OBJ
 it is given and writes beside it. Its exit status is the console contract of
 FR-426 R1: 0 when every gate and check passes, 1 when one fails (the audit is
@@ -527,6 +531,18 @@ def run_inventory(args: argparse.Namespace) -> int:
         return 2
     print(sidecar)
     return 0
+
+
+#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
+#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
+GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
+
+
+def cmd_geometry(args: argparse.Namespace) -> int:
+    """Run the geometry command ``args`` names."""
+    # Every geometry verb's parser names its handler, shared with
+    # `pyfs-workspace geometry` (FR-477).
+    return int(args.mesh_command(args))
 
 
 def run_degenerate(args: argparse.Namespace) -> int:

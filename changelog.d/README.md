@@ -29,8 +29,9 @@ folds every fragment into the `## [Unreleased]` section of `CHANGELOG.md`,
 each section under the `### ` heading of the same name (created when absent),
 appended in package order: `P0` first, then the other package names in
 natural order (`A`, `B1`, `B2`, ..., `K`). The `## Migration` sections go, in
-the same order, to the release's migration page (`docs/migrating-to-0.32.0.md`
-unless `--migration-page` names another). The fragments are then deleted and
+the same order, to the release's migration page named explicitly with
+`--migration-page`. Migration fragments without that argument are refused.
+The fragments are then deleted and
 this file stays.
 
 Running it again changes nothing: an entry already present under its heading

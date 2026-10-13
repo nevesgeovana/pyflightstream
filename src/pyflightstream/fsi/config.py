@@ -215,8 +215,11 @@ class BladeProperties(BaseModel):
         never touches the FlightStream setup.
     cg_offset_chordwise_m, cg_offset_normal_m : list of float
         Offset from the elastic axis to the sectional center of
-        gravity [m], section-plane components. Enters the centrifugal
-        terms and creates the bend-twist coupling.
+        gravity [m], section-plane components. A fixed wing reads it
+        for its own weight. A rotating blade does not carry it: the
+        static solve has no centrifugal moment of the offset and no
+        bend-twist coupling, and the modal problem holds it only as the
+        parallel-axis term of the twist inertia (a warning says so).
     geometric_pitch_deg : list of float
         Built-in geometric pitch distribution [deg] about the pitch
         axis; the total pitch is geometric plus elastic twist.

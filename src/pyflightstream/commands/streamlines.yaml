@@ -148,8 +148,8 @@ NEW_OFF_BODY_STREAMTUBE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Seeds a cylindrical bundle of off-body streamlines in one call,
     which is how a propeller or rotor slipstream is visualised without
@@ -193,8 +193,8 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms, SET_LENGTH and SET_UNRESTRICTED_LENGTH, were refused as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms were refused as an unrecognised command, which 26.125 prints on its standard output only"}
   notes: >
     How far a newly created off-body streamline is propagated: to a
     stated length, or until it leaves the domain.
@@ -227,8 +227,8 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
   notes: >
     Propagates every off-body streamline against the flow, back toward
     where its fluid came from. Applies to all of them at once; there is
@@ -248,8 +248,8 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
   notes: >
     Propagates every off-body streamline with the flow. The pair with
     the command above, and neither states which is the default.
@@ -268,8 +268,8 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.372, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
-    "26.124": {status: documented, note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.381, unchanged from SRC-752 p.375"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.381, unchanged from SRC-752 p.375"}
   notes: >
     Deletes every off-body streamline and streamtube. There is no
     command deleting one, so a seed placed wrongly costs the whole set.
@@ -341,8 +341,8 @@ EXPORT_ALL_SURFACE_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
-    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.382, unchanged from SRC-752 p.376"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.382, unchanged from SRC-752 p.376"}
   notes: >
     Writes every on-body streamline to one file, the path on the next
     line. The off-body counterpart is EXPORT_ALL_OFF_BODY_STREAMLINES,

@@ -33,6 +33,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, UNSTATED_CELLS, MatrixRow, read_matrix
 from pyflightstream.cases.windows import LAST_REVS_AVG, replan, stated_key
 from pyflightstream.results import parse_loads, parse_unsteady_plots
+from pyflightstream.run._collect_notes import _RecordAsCase
 from pyflightstream.workspace import (
     AdditionalRecord,
     CampaignWorkspace,
@@ -260,6 +261,26 @@ def from_sims_workspace(
     return ManifestWorkspace(root, label=FROM_SIMS_LABEL, assembled=assembled, refusals=refusals)
 
 
+def _settle_points(
+    by_point: dict[str, list[tuple[str, RunRecord]]],
+    pol: str,
+    assembled: list[RunRecord],
+    refusals: dict[str, str],
+) -> None:
+    """Keep the point with one export; refuse every export of a point with several."""
+    for pairs in by_point.values():
+        if len(pairs) == 1:
+            assembled.append(pairs[0][1])
+            continue
+        # TWO EXPORTS AT ONE POINT COST BOTH, never a choice between them.
+        names = ", ".join(export for export, _ in pairs)
+        for export, record in pairs:
+            refusals[export] = (
+                f"the point of the sweep: {names} report one point of row POL {pol}'s "
+                f"sweep, {dict(record.point)}; a point is one export, so none is chosen"
+            )
+
+
 def assemble_records(
     root: str | Path, matrix_stem: str, *, steps_per_revolution: float | None = None
 ) -> tuple[list[RunRecord], dict[str, str]]:
@@ -364,17 +385,7 @@ def assemble_records(
                 refusals[export] = str(error)
                 continue
             by_point.setdefault(repr(sorted(record.point.items())), []).append((export, record))
-        for pairs in by_point.values():
-            if len(pairs) == 1:
-                assembled.append(pairs[0][1])
-                continue
-            # TWO EXPORTS AT ONE POINT COST BOTH, never a choice between them.
-            names = ", ".join(export for export, _ in pairs)
-            for export, record in pairs:
-                refusals[export] = (
-                    f"the point of the sweep: {names} report one point of row POL {row.pol}'s "
-                    f"sweep, {dict(record.point)}; a point is one export, so none is chosen"
-                )
+        _settle_points(by_point, row.pol, assembled, refusals)
         if not by_point and not any(name.startswith(f"{where}/") for name in refusals):
             refusals[where] = (
                 "the simulation folder holds no loads export, so no point of it can be assembled"
@@ -533,7 +544,6 @@ def _assembled_record(
 ) -> RunRecord:
     """Assemble the record of one point from its loads export, or refuse it by name."""
     from pyflightstream.run import LoadsAssessor
-    from pyflightstream.run.collect import _RecordAsCase
 
     export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
     try:

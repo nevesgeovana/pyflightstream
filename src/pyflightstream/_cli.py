@@ -48,6 +48,10 @@ _SCOPED: ContextVar[list[Callable[[], None]] | None] = ContextVar(
 #: Whether this invocation ran a post (the ``post`` subcommand or the post a
 #: ``collect`` runs); a success that did is signed with the koala.
 _POSTED: ContextVar[list[bool] | None] = ContextVar("pyflightstream_cli_posted", default=None)
+#: The cost-file stem selected by ``--cost-file NAME`` for one invocation, or None.
+_SELECTED_COST_FILE: ContextVar[str | None] = ContextVar("pyflightstream_cost_file", default=None)
+#: The HPC profile stem selected by ``--hpc NAME`` for one invocation, or None.
+_SELECTED_HPC: ContextVar[str | None] = ContextVar("pyflightstream_selected_hpc", default=None)
 _MESSAGES = {
     "help": ("Help delivered; the map is yours.", "Help ready; pick your next turn."),
     "version": ("Version reported; coordinates checked.", "Version ready; now you know the build."),

@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-SRS = Path(__file__).resolve().parents[2] / "docs" / "unpublished" / "requirements"
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
+
+SRS = Path(__file__).resolve().parents[2] / REQUIREMENTS_DIR
 PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
 
 # The digest of each box of the two pages at the base commit 0b82ccda, its Origin paragraph
@@ -50,7 +52,7 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-29a": "09ca82fd209f9fed244f5d8963f5c9d93430be443a8f2ddd595b8c882ab58391",
     "FR-30": "f559c852a463bf56043dc66fde79497e5e04c1aed19c7989962a8e4a727b87d4",
     "FR-31": "11b0f01014f6cfcad7b1ccddb3ebb304bedb37b25818d152bb8ad32cd9b2b85a",
-    "FR-32": "33433e90abd6696504a0b236b41b4ac4ef259fdc1a38024d9f2138f3039bde81",
+    "FR-32": "305cbc94dbaded3692ae4ed95219f869c68feb30f4140bf381dc48ac8f81fa4b",
     "FR-33": "20cbef3153fb4df16400875b4dbe88647700ef7e3c55c118fa1c6f79b038a6ea",
     "FR-34": "ae13ef8cf55b762acedcaabb1b8823e0f95d197a11d0a8ae40fcf332253ab0ce",
     "FR-35": "770ad7e5ed067caba238e909199c8cd9039f3d2fe24e1f44c6795ee70091905a",
@@ -136,7 +138,8 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-98": "8740e50d259e8a5587385e9b7f460bf18a13931e1e8fd7b7007681ae511fc310",
     "FR-99": "8564186343eecb44bd657873b316c6c6432e14d889f956bb564f71c5217248f5",
     "FR-100": "c022ade873871d034b4826375d411504072104949d99fa28cf6c8c618aa0a89e",
-    "FR-101": "bf1a7a7f0542e66bf2e903de6fc4e097874d8fa88704b011f674e714c673b9c7",
+    # amended in 0.40.0 (the 26.100 rotor row refused, PFS-2088.010), SRS 1.82.0
+    "FR-101": "2c5c6eb4ccf4a3fee9686bf511b91d419663fa8db601db6b03041e9f7e6a6a33",
     "FR-102": "5f96430ec764fc320b9183dc926beaa2df485dd2d0504839a5ee743e5a918772",
     "FR-103": "f8d9d12281b5edbbe8b11b2bf48fef2e115c64e6980765a772b408d279064fdc",
     "FR-104": "6e3ef9eee53e798275d743a458ac270fbe5ff919496a3b79a2d93f57291c8666",
@@ -615,7 +618,10 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
     A pin moves only with the requirement that amends its box: FR-46 follows its
     0.39.0 amendment by FR-434 (MAX_ITER_REACHED joins the closed set) and FR-341
     its amendment by NFR-45 R37-10 (the hash is of the separator-folded render); FR-426
-    follows its amendment by NFR-45 R2 (`--out FILE`, with `--csv` a deprecated alias).
+    follows its amendment by NFR-45 R2 (`--out FILE`, with `--csv` a deprecated alias); FR-32
+    follows its 0.40.0 amendment by PFS-2105.043 and PFS-2105.046 (a native unsteady export states
+    `last_step` and `last_time_step`); FR-101 follows its 0.40.0 amendment by PFS-2088.010
+    (a rotor row on build 26.100 is refused by name until its angular-velocity unit is measured).
     """
     changed = []
     for page in PAGES:

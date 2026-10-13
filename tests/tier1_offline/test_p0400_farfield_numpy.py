@@ -158,8 +158,21 @@ def test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_b
                 "capture machine's, so bit parity of the far field cannot be judged here"
             )
     assert set(got) == set(expected), sorted(set(got) ^ set(expected))
+    expected = {key: _intended(key, value) for key, value in expected.items()}
     differing = sorted(key for key in expected if got[key] != expected[key])
     assert not differing, f"{case}: these results moved from the 0.39.0 goldens: {differing}"
+
+
+def _intended(key: str, golden: object) -> object:
+    """The golden after the one deliberate 0.40.0 change of the far-field surface.
+
+    The z-axis in-plane moment follows the right-handed cross product since
+    the 0.40.0 core-small review, so every 0.39.0 value of it changes sign
+    and nothing else; negation is exact, so the comparison stays bitwise.
+    """
+    if key.startswith("in_plane_moment.z.") and isinstance(golden, str):
+        return (-float.fromhex(golden)).hex()
+    return golden
 
 
 @pytest.mark.requirement("FR-457")

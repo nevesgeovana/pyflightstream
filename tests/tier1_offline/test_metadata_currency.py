@@ -22,6 +22,8 @@ import pytest
 import yaml
 from packaging.version import parse as parse_version
 
+from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS, REQUIREMENTS_DIR
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -72,9 +74,7 @@ def test_srs_requirement_ids_are_unique() -> None:
     seen: dict[str, str] = {}
     srs_dir = REPO_ROOT / "docs" / "srs"
     pattern = re.compile(r'"((?:FR|NFR|NREQ|AD)-\w+)\s')
-    for page in sorted(
-        [*srs_dir.glob("*.md"), *(REPO_ROOT / "docs" / "unpublished" / "requirements").glob("*.md")]
-    ):
+    for page in sorted([*srs_dir.glob("*.md"), *(REPO_ROOT / REQUIREMENTS_DIR).glob("*.md")]):
         for match in pattern.finditer(page.read_text(encoding="utf-8")):
             req_id = match.group(1)
             assert req_id not in seen, (
@@ -119,9 +119,7 @@ def _terms_nfr24_names() -> list[str]:
     and not to the glossary, which is the exact direction of drift NFR-24
     exists to stop; the constant that used to sit here had that hole.
     """
-    text = (
-        REPO_ROOT / "docs" / "unpublished" / "requirements" / "nonfunctional-requirements.md"
-    ).read_text(encoding="utf-8")
+    text = (REPO_ROOT / NONFUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
     body = text.partition("NFR-24")[2]
     assert body, "NFR-24 is gone from the SRS"
     anchor = "requirement's list ("

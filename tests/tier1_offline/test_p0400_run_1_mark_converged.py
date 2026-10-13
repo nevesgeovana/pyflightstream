@@ -23,6 +23,7 @@ def _job(workspace) -> dict:
 
 
 def test_p0400_a_point_of_a_job_marked_failed_is_refused(workspace, capsys):  # noqa: F811
+    # Verifies FR-414.
     """P0400-MARK-CONVERGED-JOB-MARKED (PFS-2103.031): mark-failed 7002, then one of its points.
 
     mark-failed marks the job's row and leaves its points' statuses, and mark-converged read

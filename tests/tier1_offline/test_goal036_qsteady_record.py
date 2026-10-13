@@ -310,7 +310,11 @@ def test_the_post_names_each_product_the_record_costs_and_never_raises(tmp_path,
     products, folder = _posted_with(tmp_path, text[shape])
     skipped = products["skipped"]
     naming = {name: reason for name, reason in skipped.items() if says in reason}
-    assert any(name.endswith("_qs_positions.csv") for name in naming), skipped
+    # The clockings tables' skip is keyed under the run whose record is unreadable
+    # (PFS-2105.009), no longer under polars/P<sim>-rotor_qs_positions.csv.
+    assert any(name.startswith("runs/") and name.endswith("#qsteady_record") for name in naming), (
+        skipped
+    )
     assert any(name.endswith("PROP_rotor.csv") for name in naming), skipped
     assert not any(name.endswith("_qs_positions.csv") for name in products["products"])
     log = (folder / products["log"]).read_text(encoding="utf-8")

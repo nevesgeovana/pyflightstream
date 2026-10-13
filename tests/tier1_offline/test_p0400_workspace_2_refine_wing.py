@@ -124,11 +124,17 @@ def test_p0400_refinewing_a_sheet_trailing_edge_is_detected_across_its_families(
     U, sharp only with L's faces beside it; measured on every family's faces it is found."""
     mesh = wing()
     mesh = Composite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
-    toml = "[families.U]\nspanwise = 2.0\nkeep_first_row = true\n"
+    toml = (
+        "[families.U]\nspanwise = 2.0\nkeep_first_row = true\n"
+        "trailing_edge_direction = [1.0, 0.0, 0.0]\n"
+    )
     src = write_source(tmp_path / "src", "wing", mesh, refine_toml=toml)
     sidecar = src.with_name("wing.boundaries.toml")
     text = sidecar.read_text(encoding="utf-8")
-    sidecar.write_text(text + '\n[trailing_edges]\ndetect = { surfaces = ["U"] }\n', "utf-8")
+    sidecar.write_text(
+        text + '\n[import]\nunits = "METER"\n[trailing_edges]\ndetect = { surfaces = ["U"] }\n',
+        "utf-8",
+    )
     level = refine_mesh(src, out_dir=tmp_path / "out")
     entry = level.report["U"]
     assert entry["trailing_edge"] == "detected" and entry["kept_rows"] == ["station 0"], entry

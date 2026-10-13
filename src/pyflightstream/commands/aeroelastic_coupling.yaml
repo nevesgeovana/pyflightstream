@@ -245,8 +245,8 @@ SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
   notes: >
     Full command executed per coupling iteration in the working
     directory. The dry run observed a bare invocation: no arguments

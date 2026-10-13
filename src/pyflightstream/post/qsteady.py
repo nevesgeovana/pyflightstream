@@ -680,6 +680,29 @@ def _section_frames(layout: Sequence[Mapping[str, object]]) -> dict[tuple[str, s
     }
 
 
+def _share_above(
+    values: Sequence[float],
+    above: Sequence[bool],
+    name: str,
+    alias: str,
+    notes: list[str],
+) -> float | None:
+    """Return the per cent of ``values`` carried above the limit, or None with a note."""
+    total = sum(values)
+    if total == 0.0:
+        notes.append(f"{name} reads NA: the total over the stations of rotor {alias} is zero")
+        return None
+    value = 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
+    if not 0.0 <= value <= 100.0:
+        notes.append(
+            f"{name} reads NA: the stations of rotor {alias} carry loads of opposite "
+            f"sign, so the share above k = 0.1 would be {value:.5g} per cent, outside "
+            "0 to 100, and the total has no sign to read it against"
+        )
+        return None
+    return value
+
+
 def add_reduced_frequency_to_sections(
     path: Path,
     record: QsteadyRecord,
@@ -850,26 +873,14 @@ def add_reduced_frequency_to_sections(
             break
         along.append((station[0] * w, station[1] * w))
     above = [k > REDUCED_FREQUENCY_LIMIT for k in frequencies.k]
-
-    def share(values: Sequence[float], name: str) -> float | None:
-        total = sum(values)
-        if total == 0.0:
-            notes.append(f"{name} reads NA: the total over the stations of rotor {alias} is zero")
-            return None
-        value = 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
-        if not 0.0 <= value <= 100.0:
-            notes.append(
-                f"{name} reads NA: the stations of rotor {alias} carry loads of opposite "
-                f"sign, so the share above k = 0.1 would be {value:.5g} per cent, outside "
-                "0 to 100, and the total has no sign to read it against"
-            )
-            return None
-        return value
-
     thrust_share = torque_share = None
     if projected:
-        thrust_share = share([pair[0] for pair in along], "THRUST_PCT_K_GT_0_1")
-        torque_share = share([pair[1] for pair in along], "TORQUE_PCT_K_GT_0_1")
+        thrust_share = _share_above(
+            [pair[0] for pair in along], above, "THRUST_PCT_K_GT_0_1", alias, notes
+        )
+        torque_share = _share_above(
+            [pair[1] for pair in along], above, "TORQUE_PCT_K_GT_0_1", alias, notes
+        )
     validity = PointValidity(
         {
             "K_1P_MIN": frequencies.k_min,

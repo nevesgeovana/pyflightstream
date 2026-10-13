@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -136,6 +136,11 @@ class LoadsReport:
         Version string printed in the footer, verbatim.
     fs_build : str
         Build number printed in the footer, verbatim.
+    print_tolerances : dict of str to float
+        Half a count of the last digit a header value was printed with, keyed
+        by the attribute that holds it: the free-stream velocity's, which
+        :func:`~pyflightstream.results.bind_conditions` compares a requested
+        velocity at (PFS-2092.001). Empty when the report was built by hand.
     """
 
     angle_of_attack_deg: float
@@ -158,6 +163,7 @@ class LoadsReport:
     moment_units: str
     fs_version_reported: str
     fs_build: str
+    print_tolerances: dict[str, float] = field(default_factory=dict)
 
     def diverged_columns(self) -> list[str]:
         """Return the Total columns holding NaN or infinite values."""
@@ -319,10 +325,11 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     reported = software.group("version")
     if requested_version is not None:
         cross_check_version(reported, requested_version, software.group("build"))
+    velocity = labeled_value(text, "Freestream velocity (m/s)")
     return LoadsReport(
         angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
         sideslip_deg=parse_number(labeled_value(text, "Side-slip angle (Deg)")),
-        freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
+        freestream_velocity_m_s=parse_number(velocity),
         requested_iterations=parse_count(
             labeled_value(text, "Requested solver iterations"),
             label="Requested solver iterations",
@@ -347,7 +354,22 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         moment_units=labeled_value(text, "Moment Units:"),
         fs_version_reported=reported,
         fs_build=software.group("build"),
+        print_tolerances={"freestream_velocity_m_s": _half_count(velocity)},
     )
+
+
+def _half_count(token: str) -> float:
+    """Return half a count of the last digit ``token`` was printed with (PFS-2092.001).
+
+    ``68.058`` is ``5e-4``, ``68.06`` is ``5e-3``, ``68.`` and ``68`` are ``0.5``,
+    and ``6.8058E+01`` is ``5e-4``: the digits after the point, shifted by the
+    printed exponent.
+    """
+    mantissa, _, exponent = token.strip().upper().partition("E")
+    fraction = mantissa.partition(".")[2]
+    decimals = len(fraction) - len(fraction.lstrip("0123456789"))
+    shift = int(exponent) if exponent.lstrip("+-").isdigit() else 0
+    return 0.5 * 10.0 ** (shift - decimals)
 
 
 def _optional_number(text: str, label: str) -> float | None:

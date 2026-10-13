@@ -1061,7 +1061,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
     # which cannot see it through the reader's one return type.
     try:
         return RawMeshConditions(
-            trailing_edges=None if trailing is None else _read_trailing_edges(path, trailing),
+            trailing_edges=None if trailing is None else read_trailing_edges(path, trailing),
             wake_termination=(
                 None
                 if wake is None
@@ -1084,7 +1084,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
         raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
 
 
-def _read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
+def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
     """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route."""
     where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
     if "none" in table:

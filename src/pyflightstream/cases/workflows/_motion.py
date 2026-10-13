@@ -110,6 +110,7 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
         rpm: float | None,
         diameter: float | None,
         why: str | None,
+        *,
         kind: str = "rotor",
         axis: tuple[float, float, float] | None = None,
     ) -> RotorMach:
@@ -209,7 +210,7 @@ def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> lis
                 None,
                 None,
                 f"{where}: actuator {alias}: its disc is not resolved: {error}",
-                "actuator",
+                kind="actuator",
             )
         ]
     discs = named if isinstance(named, tuple) else (() if named is None else (named,))
@@ -219,7 +220,7 @@ def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> lis
             disc.block.rpm_sign * float(disc.rpm),
             2.0 * disc.block.tip_radius_m,
             None,
-            "actuator",
+            kind="actuator",
             axis=_disc_axis(case, disc.block.frame, disc.block.axis),
         )
         for disc in discs

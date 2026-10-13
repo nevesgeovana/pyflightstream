@@ -91,6 +91,7 @@ from pyflightstream.run._ids import (
 from pyflightstream.run._pending import (
     _declared_logs,
     _descriptor_of,
+    _local_logs,
     _run_log_text,
     _walltime_stop,
     _write_probe_points,
@@ -1085,7 +1086,7 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
     job.local_log = _the_local_log(
-        job.executor, _declared_logs(job.point_case, job.rendered), job.work_dir, job.result
+        job.executor, _local_logs(job.point_case, job.rendered), job.work_dir, job.result
     )
     # 0.30.0: what the package's own post-processing of an output could not
     # write, where the solver wrote its sources (`untranslated_surfaces`).
