@@ -20,7 +20,12 @@ import pyflightstream.cases.workflows._exports as exports_module
 import pyflightstream.cases.workflows._farfield as farfield_module
 import pyflightstream.post.farfield_fields as farfield_fields
 from pyflightstream.cases._farfield_spec import LatticeShape, LedgersSpec
-from pyflightstream.farfield import sample_coverage, transverse_flux, transverse_force
+from pyflightstream.farfield import (
+    lateral_flux,
+    sample_coverage,
+    transverse_flux,
+    transverse_force,
+)
 from pyflightstream.probes.layouts import (
     emit_probe_export,
     emit_probe_points,
@@ -110,8 +115,8 @@ def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monke
             np.testing.assert_array_equal(
                 [row["FY_LATERAL_N"], row["FZ_LATERAL_N"]],
                 [
-                    farfield_fields._lateral(fields, 1.2, inlet, station, "v"),
-                    farfield_fields._lateral(fields, 1.2, inlet, station, "w"),
+                    lateral_flux(fields, 1.2, inlet=inlet, outlet=station, component="v"),
+                    lateral_flux(fields, 1.2, inlet=inlet, outlet=station, component="w"),
                 ],
             )
     assert all("lateral_flux" in kwargs for _, kwargs in forces)

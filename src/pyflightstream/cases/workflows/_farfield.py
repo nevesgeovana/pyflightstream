@@ -1059,25 +1059,38 @@ def farfield_probes(
                     vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),
                 )
     if imported:
-        # THE PROBES HOME WRITES THE CSV (PFS-2140.001): the public writer of the
-        # PROBE_POINTS_IMPORT format is what the plan runs, into the text it parks.
-        # A lattice added alone is written from the lattice, placed and rounded as
-        # recorded above; a plane, alone or before the lattice, from the points.
-        staged = io.StringIO()
-        added = [shape for shape in shapes if shape.source == "added"]
-        if len(added) == 1 and added[0].kind == "lattice":
-            write_probe_csv(
-                added[0].lattice,
-                staged,
-                axis=added[0].geometry["axis"],
-                origin=added[0].geometry["origin_m"],
-                scale=native_per_m,
-                decimals=5,
-            )
-        else:
-            write_points_csv(np.asarray(imported, dtype=float), staged)
-        payload = staged.getvalue()
-        path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
-        script.park_input_file(path, payload)
-        emit_probe_import(script, path, units=script.simulation_length_unit or "METER")
+        _stage_import(script, shapes, imported, native_per_m)
     return vertex
+
+
+def _stage_import(
+    script: Script,
+    shapes: Sequence[FarfieldShape],
+    imported: Sequence[tuple[float, float, float]],
+    native_per_m: float,
+) -> None:
+    """Park the csv of a steady row's added far-field points and import it (FR-455).
+
+    THE PROBES HOME WRITES THE CSV (PFS-2140.001): the public writer of the
+    PROBE_POINTS_IMPORT format is what the plan runs, into the text it parks. A
+    lattice added alone is written from the lattice, placed and rounded as
+    :func:`farfield_probes` recorded it; a plane, alone or before the lattice,
+    from the recorded points.
+    """
+    staged = io.StringIO()
+    added = [shape for shape in shapes if shape.source == "added"]
+    if len(added) == 1 and added[0].kind == "lattice":
+        write_probe_csv(
+            added[0].lattice,
+            staged,
+            axis=added[0].geometry["axis"],
+            origin=added[0].geometry["origin_m"],
+            scale=native_per_m,
+            decimals=5,
+        )
+    else:
+        write_points_csv(np.asarray(imported, dtype=float), staged)
+    payload = staged.getvalue()
+    path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
+    script.park_input_file(path, payload)
+    emit_probe_import(script, path, units=script.simulation_length_unit or "METER")

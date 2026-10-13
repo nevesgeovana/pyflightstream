@@ -764,11 +764,44 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`. A steady entry
     # in the reference frame has the probes home emit them too
     # (`emit_declared_lattices`), placed and rounded as recorded here; in
-    # another frame each point is carried into the reference one below.
-    drawn = len(lattice)
-    lattice += declared_lattices(case, probes, native_per_m, unsteady=unsteady)
-    emitted_by_probes = not unsteady and frame == 1 and bool(probes.lattices)
-    for index, point in enumerate(lattice):
+    # another frame each point is carried into the reference one.
+    surveyed = declared_lattices(case, probes, native_per_m, unsteady=unsteady)
+    by_probes = not unsteady and frame == 1 and bool(surveyed)
+    for points, emit in ((lattice, True), (surveyed, not by_probes)):
+        vertex = _lay_points(
+            case,
+            script,
+            probes,
+            points,
+            vertex,
+            frame=frame,
+            unsteady=unsteady,
+            native_per_m=native_per_m,
+            emit=emit,
+        )
+    if by_probes:
+        emit_declared_lattices(case, script, probes, native_per_m)
+    return vertex
+
+
+def _lay_points(
+    case: SimCase,
+    script: Script,
+    probes: ProbesSpec,
+    points: list[list[float]],
+    vertex: int,
+    *,
+    frame: int,
+    unsteady: bool,
+    native_per_m: float,
+    emit: bool = True,
+) -> int:
+    """Record and place an entry's points one vertex each; return the vertex count after them.
+
+    ``emit`` False records a steady point and leaves its creation to the caller,
+    which emits the declared lattices through the probes home.
+    """
+    for point in points:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one
         # append covers a rectangle and a circle on either path.
@@ -784,9 +817,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     name=f"{parameter}{vertex}",
                     vertex=" ".join(str(value / native_per_m) for value in point),
                 )
-        elif emitted_by_probes and index >= drawn:
-            continue
-        else:
+        elif emit:
             # A VOLUME PROBE, the point in the flow a fluid probe is. The
             # command's `type` is required on every build, and this line was
             # emitted without it from FR-79 until 0.28.0, so a steady row
@@ -797,8 +828,6 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # the way a steady line's ends do (reading B30).
             x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
             helpers.probe_points(script, [(x, y, z)], kind="VOLUME")
-    if emitted_by_probes:
-        emit_declared_lattices(case, script, probes, native_per_m)
     return vertex
 
 
