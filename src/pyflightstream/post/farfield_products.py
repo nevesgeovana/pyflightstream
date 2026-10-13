@@ -30,6 +30,7 @@ from pyflightstream.cases.farfield_inputs import (
     UNSTEADY_RUN_TYPES,
     applies,
     few_stations_warning,
+    traced_family,
 )
 from pyflightstream.farfield import (
     TraceResult,
@@ -423,6 +424,7 @@ def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndar
         _skip(ctx, key, point.name, f"the sectional loads cannot be read: {error}")
         return None
     blocks: dict[str, np.ndarray] = {}
+    inventory = list(ctx.record_of[point.name].inventory or ())
     start = 0
     for block in layout:
         count = int(str(block["count"]))
@@ -430,8 +432,10 @@ def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndar
         start += count
         names = [str(name) for name in cast("list[object]", block.get("families") or [])]
         frame = str(block.get("frame") or "MRP").upper()
-        if block.get("plane") == "XZ" and frame in ("MRP", "REFERENCE") and len(names) == 1:
-            blocks.setdefault(names[0], rows[np.argsort(rows[:, 0], kind="stable")])
+        # PFS-2081.100: the plan's rule, so an `all` block of one family is traced.
+        name = traced_family(names, inventory)
+        if block.get("plane") == "XZ" and frame in ("MRP", "REFERENCE") and name is not None:
+            blocks.setdefault(name, rows[np.argsort(rows[:, 0], kind="stable")])
     return blocks
 
 

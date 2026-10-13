@@ -38,6 +38,7 @@ from pyflightstream.cases.farfield_inputs import (
     applies,
     few_stations_warning,
     resolve_farfield,
+    traced_family,
 )
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.layouts import (
@@ -200,7 +201,12 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
 
 
 def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
-    """Return the families a declared distribution cuts in XZ of the reference axes."""
+    """Return the families a declared distribution cuts alone in XZ of the reference axes.
+
+    A block of several families is an aggregate Trefftz A cannot trace, so it
+    covers none of them and the plan adds their own (:func:`traced_family`,
+    the rule post reads by, PFS-2081.100).
+    """
     covered: set[str] = set()
     if case.pproc is None:
         return covered
@@ -209,7 +215,9 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
         if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
             continue
         for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
-            covered.update(group or inventory)
+            name = traced_family(group, inventory)
+            if name is not None:
+                covered.add(name)
     return covered
 
 
@@ -234,7 +242,8 @@ def _warn_few_stations(
         count = int(entry.count or sections.count)
         side = count if mirror else count // 2
         for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
-            for name in group or inventory:
+            name = traced_family(group, inventory)
+            if name is not None:
                 per_side[name] = max(per_side.get(name, 0), side)
     for name in reused:
         few = few_stations_warning(name, per_side.get(name, 0), spec.trefftz.stations)

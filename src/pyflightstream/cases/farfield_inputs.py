@@ -27,6 +27,7 @@ __all__ = [
     "applies",
     "few_stations_warning",
     "resolve_farfield",
+    "traced_family",
 ]
 
 #: The four states of a far-field input (FR-455).
@@ -150,6 +151,33 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
         if run_type in UNSTEADY_RUN_TYPES:
             return "variants A and B serve steady rows in 0.40.0"
     return ""
+
+
+def traced_family(families: Sequence[str], inventory: Sequence[str]) -> str | None:
+    """Return the one family a section distribution cuts, or None (FR-455 R2, PFS-2081.100).
+
+    The one rule the plan and post share for whether a declared distribution
+    serves Trefftz A: the sectional-loads export holds one block per
+    distribution and plane, summed over the distribution's families, so only a
+    block of exactly one family can be traced. ``families`` is the block's
+    resolved list, where an empty list is the every-boundary form (``all``),
+    resolved against ``inventory``; a block of several families is an aggregate
+    no export decomposes, and is not reused.
+
+    Parameters
+    ----------
+    families : sequence of str
+        The families of one block, as the script records them.
+    inventory : sequence of str
+        The geometry's families, which ``all`` stands for.
+
+    Returns
+    -------
+    str or None
+        The family, or None where the block cuts none or several.
+    """
+    names = list(dict.fromkeys(str(name) for name in (families or inventory)))
+    return names[0] if len(names) == 1 else None
 
 
 def few_stations_warning(family: str, per_side: int, stations: int) -> str:
