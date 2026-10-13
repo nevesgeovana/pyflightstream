@@ -1581,6 +1581,10 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
+    # FR-455 R4 (0.40.0, PFS-2081.56): the far-field probes this dry-run script
+    # chose, reused or added, which are the ones the run lays and records.
+    if base.get("farfield"):
+        base["farfield"] = farfield_plan_record(point_case, fs_version, script)
     # The dry run built the same COMMANDS the campaign will, so the two
     # provenance flags are already determined here. Not the same bytes,
     # and the difference is one argument: the plan runs before

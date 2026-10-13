@@ -2,9 +2,12 @@
 
 Pipeline role: the probe half of the far-field product family. It reads the
 probe values the plan laid for the far field (the steady probe export, or one
-time step of the unsteady fluid plots), finds the lattice among them by its
-positions and the plane as the points the plan laid just before it, turns the
-velocities to the plane's or the lattice's axes, and computes the Trefftz C
+time step of the unsteady fluid plots), finds the plane and the lattice among
+them by matching every exported position to the layout the run recorded
+(:func:`recorded_layout`; for a record written before the layout was recorded,
+to the layout the far-field table states, by shape), refuses a set it cannot
+match exactly once, turns the velocities to the plane's or the lattice's axes,
+and computes the Trefftz C
 values and the balances with the numpy core of :mod:`pyflightstream.farfield`.
 It writes nothing; :mod:`pyflightstream.post.farfield_products` writes the rows.
 
@@ -48,19 +51,23 @@ from pyflightstream.farfield import (
     symmetry_floor,
     transverse_flux,
 )
+from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
 from pyflightstream.probes.layouts import farfield_plane, lattice_points
 from pyflightstream.results.loads import parse_probe_points
 
 __all__ = [
     "LEDGER_COLUMNS",
+    "FarLayout",
     "ProbeSamples",
     "average_rows",
+    "derived_layout",
     "far_samples",
     "frame_lattice",
     "ledger_values",
     "native_per_m",
     "plane_values",
+    "recorded_layout",
     "rotor_lattice",
     "rotor_values",
     "steady_samples",
@@ -224,16 +231,252 @@ def unsteady_samples(
     return ProbeSamples(xyz, velocity.reshape(-1, 3), cp)
 
 
-def _block(positions: np.ndarray, expected: np.ndarray) -> int | None:
-    """Return where ``expected`` starts as a contiguous run of ``positions``, or None."""
-    count = len(expected)
-    tolerance = _TOLERANCE * max(1.0, float(np.abs(expected).max(initial=0.0)))
-    starts = np.flatnonzero(np.all(np.abs(positions - expected[0]) <= tolerance, axis=1))
+def _starts(positions: np.ndarray, expected: np.ndarray, *, by_shape: bool) -> list[int]:
+    """Return every start where ``expected`` is a contiguous run of ``positions``.
+
+    ``by_shape`` matches the offsets from the run's first point (a layout whose
+    placement the record does not hold); otherwise the positions themselves.
+    The tolerance is 1e-4 of the largest coordinate, far below any probe
+    spacing and far above the seven digits a probe export prints.
+    """
+    count, total = len(expected), len(positions)
+    if count == 0 or total < count:
+        return []
+    scale = max(1.0, float(np.abs(expected).max(initial=0.0)))
+    if by_shape:
+        scale = max(scale, float(np.abs(positions).max(initial=0.0)))
+        expected = expected - expected[0]
+    tolerance = _TOLERANCE * scale
+    if by_shape:
+        spans = positions[count - 1 :] - positions[: total - count + 1]
+        starts = np.flatnonzero(np.all(np.abs(spans - expected[-1]) <= tolerance, axis=1))
+    else:
+        starts = np.flatnonzero(np.all(np.abs(positions - expected[0]) <= tolerance, axis=1))
+    found = []
     for start in starts.tolist():
         window = positions[start : start + count]
+        if by_shape:
+            window = window - window[0]
         if len(window) == count and np.all(np.abs(window - expected) <= tolerance):
-            return int(start)
-    return None
+            found.append(int(start))
+    return found
+
+
+@dataclass(frozen=True)
+class FarLayout:
+    """Where the far-field probes of one point are, in metres, reference frame (PFS-2081.58).
+
+    Attributes
+    ----------
+    plane_m : numpy.ndarray or None
+        The Trefftz C plane's points, ``z`` fastest within ``y``.
+    plane_grid : tuple of float or None
+        The plane's half width, half height and spacing, m.
+    lattice : ProbeLattice or None
+        The survey lattice, in metres.
+    lattice_m : numpy.ndarray or None
+        The lattice's points.
+    axis : str
+        The lattice's shaft axis letter.
+    lattice_local_m : numpy.ndarray or None
+        The lattice's points in the frame its positions were recorded in, where
+        that is not the reference frame (a declared lattice of a frame).
+    plane_placed, lattice_placed : bool
+        True where the set is placed, so every position is matched where it
+        stands: always for a layout the run recorded, and for a rotor's lattice
+        on its hub. False for a plane or a frame's lattice derived from the
+        far-field table for a record without a layout, matched by shape,
+        since such a record holds no placement.
+    """
+
+    plane_m: np.ndarray | None = None
+    plane_grid: tuple[float, float, float] | None = None
+    lattice: ProbeLattice | None = None
+    lattice_m: np.ndarray | None = None
+    axis: str = "X"
+    lattice_local_m: np.ndarray | None = None
+    plane_placed: bool = True
+    lattice_placed: bool = True
+
+
+def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
+    """Rebuild the far-field probes a run recorded, in metres (FR-455 R4, PFS-2081.58).
+
+    Each shape is one entry of the record's ``farfield_layout`` (``kind``,
+    ``source``, ``count`` and the geometry the plan laid it from); the points
+    are laid again by the functions that laid them.
+
+    Parameters
+    ----------
+    shapes : sequence of mapping
+        The recorded shapes of one point.
+
+    Returns
+    -------
+    FarLayout
+        The plane and the lattice, each where the run laid it.
+
+    Raises
+    ------
+    PyflightstreamError
+        If a shape cannot be rebuilt, or rebuilds to another point count than
+        the run recorded.
+    """
+    found: dict[str, Any] = {}
+    for shape in shapes:
+        kind = str(shape.get("kind"))
+        try:
+            if kind == "plane":
+                grid = (
+                    float(shape["half_width_m"]),
+                    float(shape["half_height_m"]),
+                    float(shape["spacing_m"]),
+                )
+                laid = farfield_plane(
+                    tuple(float(v) for v in shape["center_m"]),
+                    tuple(float(v) for v in shape["direction"]),
+                    distance=0.0,
+                    half_width=grid[0],
+                    half_height=grid[1],
+                    spacing=grid[2],
+                )
+                found.update(plane_m=laid.points, plane_grid=grid)
+                count = len(laid.points)
+            elif kind == "lattice":
+                lattice = ProbeLattice.model_validate(shape["lattice"])
+                axis = str(shape["axis"])
+                origin = np.asarray([float(v) for v in shape["origin_m"]])
+                points = lattice_points(lattice, axis=axis) + origin
+                local = None
+                if str(shape.get("positions_frame", "REFERENCE")).upper() != "REFERENCE":
+                    local = points - origin
+                found.update(lattice=lattice, lattice_m=points, axis=axis, lattice_local_m=local)
+                count = len(points)
+            else:
+                raise PyflightstreamError(f"the record names a far-field shape {kind!r}")
+        except (KeyError, TypeError, ValueError, ProbeGeometryError) as error:
+            raise PyflightstreamError(
+                f"the record's far-field {kind} cannot be laid again: {error}"
+            ) from error
+        if count != int(shape.get("count", count)):
+            raise PyflightstreamError(
+                f"the record's far-field {kind} lays {count} points, and the run recorded "
+                f"{shape.get('count')}"
+            )
+    return FarLayout(**found)
+
+
+def derived_layout(
+    *,
+    plane_grid: tuple[float, float, float] | None = None,
+    direction: Sequence[float] | None = None,
+    lattice: tuple[ProbeLattice, np.ndarray | None, str] | None = None,
+) -> FarLayout:
+    """Lay the far-field probes a record without a layout should hold, from the table as it stands.
+
+    A record written before the run recorded its layout holds no placement of
+    the plane (it sits behind the body the plan read) nor of a frame's lattice,
+    so post matches those by shape; a rotor's lattice is placed on its hub and
+    matched where it stands.
+
+    Parameters
+    ----------
+    plane_grid : tuple of float, optional
+        The plane's half width, half height and spacing, m.
+    direction : sequence of float, optional
+        The point's free-stream direction, with ``plane_grid``.
+    lattice : tuple, optional
+        The lattice, its points in metres (None for a frame's) and its axis.
+
+    Returns
+    -------
+    FarLayout
+        The layout; the plane, and a frame's lattice, are not placed.
+    """
+    out: dict[str, Any] = {"plane_placed": False}
+    if plane_grid is not None and direction is not None:
+        laid = farfield_plane(
+            (0.0, 0.0, 0.0),
+            tuple(direction),
+            distance=0.0,
+            half_width=plane_grid[0],
+            half_height=plane_grid[1],
+            spacing=plane_grid[2],
+        )
+        out.update(plane_m=laid.points, plane_grid=plane_grid)
+    if lattice is not None:
+        shape, points, axis = lattice
+        out.update(
+            lattice=shape,
+            axis=axis,
+            lattice_m=points if points is not None else lattice_points(shape, axis=axis),
+            lattice_placed=points is not None,
+        )
+    return FarLayout(**out)
+
+
+def _locate_one(
+    positions: np.ndarray, expected_native: list[np.ndarray], *, by_shape: bool, what: str
+) -> tuple[slice | None, str]:
+    """Find one far-field set exactly once among the positions, or say why not."""
+    for expected in expected_native:
+        starts = _starts(positions, expected, by_shape=by_shape)
+        if len(starts) == 1:
+            return slice(starts[0], starts[0] + len(expected)), ""
+        if len(starts) > 1:
+            return None, (
+                f"the probe export holds the {what} {len(starts)} times, so which the run "
+                "laid cannot be told"
+            )
+    how = "the shape of" if by_shape else "the positions of"
+    return None, f"the probe export holds no point set at {how} the {what} the run laid"
+
+
+def far_samples(
+    samples: ProbeSamples, layout: FarLayout, *, per_m: float
+) -> tuple[slice | None, slice | None, str]:
+    """Locate the lattice and the plane among a point's probes (FR-455 R2, PFS-2081.58).
+
+    Every exported position of a set must match the layout, each set exactly
+    once: where the run recorded the layout, where it stands; for a record
+    without one, the plane and a frame's lattice by their shape and a rotor's
+    lattice where its hub places it. A set not found, or found twice, is
+    returned as None with the reason, never as the points that happen to be
+    last or to number as many.
+
+    Parameters
+    ----------
+    samples : ProbeSamples
+        Probe positions, velocity components and pressure coefficients.
+    layout : FarLayout
+        The far-field probes of the point (:func:`recorded_layout`,
+        :func:`derived_layout`).
+    per_m : float
+        Number of native simulation length units per metre.
+
+    Returns
+    -------
+    tuple[slice | None, slice | None, str]
+        Lattice slice, plane slice and the reasons a set in the layout is missing.
+    """
+    plan = layout
+    positions = np.asarray(samples.positions, dtype=float)
+    lattice = plane = None
+    reasons: list[str] = []
+    if plan.lattice_m is not None:
+        options = [plan.lattice_m * per_m]
+        if plan.lattice_local_m is not None:
+            options.append(plan.lattice_local_m * per_m)
+        lattice, why = _locate_one(
+            positions, options, by_shape=not plan.lattice_placed, what="lattice"
+        )
+        reasons += [why] if why else []
+    if plan.plane_m is not None:
+        plane, why = _locate_one(
+            positions, [plan.plane_m * per_m], by_shape=not plan.plane_placed, what="plane"
+        )
+        reasons += [why] if why else []
+    return lattice, plane, "; ".join(reasons)
 
 
 def frame_lattice(shape: LatticeShape) -> tuple[ProbeLattice, None, str]:
@@ -281,62 +524,6 @@ def rotor_lattice(shape: LatticeShape, rotor: Any) -> tuple[ProbeLattice, np.nda
     lattice = shape.build(float(rotor.diameter_m) / 2.0)
     origin = np.array([float(getattr(rotor, name, 0.0)) for name in ("x_m", "y_m", "z_m")])
     return lattice, lattice_points(lattice, axis=axis) + origin, axis
-
-
-def far_samples(
-    samples: ProbeSamples,
-    *,
-    lattice_m: np.ndarray | None,
-    plane_count: int,
-    per_m: float,
-    lattice_tail: int = 0,
-) -> tuple[slice | None, slice | None, str]:
-    """Locate the lattice and the plane among a point's probes (FR-455 R2, R3).
-
-    The lattice by its positions, or, for a frame's lattice whose placement
-    post does not hold, as the ``lattice_tail`` points the plan laid last; the
-    plane as the ``plane_count`` points the plan laid just before an added
-    lattice, or as the last points otherwise.
-    Returns the lattice slice, the plane slice and why one is missing.
-
-    Parameters
-    ----------
-    samples : ProbeSamples
-        Probe positions, velocity components and pressure coefficients.
-    lattice_m : np.ndarray | None
-        Expected lattice point coordinates in m, or None for a frame lattice.
-    plane_count : int
-        Number of points in the plane preceding the lattice.
-    per_m : float
-        Number of native simulation length units per metre.
-    lattice_tail : int
-        Number of frame-lattice points appended after other probes.
-
-    Returns
-    -------
-    tuple[slice | None, slice | None, str]
-        Lattice slice, plane slice and the reason a requested slice is missing.
-    """
-    total = len(samples.positions)
-    lattice = plane = None
-    end = total
-    if lattice_m is not None:
-        start = _block(samples.positions, np.round(lattice_m * per_m, 5))
-        if start is None:
-            return None, None, "the probe export holds no point set at the lattice's positions"
-        lattice = slice(start, start + len(lattice_m))
-        if start + len(lattice_m) == total:
-            end = start
-    elif lattice_tail:
-        if total < lattice_tail:
-            return None, None, "the probe export holds fewer points than the lattice"
-        lattice = slice(total - lattice_tail, total)
-        end = total - lattice_tail
-    if plane_count:
-        if end < plane_count:
-            return lattice, None, "the probe export holds fewer points than the plane the plan laid"
-        plane = slice(end - plane_count, end)
-    return lattice, plane, ""
 
 
 def plane_values(

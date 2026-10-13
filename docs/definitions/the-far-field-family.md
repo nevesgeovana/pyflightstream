@@ -385,8 +385,29 @@ their per-step fluid plots.
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
 | B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
-| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical | added as probe points |
-| balances | the lattice; the probe-points export | reused when identical | added as probe points |
+| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+
+**Which declaration is reused.** A declared plane or lattice is the far field's when
+its points after layout are the far field's own (same frame, every coordinate equal
+at the precision a probe position is written in), so a key stated at its default
+is the same geometry as the key left out. Where `[farfield]` states no geometry, the
+one declaration that qualifies is reused: a lattice on the same rotor, or in the
+same frame with the same tip radius, whose azimuths carry `m_max`; a rectangle of
+the reference frame that is a Trefftz C plane of the point (one spacing both ways,
+an odd count each way, its first edge horizontal and its second upward in the plane
+normal to the point's free stream, behind the body). With several that qualify,
+only an identical one is reused.
+
+**Post reads the probes the run laid.** The plane and the lattice each point reads,
+reused or added, are stated in `plan.json` and carried by the run record
+(`farfield_layout`); post lays their points again from it and matches every exported
+position to them, each set exactly once, before it integrates, with the grid and
+the areas they were laid with. A set it cannot match, or matches twice, is a named
+skip, never the points that happen to be last or to number as many. A record
+without `farfield_layout` (written before 0.40.0 recorded it) is matched to the
+table as it stands: a rotor's lattice where its hub places it, the plane and a
+frame's lattice by their shape.
 
 Every addition is stated in `plan.json` (the row's `farfield` object) and on the
 console. An `[exports]` entry set to false that the far field needs is turned on

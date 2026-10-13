@@ -10,15 +10,19 @@ the geometry is laid out by :mod:`pyflightstream.probes.layouts`. A row whose
 artifact has no ``[farfield]`` reaches none of this, so its script keeps its
 bytes.
 
-The plane and the lattice are appended after every declared probe, so the
-probe export of a point ends with them, the plane first; post finds the
-lattice by its positions and the plane as the points before it.
+The plane and the lattice are chosen once (:func:`farfield_shapes`): a
+declared ``[[probes]]`` shape is reused when it is the far field's geometry
+after layout, or, where ``[farfield]`` states no geometry, when it is the one
+declaration that qualifies; what is not declared is appended after every
+declared probe. Every chosen shape is recorded on the script for the run
+record, and post matches the exported positions to it (PFS-2081.56, .58).
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -41,6 +45,7 @@ from pyflightstream.probes.layouts import (
     emit_probe_import,
     farfield_plane,
     lattice_points,
+    rectangle_points,
 )
 from pyflightstream.script import Script
 
@@ -55,6 +60,7 @@ from ._rows import (
 
 __all__ = [
     "FARFIELD_PLOT_PARAMETERS",
+    "FarfieldShape",
     "declared_lattice_points",
     "declared_lattices",
     "farfield_lattice",
@@ -63,6 +69,7 @@ __all__ = [
     "farfield_probes",
     "farfield_resolution",
     "farfield_sections",
+    "farfield_shapes",
     "needs_fresh_probes",
     "plan_record",
     "warn_declared_inside",
@@ -77,6 +84,10 @@ FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
 _PLOT_FRAME = 1
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _MESH_SUFFIXES = (".obj", ".stl")
+#: Two laid-out probe sets are one declaration when every coordinate agrees at
+#: the fifth decimal of the simulation's unit, the precision the script writes
+#: a probe position in (FR-455 R2, PFS-2081.56).
+_SAME_POSITION = 1.01e-5
 
 
 def _spec(case: SimCase) -> FarfieldSpec | None:
@@ -231,27 +242,290 @@ def _warn_few_stations(
             warn(f"case {case.sim_id!r}: {few}.", PyflightstreamWarning, stacklevel=3)
 
 
-def _lattice_key(shape: LatticeShape) -> dict[str, Any]:
-    return {name: getattr(shape, name) for name in LatticeShape.model_fields}
+@dataclass(frozen=True)
+class FarfieldShape:
+    """One far-field probe set as the plan chose it: the plane or the lattice (FR-455 R2).
 
+    The ONE selection planning, emission and post use (PFS-2081.56, .58): the
+    plan lays an ``added`` shape and reuses a ``declared`` one, the run record
+    carries :meth:`record`, and post rebuilds the points from it and matches
+    every exported position to them before it integrates.
 
-def _declares_lattice(case: SimCase, spec: FarfieldSpec) -> bool:
-    """Whether a ``[[probes]]`` entry declares the far field's lattice, by identity (R2).
-
-    A rotor's lattice is declared in an entry of the reference frame and a
-    frame's lattice in an entry of its own frame (FR-459 R2), which is where
-    :func:`declared_lattice_points` lays it.
+    Attributes
+    ----------
+    kind : {"plane", "lattice"}
+        The Trefftz C plane of a wing, or the survey lattice.
+    source : {"added", "declared"}
+        Laid by the plan, or the ``[[probes]]`` declaration reused.
+    entry : int or None
+        The number of the ``[[probes]]`` entry reused, from 1; None when added.
+    points_m : numpy.ndarray
+        ``(n, 3)`` positions in metres, in the reference frame, in the order
+        the probes are laid.
+    geometry : dict
+        What rebuilds ``points_m``: for a plane its center, the free-stream
+        direction, its half extents and its spacing (m); for a lattice the
+        :class:`~pyflightstream.probes.lattice.ProbeLattice` in metres, the
+        shaft axis letter, the origin (m) and the frame its recorded probe
+        positions are stated in.
     """
-    if spec.ledgers is None or case.pproc is None:
+
+    kind: str
+    source: str
+    entry: int | None
+    points_m: np.ndarray
+    geometry: dict[str, Any]
+
+    def record(self) -> dict[str, Any]:
+        """Return the shape as the run record and ``plan.json`` carry it (FR-455 R4)."""
+        return {
+            "kind": self.kind,
+            "source": self.source,
+            "entry": self.entry,
+            "count": len(self.points_m),
+            **self.geometry,
+        }
+
+
+def _same_points(first: np.ndarray, second: np.ndarray, native_per_m: float) -> bool:
+    """Whether two laid-out point sets are one, in order, at the precision a probe is written.
+
+    The script writes a probe position rounded to five decimals of the
+    simulation's unit, so two declarations whose every coordinate agrees there
+    are the same probes (FR-455 R2: same frame, same points after layout).
+    """
+    if first.shape != second.shape:
         return False
-    wanted = _lattice_key(spec.ledgers)
-    home = "REFERENCE" if spec.ledgers.rotor is not None else str(spec.ledgers.frame).upper()
-    return any(
-        _lattice_key(shape) == wanted
-        for entry in case.pproc.probes
-        if entry.frame.strip().upper() == home
-        for shape in entry.lattices
+    a = np.round(np.asarray(first, dtype=float) * native_per_m, 5)
+    b = np.round(np.asarray(second, dtype=float) * native_per_m, 5)
+    return bool(np.all(np.abs(a - b) <= _SAME_POSITION))
+
+
+def _emitted(entry: Any) -> bool:
+    """Whether a ``[[probes]]`` entry lays its shapes as points (not a cited points file)."""
+    return bool(entry.parameters) and not entry.points_file
+
+
+def _plane_shape(
+    source: str, entry: int | None, center: np.ndarray, direction: np.ndarray, grid: tuple
+) -> FarfieldShape:
+    half_width, half_height, spacing = (float(value) for value in grid)
+    laid = farfield_plane(
+        tuple(center),
+        tuple(direction),
+        distance=0.0,
+        half_width=half_width,
+        half_height=half_height,
+        spacing=spacing,
     )
+    geometry = {
+        "center_m": [float(v) for v in center],
+        "direction": [float(v) for v in direction],
+        "half_width_m": half_width,
+        "half_height_m": half_height,
+        "spacing_m": spacing,
+    }
+    return FarfieldShape("plane", source, entry, laid.points, geometry)
+
+
+def _qualifying_plane(rectangle: Any, axes: np.ndarray, reach: float) -> tuple | None:
+    """Return a declared rectangle as a far-field plane (center, grid), or None (FR-455 R2).
+
+    It qualifies when it IS a Trefftz C plane of this point: a uniform grid of
+    one spacing both ways with an odd count each way (so its center is a
+    point, as the plan lays one), its u edge along the plane's y and its v
+    edge along its z (normal to this point's free stream), downstream of the
+    body.
+    """
+    origin = np.asarray(rectangle.origin, dtype=float)
+    edge_u = np.asarray(rectangle.along_u, dtype=float) - origin
+    edge_v = np.asarray(rectangle.along_v, dtype=float) - origin
+    if rectangle.points_u % 2 == 0 or rectangle.points_v % 2 == 0:
+        return None
+    width, height = float(np.linalg.norm(edge_u)), float(np.linalg.norm(edge_v))
+    spacing = width / (rectangle.points_u - 1)
+    if not math.isclose(spacing, height / (rectangle.points_v - 1), rel_tol=1e-9):
+        return None
+    aligned = float(edge_u @ axes[1]) / width, float(edge_v @ axes[2]) / height
+    if min(aligned) < 1.0 - 1e-9:
+        return None
+    center = origin + edge_u / 2.0 + edge_v / 2.0
+    if float(center @ axes[0]) <= reach:
+        return None
+    return center, (width / 2.0, height / 2.0, spacing)
+
+
+def _plane_choice(case: SimCase, native_per_m: float) -> FarfieldShape:
+    """Choose the wing's Trefftz C plane: a declared one, or the one the plan lays (FR-455 R2)."""
+    spec = _spec(case)
+    trefftz = spec.trefftz if spec is not None else None
+    if trefftz is None:
+        raise CampaignConfigError(f"case {case.sim_id!r}: the far-field plane needs a trefftz")
+    direction = _free_stream(case)
+    extent = _extent_m(case, direction, native_per_m)
+    laid = farfield_plane_of(case, extent_m=extent)
+    middle = (len(laid.y) // 2) * len(laid.z) + len(laid.z) // 2
+    bref = float(getattr(case.reference, "span_m", None) or 0.0)
+    grid = tuple(value * bref for value in trefftz.plane_bref())
+    own = _plane_shape("added", None, laid.points[middle], direction, grid)
+    mrp = np.asarray(getattr(case.reference, "moment_point_m", None) or (0.0, 0.0, 0.0))
+    reach = float(mrp @ laid.axes[0]) if extent is None else extent
+    qualifying: list[FarfieldShape] = []
+    identical: list[FarfieldShape] = []
+    entries: Sequence[Any] = case.pproc.probes if case.pproc is not None else []
+    for number, entry in enumerate(entries, start=1):
+        if not _emitted(entry) or entry.frame.strip().upper() != "REFERENCE" or entry.scale != "m":
+            continue
+        for rectangle in entry.rectangles:
+            # Laid as `[[probes]]` lays it, in the simulation's unit, then in metres.
+            native = rectangle_points(rectangle, native_per_m)
+            points = np.array(native, dtype=float) / native_per_m
+            if _same_points(points, own.points_m, native_per_m):
+                identical.append(replace(own, source="declared", entry=number))
+            chosen = _qualifying_plane(rectangle, laid.axes, reach)
+            if chosen is not None:
+                qualifying.append(_plane_shape("declared", number, chosen[0], direction, chosen[1]))
+    if not trefftz.states_plane and len(qualifying) == 1:
+        return qualifying[0]
+    return identical[0] if identical else own
+
+
+def _lattice_placement(
+    case: SimCase, script: Script, frames: Any, shape: LatticeShape, native_per_m: float
+) -> tuple[Any, str, np.ndarray]:
+    """Return a lattice, its shaft axis letter and its origin in metres (reference frame)."""
+    if shape.rotor is not None:
+        return _rotor_placement(case, shape)
+    origin = _frame_origin(case, script, frames, str(shape.frame), native_per_m)
+    return shape.build(float(shape.tip_radius_m or 0.0)), "X", origin
+
+
+def _rotor_placement(case: SimCase, shape: LatticeShape) -> tuple[Any, str, np.ndarray]:
+    """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-459 R2)."""
+    rotor = case.rotors.get(str(shape.rotor))
+    if rotor is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a lattice names the rotor {shape.rotor!r}, which the "
+            f"reference does not declare ({', '.join(sorted(case.rotors)) or 'none'})"
+        )
+    axis = rotor.axis if isinstance(rotor.axis, str) else ""
+    if axis.strip().upper() not in ("X", "Y", "Z"):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the rotor {shape.rotor!r} states its axis as "
+            f"{rotor.axis!r}; a lattice is laid along an axis letter X, Y or Z"
+        )
+    origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m])
+    return shape.build(rotor.diameter_m / 2.0), axis, origin
+
+
+def _lattice_shape(
+    case: SimCase,
+    script: Script,
+    frames: Any,
+    shape: LatticeShape,
+    native_per_m: float,
+    *,
+    source: str,
+    entry: int | None,
+) -> FarfieldShape:
+    lattice, axis, origin = _lattice_placement(case, script, frames, shape, native_per_m)
+    points = lattice_points(lattice, axis=axis) + origin
+    # A declared frame lattice's positions are recorded in its own frame on an
+    # unsteady row (its fluid plots name that frame); every other in the reference.
+    recorded_in = "REFERENCE" if source == "added" or shape.rotor is not None else shape.frame
+    geometry = {
+        "lattice": lattice.model_dump(mode="json"),
+        "axis": axis,
+        "origin_m": [float(v) for v in origin],
+        "positions_frame": str(recorded_in),
+    }
+    return FarfieldShape("lattice", source, entry, points, geometry)
+
+
+def _placed_alike(wanted: LatticeShape, shape: LatticeShape, entry_frame: str) -> bool:
+    """Whether a declared lattice stands where the far field's would: same rotor, or same frame."""
+    if wanted.rotor is not None:
+        return shape.rotor == wanted.rotor and entry_frame == "REFERENCE"
+    frame = str(wanted.frame).strip().upper()
+    return (
+        shape.rotor is None
+        and str(shape.frame).strip().upper() == frame
+        and entry_frame == frame
+        and shape.tip_radius_m == wanted.tip_radius_m
+    )
+
+
+def _lattice_choice(
+    case: SimCase, script: Script, frames: Any, native_per_m: float
+) -> FarfieldShape:
+    """Choose the survey lattice: a declared one, or the one the plan lays (FR-455 R2).
+
+    A ``[farfield.ledgers]`` that states no lattice key reuses the one declared
+    lattice placed on its rotor or frame, when exactly one is and its azimuths
+    carry the table's ``m_max``; otherwise a declaration whose laid-out points
+    are the far field's own is reused, and none is added.
+    """
+    spec = _spec(case)
+    wanted = spec.ledgers if spec is not None else None
+    if wanted is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
+            "lattice; state [farfield.ledgers] with the rotor"
+        )
+    own = _lattice_shape(case, script, frames, wanted, native_per_m, source="added", entry=None)
+    qualifying: list[FarfieldShape] = []
+    identical: list[FarfieldShape] = []
+    entries = case.pproc.probes if case.pproc is not None else []
+    for number, entry in enumerate(entries, start=1):
+        if not _emitted(entry):
+            continue
+        for shape in entry.lattices:
+            if not _placed_alike(wanted, shape, entry.frame.strip().upper()):
+                continue
+            declared = _lattice_shape(
+                case, script, frames, shape, native_per_m, source="declared", entry=number
+            )
+            if _same_points(declared.points_m, own.points_m, native_per_m):
+                identical.append(declared)
+            if wanted.m_max < shape.build(1.0).n_psi // 2:
+                qualifying.append(declared)
+    if not wanted.states_geometry and len(qualifying) == 1:
+        return qualifying[0]
+    return identical[0] if identical else own
+
+
+def farfield_shapes(
+    case: SimCase, script: Script, frames: Any, native_per_m: float
+) -> list[FarfieldShape]:
+    """Return the plane and the lattice the row's far field reads, each declared or added.
+
+    The one selection of PFS-2081.56: geometry is resolved once, by frame and
+    by the exact laid-out points, and :func:`farfield_probes` lays the added
+    ones and records all of them on the script for the run record and post.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row at one point.
+    script : Script
+        The script being built, whose frame placements place a frame's lattice.
+    frames : Any
+        The builder's frames by name.
+    native_per_m : float
+        Simulation length units per metre.
+
+    Returns
+    -------
+    list of FarfieldShape
+        The plane (a wing's Trefftz C) and the lattice (the balances, or a
+        rotor's Trefftz C), each where the row needs it.
+    """
+    shapes: list[FarfieldShape] = []
+    if _needs_plane(case):
+        shapes.append(_plane_choice(case, native_per_m))
+    if _needs_lattice(case):
+        shapes.append(_lattice_choice(case, script, frames, native_per_m))
+    return shapes
 
 
 def _command_test(view: Any) -> Callable[[str], bool]:
@@ -265,18 +539,28 @@ def _command_test(view: Any) -> Callable[[str], bool]:
     return has
 
 
-def _resolve(case: SimCase, inventory: Sequence[str], view: Any) -> FarfieldResolution | None:
+def _resolve(
+    case: SimCase,
+    inventory: Sequence[str],
+    view: Any,
+    shapes: Sequence[Mapping[str, Any]] = (),
+) -> FarfieldResolution | None:
+    """Resolve the row's inputs; ``shapes`` is the probe selection the script recorded."""
     spec = _spec(case)
     if spec is None:
         return None
+
+    def declares(kind: str) -> bool:
+        return any(s.get("kind") == kind and s.get("source") == "declared" for s in shapes)
+
     return resolve_farfield(
         spec,
         run_type=_run_type(case),
         covered_families=_covered(case, inventory),
         selected_families=_selected(case, spec, inventory),
         exports=dict(case.pproc.exports) if case.pproc is not None else {},
-        declares_lattice=_declares_lattice(case, spec),
-        declares_plane=False,
+        declares_lattice=declares("lattice"),
+        declares_plane=declares("plane"),
         coupled=case.fsi is not None,
         admits_probes=not (case.fsi is not None and _run_type(case) == "steady"),
         has_command=_command_test(view),
@@ -287,19 +571,46 @@ def _resolve(case: SimCase, inventory: Sequence[str], view: Any) -> FarfieldReso
 def farfield_resolution(case: SimCase, script: Script) -> FarfieldResolution | None:
     """Resolve the row's far-field inputs against its geometry and build (FR-455)."""
     inventory = _inventory(script) or list(case.inventory or ())
-    return _resolve(case, inventory, script.registry.for_version(script.version))
+    return _resolve(
+        case,
+        inventory,
+        script.registry.for_version(script.version),
+        _recorded_shapes(case, script),
+    )
 
 
-def plan_record(case: SimCase, version: str) -> dict[str, object]:
-    """Return the row's ``farfield`` object of ``plan.json``, empty without one (FR-455 R4)."""
+def _recorded_shapes(case: SimCase, script: Script | None) -> list[Mapping[str, Any]]:
+    """Return the probe shapes the script recorded for this case's point, or none."""
+    if script is None:
+        return []
+    for laid in reversed(script.farfield_layout):
+        if laid.get("point") == dict(case.point):
+            return list(laid.get("shapes") or [])
+    return []
+
+
+def plan_record(case: SimCase, version: str, script: Script | None = None) -> dict[str, object]:
+    """Return the row's ``farfield`` object of ``plan.json``, empty without one (FR-455 R4).
+
+    With the dry-run ``script`` of the point, the record states the probe
+    shapes that script selected (``probes``: kind, declared or added, the
+    entry reused and the geometry), so ``plan.json`` serialises the selection
+    the run will carry rather than recomputing it (PFS-2081.56).
+    """
     if _spec(case) is None:
         return {}
     try:
         view = CommandRegistry.load().for_version(version)
     except PyflightstreamError:
         return {}
-    resolution = _resolve(case, list(case.inventory or ()), view)
-    return {} if resolution is None else resolution.as_record()
+    shapes = _recorded_shapes(case, script)
+    resolution = _resolve(case, list(case.inventory or ()), view, shapes)
+    if resolution is None:
+        return {}
+    record = resolution.as_record()
+    if shapes:
+        record["probes"] = [dict(shape) for shape in shapes]
+    return record
 
 
 def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
@@ -409,20 +720,8 @@ def farfield_plane_of(case: SimCase, *, extent_m: float | None) -> FarfieldPlane
 
 
 def _rotor_lattice(case: SimCase, shape: LatticeShape) -> np.ndarray:
-    rotor = case.rotors.get(str(shape.rotor))
-    if rotor is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: a lattice names the rotor {shape.rotor!r}, which the "
-            f"reference does not declare ({', '.join(sorted(case.rotors)) or 'none'})"
-        )
-    axis = rotor.axis if isinstance(rotor.axis, str) else ""
-    if axis.strip().upper() not in ("X", "Y", "Z"):
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the rotor {shape.rotor!r} states its axis as "
-            f"{rotor.axis!r}; a lattice is laid along an axis letter X, Y or Z"
-        )
-    points = lattice_points(shape.build(rotor.diameter_m / 2.0), axis=axis)
-    return points + np.array([rotor.x_m, rotor.y_m, rotor.z_m])
+    lattice, axis, origin = _rotor_placement(case, shape)
+    return lattice_points(lattice, axis=axis) + origin
 
 
 def farfield_lattice(case: SimCase, shape: LatticeShape) -> np.ndarray:
@@ -575,10 +874,10 @@ def _check_added(case: SimCase, native: np.ndarray, what: str) -> None:
         )
 
 
-def _frame_lattice(
-    case: SimCase, script: Script, frames: Any, shape: LatticeShape, native_per_m: float
+def _frame_origin(
+    case: SimCase, script: Script, frames: Any, name: str, native_per_m: float
 ) -> np.ndarray:
-    """Lay a frame's survey lattice in the reference frame, in metres (FR-454 R1).
+    """Return where a frame's survey lattice starts, in metres, reference frame (FR-454 R1).
 
     The lattice lies along the frame's x axis from the frame's origin, as the
     script placed the frame; a frame whose axes turn from the reference axes
@@ -587,7 +886,6 @@ def _frame_lattice(
     """
     from ._frames import _pproc_frame
 
-    name = str(shape.frame)
     index = _pproc_frame(case, frames, name, "the far-field lattice")
     placement = script.frame_placements.get(index) if index != 1 else None
     origin = np.zeros(3)
@@ -604,47 +902,34 @@ def _frame_lattice(
                 "with the reference axes"
             )
         origin = np.asarray(placement.origin, dtype=float) / native_per_m
-    lattice = shape.build(float(shape.tip_radius_m or 0.0))
-    return lattice_points(lattice, axis="X") + origin
-
-
-def _added_shapes(
-    case: SimCase, native_per_m: float, script: Script, frames: Any
-) -> list[tuple[str, np.ndarray]]:
-    spec = _spec(case)
-    shapes: list[tuple[str, np.ndarray]] = []
-    if spec is None:
-        return shapes
-    if _needs_plane(case):
-        direction = _free_stream(case)
-        laid = farfield_plane_of(case, extent_m=_extent_m(case, direction, native_per_m))
-        shapes.append(("plane", laid.points))
-    if _needs_lattice(case) and not _declares_lattice(case, spec):
-        if spec.ledgers is None:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: Trefftz C on a rotor row reads a station of the survey "
-                "lattice; state [farfield.ledgers] with the rotor"
-            )
-        if spec.ledgers.frame is not None:
-            points = _frame_lattice(case, script, frames, spec.ledgers, native_per_m)
-        else:
-            points = farfield_lattice(case, spec.ledgers)
-        shapes.append(("lattice", points))
-    return shapes
+    return origin
 
 
 def farfield_probes(
     case: SimCase, script: Script, vertex: int, *, unsteady: bool, frames: Any = None
 ) -> int:
-    """Lay the far-field plane and lattice as probe points after the declared ones (FR-455)."""
+    """Lay the far-field plane and lattice as probe points after the declared ones (FR-455).
+
+    Every shape the far field reads, reused or added, is recorded on the script
+    (:attr:`~pyflightstream.script.Script.farfield_layout`, one entry per
+    point) for the run record, so post integrates exactly the probes laid here
+    (PFS-2081.58); only the added ones are emitted.
+    """
     if not needs_fresh_probes(case):
         return vertex
     resolution = farfield_resolution(case, script)
     if resolution is not None:
         _refuse(case, resolution)
     native_per_m = _from_metres(case, script, "far-field probe coordinates")
+    shapes = farfield_shapes(case, script, frames, native_per_m)
+    script.farfield_layout.append(
+        {"point": dict(case.point), "shapes": [shape.record() for shape in shapes]}
+    )
     imported: list[tuple[float, float, float]] = []
-    for what, points in _added_shapes(case, native_per_m, script, frames):
+    for shape in shapes:
+        if shape.source != "added":
+            continue
+        what, points = shape.kind, shape.points_m
         native = np.round(points * native_per_m, 5)
         _check_added(case, native, what)
         if unsteady:

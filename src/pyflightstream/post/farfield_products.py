@@ -43,14 +43,17 @@ from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, wri
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
+    FarLayout,
     ProbeSamples,
     average_rows,
+    derived_layout,
     far_samples,
     frame_lattice,
     lattice_samples,
     ledger_values,
     native_per_m,
     plane_values,
+    recorded_layout,
     rotor_lattice,
     rotor_values,
     steady_samples,
@@ -682,18 +685,37 @@ def _plane_grid(ctx: SimContext, spec) -> tuple[float, float, float]:
     return half_width * bref, half_height * bref, spacing * bref
 
 
-def _plane_count(grid: tuple[float, float, float]) -> int:
-    return (2 * int(round(grid[0] / grid[2])) + 1) * (2 * int(round(grid[1] / grid[2])) + 1)
-
-
 @dataclass(frozen=True)
 class _Probe:
     """Where a point's far-field probes are and how to read them."""
 
     per_m: float
-    lattice: tuple[Any, np.ndarray | None, str] | None
-    plane_grid: tuple[float, float, float] | None
+    layout: FarLayout
     hub: tuple[float, np.ndarray, np.ndarray] | None
+    rotor: bool = False
+
+
+def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:
+    """Return the far-field probes of a point: as its run recorded them, else from the table.
+
+    PFS-2081.58: the record's layout is what the plan laid or reused, so post
+    integrates exactly those probes with their own grid, whatever the table
+    states today. A record written before the layout was recorded is matched
+    to the table as it stands, the plane and a frame's lattice by shape.
+    """
+    record = ctx.record_of[point.name]
+    shapes = (getattr(record, "farfield_layout", None) or {}).get("shapes")
+    if shapes:
+        return recorded_layout(shapes)
+    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
+    _rho, _speed, alpha, beta = _flow(point)
+    a, b = math.radians(alpha), math.radians(beta)
+    direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
+    return derived_layout(
+        plane_grid=_plane_grid(ctx, spec) if plane else None,
+        direction=direction,
+        lattice=_lattice_of(ctx, spec),
+    )
 
 
 def _hub(ctx: SimContext, point: PolarPoint, spec) -> tuple[float, np.ndarray, np.ndarray] | None:
@@ -722,12 +744,11 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
             "the point saved no simulation whose length unit the package reads, so its probe "
             "positions cannot be matched in metres"
         )
-    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
     return _Probe(
         per_m=per_m,
-        lattice=_lattice_of(ctx, spec),
-        plane_grid=_plane_grid(ctx, spec) if plane else None,
+        layout=_layout(ctx, point, spec, rotor),
         hub=_hub(ctx, point, spec),
+        rotor=rotor,
     )
 
 
@@ -737,31 +758,26 @@ def _instant_values(
     """Return the C values and the ledger rows of one instant, keyed by analysis."""
     rho, speed, alpha, beta = _flow(point)
     q_ref = _q_ref(point, rho)
-    lattice_m = probe.lattice[1] if probe.lattice is not None else None
-    count = _plane_count(probe.plane_grid) if probe.plane_grid else 0
-    tail = probe.lattice[0].point_count if probe.lattice and lattice_m is None else 0
-    lattice_at, plane_at, why = far_samples(
-        instant.samples,
-        lattice_m=lattice_m,
-        plane_count=count,
-        per_m=probe.per_m,
-        lattice_tail=tail,
-    )
-    if why:
-        raise PyflightstreamError(why)
+    layout = probe.layout
+    lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
+    # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
+    wants_plane = "trefftz:plane" in analyses and not probe.rotor
+    wants_lattice = "ledgers" in analyses or ("trefftz:plane" in analyses and probe.rotor)
+    if (wants_plane and plane_at is None) or (wants_lattice and lattice_at is None):
+        raise PyflightstreamError(why or "the run laid no far-field probes these analyses read")
     out: dict[str, Any] = {}
     if plane_at is not None and "trefftz:plane" in analyses:
         out["plane"] = plane_values(
             instant.samples,
             plane_at,
             flow=(rho, speed, alpha, beta),
-            grid=cast("tuple[float, float, float]", probe.plane_grid),
+            grid=cast("tuple[float, float, float]", layout.plane_grid),
             per_m=probe.per_m,
             q_ref=q_ref,
         )
-    if lattice_at is None or probe.lattice is None:
+    if lattice_at is None or layout.lattice is None:
         return out
-    lattice, _points, axis = probe.lattice
+    lattice, axis = layout.lattice, layout.axis
     hub = None
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])

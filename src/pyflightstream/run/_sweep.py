@@ -362,6 +362,16 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
 def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     """Write sweep script."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
+    # FR-455 R4 (0.40.0, PFS-2081.58): each point's far-field plane turns with its
+    # attitude, so the layouts are keyed by point name, as the rotor Mach numbers are.
+    by_point = {
+        point_name(job.case, point): {"shapes": laid["shapes"]}
+        for point, _stem, point_case in job.point_cases
+        for laid in job.script.farfield_layout
+        if laid.get("point") == dict(point_case.point)
+    }
+    if by_point:
+        job.base["farfield_layout"] = {"by_point": by_point}
     job.base["surface_probe_layout"] = list(job.script.surface_probe_layout) or None
     job.base["frame_motions"] = job.script.frame_motions or None
     job.base["custom_field_coverage"] = job.script.custom_field_coverage
