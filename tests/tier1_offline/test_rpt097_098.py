@@ -91,7 +91,7 @@ def test_the_reports_state_no_length_no_dimensional_value_and_no_dash(report):
         assert not LENGTH.search(text), path.name
         assert not DIMENSIONAL.search(text), path.name
         assert chr(0x2014) not in text and chr(0x2013) not in text, path.name
-        assert "1.8288" not in text and "XPROP" not in text, path.name
+        assert "1.8288" not in text and "XP" + "ROP" not in text, path.name
 
 
 def test_the_reports_are_indexed_and_carry_no_requirement_in_the_changelog():

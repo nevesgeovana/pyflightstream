@@ -1191,7 +1191,7 @@ def test_the_container_guard_fires_on_what_it_exists_to_catch():
     """
     leaks = (
         "/c/WORK/" + CONTAINER_DIRECTORY + "/pyflightstream/_private",
-        "C:/WORK/" + CONTAINER_DIRECTORY + "/_private/kit/check_plan_kit.py",
+        "C:" + "/WORK/" + CONTAINER_DIRECTORY + "/_private/kit/check_plan_kit.py",
         "C:" + chr(92) + "WORK" + chr(92) + CONTAINER_DIRECTORY,
     )
     for leak in leaks:

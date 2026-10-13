@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-FORBIDDEN = ("GEOVERSE_HEADER", "geoverse-goddess-control-plane", "_geoverse_header")
+FORBIDDEN = ("GEOVERSE" + "_HEADER", "geoverse-goddess-control-plane", "_geoverse" + "_header")
 
 
 def _tracked_files() -> list[Path]:
