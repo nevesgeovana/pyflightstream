@@ -46,7 +46,7 @@ from pyflightstream.cases import (
     SimCase,
 )
 from pyflightstream.cases._skipped_families import names_a_row_can_cite
-from pyflightstream.cases.restart_records import ExportThresholdRecord, StoppedStepRecord
+from pyflightstream.cases.windows import ExportThresholdRecord, StoppedStepRecord
 from pyflightstream.script import (
     Script,
     ScriptReferenceError,

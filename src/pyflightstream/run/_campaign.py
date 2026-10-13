@@ -49,7 +49,7 @@ from pyflightstream.cases import (
     point_name,
     resolve_recipe,
 )
-from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
+from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,

@@ -28,7 +28,7 @@ from pyflightstream.cases._unsteady_actions import (
     WALLTIME_STOP_SCRIPT,
 )
 from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
-from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE, ExportThresholdRecord
+from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE, ExportThresholdRecord
 from pyflightstream.script import (
     Script,
 )

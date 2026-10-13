@@ -57,7 +57,6 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.reference_blocks",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     # Restart wire types are a public import surface, separate from averaging windows.
-    "pyflightstream.cases.restart_records",
     "pyflightstream.cases.selection",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     "pyflightstream.cases.settings",

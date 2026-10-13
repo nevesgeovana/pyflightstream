@@ -47,7 +47,7 @@ from pyflightstream.cases.qsteady import summarise as summarise_validity
 from pyflightstream.cases.qsteady import (
     summarise_inflow_harmonics,
 )
-from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
+from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     ACTUATOR_VARIABLE,
     PROFILE_VARIABLE,
