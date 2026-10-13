@@ -46,7 +46,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import (
     SIM_DATAPOINTS_DIR,
 )
-from pyflightstream.workspace._batch_life import walltime_stop
+from pyflightstream.workspace.ledger import walltime_stop
 
 
 def _write_probe_points(

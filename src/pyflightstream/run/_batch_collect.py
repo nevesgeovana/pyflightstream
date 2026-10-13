@@ -45,11 +45,11 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
-from pyflightstream.workspace._batch_life import end_evidence
 from pyflightstream.workspace._batch_relocate import copy_point, move_sim, relink_inputs
 from pyflightstream.workspace._batches import JobEntry, job_of
 from pyflightstream.workspace._missing_log import point_absent_logs
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
+from pyflightstream.workspace.ledger import end_evidence
 
 __all__ = [
     "GroupedSweep",

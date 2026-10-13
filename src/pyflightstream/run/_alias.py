@@ -33,6 +33,7 @@ from pyflightstream.workspace import JOB_TAG
 
 # kept importable at its 0.38.0 path (release parity)
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP as SIMS_IDS_HELP
+from pyflightstream.workspace.ledger import listed_sims
 
 #: What joins the simulation id and the index: ``2006_3``.
 ALIAS_JOINER = "_"
@@ -506,3 +507,18 @@ def failure_alias_lines(
         for record in failures
         if (key := (_record_sim(record), record.run_id.rsplit("/", 1)[-1])) in found
     ]
+
+
+def listed_ids(values: Sequence[str] | None) -> list[str]:
+    """Read ids given as words, commas or both, through the one reader of the form.
+
+    Each value is split on whitespace (so one quoted ``"2006 2007"`` reads as two
+    ids), the words are joined with commas and read by
+    :func:`pyflightstream.workspace.ledger.listed_sims`, so ``2006 2007``,
+    ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
+    """
+    return list(
+        dict.fromkeys(
+            listed_sims(",".join(part for value in values or [] for part in str(value).split()))
+        )
+    )

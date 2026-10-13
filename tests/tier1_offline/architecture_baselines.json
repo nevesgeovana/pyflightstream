@@ -1,15 +1,13 @@
 {
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged, and on 2026-10-01 on the tree of rel/0-34 with the wave 1 packages of 0.34.0 merged (RPT-123), and on 2026-10-02 on the tree of rel/0-34 with the wave 2 packages merged (RPT-124). Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
  "module_code_lines": {
-  "post/corrections.py": 1005,
   "post/input_template.py": 1455,
-  "run/matrix.py": 1241,
-  "workspace/storage.py": 1426
+  "run/matrix.py": 1093,
+  "workspace/storage.py": 1411
  },
  "function_lines": {
-  "post/section_distributions.py:_matching_distributions": 328,
-  "post/section_distributions.py:write_section_distributions": 257,
-  "workspace/setup_standards.py:render_guidelines": 263
+  "post/section_distributions.py:_matching_distributions": 322,
+  "workspace/setup_standards.py:render_guidelines": 257
  },
  "function_limits": {
   "_deprecations.py:_promise_text": {
@@ -120,12 +118,6 @@
    "statements": 35,
    "positional": 2
   },
-  "commands/__init__.py:_check_layout_rules": {
-   "complexity": 15,
-   "branches": 14,
-   "statements": 22,
-   "positional": 3
-  },
   "fsi/beam.py:modal_frequencies": {
    "complexity": 12,
    "branches": 12,
@@ -186,12 +178,6 @@
    "statements": 60,
    "positional": 1
   },
-  "post/custom_polar.py:read_custom_polar_format": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 36,
-   "positional": 1
-  },
   "post/disc_maps.py:disc_map_rows": {
    "complexity": 11,
    "branches": 10,
@@ -216,12 +202,6 @@
    "statements": 44,
    "positional": 1
   },
-  "post/harmonics.py:_fit_rotor": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 29,
-   "positional": 4
-  },
   "post/probe_fields.py:write_recorded_probe_fields": {
    "complexity": 29,
    "branches": 29,
@@ -235,8 +215,8 @@
    "positional": 9
   },
   "post/products.py:write_campaign_products": {
-   "complexity": 13,
-   "branches": 16,
+   "complexity": 9,
+   "branches": 11,
    "statements": 52,
    "positional": 1
   },
@@ -253,7 +233,7 @@
    "positional": 3
   },
   "post/qsteady.py:add_reduced_frequency_to_sections": {
-   "complexity": 14,
+   "complexity": 13,
    "branches": 11,
    "statements": 64,
    "positional": 2
@@ -289,9 +269,9 @@
    "positional": 2
   },
   "post/section_distributions.py:_matching_distributions": {
-   "complexity": 54,
+   "complexity": 51,
    "branches": 12,
-   "statements": 136,
+   "statements": 134,
    "positional": 8
   },
   "post/section_distributions.py:_matching_distributions.cited": {
@@ -313,9 +293,9 @@
    "positional": 4
   },
   "post/section_distributions.py:write_section_distributions": {
-   "complexity": 39,
-   "branches": 41,
-   "statements": 121,
+   "complexity": 36,
+   "branches": 38,
+   "statements": 111,
    "positional": 0
   },
   "post/series.py:write_point_series": {
@@ -343,9 +323,9 @@
    "positional": 3
   },
   "post/surfaces.py:average_surface_exports": {
-   "complexity": 14,
-   "branches": 14,
-   "statements": 53,
+   "complexity": 13,
+   "branches": 13,
+   "statements": 51,
    "positional": 1
   },
   "post/surfaces.py:write_point_surface_average": {
@@ -419,12 +399,6 @@
    "branches": 10,
    "statements": 35,
    "positional": 5
-  },
-  "qa/probes.py:probe_version": {
-   "complexity": 12,
-   "branches": 13,
-   "statements": 40,
-   "positional": 1
   },
   "reference.py:markdown_compatibility_matrix": {
    "complexity": 12,
@@ -615,7 +589,7 @@
   "run/collect.py:_complete_sweep": {
    "complexity": 12,
    "branches": 11,
-   "statements": 56,
+   "statements": 55,
    "positional": 4
   },
   "run/collect.py:_log_verdicts": {
@@ -631,7 +605,7 @@
    "positional": 1
   },
   "run/matrix.py:_extract": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 12,
    "statements": 50,
    "positional": 3
@@ -641,12 +615,6 @@
    "branches": 15,
    "statements": 44,
    "positional": 5
-  },
-  "run/matrix.py:_warn_when_a_quasi_steady_point_leaves_its_assumption": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 37,
-   "positional": 2
   },
   "run/records.py:restore": {
    "complexity": 16,
@@ -659,12 +627,6 @@
    "branches": 11,
    "statements": 31,
    "positional": 1
-  },
-  "script/__init__.py:Script._render_command": {
-   "complexity": 19,
-   "branches": 22,
-   "statements": 38,
-   "positional": 2
   },
   "script/entities.py:EntityRegistry._reject_index": {
    "complexity": 5,
@@ -810,22 +772,10 @@
    "statements": 74,
    "positional": 2
   },
-  "workspace/flight_condition.py:resolve_flight_condition": {
-   "complexity": 12,
-   "branches": 14,
-   "statements": 48,
-   "positional": 1
-  },
   "workspace/fsi_setup.py:resolve_fsi_setup": {
    "complexity": 15,
    "branches": 15,
    "statements": 48,
-   "positional": 1
-  },
-  "workspace/hpc.py:read_hpc_profile": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 34,
    "positional": 1
   },
   "workspace/inputs.py:_split_reference_tables": {
@@ -839,12 +789,6 @@
    "branches": 7,
    "statements": 15,
    "positional": 7
-  },
-  "workspace/rename_groups.py:rename_group_products": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 31,
-   "positional": 2
   },
   "workspace/selections.py:_stated_empty_selections": {
    "complexity": 12,
@@ -868,12 +812,6 @@
    "complexity": 11,
    "branches": 10,
    "statements": 23,
-   "positional": 3
-  },
-  "workspace/storage.py:_sync_files": {
-   "complexity": 15,
-   "branches": 15,
-   "statements": 30,
    "positional": 3
   },
   "workspace/storage.py:_sync_one": {
@@ -990,12 +928,6 @@
    "statements": 39,
    "positional": 5
   },
-  "cases/workflows/_probes.py:_pproc_probes": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 34,
-   "positional": 3
-  },
   "cases/workflows/_qsteady_rotor.py:_blade_stations_from_the_mesh": {
    "complexity": 15,
    "branches": 16,
@@ -1008,16 +940,10 @@
    "statements": 63,
    "positional": 3
   },
-  "cases/workflows/_reductions.py:reduction_windows": {
-   "complexity": 18,
-   "branches": 21,
-   "statements": 76,
-   "positional": 1
-  },
   "cases/workflows/_rotor.py:_rotor_motions": {
    "complexity": 6,
    "branches": 5,
-   "statements": 51,
+   "statements": 48,
    "positional": 7
   },
   "cases/workflows/_rows.py:restart_iterations": {
@@ -1072,7 +998,7 @@
    "complexity": 10,
    "branches": 9,
    "statements": 26,
-   "positional": 15
+   "positional": 8
   },
   "post/_rotor_plan.py:rotor_plot_source": {
    "complexity": 14,
@@ -1107,7 +1033,7 @@
   "post/rotor_table.py:write_rotor_table": {
    "complexity": 10,
    "branches": 9,
-   "statements": 60,
+   "statements": 57,
    "positional": 1
   },
   "post/unsteady_polar.py:write_unsteady_polar": {
@@ -1203,82 +1129,107 @@
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.setup_surfaces": 1,
   "pyflightstream.cases.workflows._actuator": 2,
-  "pyflightstream.cases.workflows._clock": 1,
+  "pyflightstream.cases.workflows._clock": 2,
   "pyflightstream.cases.workflows._conventions": 2,
   "pyflightstream.cases.workflows._exports": 1,
-  "pyflightstream.cases.workflows._frames": 7,
-  "pyflightstream.cases.workflows._freestream": 8,
-  "pyflightstream.cases.workflows._geometry": 4,
+  "pyflightstream.cases.workflows._frames": 9,
+  "pyflightstream.cases.workflows._freestream": 9,
+  "pyflightstream.cases.workflows._geometry": 5,
   "pyflightstream.cases.workflows._motion": 3,
   "pyflightstream.cases.workflows._names": 1,
   "pyflightstream.cases.workflows._probes": 6,
-  "pyflightstream.cases.workflows._rows": 5,
+  "pyflightstream.cases.workflows._reductions": 1,
+  "pyflightstream.cases.workflows._rows": 6,
   "pyflightstream.cases.workflows._skeleton": 1,
   "pyflightstream.cases.workflows._solver_settings": 2,
   "pyflightstream.cases.workflows._vocabulary": 2,
+  "pyflightstream.commands": 1,
   "pyflightstream.fsi.driver": 5,
   "pyflightstream.fsi.loads": 1,
   "pyflightstream.options": 2,
   "pyflightstream.overview": 5,
   "pyflightstream.post": 1,
+  "pyflightstream.post._additional": 4,
+  "pyflightstream.post._condition": 6,
+  "pyflightstream.post._products_campaign": 2,
+  "pyflightstream.post._reduction_stage": 5,
+  "pyflightstream.post._rotor_plan": 9,
+  "pyflightstream.post._rotor_products": 5,
+  "pyflightstream.post._sim": 5,
+  "pyflightstream.post._stage": 7,
   "pyflightstream.post._tables": 2,
+  "pyflightstream.post.corrections": 2,
   "pyflightstream.post.glossary": 1,
   "pyflightstream.post.harmonics": 1,
   "pyflightstream.post.products": 4,
-  "pyflightstream.post.section_distributions": 1,
-  "pyflightstream.post.superfile": 1,
+  "pyflightstream.post.section_distributions": 2,
+  "pyflightstream.post.series": 1,
+  "pyflightstream.post.superfile": 2,
+  "pyflightstream.post.unsteady_polar": 2,
   "pyflightstream.probes.geometry": 2,
+  "pyflightstream.qa._spec_0400_gap": 1,
+  "pyflightstream.qa._spec_0400_gapkit": 11,
+  "pyflightstream.qa._spec_ccs_noise": 1,
   "pyflightstream.qa.cli": 1,
   "pyflightstream.qa.compat": 5,
   "pyflightstream.qa.cost": 1,
-  "pyflightstream.qa.probes": 3,
+  "pyflightstream.qa.matrix": 4,
+  "pyflightstream.qa.probes": 5,
   "pyflightstream.reference": 9,
-  "pyflightstream.results.tables": 3,
-  "pyflightstream.run._continuation_frame": 1,
-  "pyflightstream.run._rebuild": 2,
-  "pyflightstream.run._rebuild_evidence": 1,
-  "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 9,
-  "pyflightstream.run.collect": 6,
-  "pyflightstream.run.matrix": 5,
-  "pyflightstream.run.records": 1,
-  "pyflightstream.run.rename": 1,
-  "pyflightstream.script": 7,
-  "pyflightstream.script.entities": 1,
-  "pyflightstream.script.motion": 1,
-  "pyflightstream.script.solver_setup": 1,
-  "pyflightstream.versions": 3,
-  "pyflightstream.workspace": 4,
-  "pyflightstream.workspace._links": 1,
-  "pyflightstream.workspace.cli": 1,
-  "pyflightstream.workspace.matrix": 13,
-  "pyflightstream.workspace.naming": 1,
-  "pyflightstream.workspace.sidecars": 3,
-  "pyflightstream.workspace.storage": 5,
-  "pyflightstream.workspace.wake_edges": 1,
-  "pyflightstream.post._condition": 6,
-  "pyflightstream.post._reduction_stage": 2,
-  "pyflightstream.post._rotor_plan": 3,
-  "pyflightstream.post._rotor_products": 3,
-  "pyflightstream.post._sim": 1,
-  "pyflightstream.post._stage": 7,
+  "pyflightstream.results.tables": 4,
   "pyflightstream.run._assessment": 4,
-  "pyflightstream.run._campaign": 1,
-  "pyflightstream.run._cli_parsers": 1,
-  "pyflightstream.run._cli_print": 3,
+  "pyflightstream.run._batch_collect": 1,
+  "pyflightstream.run._batch_run": 2,
+  "pyflightstream.run._campaign": 2,
+  "pyflightstream.run._cli_parsers": 2,
+  "pyflightstream.run._cli_print": 4,
+  "pyflightstream.run._cli_query_point": 2,
+  "pyflightstream.run._collect_logs": 1,
   "pyflightstream.run._continuation": 1,
-  "pyflightstream.run._executors": 4,
+  "pyflightstream.run._continuation_frame": 1,
+  "pyflightstream.run._executors": 5,
+  "pyflightstream.run._grouped": 1,
   "pyflightstream.run._identity": 2,
   "pyflightstream.run._ids": 3,
   "pyflightstream.run._pending": 4,
-  "pyflightstream.run._plan": 5
+  "pyflightstream.run._plan": 7,
+  "pyflightstream.run._rebuild": 2,
+  "pyflightstream.run._rebuild_evidence": 1,
+  "pyflightstream.run._rebuild_grouped": 1,
+  "pyflightstream.run._solver_windows": 1,
+  "pyflightstream.run.cli": 11,
+  "pyflightstream.run.collect": 5,
+  "pyflightstream.run.matrix": 6,
+  "pyflightstream.run.records": 2,
+  "pyflightstream.run.rename": 3,
+  "pyflightstream.script": 10,
+  "pyflightstream.script.entities": 1,
+  "pyflightstream.script.motion": 1,
+  "pyflightstream.script.solver_setup": 1,
+  "pyflightstream.utils.cli": 2,
+  "pyflightstream.utils.database": 2,
+  "pyflightstream.utils.manual": 1,
+  "pyflightstream.versions": 3,
+  "pyflightstream.workspace": 4,
+  "pyflightstream.workspace._batch_life": 1,
+  "pyflightstream.workspace._links": 1,
+  "pyflightstream.workspace.cli": 1,
+  "pyflightstream.workspace.costs": 1,
+  "pyflightstream.workspace.hpc": 1,
+  "pyflightstream.workspace.matrix": 13,
+  "pyflightstream.workspace.naming": 1,
+  "pyflightstream.workspace.sidecars": 2,
+  "pyflightstream.workspace.storage": 6,
+  "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 83,
+ "monkeypatch_targets": 140,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
   "pyflightstream._progress": 3,
   "pyflightstream._signature": 1,
+  "pyflightstream._textio": 2,
+  "pyflightstream.cases.freestream": 1,
   "pyflightstream.cases.fsi_workspace": 1,
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.windows": 1,
@@ -1287,48 +1238,63 @@
   "pyflightstream.cases.workflows._registry": 1,
   "pyflightstream.fsi.centrifugal": 3,
   "pyflightstream.fsi.driver": 1,
+  "pyflightstream.post._additional": 3,
+  "pyflightstream.post._rotor_plan": 6,
+  "pyflightstream.post._rotor_products": 1,
+  "pyflightstream.post._sim": 6,
+  "pyflightstream.post._stage": 1,
+  "pyflightstream.post.corrections": 3,
   "pyflightstream.post.glossary": 1,
+  "pyflightstream.post.point_tables": 1,
   "pyflightstream.post.probe_fields": 1,
   "pyflightstream.post.products": 3,
-  "pyflightstream.qa.cli": 3,
+  "pyflightstream.post.section_distributions": 2,
+  "pyflightstream.post.series": 5,
+  "pyflightstream.probes.geometry": 1,
+  "pyflightstream.qa._spec_0400_gapkit": 2,
+  "pyflightstream.qa.cli": 4,
+  "pyflightstream.qa.compat": 1,
+  "pyflightstream.qa.matrix": 6,
   "pyflightstream.qa.physics": 1,
+  "pyflightstream.qa.reports": 1,
   "pyflightstream.results.core": 1,
-  "pyflightstream.results.tables": 3,
-  "pyflightstream.run._rebuild": 1,
-  "pyflightstream.run._solver_windows": 2,
+  "pyflightstream.results.tables": 4,
+  "pyflightstream.run._additional": 2,
+  "pyflightstream.run._assessment": 1,
+  "pyflightstream.run._batch_plan": 1,
+  "pyflightstream.run._campaign": 4,
   "pyflightstream.run._cli_print": 1,
-  "pyflightstream.run.cli": 9,
-  "pyflightstream.run.collect": 4,
+  "pyflightstream.run._executors": 2,
+  "pyflightstream.run._identity": 2,
+  "pyflightstream.run._ids": 1,
+  "pyflightstream.run._pending": 1,
+  "pyflightstream.run._rebuild": 2,
+  "pyflightstream.run._solver_windows": 2,
+  "pyflightstream.run.cli": 13,
+  "pyflightstream.run.collect": 3,
   "pyflightstream.run.matrix": 8,
-  "pyflightstream.run.records": 2,
-  "pyflightstream.run.rename": 1,
-  "pyflightstream.utils.manual": 1,
+  "pyflightstream.run.records": 3,
+  "pyflightstream.run.rename": 2,
+  "pyflightstream.utils.cli": 1,
+  "pyflightstream.utils.manual": 2,
   "pyflightstream.versions": 1,
-  "pyflightstream.workspace": 5,
+  "pyflightstream.workspace": 7,
+  "pyflightstream.workspace._batch_life": 1,
+  "pyflightstream.workspace._batches": 1,
   "pyflightstream.workspace.excel": 1,
   "pyflightstream.workspace.fsi_setup": 1,
   "pyflightstream.workspace.naming": 1,
-  "pyflightstream.workspace.storage": 3,
-  "pyflightstream.post._rotor_plan": 1,
-  "pyflightstream.post._sim": 1,
-  "pyflightstream.post._stage": 1,
-  "pyflightstream.post.point_tables": 1,
-  "pyflightstream.run._assessment": 1,
-  "pyflightstream.run._campaign": 3,
-  "pyflightstream.run._executors": 1,
-  "pyflightstream.run._identity": 2,
-  "pyflightstream.run._ids": 1,
-  "pyflightstream.run._pending": 1
+  "pyflightstream.workspace.storage": 3
  },
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
   "cases/__init__.py": 1135,
-  "commands/__init__.py": 867,
+  "commands/__init__.py": 812,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1671,
-  "workspace/__init__.py": 2021
+  "script/__init__.py": 1600,
+  "workspace/__init__.py": 1961
  },
  "facade_definitions": {
   "fsi/__init__.py": [
@@ -1526,6 +1492,7 @@
     "_motion",
     "_actuator",
     "_rows",
+    "_row_cells",
     "_conventions",
     "_vocabulary"
    ]

@@ -414,6 +414,30 @@ def _export_block(
     # command the profile exists to remove reached the one machine that aborts
     # at it, after the queue wait.
     exports_its_log = _exports_its_log(case)
+    claimed = _export_each_kind(
+        script,
+        case,
+        names,
+        kinds,
+        unsteady=unsteady,
+        skip_log=declared_log or not exports_its_log,
+    )
+    if "tecplot" in kinds:
+        _record_surface_translation(script, case, kinds)
+    if declared_log:
+        _export_log(conventions, case, script, claimed=tuple(claimed))
+
+
+def _export_each_kind(
+    script: Script,
+    case: SimCase,
+    names: list[str],
+    kinds: dict[str, str],
+    *,
+    unsteady: bool,
+    skip_log: bool,
+) -> list[int]:
+    """Emit every declared kind in EXPORT_KINDS order; return the positions written."""
     # EVERY POSITION THIS LOOP WRITES TO is claimed against LOG_OUTPUT, not the
     # loads table's alone: a log pointed at the VTK was written over it.
     claimed: list[int] = [names.index(kinds["loads"]) + 1]
@@ -429,40 +453,42 @@ def _export_block(
                 claimed.append(names.index(kinds[kind]) + 1)
                 script.emit(verb, script.sixdof_motion, kinds[kind])
             continue
-        if kind == "log" and (declared_log or not exports_its_log):
+        if kind == "log" and skip_log:
             continue
         claimed.append(names.index(kinds[kind]) + 1)
         if not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
             script.emit(verb, kinds[kind])
-    if "tecplot" in kinds:
-        # G45: WHAT THE RUN WRITES FROM THE VTK, and the frame the VTK is in, as
-        # this script placed it at the moment of the export.
-        script.surface_translations.append(
-            {
-                "vtk": tecplot_source(kinds["tecplot"], kinds),
-                "dat": kinds["tecplot"],
-                # SS1 of 0.30.0: named only where the pproc asks for the
-                # strength, so a row without it translates as a record with no
-                # native source always has: every VTK variable, the strength
-                # declared not carried.
-                **(
-                    {"native_tecplot": native_tecplot_source(kinds["tecplot"])}
-                    if carries_singularity_strength(case)
-                    else {}
-                ),
-                "frame": script.loads_frame_record(),
-                # 0.30.0: a periodic row's native Tecplot holds one zone per
-                # copy, and the translation reads it by this count. Stated only
-                # for such a row, so every other record is unchanged.
-                **(
-                    {"periodic_copies": script.periodic_copies}
-                    if script.periodic_copies is not None
-                    else {}
-                ),
-            }
-        )
-    if declared_log:
-        _export_log(conventions, case, script, claimed=tuple(claimed))
+    return claimed
+
+
+def _record_surface_translation(script: Script, case: SimCase, kinds: dict[str, str]) -> None:
+    """Record the Tecplot the run writes from the VTK, and the frame the VTK is in."""
+    # G45: WHAT THE RUN WRITES FROM THE VTK, and the frame the VTK is in, as
+    # this script placed it at the moment of the export.
+    script.surface_translations.append(
+        {
+            "vtk": tecplot_source(kinds["tecplot"], kinds),
+            "dat": kinds["tecplot"],
+            # SS1 of 0.30.0: named only where the pproc asks for the
+            # strength, so a row without it translates as a record with no
+            # native source always has: every VTK variable, the strength
+            # declared not carried.
+            **(
+                {"native_tecplot": native_tecplot_source(kinds["tecplot"])}
+                if carries_singularity_strength(case)
+                else {}
+            ),
+            "frame": script.loads_frame_record(),
+            # 0.30.0: a periodic row's native Tecplot holds one zone per
+            # copy, and the translation reads it by this count. Stated only
+            # for such a row, so every other record is unchanged.
+            **(
+                {"periodic_copies": script.periodic_copies}
+                if script.periodic_copies is not None
+                else {}
+            ),
+        }
+    )
 
 
 #: The kinds whose export reads the surface sections, the sectional loads or

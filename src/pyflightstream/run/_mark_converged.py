@@ -32,12 +32,13 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
+from pyflightstream.run._alias import listed_ids as _listed
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace._verdicts import marked_units
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP
 from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
 
 __all__ = [
@@ -54,21 +55,6 @@ _REMEDY = "check the ids against runs.json, or rebuild it with pyfs-matrix rebui
 
 #: The verdict this command gives, written into ``marked``.
 _VERDICT = RunStatus.CONVERGED
-
-
-def _listed(values: Sequence[str] | None) -> list[str]:
-    """Read ids given as words, commas or both, through the one reader of the form.
-
-    Each value is split on whitespace (so one quoted ``"2006 2007"`` reads as two
-    ids), the words are joined with commas and read by
-    :func:`pyflightstream.workspace.ledger.listed_sims`, so ``2006 2007``,
-    ``2006,2007`` and ``[2006,2007]`` read alike; a repeated id is read once.
-    """
-    return list(
-        dict.fromkeys(
-            listed_sims(",".join(part for value in values or [] for part in str(value).split()))
-        )
-    )
 
 
 def _whole_simulations(base: Path, ids: list[str]) -> list[str]:
