@@ -207,9 +207,11 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         f"# Boundary inventory of {path.name}, read from its mesh block by "
         "`pyfs-matrix inventory`.",
         "# The solver's own order: the name at position i is boundary i (1-based).",
-        f'file = "{path.name}"',
+        # Quoted as TOML strings, as the OBJ twin quotes them (PFS-2095.034): a name with a
+        # backslash or a double quote wrote invalid TOML or another name.
+        f"file = {_toml_string(path.name)}",
         "boundaries = [",
-        *[f'    "{name}",' for name in names],
+        *[f"    {_toml_string(name)}," for name in names],
         "]",
         *face_count_lines(path, len(names), obj=False),
     ]
