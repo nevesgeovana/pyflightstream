@@ -12,6 +12,14 @@
   and `reduction_window = last_time_step` (codes 3 and 3), the last time
   step it states, where 0.39.0 wrote `time_average` over `not_printed`.
 
+## Fixed
+
+- FR-460: a pproc asking for surface streamlines exports them in the export
+  block of the point, after the off-body analysis commands, where the
+  surface-streamline export now belongs by its phase; it was emitted right
+  after generation and the script was refused for an analysis command after
+  the export phase.
+
 ## Migration
 
 - FR-32: select an unsteady polar row by `reduction == "time_average"`; its

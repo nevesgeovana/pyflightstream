@@ -211,6 +211,47 @@ def _executable(function: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.Module:
     return ast.Module(body=body, type_ignores=[])
 
 
+def _module_globals(tree: ast.Module) -> dict[str, ast.expr]:
+    """Module-level names assigned a value, with the expression assigned."""
+    return {
+        target.id: statement.value
+        for statement in tree.body
+        if isinstance(statement, ast.Assign | ast.AnnAssign) and statement.value is not None
+        for target in (
+            statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        )
+        if isinstance(target, ast.Name)
+    }
+
+
+def _imported_globals(tree: ast.Module, base: Path) -> dict[str, ast.expr]:
+    """Module-level constants a module imports by name from a module of the package.
+
+    A constant that moved to a private sibling module and is imported back by
+    name is still the same emitted command: the emit call names it, and the
+    module that defines it is where its value is read.
+    """
+    found: dict[str, ast.expr] = {}
+    for statement in tree.body:
+        if not (
+            isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and (statement.module or "").startswith("pyflightstream.")
+        ):
+            continue
+        parts = (statement.module or "").split(".")[1:]
+        source = base.joinpath(*parts).with_suffix(".py")
+        if not source.is_file():
+            continue
+        defined = _module_globals(ast.parse(source.read_text(encoding="utf-8")))
+        found |= {
+            alias.asname or alias.name: defined[alias.name]
+            for alias in statement.names
+            if alias.name in defined
+        }
+    return found
+
+
 def _emissions(root: Path, commands: set[str]) -> dict[str, list[str]]:
     """Read executable emission witnesses, including table-driven settings."""
     result: dict[str, list[str]] = {}
@@ -218,15 +259,7 @@ def _emissions(root: Path, commands: set[str]) -> dict[str, list[str]]:
     for directory in ("cases", "workspace", "run", "script"):
         for path in sorted((base / directory).rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
-            globals_ = {
-                target.id: statement.value
-                for statement in tree.body
-                if isinstance(statement, ast.Assign | ast.AnnAssign) and statement.value is not None
-                for target in (
-                    statement.targets if isinstance(statement, ast.Assign) else [statement.target]
-                )
-                if isinstance(target, ast.Name)
-            }
+            globals_ = {**_imported_globals(tree, base), **_module_globals(tree)}
             if path.name == "_exports.py":
                 pproc = ast.parse((base / "cases/pproc.py").read_text("utf-8"))
                 for statement in pproc.body:

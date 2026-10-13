@@ -418,10 +418,11 @@ def _export_block(
     # loads table's alone: a log pointed at the VTK was written over it.
     claimed: list[int] = [names.index(kinds["loads"]) + 1]
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
-        # FR-460 R2: the surface trace is written where its command sits
-        # (`_pproc_streamlines`). FR-461 R6: the trajectory is written HERE, after
+        # FR-460 R2: the surface trace is exported HERE, like the others: its
+        # command is an export-phase command, so it follows every analysis
+        # command of the point. FR-461 R6: the trajectory is written HERE, after
         # the march, never with the motion in the setup phase.
-        if kind not in kinds or (only_unsteady and not unsteady) or kind in _WRITTEN_ELSEWHERE:
+        if kind not in kinds or (only_unsteady and not unsteady):
             continue
         if kind == "trajectory_6dof":
             if script.sixdof_motion is not None:
@@ -469,10 +470,6 @@ def _export_block(
 #: declared. The section Cp plot is one: it plots the sections, and a point
 #: whose pproc switched every other section export off still updates them.
 _UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
-
-#: The declared kinds the export block never emits: each is written by the
-#: command that makes it, in its own phase (FR-460 R2).
-_WRITTEN_ELSEWHERE: frozenset[str] = frozenset({"streamlines_surface"})
 
 
 def _exports_its_log(case: SimCase) -> bool:

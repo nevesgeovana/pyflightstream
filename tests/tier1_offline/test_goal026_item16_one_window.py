@@ -158,9 +158,18 @@ def test_revolutions_and_iterations_are_two_ways_to_say_one_window_and_both_is_r
     precedence nobody wrote down.
     """
     from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.windows import stated_key
 
+    row = _rotor_row(LAST_REVS_AVG="1.0", LAST_ITERS_AVG="100")
     with pytest.raises(CampaignConfigError, match="two ways to say one window"):
-        reduction_windows(_rotor_row(LAST_REVS_AVG="1.0", LAST_ITERS_AVG="100"))
+        stated_key(row.variables)
+    # The point record is built inside a run, so a window the row states
+    # contradictorily is recorded as every reduction skipped with the reason
+    # (cases-workflows lane, f6a5626d), not raised out of the record.
+    plan = reduction_windows(row)
+    assert plan is not None
+    for reduction in ("time_average", "phase_locked", "per_blade"):
+        assert "two ways to say one window" in plan[reduction]["skipped"], plan[reduction]
 
 
 def test_a_row_that_states_neither_keeps_the_answer_it_has_always_had():

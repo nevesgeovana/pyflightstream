@@ -62,6 +62,7 @@
 \item \fl{--name NAME} campaign name (required here: no workspace)
 \item \fl{--fs-version V} build for rows with empty FS\_BUILD, e.g. \texttt{26.124}
 \item \fl{--recipe CODE=MODULE:FUNCTION} FS\_SCRIPT code to recipe (repeatable)
+\item \fl{--out FILE} write the \texttt{campaign.toml} here instead of standard output; \fl{-o}/\fl{--output} is its deprecated alias
 \item \fl{-o, --output FILE} write here instead of stdout
 \end{flags}
 
@@ -211,6 +212,7 @@
 \sub{mark-failed}{every record of the named simulations becomes FAILED\_MARKED, its old status kept under \texttt{marked}; \texttt{runs.json} archived first}
 \begin{flags}
 \item \fl{--sims 2006,2007} the simulations \quad \fl{--reason TEXT} why, recorded as given
+\item \fl{--points P1,P2} only these points within the selected simulations
 \item \fl{--apply} (default: preview) \quad \fl{--workspace}
 \end{flags}
 \sub{mark-converged}{the named points become CONVERGED by your reading, their old status kept under \texttt{marked}; \texttt{runs.json} archived first}
@@ -255,6 +257,40 @@
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \sub{migrate-geometries [root]}{move a flat \texttt{inputs/geometries/} library into one folder per geometry}
+\sub{geometry}{build a body outside the run matrix, accept it, and the mesh tools of page 1 under their home. The commands below preview until \fl{--apply} where they say so}
+\sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
+\begin{flags}
+\item \fl{--apply} run the solver and write the geometry \quad \fl{--overwrite} replace the outputs of an earlier build
+\item \fl{--build ID} the build id, over the instruction's \texttt{fs\_build} \quad \fl{--fs-exe PATH} the executable, over the registry
+\item \fl{--png} also draw \texttt{<name>.preview.png} (the plot extra)
+\item \fl{--only A,B} build only these variants of a \texttt{[sweep]}, such as AIL+100 \quad \fl{--parallel N} up to N variants at once, 1 or 2 (default 1)
+\item \fl{--rows} print, per built geometry, the row POL of \fl{--matrix} with its CONFIGURATION, GEOMETRY and POL cells set; nothing is written into the matrix \quad \fl{--matrix FILE} the run matrix \fl{--rows} copies from
+\end{flags}
+\sub{geometry accept <names>}{record who inspected each named geometry folder and when, in its \texttt{<name>.build.json}}
+\begin{flags}
+\item \fl{--workspace DIR} the workspace root (default: the current folder)
+\end{flags}
+\sub{geometry from-sidecar <geometry>}{print the instruction file that builds the same body as the sidecar of a CCS, IGES or raw-mesh geometry; the sidecar and the matrices are never edited}
+\begin{flags}
+\item \fl{--apply} write \texttt{<stem>.geometry.toml} \quad \fl{--build ID} the build id (else the rows' newest) \quad \fl{--workspace DIR}
+\end{flags}
+\sub{geometry refine <MESH> [FACTOR]}{as \cmd{refine} of \texttt{pyfs-matrix}, whose home this group is}
+\begin{flags}
+\item \fl{--families A,B} \quad \fl{--chordwise F} \quad \fl{--spanwise F} \quad \fl{--config FILE}
+\item \fl{--keep-first-row A,B} \quad \fl{--out DIR} (\fl{--out-dir} is its deprecated alias) \quad \fl{--overwrite}
+\end{flags}
+\sub{geometry audit <OBJ>}{as \cmd{audit-mesh} of \texttt{pyfs-matrix}, whose home this group is}
+\begin{flags}
+\item \fl{--against SOURCE} \quad \fl{--out FILE} the figures as CSV (\fl{--csv} is its deprecated alias)
+\end{flags}
+\sub{geometry inventory <geometry>}{as \cmd{inventory} of \texttt{pyfs-matrix}, whose home this group is}
+\begin{flags}
+\item \fl{--overwrite} \quad \fl{--clean}
+\end{flags}
+\sub{geometry degenerate <geometry>}{as \cmd{degenerate} of \texttt{pyfs-matrix}, whose home this group is}
+\begin{flags}
+\item \fl{--root-offset LENGTH} required \quad \fl{--kind thin-blade} \quad \fl{--boundary NAME} \quad \fl{--overwrite}
+\end{flags}
 \sub{field}{build a custom free-stream file of \texttt{inputs/freestreams/} from other fields. Every operation below previews until \fl{--apply}, writes the file \texttt{<STEM>} (\texttt{.txt} STRUCTURED, \texttt{.dat} UNSTRUCTURED, the form decides) and its provenance record, and takes \fl{--out STEM} (required), \fl{--workspace DIR}, \fl{--apply}, \fl{--overwrite} (replace an existing \texttt{<STEM>} file and its record)}
 \sub{field mirror <field>}{mirror a field through the plane x = 0, y = 0 or z = 0}
 \begin{flags}
@@ -292,11 +328,15 @@
 \tool{pyfs-fsi}{the coupling executable the solver's aeroelastic toolbox calls once per time step. With no arguments it runs one coupling step in the current folder: coupled when \texttt{config.json} is there, the dummy (zero displacements) otherwise}
 \sub{init-dummy}{write the dummy configuration into a run folder}
 \begin{flags}
-\item \fl{--node-count N} \textbf{required} \quad \fl{--dir DIR} run folder (default: current)
+\item \fl{--node-count N} \textbf{required} \quad \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
 \end{flags}
 \sub{step}{execute one coupling step explicitly}
 \begin{flags}
-\item \fl{--dir DIR} run folder (default: current)
+\item \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
+\end{flags}
+\sub{external}{run one coupling call of an external structural program: run it, archive and validate the call}
+\begin{flags}
+\item \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
 \end{flags}
 
 \columnbreak

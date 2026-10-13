@@ -1,16 +1,16 @@
 ## Added
 
-- cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer.
-- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers.
-- Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings.
+- cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer. (no requirement: PFS-2098.004 fix)
+- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers. (no requirement: PFS-2085.021 fix)
+- Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings. (no requirement: PFS-2105.042 fix)
 
 ## Changed
 
-- An unsteady simulation with no resolvable window keeps its group polars from the last time step, now labelled kind: instant in the table entries, and post.log warns once naming the simulation.
-- Custom polar fields now always keep a blank before each number; long values may be written with fewer decimals or digits, and a value that cannot fit raises ProductError.
-- The inflow result is renamed InflowStationHarmonics. The old inflow_tools.StationHarmonics import warns and remains available until 1.0.0. The loads-harmonics class keeps its name.
-- Native file lists are now relative to the products folder, matching product keys. Resolve these paths from the folder containing products.json.
-- Sections measurement expected and emitted now list all block counts, including duplicates.
+- An unsteady simulation with no resolvable window keeps its group polars from the last time step, now labelled kind: instant in the table entries, and post.log warns once naming the simulation. (no requirement: PFS-2105.011 fix)
+- Custom polar fields now always keep a blank before each number; long values may be written with fewer decimals or digits, and a value that cannot fit raises ProductError. (no requirement: PFS-2105.012 fix)
+- The inflow result is renamed InflowStationHarmonics. The old inflow_tools.StationHarmonics import warns and remains available until 1.0.0. The loads-harmonics class keeps its name. (no requirement: PFS-2089.007 fix)
+- Native file lists are now relative to the products folder, matching product keys. Resolve these paths from the folder containing products.json. (no requirement: PFS-2089.001 fix)
+- Sections measurement expected and emitted now list all block counts, including duplicates. (no requirement: PFS-2105.021 fix)
 
 ## Fixed
 

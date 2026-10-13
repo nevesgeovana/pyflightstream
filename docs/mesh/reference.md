@@ -834,7 +834,7 @@ Its `families` entry holds, per family:
 
 A key may be added to `refine.json` or `audit.json` without changing
 `schema_version`; a key is removed or changes type only with a new one.
-`refine.json` uses schema version 2 from 0.40.0 for the conditional target
+`refine.json` uses schema version 2, which carries the conditional target
 unit keys above; the audit schema remains version 1.
 
 ### The row kept at an interface
