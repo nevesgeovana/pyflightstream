@@ -590,7 +590,7 @@ RECORDED_WAKE_PATH = "tests/tier1_offline/fixtures/p0400_lita_solver_wake.vtk"
 RECORDED_WAKE_SHA256 = "156fc09059c485346ae83ea266a5c4418c488f2909a02d3c028bc6fe7c08dc8b"
 # Owner-authorized output-only wake fixtures for PFS-2081.51 and PFS-2081.52.
 # These are recorded solver exports, not synthetic surface geometry. Each
-# exception admits only pinned fixture bytes after LF normalization;
+# exception admits pinned LF text bytes, or exact compressed bytes for .vtk.xz;
 # replacing coordinates, connectivity or scalar data is refused.
 RECORDED_WAKE_FIXTURES = {
     "tests/tier1_offline/fixtures/p0400_litB_wake_26124.vtk": (
@@ -676,7 +676,8 @@ def _geometry_offenses(relative_posix_paths, read=_read_tracked):
     return sorted(
         path
         for path in paths
-        if Path(path).suffix.lower() in GEOMETRY_SUFFIXES and not provably_synthetic(path)
+        if (path in RECORDED_WAKE_FIXTURES or Path(path).suffix.lower() in GEOMETRY_SUFFIXES)
+        and not provably_synthetic(path)
     )
 
 

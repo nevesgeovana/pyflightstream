@@ -153,12 +153,14 @@ def test_p0400_trefftzb_two_sheets_are_not_one_run():
 
 @pytest.mark.requirement("FR-452")
 def test_p0400_trefftzb_on_a_planar_trace_b_returns_a():
-    """P0400-TREFFTZB (FR-452 R6): crossings at A's stations with A's circulation give A."""
+    """P0400-TREFFTZB (FR-452 R6): shed values at strip edges reconstruct A's loading."""
     y = _stations(20)
     gamma = 5.0 * np.sqrt(1.0 - (2.0 * y / SPAN) ** 2)
-    wake = parse_wake_export(_vtk(_straight_wake(y, gamma), list(gamma)))
+    edges = np.linspace(-SPAN / 2, SPAN / 2, len(y) + 1)
+    shed = -np.diff(np.r_[0.0, gamma, 0.0])
+    wake = parse_wake_export(_vtk(_straight_wake(edges, shed), list(shed)))
     trace = wake_crossings(list(wake.lines), wake.values, x_t=12.5)
-    b = trace_forces(trace.y, trace.z, trace.values, rho=RHO, v_inf=V)
+    b = trace.forces(rho=RHO, v_inf=V)
     a = trace_forces(y, np.zeros_like(y), gamma, rho=RHO, v_inf=V)
     assert b.lift == pytest.approx(a.lift, rel=1e-8)
     assert b.induced_drag == pytest.approx(a.induced_drag, rel=1e-8)

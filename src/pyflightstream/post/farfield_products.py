@@ -207,18 +207,14 @@ def _symmetry(ctx: SimContext) -> tuple[bool, bool]:
     return mirror, mirror and loads in ("false", "0", "no", "disable")
 
 
-def _selected(spec_families: str | Sequence[str], families: Sequence[str], aliases) -> list[str]:
-    """Return the families of a block list the ``[farfield] families`` selection names."""
-    words = [spec_families] if isinstance(spec_families, str) else list(spec_families)
-    if "all" in words:
-        return list(families)
-    chosen: list[str] = []
-    for word in words:
-        members = list(aliases.get(word, ())) if aliases else []
-        for name in members or [word]:
-            if name in families and name not in chosen:
-                chosen.append(name)
-    return chosen
+def _selected(
+    spec_families: str | Sequence[str], families: Sequence[str], aliases, is_blade
+) -> list[str]:
+    """Use the planner's selector grammar over the recorded family inventory."""
+    from pyflightstream.cases.selection import select_families
+
+    groups = select_families(spec_families, families, is_blade, aliases, strict=False)
+    return list(dict.fromkeys(name for group in groups for name in (group or families)))
 
 
 def _flow(point: PolarPoint) -> tuple[float, float, float, float]:
@@ -451,7 +447,9 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     blocks = _a_blocks(ctx, point, key)
     if blocks is None:
         return []
-    chosen = _selected(spec.families, list(blocks), ctx.aliases)
+    inventory = ctx.record_of[point.name].inventory or list(blocks)
+    selected = _selected(spec.families, inventory, ctx.aliases, ctx.pproc.is_blade)
+    chosen = [name for name in selected if name in blocks]
     if not chosen:
         _skip(
             ctx,
@@ -759,6 +757,7 @@ def _instant_values(
             flow=(rho, speed, alpha, beta),
             grid=cast("tuple[float, float, float]", probe.plane_grid),
             per_m=probe.per_m,
+            q_ref=q_ref,
         )
     if lattice_at is None or probe.lattice is None:
         return out

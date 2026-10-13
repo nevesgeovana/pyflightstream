@@ -290,7 +290,7 @@ def test_p0400_ffproof_a_short_wake_posts_the_b_row_na(tmp_path):
     assert len(said) == 2, said
     reach = 3.0 * math.cos(math.radians(wing.ALPHA))  # 3 m of wake, along the free stream
     for line in said:
-        assert "3 of 159 wake lines end before the plane" in line
+        assert "3 of 161 wake lines end before the plane" in line
         assert f"the recorded wake is {reach:.4g} m long on its shortest line" in line
     skipped = _manifest(root)["skipped"]
     assert any("variant=wake" in key for key in skipped)
