@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from pyflightstream._fsm import trailing_edge_midpoints
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa import _spec_0400_gap as gap
 from pyflightstream.qa import _spec_0400_gapkit as kit
 from pyflightstream.qa.probes import generate_probe_script
@@ -205,15 +206,31 @@ def test_every_gap_command_has_its_registered_probe(probes):
 def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
     """P0400-GAPPROBES-BUILDS: validated emission on 26.124 and 26.125, the target after BEGIN.
 
-    Only the after-the-march trajectory export is raw, by design: it measures a
-    placement the phase order refuses, so it stays out of the registry.
+    Raw text is the after-the-march trajectory export, by design: it measures a
+    placement the phase order refuses (P4-04m, its target), and since the second
+    round it is the instrument of every P4 trajectory run (the ``m`` runs, P4-06s
+    and P4-11), because the export before the march holds no row (P4-04). The
+    raw targets besides are the two streamtube forms (P3-01a, P3-01b). None of
+    them is registered: the registered P4 probes read the saved simulation.
     """
     fsm = _source(tmp_path)
+    raw_ids = {"P4-04m", "P4-06s", "P4-11", "P3-01a", "P3-01b"}
+    view = CommandRegistry.load().for_version(build)
     for probe in probes:
         workdir = tmp_path / build / probe.probe_id
         workdir.mkdir(parents=True)
+        if probe.spec.command not in view:
+            # Measured removed on this build by the batch itself (RPT-166): the
+            # emitter refuses the name, which is the point of recording it.
+            with pytest.raises(CommandNotInVersionError, match="removed"):
+                generate_probe_script(probe.spec, build, workdir, fsm=fsm)
+            continue
         script = generate_probe_script(probe.spec, build, workdir, fsm=fsm)
-        assert script.raw_flag is (probe.probe_id == "P4-04m"), probe.probe_id
+        expected = probe.probe_id in raw_ids or (
+            probe.capability == "P4" and probe.probe_id.endswith("m")
+        )
+        assert script.raw_flag is expected, probe.probe_id
+        assert not (script.raw_flag and probe.primary), probe.probe_id
         text = script.render()
         marker = f"PYFS_PROBE_BEGIN_{probe.spec.command}"
         assert marker in text, probe.probe_id

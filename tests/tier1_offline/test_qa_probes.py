@@ -246,6 +246,16 @@ def test_every_catalog_spec_builds_a_validated_script(tmp_path):
             # FR-334) on the last build whose database holds it.
             in_26125 = spec.command in CommandRegistry.load().for_version("26.125")
             version = "26.125" if in_26125 else "26.101"
+        if spec.command not in CommandRegistry.load().for_version(version):
+            # A name measured refused on the builds above (the FSI motion pair
+            # and the Valarezo erase, PFS-2135.061, RPT-166) is built on a build
+            # whose row still documents it; one refused on every build that
+            # records it has no build to render on.
+            versions = CommandRegistry.load().commands[spec.command].versions
+            carrying = [v for v, row in versions.items() if row.status != "removed"]
+            if not carrying:
+                continue
+            version = carrying[-1]
         script = generate_probe_script(spec, version, workdir, fsm=fsm)
         assert not script.raw_flag, spec.command
         text = script.render()
@@ -1205,8 +1215,9 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     groups = module.classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
     where = f"{script.name}, VERSION = {module.VERSION}"
-    # 113 since 0.27.0 G02: the wake-edge import probe, which lands in
-    # needs_prelude on 26.122 because its line carries the 26.124 third token.
+    # 113 since 0.27.0 G02: the wake-edge import probe cannot render on
+    # 26.122 because its line carries the 26.124 third token. This is an
+    # argument error, not a missing entity prelude.
     # 167 since 0.34.0 (FR-333, FR-334, FR-335, FR-342): 54 entries for the CCS, acoustic,
     # surface-removal and rotation commands, 142 of them rendering in isolation, 94 with
     # arguments, and three outside the 26.122 view (SURFACE_ROTATE, VOLUME_SECTION_BOUNDARY_LAYER
@@ -1220,8 +1231,12 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # 235 since 0.40.0 (PFS-2081.13 to .17): the 55 primary probes of the command gaps,
     # 42 rendering in isolation on 26.122 (28 with arguments) and 13 needing the motion
     # their prelude creates, so 185, 123 and 33.
-    assert len(PROBE_SPECS) == 235, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 235. Adding one is "
+    # 237 since the 0.40.0 probes lane (PFS-2135.060, .061, .066, RPT-166): two new
+    # entries, CREATE_BULK_SEPARATION and DELETE_VALAREZO_CRITERION_BOUNDARIES, both
+    # outside the 26.122 view (the first removed there by its edition, the second
+    # printed by 26.100 alone), so 185 and 123 do not move.
+    assert len(PROBE_SPECS) == 237, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 237. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
     assert renders == 185, (
@@ -1236,17 +1251,18 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # Split by CAUSE, because one bucket called "needs prelude" hid
     # three: a command out of this build's view, one the emitter refuses
     # as broken, and one whose target cites an entity nothing created.
-    # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three.
-    assert len(groups["not_in_this_view"]) == 15, groups["not_in_this_view"]
-    assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
-    # 33 since 0.40.0: thirteen gap probes cite the motion their prelude creates;
-    # 32 once only a reference refusal counts as a prelude (PFS-2135.051): the
-    # wake-edge import's four tokens are refused by the 26.122 grammar's two, a
-    # CommandArgumentError the measurement now names in its own bucket.
-    assert len(groups["needs_prelude"]) == 32, groups["needs_prelude"]
-    assert groups["raised_something_else"] == [
-        "IMPORT_WAKE_EDGES_FROM_FILE (CommandArgumentError)"
-    ], groups["raised_something_else"]
+    # 15 since 0.37.0: twelve 26.125 commands (FR-423) join the three; 17 since the
+    # 0.40.0 probes lane: the two new entries above.
+    assert len(groups["not_in_this_view"]) == 17, groups["not_in_this_view"]
+    # 1 since the 0.40.0 probes lane: SET_MOTION_START_TIME has its own documented
+    # 26.122 row and no longer inherits the 26.120 abort, so it cites the motion its
+    # prelude creates (needs_prelude) instead of being refused.
+    assert len(groups["refused_as_broken"]) == 1, groups["refused_as_broken"]
+    # 32 since 0.40.0: thirteen gap probes cite the motion their prelude creates,
+    # and the wake-edge import probe left this bucket for raised_something_else;
+    # 33 since the probes lane, with SET_MOTION_START_TIME above.
+    assert len(groups["needs_prelude"]) == 33, groups["needs_prelude"]
+    assert groups["raised_something_else"] == ["IMPORT_WAKE_EDGES_FROM_FILE (CommandArgumentError)"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 

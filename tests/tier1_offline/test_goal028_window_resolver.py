@@ -125,7 +125,7 @@ def test_replanning_moves_every_window_of_the_point_and_each_rotor_by_its_own_tu
     # which is FR-68 and the reason the span is a count of turns, not of steps.
     pusher = plan["rotors"]["PUSHER"]
     assert pusher["per_blade"]["windows"] == [[1, 1000]]
-    assert pusher["phase_locked"]["windows"] == [[501, 750], [751, 1000]]
+    assert pusher["phase_locked"]["windows"] == [[1, 250], [251, 500], [501, 750], [751, 1000]]
     # The flat keys keep their pointer: the row still names its rotors.
     assert "skipped" in plan["phase_locked"]
 

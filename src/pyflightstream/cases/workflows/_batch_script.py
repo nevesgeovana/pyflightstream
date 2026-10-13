@@ -472,6 +472,7 @@ def _anchor_index(first: JobPoint, point: JobPoint) -> int:
     for index in range(min(differs, len(theirs) - 1), -1, -1):
         words = theirs[index].split()
         if words and words[0] in anchors:
+            _refuse_a_motion_created_again(first, point, theirs, index)
             return index
     first_line = ours[differs] if differs < len(ours) else "<end of text>"
     point_line = theirs[differs] if differs < len(theirs) else "<end of text>"
@@ -482,6 +483,33 @@ def _anchor_index(first: JobPoint, point: JobPoint) -> int:
         "difference cannot be restated after REMOVE_INITIALIZATION, because the model objects "
         "stay loaded; run this polar on its own."
     )
+
+
+def _refuse_a_motion_created_again(
+    first: JobPoint, point: JobPoint, lines: list[str], anchor: int
+) -> None:
+    """Refuse a restated text that creates a motion the instance still holds.
+
+    A row turning several rotors emits each as CREATE_NEW_MOTION ... its
+    SET_MOTION_ROTOR_RPM, so a polar whose every speed moves is restated from
+    the FIRST rotor's speed and carries the later rotors' whole motions. The
+    model objects stay loaded across REMOVE_INITIALIZATION, so those would be
+    created a second time beside the first (the design was measured on one
+    rotor, RPT-141 arms A and D).
+    """
+    created = [
+        at + 1
+        for at in range(anchor + 1, len(lines))
+        if lines[at].split()[:1] == ["CREATE_NEW_MOTION"]
+    ]
+    if created:
+        raise CampaignConfigError(
+            f"point {point.run_id!r} cannot follow {first.run_id!r} in one solver instance: "
+            f"restated from line {anchor + 1} ({lines[anchor]!r}), its text creates a motion "
+            f"again at line {created[0]} (CREATE_NEW_MOTION), and the motions of the first "
+            "point stay loaded after REMOVE_INITIALIZATION, so the instance would hold each "
+            "later rotor twice. Run this polar on its own."
+        )
 
 
 def refuse_unspliceable(first: JobPoint, point: JobPoint) -> None:

@@ -70,7 +70,9 @@ def test_unsteady_cited_points_share_the_fluid_plot_counter(tmp_path):
 
 def test_steady_both_forms_keep_the_probe_points_route(tmp_path):
     script = Script("26.124")
-    build_script(_case(tmp_path, steady=True), script)
+    case = _case(tmp_path, steady=True)
+    case.pproc.probes[1] = case.pproc.probes[1].model_copy(update={"frame": "REFERENCE"})
+    build_script(case, script)
     text = script.render()
     assert "NEW_PROBE_LINE" in text
     assert text.count("PROBE_POINTS_IMPORT\n") == 1
@@ -86,7 +88,9 @@ def test_unsteady_default_outputs_do_not_require_an_instant_export():
 
 @pytest.mark.parametrize("whole_run", [False, True])
 def test_unsteady_actions_do_not_export_probe_instants(tmp_path, whole_run):
-    lines = action_export_lines(WorkflowConventions(), _case(tmp_path), whole_run=whole_run)
+    lines = action_export_lines(
+        WorkflowConventions(), _case(tmp_path), whole_run=whole_run, version="26.120"
+    )
     assert "EXPORT_PROBE_POINTS" not in lines, (
         "unsteady actions must export plots, not probe instants"
     )

@@ -936,6 +936,7 @@ def refine_group(
     stretch: Stretch | None = None,
     elements: str | Mapping[str, str] = TRIANGLES,
     shared: Sequence[tuple[Iterable[int], Points]] = (),
+    te_edges: set[tuple[int, int]] | None = None,
 ) -> Remeshed:
     """Remesh a group of families together (FR-424 R8, FR-425 R2, FR-428).
 
@@ -978,8 +979,13 @@ def refine_group(
         The entries of ``conform`` whose grid is a refined side: once each is
         conformed, a family of the group at factor 1 takes, along and near
         it, the length of the new shared edges (FR-432, :func:`shared_targets`), and
-        ``info["shared_edge_target_m"]`` records it per family. Ignored with
+        ``info["shared_edge_target_mesh_units"]`` records it per family in the
+        mesh's coordinate units; the level writer converts declared units to metres. Ignored with
         a stretch, whose targets are measured in its own space (FR-428).
+    te_edges : set of tuple of int, optional
+        Exact source trailing-edge edges, in mesh numbering. When supplied,
+        only these edges and their splits shed a wake; vertex membership
+        alone is retained for callers that do not supply an edge list.
 
     Returns
     -------
@@ -998,7 +1004,16 @@ def refine_group(
     others = [n for n in mesh.families if n not in names]
     fixed = {local[v] for n in others for v in mesh.family_vertices(n).tolist() if v in local}
     te = {local[v] for v in te_vertices if v in local}
-    curve, frozen = _curves(group, fixed, te)
+    listed = (
+        {e for e in edge_faces(group.faces) if e[0] in te and e[1] in te}
+        if te_edges is None
+        else {
+            (min(local[a], local[b]), max(local[a], local[b]))
+            for a, b in te_edges
+            if a in local and b in local
+        }
+    )
+    curve, frozen = _curves(group, fixed, listed)
     patch = Patch(group.verts, group.faces, group.labels, _targets(group, factors), curve)
     patch.fixed, patch.frozen, patch.stretch = fixed, frozen, stretch
     remesher = Remesher(patch)
@@ -1033,7 +1048,7 @@ def refine_group(
     if conformed:
         info["conformed_interfaces"] = conformed
     if at_curve:
-        info["shared_edge_target_m"] = at_curve
+        info["shared_edge_target_mesh_units"] = at_curve
     if stretch is not None:
         info["stretched"] = {
             "axis": [round(float(x), 12) for x in stretch.axis],

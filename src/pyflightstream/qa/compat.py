@@ -842,53 +842,6 @@ def _release_order(commands_dir: Path) -> dict[str, int]:
     }
 
 
-def _refuse_contested_promotion(
-    existing: dict, status: object, chapter: str, name: str, canonical: str
-) -> None:
-    """Refuse a promotion whose status contradicts a measured removal or its citation."""
-    # A measured removal cites a narrative report through `probe_ref`,
-    # which the model admits for `removed` alone, so promoting over one
-    # would either write a row the loader refuses or drop the citation.
-    # Neither is a mechanical decision: a probe that RUNS a command the
-    # database records as absent from the build means one of the two
-    # measurements is wrong, and which one is a person's call.
-    if existing.get("probe_ref") and status != existing.get("status"):
-        raise QaEvidenceError(
-            f"{chapter}: {name} records {canonical!r} as {existing.get('status')!r} on the "
-            f"strength of {existing['probe_ref']!r}, and this run judges it {status!r}. "
-            "One of the two measurements is wrong about whether the build carries the "
-            "command at all, which is not a promotion to make mechanically. Read both "
-            "and edit the row deliberately"
-        )
-
-    if status == ProbeOutcome.REMOVED.value:
-        # The edition documents the command and the solver refuses the
-        # name. One of the two is wrong about the product and neither
-        # can be picked mechanically: the manual defect classes this
-        # repository already records include an edition printing a
-        # command the build does not carry, and so does a probe script
-        # misspelling one, and the solver's wording is IDENTICAL for a
-        # real absent command and a token that was never a command
-        # (RPT-026).
-        note = str(existing.get("note") or "")
-        if _EDITION_PAGE.search(note):
-            raise QaEvidenceError(
-                f"{chapter}: {name} records {canonical!r} with a page citation of that "
-                f"edition ({note[:80]!r}), and this run measured the solver refusing "
-                "the name. An edition documenting a command the build does not carry "
-                "is a manual defect and a probe emitting a misspelling is a spec "
-                "defect, and the solver says the same thing in both cases. Read the "
-                "page and the probe script, then edit the row deliberately"
-            )
-        if existing.get("args") is not None:
-            raise QaEvidenceError(
-                f"{chapter}: {name} declares a per-version argument grammar for "
-                f"{canonical!r}, and a removed version has no grammar to emit. "
-                "Promoting would write a row the loader refuses. Decide whether the "
-                "override or the measurement is wrong before promoting"
-            )
-
-
 def _rewritten_flow_entry(
     line: str,
     chapter: str,
@@ -957,7 +910,53 @@ def _rewritten_flow_entry(
         )
 
     status = body["outcome"]
-    _refuse_contested_promotion(existing, status, chapter, name, canonical)
+    # A measured removal cites a narrative report through `probe_ref`,
+    # which the model admits for `removed` alone, so promoting over one
+    # would either write a row the loader refuses or drop the citation.
+    # Neither is a mechanical decision: a probe that RUNS a command the
+    # database records as absent from the build means one of the two
+    # measurements is wrong, and which one is a person's call.
+    if existing.get("probe_ref") and status != existing.get("status"):
+        raise QaEvidenceError(
+            f"{chapter}: {name} records {canonical!r} as {existing.get('status')!r} on the "
+            f"strength of {existing['probe_ref']!r}, and this run judges it {status!r}. "
+            "One of the two measurements is wrong about whether the build carries the "
+            "command at all, which is not a promotion to make mechanically. Read both "
+            "and edit the row deliberately"
+        )
+
+    if status == ProbeOutcome.REMOVED.value:
+        # The edition documents the command and the solver refuses the
+        # name. One of the two is wrong about the product and neither
+        # can be picked mechanically: the manual defect classes this
+        # repository already records include an edition printing a
+        # command the build does not carry, and so does a probe script
+        # misspelling one, and the solver's wording is IDENTICAL for a
+        # real absent command and a token that was never a command
+        # (RPT-026).
+        note = str(existing.get("note") or "")
+        if existing.get("status") == status and existing.get("report") == citation:
+            # The row was edited deliberately from THIS report already, as the
+            # refusal below asks: its page note is the reading that edit made.
+            # Re-applying the report (for the other commands it judges) has
+            # nothing to decide about this one and leaves the line as it is.
+            return line
+        if _EDITION_PAGE.search(note):
+            raise QaEvidenceError(
+                f"{chapter}: {name} records {canonical!r} with a page citation of that "
+                f"edition ({note[:80]!r}), and this run measured the solver refusing "
+                "the name. An edition documenting a command the build does not carry "
+                "is a manual defect and a probe emitting a misspelling is a spec "
+                "defect, and the solver says the same thing in both cases. Read the "
+                "page and the probe script, then edit the row deliberately"
+            )
+        if existing.get("args") is not None:
+            raise QaEvidenceError(
+                f"{chapter}: {name} declares a per-version argument grammar for "
+                f"{canonical!r}, and a removed version has no grammar to emit. "
+                "Promoting would write a row the loader refuses. Decide whether the "
+                "override or the measurement is wrong before promoting"
+            )
 
     # A row already verified on the strength of ANOTHER committed report
     # keeps that citation: the incoming run corroborates it and does not

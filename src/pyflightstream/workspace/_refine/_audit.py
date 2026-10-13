@@ -266,6 +266,16 @@ class _Trailing:
     on_edges: int
     chains: int
     faces: Array
+    # G4 completeness (PFS-2099.020): where the chains end, and their total length
+    line: _Line | None = None
+
+
+@dataclass(frozen=True)
+class _Line:
+    """The trailing-edge line of a mesh: the positions its chains end at, and its length."""
+
+    ends: Array
+    length: float
 
 
 @dataclass(frozen=True)
@@ -286,6 +296,8 @@ class _Mesh:
     # detected edges together; None without a record that names the level and its source
     detected: int | None = None
     chains: int | None = None
+    # and the line those edges form together, None in the same case
+    line: _Line | None = None
 
 
 def audit_mesh(
@@ -430,18 +442,19 @@ def _read(
     if detected is None:
         return measured
     count = sum(n in obj.families for n in detected)
-    return replace(measured, detected=count, chains=_union_chains(obj, detected, te))
+    chains, line = _union_chains(obj, detected, te)
+    return replace(measured, detected=count, chains=chains, line=line)
 
 
 def _union_chains(
     obj: ObjMesh, detected: Mapping[str, list[list[float]] | None], te: TrailingPoints | None
-) -> int:
-    """Return the chains of the listed and the recorded detected edges together (G4).
+) -> tuple[int, _Line | None]:
+    """Return the chains of the listed and the recorded detected edges together, and their line.
 
     The recorded mid-points are in the unit of the level's points file, the
     source's points file's (``to_file``), else the mesh's. A family the
     record states detected without its points counts one chain when no
-    listed point lies on its edges.
+    listed point lies on its edges, and leaves the line unknown (None).
     """
     points = numpy.zeros((0, 3)) if te is None else te.points
     named = {n: p for n, p in detected.items() if n in obj.families}
@@ -451,7 +464,20 @@ def _union_chains(
         numpy.array(p, dtype=float).reshape(-1, 3) / scale for p in named.values() if p
     ]
     faces = [f for fs in obj.families.values() for f in fs]
-    return _components(_on_edges(obj.verts, faces, numpy.vstack(union), obj.size)) + unlisted
+    on = _on_edges(obj.verts, faces, numpy.vstack(union), obj.size)
+    return _components(on) + unlisted, None if unlisted else _line(obj.verts, on)
+
+
+def _line(verts: Array, edges: Array) -> _Line:
+    """Return where the chains of trailing-edge edges end, and the edges' total length (G4).
+
+    An end is a node of exactly one of the edges; a closed chain has none.
+    """
+    if not len(edges):
+        return _Line(numpy.zeros((0, 3)), 0.0)
+    nodes, degree = numpy.unique(edges.reshape(-1), return_counts=True)
+    length = float(numpy.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1).sum())
+    return _Line(verts[nodes[degree == 1]], length)
 
 
 def _listed_on(obj: ObjMesh, family: str, points: Array | None) -> bool:
@@ -649,11 +675,14 @@ def _trailing(
     """Match each trailing-edge point to the mesh edge whose mid-point it is (G4)."""
     touched = numpy.zeros(len(faces), dtype=bool)
     if points is None or not len(points):
-        return _Trailing(points is not None, 0, 0, 0, touched)
+        return _Trailing(points is not None, 0, 0, 0, touched, _line(verts, _NO_EDGES))
     on = _on_edges(verts, faces, points, size)
     for a, b in on:
         touched[ef[(int(a), int(b))]] = True
-    return _Trailing(True, len(points), len(on), _components(on), touched)
+    return _Trailing(True, len(points), len(on), _components(on), touched, _line(verts, on))
+
+
+_NO_EDGES = numpy.zeros((0, 2), dtype=numpy.int64)
 
 
 def _on_edges(verts: Array, faces: Faces, points: Array, size: float) -> Array:
@@ -868,6 +897,15 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     The source's chains are the connected components of its listed edges and
     the detected edges the record states, together; ``source_chains_detected``
     is the number of families the record states detected (module docstring).
+
+    COMPLETENESS (PFS-2099.020). Equal chain counts do not prove the line is
+    whole: a chain shortened by its last edge is still one chain. So every
+    end of the source's chains must also end a chain of the level, matched
+    within the gate's own point tolerance. Refinement and coarsening split or
+    merge edges between the ends and keep the end stations, so they keep the
+    ends; a dropped edge moves one. ``length`` and ``source_length`` (the
+    edges' total length) are reported beside it and not judged: a curved
+    line resampled by a spline changes its polyline length legitimately.
     """
     te = level.trailing
     values: dict[str, Value] = {
@@ -882,7 +920,27 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
         if source.detected is not None:
             values["source_chains_detected"] = source.detected
         failed = failed or te.chains != chains
+    if te.line is not None:
+        values["length"] = te.line.length
+    if source is not None:
+        line = source.trailing.line if source.detected is None else source.line
+        if line is not None and te.line is not None:
+            missing = _missing_ends(line.ends, te.line.ends, TE_POINT_FRACTION * level.size)
+            values["source_length"] = line.length
+            values["source_ends"] = len(line.ends)
+            values["source_ends_missing"] = missing
+            failed = failed or missing > 0
     return _item("gate", "G4", WHOLE_MESH, values, failed)
+
+
+def _missing_ends(wanted: Array, found: Array, tolerance: float) -> int:
+    """Return how many of the source's chain ends no chain of the level ends at (G4)."""
+    if not len(wanted):
+        return 0
+    if not len(found):
+        return len(wanted)
+    distance, _ = NearestIndex(found).query(wanted)
+    return int((distance > tolerance).sum())
 
 
 def _shared(obj: ObjMesh, a: str, b: str) -> int:

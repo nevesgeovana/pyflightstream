@@ -239,7 +239,7 @@ def test_p0390_zeroarea_inserted_curve_nodes_are_recorded_with_their_spacing(tmp
     own = _own(mesh.verts, mesh.families["C"])[tip]
     assert np.all(own > 1.5 * spacing[0::2]), "the fixture must make the 0.38.0 target differ"
     done = refine_group(obj, ["C"], (), {"C": 1.0}, conform=[(tip, new)], shared=[(tip, new)])
-    assert done.info["shared_edge_target_m"] == {"C": _spacing_record(spacing)}
+    assert done.info["shared_edge_target_mesh_units"] == {"C": _spacing_record(spacing)}
 
 
 def test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing(tmp_path):
@@ -258,13 +258,13 @@ def test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing(tmp_
     own = _own(mesh.verts, mesh.families["C"])[tip] / 2.0
     assert not np.allclose(own, spacing)
     done = refine_group(obj, ["C"], (), {"C": 2.0})
-    assert done.info["shared_edge_target_m"] == {"C": _spacing_record(spacing)}
+    assert done.info["shared_edge_target_mesh_units"] == {"C": _spacing_record(spacing)}
     src = _source(tmp_path, "alone", mesh)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         level = refine_mesh(src, 2, families=["C"], out_dir=tmp_path / "o")
     entry = _record(level)["families"]["C"]
-    assert entry["shared_edge_target_m"] == _spacing_record(spacing)
+    assert entry["shared_edge_target_mesh_units"] == _spacing_record(spacing)
     gate = next(item for item in level.audit.gates if item.name == "G1")
     assert gate.values["faces_of_zero_area"] == 0 and gate.verdict == "pass"
 
@@ -306,7 +306,9 @@ def test_p0390_zeroarea_a_diagonal_between_shared_nodes_is_not_a_kept_edge(tmp_p
     """
     obj = read_obj(write_source(tmp_path / "square", "wing", _square_in_frame()))
     done = refine_group(obj, ["C"], (), {"C": 2.0})
-    assert done.info["shared_edge_target_m"] == {"C": {"min": 1.0, "mean": 1.0, "max": 1.0}}
+    assert done.info["shared_edge_target_mesh_units"] == {
+        "C": {"min": 1.0, "mean": 1.0, "max": 1.0}
+    }
 
 
 @pytest.mark.parametrize("how", ["stated", "rebuilt", "band"])
@@ -348,7 +350,7 @@ def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
         assert entry["method"] == "unchanged" and {"band", "faces"} <= set(entry)
     else:
         assert entry["method"] == ("remesh" if how == "stated" else "rebuilt_whole")
-    taken = entry["shared_edge_target_m"]
+    taken = entry["shared_edge_target_mesh_units"]
     assert taken["min"] == pytest.approx(min(means), rel=1e-6)
     assert taken["max"] == pytest.approx(max(means), rel=1e-6)
     assert taken["mean"] == pytest.approx(sum(means) / len(means), rel=1e-9)

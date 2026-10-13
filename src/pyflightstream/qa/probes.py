@@ -57,6 +57,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
+from pyflightstream.options import get_option
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.run import (
     ExecutionResult,
@@ -144,6 +145,16 @@ _UNRECOGNISED_COMMAND = re.compile(
     re.IGNORECASE,
 )
 
+#: The older wording, without the table: 26.100 (build #2122026) wrote
+#: ``Unrecognized command in script <path> at line 6: <the script line>``
+#: and nothing else (measured 2026-10-12 on DELETE_VALAREZO_CRITERION_BOUNDARIES
+#: and the FSI motion pair), so the table pattern alone recorded each name it
+#: refused as an abort, broken instead of removed.
+_UNRECOGNISED_COMMAND_UNTABLED = re.compile(
+    r"^\s*Unrecognized command in script .*? at line \d+:\s*(?P<line>\S.*)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 def unrecognised_commands(log_text: str | None) -> frozenset[str]:
     """Command names the solver refused as unrecognised, from its crash log.
@@ -177,10 +188,12 @@ def unrecognised_commands(log_text: str | None) -> frozenset[str]:
     if not log_text:
         return frozenset()
     names = set()
-    for match in _UNRECOGNISED_COMMAND.finditer(log_text.replace("\x00", "")):
-        tokens = match.group("line").split()
-        if tokens:
-            names.add(tokens[0].upper())
+    text = log_text.replace("\x00", "")
+    for pattern in (_UNRECOGNISED_COMMAND, _UNRECOGNISED_COMMAND_UNTABLED):
+        for match in pattern.finditer(text):
+            tokens = match.group("line").split()
+            if tokens:
+                names.add(tokens[0].upper())
     return frozenset(names)
 
 
@@ -1121,7 +1134,7 @@ def probe_version(
     commands: Sequence[str] | None = None,
     specs: Mapping[str, ProbeSpec] | None = None,
     fsm: str | Path | None = None,
-    timeout_s: float = 120.0,
+    timeout_s: float | None = None,
     error_patterns: Sequence[str] = DEFAULT_ERROR_PATTERNS,
     registry: CommandRegistry | None = None,
 ) -> ProbeRun:
@@ -1157,8 +1170,9 @@ def probe_version(
         Local simulation (.fsm) file for prelude tiers above ``none``;
         explicit input, never committed. Specs needing it are recorded
         unprobed when it is absent.
-    timeout_s : float
-        Wall-clock limit per probe, unless the spec overrides it.
+    timeout_s : float, optional
+        Wall-clock limit per probe, unless the spec overrides it. When omitted,
+        reads the process option ``qa.probe_timeout_s``.
     error_patterns : sequence of str
         Regular expressions scanned between the sentinels.
     registry : CommandRegistry, optional
@@ -1179,6 +1193,8 @@ def probe_version(
         When ``commands`` names a command outside the version's view
         (a ``ValueError``).
     """
+    if timeout_s is None:
+        timeout_s = float(get_option("qa.probe_timeout_s"))
     resolved = resolve(version)
     view = (registry or CommandRegistry.load()).for_version(resolved)
     if specs is None:
@@ -1608,7 +1624,8 @@ def _judge(
     # solver's own wording NAMING THIS COMMAND: a prelude line the build
     # does not carry aborts the same script and says nothing about the
     # target.
-    refused = unrecognised_commands(execution.log_text)
+    refused = unrecognised_commands(_solver_errors_text(execution))
+    solver_said = _in_probe_folder(_solver_errors_text(execution), artifacts.workdir)
     if spec.expects_halt and not refused:
         return _judge_halt(spec, artifacts, common)
     if execution.timed_out and not refused:
@@ -1646,7 +1663,38 @@ def _judge(
             **common,
         )
     if artifacts.log_after is None:
-        return _judge_missing_end(artifacts, error_patterns, common)
+        if artifacts.log_before is None:
+            return ProbeResult(
+                outcome=ProbeOutcome.UNPROBED,
+                detail=(
+                    "the probe prelude did not reach the BEGIN sentinel although the "
+                    "baseline passed; the target was not judged. Inspect the prelude "
+                    f"and its support commands (return code {execution.return_code}). "
+                    + "; ".join(_scan_errors(solver_said, error_patterns)[:3])
+                ),
+                **common,
+            )
+        said = _scan_errors(solver_said, error_patterns)
+        return ProbeResult(
+            outcome=ProbeOutcome.BROKEN,
+            detail=(
+                "script processing aborted at the command: the log exported before it "
+                "exists, the one after it never appeared (END sentinel missing)"
+                + (f"; the solver said: {'; '.join(said[:2])}" if said else "")
+            ),
+            log_errors=tuple(said),
+            **common,
+        )
+    if not sentinel_before or not sentinel_after:
+        return ProbeResult(
+            outcome=ProbeOutcome.BROKEN if sentinel_before else ProbeOutcome.UNPROBED,
+            detail=(
+                "the exported logs lack a printed BEGIN or END sentinel; the target "
+                "may have consumed an instrument line as an argument. Inspect the "
+                "probe grammar before promoting its observed effect"
+            ),
+            **common,
+        )
     matches = _scan_errors(artifacts.target_region(), error_patterns)
     if matches:
         return ProbeResult(
@@ -1727,32 +1775,6 @@ def _judge_effect(
     )
 
 
-def _judge_missing_end(
-    artifacts: ProbeArtifacts, error_patterns: Sequence[str], common: dict[str, object]
-) -> ProbeResult:
-    """Judge a probe whose END sentinel never appeared: unreached prelude or aborted target."""
-    if artifacts.log_before is None:
-        execution = artifacts.execution
-        return ProbeResult(
-            outcome=ProbeOutcome.UNPROBED,
-            detail=(
-                "the probe prelude did not reach the BEGIN sentinel although the "
-                "baseline passed; the target was not judged. Inspect the prelude "
-                f"and its support commands (return code {execution.return_code}). "
-                + "; ".join(_scan_errors(execution.log_text or "", error_patterns)[:3])
-            ),
-            **common,
-        )
-    return ProbeResult(
-        outcome=ProbeOutcome.BROKEN,
-        detail=(
-            "script processing aborted at the command: the log exported before it "
-            "exists, the one after it never appeared (END sentinel missing)"
-        ),
-        **common,
-    )
-
-
 def _judge_halt(
     spec: ProbeSpec, artifacts: ProbeArtifacts, common: dict[str, object]
 ) -> ProbeResult:
@@ -1795,6 +1817,34 @@ def _judge_halt(
         effect=True,
         **common,
     )
+
+
+def _solver_errors_text(execution: ExecutionResult) -> str:
+    """Return every channel the solver reports a script abort on, joined.
+
+    26.124 writes the abort into ``FlightStreamLog.txt`` (``log_text``);
+    26.125 writes no such file under ``-hidden`` and prints the same
+    ``ERROR | Syntax | ... | Unrecognized command`` lines to its standard
+    output instead (measured 2026-10-12 on build #10052026, a two-line
+    script with an unknown name: no file in the working directory, the
+    lines on stdout). Reading the file alone recorded every refused name
+    on 26.125 as an abort, broken instead of removed, with no line to
+    show for it.
+    """
+    return "\n".join(text for text in (execution.log_text, execution.stdout) if text)
+
+
+def _in_probe_folder(text: str, workdir: Path) -> str:
+    """Replace the probe folder's machine path in solver text with a fixed token.
+
+    The solver quotes the script it ran by its full path, and an abort's own
+    lines now reach the committed compat report, which carries no machine's
+    paths; the folder is the probe's, so the token loses nothing.
+    """
+    folder = Path(workdir).resolve()
+    for spelling in (str(folder), folder.as_posix(), str(workdir), Path(workdir).as_posix()):
+        text = text.replace(spelling, "<probe folder>")
+    return text
 
 
 def _scan_errors(region: str, error_patterns: Sequence[str]) -> list[str]:

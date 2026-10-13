@@ -935,6 +935,11 @@ class CampaignWorkspace:
             # `open` above does not shadow but does make ambiguous to read.
             with path.open("rb") as handle:
                 table = tomllib.load(handle)
+        except UnicodeDecodeError as error:
+            raise InputArtifactError(
+                f"the reference points file {path} is not UTF-8; save it as UTF-8, "
+                "which TOML requires."
+            ) from error
         except tomllib.TOMLDecodeError as error:
             raise InputArtifactError(
                 f"the reference points file {path} is not valid TOML: {error}. It "

@@ -235,7 +235,9 @@ def select_hpc_profile(name: str | None) -> None:
         invocation that made it.
     """
     # The stem, as select_cost_file takes it: h002 and h002.toml select one file.
-    _SELECTED_HPC.set(None if name is None else Path(name).stem)
+    from pyflightstream._cli import for_this_invocation
+
+    for_this_invocation(_SELECTED_HPC, None if name is None else Path(name).stem)
 
 
 def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:

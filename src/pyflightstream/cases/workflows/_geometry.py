@@ -32,6 +32,7 @@ from pyflightstream._fsm import (
 )
 from pyflightstream._lengths import (
     UNIT_THAT_NAMES_NO_LENGTH,
+    scale,
 )
 from pyflightstream.cases import (
     EVERY_SURFACE,
@@ -508,7 +509,8 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
       shared input library
       (:func:`pyflightstream.script.helpers.mark_wake_edges`).
       The points were read and checked against the mesh when the row was
-      bound, and are in the simulation's metres. The file marks exactly the
+      bound, in metres, and are written in the unit the simulation is set
+      to, with the tolerance converted alike. The file marks exactly the
       edges it names, since initialisation adds none (RPT-065), and the run
       compares the count the solver logs as imported with the points
       written. Measured on 26.124 only (RPT-061): 26.122 and 26.123 are
@@ -780,13 +782,26 @@ def _mark_trailing_edges_from_file(
     # the solver starts, and hashes those bytes into the record.
     name = f"{geometry.stem}.wake_nodes.txt"
     node_file = name if script.working_dir is None else str(PurePath(script.working_dir) / name)
+    # IN THE UNIT THE SIMULATION IS SET TO, which the setup may make MILLIMETER
+    # after the import: the solver reads no unit from the node file, so points
+    # written in metres beside a millimetre simulation matched no edge and the
+    # import marked nothing, in silence.
+    unit = script.simulation_length_unit or SIMULATION_LENGTH_UNIT
+    factor = scale(SIMULATION_LENGTH_UNIT, unit)
+    if factor is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {sidecar} marks the trailing edges of {geometry.name} by "
+            f"the points file {named}, in metres, and the setup's simulation_length_unit is "
+            f"{unit}, which names no length to convert them into. Set "
+            f"simulation_length_unit to a length, or mark the edges by detection ({page})."
+        )
     helpers.mark_wake_edges(
         script,
         edge_type=marking.edge_type,
-        tolerance=marking.tolerance,
-        units=SIMULATION_LENGTH_UNIT,
+        tolerance=marking.tolerance * factor,
+        units=unit,
         node_file=node_file,
-        midpoints=marking.points_m,
+        midpoints=[tuple(value * factor for value in point) for point in marking.points_m],
     )
 
 

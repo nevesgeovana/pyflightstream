@@ -316,8 +316,9 @@ def in_plane_moment(
     the inlet, with ``g = rho u u' + p_prime`` and ``z = r cos(psi)``. The two
     contributions stay separate: the loading term is the order-1 cosine
     harmonic of the axial flux (the 1P loading asymmetry) and the moment-arm
-    term carries the transverse flux. ``axis="z"`` uses ``y = r sin(psi)``
-    and ``v`` instead.
+    term carries the transverse flux. Both axes follow the right-handed cross
+    product: ``axis="z"`` gives ``M_Z = x_p integral(rho u v dA) -
+    integral(y g dA)``, with ``y = r sin(psi)``.
 
     Parameters
     ----------
@@ -340,7 +341,7 @@ def in_plane_moment(
         lever = r[:, None] * np.cos(fields.psi)[None, :]
         component = "w"
     elif axis == "z":
-        lever = r[:, None] * np.sin(fields.psi)[None, :]
+        lever = -r[:, None] * np.sin(fields.psi)[None, :]
         component = "v"
     else:
         raise FarfieldInputError(f"axis must be 'y' or 'z', got {axis!r}")
@@ -353,14 +354,17 @@ def in_plane_moment(
     elif method == "harmonic":
         # sum_k cos(psi_k) g = N Re[g_hat_1]; sum_k sin(psi_k) g = -N Im[g_hat_1]
         g_hat_1 = azimuthal_harmonics(g, fields.psi, m_max=1)[..., 1]
-        projected = np.real(g_hat_1) if axis == "y" else -np.imag(g_hat_1)
+        projected = np.real(g_hat_1) if axis == "y" else np.imag(g_hat_1)
         ring_area = ring_sample_weights(fields) * len(fields.psi)
         loading = (projected * r * ring_area).sum(axis=-1) * tip**3
     else:
         raise FarfieldInputError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
 
     arm_flux = transverse_flux(fields, rho, component=component)
-    arm = -fields.stations * tip * arm_flux
+    if axis == "y":
+        arm = -fields.stations * tip * arm_flux
+    else:
+        arm = fields.stations * tip * arm_flux
     out, inn = fields.station_index(outlet), fields.station_index(inlet)
     loading_term = float(loading[out] - loading[inn])
     moment_arm_term = float(arm[out] - arm[inn])
@@ -400,7 +404,7 @@ def crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEner
     return CrossflowEnergy(total=total, swirl=swirl, induced=total - swirl)
 
 
-def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float = 1.0) -> float:
+def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float:
     """Express a force delta in drag counts.
 
     One count is ``1e-4`` of the dynamic-pressure force scale:
@@ -413,8 +417,20 @@ def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float = 1.0)
     rho_inf, v_inf : float
         Free-stream density (kg/m3) and speed (m/s).
     s_ref : float
-        Reference area (m2); 1.0 by the literature convention.
+        Explicit reference area (m2), the same area used by the load coefficients.
+
+    Raises
+    ------
+    FarfieldInputError
+        If density, speed or area is not finite and strictly positive.
+        Dynamic-pressure counts are undefined in hover; retain dimensional loads there.
     """
+    for name, value in (("rho_inf", rho_inf), ("v_inf", v_inf), ("s_ref", s_ref)):
+        if not np.isfinite(value) or value <= 0:
+            raise FarfieldInputError(
+                f"{name}={value!r} must be finite and strictly positive for drag counts; "
+                "use dimensional loads when the dynamic-pressure scale vanishes"
+            )
     return 2.0 * delta / (rho_inf * v_inf**2 * s_ref) * 1.0e4
 
 
@@ -424,7 +440,7 @@ def spurious_diagnostic(
     *,
     rho_inf: float,
     v_inf: float,
-    s_ref: float = 1.0,
+    s_ref: float,
 ) -> float:
     """Near-field minus far-field load, in counts (gate G4).
 

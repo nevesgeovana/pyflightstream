@@ -160,6 +160,10 @@ def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float
         # catching a claim this session had already written down as proved.
         return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
     datum = AXIS_UNIT_VECTORS[block.blade1.zero.lstrip("+-")]
+    # THE SIGN IS KEPT: it reverses the direction the azimuth is measured FROM
+    # (`BladeDatum`), so `-Y` and `+Y` are opposite hub x axes, not one.
+    if block.blade1.zero.startswith("-"):
+        datum = (-datum[0], -datum[1], -datum[2])
     return frame_basis_for_shaft(block.axis_vector, datum)
 
 
@@ -873,13 +877,25 @@ def _keep_the_frame_this_alias_turns_from(
         frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = existing
         kept.add(radical)
         return
-    block = case.rotors[radical]
+    # A COPY OF THE HUB AS THIS SCRIPT PLACED IT, origin and axes, and not a
+    # rebuild from the block: the hub sits at ROTOR_ORIGIN where the row states
+    # one, and on the shaft basis where the axis is a vector, and the rebuild
+    # had neither.
+    placement = script.frame_placements.get(frames[hub])
+    if placement is None or placement.origin is None or placement.axes is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} turns {radical!r} and keeps {hub} as it stood before the "
+            f"turn, and this script cannot state where {hub} is placed: it was turned into "
+            "place, or carried by an opened project, so a copy of it would be a guess."
+        )
+    x_axis, y_axis, z_axis = placement.axes
     frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = helpers.coordinate_frame(
         script,
         name=f"{hub}{ORIGINAL_FRAME_SUFFIX}",
-        origin=_point_from_metres(case, script, block.origin, "rotor x_m/y_m/z_m"),
-        x_axis=(1.0, 0.0, 0.0),
-        y_axis=(0.0, 1.0, 0.0),
+        origin=placement.origin,
+        x_axis=x_axis,
+        y_axis=y_axis,
+        z_axis=z_axis,
         label=label,
     )
     kept.add(radical)
@@ -1004,6 +1020,24 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
     blades = [name for name in _inventory(script) if is_blade(name)]
     if not blades:
         return {}
+    block = _the_rotor_a_flat_row_turns(case)
+    if block is not None:
+        # A DECLARED ROTOR'S BLADES ARE PLACED BY THE ONE RULE (FR-62): at the
+        # hub as this script placed it, on its basis, from the blade1 datum, by
+        # the block's count. This placed them at `rotor_position_m` or the
+        # origin, on identity axes and with no datum, while `_the_blade_frames_
+        # under_their_rotors_names` called them the hub's `<ALIAS>_RMRP<k>`.
+        placement = script.frame_placements.get(rotor_frame)
+        placed = _rotor_blade_frames(
+            script,
+            block,
+            rotor_frame,
+            block.alias,
+            case,
+            origin=None if placement is None else placement.origin,
+            stem="BladeAxis",
+        )
+        return {family: placed[family] for family in block.families_blades if family in placed}
     axis = str(_variable(case, ROTOR_AXIS_VARIABLE) or "X").upper()
     origin = (0.0, 0.0, 0.0)
     if case.reference is not None and case.reference.rotor_position_m is not None:
@@ -1037,6 +1071,9 @@ def _rotor_blade_frames(
     hub: int,
     radical: str,
     view: SimCase,
+    *,
+    origin: tuple[float, float, float] | None = None,
+    stem: str | None = None,
 ) -> dict[str, int]:
     """Create one frame per blade of a rotor, named from its alias (FR-62).
 
@@ -1053,8 +1090,14 @@ def _rotor_blade_frames(
     of the file. The returned mapping is keyed by the blade's FAMILY, as
     the flat form's is, so a pproc entry citing a blade resolves the same
     way on either.
+
+    ``origin`` is the hub's origin as the script placed it, where the caller
+    knows it (a flat row's hub honours ROTOR_ORIGIN); else the block's. ``stem``
+    names the frames ``<stem><k>`` where a row shape already names them so.
     """
     inventory = set(_inventory(script))
+    if origin is None:
+        origin = _point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m")
     count = rotor.blade_count
     created: dict[str, int] = {}
     for number, family in enumerate(rotor.families_blades, start=1):
@@ -1062,8 +1105,8 @@ def _rotor_blade_frames(
             continue
         index = helpers.coordinate_frame(
             script,
-            name=f"{radical}_RMRP{number}",
-            origin=_point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m"),
+            name=f"{stem}{number}" if stem else f"{radical}_RMRP{number}",
+            origin=origin,
             # ON THE SHAFT SINCE 0.23.0 ITEM 19, and the identity before it.
             # A rotor installed at pitch and toe got blade frames built on the
             # GEOMETRY's axes, so turning about that frame's third axis turned

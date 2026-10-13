@@ -15,6 +15,7 @@ from collections.abc import (
 )
 from pathlib import (
     Path,
+    PurePath,
 )
 from typing import (
     Literal,
@@ -29,6 +30,7 @@ from pyflightstream._errors import (
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_vertices,
+    saved_length_unit,
     saved_mesh_coordinate_unit,
 )
 from pyflightstream._lengths import (
@@ -122,10 +124,34 @@ from ._vocabulary import (
     PASSAGE_POSITIONS_VARIABLE,
     QSTEADY_ROTOR,
     ROTATE_VARIABLE,
+    SIMULATION_LENGTH_UNIT,
+    SIMULATION_SUFFIX,
     SYMMETRY_VARIABLE,
     TRANSLATE_VARIABLE,
     Frames,
 )
+
+
+def _the_fields_native_unit(case: SimCase, script: Script | None = None) -> str | None:
+    """Return the simulation's length unit a custom inflow's native rows are read in.
+
+    ONE RULE FOR THE BUILDER AND THE PLAN. The builder reads the unit its script
+    set (`_from_metres` records it); the plan has no script and resolved the
+    raw mesh file's own import unit instead, which is the unit of the OBJ
+    vertices and not of the simulation. Without a script it is the setup's
+    ``simulation_length_unit``, else metres for a raw mesh
+    (``SIMULATION_LENGTH_UNIT``) and the saved unit for a saved simulation.
+    """
+    if script is not None:
+        return script.simulation_length_unit
+    if case.solver.simulation_length_unit:
+        return str(case.solver.simulation_length_unit)
+    geometry = case.geometry
+    if geometry is None:
+        return None
+    if PurePath(str(geometry)).suffix.lower() == SIMULATION_SUFFIX:
+        return saved_length_unit(geometry)
+    return SIMULATION_LENGTH_UNIT
 
 
 def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
@@ -348,7 +374,7 @@ def _qsteady_free_stream(
             "shaft must be the global X axis."
         )
     _from_metres(case, script, "the custom field's coordinates and velocities")
-    native = script.simulation_length_unit
+    native = _the_fields_native_unit(case, script)
     if kind == "sector":
         _, rows = field_rows_in_metres(
             Path(custom.path),
@@ -622,16 +648,15 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
     omega = rpm * RAD_PER_S_PER_REV_PER_MIN
     from ..freestream import field_rows_in_metres
 
-    unit = getattr(case.mesh_import, "units", None)
-    native = str(unit) if unit else None
     try:
+        native = _the_fields_native_unit(case)
         _, rows = field_rows_in_metres(
             Path(custom.path),
             form=custom.form,
             source_units=custom.source_units,
             native_unit=native,
         )
-    except (CampaignConfigError, OSError, UnicodeError) as error:
+    except (CampaignConfigError, MeshReadError, OSError, UnicodeError) as error:
         return {"note": f"POL {case.sim_id}: the custom inflow cannot be read: {error}"}
     stations = _blade_stations_from_the_mesh(case, rotor)
     if isinstance(stations, str):
@@ -796,11 +821,18 @@ def _solve_one_clocking(
     declares (:func:`_clocking_section_exports`), after the updates they read,
     so a wheel's radial loads exist at every clocking and not at clocking 0
     alone.
+
+    THE ROW'S RAW LINES OF EACH PHASE reach every clocking, in the positions
+    `_script_solve_and_export` gives them at clocking 0: a raw exec or analysis
+    line is a setting of the solve, and it reached the last solve alone.
     """
+    _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _setup_link.loads_selections(case, script)
     if case.solver.clear_vorticity_drag_boundaries:
         script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
+    _raw_commands(case, script, "analysis")
+    _raw_commands(case, script, "export")
     sections = _clocking_section_exports(conventions, case, index)
     if sections:
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")

@@ -11,17 +11,32 @@ from collections.abc import (
     Sequence,
 )
 
+import pyflightstream.cases._setup_link as _setup_link
 from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
+    classify_outputs,
+)
+from pyflightstream.cases import (
+    setup_surfaces as _setup_surfaces,
+)
+from pyflightstream.cases._unsteady_actions import (
+    UNSTEADY_COUNTER_ACTION,
+)
+from pyflightstream.commands import (
+    CommandNotInVersionError,
+    CommandRegistry,
 )
 from pyflightstream.results import (
     MalformedOutputError,
     SurfaceFrame,
 )
 from pyflightstream.script import (
+    MARCH_ACTIONS,
+    CommandArgumentError,
     Script,
 )
+from pyflightstream.script._build_forms import _unmarked_unit_refusal
 
 from ._actuator import (
     _actuator_disc,
@@ -31,7 +46,17 @@ from ._clock import (
     unsteady_export_threshold,
 )
 from ._conventions import (
+    _AVERAGE_ACTION,
+    BuildCapabilities,
+    Workflow,
     WorkflowConventions,
+    WorkflowCoverageError,
+    require_coverage,
+    resolve_workflow,
+    select_workflow,
+)
+from ._exports import (
+    surface_time_averaging,
 )
 from ._frames import (
     _flat_rotor_frames,
@@ -46,14 +71,21 @@ from ._freestream import (
     _fluid,
     _free_stream,
     _refuse_wake_termination_without_a_clock,
+    _RowFreestream,
     _the_custom_freestream,
 )
 from ._geometry import (
     _open_geometry,
 )
+from ._probes import (
+    _refuse_unmeasured_normal_probes,
+)
 from ._rows import (
     _angle,
+    _refuse_rotor_shedding,
     _refuse_unregistered_keys,
+    _turning_rate,
+    continuation_of,
 )
 from ._skeleton import (
     _script_init,
@@ -67,6 +99,15 @@ from ._solver_settings import (
     _refuse_a_coupling_step_without_a_clock,
     _refuse_sideslip_under_mirror,
     _settings,
+)
+from ._timing import (
+    march_strategy,
+)
+from ._vocabulary import (
+    _UNSTEADY_RECIPES,
+    ADVANCE_RATIO_VARIABLE,
+    RPM_VARIABLE,
+    _refuse_retired_window_keys,
 )
 
 
@@ -108,6 +149,28 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _fluid(case, script)
     _settings(case, script)
     _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
+
+
+def _refuse_a_free_stream_that_moves(
+    first: SimCase, point_case: SimCase, custom: _RowFreestream | None
+) -> None:
+    """Refuse a later point of a one-script sweep whose free stream is not the first's.
+
+    THE FREE STREAM IS EMITTED ONCE, from the first point, and a later point
+    restates its two angles alone. A body-rate sweep (``pitch_rate:sweep``) or a
+    custom field that changes between points was therefore solved at the first
+    point's free stream under every point's name, which converges and exports.
+    """
+    stated = _turning_rate(point_case)
+    if stated == _turning_rate(first) and _the_custom_freestream(point_case) == custom:
+        return
+    raise CampaignConfigError(
+        f"case {point_case.sim_id!r}: point {point_case.point} of a steady sweep built as one "
+        f"script turns its free stream differently from the first point {first.point} "
+        f"({'body rate ' + str(stated) if stated else 'custom field or body rate'}), and one "
+        "script states the free stream once, for the first point. Run each point of a swept "
+        "body rate or field as its own job."
+    )
 
 
 def build_steady_sweep(
@@ -162,6 +225,7 @@ def build_steady_sweep(
             "each point of a coupled row is its own run."
         )
     conventions = WorkflowConventions.for_case(first)
+    _before_the_build(first, script, conventions=None, registry=None)
     _refuse_wake_termination_without_a_clock(first)
     _refuse_a_coupling_step_without_a_clock(first)
     unsteady_export_threshold(first, conventions, version=script.version)
@@ -220,6 +284,7 @@ def build_steady_sweep(
             # given. Found by the independent Codex review of `main`,
             # 2026-09-13 (GEO-047-C01), and by nothing in-house.
             _refuse_sideslip_under_mirror(point_case)
+            _refuse_a_free_stream_that_moves(first, point_case, custom)
             script.emit("SOLVER_SET_AOA", _angle(point_case, "alpha"))
             script.emit("SOLVER_SET_SIDESLIP", _angle(point_case, "beta"))
             # THE LOADS FRAME AND THE MOMENTS MODEL ARE RESTATED PER POINT
@@ -256,7 +321,105 @@ def build_steady_sweep(
         )
     script.emit("CLOSE_FLIGHTSTREAM")
     _finish_custom_field_coverage(first, script)
-    refuse_an_untranslatable_surface(first, script)
+    _after_the_build(first, script)
+
+
+def _before_the_build(
+    case: SimCase,
+    script: Script,
+    *,
+    conventions: WorkflowConventions | None,
+    registry: CommandRegistry | None,
+) -> Workflow:
+    """Refuse what no build of ``case`` may emit, and label its march; return its workflow.
+
+    THE CHECKS :func:`~pyflightstream.cases.workflows.build_script` RUNS BEFORE THE
+    BUILDER, in one home so the steady sweep runs them too: it built through its
+    own body and skipped every one, the boundary-layer dependency check among them.
+    """
+    _refuse_retired_window_keys(case)
+    _refuse_unmeasured_normal_probes(case, script)
+    _refuse_rotor_shedding(case)
+    if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
+        names = list((conventions.outputs if conventions else None) or case.outputs)
+        kinds = classify_outputs(names)
+        if "sections" not in kinds or not ({"vtk", "tecplot"} & kinds.keys()):
+            raise CampaignConfigError(
+                "boundary_layer_integrals requires the section-coordinate export and VTK "
+                "surface of the same point; retain the pproc's generated output dependencies"
+            )
+    workflow = resolve_workflow(select_workflow(case))
+    if script.version.canonical == "26.100" and (
+        workflow.name in {"unsteady_rotor", "qsteady_rotor"}
+        or case.motions
+        or any(key in case.variables for key in (RPM_VARIABLE, ADVANCE_RATIO_VARIABLE))
+    ):
+        raise CommandArgumentError(f"case {case.sim_id!r}: " + _unmarked_unit_refusal("26.100"))
+    require_coverage(workflow, script.version, registry=registry)
+    if case.pproc is not None and case.pproc.time_averaging is not None:
+        # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from
+        # its per-step VTK exports; a point exporting no Tecplot has nothing to
+        # average into one.
+        names = list((conventions.outputs if conventions else None) or case.outputs)
+        if case.recipe in _UNSTEADY_RECIPES:
+            try:
+                script.entry(_AVERAGE_ACTION)
+            except CommandNotInVersionError as error:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: the pproc's [time_averaging] exports the surface "
+                    f"at every step of its window through an unsteady solver action, and "
+                    f"FlightStream {script.version.canonical} does not carry it: {error} Run "
+                    "the row on a build that does, or remove [time_averaging]."
+                ) from error
+        if "tecplot" not in classify_outputs(names):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc's [time_averaging] asks for the surface "
+                "averaged over its window, which the package writes as a Tecplot from the "
+                "per-step VTK exports, and the point exports no Tecplot (its outputs "
+                f"{', '.join(names) or 'name none'}). Leave tecplot on under [exports], "
+                "the default, or remove [time_averaging]."
+            )
+        surface_time_averaging(case)
+    # THE SEAM (ARCH-0200): how this case is marched on this build, decided
+    # once and before the first emission, so a refusal leaves nothing written.
+    script.march_strategy = march_strategy(
+        case, capabilities=BuildCapabilities.of(script._view), registry=registry
+    )
+    return workflow
+
+
+def _after_the_build(case: SimCase, script: Script) -> None:
+    """Stamp and check the finished script: the steps build_script runs after the builder.
+
+    In one home with :func:`_before_the_build`, so the steady sweep's one script
+    gets them once, on its first point: the setup keys that reached nothing, the
+    loads frame of every section block a boundary-layer product reads, the
+    untranslatable surface and the march label.
+    """
+    _setup_surfaces.refuse_setup_keys_that_reached_nothing(script, case)
+    if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
+        for block in script.section_blocks:
+            block["loads_frame_index"] = script.loads_frame
+    # A continuation's loads frame is its saved simulation's, which the run takes
+    # from the run it continues; only an unsteady row continues one.
+    if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
+        refuse_an_untranslatable_surface(case, script)
+    # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
+    # at least one of the package's own, and one recorded as a single march
+    # registers none but the step counter, which counts only on such a row
+    # (FR-314). The builders emit the actions from the row, so this is where the
+    # two are held together (architect lens, GOAL-023 opening round). A setup's
+    # own per-step actions (FR-319) are the user's, and no label's.
+    emitted = any(
+        name != UNSTEADY_COUNTER_ACTION for name in _setup_link.package_actions(case, script)
+    )
+    if script.march_strategy is not None and emitted != (script.march_strategy == MARCH_ACTIONS):
+        raise WorkflowCoverageError(
+            f"internal defect: case {case.sim_id!r} on FlightStream {script.version.canonical} "
+            f"was labelled {script.march_strategy!r} and its script registers "
+            f"{len(script.unsteady_actions)} unsteady solver action(s). Report it; the "
+            "label and the script must agree before either is recorded."
+        )
 
 
 def refuse_an_untranslatable_surface(case: SimCase, script: Script) -> None:

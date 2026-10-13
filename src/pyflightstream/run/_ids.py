@@ -301,17 +301,21 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
     is stopped once the analysis ends, so one script holds one point.
 
-    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate. The
-    rotating free stream is set once in a warm job, at the first point's
-    rate, so every point after it was solved at that rate and recorded under
-    its own; such a row is one job per point, as a flow sweep is.
+    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate, or
+    the body rate otherwise changes between points. The rotating free stream
+    is set once in a warm job, at the first point's rate, so every point
+    after it was solved at that rate and recorded under its own; such a row
+    is one job per point, as a flow sweep is.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
     if case.fsi is not None or case.fsi_external is not None:
         return False
     return not (
-        _sweeps_the_flow(case) or _sweeps_a_body_rate(case) or disc_speed_moves_with_the_point(case)
+        _sweeps_the_flow(case)
+        or _sweeps_a_body_rate(case)
+        or _turning_rate_moves(case)
+        or disc_speed_moves_with_the_point(case)
     )
 
 
@@ -326,6 +330,29 @@ def _sweeps_a_body_rate(case: SimCase) -> bool:
         for state in states[1:]
         for key in rates
     )
+
+
+def _turning_rate_moves(case: SimCase) -> bool:
+    """Whether a body rate the sweep's points state differs between them.
+
+    A rate the row's cells state is one value for every point; only a rate a
+    POINT carries can move, and it is compared by value, so ``0`` and ``0.0``
+    are one rate. Read here through the public rate table rather than the
+    builder's private reader (the private-import ratchet, PFS-2098.005).
+    """
+    keys = [key for key, _ in RATE_VARIABLES if key not in case.variables]
+    stated = [tuple(_rate_value(point.get(key)) for key in keys) for point in case.sweep.points()]
+    return any(rates != stated[0] for rates in stated[1:])
+
+
+def _rate_value(value: object) -> object:
+    """Return a stated rate as a number when it reads as one, else as written."""
+    if value is None:
+        return None
+    try:
+        return float(str(value))
+    except ValueError:
+        return value
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:

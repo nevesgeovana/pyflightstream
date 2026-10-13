@@ -511,6 +511,9 @@ def rotary_motion(
     start_time : float, optional
         Motion start within the solver physical time, in s; a positive
         value converges a steady base flow before the motion begins.
+        Refused on a ROTARY motion on every build: the solver stops the
+        script there with "Start time cannot be set for rotary motion"
+        (RPT-026), although the command runs on a 6DOF motion (RPT-166).
     wake_stabilization_blades : int, optional
         Enables slipstream wake stabilization with this blade count,
         which is PER ROTOR and not a total across the motion
@@ -556,6 +559,17 @@ def rotary_motion(
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
     if unmarked:
         raise CommandArgumentError(_unmarked_unit_refusal(script.version.canonical))
+    if start_time is not None and not euclidean:
+        # A semantic refusal, not a status: SET_MOTION_START_TIME runs on a
+        # 6DOF motion (verified 2026-10-12, RPT-166) and the solver declines
+        # it for a ROTARY one, stopping the script (RPT-026). Refused before
+        # anything is emitted, so the caller's script is left untouched.
+        raise CommandArgumentError(
+            "rotary_motion(start_time=...) is refused: FlightStream stops the script at "
+            "SET_MOTION_START_TIME on a ROTARY motion ('Start time cannot be set for "
+            "rotary motion', RPT-026), although the command runs on a 6DOF motion "
+            "(RPT-166). Drop start_time for a rotary motion"
+        )
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     _emit_motion_selections(script, motion_id, boundaries, moving_frames)

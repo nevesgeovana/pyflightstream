@@ -583,12 +583,19 @@ _spec(
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the motion frame binding"),
 )
-_motion_setter(
-    "SET_MOTION_START_TIME",
-    1,
-    0.05,
-    note="the motion start time is stored in binary form; no instrument yet",
+# PFS-2135.066. The start time is judged on the saved simulation across the
+# command: the 0.40.0 gap probes measured that a 6DOF setter's value moves a
+# line of the saved file on 26.124 and 26.125 (gravity -9.81 written into the
+# motion record), so "stored in binary form, no instrument" no longer holds for
+# this family, and a probe that cannot fail could not refute the old aborts.
+_spec(
+    command="SET_MOTION_START_TIME",
+    build_target=_emit("SET_MOTION_START_TIME", 1, 0.05),
+    requires=Requires.SIM,
     prelude=_SIXDOF_PRELUDE,
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note="the saved simulation changes across the motion start time",
 )
 _motion_setter(
     "SET_MOTION_ROTOR_AXIS",
@@ -723,4 +730,29 @@ _spec(
     assert_effect=file_effect("sweep.txt"),
     effect_note="the sweep spreadsheet the command names exists and is not empty",
     timeout_s=240.0,
+)
+
+
+# --- separation models (SRC-003 p.342, SRC-741 p.339) -----------------------
+#
+# PFS-2135.060 and .061: two entries whose records rest on ad-hoc runs (RPT-015,
+# RPT-018), which promote nothing. The bulk model names itself, so its effect is
+# the name entering the saved simulation; the Valarezo erase has no instrument,
+# and what its probe settles is whether the build answers to the name at all.
+_spec(
+    command="CREATE_BULK_SEPARATION",
+    build_target=_emit("CREATE_BULK_SEPARATION", "PYFS_BULK", "CYLINDRICAL", -1, 0.5),
+    requires=Requires.SIM,
+    save_state=True,
+    assert_effect=fsm_gained("PYFS_BULK", strict=False),
+    effect_note="the saved simulation names the bulk separation model after the command",
+)
+_spec(
+    command="DELETE_VALAREZO_CRITERION_BOUNDARIES",
+    build_target=_emit("DELETE_VALAREZO_CRITERION_BOUNDARIES"),
+    assert_effect=_unobservable,
+    effect_note=(
+        "the Valarezo list is not exposed by any instrument; the probe settles whether "
+        "the build answers to the name"
+    ),
 )

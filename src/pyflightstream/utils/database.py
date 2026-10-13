@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -193,7 +194,11 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
     pending: dict[Path, Path] = {}
     try:
         for path, text in edited.items():
-            temporary = path.with_name(f"{path.name}.register-tmp")
+            handle, name = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".register-tmp", dir=path.parent
+            )
+            os.close(handle)
+            temporary = Path(name)
             pending[path] = temporary
             _textio.write_text(temporary, text)
     except OSError as error:
@@ -209,12 +214,13 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
             os.replace(temporary, path)
             replaced.append(path)
     except OSError as error:
+        failed_path = path
         for path in replaced:
             _textio.write_text(path, originals[path])
         for temporary in pending.values():
             temporary.unlink(missing_ok=True)
         raise ManualDraftError(
-            f"could not replace {path.name} ({error}); the chapters already replaced "
+            f"could not replace {failed_path.name} ({error}); the chapters already replaced "
             f"({', '.join(p.name for p in replaced) or 'none'}) were put back, so no "
             "chapter changed"
         ) from error

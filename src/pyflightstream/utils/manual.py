@@ -2626,8 +2626,9 @@ def insert_version_row(
     row = flow_mapping({"status": status, "note": note})
     # The new row takes the terminator of the line it follows; a last line
     # with none gains the file's own before it.
-    after = ends[last_content] or newline
+    original_end = ends[last_content]
+    after = original_end or newline
     ends[last_content] = after
     lines.insert(last_content + 1, f'    "{canonical}": {row}')
-    ends.insert(last_content + 1, after if last_content + 1 < len(ends) else "")
+    ends.insert(last_content + 1, original_end)
     return "".join(line + end for line, end in zip(lines, ends, strict=True))
