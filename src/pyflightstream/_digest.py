@@ -164,6 +164,23 @@ CANONICAL_FORMS = {
         "including any BOM and line endings. File path, matrix calibration and "
         "the resolved effective properties are recorded separately, not hashed here."
     ),
+    "workspace/fsi_external_setup.py": (
+        "the exact source external-structure TOML bytes before decoding or model "
+        "validation, and separately the raw bytes of the structural program, of its "
+        "structural-nodes file and of each staged input file, each read whole and "
+        "never decoded. File paths are recorded beside the digests, not hashed."
+    ),
+    "fsi/external.py": (
+        "the raw bytes of a file read whole and never decoded: the structural "
+        "program, a staged input, the loads file of a call and each file the "
+        "program produced. The digest is compared with the one recorded at setup "
+        "or written into the call's receipt; no path or clock enters it."
+    ),
+    "workspace/sixdof_setup.py": (
+        "the exact source 6DOF TOML bytes before decoding or model validation, "
+        "and separately the raw bytes of each force file the input names, each "
+        "read whole and never decoded. File paths are provenance, not hash input."
+    ),
     "fsi/config.py": (
         "the JSON rendering of a validated FsiConfig with sorted keys and no "
         "whitespace, UTF-8 encoded. A domain rule rather than a file digest: "

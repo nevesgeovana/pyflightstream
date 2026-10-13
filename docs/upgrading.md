@@ -68,8 +68,15 @@ is refused at plan, naming the command.
 Workspace settings refuse `runs` and `accept_unregistered_build`. Use `--runs`
 per command, and accept builds on `inputs/executables.local.toml` entries or
 with the typed flag. `fs_exe` and `local` belong only in `pyfs.local.toml`.
-Periodic symmetry refuses nonzero angle of attack and sideslip. An absent
-numbered boundary is refused by name; select its unnumbered family instead.
+Periodic symmetry refuses nonzero angle of attack and sideslip. A numbered
+boundary name selects that exact boundary and never its numbered siblings
+(`Hub1` no longer selects `Hub2` and `Hub3`). Cited alone, in a matrix cell or
+as a families or group entry of that one name, an absent numbered boundary
+whose family the geometry carries is refused at plan by name (post warns and
+skips it); select its unnumbered family instead. As a member of a longer
+list, a group or an alias it is never refused for that: it is left out like
+any other name the geometry lacks, so a sector row lacking some blades still
+plans READY with the warning it gave before.
 Long uniform refinement tags are shortened to the same summary form as other
 long tags. Automatic trailing-edge detection on 26.125 requires a declared
 inventory and emits explicit indices. Probe imports require their coordinate

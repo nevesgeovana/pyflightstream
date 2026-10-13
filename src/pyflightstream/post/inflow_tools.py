@@ -58,7 +58,6 @@ __all__ = [
     "ColumnClassification",
     "HarmonicsMap",
     "InflowStationHarmonics",
-    "StationHarmonics",  # noqa: F822 - the deprecated name is served by __getattr__
     "blade_view_harmonics",
     "inflow_harmonics_map",
     "installed_frame_columns",

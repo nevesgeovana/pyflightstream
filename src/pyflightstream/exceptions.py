@@ -134,16 +134,16 @@ from pyflightstream.script.entities import ScriptDeclarationTypeError
 from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
+    FsiExternalSetupError,
     InputArtifactError,
     MissingOutputsError,
     NamingTemplateError,
+    SixDofSetupError,
     WorkspaceError,
 )
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 from pyflightstream.workspace.flight_condition import FlightConditionError
-from pyflightstream.workspace.fsi_external_setup import FsiExternalSetupError
 from pyflightstream.workspace.fsi_setup import FsiSetupError
-from pyflightstream.workspace.sixdof_setup import SixDofSetupError
 from pyflightstream.workspace.storage import StorageError
 
 __all__ = [
