@@ -493,7 +493,7 @@ def selects_nothing(
     """
     if token.strip().casefold() in WORDS_THAT_NAME_NO_SET:
         return False
-    return not select_group_members([token], list(inventory), aliases)
+    return not select_group_members([token], list(inventory), aliases, strict=False)
 
 
 def ignores_missing_families(case: SimCase) -> bool:

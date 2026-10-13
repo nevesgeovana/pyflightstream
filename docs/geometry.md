@@ -145,6 +145,13 @@ trailing-edge points file `<name>.te.txt` instead of the saved simulation; with
 both outputs the mesh is a geometry of its own, `<name>_obj/`. `--png` also
 draws `<name>.preview.png` (the `plot` extra).
 
+Existing partial and mesh sibling folders must carry a build ownership record
+for this instruction. A retry preserves an owned partial folder as
+`<folder>.partial.previous/` (with a numeric suffix when needed), including its
+script and log. `--overwrite` replaces recorded mesh outputs individually and
+keeps other files in the sibling folder. An unowned destination is refused
+before the solver runs; preserve or rename it before building.
+
 **What a rebuilt mesh keeps.** The built mesh's sidecar carries over what the
 run reads of a mesh and the build does not make: the `translate` and `rotate`
 operations of `[[import.operations]]`, `[wake_termination]` and

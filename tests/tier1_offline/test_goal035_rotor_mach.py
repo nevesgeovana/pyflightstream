@@ -292,6 +292,8 @@ def test_a_rotor_point_run_through_the_workflow_records_its_mach_numbers(tmp_pat
     assert mach["mach_helical"] == pytest.approx(
         math.hypot(30.0, tip_speed) / SEA_LEVEL_SOUND, rel=1e-6
     )
+    assert mach["mach_advancing"] == pytest.approx((tip_speed + 30.0) / SEA_LEVEL_SOUND, rel=1e-6)
+    assert mach["mach_advancing_bound"] == "edgewise"
     assert '"rotor_mach"' in workspace.manifest_path.read_text(encoding="utf-8")
 
 
@@ -342,6 +344,9 @@ def test_the_rotor_table_states_both_numbers_last(tmp_path):
     )
     assert float(rows[0]["MTIP_PUSHER"]) == pytest.approx(0.923998, abs=1e-5)
     assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(0.935627, abs=1e-5)
+    assert float(rows[0]["MADV_PUSHER"]) == pytest.approx(
+        (100.0 * math.pi + 50.0) / 340.0, abs=1e-5
+    )
 
 
 def test_a_point_whose_air_did_not_resolve_reads_na_and_keeps_its_row(tmp_path):

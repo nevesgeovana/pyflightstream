@@ -129,7 +129,11 @@ def family_indices(
     chosen: list[int] = []
     absent: list[str] = []
     for name in families:
-        found = select_group_members([name], ordered, case.aliases) if ordered else []
+        found = (
+            select_group_members([name], ordered, case.aliases, strict=len(families) == 1)
+            if ordered
+            else []
+        )
         if found:
             chosen.extend(labels[label] for label in found if labels[label] not in chosen)
             continue

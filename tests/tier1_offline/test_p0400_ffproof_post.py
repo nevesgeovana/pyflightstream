@@ -269,14 +269,17 @@ def _short_wakes(short: int) -> str:
 def test_p0400_ffproof_a_short_wake_posts_the_b_row_na(tmp_path):
     """P0400-FFPROOF (FR-452 R3): the B row is NA, and the WARNING says why and how long.
 
-    Three of the 159 wake lines end 3 m behind the trailing edge and the
+    Three of the 161 wake lines end 3 m behind the trailing edge and the
     plane stands 0.25 BREF = 5 m behind it: the B row is written with its
     coefficients NA, never dropped and never integrated over the lines that
     reach; ``post.log`` names the three short lines and the wake's length.
     """
     workspace = wing._workspace(tmp_path, farfield=True)
+    topology = _short_wakes(3)
+    assert "POINTS 483 float" in topology
+    assert "LINES 322 966" in topology  # 161 strands, two connected segments each.
     (workspace.sim_dir("3207") / "outputs" / f"{_STEM}_wakes.vtk").write_text(
-        _short_wakes(3), encoding="utf-8"
+        topology, encoding="utf-8"
     )
     _post(workspace)
     root = Path(workspace.root)

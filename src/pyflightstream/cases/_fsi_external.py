@@ -16,6 +16,7 @@ reference frame, as the scripted import stores every node set (FSI-1).
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path, PurePath
@@ -32,6 +33,7 @@ from pyflightstream.cases.fsi_workspace import (
 )
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.fsi.external import EXTERNAL_MANIFEST
+from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 from pyflightstream.script import Script
 
 __all__ = [
@@ -150,6 +152,42 @@ def wire_external_fsi(
     structure = case.fsi_external
     if structure is None:
         return []
+    reserved = {
+        EXTERNAL_NODES_FILE,
+        EXTERNAL_MANIFEST,
+        POST_FILE,
+        CALLBACK_FILE,
+        "fsi-provenance.json",
+        LOADS_FILE,
+        DISPLACEMENT_FILE,
+        "fsi_external_calls.csv",
+        "pyfs_fsi_error.log",
+        "fsi_external_stdout.txt",
+        "fsi_archive",
+    }
+    source_name = Path(structure.source).name
+    inputs = {name.casefold() for name in structure.inputs}
+    collisions = inputs & {name.casefold() for name in reserved | {source_name}}
+    collisions |= {name.casefold() for name in structure.outputs} & {
+        name.casefold() for name in reserved | {source_name} | set(structure.inputs)
+    }
+    if source_name.casefold() in {name.casefold() for name in reserved}:
+        collisions.add(source_name)
+    if collisions:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: external FSI reserved-name collision: "
+            f"{', '.join(sorted(collisions))}; choose separate input and output names"
+        )
+    try:
+        node_bytes = Path(structure.structural_nodes).read_bytes()
+    except OSError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: cannot read the structural node file: {error}"
+        ) from error
+    if hashlib.sha256(node_bytes).hexdigest() != structure.structural_nodes_sha256:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: structural node file changed after the plan hashed it"
+        )
     family = structure.families[0]
     blocks = [block for block in script.section_blocks if block.get("families") == [family]]
     if len(script.section_blocks) != 1 or len(blocks) != 1:
@@ -170,7 +208,7 @@ def wire_external_fsi(
     post = aeroelastic_post(script.version, exports=exports, updates=updates)
     manifest = structure.model_dump_json(indent=2) + "\n"
     payloads: dict[str, str | bytes] = {
-        EXTERNAL_NODES_FILE: Path(structure.structural_nodes).read_bytes(),
+        EXTERNAL_NODES_FILE: node_bytes,
         EXTERNAL_MANIFEST: manifest,
         POST_FILE: post.render(),
         CALLBACK_FILE: (

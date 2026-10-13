@@ -186,6 +186,11 @@ def _append_log(directory: Path, row: dict[str, object]) -> None:
 
 def _verify_digests(directory: Path, structure: ExternalStructure) -> str | None:
     """Return why a digest differs from the plan's, or None."""
+    nodes = directory / "fsi_external_nodes.csv"
+    if not nodes.is_file():
+        return "the structural node file fsi_external_nodes.csv is missing"
+    if _sha256(nodes) != structure.structural_nodes_sha256:
+        return "the structural node file fsi_external_nodes.csv changed after the plan hashed it"
     executable = Path(structure.executable)
     if not executable.is_file():
         return f"the executable {executable} is missing"
@@ -279,6 +284,9 @@ def external_step(directory: str | Path) -> int:
     archive.mkdir(parents=True, exist_ok=True)
     loads = folder / LOADS_FILE
     read: dict[str, str] = {}
+    nodes = folder / "fsi_external_nodes.csv"
+    if nodes.is_file():
+        read[nodes.name] = _sha256(nodes)
     if loads.is_file():
         shutil.copy2(loads, archive / LOADS_FILE)
         read[LOADS_FILE] = _sha256(loads)

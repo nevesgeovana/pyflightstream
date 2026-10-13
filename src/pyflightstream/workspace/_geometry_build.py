@@ -379,11 +379,38 @@ def _outputs_of(variant: GeometryVariant) -> list[Path]:
 def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
     """Refuse an existing output without --overwrite, and a foreign variant folder always."""
     for variant in plan.variants:
+        work = Path(variant.script.fsm).parent
+        if work.exists():
+            marker = work / ".pyfs-build.json"
+            if not _owned_instruction(marker, plan.path):
+                raise _refuse(
+                    f"{work} exists without this build's ownership record; "
+                    "preserve it elsewhere before building"
+                )
+        if "obj" in variant.instruction.outputs and variant.instruction.outputs != ("obj",):
+            target = variant.folder.with_name(f"{variant.instruction.name}_obj")
+            if target.exists() and not _owned_instruction(
+                target / f"{target.name}{BUILD_RECORD_SUFFIX}", plan.path
+            ):
+                raise _refuse(
+                    f"{target} exists without this build's ownership record; "
+                    "rename it before building"
+                )
+            if target.exists():
+                old = json.loads(
+                    (target / f"{target.name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8")
+                )
+                owned = set(old.get("owned_files", []))
+                owned.update(Path(item["file"]).name for item in old.get("outputs", []))
+                for suffix in (".obj", ".boundaries.toml", ".te.txt", ".audit.json"):
+                    destination = target / f"{target.name}{suffix}"
+                    if destination.exists() and destination.name not in owned:
+                        raise _refuse(
+                            f"{destination} is not a recorded owned output; nothing was removed"
+                        )
         if variant.tag is not None and variant.folder.exists():
             record = variant.folder / f"{variant.instruction.name}{BUILD_RECORD_SUFFIX}"
-            ours = record.is_file() and json.loads(record.read_text(encoding="utf-8")).get(
-                "instruction", {}
-            ).get("file", "").endswith(plan.path.name)
+            ours = _owned_instruction(record, plan.path)
             if not ours:
                 raise _refuse(
                     f"the variant {variant.tag} would be built into {variant.folder}, which exists "
@@ -395,6 +422,18 @@ def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
             raise _refuse(
                 f"{', '.join(existing)} exist; set overwrite (CLI: --overwrite) to replace them"
             )
+
+
+def _owned_instruction(record: Path, instruction: Path) -> bool:
+    """Check ownership by the resolved instruction path, never just its basename."""
+    try:
+        data = json.loads(record.read_text(encoding="utf-8"))
+        source = data["instruction"]["file"]
+        return (
+            isinstance(source, str) and (record.parent / source).resolve() == instruction.resolve()
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
 
 
 def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
@@ -540,8 +579,18 @@ def _build_one(
     name = instruction.name
     work = Path(variant.script.fsm).parent
     if work.exists():
-        shutil.rmtree(work)
+        if not _owned_instruction(work / ".pyfs-build.json", plan.path):
+            raise _refuse(f"{work} is not owned by this build; nothing was removed")
+        archive = work.with_name(work.name + ".previous")
+        number = 1
+        while archive.exists():
+            archive = work.with_name(f"{work.name}.previous.{number}")
+            number += 1
+        work.rename(archive)
     work.mkdir(parents=True)
+    _textio.write_json(
+        work / ".pyfs-build.json", {"instruction": {"file": _relative(plan.path, work)}}
+    )
     for pending, data in variant.script.pending_files.items():
         Path(pending).write_bytes(data)
     script_path = work / f"{name}.build.txt"
@@ -856,13 +905,24 @@ def _promote_mesh(
     if "obj" not in variant.instruction.outputs:
         return []
     target = folder.with_name(mesh_name)
-    if target.exists() and overwrite:
-        shutil.rmtree(target)
-    shutil.move(str(mesh_dir), target)
+    target.mkdir(exist_ok=True)
+    old_record = target / f"{mesh_name}{BUILD_RECORD_SUFFIX}"
+    owned: set[str] = set()
+    if old_record.is_file():
+        old = json.loads(old_record.read_text(encoding="utf-8"))
+        owned = set(old.get("owned_files", []))
+        owned.update(Path(item["file"]).name for item in old.get("outputs", []))
+    sources = sorted(mesh_dir.iterdir())
+    for source in sources:
+        destination = target / source.name
+        if destination.exists() and (not overwrite or source.name not in owned):
+            raise _refuse(f"{destination} is not a recorded owned output; nothing was removed")
+    _move_into(sources, target, overwrite)
     name = variant.instruction.name
     record = json.loads((folder / f"{name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8"))
     _textio.write_json(
-        target / f"{mesh_name}{BUILD_RECORD_SUFFIX}", _rebased(record, folder, target)
+        target / f"{mesh_name}{BUILD_RECORD_SUFFIX}",
+        {**_rebased(record, folder, target), "owned_files": [s.name for s in sources]},
     )
     return [target]
 
