@@ -13,7 +13,7 @@ rectangles = [{origin=[0,-1,-2], along_u=[0,1,-2], along_v=[0,-1,2], points_u=2,
 
 `"tecplot"` writes `<stem>.dat` with one single-point zone per sample.
 `"tecplot-points"` writes `<stem>_points.dat`, every sample in one
-ordered POINT zone (`pyflightstream.post.write_tecplot_points`, FR-153); the
+ordered POINT zone (`pyflightstream.post.write_tecplot_points`); the
 two can be requested together.
 
 The request includes VX, VY and VZ automatically. General plot generation can be
