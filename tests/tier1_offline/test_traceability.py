@@ -100,7 +100,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: mark FR-92 and FR-102. Compared with 6ee5e247, no live marked id left the set.
 #: Four work-item labels were corrected or removed: none was a requirement,
 #: and the coefficient-format regressions have no defined requirement to mark.
-#: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks FR-477 on
+#: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks the geometry-alias requirement on
 #: the four tests that falsify each geometry alias's replacement and deadline.
 MARKED_FLOOR = 236
 
