@@ -15,9 +15,9 @@ Optional extras, each gating one subsystem:
 
 | Extra | What it adds |
 |---|---|
-| `[fsi]` | The aeroelastic coupling loop (PyNiteFEA). Generating a blade's structural properties from its sections and a material (`pyflightstream.fsi.sections`) does not need it |
-| `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
-| `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it became a runtime dependency in v0.8.0, because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
+| `[fsi]` | The aeroelastic coupling loop. Generating a blade's structural properties from its sections and a material does not need it |
+| `[manual]` | Reading a vendor manual pdf for `pyfs-manual`; maintainer tooling, no run path imports it |
+| `[geom]` | The spatial index behind containment culling for probe lattices. The mesh reader, trimesh, is NOT here: it became a runtime dependency in v0.8.0, because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
 | `[plot]` | matplotlib, for the plotting examples only |
 | `[excel]` | Optional macro-free matrix workbook |
 
@@ -38,8 +38,8 @@ hotfix build.
 ```python
 import pyflightstream
 
-for row in pyflightstream.support_table():
-    print(row.summary)
+for row in pyflightstream.support_table:
+ print
 ```
 
 Four levels, all derived from the evidence rather than declared:
@@ -63,11 +63,11 @@ from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import Script
 
 try:
-    Script(version="26.123").emit("TRAILING_EDGES_IMPORT")
+ Script.emit
 except CommandNotInVersionError as error:
-    assert "no recorded evidence" in str(error)
-else:  # pragma: no cover - the refusal is the point of the example
-    raise AssertionError("the command was emitted, so this page is out of date")
+ assert "no recorded evidence" in str
+else: # pragma: no cover - the refusal is the point of the example
+ raise AssertionError
 ```
 
 It ASSERTS rather than prints, and that is not a style preference. The
@@ -97,7 +97,7 @@ name is unambiguous only until the vendor ships the next build under
 it. A campaign never keeps the name: a `Campaign` resolves the version it
 is given and stores the canonical identifier, so a matrix converted with
 `26.0` writes `fs_version = "26.000"` into `campaign.toml` and the file
-still loads on the day a second build claims `26.0` (PFS-2009.04). This
+still loads on the day a second build claims `26.0`. This
 page does not say how many are in either family, for exactly
 that reason; run the refusal and read its candidates, which this page
 does rather than only recommending:
@@ -106,11 +106,11 @@ does rather than only recommending:
 from pyflightstream.versions import AmbiguousVersionAliasError, resolve
 
 try:
-    resolve("26.12")
+ resolve
 except AmbiguousVersionAliasError as error:
-    assert "26.120" in str(error) and "vendor build" in str(error)
-else:  # pragma: no cover - the refusal is the point of the example
-    raise AssertionError("26.12 resolved to a single build, so this page is out of date")
+ assert "26.120" in str and "vendor build" in str
+else: # pragma: no cover - the refusal is the point of the example
+ raise AssertionError
 ```
 
 The refusal names every candidate with the vendor build number its own
@@ -122,7 +122,7 @@ releases that happened to share a name, which is why the registry
 states descent per build instead of reading it off the last digit.
 
 If you are not sure which one you have, the
-[Which build do I have](builds.md) page maps the release name and build
+[Which build do I have] page maps the release name and build
 number your solver prints onto the identifier to pass. Read it before
 assuming: some registered builds print a release name that is not even
 the one the vendor sells them under.
@@ -199,15 +199,15 @@ A rotor is a block whose NAME is an alias over everything that rotor owns:
 ```toml
 [PORT]
 kind = "rotor"
-x_m = 4.5           # the hub
+x_m = 4.5 # the hub
 y_m = 0.9144
 z_m = 0.0
-axis = "X"          # what it turns about
-rpm_sign = 1        # which way
+axis = "X" # what it turns about
+rpm_sign = 1 # which way
 diameter_m = 3.6576 # what an advance ratio resolves against
-families_general = []             # the hub, spinner, anything not a blade
-families_blades = ["Blade1"]      # the blades; the COUNT is this list's length
-blade1 = { azimuth_deg = 0.0, zero = "Y" }   # where blade 1 sits
+families_general = [] # the hub, spinner, anything not a blade
+families_blades = ["Blade1"] # the blades; the COUNT is this list's length
+blade1 = { azimuth_deg = 0.0, zero = "Y" } # where blade 1 sits
 ```
 
 After this a row says `PORT` and states nothing else about that rotor.
@@ -235,7 +235,7 @@ is measured in, and the count follows:
 | `SMRP` or `RMRP` | one per ROTOR, in that rotor's own frame |
 | `LOCAL_AXIS` | one per BLADE, in that blade's frame |
 
-The four `[[plots.groups]]` entries in `p005.toml` produce six emissions (twenty on nine rotors), plus the rotor and `MRP_TOTAL` groups the run adds.
+The four `[[plots.groups]]` entries in `p005.toml` produce six emissions, plus the rotor and `MRP_TOTAL` groups the run adds.
 
 ### 5. The matrix: which combinations to run
 
@@ -244,10 +244,10 @@ an `r`, an `s` and a `p`, its own flight condition, and the values it
 sweeps. Row 8002 is the one to look at first:
 
 ```
-8002 | Twin | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 | r006 | s002 | p005 | ...
-     | GEOMETRY: 41_TWIN.fsm / DELTA_THETA: 30 / REVOLUTIONS: 0.5 /
-       CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD} /
-       LAST_REVS_AVG: 0.25
+8002 | Twin |... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 | r006 | s002 | p005 |...
+ | GEOMETRY: 41_TWIN.fsm / DELTA_THETA: 30 / REVOLUTIONS: 0.5 /
+ CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD} /
+ LAST_REVS_AVG: 0.25
 ```
 
 Read it left to right: at Mach 0.1, at zero incidence and sideslip,
@@ -273,8 +273,8 @@ reference did the rest.
 ### 6. Run it
 
 ```
-pyfs-matrix plan  matriz_vocab.fs --workspace . --fs-version 26.123
-pyfs-matrix run   matriz_vocab.fs --workspace . --fs-version 26.123
+pyfs-matrix plan matriz_vocab.fs --workspace. --fs-version 26.123
+pyfs-matrix run matriz_vocab.fs --workspace. --fs-version 26.123
 ```
 
 `plan` spends no solver time: it binds every code, builds every script in
@@ -296,29 +296,25 @@ mistakes surface now:
 ```python
 from pyflightstream.script import Script
 
-script = Script(version="26.120")
-script.emit("NEW_SIMULATION")
-script.emit("IMPORT", "METER", "STL", "wing.stl", clear=True)
-script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-script.emit("AUTO_DETECT_TRAILING_EDGES")
-print(script.render())
+script = Script
+script.emit
+script.emit
+script.emit
+script.emit
+print
 ```
 
 Four kinds of mistake are refused at this point, each with the manual
 page that settles it:
 
 * a command that does not exist in this version, with its successor
-  when one is recorded;
+ when one is recorded;
 * an argument of the wrong type, or an enum token outside the
-  documented set (the set is everything the manual page accepts: where
-  a page takes an axis as a letter or as its index, the integer `2`
-  and the string `"2"` both print as `2`, and a refusal lists every
-  spelling);
-* a command emitted after its phase has passed (geometry, setup, init,
-  exec, analysis, export);
+ documented set;
+* a command emitted after its phase has passed;
 * a command a probe measured **broken** on this version, which is the
-  one that would otherwise produce a plausible wrong number rather than
-  an error.
+ one that would otherwise produce a plausible wrong number rather than
+ an error.
 
 A line transcribed straight off a manual page is typed as the page
 prints it, integers included:
@@ -326,20 +322,20 @@ prints it, integers included:
 ```python
 from pyflightstream.script import CommandArgumentError, Script
 
-script = Script(version="26.120")
-script.emit("CAD_BODY_ROTATE", 1, 2, 15.0)
-assert "CAD_BODY_ROTATE 1 2 15.0" in script.render()
+script = Script
+script.emit
+assert "CAD_BODY_ROTATE 1 2 15.0" in script.render
 try:
-    script.emit("CAD_BODY_ROTATE", 1, 4, 15.0)
+ script.emit
 except CommandArgumentError as error:
-    assert "one of X, Y, Z, 1, 2, 3" in str(error)
+ assert "one of X, Y, Z, 1, 2, 3" in str
 ```
 
 That last one has a documented way through, because a run sometimes
 needs it anyway:
 
 ```python
-script.allow_broken("AIR_ALTITUDE", reason="reproducing a run from July")
+script.allow_broken
 ```
 
 The waiver is recorded in the run manifest with the command, the
@@ -354,14 +350,11 @@ aerodynamicist's, and compose to the same validated lines:
 ```python
 from pyflightstream.script import helpers
 
-helpers.free_stream(script)
-helpers.atmosphere(script, density=1.225, pressure=101325.0,
-                   temperature=288.15, viscosity=1.789e-5,
-                   specific_heat_ratio=1.4)
-helpers.initialize_solver(script, symmetry="MIRROR")
-helpers.solver_settings(script, aoa=2.0, velocity=30.0,
-                        ref_area=11.5, ref_length=1.5)
-helpers.start_solver(script)
+helpers.free_stream
+helpers.atmosphere
+helpers.initialize_solver
+helpers.solver_settings
+helpers.start_solver
 ```
 
 ## Declare a campaign
@@ -372,17 +365,8 @@ each point into a script.
 ```python
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 
-case = SimCase(
-    sim_id="9001",
-    aircraft="TestWing",
-    velocity=30.0,
-    geometry="wing.fsm",
-    sweep=SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
-    recipe="mypackage.recipes:steady",
-    outputs=["loads_{point}.txt"],
-)
-campaign = Campaign(name="polar", fs_version="26.120",
-                    fs_exe="C:/path/to/FlightStream.exe", sims=[case])
+case = SimCase
+campaign = Campaign
 ```
 
 `outputs` carries `{point}` for a reason: every point of a case runs in
@@ -398,10 +382,10 @@ Before spending solver time, build every point and check every path:
 from pyflightstream.run import plan_campaign
 from pyflightstream.workspace import CampaignWorkspace
 
-workspace = CampaignWorkspace.init("runs/polar")
-plan = plan_campaign(campaign, workspace)
+workspace = CampaignWorkspace.init
+plan = plan_campaign
 for point in plan.points:
-    print(point.run_id, point.status, point.error or "")
+ print
 ```
 
 This costs no solver time and catches the recipe that does not import,
@@ -414,12 +398,7 @@ and every build-time refusal above.
 ```python
 from pyflightstream.run import LoadsAssessor, LocalExecutor, run_campaign
 
-records = run_campaign(
-    campaign,
-    LocalExecutor(campaign.fs_exe),
-    workspace,
-    assess=LoadsAssessor(),
-)
+records = run_campaign
 ```
 
 Every point lands in the manifest with exactly one terminal status.
@@ -432,8 +411,8 @@ nothing, so a silently skipped point is structurally impossible.
 ```python
 from pyflightstream.results import sweep_table
 
-table = sweep_table(workspace)
-print(table[["run_id", "alpha", "CL", "CDi"]])
+table = sweep_table
+print
 ```
 
 ### Time-resolved history
@@ -449,20 +428,20 @@ from pyflightstream.results import parse_unsteady_plots
 
 from pathlib import Path
 
-export = Path("tests/tier1_offline/fixtures/s10_26125/plots_26.125.txt").read_text(encoding="utf-8")
-report = parse_unsteady_plots(export)
+export = Path.read_text
+report = parse_unsteady_plots
 assert report.steps == 2
-assert report.series("CL")[-1] == 0.0021
+assert report.series[-1] == 0.0021
 ```
 
-Recorded unsteady plot exports from FlightStream 26.124 and 26.125 are committed and read by the post; RPT-076 records the measured format. The parser example below uses a trimmed recorded export so the test exercises the real header.
+ The parser example below uses a trimmed recorded export so the test exercises the real header.
 
 ## Where to go next
 
 * [Replaying a recorded run](tutorial-replay.md): what the manifest
-  keeps, and how to reproduce a run from it months later.
+ keeps, and how to reproduce a run from it months later.
 * [Command reference](reference/index.md): every command, its
-  arguments, and its evidence per version.
+ arguments, and its evidence per version.
 * [Compatibility matrix](compatibility.md): what is verified where.
 * [Mesh inputs and GUI-only operations](mesh/how-to.md): the supported
-  route when a step exists in the interface and has no script command.
+ route when a step exists in the interface and has no script command.

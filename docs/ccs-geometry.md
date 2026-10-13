@@ -1,13 +1,12 @@
 # CCS geometry
 
 !!! note "Build the body first"
-    A CCS file is lofted once by the geometry stage, `[ccs]` in an instruction file with the
-    keys of `[import.ccs]` below, and the row names the built `.fsm`
-    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
-    runs, warned at plan, and is deprecated: a later release refuses it.
+ A CCS file is lofted once by the geometry stage, `[ccs]` in an instruction file with the
+ keys of `[import.ccs]` below, and the row names the built `.fsm`
+The in-row route below still
+ runs, warned at plan, and is deprecated: a later release refuses it.
 
-A matrix row can name a CCS file (Component Cross-Section, the solver's
-parametric geometry format) in its `GEOMETRY` cell. The solver then makes the
+A matrix row can name a CCS file in its `GEOMETRY` cell. The solver then makes the
 mesh itself, from the cross-sections of the file, with its CCS commands: a
 wing, a fuselage or a body of revolution lofted from one component, or every
 component of the file imported whole. Nothing is meshed by hand and no saved
@@ -46,7 +45,7 @@ and the row names the file:
 | `wing` | lofts one component as a wing | the unit of the file's coordinates, such as `METER` |
 | `fuselage` | lofts one component as a fuselage | the same |
 | `revolution` | revolves one component's profile about an axis | the same |
-| `file` | imports every component whole (`CCS_IMPORT`) | `FILE`: the file states its own `Units` line |
+| `file` | imports every component whole | `FILE`: the file states its own `Units` line |
 
 A loft names the component by `component`, counted from 1 in the order of the
 file's `Component` lines, and the boundary it makes takes the first name of
@@ -59,8 +58,8 @@ file's `Component` lines, and the boundary it makes takes the first name of
 |---|---|---|---|
 | `component` | wing, fuselage, revolution | an integer from 1 | none: required |
 | `mark_trailing_edges` | wing | `true` or `false` | `true` |
-| `trailing_edge` | wing | `SHARP`, `BLUNT`, `BLEND`, `ROUNDED_BLEND` (26.125 only), `OPEN` | `SHARP` |
-| `te_blend_length_pct` | wing | the blend length in per cent of the cross-section curve length, above 0 and up to 100 (26.125 only, `SET_CCS_TE_BLEND_LENGTH`) | none: the solver's 10 per cent |
+| `trailing_edge` | wing | `SHARP`, `BLUNT`, `BLEND`, `ROUNDED_BLEND`, `OPEN` | `SHARP` |
+| `te_blend_length_pct` | wing | the blend length in per cent of the cross-section curve length, above 0 and up to 100 | none: the solver's 10 per cent |
 | `close_ends` | wing, fuselage, revolution | `TRUE`, `OPEN`, `CLOSED` | `TRUE` |
 | `loft_u` | wing, fuselage, revolution | `C2` or `C0` | `C2` |
 | `loft_v` | wing, fuselage, revolution | `C2` or `C0` | `C0` on a wing, `C2` otherwise |
@@ -98,9 +97,9 @@ axis = "Y"
 ```
 
 `v0` and `v1` are the inner and outer spanwise limits, parametric between 0 and
-1 (the `REAL` form, coordinates along `axis` of the reference frame, is refused: see below);
+1;
 `u0` and `u1` the chordwise depths from the trailing edge, above 0 and below
-0.5; `hinge_height` runs from the upper surface (0) to the lower one (1);
+0.5; `hinge_height` runs from the upper surface to the lower one;
 `slot_gap_pct` is a percentage of span. The line always carries all ten
 arguments, `space` and `axis` included. A value outside these ranges is refused
 when the row is planned.
@@ -111,17 +110,16 @@ name in `boundaries`; the wing is always the first name.
 **`space = "REAL"` is refused when the row is planned.** Licensed round 2 on
 FlightStream 26.124 ran the same aileron in both forms: the PARAMETRIC form
 completed and its saved simulation differs from the wing without it, and the
-REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). RPT-096 records the prior probe round. No other
+REAL form ended `FAILED_EXECUTION` with no saved simulation. No other
 build measured it, so the plan refuses it on every build; write the limits as
 fractions of the span and leave `space` at `PARAMETRIC`. The round observed the
-PARAMETRIC aileron adding two boundaries after the wing's (`PYFS_AIL` and
-`PYFS_AIL_side` for a control surface named `PYFS_AIL`).
+PARAMETRIC aileron adding two boundaries after the wing's.
 
 ## The shedding direction of a relaxed trailing edge
 
 A component of a CCS file can declare relaxed-Kutta trailing edges with a line
 `Relaxed_TE;u;v1;v2;direction`, whose last value is the direction of the relaxed
-wake's parametric shedding line: `0` axial (the default) or `1` azimuth. The
+wake's parametric shedding line: `0` axial or `1` azimuth. The
 direction exists only in the file, so a row chooses it on the file route:
 
 ```text
@@ -149,17 +147,17 @@ Each refusal names the row and what to write instead:
 - a CCS file whose sidecar has no `[import.ccs]` table;
 - an `[import.ccs]` table beside a file that is not a CCS file;
 - a loft whose component the file does not hold, whose sidecar names no
-  boundary or more than the loft and its control surfaces make, or whose
-  boundary name carries a space;
+ boundary or more than the loft and its control surfaces make, or whose
+ boundary name carries a space;
 - `units = "FILE"` on a loft, and `units = "OTHER"`, which names no length;
-  any unit but `FILE` on the file route;
+ any unit but `FILE` on the file route;
 - boundaries on the file route that are not the file's components in order;
 - mesh operations or an `[import.cad]` table beside `[import.ccs]`;
 - the raw-mesh tables `[trailing_edges]`, `[wake_termination]` and
-  `[base_regions]` beside a CCS file: a wing loft marks its own trailing edges
-  with `mark_trailing_edges`, and a file states `Mark_trailing_edges` itself;
+ `[base_regions]` beside a CCS file: a wing loft marks its own trailing edges
+ with `mark_trailing_edges`, and a file states `Mark_trailing_edges` itself;
 - a setup that loads a saved solver initialization, since the route creates a
-  new mesh.
+ new mesh.
 
 ## What has been measured
 
@@ -172,5 +170,5 @@ fuselage saved simulations that differ in the per-face marks of the relaxed
 trailing edge. The eight-argument control-surface line was refused there, which
 is why the package writes all ten arguments. A run through a whole campaign row,
 the control surface in its ten-argument form and the effect of the shedding
-direction on a solution were measured in RPT-126; the change
+
 log of the release says which of them were.

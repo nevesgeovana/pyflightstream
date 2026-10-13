@@ -85,7 +85,7 @@ write. Only `--apply` writes. `--out STEM` names the result;
 the form gives the extension:
 
 ```text
-inputs/freestreams/<stem>.dat            (or .txt for a STRUCTURED result)
+inputs/freestreams/<stem>.dat (or.txt for a STRUCTURED result)
 inputs/freestreams/<stem>.provenance.json
 ```
 
@@ -110,7 +110,7 @@ not change them: the fluid plots sample every step of the run, and
 An entry that states `kind = "normal"` is sampled once, by probe points after
 the time march, and the post writes one
 `fields/<point>_field_NN_step_<N>.inflow.dat` for the run's last time step `N`
-(FR-418); see [sampled fields](sampled-fields.md).
+see [sampled fields](sampled-fields.md).
 
 ```toml title="inputs/pproc/p010.toml"
 [groups]
@@ -149,17 +149,14 @@ whose parameters (the plane, the two points, the reference) are keyword-only:
 from pyflightstream.workspace.fields import Field, mirror_field, move_field, subtract_fields
 
 survey = Field(
-    form="UNSTRUCTURED",
-    rows=(
-        (2.0, -1.0, 0.5, 41.0, 0.5, 0.0),
-        (2.0, 1.0, 0.5, 40.0, -0.5, 0.0),
-        (2.0, -1.0, -0.5, 39.0, 0.0, 1.0),
-        (2.0, 1.0, -0.5, 40.5, 0.0, -1.0),
-    ),
-)
+ form="UNSTRUCTURED",
+ rows=(
+ (2.0, -1.0, 0.5, 41.0, 0.5, 0.0),
+ (2.0, 1.0, 0.5, 40.0, -0.5, 0.0),
+ (2.0, -1.0, -0.5, 39.0, 0.0, 1.0),
+ (2.0, 1.0, -0.5, 40.5, 0.0, -1.0),
 moved = move_field(
-    mirror_field(survey, plane="y"), source_point_m=(2.0, 0.0, 0.0), target_point_m=(0.0, 0.0, 0.0)
-)
+ mirror_field(survey, plane="y"), source_point_m=(2.0, 0.0, 0.0), target_point_m=(0.0, 0.0, 0.0)
 body = Field(form="UNSTRUCTURED", rows=tuple((*r[:3], 40.25, 0.0, 0.0) for r in moved.rows))
 corrected = subtract_fields(moved, body, reference_m_s=(40.0, 0.0, 0.0))
 assert corrected.rows[0] == (0.0, 1.0, 0.5, 40.75, -0.5, 0.0)

@@ -3,7 +3,7 @@
 An unsteady point's plots table is its raw time history, one row per solver
 time step. The stage writes its reductions beside it, one file per
 reduction, each named in `products.json` with the reduction and the window
-it used (PFS-2015.04); raw is the plots table itself and is written once,
+it used; raw is the plots table itself and is written once,
 never a second time under another name. Which reductions apply is the run
 type's, and the window is the one the row states ([the averaging
 window](the-averaging-window.md#the-averaging-window)). Each reduction has its own definition: [`time_average`](time_average.md#time_average), [`per_blade`](per_blade.md#per_blade),
@@ -46,7 +46,7 @@ than the window skips every reduction over it; a record written before this
 field existed skips the time average naming the record. Not applicable is
 not skipped: a rotorless point lists no per-blade file anywhere.
 
-**A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR** (FR-68), and
+**A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR**, and
 it needs no `BLADES` of its own: each rotor's blade count is the one its
 rotor block declares, and each rotor's blade passage is ITS OWN
 revolution, `60 / (rev per minute * the solver step)`, divided by its

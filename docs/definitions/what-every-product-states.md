@@ -5,13 +5,13 @@ header**. Every table the post writes under `post/<matrix>/`,
 the additional post's under `additional/<pid>/` included, and the campaign
 sweep table beside them open with `POL`, named as the run matrix names its
 polar column, holding in each row the POL of the point that row comes from
-(`test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows`). A
+A
 table whose rows mix polars, the campaign sweep, carries each row's own. What a
 table states about all its rows is a column too, never a line before the
 header: the rotor table's rotor is its `ROTOR` column, right after `POL`. `POL`
 is the only column that states the polar: a steady polar table and its super
 file written by 0.26.0 opened with it as `POLAR`, and no table the post writes
-carries `POLAR` (`test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows`).
+carries `POLAR`.
 Every other column keeps its name and its order after them. The solver's own
 files under `datapoints/DP-<point>/` are never rewritten, and the fixed-width
 custom polar (`.dat`) keeps the title lines its format specifies; a super file
@@ -23,7 +23,6 @@ comma writes `;` in its place: a list the super content echoes from the matrix
 row reads `-2.0;0.0` under `SWEEP_VALUES` and `MACH:0.2; REmi:2.3; ALPHA:sweep`
 under `FLIGHT_CONDITION`. A double quote is written as a single one, and a line
 break as a space
-(`test_g16_the_echoed_matrix_cells_write_their_lists_with_semicolons`).
 
 Every table the post stage composes states the condition it is a table OF, in
 one block, in this order:
@@ -46,7 +45,7 @@ one block, in this order:
 | `RPM_CLOCK` | rev/min | the speed the CLOCK rotor turned at, with its hand; the CLOCK rotor is the one `CLOCK_MOTION` names, or the only rotor the row turns. A row turning several and naming none has no clock, and both columns are `NA` rather than taking one rotor's number for another's |
 | `SREF`, `CREF`, `BREF` | m2, m, m | the reference area, chord and span |
 
-**The super file states each rotor's speed and its diameter** (FR-89).
+**The super file states each rotor's speed and its diameter**.
 Beside `RPM`, its content carries for each rotor the point turned `RPM_<alias>` (rev/min,
 signed) and, right after it, `DIAMETER_<alias>` (m): the `diameter_m` of the rotor block
 the row's reference declares, the same number the rotor table states and divides by, `NA`
@@ -92,7 +91,7 @@ export's own header, and the reductions read every column after `POL` back as a
 plotted quantity.
 
 **The settings table opens with `POL` and the run id, and its other columns are codes.**
-`settings/<matrix>_settings.csv` (FR-419) is the solver settings of every recorded point as one
+`settings/<matrix>_settings.csv` is the solver settings of every recorded point as one
 numeric table, written by default and switched off by `[products] settings_codebook = false`. It
 opens with `POL` and `RUN_ID`, the key of its row, and then holds the WIDE form of the
 [settings codebook](../settings-codebook.md): `codebook_version`, `run_index`, and `f<id>_value` and

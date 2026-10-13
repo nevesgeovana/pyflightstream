@@ -10,20 +10,20 @@ When one of them is lost or overwritten, two commands bring the records back,
 and they carry two names on purpose:
 
 - `pyfs-matrix restore` brings a file back from the workspace's archive,
-  byte for byte. It is exact and always safe.
+ byte for byte. It is exact and always safe.
 - `pyfs-matrix rebuild` makes run records AGAIN from the simulation folders
-  under `sims/`, when no archive holds them. Every record it makes says so,
-  so a rebuilt record is never taken for the one written when the point ran.
+ under `sims/`, when no archive holds them. Every record it makes says so,
+ so a rebuilt record is never taken for the one written when the point ran.
 
 Both preview by default and change nothing; `--apply` writes.
 
 ## Restore a file from the archive
 
 ```text
-pyfs-matrix restore runs --workspace .              # which copy, and what it holds
-pyfs-matrix restore runs --workspace . --apply      # put it back
-pyfs-matrix restore runs --workspace . --stamp 20260929-120000 --apply
-pyfs-matrix restore products --workspace . --matrix matrix-lnx --apply
+pyfs-matrix restore runs --workspace. # which copy, and what it holds
+pyfs-matrix restore runs --workspace. --apply # put it back
+pyfs-matrix restore runs --workspace. --stamp 20260929-120000 --apply
+pyfs-matrix restore products --workspace. --matrix matrix-lnx --apply
 ```
 
 The kinds are `runs`, `storage`, `additional`, `products` and `plan`. The
@@ -53,15 +53,15 @@ additional-post records their own lease too; while one of those leases is held
 (`runs.json.lock` is there, for example during a sync), the restore is refused
 and nothing changes.
 
-Every write archives `storage_management.json`, `plan.json` and `additional.json`. Products and post logs are archived only when `pyfs-matrix post --archive` is used (FR-397).
+Every write archives `storage_management.json`, `plan.json` and `additional.json`. Products and post logs are archived only when `pyfs-matrix post --archive` is used.
 
 ## Rebuild records from the simulation folders
 
 ```text
-pyfs-matrix rebuild --workspace .                   # which records, and why not the others
-pyfs-matrix rebuild --workspace . --apply           # add them to runs.json
-pyfs-matrix rebuild --workspace . --out runs-rebuilt.json --apply
-pyfs-matrix rebuild --workspace . --all-sims --out runs-compare.json --apply
+pyfs-matrix rebuild --workspace. # which records, and why not the others
+pyfs-matrix rebuild --workspace. --apply # add them to runs.json
+pyfs-matrix rebuild --workspace. --out runs-rebuilt.json --apply
+pyfs-matrix rebuild --workspace. --all-sims --out runs-compare.json --apply
 ```
 
 For each simulation folder the package runs its matrix row again in a
@@ -79,76 +79,76 @@ rebuild, and nothing is written when it changed.
 What a rebuild decides, and how:
 
 - **Only the version that ran rebuilds a record.** The proof is the script
-  this version renders, so a record a known run of another version wrote (in
-  an archived `runs.json` or in a matrix's `campaign_sweep.csv`) is refused,
-  naming both versions.
+ this version renders, so a record a known run of another version wrote (in
+ an archived `runs.json` or in a matrix's `campaign_sweep.csv`) is refused,
+ naming both versions.
 - **An edited or drifted script is refused, and the refusal says which
-  input.** Each changed line is named with what it is (a VTK export line, the
-  loads frame line, a plot type line, a renamed pproc group) and the input the
-  package renders it from now, for example `inputs/pproc/p001.toml`.
+ input.** Each changed line is named with what it is (a VTK export line, the
+ loads frame line, a plot type line, a renamed pproc group) and the input the
+ package renders it from now, for example `inputs/pproc/p001.toml`.
 - **Inputs from another origin.** When an input changed after the run (a pproc
-  group renamed from `ROTOR_*` to `SHAFT_*`, an export switched off),
-  `--inputs-from <folder>` lays another workspace's `inputs/` folder over this
-  one in the throwaway copy. Each rebuilt record names the inputs it took from
-  there whose bytes differ from the workspace's. The workspace's own inputs are
-  never changed.
+ group renamed from `ROTOR_*` to `SHAFT_*`, an export switched off),
+ `--inputs-from <folder>` lays another workspace's `inputs/` folder over this
+ one in the throwaway copy. Each rebuilt record names the inputs it took from
+ there whose bytes differ from the workspace's. The workspace's own inputs are
+ never changed.
 - **Outputs decide the status.** A truncated or missing output is
-  `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`. A point whose outputs are all
-  there and whose solver log was deleted is `RAN_MISSING_LOG` (FR-413), never
-  refused for the log alone; its record leaves the solver clock and the
-  iteration count unstated.
+ `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`. A point whose outputs are all
+ there and whose solver log was deleted is `RAN_MISSING_LOG`, never
+ refused for the log alone; its record leaves the solver clock and the
+ iteration count unstated.
 - **Grouped runs (`--batch`, `--polar-sweep`)** are rebuilt like points run
-  alone (FR-412). A batch point's script names its batch folder
-  (`sims/batch/<matrix>_b<ID>/sim_<id>/`), and the rendering is compared there.
-  A point whose outputs are in its datapoint folder is completed and names its
-  batch and its job, as `collect` records it; the job entry comes from the plan
-  receipt `post/<matrix>/plan.json`, and what only the submission carried (the
-  scheduler's fields) is left empty, never invented. A simulation still in its
-  batch folder, its batch not yet moved home, is rebuilt from there and left
-  `SUBMITTED` with its job entry: `pyfs-matrix collect` moves it home and
-  completes it, since a rebuild writes nothing in the workspace. Without a plan
-  receipt naming its job such a simulation is refused, with the remedy (restore
-  the plan receipt, `pyfs-matrix restore plan`).
+ alone. A batch point's script names its batch folder
+ (`sims/batch/<matrix>_b<ID>/sim_<id>/`), and the rendering is compared there.
+ A point whose outputs are in its datapoint folder is completed and names its
+ batch and its job, as `collect` records it; the job entry comes from the plan
+ receipt `post/<matrix>/plan.json`, and what only the submission carried (the
+ scheduler's fields) is left empty, never invented. A simulation still in its
+ batch folder, its batch not yet moved home, is rebuilt from there and left
+ `SUBMITTED` with its job entry: `pyfs-matrix collect` moves it home and
+ completes it, since a rebuild writes nothing in the workspace. Without a plan
+ receipt naming its job such a simulation is refused, with the remedy (restore
+ the plan receipt, `pyfs-matrix restore plan`).
 - **A row switched off after it ran** (`RUN 0`) still describes that run: the
-  row is set to `RUN 1` in the throwaway copy only, and the record says so.
-  The throwaway copy holds the matrix once, in the home the workspace keeps
-  it in, so a matrix kept in `inputs/matrices/` with a `RUN 0` row is never
-  read as being "in both homes" (FR-411).
+ row is set to `RUN 1` in the throwaway copy only, and the record says so.
+ The throwaway copy holds the matrix once, in the home the workspace keeps
+ it in, so a matrix kept in `inputs/matrices/` with a `RUN 0` row is never
+ read as being "in both homes".
 - **The matrix is the workspace's.** `--matrix NAME` with a bare name or stem
-  reads the matrix in the workspace's root or `inputs/matrices/`, from any
-  working directory; a file of that name in the working directory is not read,
-  and a WARNING says so when its bytes differ (FR-411).
+ reads the matrix in the workspace's root or `inputs/matrices/`, from any
+ working directory; a file of that name in the working directory is not read,
+ and a WARNING says so when its bytes differ.
 - **A build the submission profile no longer maps** (a run on 26.123 after the
-  profile's `[builds]` table moved to 26.124): `--build-alias 26.123=26.12`
-  names the scheduler's word at the time; the default is the build itself. The
-  alias enters only the job descriptor, never the solver script, and the record
-  says which alias was assumed.
+ profile's `[builds]` table moved to 26.124): `--build-alias 26.123=26.12`
+ names the scheduler's word at the time; the default is the build itself. The
+ alias enters only the job descriptor, never the solver script, and the record
+ says which alias was assumed.
 - **A POL no current matrix holds** (the row was deleted or renumbered after
-  it ran): the command names the simulations that wait for the revision that
-  ran; pass it with `--matrix <file>`, named as the matrix was named then.
+ it ran): the command names the simulations that wait for the revision that
+ ran; pass it with `--matrix <file>`, named as the matrix was named then.
 - **A run on a cluster restored on Windows.** The executed script names a
-  POSIX root with forward slashes; the comparison normalises the separators
-  and sets each side's root aside, and the rebuilt record writes its paths in
-  the run's own root and style, never with the two separators mixed.
+ POSIX root with forward slashes; the comparison normalises the separators
+ and sets each side's root aside, and the rebuilt record writes its paths in
+ the run's own root and style, never with the two separators mixed.
 - **`SUBMITTED` records.** Without `--all-sims` a rebuild gives them no end and
-  points to `pyfs-matrix collect`. With `--all-sims` the status in `runs.json`
-  is ignored and each simulation takes the status its outputs support, except
-  a folder written in the last 30 minutes, which stays `SUBMITTED` because its
-  job may still be writing.
+ points to `pyfs-matrix collect`. With `--all-sims` the status in `runs.json`
+ is ignored and each simulation takes the status its outputs support, except
+ a folder written in the last 30 minutes, which stays `SUBMITTED` because its
+ job may still be writing.
 
 Where the rebuilt records go:
 
 - Without `--out`, `--apply` appends to `runs.json` the rebuilt records whose
-  run ids it does not hold, after copying it to `archive/runs-<stamp>.json`,
-  or writes `runs.json` when there is none.
+ run ids it does not hold, after copying it to `archive/runs-<stamp>.json`,
+ or writes `runs.json` when there is none.
 - `--out NAME` writes them to that file in the workspace root and never
-  touches `runs.json`: the file holds the rows of `runs.json`, each rebuilt
-  record in the place of the row with its run id, and the other rebuilt
-  records after them. With `--all-sims`, it holds only the rebuilt records.
-  A name that is `runs.json`, or a file that exists, is
-  refused before any work.
+ touches `runs.json`: the file holds the rows of `runs.json`, each rebuilt
+ record in the place of the row with its run id, and the other rebuilt
+ records after them. With `--all-sims`, it holds only the rebuilt records.
+ A name that is `runs.json`, or a file that exists, is
+ refused before any work.
 - `--all-sims` rebuilds every simulation folder on disk, recorded or not, to
-  compare with `runs.json`, and requires `--out`.
+ compare with `runs.json`, and requires `--out`.
 
 Comparing a rebuilt manifest with the original, some fields differ by nature
 and say nothing about the run: `package_version`, `package_commit`,
@@ -161,12 +161,12 @@ compressed (`sims/sim_<id>.zip`), one retired by `delete-sims`, one whose
 folder holds no declared output, and the cases above that are refused. The
 summary ends with the count rebuilt and the count refused
 (`rebuild: 2 rebuilt, 1 refused`), and `--apply` with nothing to write prints
-every refusal before it stops (FR-412).
+every refusal before it stops.
 
 !!! warning
-    Never run `pyfs-matrix run --resume` on a simulation a rebuild refused:
-    with no record, the resume takes it as never run and runs it again.
-    Settle the reason first and rebuild again.
+ Never run `pyfs-matrix run --resume` on a simulation a rebuild refused:
+ with no record, the resume takes it as never run and runs it again.
+ Settle the reason first and rebuild again.
 
 <a id="mark-a-run-failed-after-the-fact-since-0330"></a>
 
@@ -176,8 +176,8 @@ A run can end `CONVERGED` and still be wrong, which you find only later,
 reading its products. `mark-failed` records that verdict:
 
 ```text
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh"           # preview
-pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply   # write
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" # preview
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply # write
 ```
 
 Every record of each named simulation becomes `FAILED_MARKED`, whatever it
@@ -197,7 +197,7 @@ The other verdict a person gives. You can know, from your own reading of a
 point's products and history, that it converged where the package could not
 say so: its log was deleted (`RAN_MISSING_LOG`), or its march reached its last
 step (`COMPLETED_MAX_ITER`). `mark-converged` records that verdict, instead of
-an edit of `runs.json` by hand (FR-414):
+an edit of `runs.json` by hand:
 
 ```text
 pyfs-matrix mark-converged --sims 2006 2007 --reason "residuals flat over the last revolution"

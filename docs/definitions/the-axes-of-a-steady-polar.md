@@ -20,11 +20,8 @@ A steady polar row opens with `POL`, the polar, then `DESCRIPTION`, `GROUP`,
 the reference block `SREF, CREF, BREF, XMOM, YMOM, ZMOM`, the condition the
 twenty-four do not carry, and the twenty-four. Its super file opens with the
 same columns, in the fixed-width `legacy_polar` format too
-(`test_g16_the_steady_polar_and_its_super_file_state_the_polar_once_as_pol`,
-`test_g16_a_super_file_in_the_fixed_width_format_states_the_polar_once_as_pol`).
 A 0.26.0 table carried the polar as `POLAR`, in the place `POL` has now; the
 super file's union reads such a table's `POLAR` as `POL`
-(`test_g16_a_polar_table_written_before_the_rule_gives_the_union_its_polar_as_pol`).
 
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
@@ -33,8 +30,8 @@ polar row is that pair, summed over the group's surfaces and turned.
 | columns | axes | how |
 |---|---|---|
 | `CDB, CYB, CLB, CRB25, CMB25, CNB25` | body: forward, right, down | half a turn about y. `CDB` IS the export's `Cx` and `CLB` its `Cz` |
-| `CDS ... CNS` | stability | body axes turned by `-alpha_s` about y |
-| `CDW ... CNW` | wind | stability axes turned by `beta_w` about z |
+| `CDS... CNS` | stability | body axes turned by `-alpha_s` about y |
+| `CDW... CNW` | wind | stability axes turned by `beta_w` about z |
 
 Drag opposes +x and lift opposes +z of each system; the side force keeps its
 sign. The moment turns as ONE vector in one length and only then is
@@ -56,7 +53,7 @@ those two integrals as the solver states them.
 
 <a id="the-drag-split-of-26125"></a>
 
-**On 26.125 the drag split is `CDV` and `CDP` (FR-423).** The loads export of
+**On 26.125 the drag split is `CDV` and `CDP`.** The loads export of
 26.125 prints its drag split as `CDp, CDv`, pressure drag and viscous and
 separation drag (SRC-753 pp.227, 229), in the places where every earlier build
 printed `CDi, CDo`, induced and skin friction drag (SRC-752 pp.225, 227). The
@@ -77,7 +74,7 @@ sweeper spreadsheet also keeps its printed `CDp, CDv` pair on 26.125 and
 **In a coupled FSI run `CDo` is zero as the solver prints it.** On 26.124
 the loads export of a coupled solve prints `CDo` as zero from the first
 export of its first coupling pass, where the rigid solve of the same wing
-prints the profile drag (RPT-128). So in a coupled run `CD0` reads that zero.
+prints the profile drag. So in a coupled run `CD0` reads that zero.
 
 **A drag the solver declined is `NA`.** A boundary on the vorticity
 induced-drag list (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing
@@ -100,8 +97,7 @@ narrows that band. A polar rebuilt from point folders alone
 (`write_recorded_polar`) has no run record and declines nothing. The rule
 reads `CDi` only, so a 26.125 point declines nothing in the sums. On 26.125 a
 declined surface prints `CDp` exactly 0, as earlier builds print `CDi` 0
-(RPT-166, probes D-01 and D-01c: the same sphere prints `CDp` 0 on the list and
--0.0005 off it). So `post.log` warns, once per point, for every surface the
+So `post.log` warns, once per point, for every surface the
 record puts on the list whose 26.125 `CDp` is exactly 0, naming the surface and
 the build. Build 26.124 cannot discriminate: its sphere prints `CDi` 0 both on
 and off the list. The

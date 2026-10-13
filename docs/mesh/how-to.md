@@ -4,17 +4,17 @@ This page is for a user who brings a mesh to a run. Two inputs are canonical,
 and a workflow row takes both:
 
 * a raw surface mesh, an `.obj` or an `.stl`, which the script IMPORTS through
-  the mesh-import family, with OBJ as the reference format; and
+ the mesh-import family, with OBJ as the reference format; and
 * a saved simulation, a `.fsm`, which the script OPENS, made once in the
-  FlightStream GUI when a step has no scripting command.
+ FlightStream GUI when a step has no scripting command.
 
 This page walks through preparing a raw mesh or a saved simulation. The
-[reference](reference.md) defines their sidecars, build support and measured
-limits; [the complete example](example.md#a-complete-example-a-wing-obj-with-its-trailing-edge-by-file)
+[reference] defines their sidecars, build support and measured
+limits; [the complete example]
 provides a wing OBJ setup to copy.
 
 A workflow row imports `.obj` and `.stl` and opens `.fsm`. Explicit IGES
-conversion is a separate route described in the [reference](reference.md); STEP remains refused. A
+conversion is a separate route described in the [reference]; STEP remains refused. A
 recipe of your own reaches every format the mesh-import family documents;
 the other formats `IMPORT` documents stay there, because what the solver
 makes of their surfaces' names and order is unmeasured.
@@ -23,24 +23,22 @@ makes of their surfaces' names and order is unmeasured.
 
 A mesh file carries surfaces and nothing else: no length unit, no name this
 package reads, no trailing edge. So everything a run needs to know about it is
-written in one file beside it, `<stem>.boundaries.toml` (`wing.boundaries.toml`
-beside `wing.obj`), and every row that names the mesh shares it. The row names
+written in one file beside it, `<stem>.boundaries.toml`, and every row that names the mesh shares it. The row names
 the mesh as it names any geometry, `wing.obj` in its `GEOMETRY` column.
 
 The sidecar says, in this order:
 
 1. `boundaries`: the names of the mesh's surfaces, in the order the solver
-   numbers them, which the plan writes for an `.obj` from its groups when it
-   has no sidecar;
+ numbers them, which the plan writes for an `.obj` from its groups when it
+ has no sidecar;
 2. `[import]`: `units`, the length unit the file is written in;
 3. `[[import.operations]]`: the operations that make the file into the body,
-   when it is not the body yet;
-4. `[trailing_edges]`: how the trailing edge is marked, by a points file (the
-   default), by detection, or explicitly absent with `none = true`;
+ when it is not the body yet;
+4. `[trailing_edges]`: how the trailing edge is marked, by a points file, by detection, or explicitly absent with `none = true`;
 5. `[wake_termination]` and `[base_regions]`: two detections, each applied
-   only when written.
+ only when written.
 
-The [reference](reference.md) describes each sidecar field, build support and
+The [reference] describes each sidecar field, build support and
 measured limits. The next section shows how to write the points file.
 
 ### Writing a points file from a blade's mesh
@@ -59,14 +57,12 @@ blade then marks exactly these edges.
 ```python
 from pyflightstream.workspace import write_trailing_edge_node_file
 
-write_trailing_edge_node_file(
-    "blade.obj", "blade.te.txt", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), unit="METER"
-)
+write_trailing_edge_node_file
 ```
 
 That block is skipped by the executable-examples run, because it names a
 blade mesh and this repository commits no blade. The name it imports is
-checked all the same: `tests/tier1_offline/test_mesh_inputs_page.py` resolves
+checked all the same: `tests/tier1_offline/.py` resolves
 every name a python block on this page imports, so a rename fails the suite
 rather than leaving the block stale.
 
@@ -102,8 +98,6 @@ route and was measured and dropped: the mesh library this package reads the
 mesh through does not surface OBJ group names, so a blade exported with its
 trailing edge already named as a group offers nothing that library can see.
 The groups ARE read for the SURFACE NAMES from the file's own text
-(G30, RPT-078: `IMPORT` makes one boundary per group holding a face, in file
-order).
 
 ## Refining or coarsening a mesh
 
@@ -124,11 +118,11 @@ This writes the level folder `inputs/geometries/W1_R2/`:
 
 ```text
 inputs/geometries/W1_R2/
-    W1_R2.obj               the refined mesh
-    W1_R2.te.txt            the trailing-edge points, rewritten from the new mesh
-    W1_R2.boundaries.toml   the source's sidecar, naming the new points file
-    W1_R2.refine.json       what was done to each family
-    W1_R2.audit.json        the audit of the level against its source
+ W1_R2.obj the refined mesh
+ W1_R2.te.txt the trailing-edge points, rewritten from the new mesh
+ W1_R2.boundaries.toml the source's sidecar, naming the new points file
+ W1_R2.refine.json what was done to each family
+ W1_R2.audit.json the audit of the level against its source
 ```
 
 The console names each family with the method it took (`Wing: grid`), prints
@@ -369,7 +363,7 @@ pyfs-matrix refine inputs/geometries/WB/WB.obj --spanwise 2 --keep-first-row Win
 from pyflightstream.workspace import refine_mesh
 
 level = refine_mesh("inputs/geometries/WB/WB.obj", spanwise=2.0, keep_first_row=["Wing", "Tail"])
-print(level.report["Wing"]["kept_rows"])  # ['station 0']
+print(level.report["Wing"]["kept_rows"]) # ['station 0']
 ```
 
 An end station is an interface when an edge of it is shared with a family of
@@ -427,20 +421,20 @@ the two commands call, with the same files and the same refusals:
 from pyflightstream.workspace import audit_mesh, refine_mesh
 
 level = refine_mesh("inputs/geometries/W1/W1.obj", 2)
-print(level.folder.name)  # W1_R2
-for name, family in level.report.items():
-    print(name, family["method"])
+print(level.folder.name) # W1_R2
+for name, family in level.report.items:
+ print(name, family["method"])
 if not level.audit.passed:
-    for item in level.audit.failures:
-        print(item.line())
+ for item in level.audit.failures:
+ print(item.line)
 
 audit = audit_mesh("inputs/geometries/W1_R2/W1_R2.obj", against="inputs/geometries/W1/W1.obj")
-print(audit.passed, audit.path.name)  # True W1_R2.audit.json
+print(audit.passed, audit.path.name) # True W1_R2.audit.json
 ```
 
 That block is skipped by the executable-examples run because it names a mesh
 this repository does not commit; the names it imports are resolved by
-`tests/tier1_offline/test_mesh_inputs_page.py`. The refinement file, every key,
+`tests/tier1_offline/.py`. The refinement file, every key,
 the files of a level and the audit's gates are in the
 [reference](reference.md#the-refinement-file-and-the-audit).
 
@@ -455,16 +449,16 @@ See [Saved simulation](../continuation-recovery.md#saved-simulation) for the rea
 When a step is GUI-only, the supported workflow is:
 
 1. Perform the GUI-only procedure interactively, once: import the geometry,
-   run the manual meshing or repair step, configure what has no command.
+ run the manual meshing or repair step, configure what has no command.
 2. Save the result as a `.fsm` simulation file. That file is now an input
-   artifact: store it in the campaign workspace input library under
-   `inputs/`, selected by id like any other artifact, and treat it as
-   immutable (redo the GUI step, save a new artifact, never edit in place).
+ artifact: store it in the campaign workspace input library under
+ `inputs/`, selected by id like any other artifact, and treat it as
+ immutable (redo the GUI step, save a new artifact, never edit in place).
 3. Everything downstream stays scripted: scripts `OPEN` the saved `.fsm`,
-   `declare_existing` tells the builder which entities (boundaries, frames,
-   actuators, motions) the file already contains so index and label checks
-   keep working, and solver setup, sweeps, and exports run reproducibly on
-   top.
+ `declare_existing` tells the builder which entities (boundaries, frames,
+ actuators, motions) the file already contains so index and label checks
+ keep working, and solver setup, sweeps, and exports run reproducibly on
+ top.
 
 The GUI step itself is the one part the library cannot replay; the saved
 `.fsm` is its record. The workspace stages inputs with content hashes following

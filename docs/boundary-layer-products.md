@@ -81,9 +81,7 @@ build or a moving frame.
 Setting `boundary_layer_velocity_profile = true` raises a named configuration
 refusal before execution. On 26.122 the command opens a modal dialog requiring a
 person to press Done
-([RPT-027](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md));
 on 26.124 it prevents an unattended script from completing
-([RPT-075](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-075_the-boundary-layer-profile-still-holds-the-script-on-26124_2026-09-25.md)).
 No supported build currently has positive unattended-profile evidence. A new
 build needs that evidence before the route is enabled. Requesting a profile never
 silently produces integrals in its place, including when both flags are true.

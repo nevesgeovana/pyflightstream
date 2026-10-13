@@ -33,7 +33,7 @@ different refusal for a different reason, and a rotor row meets none.
 time steps: `EXPORT_UNSTEADY_AFTER_ITER: <step>` begins them at a step, and
 `EXPORT_UNSTEADY_LAST_ITER: <steps>` covers the last `<steps>` steps of the run
 (first exported step `TIME_ITERATIONS - <steps> + 1`), at most one of the two
-per row (FR-415). The revolutions forms are refused here, having no rotor clock;
+per row. The revolutions forms are refused here, having no rotor clock;
 the refusal names the iterations form. See [the last revolutions or the last
 steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-steps-of-a-run).
 
@@ -51,11 +51,11 @@ kind. The script of a normal entry, after the march:
 
 ```text
 START_SOLVER
-NEW_PROBE_LINE ... / NEW_PROBE_POINT VOLUME ... / PROBE_POINTS_IMPORT ...
+NEW_PROBE_LINE... / NEW_PROBE_POINT VOLUME... / PROBE_POINTS_IMPORT...
 UPDATE_ALL_SURFACE_SECTIONS
 COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS
 UPDATE_PROBE_POINTS
-SAVEAS ...
+SAVEAS...
 EXPORT_PROBE_POINTS <point>_probes.txt
 ```
 
@@ -95,11 +95,11 @@ from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, ROTORS_KEY
 
 # Reading a run record's reductions without hard-coding either name.
 per_rotor = record.reductions.get(ROTORS_KEY, {})
-for alias, block in per_rotor.items():
-    for reduction in PER_ROTOR_REDUCTIONS:
-        entry = block[reduction]
-        # -> {'windows': [[448, 515], ...], 'period_steps': 68, ...}
-        #    or {'skipped': '<the reason this rotor has none>'}
+for alias, block in per_rotor.items:
+ for reduction in PER_ROTOR_REDUCTIONS:
+ entry = block[reduction]
+ # -> {'windows': [[448, 515],...], 'period_steps': 68,...}
+ # or {'skipped': '<the reason this rotor has none>'}
 ```
 
 A worked example: a row naming rotor `PROP` of eight steps, four steps per
@@ -123,10 +123,10 @@ requires a new run. With no `[phase_locked]` table, the reductions of
 `AL-020_plots.csv` land as
 
 ```text
-probes/AL-020_plots.csv           raw, one row per step
-probes/AL-020_time_average.csv    one row, steps 3 to 8
-probes/AL-020_phase_locked_PROP.csv  three rows, steps 3 to 4, 5 to 6, 7 to 8
-probes/AL-020_per_blade_PROP.csv     two rows, one per blade, steps 3 to 8
+probes/AL-020_plots.csv raw, one row per step
+probes/AL-020_time_average.csv one row, steps 3 to 8
+probes/AL-020_phase_locked_PROP.csv three rows, steps 3 to 4, 5 to 6, 7 to 8
+probes/AL-020_per_blade_PROP.csv two rows, one per blade, steps 3 to 8
 ```
 
 each reduction file leading with its window and the flight condition, and then

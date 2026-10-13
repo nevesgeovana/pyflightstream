@@ -11,68 +11,66 @@ with two warnings:
 
 ```text
 pyfs-matrix plan
-  matrix: named.fs
-  campaign: camp
-  FlightStream build: 26.120
+ matrix: named.fs
+ campaign: camp
+ FlightStream build: 26.120
 
 Warnings (2)
 [warning] named.fs lies outside the workspace's matrix folders
-          (C:\cases\camp and C:\cases\camp\inputs\matrices): `sync` and the
-          repeated-POL census do not see it. Move it into one of the two folders.
+ (C:\cases\camp and C:\cases\camp\inputs\matrices): `sync` and the
+ repeated-POL census do not see it. Move it into one of the two folders.
 
 [warning] advancing-tip Mach M_adv >= 1 on 2 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-          rotor PORT, M_adv 1.117 (M_hel 1.117); POL 9002 point M144RE438AL+000RPM06000,
-          rotor PORT, M_adv 1.117 (M_hel 1.117). ...
+ rotor PORT, M_adv 1.117 (M_hel 1.117); POL 9002 point M144RE438AL+000RPM06000,
+ rotor PORT, M_adv 1.117 (M_hel 1.117)....
 
 Cases
-  points: 0 ready, 4 blocked, 0 already recorded
-  solver installations: 1
-    the campaign's own installation: 2 case(s) (9001, 9002)
+ points: 0 ready, 4 blocked, 0 already recorded
+ solver installations: 1
+ the campaign's own installation: 2 case(s) (9001, 9002)
 
 Blocked points (4)
-  camp/sim_9001/M144RE438AL+000RPM03000
-    ScriptReferenceError: case '9001' states MOVING_BOUNDARIES with 'PORT', and
-    wing_clean.fsm carries no mesh block, so no boundary name can be read from it. ...
-  ...
+ camp/sim_9001/M144RE438AL+000RPM03000
+ ScriptReferenceError: case '9001' states MOVING_BOUNDARIES with 'PORT', and
+ wing_clean.fsm carries no mesh block, so no boundary name can be read from it....
 
 Rotor Mach numbers
-  POL   point                    rotor       M_tip  M_hel  M_adv
-  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
-  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
-  9002  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572  0.572
-  9002  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117  1.117
+ POL point rotor M_tip M_hel M_adv
+ 9001 M144RE438AL+000RPM03000 rotor PORT 0.554 0.572 0.572
+ 9001 M144RE438AL+000RPM06000 rotor PORT 1.108 1.117 1.117
+ 9002 M144RE438AL+000RPM03000 rotor PORT 0.554 0.572 0.572
+ 9002 M144RE438AL+000RPM06000 rotor PORT 1.108 1.117 1.117
 
 Solver setup per case
-  POL 9001 (FlightStream 26.120, setup s002)
-    settings: solver_model=None, boundary_layer=None, viscous_coupling=None
-    aliases: PORT
-    Singularity_strength: not carried (pproc singularity_strength = false)
-  POL 9002 (FlightStream 26.120, setup s002)
-  ...
+ POL 9001 (FlightStream 26.120, setup s002)
+ settings: solver_model=None, boundary_layer=None, viscous_coupling=None
+ aliases: PORT
+ Singularity_strength: not carried (pproc singularity_strength = false)
+ POL 9002 (FlightStream 26.120, setup s002)
 
 Files written
-  plan: C:\cases\camp\post\named\plan.json
+ plan: C:\cases\camp\post\named\plan.json
 ```
 
 What each block says:
 
 - the header names the command, the matrix, the campaign and the FlightStream
-  build the campaign defaults to;
+ build the campaign defaults to;
 - `Warnings (n)` is every warning the plan raised, each wrapped under its text
-  and followed by a blank line. A warning refuses nothing; read it before you
-  run;
+ and followed by a blank line. A warning refuses nothing; read it before you
+ run;
 - `Cases` counts the points that are ready, blocked and already recorded, and
-  names the solver installations the cases run on;
+ names the solver installations the cases run on;
 - `Blocked points (n)` names each point that cannot run, and why;
 - `Rotor Mach numbers` is one row per rotor and actuator disc per point, and
-  `Quasi-steady validity per point` the reduced frequency of each wheel point
-  (below);
+ `Quasi-steady validity per point` the reduced frequency of each wheel point
+ (below);
 - `Solver setup per case` is each row's solver model, boundary layer and
-  viscous coupling, its aliases and, on a row with a Tecplot surface, whether
-  the surface carries `Singularity_strength`;
+ viscous coupling, its aliases and, on a row with a Tecplot surface, whether
+ the surface carries `Singularity_strength`;
 - `Solver cost per point` is the `--cost` table (below);
 - `Files written` is the plan receipt `run` asks for and each guide the plan
-  wrote.
+ wrote.
 
 The warnings go to stderr and everything else to stdout; the exit code is 1
 when a point is blocked and 0 otherwise. The `[continuation] started` and
@@ -87,18 +85,18 @@ running it will cost, and the cost is a licence seat and an afternoon. Add
 `--cost` and it tables one row per point under the title `Solver cost per point`:
 
 ```text
-pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
+pyfs-matrix plan matriz.fs --workspace. --fs-version 26.123 --cost
 ```
 
 ```text
-point                                      mesh   TEs  layers  visc      type   steps  procs   expected  samples
+point mesh TEs layers visc type steps procs expected samples
 ----------------------------------------------------------------------------------------------------------------
-pfs0160/sim_6001/M200RE1177AL-020         14266     2       -    no    steady       -      8      11.9s        2
-pfs0160/sim_6002/M144RE438AL+000J+170     13502     0       5    no  unsteady      36      8     194.8s        1
+pfs0160/sim_6001/M200RE1177AL-020 14266 2 - no steady - 8 11.9s 2
+pfs0160/sim_6002/M144RE438AL+000J+170 13502 0 5 no unsteady 36 8 194.8s 1
 
 EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:
-  steady rows: fitted from 2 recorded steady run(s) of this workspace, ...
-  unsteady rows: fitted from 1 recorded unsteady run(s) of this workspace, ...
+ steady rows: fitted from 2 recorded steady run(s) of this workspace,...
+ unsteady rows: fitted from 1 recorded unsteady run(s) of this workspace,...
 ```
 
 The flag spends no solver time: every figure comes from the workspace, the
@@ -138,7 +136,7 @@ line says how many were dropped.
 ## The cost file
 
 A workspace may carry one cost file for each machine, `inputs/costs/c<NNN>.toml`
-(FR-398). `plan --cost` and the `plan --batch` estimate read it when it is
+`plan --cost` and the `plan --batch` estimate read it when it is
 present, and `--cost-file NAME` names the one to read when the workspace holds
 several; a single file needs no name. Without a cost file `plan --cost` fits
 its expected time from the workspace's own recorded runs, as before.
@@ -158,20 +156,18 @@ its user and are never part of the package.
 ## One job for a polar or for a batch of polars
 
 `pyfs-matrix plan --batch N` plans the polars as N solver jobs, and
-`plan --polar-sweep` as one job for each polar (FR-362). The steady run types
-`steady` and `qsteady_rotor` join (FR-403). The plan groups the
+`plan --polar-sweep` as one job for each polar. The steady run types
+`steady` and `qsteady_rotor` join. The plan groups the
 polars by processor count, build, kind and the setup's own `unsteady_solver_actions`,
 so that no job mixes two builds, a steady polar with an unsteady one, or two
-sets of user actions (FR-405), and cuts
+sets of user actions, and cuts
 each group into contiguous batches of whole polars so that the largest batch
 estimate is the smallest possible. Each acoustic polar is planned as a job of
-its own with all its points (FR-406): opening a second polar after an acoustic
+its own with all its points: opening a second polar after an acoustic
 one ended the solver process on 26.124
-([RPT-148](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)).
 It prints the split as a table with each
 batch's name, working directory, polars, points, estimate and walltime, and it
-names every polar a grouped job cannot take, with the reason (the help of both
-flags lists every class, FR-421): a LEGACY row, a coupled row on `steady` or
+names every polar a grouped job cannot take, with the reason: a LEGACY row, a coupled row on `steady` or
 `qsteady_rotor`, a steady row stating `COLD_START` false, a steady point that initialises the solver
 more than once (a quasi-steady wheel of several clockings, a wake termination
 read from a file), a `RESTART` row, an unsteady row on a build without
@@ -183,30 +179,30 @@ state, a quasi-steady rotor's turning free stream) reopens its geometry after
 `NEW_SIMULATION`, and the plan names its polar in a warning. Each point is
 recorded as the point run alone.
 A collected point records the solver version and build as the point run alone
-does (FR-366), and a restated point reuses its sections (FR-362).
+does, and a restated point reuses its sections.
 A polar whose post asks for `[time_averaging]` now groups, with each point's
-per-step exports landing in its own datapoint folder (FR-402).
+per-step exports landing in its own datapoint folder.
 A receipt in which every polar was left out holds no job, and `run` refuses it. The split is recorded per batch in the plan receipt
 `post/<matrix>/plan.json`, and `run --batch N` refuses a receipt that has no
-batches or was made for another N or another matrix (FR-365).
+batches or was made for another N or another matrix.
 
 A repeated `SWEEP_VALUES` value is refused as a matrix error naming the POL,
-both values and their positions, and the shared point name (FR-408).
+both values and their positions, and the shared point name.
 
 The batch's estimate is the sum of the estimates of its points plus the start,
 re-initialization, reset and save overheads. A point with no estimate is
 budgeted at its row's `WALLTIME` cell, and the batch that rests on such a point
-is named (FR-363).
+is named.
 
 A job's script is `FULL-POLAR.txt`, at the root of the polar's simulation
 folder, or `BATCH-<first sim>-<last sim>.txt`, inside the batch's working
 directory `sims/batch/<matrix>_b<ID>/`, where `<ID>` is assigned by the
-package and never typed (FR-357, FR-358).
+package and never typed.
 
 ### The setup's own unsteady solver actions in a grouped job
 
 A polar whose setup states `[[unsteady_solver_actions]]` joins a grouped job
-(FR-405, 0.35.1). Inside one solver instance an action, once registered, runs
+Inside one solver instance an action, once registered, runs
 after every time step of every later point: it survives the re-initialization
 between two points and the `NEW_SIMULATION` between two polars, a second
 registration makes it run twice a step, and no solver command withdraws it.
@@ -219,21 +215,21 @@ actions its own setup states, once a step.
 Two things differ from a point run alone, and the plan says so:
 
 - `--batch N` can plan more jobs than N, one per set of actions at least, and
-  warns when it does.
+ warns when it does.
 - The working directory of the whole job is the job's folder, where a point run
-  alone runs from its own datapoint folder. A `COMMAND_LINE` action whose
-  command reads or writes a relative path finds it there; the plan warns, for
-  each job that runs user actions, naming its polars and folder. A `SCRIPT` action
-  named by a relative file also joins the grouping. The same warning names the
-  file and the job folder once per job that registers it: the file resolves in
-  that folder and must be placed there (FR-405). An absolute `SCRIPT` file draws
-  no relative-file warning.
+ alone runs from its own datapoint folder. A `COMMAND_LINE` action whose
+ command reads or writes a relative path finds it there; the plan warns, for
+ each job that runs user actions, naming its polars and folder. A `SCRIPT` action
+ named by a relative file also joins the grouping. The same warning names the
+ file and the job folder once per job that registers it: the file resolves in
+ that folder and must be placed there. An absolute `SCRIPT` file draws
+ no relative-file warning.
 
 ### A geometry that carries saved actions
 
 A grouped plan still refuses a polar whose geometry is a saved simulation that
 carries unsteady solver actions, naming the file and the command that removes
-them, `pyfs-matrix inventory <file> --clean` (FR-378). Opening such a file loads
+them, `pyfs-matrix inventory <file> --clean`. Opening such a file loads
 its actions, which then run beside the ones the job registers (twice the runtime
 commands in the licensed measurement) and survive into every later polar of the
 job; the job's step counter, which must fire once a step to tell the points
@@ -242,9 +238,9 @@ apart, would count wrong. The cleaned file groups like any other.
 ### Acoustic and coupled rows in a grouped job
 
 Each acoustic polar is planned as a job of its own with all its points
-(FR-406), because opening a second polar after an acoustic one in the same
+because opening a second polar after an acoustic one in the same
 instance ended the solver process on 26.124
-([RPT-148](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)). Each
+Each
 point after the first one of the job deletes the observers that earlier points
 left in the solver and then states its own acoustic setup again (the sources
 switch, its observers and their time window), just before its unsteady solver
@@ -255,7 +251,7 @@ section folder of each point are written in that point's own datapoint folder,
 and collect lists the section's files as it does for a point run alone.
 
 A row coupled with the structure (FSI) on `unsteady` also joins a grouped job
-(FR-407). The coupling loop runs inside the solver: at every time step the
+The coupling loop runs inside the solver: at every time step the
 solver runs the post-processing script and then the structural program, in the
 point's own folder. Each coupled point starts its part of the job with
 `NEW_SIMULATION` and its whole script, even after a point of the same polar.
@@ -269,7 +265,7 @@ two seconds).
 
 A coupled row on `steady` or `qsteady_rotor` is left out with the other steady
 rows, and the plan's line for it says what to do instead: run those rows point by
-point, without `--batch` or `--polar-sweep` (FR-421). Its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once
+point, without `--batch` or `--polar-sweep`. Its script ends at `EXECUTE_AEROELASTIC_ANALYSIS`, which returns at once
 and is ended by any line that follows it, so no other point can run after it in
 the same instance. `unsteady_rotor` refuses FSI, whether the point is run alone
 or in a grouped job.
@@ -279,17 +275,17 @@ or in a grouped job.
 The `WALLTIME` cell of a row is the budget of one of its datapoints. A grouped
 job asks for the sum over its points of the cells of their rows, capped at the
 queue's maximum with a warning that suggests a larger N; a row whose own cell
-is above the maximum is refused (FR-364). The maximum is the key `max_walltime`
+is above the maximum is refused. The maximum is the key `max_walltime`
 of the HPC profile `inputs/hpc/<cluster>.toml`, written `HH:MM:SS`; a value
 that does not parse is refused naming the key, and without the key there is no
-limit (FR-377).
+limit.
 
 The cell may read `BEST` instead. The package then prices the job itself: the
 estimate of the batch times 1.25, plus the walltime margin, rounded up to the
 next minute and written with its unit. `BEST` is a value of the grouped plan
 and a plan that uses neither `--polar-sweep` nor `--batch` refuses it, naming
 the row. In a mixed job, each `BEST` row adds its own priced estimate to the
-other rows' cell budgets (FR-364). An unknown `BEST` point uses the profile's
+other rows' cell budgets. An unknown `BEST` point uses the profile's
 `max_walltime` with a warning naming the point, or is refused without one.
 
 ## The window, said once

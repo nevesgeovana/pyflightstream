@@ -1,6 +1,6 @@
 # FSI workspace inputs
 
-The [workspace calibration example](examples/workspace_fsi_calibration.md) creates
+The [workspace calibration example] creates
 complete calculated and supplied inputs for the same synthetic solid blade, then
 checks their equivalence with one explicit matrix factor.
 
@@ -24,27 +24,24 @@ shell, spar, hollow-section, shear-center or second structural model.
 
 | Workflow | FSI in this release |
 | --- | --- |
-| `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release (the morph is applied to the un-rotated blade, reported to the vendor). |
-| `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
-| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi), through the structural nodes or, on 26.125, by [direct mesh morphing](#direct-mesh-morphing-0370). Refused on a whole wheel. |
+| `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release. |
+| `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route, [below]. |
+| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below], through the structural nodes or, on 26.125, by [direct mesh morphing]. Refused on a whole wheel. |
 
 On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
 each structural call the surface is the un-rotated blade carrying the
 displacement, and the next time step restores the rigid rotated blade. The
 morph replaces the rotation instead of composing with it, so no coupled rotor
-number of that route is a rotor result. RPT-025 carries the dated correction
-of the earlier reading. The rotor wiring below is kept, tested, and closed by
+number of that route is a rotor result. The rotor wiring below is kept, tested, and closed by
 the plan until the route is released.
 
 ## Quasi-steady sector FSI
 
-A `qsteady_rotor` row with `SYMMETRY PERIODIC` (one blade meshed, its free
-stream turning about the shaft at the rotor's speed) couples that blade on the
+A `qsteady_rotor` row with `SYMMETRY PERIODIC` couples that blade on the
 steady route. The blade is held still; the STRUCTURE turns: the configuration
 the run stages as the point's `config.json` takes `omega_rad_per_s` from the
 row, `|RPM| pi / 30`, the speed its free stream turns at, whatever the FSI
-input wrote (an input stating another non-zero speed is warned, the row's
-wins; `fsi-provenance.json` records the move), so an RPM sweep couples each
+input wrote, so an RPM sweep couples each
 point at its own speed. Each coupling call solves the rotating blade under
 the loads of the solve before it: the centrifugal tension and its
 stiffening, the propeller moment and the in-plane centrifugal softening, with
@@ -62,16 +59,15 @@ the process stopped after the solver prints that the analysis ended.
 Because the blade does not move, its frame is the one it was meshed in, and
 the scripted import stores the structural nodes in the reference frame. So
 the route couples blade one at azimuth 0 with its datum on Z, on a shaft
-along X through the origin (where the rotor blade frame, x the shaft and z
-the span, is the reference frame), with `blade_count = 1` and one section
+along X through the origin, with `blade_count = 1` and one section
 distribution over blade one cut on XY in a frame the run created that
-coincides with the reference (the rotor's hub frame, `SMRP`, at the origin).
+coincides with the reference.
 Anything else is refused, named, rather than converted. A sector turning at
 0 rev/min is refused: the route exists to apply the centrifugal loads.
 
-### Direct mesh morphing (0.37.0)
+### Direct mesh morphing
 
-On a build that runs it (26.125), the sector can be coupled by the solver's
+On a build that runs it, the sector can be coupled by the solver's
 direct mesh morphing instead of the structural-node import. The FSI input
 states it in its `[config]` table:
 
@@ -88,27 +84,23 @@ the frame the blade's sections are cut in, in place of
 every staged file, is the mapped route's, and the staged `config.json` carries
 `"morphing": "direct"`. Before each structural call the solver writes
 `FSInodes.txt`, the blade's surface vertices at their undeformed positions
-(RIGID), one row each with its normal and force. The structural program writes
+one row each with its normal and force. The structural program writes
 one displacement per row back to `FSIDisp.txt`, in that order: the beam
 solution at the vertex by the rigid-section kinematics the mapped route encodes
-at its three nodes per station (the flap along the section normal, plus the
-twist times the vertex's chordwise distance from the elastic axis), blended
+at its three nodes per station, blended
 linearly between two stations and held at the end station beyond the first and
 the last, relaxed as on the mapped route. The displacements are totals from the
 undeformed surface: on 26.125 two coupling cycles moved the surface by exactly
-what was written (RPT-155). A call with no `FSInodes.txt`, or whose node list
+what was written. A call with no `FSInodes.txt`, or whose node list
 changed length since the previous call, is refused. Its declared node count
 must match the complete table, and every node row must contain nine finite
 numbers. A truncated or malformed row refuses the call rather than shifting
 the displacement rows onto different vertices.
 
 Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`
-(DEFLECTED nodes: from the second coupling cycle the solver applied the written
-displacements to the surface already deflected, RPT-155); `"direct"` on
-`unsteady_rotor` (the morph of the rotating blade lands at the azimuth it was
-imported at), on `steady` and `unsteady` (a fixed wing couples through its
-structural nodes), on a wheel, and on a build that does not run the command
-(26.124 does not recognise it, RPT-154). Leaving `morphing` out, or stating
+`"direct"` on
+`unsteady_rotor`, on `steady` and `unsteady`, on a wheel, and on a build that does not run the command
+Leaving `morphing` out, or stating
 `"mapped"`, is the route of 0.36.0, byte for byte.
 
 ## Fixed-wing FSI
@@ -137,73 +129,70 @@ chord_m = [1.0, 1.0, 1.0]
 geometric_pitch_deg = [0.0, 0.0, 0.0]
 geometry_source = "Synthetic lens sections about the quarter chord, in metres"
 sections_m = [
-  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
-  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
-  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]]
+ [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+ [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+ [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]]
 ]
 ```
 
 - **The stiffness and mass along the span** come from the same section and
-  material tooling a calculated blade uses: `[sections]` gives one closed
-  contour per station, in metres, chordwise toward the leading edge and normal
-  toward the suction side, about the wing's pitch axis. A supplied
-  configuration states the distributions under `[config.blade]` instead. The
-  stations are distances along the span from `origin_m`, the reference-frame
-  point on the pitch axis; `span_axis` is `+Y` for a right wing and `-Y` for a
-  left one. The package's frame is x aft, y right, z up, so a station's
-  section axes are -x and +z, turned nose up by its `geometric_pitch_deg`.
+ material tooling a calculated blade uses: `[sections]` gives one closed
+ contour per station, in metres, chordwise toward the leading edge and normal
+ toward the suction side, about the wing's pitch axis. A supplied
+ configuration states the distributions under `[config.blade]` instead. The
+ stations are distances along the span from `origin_m`, the reference-frame
+ point on the pitch axis; `span_axis` is `+Y` for a right wing and `-Y` for a
+ left one. The package's frame is x aft, y right, z up, so a station's
+ section axes are -x and +z, turned nose up by its `geometric_pitch_deg`.
 - **The loads** are the aerodynamic sectional loads the solver exports, plus
-  the wing's own weight: the running mass under `gravity_m_per_s2`, a vector of
-  the reference frame, -z at standard gravity by default. The angle of attack
-  and the sideslip turn the free stream, never the body, so they never turn
-  gravity; a model mounted in another orientation states its own vector. With
-  its centre of gravity off the elastic axis (`cg_offset_chordwise_m`,
-  `cg_offset_normal_m`), the weight twists the section too. A wing at rest has
-  no centrifugal load, and none is applied: a `[config.wing]` configuration
-  stating a speed, or more than one structure, is refused.
+ the wing's own weight: the running mass under `gravity_m_per_s2`, a vector of
+ the reference frame, -z at standard gravity by default. The angle of attack
+ and the sideslip turn the free stream, never the body, so they never turn
+ gravity; a model mounted in another orientation states its own vector. With
+ its centre of gravity off the elastic axis, the weight twists the section too. A wing at rest has
+ no centrifugal load, and none is applied: a `[config.wing]` configuration
+ stating a speed, or more than one structure, is refused.
 - **`self_weight = false`** removes the weight, for a wind-tunnel model whose
-  weight the balance and the support carry. It is on by default.
+ weight the balance and the support carry. It is on by default.
 - **The sections the loads come from** are one distribution of the row's
-  pproc, over the wing's one family, on the XZ plane, in a frame with the
-  reference axes whose origin sits on the wing's `origin_m` along the span.
-  The MRP frame of a reference whose moment point is on that plane is one:
+ pproc, over the wing's one family, on the XZ plane, in a frame with the
+ reference axes whose origin sits on the wing's `origin_m` along the span.
+ The MRP frame of a reference whose moment point is on that plane is one:
 
-  ```toml
-  [sections]
-  count = 40
-  include_symmetry = false
+ ```toml
+ [sections]
+ count = 40
+ include_symmetry = false
 
-  [[sections.distributions]]
-  families = ["Wing"]
-  frame = "MRP"
-  planes = ["XZ"]
-  ```
+ [[sections.distributions]]
+ families = ["Wing"]
+ frame = "MRP"
+ planes = ["XZ"]
+ ```
 
-  Another distribution, another plane or a frame elsewhere is refused rather
-  than converted. The surface list holds the family's boundary ID, the nodes
-  are placed inside the wing's sections and stored in the reference frame,
-  and the kernel is `MULTI_QUADRATIC`, as below.
+ Another distribution, another plane or a frame elsewhere is refused rather
+ than converted. The surface list holds the family's boundary ID, the nodes
+ are placed inside the wing's sections and stored in the reference frame,
+ and the kernel is `MULTI_QUADRATIC`, as below.
 - **A steady row** ends its script at `EXECUTE_AEROELASTIC_ANALYSIS`, with at
-  most 50 coupling iterations; the solver stops the loop itself once its
-  displacement residual converges. The row's exports all run in the
-  aeroelastic post-processing script, after the loads the structural call
-  reads, so the files left after the run are those of the last coupling
-  iteration. Each point is its own process, and a local run stops the solver
-  once it prints `Aeroelastic solver run time`; a submitting executor refuses
-  such a script, because the process never exits by itself. The probe points,
-  the pproc's volume section and the loads selections are refused on this
-  route.
+ most 50 coupling iterations; the solver stops the loop itself once its
+ displacement residual converges. The row's exports all run in the
+ aeroelastic post-processing script, after the loads the structural call
+ reads, so the files left after the run are those of the last coupling
+ iteration. Each point is its own process, and a local run stops the solver
+ once it prints `Aeroelastic solver run time`; a submitting executor refuses
+ such a script, because the process never exits by itself. The probe points,
+ the pproc's volume section and the loads selections are refused on this
+ route.
 - **An unsteady row** couples once per time step inside the march
-  (`SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE`, one coupling iteration per
-  step) and writes the deformed surface, `fsi_surface.vtk`, after every
-  structural call; the row's own exports stay at the end of the march.
+ and writes the deformed surface, `fsi_surface.vtk`, after every
+ structural call; the row's own exports stay at the end of the march.
 - Each structural call solves the clamped beam once and relaxes the written
-  displacement by `phases.coupling_relaxation` (0.4 unless the configuration
-  states it). Its row in `fsi_convergence_log.csv` states the phase
-  `fixed_wing`.
+ displacement by `phases.coupling_relaxation`. Its row in `fsi_convergence_log.csv` states the phase
+ `fixed_wing`.
 
 The convergence log `fsi_convergence_log.csv` of every route keeps the
-columns it had in 0.33.0 and ends with `tip_flap_signed_m` (0.34.0): the tip
+columns it had in 0.33.0 and ends with `tip_flap_signed_m`: the tip
 flap deflection in metres with its sign, the sign the displacement file
 `FSIDisp.txt` carries, positive along the section's normal toward the
 suction side, so a wing bending down under its own weight reads negative.
@@ -211,8 +200,7 @@ suction side, so a wing bending down under its own weight reads negative.
 magnitude. A frozen replay leaves both empty.
 
 `CDo`, the profile drag coefficient of the loads export, reads zero in a
-coupled run because the solver prints it so. On 26.124 (reports/RPT-128, the
-fixed-wing route) the spreadsheet exported at the head of a coupled point's
+coupled run because the solver prints it so. On 26.124 the spreadsheet exported at the head of a coupled point's
 one pass of the aeroelastic post, before the post updates anything and
 before the structural call, already reads zero, where the rigid solve of the
 same wing reads 0.0098384. The package's order of operations does not cause
@@ -220,14 +208,10 @@ it, and nothing the package emits changes for it.
 
 The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124
-(reports/RPT-092) the route converged and mapped 1052 of 1052 vertices, and
+ the route converged and mapped 1052 of 1052 vertices, and
 on that symmetric NACA 0012 wing the reading agrees in sign at the integral
-(+7.49 against +17.13 N m) and not in magnitude (44 percent), which a symmetric
-section cannot decide. On the cambered NACA 4412 wing of reports/RPT-128 the
-magnitude is confirmed: the summed cut moments are 1.00825 of the solver's
-moment about the same line, at least as close to 1 as the summed cut forces
-are to the lift (0.99033), and the coupled point gives the same verdict
-(1.00791 and 0.99045). The
+ and not in magnitude, which a symmetric
+section cannot decide. The
 offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 
@@ -251,24 +235,24 @@ package must remain available to that interpreter on the execution host.
 The initial automatic route is deliberately bounded:
 
 - A fresh OBJ/STL mesh import creates `NEW_SIMULATION`; the selected native
-  length unit must be `METER`. Saved-FSM section inheritance and other node-file
-  units are not yet established for this adapter.
+ length unit must be `METER`. Saved-FSM section inheritance and other node-file
+ units are not yet established for this adapter.
 - Exactly one moving rotor resolves to all of its explicit blades. Periodic or
-  mirror symmetry, missing blades and ambiguous rotor selection are refused.
+ mirror symmetry, missing blades and ambiguous rotor selection are refused.
 - The existing structural `rotor_frame` convention requires shaft X and blade
-  datum Z. The declared geometry and structural pitch must describe that same
-  physical blade; this adapter does not infer a new basis or re-pitch the mesh.
+ datum Z. The declared geometry and structural pitch must describe that same
+ physical blade; this adapter does not infer a new basis or re-pitch the mesh.
 - Exactly one XY section distribution per blade must be emitted in blade order,
-  each in that blade's own rotating frame. Duplicate cuts, aggregated families,
-  other planes or additional distributions are refused instead of attributed
-  to the first matching blade.
+ each in that blade's own rotating frame. Duplicate cuts, aggregated families,
+ other planes or additional distributions are refused instead of attributed
+ to the first matching blade.
 - Positive structural angular velocity must match the resolved row's speed;
-  a declared structural time increment must match the solver clock. Raw
-  commands/custom flags that could alter the mapping are not accepted on this
-  initial automatic route.
+ a declared structural time increment must match the solver clock. Raw
+ commands/custom flags that could alter the mapping are not accepted on this
+ initial automatic route.
 - Zero-speed coupling and continuation are named refusals. Continuation
-  needs compatible structural state and inherited section-order evidence;
-  creating fresh maps beside a stopped run would not establish that evidence.
+ needs compatible structural state and inherited section-order evidence;
+ creating fresh maps beside a stopped run would not establish that evidence.
 
 For example, the corresponding pproc entry for a one-blade rotor whose family
 is `Blade1` is:
@@ -301,50 +285,50 @@ These pieces are shared by every coupled route
 (`pyflightstream.cases.fsi_workspace`):
 
 - **The surface list holds the boundary ID.** The solver stores
-  `ASSIGN_AEROELASTIC_SURFACES` as written and maps the boundaries whose ID
-  matches, while a script cites a boundary by its position in the geometry
-  tree. An OBJ import numbers its boundaries from 2, an STL import from 1, so
-  an OBJ blade at position 1 is surface 2, the ID its motion holds. Any other
-  geometry is refused rather than guessed: a wrong ID maps no vertex, in
-  silence.
+ `ASSIGN_AEROELASTIC_SURFACES` as written and maps the boundaries whose ID
+ matches, while a script cites a boundary by its position in the geometry
+ tree. An OBJ import numbers its boundaries from 2, an STL import from 1, so
+ an OBJ blade at position 1 is surface 2, the ID its motion holds. Any other
+ geometry is refused rather than guessed: a wrong ID maps no vertex, in
+ silence.
 - **The structural nodes sit inside the blade.** When the configuration
-  carries the blade's sections (a calculated blade does; a supplied blade may
-  state `section_contours_m` under `[config.blade]`, one closed polygon of
-  chordwise and normal metres per station), the nodes are placed on each
-  section's camber line: the elastic-axis node at the configured elastic
-  axis's chord fraction (30 % when that lies outside 20 to 50 %), the
-  leading-edge and trailing-edge nodes at 10 % and 90 %. The plan refuses a
-  node set with any node outside its section, or inside it by less than
-  max(1 mm, 10 % of the local thickness), naming the node. Node order, roles
-  and row count do not change, so the FSIDisp rows keep their meaning. A
-  supplied blade without sections keeps the offset layout, which is not
-  checked: there is no geometry to check it against.
+ carries the blade's sections (a calculated blade does; a supplied blade may
+ state `section_contours_m` under `[config.blade]`, one closed polygon of
+ chordwise and normal metres per station), the nodes are placed on each
+ section's camber line: the elastic-axis node at the configured elastic
+ axis's chord fraction (30 % when that lies outside 20 to 50 %), the
+ leading-edge and trailing-edge nodes at 10 % and 90 %. The plan refuses a
+ node set with any node outside its section, or inside it by less than
+ max(1 mm, 10 % of the local thickness), naming the node. Node order, roles
+ and row count do not change, so the FSIDisp rows keep their meaning. A
+ supplied blade without sections keeps the offset layout, which is not
+ checked: there is no geometry to check it against.
 - **The morphing kernel is `MULTI_QUADRATIC`** unless the row's setup states
-  `aeroelastic_rbf_type`. The package's structural nodes are a beam line, and
-  on one beam line `WENDLAND_C2` delivered 64 % of an imposed bend at the
-  leading edge and 1.4 % at the trailing edge, a nose-up shear of up to
-  14 deg, and the coupled run diverged; `MULTI_QUADRATIC` delivered the bend
-  to 3 mm.
+ `aeroelastic_rbf_type`. The package's structural nodes are a beam line, and
+ on one beam line `WENDLAND_C2` delivered 64 % of an imposed bend at the
+ leading edge and 1.4 % at the trailing edge, a nose-up shear of up to
+ 14 deg, and the coupled run diverged; `MULTI_QUADRATIC` delivered the bend
+ to 3 mm.
 - **The node frame.** On 26.124 `IMPORT_AEROELASTIC_STRUCTURAL_NODES` does
-  not store its frame argument: the saved node block always states the
-  reference frame. A route whose nodes must turn with the blade saves the
-  built simulation, patches that one field to the rotating frame's index
-  (`patch_structural_node_frame`, which changes that field and nothing else)
-  and opens the patched file. One node block holds one frame, so a rotor with
-  one rotating frame per blade cannot be stated this way.
+ not store its frame argument: the saved node block always states the
+ reference frame. A route whose nodes must turn with the blade saves the
+ built simulation, patches that one field to the rotating frame's index
+ (`patch_structural_node_frame`, which changes that field and nothing else)
+ and opens the patched file. One node block holds one frame, so a rotor with
+ one rotating frame per blade cannot be stated this way.
 - **Exports that must show the deformation run in the aeroelastic
-  post-processing script.** In unsteady the solver runs it twice per step,
-  before the structural call and after the morph, writing the same file
-  names, so the file left after a step is the deformed one. A Tecplot or VTK
-  surface export carries the morphed vertices; a triangulation export and
-  `SAVEAS` keep the reference ones.
+ post-processing script.** In unsteady the solver runs it twice per step,
+ before the structural call and after the morph, writing the same file
+ names, so the file left after a step is the deformed one. A Tecplot or VTK
+ surface export carries the morphed vertices; a triangulation export and
+ `SAVEAS` keep the reference ones.
 - **A steady coupled script ends at `EXECUTE_AEROELASTIC_ANALYSIS`.** In a
-  script the analysis returns at once: an export after it runs before the
-  analysis iterates, and a `CLOSE_FLIGHTSTREAM` after it ends the analysis.
-  The exports go in the post-processing script, which the solver runs after
-  every coupling iteration, the last one included, and the run is complete
-  when the solver prints `Aeroelastic solver run time`, after which its
-  process is stopped.
+ script the analysis returns at once: an export after it runs before the
+ analysis iterates, and a `CLOSE_FLIGHTSTREAM` after it ends the analysis.
+ The exports go in the post-processing script, which the solver runs after
+ every coupling iteration, the last one included, and the run is complete
+ when the solver prints `Aeroelastic solver run time`, after which its
+ process is stopped.
 
 The rotating structural solve includes the in-plane centrifugal softening
 of the flap, mu Omega^2 sin^2(beta) w: a flap along the section normal at
@@ -421,8 +405,8 @@ geometric_pitch_deg = [0.0, 0.0]
 geometry_source = "Synthetic rectangular sections in SI units"
 torsion_grid_cells = 16
 sections_m = [
-  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]],
-  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]]
+ [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]],
+ [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]]
 ]
 ```
 

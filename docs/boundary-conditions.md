@@ -2,7 +2,7 @@
 
 A geometry sidecar identifies physical surfaces; a setup chooses their simulation
 role; each MATRIX row supplies operating values. Use the
-[three-artifact example](setup-standards.md#uniform-inlet-and-outlet-boundaries)
+[three-artifact example]
 for a complete geometry, setup and condition declaration.
 
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
@@ -23,7 +23,7 @@ The geometric `[trailing_edges] none = true` choice warns and creates no wake
 when applied. It does not prove that a port configuration needs no exhaust wake.
 Setup `apply_trailing_edges`, `apply_wake_termination` and
 `apply_base_regions` select application of those declarations; see
-[the application rules](setup-standards.md#applying-existing-boundary-declarations).
+[the application rules].
 A false selector skips redefinition and never clears saved FSM state.
 
 ## A native inlet profile
@@ -84,7 +84,7 @@ uses `kind = "outlet"` with the same `[ports.remesh]` table. The radius is in me
 The command registry places remeshing in the setup phase because it needs an already-created port. It remains forbidden after initialization settings. Offline tests exercise that prerequisite order. The measured 26.124 build
 8172026 used the combined created-port sequence when remeshing an outlet after
 an inlet. It changed the target cap from two to 28 triangles while preserving
-its area and the other boundaries ([RPT-081](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
+its area and the other boundaries.
 This establishes that mesh edit, not solved
 flow direction, profile interpolation or every radial-growth option. Repeating
 the same surface in setup port selections is refused: the manual says reassignment removes the old association and may delete its port, making later port indices ambiguous.
@@ -118,14 +118,13 @@ growth_scheme = "successive"
 growth_rate = 1.2
 ```
 
-Creation requires `boundary`, `model` and `cp`, including the ignored Cp argument for EMPIRICAL. A pressure update requires `index` and `model`; CUSTOM also requires `cp`. USER is refused for a pressure update: RPT-021 measured different creator/setter vocabularies on 26.121. That report does not establish current-build operation.
+Creation requires `boundary`, `model` and `cp`, including the ignored Cp argument for EMPIRICAL. A pressure update requires `index` and `model`; CUSTOM also requires `cp`. That report does not establish current-build operation.
 
-The operations `delete`, `mark_trailing_edges` and `select_faces` require `index`. Trailing-edge marking and face selection accept `index = "all"`; deletion does not. Face selection changes application selection state. `mark_outflow_edges` instead requires `boundary` (mesh name, index or `"all"`), following the command registry's boundary argument. The manual calls it a base-region boundary, not an outlet perimeter; native association remains to be measured. Its documented command is SET_OUTFLOW_TRAILING_EDGES on 26.122 and SET_OUTLET_TRAILING_EDGES on 26.123/26.124. Build routing follows those records; it does not establish native operation.
+The operations `delete`, `mark_trailing_edges` and `select_faces` require `index`. Trailing-edge marking and face selection accept `index = "all"`; deletion does not. Face selection changes application selection state. `mark_outflow_edges` instead requires `boundary`, following the command registry's boundary argument. The manual calls it a base-region boundary, not an outlet perimeter; native association remains to be measured. Its documented command is SET_OUTFLOW_TRAILING_EDGES on 26.122 and SET_OUTLET_TRAILING_EDGES on 26.123/26.124. Build routing follows those records; it does not establish native operation.
 
-RPT-066 already measured automatic detection and detection by the actual base
-boundary on the supplied body in 26.124. Later no-solve controls on build 8172026
+ Later no-solve controls on build 8172026
 measured USER creation, CUSTOM pressure editing, deletion, target-only radial
-remeshing and base trailing-edge marking ([RPT-081](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
+remeshing and base trailing-edge marking.
 Those state checks do not establish
 aerodynamic loads. The outflow-edge control did not establish an effect, and
 the saved graphics change after face selection does not by itself prove the

@@ -75,7 +75,7 @@ per clocking in `clocking_verdicts` (`index`, `clocking_deg`, `status`,
 of them.
 
 How many clockings, measured on a six-blade research propeller at 5 deg on
-26.124 (RPT-089): **`PASSAGE_POSITIONS: 2` converges thrust and torque to
+26.124: **`PASSAGE_POSITIONS: 2` converges thrust and torque to
 about 0.2 %; state 6 or more for the in-plane loads** (the side forces and
 the pitching and yawing moments, small resultants of large blade loads,
 within 1.6 % of 24 clockings at 6). The cost is one steady solve per
@@ -111,7 +111,7 @@ is the 1P reduced frequency of each blade station,
 ```text
 Omega = 2 pi RPM / 60
 V_rel = sqrt(V^2 + (Omega r)^2)
-k     = Omega c / (2 V_rel)
+k = Omega c / (2 V_rel)
 ```
 
 with `r` the station's radius, `c` its chord and `V` the point's free-stream
@@ -185,54 +185,49 @@ side force and the pitching moment (My) came out with the opposite sign to the
 unsteady rotor's and the normal force 20 % lower, whatever the clocking
 count. At 0 deg of angle and 10 deg per step, the quasi-steady thrust was
 9.2 % above the unsteady rotor's after three revolutions and 7.5 % after
-six, and the torque 7.1 % and 5.75 % above (RPT-089 section 3). A finer unsteady step
+six, and the torque 7.1 % and 5.75 % above. A finer unsteady step
 closes part of that: at 5 deg per step and six revolutions the thrust gap was
 3.6 % at 5 deg of angle and 3.9 % at 0 deg, the normal force was 11.7 % and
 `Mz` 8.2 % away, and the side force and the pitching moment (My) kept their
 opposite sign; Mz, the yawing moment, was 8.2 % away. That measurement is of hand-built scripts of the same
 commands, which clocked the wheel from a new simulation per clocking rather
 than by rotating its surfaces between solves. The scripts this run type
-builds have since run on 26.124: a sector coupled with FSI (RPT-090) and a
+builds have since run on 26.124: a sector coupled with FSI and a
 wheel at 5 deg clocked by rotating its surfaces inside one launch
-(RPT-091).
 
 **A missing output strands nothing** (0.27.0). A point one of whose
 declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
 every declared output it did write is still filed in its
 `datapoints/DP-<point>/`, listed in the record's `outputs` with its sha256 in
 `outputs_sha256`; the error names the missing files and nothing else
-(`test_a_missing_log_strands_no_other_output_of_a_local_point`,
-`test_collection_files_every_output_that_exists_and_names_only_the_missing`). A missing file does not prevent collection of the outputs that exist. The collection method raises `MissingOutputsError`, a
+A missing file does not prevent collection of the outputs that exist. The collection method raises `MissingOutputsError`, a
 `WorkspaceError` whose `collected` lists what it filed.
 
 **Every point of a row that names a run type leaves its final saved
 simulation** (G11). After the point's
 solve, first among its exports, the script saves the solver's state with
 `SAVEAS` under the point's file stem
-(`test_g11_every_workflow_script_saves_its_final_simulation`,
-`test_g11_the_save_comes_first_among_the_points_exports`), and the file is
+and the file is
 collected into `sims/sim_<POL>/datapoints/DP-<point>/P<POL>-<point>.fsm`
 (the stem as `pyfs-matrix` names it). It is listed in the run record's
 `outputs` and hashed in its `outputs_sha256`
-(`test_g11_the_saved_simulation_is_collected_and_hashed`), and a point whose
+and a point whose
 file is not there is recorded `FAILED_INCOMPLETE_OUTPUT`, like any declared
 export that is missing
-(`test_g11_a_point_whose_saved_simulation_is_missing_is_recorded_incomplete`).
 It holds for `steady`, where each point of a steady sweep saves its own
-(`test_g11_every_point_of_a_steady_sweep_saves_its_own`), for `unsteady` and
+for `unsteady` and
 for `unsteady_rotor`, on every registered build a run type renders on
-(`test_g11_every_workflow_script_saves_its_final_simulation`,
-`test_g11_the_saved_simulation_is_collected_and_hashed`); 25.000 renders
+25.000 renders
 no script for any run type, so it has no point to save. A pproc cannot
 turn it off: `[exports] simulation = false` is refused, as `loads = false`
-is (`test_g11_a_pproc_cannot_switch_the_saved_simulation_off`). A `LEGACY`
+is. A `LEGACY`
 row saves one only if its recipe writes `SAVEAS` to a name its `OUTPUTS`
 declare, and `pyfs-matrix plan` warns naming every `LEGACY` row whose
 `OUTPUTS` declare no `.fsm`; the warning blocks nothing
-(`test_g11_a_legacy_row_without_a_saved_simulation_is_warned_at_plan`). A
+A
 case written in Python that declares its own `outputs` exports exactly
 those, with no saved simulation unless one of them ends in `.fsm`
-(`test_a_row_declaring_a_loads_table_and_a_log_gets_exactly_those`). This
+This
 file is what [the additional post](workflow-additional-post.md#extracting-more-from-a-finished-point-the-additional-post)
 reopens.
 
@@ -261,7 +256,7 @@ are expressed in the rotating frame of the blade: the velocity a probe reports
 carries minus the rotation times its radius, and a fixed-frame field is that
 velocity with the rotation times the radius added back. Measured on 26.124
 (build 8172026) by the research study
-[RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+
 summarises, where a probe at 1.5 rotor radii read a tangential velocity of
 -2.618 times the free-stream speed at an advance ratio of 1.8. The probe frame
 is described with the other probe conventions in

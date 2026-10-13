@@ -1,46 +1,46 @@
 # The run matrix, a campaign and its record
 
-What a run matrix is, how its points are named and redone, how several matrices share a workspace, and what comes back. The other pages of the [workflows section](workspace-and-workflows.md) each take one run type or one topic.
+What a run matrix is, how its points are named and redone, how several matrices share a workspace, and what comes back. The other pages of the [workflows section] each take one run type or one topic.
 
 ## What a run matrix is
 
 A run matrix is a pipe-separated table, one row per simulation, that
 this package reads forever: the format is a first-class interface
-rather than an import step (FR-10, FR-35). Each row names a point of
+rather than an import step. Each row names a point of
 interest, the sweep it wants, and, by identifier, the reference, the
 solver preset and the boundary group it should be resolved against.
 
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
+POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW | VAR_NAMES_VALUES
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 |    0   |  1  | TestWing  | -             | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0,2.0        | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
-8002 |    1   |  1  | TestWing  | -             | REGISTRY_BETA          | MACH:0.0890, REmi:3.10, BETA:sweep | -3.0,3.0       | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8001 | 0 | 1 | TestWing | - | REGISTRY_ALPHA | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0,2.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8002 | 1 | 1 | TestWing | - | REGISTRY_BETA | MACH:0.0890, REmi:3.10, BETA:sweep | -3.0,3.0 | - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
-simulation identifier (`sim_8001`). `FLIGHT_CONDITION` states the flow
+simulation identifier. `FLIGHT_CONDITION` states the flow
 condition the row runs at, as comma-separated `KEY:value` pairs from a
 closed set; it is MANDATORY, and it replaced the `RE` and `MACH` columns
 at v0.9.0. What it means and which quantity gets solved for is
-[its own page](flight-conditions.md). The same cell says WHAT VARIES,
+[its own page]. The same cell says WHAT VARIES,
 and `SWEEP_VALUES` says over which values: `ALPHA:sweep` with `0.0,2.0`
 is an angle-of-attack sweep at zero and two degrees, so this one row is
 two runs. Exactly one key of the cell may carry the word `sweep`; every
 other key is a quantity the row HOLDS. `pyfs-matrix upgrade` folds a legacy `SWEEP_TYPE` column into this cell. `REF`, `SET` and `PPROC` are the
-three identifiers that reach into the input library; `PPROC` names the post-processing artifact (PFS-2029.07). `FS_BUILD` names the FlightStream
+three identifiers that reach into the input library; `PPROC` names the post-processing artifact. `FS_BUILD` names the FlightStream
 build the row wants. `WORKFLOW` names the run type, and a row naming one
 needs nothing else to build its script; `LEGACY` means "none, use the
 recipe", as these two example rows declare, and such a row names its recipe code as the `RECIPE`
-key of its variables (`pyfs-matrix upgrade` moves a legacy `FS_SCRIPT` column here). The cell may
+key of its variables. The cell may
 carry the reference itself, `package.module:function`, and a row written so
 plans and runs with no `--recipe` option at all; a bare code such as `003`
-is still mapped by that option (PFS-2031.11). A `LEGACY` row's recipe also
+is still mapped by that option. A `LEGACY` row's recipe also
 decides what it saves: these two rows declare a loads table and no `.fsm`,
 so `pyfs-matrix plan` warns, naming both, that no final saved
 simulation of theirs is collected, and plans them as before
-(`test_g11_a_legacy_row_without_a_saved_simulation_is_warned_at_plan`). `HIDDEN` and
+`HIDDEN` and
 `RUN` sit directly after `POL`; `RUN` is the switch that says
 whether the row takes part at all, and `HIDDEN` whether the solver shows a
 window.
@@ -56,10 +56,9 @@ half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that
 come back are the whole aircraft's or the modelled slice's. `NCPUS` is the
 processor count, ONE number that reaches the solver's thread count and, on
 a cluster, the scheduler's request. `WALLTIME` is the wall clock, written
-WITH ITS UNIT (`240m`, `4h`, `90s`, `1d`; a bare number is
-refused by name), which on an unsteady row also arms the watchdog. What the
+WITH ITS UNIT, which on an unsteady row also arms the watchdog. What the
 scheduler's own field is given is the HPC profile's to say
-(`walltime_arithmetic`), and it never moves the watchdog's deadline.
+and it never moves the watchdog's deadline.
 
 **A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
 cell, so a reader can tell "states nothing" from "the line is truncated".
@@ -89,65 +88,64 @@ opens the file. That is still how a recipe works.
 them close the gap that made the capability unusable:
 
 * `GEOMETRY: <file name>` names a geometry staged under
-  `inputs/geometries/` by its FILE NAME, extension included: with
-  `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
-  `blade.v2.fsm` reads one way and no other. A bare stem is refused
-  naming the files that carry it, and `pyfs-matrix upgrade` completes
-  every stem-only cell of an older matrix with `.fsm` (PFS-2029.09). What the name buys is that the cell
-  says what the file is: a `.fsm` is a saved simulation and is opened,
-  and an `.obj` or `.stl` is a raw mesh and is imported.
-  The workflow opens or imports the file first, before anything else,
-  and it reads the STAGED copy, so the file the manifest hashed and the
-  file the solver read are the same bytes.
+ `inputs/geometries/` by its FILE NAME, extension included: with
+ `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
+ `blade.v2.fsm` reads one way and no other. A bare stem is refused
+ naming the files that carry it, and `pyfs-matrix upgrade` completes
+ every stem-only cell of an older matrix with `.fsm`. What the name buys is that the cell
+ says what the file is: a `.fsm` is a saved simulation and is opened,
+ and an `.obj` or `.stl` is a raw mesh and is imported.
+ The workflow opens or imports the file first, before anything else,
+ and it reads the STAGED copy, so the file the manifest hashed and the
+ file the solver read are the same bytes.
 
-    A WORKFLOW opens a `.fsm` and imports an `.obj` or `.stl`, and
-    refuses any other suffix. A raw mesh takes its length units as an
-    argument (SRC-003 p.307) and the file carries none, so the
-    `<stem>.boundaries.toml` beside it states them in an `[import]`
-    table, `units = "MILLIMETER"`, beside the `boundaries` list: for an
-    `.obj` with no sidecar the plan writes that list from the file's
-    groups, in the order the solver numbers them (G30), and
-    for an `.stl` it is written by hand. A raw mesh without the table is
-    refused before any seat is spent, naming the key, because a defaulted
-    unit is a body of the wrong size whose coefficients solve, export and
-    report without a word. The file's unit goes to `IMPORT` alone and the
-    simulation is set to metres, the unit of every length the row states.
-    The same sidecar declares the mesh's trailing edge in a
-    `[trailing_edges]` table (G02): `file = "<points
-    file>"`, the default route, whose edge mid-points are checked against
-    the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
-    26.124, or `detect = "auto"` (or by surface), detection, which applies
-    only when written; `[wake_termination]` and `[base_regions]` detect
-    when written. A raw mesh that declares no trailing edge is refused
-    before any seat is spent, since without one there is no wake and the
-    solver answers anyway, and a `.fsm` whose sidecar states any of the
-    three tables is refused, since its own marking is in the file.
-    [Mesh inputs and GUI-only operations](mesh/how-to.md) carries the
-    route in full. A recipe of your own receives whatever the library
-    staged and imports it declaring the units itself.
+ A WORKFLOW opens a `.fsm` and imports an `.obj` or `.stl`, and
+ refuses any other suffix. A raw mesh takes its length units as an
+ argument and the file carries none, so the
+ `<stem>.boundaries.toml` beside it states them in an `[import]`
+ table, `units = "MILLIMETER"`, beside the `boundaries` list: for an
+ `.obj` with no sidecar the plan writes that list from the file's
+ groups, in the order the solver numbers them, and
+ for an `.stl` it is written by hand. A raw mesh without the table is
+ refused before any seat is spent, naming the key, because a defaulted
+ unit is a body of the wrong size whose coefficients solve, export and
+ report without a word. The file's unit goes to `IMPORT` alone and the
+ simulation is set to metres, the unit of every length the row states.
+ The same sidecar declares the mesh's trailing edge in a
+ `[trailing_edges]` table: `file = "<points
+ file>"`, the default route, whose edge mid-points are checked against
+ the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
+ 26.124, or `detect = "auto"`, detection, which applies
+ only when written; `[wake_termination]` and `[base_regions]` detect
+ when written. A raw mesh that declares no trailing edge is refused
+ before any seat is spent, since without one there is no wake and the
+ solver answers anyway, and a `.fsm` whose sidecar states any of the
+ three tables is refused, since its own marking is in the file.
+ [Mesh inputs and GUI-only operations] carries the
+ route in full. A recipe of your own receives whatever the library
+ staged and imports it declaring the units itself.
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
-  The accepted modes are read from the command database for the row's own
-  build, never from a list written here. **This one is not a
-  convenience.** A periodic sector requires periodic symmetry; treating it as `NONE` solves a one-bladed rotor without diagnosing the physical error.
+ The accepted modes are read from the command database for the row's own
+ build, never from a list written here. **This one is not a
+ convenience.** A periodic sector requires periodic symmetry; treating it as `NONE` solves a one-bladed rotor without diagnosing the physical error.
 
-    `MIRROR` carries three cautions, and the cell enforces
-    one of them: a nonzero sideslip (a swept or held `BETA` in the flight
-    condition) under `SYMMETRY: MIRROR` is refused at plan time, naming the
-    cell, because a mirrored half model is a valid model of the full one
-    only while the free stream lies in the symmetry plane, and the solver
-    was measured (26.120, 2026-09-09) running such a point at zero
-    sideslip whatever the script states, saying so only in its log. Sweep
-    the sideslip on a full geometry with `SYMMETRY: NONE`. The other two
-    the cell cannot enforce. The mode
-    describes what you MESHED, so a row declaring it must have staged the
-    half model; initializing a mirrored solution with the full model
-    loaded diverges immediately, because the model is then its own mirror
-    image (SRC-003 p.217). Whether the loads are the full model's or the
-    half's is the row's `SYMMETRY_LOADS` column (FR-66), emitted as
-    `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the setup's
-    `symmetry_loads` answers, and where neither does the run takes the
-    solver's own default, calibrated as ENABLE on a licensed 26.120 and
-    measured on that one build only.
+ `MIRROR` carries three cautions, and the cell enforces
+ one of them: a nonzero sideslip under `SYMMETRY: MIRROR` is refused at plan time, naming the
+ cell, because a mirrored half model is a valid model of the full one
+ only while the free stream lies in the symmetry plane, and the solver
+ was measured running such a point at zero
+ sideslip whatever the script states, saying so only in its log. Sweep
+ the sideslip on a full geometry with `SYMMETRY: NONE`. The other two
+ the cell cannot enforce. The mode
+ describes what you MESHED, so a row declaring it must have staged the
+ half model; initializing a mirrored solution with the full model
+ loaded diverges immediately, because the model is then its own mirror
+ image. Whether the loads are the full model's or the
+ half's is the row's `SYMMETRY_LOADS` column, emitted as
+ `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the setup's
+ `symmetry_loads` answers, and where neither does the run takes the
+ solver's own default, calibrated as ENABLE on a licensed 26.120 and
+ measured on that one build only.
 
 ## How a point is named
 
@@ -180,21 +178,20 @@ the stem of every file of the point: `P<sim>-<name>`, so that point's script
 in simulation 9001 is `P9001-M144RE438AL+000BE+000J+080.txt` and its exports
 are `..._cp.txt`, `..._log.txt` and the rest. `pyfs-matrix plan` and `run`
 name points this way unless `--point-name` gives another template; the
-placeholders are `{polar}` (`P<sim>-<name>`), `{point}` (the name),
+placeholders are `{polar}`, `{point}`,
 `{alpha}`, `{beta}`, `{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`,
 and inside an output name `{name}` is the rendered stem. The run record
-carries the name (`point_name`), the name of its sweep (`sweep_name`) and
-the template that named each point (`point_name_template`). A workspace may carry the old names; `pyfs-matrix rename` renames
-it, as [migrating to 0.21.0](upgrading.md#older-layouts) describes.
+carries the name, the name of its sweep and
+the template that named each point. A workspace may carry the old names; `pyfs-matrix rename` renames
+it, as [migrating to 0.21.0] describes.
 
 ## Several matrices in one workspace
 
 One workspace may hold several matrices, each a study of its own over the
 same input library: a tour, a setup study, a time-convergence study. The
-rule that keeps them apart is one folder per matrix (PFS-2031.04): `plan`
+rule that keeps them apart is one folder per matrix: `plan`
 writes `post/<stem>/plan.json`, `run` writes
-`post/<stem>/campaign_sweep.csv` ONCE (FR-90: the two names were the same
-bytes twice), and the products of that matrix's points
+`post/<stem>/campaign_sweep.csv` ONCE, and the products of that matrix's points
 land beside them. `runs.json` stays the one manifest of the workspace, and
 every record in it names the matrix its point came from, so the sweep table
 and the products of one matrix are rebuilt from its own records alone. From
@@ -211,11 +208,11 @@ because a row switched off today is switched on tomorrow and its POL already
 names a folder. One message names every repeated POL and every row stating it:
 
 ```text
-matrix not planned: 2 POL(s) are stated more than once across the matrices of
+matrix not planned: 2 POL are stated more than once across the matrices of
 this workspace, RUN = 0 rows included: POL 1001 in matriz.fs row 1,
 matriz_setup.fs row 3; POL 1004 in matriz.fs row 4, matriz.fs row 6. A POL names
 the simulation folder sims/sim_<POL> and the run ids of the one manifest,
-runs.json, so each POL is stated once in the whole workspace. POL(s) 1001, 1004:
+runs.json, so each POL is stated once in the whole workspace. POL 1001, 1004:
 renumber by hand, or run `pyfs-matrix plan matriz.fs --update-ids`, which gives
 each repeated row of matriz.fs the next free POL and leaves every other matrix as
 it is.
@@ -225,7 +222,7 @@ A repeat that sits only between two OTHER matrices is named with its own
 remedy in the same message, because `--update-ids` on the matrix being planned
 cannot move it.
 
-`pyfs-matrix plan <matrix> --update-ids` (also accepted as `--updateIDs`) rewrites
+`pyfs-matrix plan <matrix> --update-ids` rewrites
 THAT MATRIX before planning it. A row keeps its POL unless another matrix
 already states it or an earlier row of the same file does; each row that must
 move takes the next free number above every POL of every matrix, every run in
@@ -234,7 +231,7 @@ evidence of a study whose matrix has been removed. Only the POL cells change,
 each change is printed, and the plan then runs on the rewritten file:
 
 ```text
-pyfs-matrix plan matriz.fs --update-ids ...
+pyfs-matrix plan matriz.fs --update-ids...
 --update-ids: matriz.fs row 6: POL 1004 -> 2013
 ```
 
@@ -249,7 +246,7 @@ THE RENUMBERING IS WRITTEN BEFORE THE PLAN RUNS, so the receipt the plan writes
 is pinned to the file as renumbered. If the plan then refuses for another
 reason, the renumbering stays written, and the command says so beside the
 refusal. From Python the same step is
-`pyflightstream.workspace.matrix.renumber_repeated_pols(path, workspace)`.
+`pyflightstream.workspace.matrix.renumber_repeated_pols`.
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
 worked example: eleven matrices, one library, one manifest, and POLs no two
@@ -260,7 +257,7 @@ matrices share.
 Every row below is a real row of `tests/tier3_licensed/matriz_vocab.fs`,
 rendered to a script on every commit by
 `python -m tests.tier3_licensed.offline` and compared against a committed
-golden by `tests/tier1_offline/test_tier3_offline.py`. They are not
+golden by `tests/tier1_offline/.py`. They are not
 sketches: copy the workspace at `tests/tier3_licensed/inputs/` and these
 rows plan as they stand. The geometry they open, `41_TWIN.fsm`, is
 synthetic, generated by a committed generator, with its provenance recorded
@@ -278,9 +275,9 @@ the hub, the axis, the sign, the blade families and the diameter are the
 reference's, stated once in that rotor's block.
 
 ```
-8001 | ... | r006 | s002 | p005 | ... | unsteady_rotor | GEOMETRY: 41_TWIN.fsm /
-  SYMMETRY: NONE / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / CLOCK_MOTION: PORT /
-  MOTIONS: {MOVING_BC_ALIAS: PORT / RPM: 2400} / LAST_REVS_AVG: 1
+8001 |... | r006 | s002 | p005 |... | unsteady_rotor | GEOMETRY: 41_TWIN.fsm /
+ SYMMETRY: NONE / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / CLOCK_MOTION: PORT /
+ MOTIONS: {MOVING_BC_ALIAS: PORT / RPM: 2400} / LAST_REVS_AVG: 1
 ```
 
 **Two rotors, two speeds, from ONE advance ratio.** The ratio is written
@@ -288,9 +285,9 @@ once in the flight condition and reaches every motion that states no speed
 of its own, resolving against each rotor's own `diameter_m`.
 
 ```
-8002 | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 |
-  r006 | s002 | p005 | ... | CLOCK_MOTION: PORT /
-  MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}
+8002 |... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 |
+ r006 | s002 | p005 |... | CLOCK_MOTION: PORT /
+ MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}
 ```
 
 The rendered script for its first point,
@@ -304,8 +301,8 @@ written: a motion stating its own speed holds it against the condition's
 ratio.
 
 ```
-8003 | ... | ADVANCE_RATIO:sweep | 0.6,0.8 | ... |
-  MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD / RPM: 1800}
+8003 |... | ADVANCE_RATIO:sweep | 0.6,0.8 |... |
+ MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD / RPM: 1800}
 ```
 
 **Turning the mesh before the run.** A `ROTATE` record cites the ALIAS, and
@@ -314,14 +311,14 @@ FROM is kept as `<ALIAS>_SMRP_ORIGINAL`, and a post-processing entry naming
 the turned frame is written in both.
 
 ```
-8004 | ... | ROTATE: {ANGLE: 3 / AXIS: NACELLE-Y / ALIAS: STARBOARD}
+8004 |... | ROTATE: {ANGLE: 3 / AXIS: NACELLE-Y / ALIAS: STARBOARD}
 ```
 
 **Raw solver commands the row states itself**, each before a named phase and
 through the same emitter checks every curated line passes.
 
 ```
-8005 | ... | RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}
+8005 |... | RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}
 ```
 
 ## From a filled-in matrix to results, in one call
@@ -331,15 +328,14 @@ through the same emitter checks every curated line passes.
 from pyflightstream.run.matrix import run_matrix
 
 records = run_matrix(
-    "matrix_registry.fs",
-    workspace,
-    name="matrix",
-    fs_version="26.120",
-    recipes={"003": "steady"},
-    assess=converged,
-    executor=executor,
-    recipe_registry={"steady": matrix_recipe},
-)
+ "matrix_registry.fs",
+ workspace,
+ name="matrix",
+ fs_version="26.120",
+ recipes={"003": "steady"},
+ assess=converged,
+ executor=executor,
+ recipe_registry={"steady": matrix_recipe},
 ```
 
 Four arguments carry the study and the rest carry your machine.
@@ -355,19 +351,18 @@ physics decisions live:
 <!-- skip: next -->
 ```python
 def matrix_recipe(case, script):
-    helpers.free_stream(script)
-    helpers.initialize_solver(script)
-    helpers.solver_settings(
-        script,
-        vorticity_drag_boundaries="all",
-        aoa=case.point.get("alpha", 0.0),
-        velocity=30.0,
-        iterations=case.solver.iterations,
-        convergence=case.solver.convergence,
-    )
-    helpers.start_solver(script)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
-    script.emit("CLOSE_FLIGHTSTREAM")
+ helpers.free_stream(script)
+ helpers.initialize_solver(script)
+ helpers.solver_settings(
+ script,
+ vorticity_drag_boundaries="all",
+ aoa=case.point.get("alpha", 0.0),
+ velocity=30.0,
+ iterations=case.solver.iterations,
+ convergence=case.solver.convergence,
+ helpers.start_solver(script)
+ script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+ script.emit("CLOSE_FLIGHTSTREAM")
 ```
 
 Note `case.solver.iterations`. Nothing in the recipe read
@@ -405,15 +400,15 @@ table and the products are one row per point exactly as before:
 <!-- skip: next -->
 ```python
 for entry in record.points_ran:
-    print(entry["tag"], entry["status"])
+ print(entry["tag"], entry["status"])
 ```
 
 A point a recorded job ran is recorded, although no record carries its own
 point name: `pyfs-matrix plan` reports it as already recorded and
-`run --resume` skips it (`test_the_plan_reports_a_recorded_jobs_points_as_recorded`).
+`run --resume` skips it.
 Angles added to such a row later run one each on resume, each its own record
 ending with its point name, because the row's job id is taken
-(`test_two_new_angles_of_a_recorded_job_are_recorded_one_each`); the plan
+the plan
 calls exactly those ready. To run the whole row again as one job, name the
 job to `--force-rerun`, which archives it first.
 
@@ -427,8 +422,8 @@ From the terminal, a matrix's whole study is one command:
 
 ```text
 pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --workspace . \
-    --sweep-csv sweep.csv
+ --name rotor --workspace. \
+ --sweep-csv sweep.csv
 ```
 
 No Python is written, no notebook is opened, and nothing sits between
@@ -452,9 +447,9 @@ point's name -- a pproc, a geometry, a solver variable, a wall clock -- the
 corrected point has the same identity, and `--force-rerun` is how it is redone:
 
 ```text
-pyfs-matrix plan <matrix> --workspace .
-pyfs-matrix run  <matrix> --workspace . \
-    --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
+pyfs-matrix plan <matrix> --workspace.
+pyfs-matrix run <matrix> --workspace. \
+ --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
 ```
 
 Re-plan first: the plan carries the digest of the matrix it read, and an edited
@@ -473,8 +468,8 @@ the run says which points run again.
 name none of them:
 
 ```text
-pyfs-matrix run <matrix> --workspace . --force-rerun-all
-pyfs-matrix run <matrix> --workspace . --force-rerun-all --sims 2031 2032 2033
+pyfs-matrix run <matrix> --workspace. --force-rerun-all
+pyfs-matrix run <matrix> --workspace. --force-rerun-all --sims 2031 2032 2033
 ```
 
 Each recorded point is archived as `--force-rerun` archives it and runs again, a
@@ -489,8 +484,8 @@ matrix does not carry, and when nothing of the selection is recorded.
 matrix**, select them on both commands:
 
 ```text
-pyfs-matrix plan <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
-pyfs-matrix run  <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
+pyfs-matrix plan <matrix> --workspace. --sims 2031 --points M144RE438AL+040BE+000
+pyfs-matrix run <matrix> --workspace. --sims 2031 --points M144RE438AL+040BE+000
 ```
 
 `--sims` takes simulation ids as the matrix spells them, and `--points` takes
