@@ -10,46 +10,12 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-01",
-   "capability": "Far-field conservation ledgers (mass, axial and transverse momentum, shaft torque, in-plane moment, crossflow kinetic energy)",
-   "reason": "routed later",
-   "node": "PFS-2139.008",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.farfield.TransverseForce",
-    "pyflightstream.farfield.transverse_force"
-   ]
-  },
-  {
-   "id": "RX-02",
-   "capability": "Far-field lattice dataset, annular quadrature, azimuthal harmonics and the spurious-drag diagnostic, selected by a [farfield] table of the pproc",
-   "reason": "routed later",
-   "node": "PFS-2139.005",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.farfield.sample_coverage"
-   ]
-  },
-  {
-   "id": "RX-04",
-   "capability": "Cylindrical survey lattice of probe points and its emission, and the lattice dataset point writer",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.post.write_tecplot_points",
-    "pyflightstream.probes.emit_probe_export",
-    "pyflightstream.probes.emit_probe_points",
-    "pyflightstream.probes.write_points_csv",
-    "pyflightstream.probes.write_probe_csv"
-   ]
-  },
-  {
    "id": "RX-05",
    "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
    "reason": "routed later",
    "node": "PFS-2140.001",
-   "release": "0.40.0",
+   "release": "0.41.0",
+   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.probes.AxisSpec",
     "pyflightstream.probes.FrameDefinition",
@@ -64,23 +30,12 @@
    "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
    "reason": "routed later",
    "node": "PFS-2140.001",
-   "release": "0.40.0",
+   "release": "0.41.0",
+   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.exceptions.SurfaceMeshExportError",
     "pyflightstream.probes.geometry.apply_geometry_gate",
     "pyflightstream.run.export_surface_mesh"
-   ]
-  },
-  {
-   "id": "RX-07",
-   "capability": "Script probe helpers the pproc probe route reimplements (line, file and export helpers)",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.script.helpers.export_probes",
-    "pyflightstream.script.helpers.probe_line",
-    "pyflightstream.script.helpers.probe_points"
    ]
   },
   {

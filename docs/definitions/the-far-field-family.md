@@ -341,7 +341,7 @@ on a lateral cylinder; cylindrical axes on the rotor shaft, `y = r sin(psi)`,
 
 A non-uniform azimuth grid is refused: uniform periodic sampling is what makes the
 azimuthal rectangle rule spectrally accurate. A missing sample makes `I[f]` `NA`;
-`COVERAGE` states the finite fraction.
+`COVERAGE` states the finite fraction (`pyflightstream.farfield.sample_coverage`).
 
 **Harmonics.** `c_m = (1 / N_psi) sum_k f_k exp(-i m psi_k)`, `m = 0 .. m_max`,
 `m_max < N_psi / 2`.
@@ -361,7 +361,10 @@ azimuthal rectangle rule spectrally accurate. A missing sample makes `I[f]` `NA`
 in-plane moment are also written from the harmonics (Parseval, every order the
 grid carries); the two paths are independent and their difference is a check.
 The lateral term `D_lat` is the momentum and pressure flux through the lateral
-cylinder, from the lateral rings where the lattice has them.
+cylinder, from the lateral rings where the lattice has them. The plane term and
+`D_lat` are written apart (`FZ_PLANE_N`, `FZ_LATERAL_N`), `D_lat` as the
+lateral term of `pyflightstream.farfield.transverse_force`, which never folds it
+into the plane term.
 
 **Diagnostics, written and not judged.**
 
@@ -398,9 +401,14 @@ declares a lattice under `lattices`, beside `lines`, `rectangles` and
 `circles`; a declared one is reused by the far field, and one the far field
 needs and the artifact does not declare is added by the plan. They are fixed in
 space, also on a coupled row: they sample the flow, not the structure.
+A steady entry in the reference frame emits its declared lattices with
+`pyflightstream.probes.emit_probe_points`, placed on the rotor's hub or the
+reference axes, in the simulation length unit and rounded to five decimals.
 
 On a steady row the added plane and lattice are written to one staged
-`X,Y,Z,TYPE` CSV in the simulation length unit and appended by one
+`X,Y,Z,TYPE` CSV in the simulation length unit (by
+`pyflightstream.probes.write_points_csv`, or `write_probe_csv` with the same
+placement for a lattice added alone) and appended by one
 `PROBE_POINTS_IMPORT`. The file starts with its point count, uses volume
 type 1 and preserves the recorded order, plane before lattice. Distinct
 point sets have distinct content-derived filenames. Unsteady rows keep

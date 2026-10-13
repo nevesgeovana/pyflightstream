@@ -128,8 +128,14 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # classified by the pattern of its siblings; probes_from_file left on the integration fix
 # and the three off-body streamline names (RX-16) left on the release, all now reached.
 # The owner confirms the growth over the release's 312.
-_REGISTER_CEILING = 288
-_REGISTER_DIGEST = "f423979639508662b15ffa38e28c31b22b6a01fdba39a747a774c62a706b1165"
+# 285: the far-field ledgers run transverse_force and sample_coverage (RX-01, RX-02 deleted).
+# 283: a steady row creates its probe lines and points through script.helpers (RX-07).
+# 281: the probe export goes through probes.emit_probe_export (RX-07 deleted, RX-04 shrinks).
+# 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
+# 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
+# 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
+_REGISTER_CEILING = 277
+_REGISTER_DIGEST = "e22b03ef34d2fe9bdd2a7c7ecf4976a9f160387fcdef6bc02e6232ca7e6e65f9"
 
 REASONS = (
     "routed later",
@@ -989,7 +995,10 @@ def test_p0400_reach_guard_refuses_stale_and_expired_rows(
     due = row_problems({"rows": [routed]}, routed["release"])
     assert len(due) == 1 and routed["node"] in due[0]
     assert row_problems({"rows": [routed]}, "0.0.1") == []
-    unsigned = {"rows": [{**routed, "reason": "Python-only by design"}]}
+    # A routed-later row may carry the decision that set its release; the
+    # planted row drops it, so it is unsigned whatever row came first.
+    bare = {key: value for key, value in routed.items() if key != "decision"}
+    unsigned = {"rows": [{**bare, "reason": "Python-only by design"}]}
     assert "names the owner decision" in row_problems(unsigned, "0.0.1")[0]
     pending = {"rows": [{**routed, "reason": "pending owner decision"}]}
     assert "is not one of" in row_problems(pending, "0.0.1")[0]

@@ -6751,6 +6751,13 @@ Requirements written after the specification was last reconciled with the packag
       units is written with no warning and its entry carries neither
       `velocity_convention` nor `rotation_timing`; the rows of 8172026 and the
       warning for every other build are unchanged.
+    - Revision (0.40.0, owner decision 2026-10-13, PFS-2140.011, marker
+      P0400-REACH2) `field_formats` also takes `"tecplot-points"`: the samples
+      of the field as one Tecplot ordered POINT zone, `<stem>_points.dat` with
+      its provenance record, written by `pyflightstream.post.write_tecplot_points`.
+      The `"tecplot"` product, one single-point zone per sample in
+      `<stem>.dat`, is unchanged, and the two may be requested together.
+      Evidence: `tests/tier1_offline/test_p0400_reach2_routes.py`.
 
     **Solution (0.29.0).** `docs/sampled-fields.md` and the writers behind it.
     R1 (0.33.0): the table `pyflightstream.post.field_frames.VELOCITY_EVIDENCE`

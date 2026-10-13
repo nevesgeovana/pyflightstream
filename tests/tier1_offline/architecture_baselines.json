@@ -239,8 +239,8 @@
    "positional": 7
   },
   "cases/workflows/_probes.py:_emit_one_probe_table": {
-   "complexity": 20,
-   "branches": 20,
+   "complexity": 19,
+   "branches": 18,
    "statements": 38,
    "positional": 5
   },

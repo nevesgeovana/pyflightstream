@@ -29,6 +29,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases import (
     windows as _windows,
 )
+from pyflightstream.probes.layouts import emit_probe_export
 from pyflightstream.script import (
     Script,
     helpers,
@@ -456,7 +457,12 @@ def _export_each_kind(
         if kind == "log" and skip_log:
             continue
         claimed.append(names.index(kinds[kind]) + 1)
-        if not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
+        if kind == "probes":
+            # THE PROBES HOME'S EXPORT (PFS-2140.001): the public emitter is what
+            # the workspace runs. UPDATE_PROBE_POINTS was emitted with the other
+            # updates (`_export_updates`), so the export does not repeat it.
+            emit_probe_export(script, kinds[kind], update=False)
+        elif not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
             script.emit(verb, kinds[kind])
     return claimed
 
