@@ -72,6 +72,15 @@ node file and every declared input, and the route taken.
   `inputs/fsi/`; a node file with no node.
 - `show_console` (a window per call on your desktop) and `morphing`.
 - Any `FSI_*_FACTOR` row key: the package does not know your model's properties.
+- A declared input or output named as a file the step owns, in any letter
+  case: `call.json`, `fsi_archive`, `fsi_external.json`,
+  `fsi_external_calls.csv`, `fsi_external_nodes.csv`,
+  `fsi_external_stdout.txt`, `pyfs_fsi_error.log`,
+  `FS_SurfaceSection_Loads.txt` and `FSIDisp.txt` (the exchange files are
+  archived anyway). The step's record and your program's file would overwrite
+  each other, so the input is refused when it is read, the plan refuses it
+  with the files it stages, and the step refuses such a manifest before your
+  program runs.
 - A run type other than `steady` or `unsteady`; more than one coupled family;
   symmetry copies; a continuation; a geometry that is not a fresh OBJ or STL
   import; a simulation not in metres.

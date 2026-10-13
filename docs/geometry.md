@@ -174,12 +174,22 @@ build prints what it carried over.
 An audit failure retains the built outputs and their record in the partial
 folder, including the exported mesh in its `mesh/` subfolder. Nothing is
 promoted, and a previously built body is preserved even with `--overwrite`.
+The record in a partial folder names the files where they are
+(`<name>.fsm`, `mesh/<name>_obj.obj`, `<name>.audit.json`), so it can be read
+and checked there. A partial folder is never a geometry a row names, and
+`geometry accept` refuses one.
 
-The exit status is 0 when the body is built and audited, 1 when it is built
+Nothing moves into a geometry folder until the whole build succeeded. Each
+geometry's record is written last, after its files, and its partial folder is
+removed after that, so an interrupted build never leaves a record naming a
+file that is not beside it. Building again with `--overwrite` completes it.
+
+The exit status is 0 when the body is built, audited and promoted, 1 when it is built
 and an audit gate failed (nothing is promoted; built outputs stay in the
 partial folder for inspection), 2 when the build is refused and
 nothing was written, 3 when the solver or the read-back failed (nothing is
-promoted and the partial folder keeps the script and the log).
+promoted and the partial folder keeps the script and the log). The command
+prints `geometry accept` for promoted geometries only.
 
 **Evidence on the build.** A build runs only commands the command database
 records as verified on the chosen build, for the commands the run did not
@@ -233,7 +243,11 @@ as `wing.sweep.vtk.previous` (with a numeric suffix when needed), so a failed
 replacement has no current overlay but keeps the earlier evidence. The new
 overlay is published only after its complete contents have been written.
 Variant outputs stay in their partial folders until all solver runs, audits and the
-overlay succeed, preserving earlier variant outputs on those failures.
+overlay succeed, preserving earlier variant outputs on those failures. A
+variant that passed its audit beside one that failed stays in its partial
+folder too; the command says so, naming the variant that failed, and exits 1.
+The overlay is published after the last variant is promoted, so it never
+shows a variant that is not in its folder.
 Quadrilateral saved meshes use the exported OBJ for the overlay, with only
 the selected control surface's families included.
 

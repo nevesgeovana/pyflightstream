@@ -32,8 +32,7 @@ from pyflightstream.cases.fsi_workspace import (
     emit_aeroelastic_rbf_type,
 )
 from pyflightstream.commands import CommandNotInVersionError
-from pyflightstream.fsi.external import EXTERNAL_MANIFEST
-from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
+from pyflightstream.fsi.external import EXTERNAL_MANIFEST, EXTERNAL_NODES_FILE, STEP_NAMES
 from pyflightstream.script import Script
 
 __all__ = [
@@ -41,9 +40,6 @@ __all__ = [
     "validate_external_fsi",
     "wire_external_fsi",
 ]
-
-#: The user's node file, as the point folder holds it.
-EXTERNAL_NODES_FILE = "fsi_external_nodes.csv"
 
 
 def validate_external_fsi(
@@ -152,19 +148,9 @@ def wire_external_fsi(
     structure = case.fsi_external
     if structure is None:
         return []
-    reserved = {
-        EXTERNAL_NODES_FILE,
-        EXTERNAL_MANIFEST,
-        POST_FILE,
-        CALLBACK_FILE,
-        "fsi-provenance.json",
-        LOADS_FILE,
-        DISPLACEMENT_FILE,
-        "fsi_external_calls.csv",
-        "pyfs_fsi_error.log",
-        "fsi_external_stdout.txt",
-        "fsi_archive",
-    }
+    # The step's own names (its point files and its archive record) and the
+    # files the plan stages beside them.
+    reserved = set(STEP_NAMES) | {POST_FILE, CALLBACK_FILE, "fsi-provenance.json"}
     source_name = Path(structure.source).name
     inputs = {name.casefold() for name in structure.inputs}
     collisions = inputs & {name.casefold() for name in reserved | {source_name}}

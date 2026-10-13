@@ -291,6 +291,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
         print(str(error), file=sys.stderr)
         return 3
     status = 0
+    failed = [item.record.name.removesuffix(".build.json") for item in built if not item.passed]
     for item in built:
         print(
             f"built {item.folder.name}: {item.record}; open "
@@ -306,7 +307,15 @@ def _cmd_build(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             status = 1
-    accepted = [item.folder.name for item in built if item.passed]
+        elif not item.promoted:
+            print(
+                f"  the audit passed, and it is not promoted: {', '.join(failed)} failed its "
+                "audit, and a build promotes all its geometries or none; kept in "
+                f"{item.folder} until the build passes whole",
+                file=sys.stderr,
+            )
+            status = 1
+    accepted = [item.folder.name for item in built if item.promoted]
     if accepted:
         print("accept after inspection: pyfs-workspace geometry accept " + ",".join(accepted))
     return status

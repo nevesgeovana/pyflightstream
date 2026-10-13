@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Iterable
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,19 +36,46 @@ from pyflightstream.fsi.nodes import read_fsidisp
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
 __all__ = [
+    "ARCHIVE_RECORD",
     "EXTERNAL_CALLS_LOG",
     "EXTERNAL_MANIFEST",
+    "EXTERNAL_NODES_FILE",
+    "STEP_NAMES",
     "ExternalStructure",
     "count_structural_nodes",
     "external_step",
+    "step_name_collisions",
 ]
 
 #: The manifest the plan stages in each point folder: what the step runs and checks.
 EXTERNAL_MANIFEST = "fsi_external.json"
 #: One row per call, appended by the step (FR-462 R3).
 EXTERNAL_CALLS_LOG = "fsi_external_calls.csv"
+#: The user's node file, as the point folder holds it.
+EXTERNAL_NODES_FILE = "fsi_external_nodes.csv"
+#: The record of one call, written by the step into the call's archive folder.
+ARCHIVE_RECORD = "call.json"
 _ARCHIVE_DIR = "fsi_archive"
 _ERROR_LOG = "pyfs_fsi_error.log"
+_STDOUT = "fsi_external_stdout.txt"
+#: Every name the step reads or writes in the point folder or in a call's archive
+#: (FR-462 R3, R4). A declared input or output under one of them, compared without
+#: case as the file system does, would be overwritten by the step or overwrite
+#: its file while the call reports success, so it is refused at reading, at plan
+#: and by the step itself before the program runs.
+STEP_NAMES = frozenset(
+    {
+        EXTERNAL_MANIFEST,
+        EXTERNAL_CALLS_LOG,
+        EXTERNAL_NODES_FILE,
+        ARCHIVE_RECORD,
+        _ARCHIVE_DIR,
+        _ERROR_LOG,
+        _STDOUT,
+        LOADS_FILE,
+        DISPLACEMENT_FILE,
+    }
+)
 _LOG_COLUMNS = (
     "call",
     "started",
@@ -134,6 +162,23 @@ class ExternalStructure(BaseModel):
         }
 
 
+def step_name_collisions(names: Iterable[str]) -> list[str]:
+    """Return the names that are, without case, a name of :data:`STEP_NAMES` (FR-462 R4).
+
+    Parameters
+    ----------
+    names : iterable of str
+        Declared input or output file names.
+
+    Returns
+    -------
+    list of str
+        The colliding names, as declared, in their order.
+    """
+    owned = {name.casefold() for name in STEP_NAMES}
+    return [name for name in names if name.casefold() in owned]
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -186,11 +231,11 @@ def _append_log(directory: Path, row: dict[str, object]) -> None:
 
 def _verify_digests(directory: Path, structure: ExternalStructure) -> str | None:
     """Return why a digest differs from the plan's, or None."""
-    nodes = directory / "fsi_external_nodes.csv"
+    nodes = directory / EXTERNAL_NODES_FILE
     if not nodes.is_file():
-        return "the structural node file fsi_external_nodes.csv is missing"
+        return f"the structural node file {EXTERNAL_NODES_FILE} is missing"
     if _sha256(nodes) != structure.structural_nodes_sha256:
-        return "the structural node file fsi_external_nodes.csv changed after the plan hashed it"
+        return f"the structural node file {EXTERNAL_NODES_FILE} changed after the plan hashed it"
     executable = Path(structure.executable)
     if not executable.is_file():
         return f"the executable {executable} is missing"
@@ -229,7 +274,7 @@ def _run_program(
         return None, time.perf_counter() - started, f"could not start: {error}"
     seconds = time.perf_counter() - started
     _textio.write_text(
-        directory / "fsi_external_stdout.txt",
+        directory / _STDOUT,
         done.stdout.decode("utf-8", errors="replace")
         + done.stderr.decode("utf-8", errors="replace"),
     )
@@ -268,7 +313,9 @@ def external_step(directory: str | Path) -> int:
     -------
     int
         0 when the call passed every check; 1 otherwise, with the reason in
-        ``pyfs_fsi_error.log``, which stops the coupling.
+        ``pyfs_fsi_error.log``, which stops the coupling. A manifest declaring an
+        input or output under a name of :data:`STEP_NAMES` returns 1 before the
+        program runs and before anything is archived.
     """
     folder = Path(directory)
     stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
@@ -279,12 +326,23 @@ def external_step(directory: str | Path) -> int:
         with _textio.open_text(folder / _ERROR_LOG, "a") as log:
             log.write(f"{stamp} pyfs-fsi external: cannot read {manifest}: {error}\n")
         return 1
+    taken = step_name_collisions([*structure.inputs, *structure.outputs])
+    if taken:
+        # A manifest the plan would have refused: running the program would let
+        # its files and the step's overwrite each other, so nothing runs.
+        with _textio.open_text(folder / _ERROR_LOG, "a") as log:
+            log.write(
+                f"{stamp} pyfs-fsi external: {manifest} declares "
+                f"{', '.join(repr(name) for name in taken)}, a name the archiving step "
+                "owns; the program was not run and nothing was archived\n"
+            )
+        return 1
     call = _next_call(folder)
     archive = folder / _ARCHIVE_DIR / f"call_{call:04d}"
     archive.mkdir(parents=True, exist_ok=True)
     loads = folder / LOADS_FILE
     read: dict[str, str] = {}
-    nodes = folder / "fsi_external_nodes.csv"
+    nodes = folder / EXTERNAL_NODES_FILE
     if nodes.is_file():
         read[nodes.name] = _sha256(nodes)
     if loads.is_file():
@@ -325,7 +383,7 @@ def external_step(directory: str | Path) -> int:
         "verdict": verdict,
         "reason": reason or "",
     }
-    _textio.write_text(archive / "call.json", json.dumps(record, indent=2) + "\n")
+    _textio.write_text(archive / ARCHIVE_RECORD, json.dumps(record, indent=2) + "\n")
     _append_log(folder, record)
     if reason is None:
         return 0
