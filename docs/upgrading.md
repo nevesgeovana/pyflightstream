@@ -50,6 +50,52 @@ seeded through update-reference from a measured 26.125 report; old induced-drag
 references are never substituted. Explicit zero wake or trailing-edge counts
 and rotor efficiency above 1 warn in post.log and leave run status unchanged.
 
+### Far-field signatures
+
+`pyflightstream.farfield` takes and returns numpy arrays and small frozen
+containers: `LatticeFields` for the survey samples and their coordinates, and
+a result dataclass where a function returned an `xarray.Dataset`. `xarray` is
+no longer a required dependency, and the numbers are unchanged to the last
+bit. Every far-field signature that changed, the 0.39.0 one beside the one
+that replaces it; all are in `pyflightstream.farfield` except
+`dataset_to_points`, which was `pyflightstream.post.dataset_to_points`:
+
+| 0.39.0 | 0.40.0 |
+|---|---|
+| `axial_flux(ds: xr.Dataset, rho: float, v_inf: float) -> xr.DataArray` | `axial_flux(fields: LatticeFields, rho: float, v_inf: float) -> np.ndarray` |
+| `axial_force(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float` | `axial_force(fields: LatticeFields, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float` |
+| `azimuthal_harmonics(da: xr.DataArray, *, m_max: int=6) -> xr.DataArray` | `azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int=6) -> np.ndarray` |
+| `crossflow_kinetic_energy(ds: xr.Dataset, rho: float) -> xr.Dataset` | `crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEnergy` |
+| `cylindrical_components(ds: xr.Dataset) -> xr.Dataset` | `cylindrical_components(fields: LatticeFields) -> LatticeFields` |
+| `in_plane_moment(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> xr.Dataset` | `in_plane_moment(fields: LatticeFields, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> InPlaneMoment` |
+| `irreversible_deficit(w_rel: xr.DataArray, delta_rothalpy: xr.DataArray, entropy_enthalpy_rise: xr.DataArray) -> xr.Dataset` | removed, handed to ITACA for evaluation (below) |
+| `lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset` | `lattice_fields(lattice: ProbeLattice, fields: Mapping[str, np.ndarray], *, lateral: Mapping[str, np.ndarray] \| None=None) -> LatticeFields` |
+| `mass_closure(ds: xr.Dataset, rho: float) -> xr.Dataset` | `mass_closure(fields: LatticeFields, rho: float) -> MassClosure` |
+| `mass_flux(ds: xr.Dataset, rho: float) -> xr.DataArray` | `mass_flux(fields: LatticeFields, rho: float) -> np.ndarray` |
+| `plane_integral(ds: xr.Dataset, integrand: xr.DataArray) -> xr.DataArray` | `plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray` |
+| `ring_sample_weights(ds: xr.Dataset) -> xr.DataArray` | `ring_sample_weights(fields: LatticeFields) -> np.ndarray` |
+| `rothalpy(h_total: xr.DataArray, omega: float, r: xr.DataArray, v_theta: xr.DataArray) -> xr.DataArray` | removed, handed to ITACA for evaluation (below) |
+| `sample_coverage(integrand: xr.DataArray) -> xr.DataArray` | `sample_coverage(integrand: np.ndarray) -> np.ndarray` |
+| `shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray` | `shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray` |
+| `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int=6) -> float` |
+| `transverse_flux(ds: xr.Dataset, rho: float, *, component: str='w', method: str='quadrature') -> xr.DataArray` | `transverse_flux(fields: LatticeFields, rho: float, *, component: str='w', method: str='quadrature') -> np.ndarray` |
+| `transverse_force(ds: xr.Dataset, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> xr.Dataset` | `transverse_force(fields: LatticeFields, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> TransverseForce` |
+| `dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]` | `LatticeFields.points(self) -> tuple[np.ndarray, dict[str, np.ndarray]]` |
+
+A field read as `ds["u"]` is now `fields["u"]`, a numpy array shaped station,
+ring, azimuth, and `ds.coords["psi"]` is `fields.psi`; `ds["u"].sel(station=x)`
+is `fields["u"][fields.station_index(x)]`. A result read by key
+(`mass_closure(...)["mdot"]`, `transverse_force(...)["total"]`) is read by
+attribute (`.mdot`, `.total`). `to_counts` and `spurious_diagnostic` keep their
+signatures. The retired `lattice_dataset` and `dataset_to_points` refuse when
+called, naming the replacement in this table.
+
+`farfield.rothalpy` and `farfield.irreversible_deficit` were removed in 0.40.0,
+with no deprecation release: both apply to an Euler CFD field, where total
+enthalpy and entropy exist, and no FlightStream output carries total enthalpy
+or entropy. A call refuses, naming ITACA, the sister library, where both were
+handed for evaluation.
+
 ### The command that does it
 
 Run `pyfs-matrix post` to rebuild products from recorded solver exports.

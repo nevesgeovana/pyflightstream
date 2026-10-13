@@ -1,0 +1,28 @@
+{
+ "captured_at": "22e105cb",
+ "release": "0.39.0",
+ "rule": "ast.unparse of each public function's arguments and return annotation, as written",
+ "signatures": {
+  "pyflightstream.farfield.axial_flux": "axial_flux(ds: xr.Dataset, rho: float, v_inf: float) -> xr.DataArray",
+  "pyflightstream.farfield.axial_force": "axial_force(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float",
+  "pyflightstream.farfield.azimuthal_harmonics": "azimuthal_harmonics(da: xr.DataArray, *, m_max: int=6) -> xr.DataArray",
+  "pyflightstream.farfield.crossflow_kinetic_energy": "crossflow_kinetic_energy(ds: xr.Dataset, rho: float) -> xr.Dataset",
+  "pyflightstream.farfield.cylindrical_components": "cylindrical_components(ds: xr.Dataset) -> xr.Dataset",
+  "pyflightstream.farfield.in_plane_moment": "in_plane_moment(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> xr.Dataset",
+  "pyflightstream.farfield.irreversible_deficit": "irreversible_deficit(w_rel: xr.DataArray, delta_rothalpy: xr.DataArray, entropy_enthalpy_rise: xr.DataArray) -> xr.Dataset",
+  "pyflightstream.farfield.lattice_dataset": "lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset",
+  "pyflightstream.farfield.mass_closure": "mass_closure(ds: xr.Dataset, rho: float) -> xr.Dataset",
+  "pyflightstream.farfield.mass_flux": "mass_flux(ds: xr.Dataset, rho: float) -> xr.DataArray",
+  "pyflightstream.farfield.plane_integral": "plane_integral(ds: xr.Dataset, integrand: xr.DataArray) -> xr.DataArray",
+  "pyflightstream.farfield.ring_sample_weights": "ring_sample_weights(ds: xr.Dataset) -> xr.DataArray",
+  "pyflightstream.farfield.rothalpy": "rothalpy(h_total: xr.DataArray, omega: float, r: xr.DataArray, v_theta: xr.DataArray) -> xr.DataArray",
+  "pyflightstream.farfield.sample_coverage": "sample_coverage(integrand: xr.DataArray) -> xr.DataArray",
+  "pyflightstream.farfield.shaft_torque": "shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray",
+  "pyflightstream.farfield.spurious_diagnostic": "spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float",
+  "pyflightstream.farfield.symmetry_floor": "symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float",
+  "pyflightstream.farfield.to_counts": "to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float",
+  "pyflightstream.farfield.transverse_flux": "transverse_flux(ds: xr.Dataset, rho: float, *, component: str='w', method: str='quadrature') -> xr.DataArray",
+  "pyflightstream.farfield.transverse_force": "transverse_force(ds: xr.Dataset, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> xr.Dataset",
+  "pyflightstream.post.dataset_to_points": "dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]"
+ }
+}
