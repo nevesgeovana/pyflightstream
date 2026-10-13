@@ -28,6 +28,19 @@ steps per revolution; the tables of rotors other than the clock rotor, and
 the `windows` of their manifest entries, change when the campaign is posted
 again. No re-run is needed.
 
+The `reduction` and `reduction_window` columns say what a row of an unsteady
+simulation is. A row read from the native unsteady export, in the sweep table
+(`campaign_sweep.csv` and the tables of `pyflightstream.results`) and in the super polar
+of an unsteady simulation, is its last time step: `last_step` over
+`last_time_step`, where 0.39.0 wrote `time_average` over `not_printed`. A row
+of the unsteady polar, `polars/P<sim>_<name>_uns_avg.csv`, is the package's
+average over the window its `FIRST_STEP`, `LAST_STEP` and `STEPS` state:
+`time_average` over the new `averaging_window` (code 4), where 0.39.0 wrote
+`not_printed`, or `none` over `not_applicable` when the native export printed
+a steady mode. Select an unsteady polar row by `reduction == "time_average"`
+and a native-export row by `"last_step"`. Post again to rebuild the products;
+no re-run is needed.
+
 The settings table (`settings/*_settings.csv`) writes each value at its
 shortest exact spelling (`30.0` where it wrote `30.00000`, `1e-05` where it
 wrote `0.00001`); the values read back are unchanged or more exact.

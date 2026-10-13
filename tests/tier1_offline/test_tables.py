@@ -996,6 +996,7 @@ def test_the_published_codes_are_integers_and_append_only():
         "not_printed": 1,
         "unknown": 2,
         "last_time_step": 3,
+        "averaging_window": 4,
     }
     assert (origin_code("raw"), origin_code("reduced")) == (0, 1)
     assert reduction_code("time_average") == 1

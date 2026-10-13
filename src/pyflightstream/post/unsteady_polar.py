@@ -55,7 +55,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.axes import polar_axis_coefficients
 from pyflightstream.post.equations import apply_equations
 from pyflightstream.post.unsteady import blade_passage_average
-from pyflightstream.results import FrozenSolve
+from pyflightstream.results import REDUCTION_COLUMN, REDUCTION_WINDOW_COLUMN, FrozenSolve
 
 if TYPE_CHECKING:
     pass
@@ -76,6 +76,22 @@ _WINDOW_COLUMNS: tuple[str, ...] = ("FIRST_STEP", "LAST_STEP", "STEPS")
 #: point's geometry as its inventory states it, ``NA`` where it states none. Last
 #: so a reader that takes the columns of 0.33 by position keeps every one of them.
 _LAST_COLUMNS: tuple[str, ...] = (MESH_FACES_COLUMN,)
+
+#: What the provenance cells of a row say (FR-32): the row is the package's
+#: time average over the window its first columns state. The super content
+#: carries the sweep row's cells, which describe the native export, the last
+#: time step (``last_step`` over ``last_time_step``); written unchanged here
+#: they said an averaged row was an instant.
+_AVERAGED_ROW_PROVENANCE: dict[str, str] = {
+    REDUCTION_COLUMN: "time_average",
+    REDUCTION_WINDOW_COLUMN: "averaging_window",
+}
+
+
+def _averaged(content: Mapping[str, object]) -> dict[str, object]:
+    """Return a copy of a point's super content whose provenance cells name the average."""
+    stated = {key: token for key, token in _AVERAGED_ROW_PROVENANCE.items() if key in content}
+    return {**content, **stated}
 
 
 def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
@@ -171,7 +187,10 @@ def write_unsteady_polar(
 
     THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT (0.24.0). Each row opens with
     `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
-    already use; the window used to be in `products.json` alone. The moment point
+    already use; the window used to be in `products.json` alone. Its `reduction`
+    and `reduction_window` cells, which the super content carries over from the
+    sweep row, say so too: `time_average` over `averaging_window` (0.40.0), and
+    never the sweep row's `last_step`, which describes the native export. The moment point
     follows the reference lengths, because the plots carry `MX_/MY_/MZ_` columns
     and a moment states nothing without the point it is about.
 
@@ -358,7 +377,9 @@ def write_unsteady_polar(
         for name in values:
             if name not in columns:
                 columns.append(name)
-        rows.append((condition, values, point_window, dict((setup or {}).get(name_of_point, {}))))
+        rows.append(
+            (condition, values, point_window, _averaged((setup or {}).get(name_of_point, {})))
+        )
         contributors.append(name_of_point)
     if not rows:
         return None
