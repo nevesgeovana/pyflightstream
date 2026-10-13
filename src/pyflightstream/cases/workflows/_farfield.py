@@ -38,6 +38,7 @@ from pyflightstream.cases.farfield_inputs import (
     applies,
     few_stations_warning,
     resolve_farfield,
+    traced_family,
 )
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.layouts import (
@@ -200,7 +201,12 @@ def _selected(case: SimCase, spec: FarfieldSpec, inventory: Sequence[str]) -> li
 
 
 def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
-    """Return the families a declared distribution cuts in XZ of the reference axes."""
+    """Return the families a declared distribution cuts alone in XZ of the reference axes.
+
+    A block of several families is an aggregate Trefftz A cannot trace, so it
+    covers none of them and the plan adds their own (:func:`traced_family`,
+    the rule post reads by, PFS-2081.100).
+    """
     covered: set[str] = set()
     if case.pproc is None:
         return covered
@@ -209,7 +215,9 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
         if "XZ" not in entry.planes or entry.frame.strip().upper() not in ("MRP", "REFERENCE"):
             continue
         for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
-            covered.update(group or inventory)
+            name = traced_family(group, inventory)
+            if name is not None:
+                covered.add(name)
     return covered
 
 
@@ -234,7 +242,8 @@ def _warn_few_stations(
         count = int(entry.count or sections.count)
         side = count if mirror else count // 2
         for group in select_families(entry.families, inventory, case.pproc.is_blade, aliases):
-            for name in group or inventory:
+            name = traced_family(group, inventory)
+            if name is not None:
                 per_side[name] = max(per_side.get(name, 0), side)
     for name in reused:
         few = few_stations_warning(name, per_side.get(name, 0), spec.trefftz.stations)
@@ -905,6 +914,70 @@ def _frame_origin(
     return origin
 
 
+def _complete_declared_plots(
+    case: SimCase,
+    script: Script,
+    frames: Any,
+    shape: FarfieldShape,
+    recorded: dict[str, Any],
+    native_per_m: float,
+) -> None:
+    """Add the fluid plots a reused declared set lacks, on its own vertices (PFS-2081.99).
+
+    The far field reads ``VX``, ``VY``, ``VZ`` and ``CP_REF`` at every time
+    step; a declared entry states its own ``parameters``, so reusing its points
+    reuses its histories and adds only the missing ones, at the same vertices,
+    in the frame the entry laid them in (a reused frame keeps the reference
+    axes, :func:`_frame_origin`). The added plots are recorded on the shape as
+    ``plots_added`` and their count is warned (FR-455 R9).
+    """
+    entries = case.pproc.probes if case.pproc is not None else []
+    entry = entries[int(shape.entry or 0) - 1]
+    stated = {str(parameter).strip().upper() for parameter in entry.parameters}
+    missing = [name for name in FARFIELD_PLOT_PARAMETERS if name not in stated]
+    if not missing:
+        return
+    label = str(recorded.get("positions_frame", "REFERENCE")).strip().upper()
+    expected = shape.points_m
+    if label != "REFERENCE":
+        expected = expected - np.asarray(recorded["origin_m"], dtype=float)
+    laid = [point for point in script.probe_points if str(point[4]).strip().upper() == label]
+    native = np.asarray([point[1:4] for point in laid], dtype=float).reshape(-1, 3)
+    count = len(expected)
+    starts = [
+        start
+        for start in range(len(laid) - count + 1)
+        if _same_points(native[start : start + count] / native_per_m, expected, native_per_m)
+    ]
+    if len(starts) != 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the far field reuses the {shape.kind} of [[probes]] entry "
+            f"{shape.entry}, and its points are laid {len(starts)} times in {label!r}, so the "
+            f"histories it lacks ({', '.join(missing)}) cannot be added to them"
+        )
+    from ._frames import _pproc_frame
+
+    frame = 1 if label == "REFERENCE" else _pproc_frame(case, frames, entry.frame, "the probes")
+    vertices = laid[starts[0] : starts[0] + count]
+    warn(
+        f"case {case.sim_id!r}: the far field reuses the {shape.kind} of [[probes]] entry "
+        f"{shape.entry} and adds its missing histories {', '.join(missing)}: "
+        f"{count * len(missing)} fluid plots at every time step (FR-455 R9).",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+    for point in vertices:
+        for parameter in missing:
+            script.emit(
+                "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+                frame=frame,
+                parameter=parameter,
+                name=f"{parameter}{point[0]}",
+                vertex=" ".join(str(float(value) / native_per_m) for value in point[1:4]),
+            )
+    recorded["plots_added"] = missing
+
+
 def farfield_probes(
     case: SimCase, script: Script, vertex: int, *, unsteady: bool, frames: Any = None
 ) -> int:
@@ -922,12 +995,13 @@ def farfield_probes(
         _refuse(case, resolution)
     native_per_m = _from_metres(case, script, "far-field probe coordinates")
     shapes = farfield_shapes(case, script, frames, native_per_m)
-    script.farfield_layout.append(
-        {"point": dict(case.point), "shapes": [shape.record() for shape in shapes]}
-    )
+    records = [shape.record() for shape in shapes]
+    script.farfield_layout.append({"point": dict(case.point), "shapes": records})
     imported: list[tuple[float, float, float]] = []
-    for shape in shapes:
+    for shape, recorded in zip(shapes, records, strict=True):
         if shape.source != "added":
+            if unsteady:
+                _complete_declared_plots(case, script, frames, shape, recorded, native_per_m)
             continue
         what, points = shape.kind, shape.points_m
         native = np.round(points * native_per_m, 5)
