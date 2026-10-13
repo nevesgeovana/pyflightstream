@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -60,7 +61,7 @@ def _case(root: Path, farfield: dict, **pproc: object):
     return case.model_copy(update={"outputs": row_outputs(case, "steady")})
 
 
-def _script(case) -> str:
+def _script(case) -> Script:
     script = Script("26.124")
     build_script(case, script)
     return script
@@ -115,7 +116,8 @@ def test_p0400_ffplan_the_plane_is_added_as_probes(tmp_path):
     assert len(script.probe_points) == 7 * 5
     xs = {round(point[1], 5) for point in script.probe_points}
     assert xs == {round(1.0 + 0.25 * 4.0, 5)}, "the plane stands distance_bref BREF aft"
-    assert script.render().count("NEW_PROBE_POINT") == 35
+    assert script.render().count("PROBE_POINTS_IMPORT") == 1
+    assert "NEW_PROBE_POINT" not in script.render()
     assert any(name.endswith("_probes.txt") for name in case.outputs)
 
 
@@ -193,7 +195,8 @@ def _resolve(**overrides: object):
             },
         }
     ).farfield
-    arguments: dict[str, object] = {
+    assert spec is not None
+    arguments: dict[str, Any] = {
         "run_type": "steady",
         "covered_families": {"W"},
         "selected_families": ["W"],

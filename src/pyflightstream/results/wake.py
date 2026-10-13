@@ -5,13 +5,15 @@ surface when ``SET_VTK_EXPORT_VARIABLES`` states the wake: VTK legacy ASCII
 polydata of POINTS, two-point LINES and one cell scalar,
 ``Normalized_Vorticity``. The segments chain into one wake line per
 trailing-edge node, each line carrying one value, constant along it; the value
-is proportional to the potential jump of the line's wake strip. Trefftz B of
+is the circulation shed by that wake line. Trefftz B of
 the far-field family reads it (:mod:`pyflightstream.farfield.trefftz`).
 
 Refused, as every reader refuses (FR-16, FR-17): a file whose counts do not add
 up, a file that ends inside a block it declared, polygons (a surface is not a
 wake), a segment that is not two points, a chain that branches or closes, and a
-value that changes along one line.
+value that changes along one line. Empty polygon blocks and the exported
+point-coordinate scalars are accepted; connected node indices preserve both
+mirror halves and collapsed lines.
 """
 
 from __future__ import annotations
@@ -208,8 +210,22 @@ _REFUSED_BLOCKS = {
     "POLYGONS": "a wake export carries lines alone, and a file with polygons is a surface",
     "VERTICES": "a wake export carries lines alone",
     "TRIANGLE_STRIPS": "a wake export carries lines alone",
-    "POINT_DATA": "it states one value per segment",
 }
+
+
+def _point_data(rows: Iterator[str], words: list[str], points: np.ndarray | None) -> None:
+    """Consume the solver's redundant X, Y and Z point scalars, checking their counts."""
+    if points is None or int(words[1]) != len(points):
+        raise MalformedOutputError("the wake export's POINT_DATA count differs from POINTS")
+    for name in ("X", "Y", "Z"):
+        scalar = next(rows, "").split()
+        if len(scalar) < 3 or scalar[:2] != ["SCALARS", name]:
+            raise MalformedOutputError(f"the wake export's POINT_DATA needs the {name} scalar")
+        if len(scalar) > 3 and scalar[3] != "1":
+            raise MalformedOutputError(f"the wake export's {name} scalar needs one component")
+        if not next(rows, "").strip().upper().startswith("LOOKUP_TABLE"):
+            raise MalformedOutputError(f"the wake export's {name} scalar needs LOOKUP_TABLE")
+        _numbers(_tokens(rows, len(points), name), name, float)
 
 
 def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -228,6 +244,10 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             segments = _read_lines(rows, words)
         elif keyword == "CELL_DATA":
             values = _read_values(rows, words, segments)
+        elif keyword == "POLYGONS" and words[1:] == ["0", "0"]:
+            continue
+        elif keyword == "POINT_DATA":
+            _point_data(rows, words, points)
         elif keyword in _REFUSED_BLOCKS:
             raise MalformedOutputError(
                 f"the wake export carries {keyword}; {_REFUSED_BLOCKS[keyword]}, not a wake"
@@ -245,6 +265,12 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 def _shared_nodes(points: np.ndarray, segments: np.ndarray) -> np.ndarray:
     """Re-index segments so a node written twice at one position is one node."""
+    # Connected node indices are authoritative. Coalescing by position would
+    # fuse the two root lines of a mirror export and erase collapsed segments.
+    # The older disconnected-segment layout needs coordinate stitching only
+    # when every node belongs to exactly one segment.
+    if len(segments) and np.bincount(segments.ravel()).max() > 1:
+        return segments
     _, canonical = np.unique(points, axis=0, return_inverse=True)
     canonical = np.asarray(canonical).reshape(-1)
     first_of = np.full(int(canonical.max()) + 1 if len(canonical) else 0, -1, dtype=np.int64)
