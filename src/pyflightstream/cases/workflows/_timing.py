@@ -215,7 +215,7 @@ class TimeStepping:
 
     @property
     def steps_per_revolution(self) -> float | None:
-        """Solver steps in one revolution, or None without a rotor speed.
+        """Solver steps in one revolution, or None without a turning rotor.
 
         FROM THE AZIMUTHAL STEP WHERE THE CLOCK WAS STATED THAT WAY, and
         from the seconds only where it was not. A revolution is 360
@@ -227,7 +227,11 @@ class TimeStepping:
         """
         if self.delta_theta_deg:
             return 360.0 / self.delta_theta_deg
-        if self.rpm is None or self.delta_time_s <= 0.0:
+        # A ROTOR AT REST HAS NO REVOLUTION, so a speed of zero answers
+        # None as no speed does: the explicit clock is the form the
+        # stationary-rotor refusal tells the user to write, and 60 / 0
+        # here turned that advice into a bare ZeroDivisionError.
+        if not self.rpm or self.delta_time_s <= 0.0:
             return None
         return 60.0 / (abs(self.rpm) * self.delta_time_s)
 
@@ -391,12 +395,7 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
                 f"missing key, or state {DELTA_THETA_VARIABLE} and "
                 f"{REVOLUTIONS_VARIABLE} instead and let both be derived."
             )
-        delta_time_s = _required_float(
-            case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
-        )
-        iterations = _required_int(
-            case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
-        )
+        delta_time_s, iterations = _explicit_clock(case)
         resolved = _own_speed(case, speed) if speed is not None else _optional_rotor_speed(case)
         return TimeStepping(
             stated_form="explicit",
@@ -463,6 +462,32 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         revolutions=revolutions,
         rpm=resolved.rpm,
     )
+
+
+def _explicit_clock(case: SimCase) -> tuple[float, int]:
+    """Return the stated ``DELTA_TIME`` and ``TIME_ITERATIONS``, refusing a non-positive one.
+
+    ONE READER FOR BOTH RUN TYPES, bounded as the run-wake step already is:
+    a zero or negative step or count passed the conversion and was emitted
+    as ``TIME_ITERATIONS -3`` and ``DELTA_TIME -0.01``.
+    """
+    delta_time_s = _required_float(
+        case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
+    )
+    if delta_time_s <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {DELTA_TIME_VARIABLE} as {delta_time_s:g}, and a "
+            "time step is a positive number of seconds. State a positive step."
+        )
+    iterations = _required_int(
+        case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
+    )
+    if iterations < 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {TIME_ITERATIONS_VARIABLE} as {iterations}, and "
+            "a run marches at least one time step. State a positive count."
+        )
+    return delta_time_s, iterations
 
 
 def _refuse_an_azimuthal_step_outside_one_turn(case: SimCase, theta: float) -> None:
@@ -672,14 +697,11 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
             f"{', '.join(missing)}. The clock is a PAIR: a step with no count has no "
             "length and a count with no step has no duration. Add the missing key."
         )
+    delta_time_s, iterations = _explicit_clock(case)
     return TimeStepping(
         stated_form="explicit",
-        delta_time_s=_required_float(
-            case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
-        ),
-        time_iterations=_required_int(
-            case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
-        ),
+        delta_time_s=delta_time_s,
+        time_iterations=iterations,
         delta_theta_deg=None,
         revolutions=None,
         rpm=None,

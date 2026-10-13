@@ -56,3 +56,29 @@ def test_p0400_jobpoints_each_point_keeps_its_own_limit_and_note():
     assert first.iterations_requested == 500
     assert first.residual_note == "unsettled at the iteration limit (500)"
     assert second.iterations_requested is None and second.residual_note is None
+
+
+def test_p0400_jobpoints_mark_failed_withholds_job_points_from_post(tmp_path):
+    """Exercise the writer, expansion and post admission together."""
+    from pyflightstream.post._products_campaign import _admit_campaign_records
+    from pyflightstream.run.records import mark_failed
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace(tmp_path)
+    workspace.append_record(_job())
+    mark_failed(tmp_path, ["7002"], reason="wrong mesh", apply=True)
+    records = workspace.read_manifest()
+    assert all(p.status == RunStatus.FAILED_MARKED for r in records for p in r.as_points())
+    admitted, skipped = {}, {}
+    _admit_campaign_records(
+        workspace,
+        records,
+        sims=None,
+        superseded={},
+        check_frozen=True,
+        by_sim=admitted,
+        skipped=skipped,
+    )
+    assert admitted == {}
+    assert len(skipped) == 2
+    assert all("FAILED_MARKED" in reason for reason in skipped.values())

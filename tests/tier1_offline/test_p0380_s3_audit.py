@@ -140,8 +140,10 @@ def test_a_level_equal_to_its_source_passes_every_gate_and_check(tmp_path):
     assert [i.verdict for i in audit.gates] == ["pass"] * len(audit.gates)
     assert {i.name for i in audit.gates} == {"G1", "G2", "G3", "G4", "G5", "G6"}
     assert _item(audit, "G2", "Pod").values["enclosed_volume"] > 0
+    # P0400-TECHAIN: the line's length and its ends join the counts.
     assert _item(audit, "G4").values == {
-        "points": NY, "points_on_edges": NY, "chains": 1, "source_chains": 1
+        "points": NY, "points_on_edges": NY, "chains": 1, "source_chains": 1,
+        "length": 1.0, "source_length": 1.0, "source_ends": 2, "source_ends_missing": 0,
     }  # fmt: skip
     assert _item(audit, "G5", "A and B").values["shared_nodes"] == NX + 1
     assert {i.verdict for i in audit.checks} <= {"pass", "not judged"}

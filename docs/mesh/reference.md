@@ -784,7 +784,7 @@ before they are matched to the mesh's edges, by `refine` and `audit-mesh`
 alike, and the level's points file is written back in the source file's unit.
 A unit that names no scale (OTHER) is then refused.
 
-`refine.json` states `schema_version` (1), `source`, `level`, `config` (the
+`refine.json` states `schema_version` (2), `source`, `level`, `config` (the
 refinement file read, or null), `specs` (the factors of each family),
 `tag_selection` (the selected families, for a tag shortened to the summary and
 the hash),
@@ -820,7 +820,10 @@ Its `families` entry holds, per family:
   face counts before and after; a family remeshed at factor 1 that shares a
   curve with a refined side adds `shared_edge_target_m`, the minimum, mean and
   maximum of its target length at its nodes on that curve, in metres, for
-  example `{"min": 0.0021, "mean": 0.0034, "max": 0.0052}`;
+  example `{"min": 0.0021, "mean": 0.0034, "max": 0.0052}`. The mesh's
+  `[import] units` supplies the conversion. If no convertible mesh unit is
+  stated, the record uses `shared_edge_target_mesh_units` instead, with
+  lengths in the source coordinates;
 - a neighbour the two-layer band would cover whole: `method`
   `"rebuilt_whole"`, `reason` `"band_covers_family"`, `band` and `faces` (both
   the family's face count in the source), remeshed whole at factor 1 as if its
@@ -831,8 +834,19 @@ Its `families` entry holds, per family:
 
 A key may be added to `refine.json` or `audit.json` without changing
 `schema_version`; a key is removed or changes type only with a new one.
+`refine.json` uses schema version 2 from 0.40.0 for the conditional target
+unit keys above; the audit schema remains version 1.
 
 ### The row kept at an interface
+
+Detection that writes a trailing-edge points file requires `[import] units`
+in the boundaries file. When both chordwise extremes are sharp, state
+`trailing_edge_direction = [x, y, z]` in the family's refinement table: a
+nonzero direction in the mesh's coordinate frame, pointing from leading to
+trailing edge. Equal projections or a missing direction are refused; there
+is no assumed global aft axis. Listed trailing-edge points take precedence.
+As with `keep_first_row`, this family option is read when the file supplies
+the refinement factors. Use the refinement file for this route.
 
 `keep_first_row` (the file key, `--keep-first-row FAMILY[,FAMILY...]` or the
 `keep_first_row` keyword of `refine_mesh`; the three routes resolve to the
@@ -860,10 +874,17 @@ edge to keep the spanwise width of its row of panels at another component.
   when the boundaries file routes the trailing edge to detection, the edges
   the package detects on the source; `refine.json` states which under
   `trailing_edge` (`"points file"` or `"detected"`). Detection takes the edges
-  of the family sharper than the ridge angle (40 degrees) that form the grid
-  line from station 0 to the far station at the aft chordwise extreme (aft is
-  +x in the frame of x aft, y starboard, z up), so a sharp leading edge or a
-  crease is not taken; two sharp extremes level in x are refused.
+  sharper than the ridge angle (40 degrees), measured across all families,
+  that form a grid line from station 0 to the far station. Two sharp extremes
+  require the family's `trailing_edge_direction`; the larger projection is
+  the trailing edge. Equal projections are refused. A detected line is
+  written to the level's points file, `<level>.te.txt`, and when every
+  family the `detect` route selects is one whose line was detected, the
+  level's boundaries file states `file = "<level>.te.txt"` in place of
+  `detect`, so the run marks the line the refinement kept and the audit
+  checked. When the route also covers a family the refinement did not
+  detect on, `detect` stays (a boundaries file states one route) and a
+  warning names the points file the run does not read.
 - **Record.** The family's entry of `refine.json` holds `kept_rows`, the kept
   end stations; the key is absent when the option is not asked. The family's
   part of the tag carries `k`.
@@ -895,7 +916,7 @@ FIGURE is reported and never judged.
 | G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
 | G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
 | G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
-| G4 | a trailing-edge point lies on no mesh edge, or the trailing-edge chains are not the source's in number |
+| G4 | a trailing-edge point lies on no mesh edge, the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
 | G5 | two families that shared nodes in the source share none |
 | G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |
 

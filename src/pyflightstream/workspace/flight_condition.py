@@ -40,34 +40,39 @@ WHAT EACH KEY DOES TO THE STATE:
 * ``ALTFT`` and ``dISA`` fix TEMPERATURE, and therefore the speed of
   sound and the viscosity. Both have defaults, sea level and zero, and
   those defaults are what make a short constraint set legal at all.
+  A ``TK`` pin replaces that temperature, and the speed of sound
+  (``sqrt(gamma R T)``), the Sutherland viscosity, the Mach conversion
+  and the density follow the pinned value exactly as they follow a
+  ``dISA``; only an ``ASMPS`` or ``MUPas`` pin of its own replaces them.
 * ``MACH`` or ``TASmps`` fixes VELOCITY. Exactly one of them, always:
   none leaves the state under-determined, both is a contradiction the
   resolver refuses rather than silently preferring one.
 * ``REmi`` fixes DENSITY, by solving the Reynolds definition for it. If
-  it is absent, density is the atmosphere's own value at the stated
-  altitude, and the Reynolds number becomes an OUTCOME instead.
+  it is absent, density is the equation of state at the altitude's
+  pressure (or a ``PPA`` pin) and the state's temperature, which is the
+  atmosphere's own value when nothing is pinned, and the Reynolds number
+  becomes an OUTCOME instead.
 
 THE SOLVED-DENSITY STATE IS NOT A POINT IN ANY ATMOSPHERE, and that is
 the design rather than a defect. Holding Mach and Reynolds together at a
 fixed temperature is what a wind tunnel does and what a validation case
 needs. With ``MACH:0.20, REmi:5.5`` against a one-metre reference the
 solved density is about 1.446 kg/m3 against a sea-level 1.225, so the
-IMPLIED pressure is not sea level's. For a panel method that is expected
-to be harmless: density scales forces, viscosity sets Reynolds, and
-nothing in this package reads the pressure.
+pressure is not sea level's: the state carries ``p = rho R T``, about
+119.6 kPa at the sea-level temperature (PFS-2104.050).
 
-BUT THE PACKAGE WRITES IT, and that is worth stating beside the claim
-rather than leaving the claim to be read as a guarantee.
-``pressure_pa`` below carries the ATMOSPHERE's pressure on both
-branches, so on the solved branch the emitted fluid state carries a
-solved density beside an unsolved pressure and temperature: the three
-are not a consistent triple. Whether the solver re-derives anything from
-that argument is a question about the solver rather than about this
-package, and it is open, recorded for the domain-expert seat because
-settling it needs a licensed run.
+THE EMITTED TRIPLE IS CONSISTENT. Whenever the density is solved
+(``REmi``) or pinned (``RHOkgm3``), ``pressure_pa`` is the ideal-gas
+pressure of that density at the state's temperature, unless a ``PPA``
+pin states the pressure itself; whenever the density is not, it is the
+ideal-gas density of the pressure and temperature. So density, pressure
+and temperature satisfy ``p = rho R T`` unless the writer pinned all
+three, and whichever two of them the solver reads it meets the same
+state. Pins are emitted as written: a writer who pins all three owns
+their agreement.
 
-It stops being harmless the moment a consumer reads that
-state as an altitude, which is why :attr:`ResolvedCondition.density_source`
+A solved state is still not an altitude, and a consumer that reads
+it as one is misled, which is why :attr:`ResolvedCondition.density_source`
 exists, and why the run record carries both it and the inputs as
 written, in ``density_source`` and ``flight_condition``.
 
@@ -127,7 +132,10 @@ from pyflightstream._atmosphere import (
     AtmosphereError,
     feet_to_metres,
     isa,
+    speed_of_sound,
+    sutherland_viscosity,
 )
+from pyflightstream._atmosphere import density as ideal_gas_density
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import VELOCITY_KEYS
 
@@ -341,6 +349,16 @@ class ResolvedCondition:
     #: record, so a record whose row states four fewer keys names the
     #: file that supplied them.
     defaults_origin: str | None = None
+
+
+def _ideal_gas_pressure(density: float, temperature: float) -> float:
+    """Return the pressure ``p = rho R T`` of a density at a temperature (Pa).
+
+    The inverse of the floor's ``density``, with the same gas constant, so a
+    solved or pinned density is emitted beside the pressure that agrees with
+    it and the state's temperature (PFS-2104.050).
+    """
+    return density * ISA.gas_constant_j_per_kg_k * temperature
 
 
 def _density_from_reynolds(
@@ -612,10 +630,14 @@ def resolve_flight_condition(
                 f"the flight condition of POL {pol} pins {key}:{effective[key]:g}, and "
                 f"{key} is a positive quantity."
             )
-    sonic_velocity = effective.get("ASMPS", atmosphere.sonic_velocity_m_per_s)
-    viscosity = effective.get("MUPas", atmosphere.viscosity_pa_s)
+    # THE STATE'S TEMPERATURE GOVERNS EVERYTHING DERIVED FROM IT (PFS-2081.23).
+    # A TK pin is the temperature of the state, so the speed of sound and the
+    # viscosity are those of the pinned temperature, exactly as a dISA moves
+    # them; only their own pins replace them. Unpinned, these are the same
+    # functions isa() calls on the same temperature, so the bits do not move.
     temperature = effective.get("TK", atmosphere.temperature_k)
-    pressure = effective.get("PPA", atmosphere.pressure_pa)
+    sonic_velocity = effective.get("ASMPS", speed_of_sound(temperature))
+    viscosity = effective.get("MUPas", sutherland_viscosity(temperature))
     if "MACH" in effective:
         velocity = effective["MACH"] * sonic_velocity
     else:
@@ -632,12 +654,18 @@ def resolve_flight_condition(
             reference_length_m=reference_length_m,
         )
         density_source = "solved-from-reynolds"
+        pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
     else:
         if "RHOkgm3" in effective:
             density = effective["RHOkgm3"]
             density_source = "pinned"
+            pressure = effective.get("PPA", _ideal_gas_pressure(density, temperature))
         else:
-            density = atmosphere.density_kg_m3
+            # The altitude's pressure (or the PPA pin) at the state's
+            # temperature: isa()'s own expression, so unpinned it is the
+            # atmosphere's density to the bit.
+            pressure = effective.get("PPA", atmosphere.pressure_pa)
+            density = ideal_gas_density(pressure, temperature)
             density_source = "atmosphere"
         reynolds = (
             None

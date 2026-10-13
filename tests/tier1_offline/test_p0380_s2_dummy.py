@@ -192,7 +192,7 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
     assert _kept_in_order(got, outside)
     # FR-432 R3 (0.39.0): the band beside a refined grid may also record shared_edge_target_m
     entry = dict(level.report["T"])
-    target = entry.pop("shared_edge_target_m")
+    target = entry.pop("shared_edge_target_mesh_units")
     assert set(target) == {"min", "mean", "max"}
     assert all(isinstance(v, float) and v > 0 for v in target.values())
     assert target["min"] <= target["mean"] <= target["max"]

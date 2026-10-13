@@ -57,6 +57,7 @@ import pyflightstream._textio as _textio
 from pyflightstream._digest import optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
+from pyflightstream.options import get_option
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.run import (
     ExecutionResult,
@@ -1133,7 +1134,7 @@ def probe_version(
     commands: Sequence[str] | None = None,
     specs: Mapping[str, ProbeSpec] | None = None,
     fsm: str | Path | None = None,
-    timeout_s: float = 120.0,
+    timeout_s: float | None = None,
     error_patterns: Sequence[str] = DEFAULT_ERROR_PATTERNS,
     registry: CommandRegistry | None = None,
 ) -> ProbeRun:
@@ -1169,8 +1170,9 @@ def probe_version(
         Local simulation (.fsm) file for prelude tiers above ``none``;
         explicit input, never committed. Specs needing it are recorded
         unprobed when it is absent.
-    timeout_s : float
-        Wall-clock limit per probe, unless the spec overrides it.
+    timeout_s : float, optional
+        Wall-clock limit per probe, unless the spec overrides it. When omitted,
+        reads the process option ``qa.probe_timeout_s``.
     error_patterns : sequence of str
         Regular expressions scanned between the sentinels.
     registry : CommandRegistry, optional
@@ -1191,6 +1193,8 @@ def probe_version(
         When ``commands`` names a command outside the version's view
         (a ``ValueError``).
     """
+    if timeout_s is None:
+        timeout_s = float(get_option("qa.probe_timeout_s"))
     resolved = resolve(version)
     view = (registry or CommandRegistry.load()).for_version(resolved)
     if specs is None:
@@ -1679,6 +1683,16 @@ def _judge(
                 + (f"; the solver said: {'; '.join(said[:2])}" if said else "")
             ),
             log_errors=tuple(said),
+            **common,
+        )
+    if not sentinel_before or not sentinel_after:
+        return ProbeResult(
+            outcome=ProbeOutcome.BROKEN if sentinel_before else ProbeOutcome.UNPROBED,
+            detail=(
+                "the exported logs lack a printed BEGIN or END sentinel; the target "
+                "may have consumed an instrument line as an argument. Inspect the "
+                "probe grammar before promoting its observed effect"
+            ),
             **common,
         )
     matches = _scan_errors(artifacts.target_region(), error_patterns)

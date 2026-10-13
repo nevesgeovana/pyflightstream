@@ -559,10 +559,21 @@ def _free_stream(
             if custom.source_units == "NATIVE":
                 factor = _from_metres(case, script, "custom field extent")
                 grid = (grid[0] / factor, grid[1] / factor, grid[2] / factor, grid[3] / factor)
-            if custom.source_units is None and script.simulation_length_unit == "MILLIMETER":
+            # AN UNDECLARED UNIT IS METRES ONLY IN A METRE SIMULATION. It read as
+            # metres in every simulation but MILLIMETER, so an INCH, FEET or
+            # CENTIMETER grid was compared with the body as if it were metres
+            # and recorded within or beyond it (RPT-082: unknown units produce an
+            # explicit unknown result).
+            unit = script.simulation_length_unit
+            if custom.source_units is None and unit != "METER":
+                reason = (
+                    f"the field states no FREESTREAM_UNITS and the simulation is in "
+                    f"{unit or 'no recorded unit'}, so its grid has no known length unit"
+                )
+                script.custom_field_coverage = {"state": "unknown", "reason": reason}
                 warn(
-                    "Custom-field coverage is not checked: declare FREESTREAM_UNITS as SI "
-                    "or NATIVE for a MILLIMETER simulation.",
+                    f"Custom-field coverage is not checked: {reason}. Declare FREESTREAM_UNITS "
+                    "as SI or NATIVE.",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
@@ -988,12 +999,25 @@ def rotor_row_stepping(case: SimCase) -> TimeStepping:
 
 
 def _length_steps(
-    case: SimCase, length: float, radius: float, clock: tuple[float, float]
+    case: SimCase, length: float, radius: float, clock: tuple[float, float], delta_time_s: float
 ) -> tuple[int, float | None, str]:
     """Convert a length into steps, with V_ax and its rule (FR-321 R2, FR-323)."""
     omega, dtheta = clock
     v_ax, rule = _induced(case, radius, abs(_velocity(case)))
     cap = case.solver.wake_termination_revolutions_cap
+    if not dtheta:
+        # A ROTOR AT REST, on the explicit clock its refusal recommends:
+        # Omega / dtheta is 1 / dt for every turning rotor on that clock,
+        # and it stays so at rest, where the quotient itself is 0 / 0. A
+        # revolution cap bounds nothing on a rotor that makes no revolution.
+        if cap is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} turns its rotor at zero speed and states "
+                f"wake_termination_revolutions_cap = {cap:g}, and a rotor at rest makes no "
+                "revolution for the cap to count. Remove the cap, or state the termination "
+                "as wake_termination_steps."
+            )
+        omega, dtheta = 1.0, delta_time_s
     capped = None if cap is None else max(1, math.floor(cap * 2.0 * math.pi / dtheta + 1e-9))
     if v_ax <= 0.0:
         if capped is None:
@@ -1097,7 +1121,7 @@ def wake_termination_of(case: SimCase, stepping: TimeStepping | None = None) -> 
                 "with a diameter_m and states no rotor_diameter_m (FR-321 R1)."
             )
         return replace(base, length_r=length, v_ax_m_s=None)
-    steps, v_ax, rule = _length_steps(case, length, radius, (omega, dtheta))
+    steps, v_ax, rule = _length_steps(case, length, radius, (omega, dtheta), stepping.delta_time_s)
     return replace(base, length_r=length, steps=steps, rule=rule, v_ax_m_s=v_ax)
 
 

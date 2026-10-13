@@ -50,6 +50,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _mutation_harness import classify  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
 
@@ -218,12 +222,7 @@ class Battery:
         # mutant: pytest exits non-zero on a collection error too, so a
         # mutant that merely breaks the file would read as KILLED and
         # inflate the count. Require the suite to say a test FAILED.
-        if code and "failed" in summary:
-            got = "KILLED"
-        elif code:
-            got = "INCONCLUSIVE"
-        else:
-            got = "SURVIVED"
+        got = classify(code, summary)
         flag = ""
         if got != expect:
             flag = f"  <-- EXPECTED {expect}"
@@ -268,8 +267,9 @@ class Battery:
             park(path, original)
             # The FILE'S OWN line ends, as `patch` does: always writing CRLF
             # gave an LF checkout mixed line ends for the length of the run.
+            extra = extra.replace("\r\n", "\n")
             if b"\r\n" in original:
-                extra = extra.replace("\r\n", "\n").replace("\n", "\r\n")
+                extra = extra.replace("\n", "\r\n")
             path.write_bytes(original + extra.encode("utf-8"))
             self._verdict(label, *run(self.target), expect=expect)
         finally:

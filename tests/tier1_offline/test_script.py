@@ -394,10 +394,10 @@ def test_bulk_separation_renders_the_grammar_of_its_target_version():
 
 def test_export_surface_sections_exists_only_from_26120():
     later = Script(version="26.120")
-    later.emit("EXPORT_SURFACE_SECTIONS", 2)
+    later.emit("EXPORT_SURFACE_SECTIONS", 2, "section.txt")
     assert "EXPORT_SURFACE_SECTIONS 2" in later.render()
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
-        Script(version="26.101").emit("EXPORT_SURFACE_SECTIONS", 2)
+        Script(version="26.101").emit("EXPORT_SURFACE_SECTIONS", 2, "section.txt")
 
 
 def test_volume_section_boundary_layer_is_removed_at_26120():

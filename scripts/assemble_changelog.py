@@ -42,7 +42,6 @@ REPO = Path(__file__).resolve().parents[1]
 FRAGMENTS_DIR = "changelog.d"
 README = "README.md"
 CHANGELOG = "CHANGELOG.md"
-DEFAULT_MIGRATION_PAGE = "docs/migrating-to-0.32.0.md"
 #: The change log sections a fragment may carry, in the order they are created.
 CHANGELOG_SECTIONS = ("Added", "Changed", "Fixed", "Removed")
 MIGRATION = "Migration"
@@ -192,7 +191,7 @@ def _read(path: Path) -> tuple[str | None, str]:
     return raw.decode("utf-8").replace("\r\n", "\n"), newline
 
 
-def assemble(repo: Path, migration_page: str = DEFAULT_MIGRATION_PAGE) -> dict[str, object]:
+def assemble(repo: Path, migration_page: str | None = None) -> dict[str, object]:
     """Fold every fragment of ``repo`` and delete them; return what was done."""
     found = fragments(repo)
     parsed = [(path, parse_fragment(path)) for path in found]
@@ -210,13 +209,19 @@ def assemble(repo: Path, migration_page: str = DEFAULT_MIGRATION_PAGE) -> dict[s
         if name in sections
     ]
     migrations = [sections[MIGRATION] for _, sections in parsed if MIGRATION in sections]
+    if migrations and migration_page is None:
+        raise FragmentError(
+            "a fragment carries ## Migration; name the release's page with "
+            "--migration-page docs/migrating-to-<version>.md"
+        )
     changelog_path = repo / CHANGELOG
     changelog, changelog_newline = _read(changelog_path)
     if changelog is None:
         raise FragmentError(f"{changelog_path} does not exist")
     folded, report["changelog_entries"] = fold_changelog(changelog, additions)
-    page_path = repo / migration_page
     if migrations:
+        assert migration_page is not None
+        page_path = repo / migration_page
         page, page_newline = _read(page_path)
         new_page, report["migration_entries"] = fold_migration(page, migration_page, migrations)
         if new_page != page:
@@ -240,16 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        if args.migration_page is None and any(
-            MIGRATION in parse_fragment(path) for path in fragments(args.repo)
-        ):
-            # NAMED, never defaulted: the default was the 0.32.0 page, so a
-            # later release's fold appended its migration notes there.
-            raise FragmentError(
-                "a fragment carries ## Migration; name the release's page with "
-                "--migration-page docs/migrating-to-<version>.md"
-            )
-        report = assemble(args.repo, args.migration_page or DEFAULT_MIGRATION_PAGE)
+        report = assemble(args.repo, args.migration_page)
     except FragmentError as error:
         print(str(error), file=sys.stderr)
         return 2

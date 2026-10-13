@@ -32,7 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _mutation_harness import PYTHON, REPO, park, recover, unpark  # noqa: E402
+from _mutation_harness import PYTHON, REPO, classify, park, recover, unpark  # noqa: E402
 
 PROBES = "src/pyflightstream/qa/probes.py"
 REFERENCE = "src/pyflightstream/reference.py"
@@ -272,11 +272,9 @@ def score(returncode: int, out: str) -> str:
     INCONCLUSIVE. Read from the text alone, "3 passed, 1 error" scored as
     passed and hid an erroring suite behind a negative control.
     """
-    if returncode == 1 and " failed" in out:
-        return "FAILED"
-    if returncode == 0 and " passed" in out:
-        return "passed"
-    return "INCONCLUSIVE"
+    return {"KILLED": "FAILED", "SURVIVED": "passed", "INCONCLUSIVE": "INCONCLUSIVE"}[
+        classify(returncode, out)
+    ]
 
 
 def main() -> int:
