@@ -1191,7 +1191,7 @@ the base could not offer while it bundled several.
     spurious diagnostic, and records each ledger and gate outcome in the
     run outputs.
 
-    Amended for 0.40.0 (0.40.0, pending), PFS-2139.008 for the workspace route and PFS-2139.010 (0.43.0) for the gates G1, G3 and G4; marker P0400-LEDGERS. The box stays deferred until the licensed gates of PFS-2139.010 return; the clauses R1 to R7 below are what 0.40.0 delivers. The rothalpy ledger leaves the package (FR-458). The equations are those of [The far-field family](../definitions/the-far-field-family.md#the-balances).
+    Amended for 0.40.0 (0.40.0, implemented), PFS-2139.008 for the workspace route and PFS-2139.010 (0.43.0) for the gates G1, G3 and G4; marker P0400-LEDGERS. The box stays deferred until the licensed gates of PFS-2139.010 return; the clauses R1 to R7 below are what 0.40.0 delivers. The rothalpy ledger leaves the package (FR-458). The equations are those of [The far-field family](../definitions/the-far-field-family.md#the-balances).
 
     - R1 Route. A row whose `[farfield.ledgers]` selects balances gets the survey lattice at plan (FR-455) and post writes them to `farfield/<group>_ledgers.csv` (FR-456 R4).
     - R2 Balances. `mass`, `axial`, `transverse`, `torque`, `in_plane_moment`, `crossflow_energy`, each as defined on the definitions page, section The balances; the default is all six.
@@ -1202,6 +1202,8 @@ the base could not offer while it bundled several.
     - R7 Unsteady rows. An unsteady row's ledgers are written twice: the instant, the balances of the lattice at the last time step, in `farfield/<group>_ledgers_instant.csv`; and the average, the average over the row's averaging window (`LAST_REVS_AVG` or `LAST_ITERS_AVG`, the window the unsteady products use) of the balances of each step, in `farfield/<group>_ledgers_average.csv`. Each is labelled `instant` or `average` in its file name and its manifest entry. The plan emits the per-step samples the average needs and states their cost (FR-455 R9). On a `qsteady_rotor` row the balances are those of the point's own solve, converted to the hub frame (FR-453 R8).
 
     Verification of the amendment: test, `tests/tier1_offline/test_p0400_farfield_ledgers.py`, carrying P0400-LEDGERS: end to end in a temporary workspace, a row selecting the ledgers, the plan's lattice emitted, a probe-points export written in the recorded format with values from an analytic actuator-disk field at the emitted points, `pyfs-matrix post` writes `farfield/<group>_ledgers.csv` with `MDOT_KG_S` constant over the stations, `MASS_SPREAD` 0 to round-off, `FX_N` the analytic thrust, the quadrature and harmonic columns equal, the inlet row `NA` in the control-volume columns, the three gate columns present and no verdict. Mutants that must fail: the inlet row computed, the harmonic path replaced by the quadrature path.
+
+    Evidence of the amendment: in `tests/tier1_offline/test_p0400_farfield_ledgers.py`, `test_p0400_ledgers_the_lattice_is_found_by_its_positions`, `test_p0400_ledgers_a_uniform_stream_closes_every_balance`, `test_p0400_ledgers_an_unselected_balance_stays_out`, `test_p0400_ledgers_the_turning_frame_is_converted_to_the_hub`, `test_p0400_ledgers_unsteady_samples_read_each_vertex`, `test_p0400_ledgers_the_average_is_of_each_steps_balance`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_post_writes_the_ledgers_table`, `test_p0400_ffproof_an_unsteady_row_writes_the_instant_and_the_average`.
 
     Deferred rather than implemented because the ledgers and the G0
     synthetic gate ship while G1, G3, and G4 need licensed solver
@@ -10124,10 +10126,10 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
 The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and the probes home (PFS-2140.001): FR-450 to FR-459, written before the first package commit of the family, FR-38 and FR-79 amended. The markers `P0400-<NAME>` of each box are listed in `docs/srs/markers-0400.json`. Every box is verified offline by the tier-1 tests it names, on synthetic fixtures held under `tests/` (an analytic elliptic loading, a wake export built in the recorded format with synthetic values, an analytic field sampled on a plane or a lattice); no research geometry or research data enters the repository. The equations are those of the definitions page [The far-field family](../definitions/the-far-field-family.md); where a box and that page disagree, the page is right.
 
-!!! requirement "FR-450 The far-field family: one numpy home reached through the workspace <span class='srs-pending'>pending</span>"
+!!! requirement "FR-450 The far-field family: one numpy home reached through the workspace <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.007 (0.40.0). Marker: P0400-FFAMILY.
 
-    *Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test.*
+    *Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test, `tests/tier1_offline/test_p0400_farfield_core.py`, `tests/tier1_offline/test_p0400_farfield_plane.py`, `tests/tier1_offline/test_p0400_farfield_products.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Need: a user who wants the induced drag of a configuration from the far field, or the conservation balances of a rotor survey, states it in the pproc artifact and reads it in the products of `pyfs-matrix post`, with no Python beyond the workspace. On v0.39.0 the far-field ledgers exist as Python functions over xarray objects that no workspace route reaches, and no Trefftz-plane analysis exists.
 
@@ -10143,10 +10145,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_core.py`, carrying P0400-FFAMILY (FR-450): an import-graph check that no `farfield` module imports `results`, `cases`, `workspace`, `run`, `post`, `script` or xarray, or calls a file API; Trefftz C and the energy balance return the same number when the balance's advecting velocity is set to `V` (a second integrand copy that differs fails); a rotor row selecting variant A is a named skip with a `post.log` WARNING and no row (a skip written as a row of zeros fails).
 
-!!! requirement "FR-451 Trefftz A: the induced drag from the exported section loads <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_core.py`, `test_p0400_ffamily_the_core_has_no_input_or_output_and_imports_no_upper_layer`, `test_p0400_ffamily_the_guard_refuses_each_forbidden_shape`, `test_p0400_ffamily_the_facade_exports_every_analysis_from_one_home`; in `tests/tier1_offline/test_p0400_farfield_plane.py`, `test_p0400_trefftzc_one_integrand_for_the_plane_and_the_balance`; in `tests/tier1_offline/test_p0400_farfield_products.py`, `test_p0400_ffout_the_polar_keeps_its_bytes`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_the_sweep_table_keeps_its_bytes`.
+
+!!! requirement "FR-451 Trefftz A: the induced drag from the exported section loads <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.002 (0.40.0). Marker: P0400-TREFFTZA.
 
-    *Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; on a panel mesh refinement study the far-field induced drag from the section loads moved by under 1 percent per mesh level while the surface-pressure value moved by 2.5 to 10 percent. Verification: test.*
+    *Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; on a panel mesh refinement study the far-field induced drag from the section loads moved by under 1 percent per mesh level while the surface-pressure value moved by 2.5 to 10 percent. Verification: test, `tests/tier1_offline/test_p0400_farfield_trefftz.py`, `tests/tier1_offline/test_p0400_ffproof_plan.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Need: a user who exports the sectional loads of a wing reads its far-field induced drag, lift and span efficiency per family and in total, and the spanwise downwash, induced angle and induced drag, from a run already recorded, without re-running it.
 
@@ -10167,10 +10171,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_trefftz.py`, carrying P0400-TREFFTZA (FR-451): an elliptic loading at 40, 80 and 160 stations per side gives `E_T` above 1 by the measured bias of the definitions page; a uniform `Gamma` gives the lift `rho V Gamma b` exactly and the drag of the two discrete tip filaments in closed form; a half span mirrored equals the full span; uneven (cosine) stations of an elliptic loading converge to `E_T = 1` as the stations double; the shares of two families add up to the total and each isolated value equals the family traced alone; sideslip, a straddling half model and another cut plane are named skips. Mutants that must fail: the sign of `Fx` flipped, the sign of `Fz` flipped, alpha ignored, the mirror skipped, the station rule used for the trace.
 
-!!! requirement "FR-452 Trefftz B: the induced drag on the solver's wake trace <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_trefftz.py`, `test_p0400_trefftza_an_elliptic_loading_shows_the_measured_strip_bias`, `test_p0400_trefftza_the_station_rule_is_not_the_far_field_rule`, `test_p0400_trefftza_a_uniform_circulation_is_two_tip_filaments`, `test_p0400_trefftza_a_mirrored_half_span_equals_the_full_span`, `test_p0400_trefftza_a_half_trace_not_mirrored_is_not_the_full_span`, `test_p0400_trefftza_a_straddling_half_model_is_refused`, `test_p0400_trefftza_cosine_stations_converge_to_the_elliptic_efficiency`, `test_p0400_trefftza_family_shares_add_up_and_isolated_values_are_each_alone`, `test_p0400_trefftza_the_trace_follows_the_quarter_chord_height`, `test_p0400_trefftza_the_coefficients_and_the_na_rules`; in `tests/tier1_offline/test_p0400_ffproof_plan.py`, `test_p0400_ffproof_the_plan_warns_a_reused_distribution_with_few_stations`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_post_warns_a_family_with_few_stations`.
+
+!!! requirement "FR-452 Trefftz B: the induced drag on the solver's wake trace <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.003 (0.40.0). Marker: P0400-TREFFTZB.
 
-    *Origin: the three-variant decision of 2026-10-12. Evidence on the export: a recorded wake export of a wing alone (`<name>_wakes.vtk`, written when `SET_VTK_EXPORT_VARIABLES` states `ENABLE`) holds POINTS, two-point LINES and one cell scalar `Normalized_Vorticity`; the lines chain into one wake line per trailing-edge node, the scalar is constant along each line to round-off, of one sign across the span and zero at the tips (measured 2026-10-12, 160 lines). Verification: test.*
+    *Origin: the three-variant decision of 2026-10-12. Evidence on the export: a recorded wake export of a wing alone (`<name>_wakes.vtk`, written when `SET_VTK_EXPORT_VARIABLES` states `ENABLE`) holds POINTS, two-point LINES and one cell scalar `Normalized_Vorticity`; the lines chain into one wake line per trailing-edge node, the scalar is constant along each line to round-off, of one sign across the span and zero at the tips (measured 2026-10-12, 160 lines). Verification: test, `tests/tier1_offline/test_p0400_farfield_wake.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Need: a user whose wake rolls up or whose lifting surfaces are not coplanar reads the induced drag on the trace the solver's own relaxed wake leaves in a plane downstream, not on an assumed planar sheet.
 
@@ -10186,10 +10192,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_wake.py`, carrying P0400-TREFFTZB (FR-452): the reader on a wake export built in the recorded format (POINTS, two-point LINES, `CELL_DATA` `Normalized_Vorticity`) with synthetic values; refusals for a count mismatch, a value that varies along one line, polygons present; the crossing interpolation; a line ending before the plane gives `NA` and the WARNING; a rolled-up synthetic sheet ordered by start; the core on B's planar case equals A to round-off; the calibration makes `CL_T` the given near-field value and leaves `E_T` unchanged when the raw values are doubled. Mutants that must fail: ordering by crossing position, the last crossing instead of the first, the scale applied to `E_T`.
 
-!!! requirement "FR-453 Trefftz C: the far field on a probe plane, one home with the balances <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_wake.py`, `test_p0400_trefftzb_the_reader_chains_the_segments_into_one_line_per_station`, `test_p0400_trefftzb_the_reader_refuses_what_is_no_wake`, `test_p0400_trefftzb_each_line_is_cut_at_its_first_crossing`, `test_p0400_trefftzb_a_line_ending_before_the_plane_makes_the_row_na`, `test_p0400_trefftzb_a_rolled_up_sheet_keeps_the_order_of_its_starts`, `test_p0400_trefftzb_two_sheets_are_not_one_run`, `test_p0400_trefftzb_on_a_planar_trace_b_returns_a`, `test_p0400_trefftzb_the_scale_is_calibrated_from_the_near_field_lift`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_a_short_wake_posts_the_b_row_na`.
+
+!!! requirement "FR-453 Trefftz C: the far field on a probe plane, one home with the balances <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.004 (0.40.0). Marker: P0400-TREFFTZC.
 
-    *Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test.*
+    *Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test, `tests/tier1_offline/test_p0400_farfield_ledgers.py`, `tests/tier1_offline/test_p0400_farfield_plan.py`, `tests/tier1_offline/test_p0400_farfield_plane.py`, `tests/tier1_offline/test_p0400_farfield_probes.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Need: a user reads the induced drag from the crossflow kinetic energy in a plane downstream, a second induced drag from the vorticity in that plane, a check of how far the exported field departs from Bernoulli's relation, and, for a rotor, the axial, swirl and remaining crossflow loss powers, from probes the plan laid out.
 
@@ -10206,10 +10214,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_plane.py`, carrying P0400-TREFFTZC (FR-453): the analytic Trefftz-plane field of an elliptic loading sampled on a plane gives `D_i` within the stated truncation and `CDI_T_QERR`, and `CDI_T_VORT` within its own discretization; a uniform stream gives zero drag, zero residual and coverage 1; a Bernoulli-consistent field gives a zero residual to round-off; an imposed Gaussian total-pressure wake gives the residual its analytic momentum deficit; one NaN sample gives `NA` and the coverage; an actuator-disk slipstream with solid-body swirl gives `P_AXIAL` and `P_SWIRL` analytic and `ETA_FF` `NA` at `V = 0`; a field sampled in the frame that holds the blades still returns, after the conversion, the hub-frame channels. Mutants that must fail: advecting with `u` in C, the wind turn skipped, `Cp` times `q` twice, a NaN skipped instead of propagated, the frame velocity added with the wrong sense.
 
-!!! requirement "FR-454 The [farfield] table of the pproc artifact <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_ledgers.py`, `test_p0400_ledgers_the_turning_frame_is_converted_to_the_hub`; in `tests/tier1_offline/test_p0400_farfield_plan.py`, `test_p0400_ffplan_the_plane_is_added_as_probes`; in `tests/tier1_offline/test_p0400_farfield_plane.py`, `test_p0400_trefftzc_the_crossflow_energy_converges_on_the_elliptic_drag`, `test_p0400_trefftzc_the_vorticity_path_converges_and_ignores_the_extent`, `test_p0400_trefftzc_one_integrand_for_the_plane_and_the_balance`, `test_p0400_trefftzc_a_uniform_stream_has_no_drag_and_full_coverage`, `test_p0400_trefftzc_a_bernoulli_consistent_field_has_no_residual`, `test_p0400_trefftzc_a_total_pressure_wake_gives_its_momentum_deficit`, `test_p0400_trefftzc_one_missing_sample_makes_the_plane_na`, `test_p0400_trefftzc_a_static_rotor_has_no_plane_drag`, `test_p0400_trefftzc_the_rotor_channels_of_a_swirling_slipstream`, `test_p0400_trefftzc_a_static_rotor_writes_its_channels_and_no_efficiency`, `test_p0400_trefftzc_the_quasi_steady_field_is_converted_to_the_hub_frame`; in `tests/tier1_offline/test_p0400_farfield_probes.py`, `test_p0400_probehome_the_farfield_plane_is_normal_to_the_free_stream`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_above_mach_0_3_the_c_row_is_warned`.
+
+!!! requirement "FR-454 The [farfield] table of the pproc artifact <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFTABLE.
 
-    *Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test.*
+    *Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test, `tests/tier1_offline/test_p0400_farfield_plan.py`, `tests/tier1_offline/test_p0400_farfield_spec.py`, `tests/tier1_offline/test_p0400_ffproof_inputs.py`.*
 
     Requirement: `PprocSpec` shall accept an optional `[farfield]` table with the sub-tables `[farfield.trefftz]` and `[farfield.ledgers]`, validated with `extra="forbid"` and `allow_inf_nan=False`, every key carrying a meaning in the generated input glossary (`INPUTS.md`, the G08 guard). An artifact without `[farfield]` validates, plans and posts exactly as in 0.39.0.
 
@@ -10238,10 +10248,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_spec.py`, carrying P0400-FFTABLE (FR-454): each key of the table accepted with its type and default; each refusal of R2 asserted by its message (key and artifact named); `variant` as a word and as a list; an artifact without `[farfield]` dumps byte-identical; the glossary guard lists every key. Mutants that must fail: an unknown key accepted, `allow_inf_nan` off.
 
-!!! requirement "FR-455 The plan reuses what the artifact declares, adds what is missing, and refuses only the impossible <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_plan.py`, `test_p0400_ffplan_a_frame_lattice_is_laid_from_the_frame`; in `tests/tier1_offline/test_p0400_farfield_spec.py`, `test_p0400_fftable_keys_and_defaults`, `test_p0400_fftable_variant_is_a_word_or_a_list`, `test_p0400_fftable_refusals_name_the_key`, `test_p0400_fftable_without_farfield_dumps_as_before`, `test_p0400_fftable_a_lattice_is_a_probe_shape`, `test_p0400_fftable_the_planted_unknown_key_is_refused`; in `tests/tier1_offline/test_p0400_ffproof_inputs.py`, `test_p0400_ffproof_a_malformed_table_is_refused_naming_the_artifact`, `test_p0400_ffproof_a_well_formed_table_loads`.
+
+!!! requirement "FR-455 The plan reuses what the artifact declares, adds what is missing, and refuses only the impossible <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFPLAN.
 
-    *Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test.*
+    *Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test, `tests/tier1_offline/test_p0400_farfield_ledgers.py`, `tests/tier1_offline/test_p0400_farfield_plan.py`, `tests/tier1_offline/test_p0400_ffproof_plan.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Requirement: For every row whose pproc artifact carries `[farfield]`, `pyfs-matrix plan` shall resolve each selected analysis's inputs to one of four states, reused, added, not applicable or refused, emit what is added in the row's script, and state every resolution in the plan output.
 
@@ -10257,10 +10269,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_plan.py`, carrying P0400-FFPLAN (FR-455): for A, B, C and the ledgers, the three cases each: declared and reused (emitted once), missing and added (the commands in the script and the `plan.json` entry), impossible and refused (a build lacking the command, from a command-database fixture; C on a steady coupled row; a family not in the geometry); `[exports] sectional_loads = false` turned on with the WARNING; FSI: A reuses the coupled distribution, A beyond it refused; a far-field point inside a closed-box mesh refused; post's resolution equals the plan's. Mutants that must fail: a reused input emitted twice, a refusal for a missing (not impossible) input, post resolving with a different function.
 
-!!! requirement "FR-456 Far-field products in their own tables; the polar and the sweep table keep their bytes <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_ledgers.py`, `test_p0400_ledgers_the_lattice_is_found_by_its_positions`, `test_p0400_ledgers_unsteady_samples_read_each_vertex`; in `tests/tier1_offline/test_p0400_farfield_plan.py`, `test_p0400_ffplan_a_missing_distribution_is_added`, `test_p0400_ffplan_a_declared_distribution_is_reused_once`, `test_p0400_ffplan_the_wake_is_switched_on`, `test_p0400_ffplan_the_plane_is_added_as_probes`, `test_p0400_ffplan_a_declared_lattice_is_reused`, `test_p0400_ffplan_a_frame_lattice_is_laid_from_the_frame`, `test_p0400_ffplan_an_added_point_inside_the_body_is_refused`, `test_p0400_ffplan_a_false_export_is_turned_on_with_a_warning`, `test_p0400_ffplan_the_three_states`, `test_p0400_ffplan_only_the_impossible_is_refused`, `test_p0400_ffplan_post_resolves_with_the_same_function`; in `tests/tier1_offline/test_p0400_ffproof_plan.py`, `test_p0400_ffproof_the_plan_states_the_fluid_plots_an_added_lattice_costs`, `test_p0400_ffproof_a_reused_normal_lattice_is_laid_once_as_probe_points`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_a_normal_declaration_gives_the_instant_only`.
+
+!!! requirement "FR-456 Far-field products in their own tables; the polar and the sweep table keep their bytes <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.006 (0.40.0). Marker: P0400-FFOUT.
 
-    *Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test.*
+    *Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test, `tests/tier1_offline/test_p0400_farfield_products.py`, `tests/tier1_offline/test_p0400_farfield_trefftz.py`, `tests/tier1_offline/test_p0400_ffproof_post.py`.*
 
     Requirement: The post of a simulation whose pproc selects a far-field analysis shall write, through one product-family step over `SimContext`, `post/<matrix>/farfield/<group>_<analysis>.csv` for each selected analysis, the spanwise Trefftz files, and the far-field block of the super file.
 
@@ -10276,10 +10290,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_products.py`, carrying P0400-FFOUT (FR-456): file names, column order and units; `NA` per rule with its `skipped` key and WARNING; the manifest fields; byte parity: one recorded run posted with and without `[farfield]`, `polars/` and `campaign_sweep.csv` byte-compared; the products snapshot unchanged for rows without it; the super-file block after the existing columns; the run-type table of R7 (named skips). Mutants that must fail: a zero written for `NA`, the manifest listing runs the table does not hold.
 
-!!! requirement "FR-457 The core rests on numpy: xarray leaves the required dependencies <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_products.py`, `test_p0400_ffout_the_trefftz_table`, `test_p0400_ffout_the_spanwise_files`, `test_p0400_ffout_the_manifest`, `test_p0400_ffout_the_polar_keeps_its_bytes`, `test_p0400_ffout_the_super_file_block`; in `tests/tier1_offline/test_p0400_farfield_trefftz.py`, `test_p0400_trefftza_the_coefficients_and_the_na_rules`; in `tests/tier1_offline/test_p0400_ffproof_post.py`, `test_p0400_ffproof_post_writes_the_ledgers_table`, `test_p0400_ffproof_an_unsteady_row_writes_the_instant_and_the_average`.
+
+!!! requirement "FR-457 The core rests on numpy: xarray leaves the required dependencies <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.007, PFS-2023.03 (0.40.0). Marker: P0400-NUMPY.
 
-    *Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test.*
+    *Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test, `tests/tier1_offline/test_p0400_farfield_numpy.py`, `tests/tier1_offline/test_p0400_ffproof_upgrading.py`.*
 
     Requirement: No module of the package shall import xarray, and `xarray` shall leave `[project] dependencies` of `pyproject.toml` in 0.40.0.
 
@@ -10291,10 +10307,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_numpy.py`, carrying P0400-NUMPY (FR-457): an import-graph check that no module imports xarray; `pyproject` dependencies without xarray; the package imported with `sys.modules["xarray"] = None`; golden values of every far-field function equal to the last bit; the retired names refuse naming the replacement. A mutant that adds a tolerance to the golden comparison fails.
 
-!!! requirement "FR-458 rothalpy and irreversible_deficit leave the package for ITACA <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_numpy.py`, `test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`, `test_p0400_numpy_the_goldens_cover_every_far_field_balance`, `test_p0400_numpy_no_module_of_the_package_imports_xarray`, `test_p0400_numpy_xarray_left_the_required_dependencies`, `test_p0400_numpy_the_package_imports_with_xarray_blocked`, `test_p0400_numpy_the_retired_names_refuse_naming_the_replacement`, `test_p0400_numpy_every_retired_attribute_is_one_the_package_no_longer_defines`; in `tests/tier1_offline/test_p0400_ffproof_upgrading.py`, `test_p0400_ffproof_the_table_lists_every_changed_signature_and_no_other`, `test_p0400_ffproof_each_new_side_is_the_signature_the_code_defines`.
+
+!!! requirement "FR-458 rothalpy and irreversible_deficit leave the package for ITACA <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2139.009 (0.40.0). Marker: P0400-ROTHALPY.
 
-    *Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test.*
+    *Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test, `tests/tier1_offline/test_p0400_farfield_numpy.py`, `tests/tier1_offline/test_p0400_ffproof_upgrading.py`; R2 by inspection: ITACA inbox item ROTHALPY_2026-10-12 (estate commit 4dbc73b).*
 
     Requirement: `farfield.rothalpy` and `farfield.irreversible_deficit` shall leave the package in release 0.40.0, with no deprecation release; a call refuses through the retired-names mechanism, naming the release of removal and their new home for evaluation (ITACA).
 
@@ -10304,10 +10322,12 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_numpy.py`, carrying P0400-ROTHALPY (FR-458): each name refuses with the removal release and ITACA named; neither is exported; `docs/upgrading.md` names both. A mutant that keeps a silent function fails.
 
-!!! requirement "FR-459 probes is the one home of probe geometry, with a lattice shape and an inside-the-body check <span class='srs-pending'>pending</span>"
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_numpy.py`, `test_p0400_rothalpy_the_two_functions_left_for_itaca`, `test_p0400_rothalpy_upgrading_names_both_functions_and_why`; in `tests/tier1_offline/test_p0400_ffproof_upgrading.py`, `test_p0400_ffproof_the_migration_page_names_both_removed_functions_and_why`.
+
+!!! requirement "FR-459 probes is the one home of probe geometry, with a lattice shape and an inside-the-body check <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2140.001 (0.40.0). Marker: P0400-PROBEHOME.
 
-    *Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test.*
+    *Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test, `tests/tier1_offline/test_p0400_farfield_core.py`, `tests/tier1_offline/test_p0400_farfield_probes.py`, `tests/tier1_offline/test_p0400_farfield_spec.py`, `tests/tier1_offline/test_p0400_ffproof_plan.py`.*
 
     Requirement: `pyflightstream.probes` shall be the only place where probe positions are computed: the line, rectangle and circle layouts of `[[probes]]` (FR-79), the survey lattice and the far-field plane; the pproc artifact shall be able to declare a survey lattice, and the plan shall check every probe point against the body.
 
@@ -10319,6 +10339,8 @@ The far-field family of 0.40.0 (planning nodes PFS-2139.002 to PFS-2139.009) and
     - R6 Root facades. `probes/__init__.py` and `farfield/__init__.py` become facades (docstring, imports, `__all__`), so both leave the table of oversized package roots.
 
     Verification: test, `tests/tier1_offline/test_p0400_farfield_probes.py`, carrying P0400-PROBEHOME (FR-459): every committed script golden with rectangles and circles byte-identical after the move; layout unit tests (corner order, the circle center once); a lattice shape emits exactly `build_lattice`'s points turned to its frame; the inside check: count and WARNING for user entries with the points kept, a refusal for a package-added point, a WARNING and no refusal without `[geom]` or with an open mesh; a guard that no module outside `probes/` defines a layout. Mutants that must fail: `numpy.cos` in the circle layout (changes a fifth decimal on the golden), an inside point silently dropped from a user entry.
+
+    Evidence: in `tests/tier1_offline/test_p0400_farfield_core.py`, `test_p0400_ffamily_the_facade_exports_every_analysis_from_one_home`; in `tests/tier1_offline/test_p0400_farfield_probes.py`, `test_p0400_probehome_a_rectangle_runs_v_fastest_with_its_corners`, `test_p0400_probehome_a_circle_has_its_centre_once_and_math_trig`, `test_p0400_probehome_a_line_includes_both_ends`, `test_p0400_probehome_a_lattice_is_laid_along_its_frame_axis_right_handed`, `test_p0400_probehome_the_farfield_plane_is_normal_to_the_free_stream`, `test_p0400_probehome_the_inside_check_counts_and_drops_nothing`, `test_p0400_probehome_an_open_mesh_is_not_checked_and_not_refused`, `test_p0400_probehome_a_missing_spatial_index_is_not_checked`, `test_p0400_probehome_no_module_outside_probes_defines_a_layout`; in `tests/tier1_offline/test_p0400_farfield_spec.py`, `test_p0400_fftable_a_lattice_is_a_probe_shape`; in `tests/tier1_offline/test_p0400_ffproof_plan.py`, `test_p0400_ffproof_a_declared_unsteady_lattice_states_its_fluid_plots`.
 
 ## 0.40.0 the command gap: streamlines, a body free to move, and an external structural program
 

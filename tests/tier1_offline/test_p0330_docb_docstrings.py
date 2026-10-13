@@ -689,7 +689,11 @@ def test_the_examples_check_refuses_planted_defects():
 REDUCTIONS_HOME = "post-processing-definitions.md"
 REDUCTIONS_ANCHOR = "the-reductions-of-an-unsteady-point"
 REDUCTIONS = ("time_average", "per_blade", "phase_locked", "per_revolution")
-_REDUCTION_FILE = re.compile(r"_(time_average|phase_locked|per_blade|per_revolution|harmonics)\b")
+#: ``azimuthal_harmonics`` is the far-field function (P0400-FFPROOF, the FR-457 R5 signature
+#: table of ``upgrading.md``), not the ``<point>_harmonics`` reduction file.
+_REDUCTION_FILE = re.compile(
+    r"(?<!azimuthal)_(time_average|phase_locked|per_blade|per_revolution|harmonics)\b"
+)
 _REDUCTION_NAMED = re.compile(
     r"`(time_average|per_blade|phase_locked|per_revolution)`"
     r"|_(time_average|phase_locked|per_blade|per_revolution)[._<\[]"
