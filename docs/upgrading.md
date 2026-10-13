@@ -16,8 +16,8 @@ All workspaces with post products created by an earlier release.
 
 By default, rebuilds overwrite products in place without an archive.
 Use `pyfs-matrix post --archive` to preserve replaced products.
-`--force-overwrite` adds a confirmation and `--yes` answers it in a script;
-neither option changes the archive policy.
+`--force-overwrite` explicitly selects no archive and adds a confirmation;
+`--yes` answers that confirmation in a script.
 
 The `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` aliases
 will be removed in v1.0.0. Use `pyfs-workspace geometry refine`, `audit`,
@@ -185,6 +185,68 @@ handed for evaluation.
 ### The command that does it
 
 Run `pyfs-matrix post` to rebuild products from recorded solver exports.
+
+### Additional workspace and command-line migrations
+
+- Use `pyfs-workspace archive SIM_ID --workspace ROOT`; positional `archive ROOT SIM_ID` remains available with a deprecation warning.
+- Convert in-row CCS, IGES or STL geometry and sidecar scale, rename or mirror operations with `pyfs-workspace geometry from-sidecar <file> --apply`, then build the folder and name its FSM or OBJ in `GEOMETRY`; these routes warn now and are refused in 0.41.0.
+- Move `CCS_SHEDDING` to `shedding` in the instruction's `[ccs]` table; changing the row to the built body changes its input set and runs its points again.
+- Install `pyflightstream[plot]` for `--png`; a request without matplotlib raises `MissingExtraError`.
+- Matrix selection precedes build and artifact resolution, so excluded rows no longer refuse a missing default build or change the selected run's `HIDDEN` mode.
+- Run, post, collect and regeneration overwrite products without archiving by default; use `collect --archive` or `delete-sims --archive` to preserve replaced products.
+- Continued per-step exports record predecessor `step_offset` and local `first_step`; `LAST` and `AFTER` use the continued counter and refuse already-run spans or unprovable predecessor counts.
+- Rounded sweep point names keep binary half-even rounding; adjust sweep values whose rounded names collide, which now refuse before planning.
+- Collection retains an optional wake VTK beside its declared surface export; no companion is required when the solver writes none.
+- CSV dimensional and coefficient columns can use scientific notation; coefficients retain at least six significant figures when five decimals lose precision, while the legacy custom polar format keeps five decimals.
+- Rebuild Trefftz B products for shed-circulation reconstruction at actual wake crossings; `GAMMA_SCALE`, induced drag and span efficiency change.
+- Rotor plans and records gain `M_adv` and `mach_advancing`, and rotor tables append `MADV_<alias>`; planning warns at `M_adv >= 1`.
+- Unsteady group polars with no resolvable window use the last time step, labelled `kind: instant`, with a warning in `post.log`.
+- Custom polar fields retain a blank before each number; long values may lose decimal places to fit, and unrepresentable values raise `ProductError`.
+- Replace `inflow_tools.StationHarmonics` with `InflowStationHarmonics`; the old import warns and remains available until 1.0.0.
+- Resolve native file lists from the products folder containing `products.json`, matching product keys.
+- Sections measurement expected and emitted lists include every block count, including duplicates.
+- Place `EXPORT_6DOF_TRAJECTORY` after the march with other exports; trajectory columns retain solver units without conversion.
+- Probe histories with `NA` or blank cells retain their other values; malformed reduction windows are listed under `skipped` and must contain two solver-step bounds.
+- A rerun declaring zero sections or probe points retires its previous table; `--force-overwrite` removes the old file and records the skipped product.
+- Harmonic fits require a maximum angular gap of 180 degrees; inspect omitted terms and `HarmonicFit.reason`.
+- Far-field post uses the planning selector grammar, including numbered families and nested aliases, and creates separate distributions for missing Trefftz A families.
+- Trefftz C converts `Cp_ref` with recorded reference dynamic pressure; its Bernoulli diagnostic changes when reference and freestream speeds differ.
+- Geometry builds protect outputs used as run inputs and refuse unowned partial or mesh sibling folders; owned partial retries archive evidence under `.partial.previous`, and mesh rebuilds preserve unrecorded files.
+- A failed geometry audit promotes nothing and retains outputs in the partial folder; `geometry build` exits 1 and prints inspection paths, including with `--overwrite`.
+- Planning refuses legacy or incomplete geometry build records by name and missing input key; rebuild the geometry record before planning again.
+- External FSI refuses reserved input and output names and checks structural-node digests before staging and every structural program call; correct conflicting names or changed nodes.
+- Post matches each exported far-field position set exactly once to its recorded layout; unmatched layouts are skipped by name.
+- `CDI_NEAR_PRESSURE` and `CDI_NEAR_VORTICITY` read the first printed drag-split column, `CDp` on 26.125; Trefftz A warns when traced lift differs from solver CL by more than 5 percent.
+- Treat clock-stopped grouped jobs as ended for `delete-sims`, `free-space` and `sync`, as for `collect`; log-name matching is case-insensitive.
+- `log --sims 20` selects recorded simulation identifiers and no longer matches `20-b` by text alone.
+- A thin blade from a multi-body OBJ retains only applicable mesh operations; inspect its sidecar for operations left out.
+- The wide settings table uses list lengths instead of the fill sentinel in `f<id>_value` and adds `f<id>_kind` to distinguish lengths from enumeration codes.
+- Rows pinning `TK` without `ASMPS` or `MUPas` use the pinned temperature's atmosphere properties; pin `ASMPS` and `MUPas` to preserve the previous numbers.
+- Rows stating `REmi` or pinning `RHOkgm3` without `PPA` emit pressure `rho R T`; rows pinning `PPA` without density use `PPA / (R T)`, so pin both to keep specific values.
+- Detected trailing edges refined with `keep_first_row` write an explicit `<level>.te.txt` sidecar entry when the route covers only detected families; G4 now fails if a refined edge misses a source chain end.
+- The far-field tables append `STATUS`; Trefftz C now writes its plane lift as `CL_T` while its `E_T` still uses solver CL.
+- Use `post.farfield_fields.far_samples(samples, layout, *, per_m)` with a `FarLayout` instead of `lattice_m`, `plane_count` and `lattice_tail`.
+- A known simulation ID containing an underscore takes precedence over a point alias, so `2006_1` selects that simulation when it exists.
+- A grouped point its job never started records `FAILED_EXECUTION` even with a shared native log; `--resume` retries failed points while preserving successful siblings.
+- `--hpc` accepts a file extension like `--cost-file`; both selections end with each CLI invocation.
+- `mark-converged` refuses malformed manifest records and unknown statuses before changing a verdict; correct the manifest before retrying.
+- Catch `PyflightstreamError` for ledger queries that now raise `WorkspaceError` instead of `ValueError`.
+- Write `ENABLE` for a row cost flag; `1`, `ON` and `true` no longer apply its multiplier.
+- Correct free-space recipes with misspelt keys, string `status` or negative or fractional `keep_latest`; they refuse before touching files.
+- Regenerate refined meshes before comparison when large length units or one-row or one-column grids change face order; thin blades from blunt edges now end at the base midpoint.
+- Negative speed and nonpositive Reynolds constraints refuse; zero speed without Reynolds remains valid for hover.
+- A failed job propagates its verdict to unmarked points, which retain their own iteration limits and residual notes.
+- Workspace settings parsers refuse abbreviated options; use complete option names.
+- Refinement preserves exact listed trailing edges and wake gaps; incomplete grid lines use remeshing under `auto` and refuse an explicit `grid` route.
+- Ambiguous detected sharp trailing edges require declared mesh units and a family `trailing_edge_direction` vector from leading to trailing edge; listed points retain precedence.
+- `refine.json` schema is now 2; undeclared mesh units use `shared_edge_target_mesh_units`, and a missing remesh edge ratio is JSON null.
+- A periodic body with unequal axial and circumferential refinement factors refuses; correct those factors.
+- `pyfs-qa probe` and `pyfs-qa cost` use exit 2 for missing executables or unreadable evidence; malformed evidence raises `QaEvidenceError`.
+- Probe labels must be portable filename tokens; correct separators, whitespace, control characters and Windows-forbidden characters.
+- Executable identity remains `unknown` without a registry build number; record identity evidence before treating it as confirmed.
+- Re-run saved-state probes whose evidence matched only a numeric substring; unsupported preludes or effect-instrument errors record affected probes as `unprobed`.
+- Physics reduction refuses mixed executable identities, unknown incidence and PHY-01 polars without two distinct angles and a 4-degree point; reference promotion refuses unconverged or incomplete paired reports.
+- Use an absolute reference band for a zero baseline; zero-centred relative bands refuse before updating references.
 
 ## 0.39.0
 

@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:55:46.035268-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [pyproject.toml, tests/tier1_offline/test_p0400_farfield_numpy.py]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Promote the implemented xarray removal amendment with test evidence.
+revision_source: git
+-->
+
 # Non-functional requirements
 
 !!! requirement "NFR-01 Didactic policy <span class='srs-implemented'>implemented</span>"
@@ -144,10 +157,22 @@
     |---|---|
     | numpy, pandas, pydantic, PyYAML, trimesh | numpy, itaca, pydantic, PyYAML, trimesh |
 
-    Amended for 0.40.0 (0.40.0, pending), PFS-2139.007: xarray leaves the runtime set in
+    Amended for 0.40.0 (0.40.0, implemented), PFS-2139.007: xarray leaves the runtime set in
     release 0.40.0, ahead of the move to ITACA, because the far field it carried moves to
     plain numpy arrays (FR-457); the left-hand column is the set of 0.40.0, and pandas
     stays until its own decision.
+
+    Evidence for the 0.40.0 amendment: `pyproject.toml` removes xarray;
+    `farfield/fields.py`, `farfield/balances.py` and `farfield/quadrature.py`
+    use numpy arrays. `tests/tier1_offline/test_p0400_farfield_numpy.py` proves
+    the removal with `test_p0400_numpy_xarray_left_the_required_dependencies`,
+    `test_p0400_numpy_no_module_of_the_package_imports_xarray` and
+    `test_p0400_numpy_the_package_imports_with_xarray_blocked`, and checks the
+    reductions against the 0.39.0 goldens with
+    `test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`.
+    `tests/tier1_offline/test_extras.py::test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_set`
+    checks this table against the declared runtime set. The ITACA migration
+    remains future work.
 
     pandas and xarray leave and ITACA arrives as one move, not per
     structure (AD-06, AD-07). Reading the right-hand column as already

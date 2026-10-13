@@ -1,5 +1,0 @@
-- Setup family lists can omit absent numbered siblings on sector geometries; the strict missing-family option still refuses them.
-- OBJ-only geometry sweep previews print the OBJ filename used by matrix rows.
-- Geometry builds refuse unowned partial and mesh sibling folders. Retrying an owned partial build archives its evidence under `.partial.previous`; rebuilding a mesh replaces only recorded outputs and preserves other files.
-- External FSI refuses input and output names reserved by the coupling and checks structural node digests before staging and before every structural program call. Each call records the staged node digest.
-- Far-field bit parity explicitly excepts the approved right-handed z-axis moment sign correction. All other baseline results remain exact. Verification is supported on Windows AMD64 with CPython 3.12 and numpy 2.5.4; other platforms are unverified.

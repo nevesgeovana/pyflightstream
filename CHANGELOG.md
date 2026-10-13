@@ -85,6 +85,44 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+- The Zenodo archive DOI of v0.40.0 is owed after publication; add its CITATION.cff row once Zenodo mints it.
+
+## [0.40.0] - 2026-10-13
+
+### Added
+
+- The far-field family (FR-450 to FR-456): the `[farfield]` table of the pproc artifact selects the Trefftz-plane analyses (`variant = "sections"`, `"wake"`, `"plane"`) and the survey balances (`[farfield.ledgers]`); `pyfs-matrix post` writes `farfield/<group>_trefftz.csv`, `farfield/<group>_ledgers.csv` and `sections/<point>_trefftz_<family>.csv`, each file of an unsteady row as `_instant` and `_average`, and the super file gains `CL_T_<V>`, `CDI_T_<V>` and `E_T_<V>` after every other column.
+- `pyfs-matrix plan` reuses what the artifact declares for the far field, adds what is missing (a section distribution, the wake in the VTK export, the far-field plane or lattice as probe points) and refuses only the impossible, stating each input under the point's `farfield` key of `plan.json` (FR-455).
+- `results.wake.parse_wake_export` reads the solver's `<name>_wakes.vtk` (FR-452).
+- A `[[probes]]` entry declares survey `lattices`; every probe point is checked against the body at plan, a package-added point inside it refused and a declared one warned (FR-459).
+- A pproc `[streamlines]` table traces surface friction lines and off-body streamlines (seed lines and tubes) on every point of a row, exports them, and the post writes a VTK polyline product of the off-body lines; the plan states the count per point (FR-460).
+- The `unsteady` row key `SIXDOF: d<id>` frees a body to move under its loads from an input of `inputs/sixdof/`: families, body frame, mass and inertia, gravity, initial state, free degrees, external, spring and custom forces, and the trajectory export (FR-461).
+- An FSI input with `mode = "external"` couples a fixed wing to a structural program of the user's own through the step `pyfs-fsi external`, which runs the program per coupling iteration and archives and validates every call (FR-462).
+- The streamline and 6DOF commands a row reaches are refused at plan on a build where no licensed run verified them, naming the command. (FR-460, FR-461)
+- The geometry stage: `pyfs-workspace geometry build` reads `<name>.geometry.toml` (one source table, `[ccs]`, `[cad]`, `[create]` or `[mesh]`, then `[[operations]]` and `[trailing_edges]`), previews the build without running anything, and with `--apply` runs the solver once with no solve, reads the saved body back against the stated boundaries, audits it, and writes a ParaView preview and a `<name>.build.json` record (FR-470, FR-471).
+- A control-surface deflection sweep builds one sibling geometry per angle, `<name>_<SURFACE><sign><tenths>` (FR-472).
+- `pyfs-workspace geometry accept` records the inspection of a built body; `pyfs-matrix plan` refuses a row whose body is stale against its instruction and warns on a resaved, unaccepted, audit-failed or other-build body (FR-473).
+- Mesh operations in the instruction file: circular and linear copies, a cut by a plane, hole filling, degenerate-face removal, face extraction and deletion by threshold, and node moves pinned to the mesh's sha256 (FR-474).
+- CAD body operations before the conversion of an IGES file, and bodies and section-lofted wings built by the solver's CAD Create commands (FR-475).
+- `pyfs-workspace geometry build --rows POL --matrix FILE` prints one whole matrix row per built variant, copied from the row `POL`; nothing is written into the matrix (FR-472).
+- `pyfs-workspace geometry build --parallel 2` runs two variants of a sweep at once and reruns alone a variant that failed beside another (FR-472).
+- A deflection sweep writes `<name>.sweep.vtk` in the base folder, the swept control surface of every variant overlaid (FR-472).
+- `pyfs-matrix plan` warns on a row whose `SYMMETRY` is `MIRROR` and whose built body carries a deflected control surface, naming the surface and the angle (FR-473).
+- A rebuilt mesh's sidecar keeps the `translate` and `rotate` operations, `[wake_termination]` and `[base_regions]` of the sidecar it replaces, or of its `[mesh]` source (FR-471).
+- `pyfs-workspace geometry from-sidecar` writes the instruction of a geometry a matrix row builds today (FR-476).
+- `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`, the homes of the `pyfs-matrix` verbs of the same results (FR-477).
+- `cases.windows` exposes `ExportThresholdRecord`, `StoppedStepRecord` and `RESTART_STEP_OFFSET_VARIABLE`; the generated API reference classifies it as provisional (FR-409, NFR-29).
+- The generated input template carries the example `inputs/pproc/p003.toml`,
+  covering `[streamlines]` lines and tubes, `[[probes.lattices]]` and
+  `[farfield]` with `trefftz` and `ledgers` (FR-460, FR-450).
+- cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer. (no requirement: PFS-2098.004 fix)
+- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers. (no requirement: PFS-2085.021 fix)
+- Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings. (no requirement: PFS-2105.042 fix)
+- `farfield.plane_lift`: the Kutta-Joukowski lift of the streamwise vorticity a Trefftz C plane holds. The C row of a wing states it as `CL_T`, and post warns where it departs from the solver's CL by more than 10 percent: the probe field then does not hold the circulation the loads shed (FR-453 R9, PFS-2081.95, RPT-171).
+- Every row of `farfield/<group>_trefftz.csv`, `farfield/<group>_ledgers.csv` and `sections/<point>_trefftz_<family>.csv` ends with `STATUS`, the point's solver termination status as `campaign_sweep.csv` writes it (FR-456 R10, PFS-2081.97).
+- The run record carries `farfield_layout`, the far-field plane and lattice each point laid or reused (a steady job keys it by point name), and `plan.json` states it under the row's `farfield` `probes` (FR-455 R4, PFS-2081.58).
+- `pyfs-workspace init` and `migrate-geometries` accept `--workspace PATH`, as every other subcommand but `archive` does; their positional root still works, and two different folders are refused (no requirement: PFS-2089.004 fix).
+- A refinement file that selects a family with no `[families.<name>]` table warns, naming the family and the remedy, and `refine.json` records it under `missing_families_tables` (no requirement: PFS-2089.003 fix).
 
 ### Changed
 
@@ -94,6 +132,386 @@ FlightStream versions.
   the exempted set falls from sixteen modules to thirteen, and the error total inside it moves from 159
   to 165 (`qa.probes` 79 to 92, `script.helpers` 2 to 4, `script` 17 to 13, `post.writers` 2 to 1). The
   forty-six modules the package gained since 0.39.0 are all clean and none is exempted (NFR-27, RPT-029).
+- `pyfs-workspace archive SIM_ID --workspace ROOT` names the campaign folder like the other subcommands; the positional `archive ROOT SIM_ID` still works and warns that it is deprecated (no requirement: the archive subcommand takes --workspace like the others).
+- `pyflightstream.farfield` takes and returns numpy arrays and small frozen containers; `xarray` is no longer a required dependency (FR-457). The numbers are unchanged to the last bit.
+- `pyflightstream.probes` is the one home of probe geometry: the line, rectangle and circle layouts, the survey lattice and the far-field plane (FR-459).
+- A row naming a CCS, IGES or STL file, or a sidecar whose import operations scale, rename or mirror, is warned at plan with its replacement; it still runs as before, and 0.41.0 refuses it (FR-476).
+- `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` warn that `pyfs-workspace geometry` is their home; their results are unchanged (FR-477).
+- FR-32: a row of the unsteady polar, `polars/P<sim>_<name>_uns_avg.csv`,
+  says `reduction = time_average` and `reduction_window = averaging_window`,
+  a window token appended at code 4 for the averaging window the row's
+  `FIRST_STEP`, `LAST_STEP` and `STEPS` state. It carried the provenance
+  cells of the native export instead: `time_average` over `not_printed` in
+  0.39.0, `none` over `not_applicable` where that export printed a steady
+  mode.
+- FR-32: a row read from a native unsteady export, in the sweep table and in
+  the super polar of an unsteady simulation, says `reduction = last_step`
+  and `reduction_window = last_time_step` (codes 3 and 3), the last time
+  step it states, where 0.39.0 wrote `time_average` over `not_printed`.
+
+- PFS-2029.25 (numbered boundary names): a post-processing entry whose
+  `families` cites a numbered name the run's known geometry lacks (`Blade1`
+  over `Blade11` and `Blade12`) matches no recorded block for integration;
+  its raw columns are kept. Over a legacy layout's cuts alone, with no known
+  geometry, the family reading is kept (FR-435).
+- A `--png` request without matplotlib raises `MissingExtraError` naming
+  `pyflightstream[plot]` (no requirement: integration fix of the geometry
+  stage's hand-written remedy).
+- `minimal_workflow("26.125")` declares its one imported boundary, so its
+  trailing-edge detection writes `SURFACES 1` and `1` (no requirement:
+  follows PFS-2104.051).
+- The export verdicts name four export commands of 0.40.0:
+  `EXPORT_VOLUME_SECTION_2D_VTK` is excluded like its 3D sibling;
+  `EXPORT_ALL_SURFACE_STREAMLINES`, `EXPORT_6DOF_TRAJECTORY` and
+  `STABILITY_TOOLBOX_EXPORT` are owed a parser (no requirement: export
+  classification).
+- PFS-2084.004, PFS-2084.005, PFS-2094.040, PFS-2100.019, PFS-2104.032, PFS-2104.035 (no requirement: identifiers retained from the correction fragment).
+
+- Script.park_input_file applies the shared case-insensitive collision rule.
+  Script.observe_commands records accepted emissions within a scope; cases use
+  these public APIs and Script.entry instead of private builder state. (no requirement: shared script APIs for existing workflows).
+- Restart records have declared ExportThresholdRecord and StoppedStepRecord
+  types. The persisted export_window key remains compatible. (FR-409).
+- Matrix selection precedes build and artifact resolution; excluded rows do
+  not refuse a missing default build or change the selected run's HIDDEN mode. (no requirement: correction of excluded-row handling).
+- Run, post, collect and regeneration overwrite products without an archive by
+  default. collect --archive and delete-sims --archive preserve replaced products.
+  post --force-overwrite explicitly selects no archive and still confirms it. (FR-397).
+- Continued per-step exports record their predecessor step_offset and local
+  first_step. LAST and AFTER thresholds reach the continued march's counter;
+  thresholds in the span already run, or unprovable predecessor counts, refuse
+  at plan. Additional marches resolve LAST windows against their new end. (FR-409).
+- Point names retain the historical binary half-even rounding, so existing
+datapoint folders remain readable after upgrading. A sweep whose rounded names
+collide is refused before planning; 10.45 and 10.50 degrees keep AL+104 and AL+105. (no requirement: preserve historical point names and refuse collisions).
+
+- Collection files and records an existing optional wake VTK beside its declared
+surface export. No wake companion is required when the solver writes none. (FR-452).
+
+- CSV coefficient columns now retain at least six significant figures when five
+decimals lose precision, including small induced-drag values. Readers must
+accept scientific notation. Settings retain their stated form and drift
+percentages keep five decimals. The optional legacy custom polar format keeps
+its external fixed-width, five-decimal contract. (no requirement: preserve small coefficient values when writing CSV).
+
+- Forced reruns support Windows archive paths longer than the ordinary path limit
+and tolerate an output that disappears during archiving. An archive
+failure retains the old manifest records, and a later failure restores any
+superseded record for which no replacement was written. Existing output
+archives remain available for recovery. (no requirement: preserve records during Windows archive failures).
+- PFS-2081.49: Steady far-field planes and lattices append their points through
+one bulk CSV import. The staged file keeps the recorded point order and the
+simulation length unit; each distinct set has a content-derived filename.
+The default 27,059-point solver timing still needs a licensed measurement. (FR-455).
+
+- PFS-2081.51: The wake reader accepts empty polygon blocks and the solver's
+point-coordinate scalars, preserving connected mirror halves and collapsed
+lines. Post selects one mirror half before reflecting it once and warns when
+zero-strength collapsed lines leave missing circulation in the export. (FR-452).
+
+- PFS-2081.52: Trefftz B reconstructs strip circulation from the circulation
+shed by each wake line. It integrates at the actual wake crossings, retaining
+folded sheet topology. GAMMA_SCALE, induced drag and span efficiency change;
+near-field lift calibration remains. The recorded fine-mesh comparison gives
+raw lift within 3 percent of the near field and efficiency within 0.03 of
+Trefftz A. The real solver fixture exports use LF line endings; their
+coordinates, connectivity and scalar values are unchanged. (FR-452).
+- The rotor Mach numbers gain the advancing-tip Mach number `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a` (FR-176 R1): `M_hel` bounds the tip only in axial flow, and `M_adv` equals it there and is `(Omega R + V) / a` edgewise. `pyfs-matrix plan` prints an `M_adv` column and warns on `M_adv >= 1` (still a warning, never a refusal), `plan.json` and the run record carry `mach_advancing` beside `mach_helical`, and the rotor table gains `MADV_<alias>` as its last column. A row whose rotor axis cannot be resolved takes the edgewise bound and the plan line says so. `M_hel` is unchanged.
+- An unsteady simulation with no resolvable window keeps its group polars from the last time step, now labelled kind: instant in the table entries, and post.log warns once naming the simulation. (no requirement: PFS-2105.011 fix)
+- Custom polar fields now always keep a blank before each number; long values may be written with fewer decimals or digits, and a value that cannot fit raises ProductError. (no requirement: PFS-2105.012 fix)
+- The inflow result is renamed InflowStationHarmonics. The old inflow_tools.StationHarmonics import warns and remains available until 1.0.0. The loads-harmonics class keeps its name. (no requirement: PFS-2089.007 fix)
+- Native file lists are now relative to the products folder, matching product keys. Resolve these paths from the folder containing products.json. (no requirement: PFS-2089.001 fix)
+- Sections measurement expected and emitted now list all block counts, including duplicates. (no requirement: PFS-2105.021 fix)
+- EXPORT_6DOF_TRAJECTORY is now an export-phase command, and a row's SIXDOF trajectory is written after the march with the other exports, where it was written in the setup phase and held its header and no row on 26.124 and 26.125 (FR-461 R6, RPT-166 P4-04). A script of your own that places it before the march keeps working only through raw text.
+- The 6DOF trajectory columns are in the solver's units, which the probes did not settle; the package does not convert them (docs/sixdof-motion.md). (FR-461)
+- Small dimensional CSV values retain significant digits where five decimal
+  places would lose precision. This covers viscosity, time (including the
+  native plots clock), positions, sectional loads, velocities, boundary-layer
+  lengths, and dimensional rotor and group columns. Coefficients keep five
+  decimal places. Readers must accept scientific notation in physical columns. (no requirement: PFS-2105.041 fix)
+- A probe history containing `NA` or blank cells keeps its other values and
+  produces a probes table. Previously one such cell could skip the whole table. (no requirement: PFS-2105.016 fix)
+- Malformed recorded reduction windows are listed under that reduction's
+  `skipped` key instead of aborting the post. Each window must contain two
+  bounds, the first and last solver steps. (no requirement: PFS-2095.016 fix)
+- Truncated VTK vector blocks raise `IncompleteOutputError`; malformed vector
+  rows and non-UTF-8 frames raise `MalformedOutputError`, instead of raw Python
+  indexing, conversion or decoding exceptions. (no requirement: PFS-2095.020 fix)
+- A failing post keeps its original exception if a log write, log close or
+  interrupted-manifest write also fails, including when the log reader sees
+  partial JSON from that failed rewrite. The secondary failure is attached
+  as an exception note. A log failure after a successful post still raises. (no requirement: PFS-2086.002 fix)
+- A rerun whose export now declares zero sections or zero probe points retires
+  the previous table under both archive settings. Under `--force-overwrite` it
+  removes the old file and records the skipped product. (no requirement: PFS-2100.004 fix)
+- Harmonics now require angular coverage as well as distinct sample counts.
+  See [the fit definition](definitions/the-per-station-harmonics.md) for the
+  180-degree maximum-gap rule, omitted terms and `HarmonicFit.reason`. (no requirement: PFS-2086.007 fix)
+When adopting 0.40.0, account for these changes in probe evidence, physics
+references and command-line refusals.
+
+- **PFS-2100.023, PFS-2104.015:** migration: `emit_probe_import` documents that
+  coordinates use simulation length units and types `frame` as `int | str`.
+  The unit of the CSV is now a required argument (no default). (no requirement: PFS-2100.023 fix)
+- **PFS-2097.008, PFS-2095.022:** migration: containment culling now refuses an
+  open mesh supplied as an object. Position verification refuses non-finite
+  exported rows and accepts empty plans, including after JSON loading. (no requirement: PFS-2097.008 fix)
+- **PFS-2102.013:** migration: saved-state probe assertions require the correct
+  numeric value, including sign and exponent. A substring of another number
+  no longer verifies a command; re-run probes whose old evidence depended on it. (no requirement: PFS-2102.013 fix)
+- **PFS-2102.033, PFS-2102.028:** migration: an unsupported prelude argument or
+  an exception in an effect instrument records the affected probes as
+  `unprobed` instead of terminating the probe run. (no requirement: PFS-2102.033 fix)
+- **PFS-2102.005:** migration: `WingSpec` and `BladeSpec` refuse a cambered
+  four-digit section with a zero camber-position digit at construction. (no requirement: PFS-2102.005 fix)
+- **PFS-2102.003:** migration: executable identity is `unknown` when the version
+  registry has no build number, even if the executable prints one. Record a
+  build from identity evidence before treating the executable as confirmed. (no requirement: PFS-2102.003 fix)
+- **PFS-2102.030, PFS-2102.010, PFS-2102.002:** migration: malformed compatibility
+  reports and unreadable physics evidence now raise `QaEvidenceError`.
+  Invalid reference fields are refused through the same error type.
+  `pyfs-qa probe` reports missing executables and evidence refusals with exit 2;
+  `pyfs-qa cost` reports unreadable manifests with exit 2. (no requirement: PFS-2102.030 fix)
+- **PFS-2085.017, PFS-2102.007, PFS-2102.009:** migration: physics reduction
+  refuses mixed executable identities, unknown incidence, and a PHY-01 polar
+  without both two distinct angles and a 4-degree point. A failed case reduction
+  is recorded as a case error; a failure after execution is reported as such. (no requirement: PFS-2085.017 fix)
+- **PFS-2102.015:** migration: report labels must be portable file-name tokens,
+  without separators, whitespace, control characters, or Windows-forbidden
+  characters. Invalid labels are refused before the solver starts. (no requirement: PFS-2102.015 fix)
+- **PFS-2102.036:** migration: a relative reference band centred on exactly zero
+  is refused. Drift reports such a baseline without a reference band. Reference
+  updates refuse a zero-centred relative band before replacing the reference. (no requirement: PFS-2102.036 fix)
+- **PFS-2085.016, PFS-2102.011 (review correction):** migration: reference
+  promotion checks the source report itself for unconverged steady points,
+  including the steady half of PHY-06. Historical reports are checked too;
+  completed unsteady points remain eligible. Incomplete paired-polar reports
+  are refused. (no requirement: PFS-2085.016 fix)
+- Far-field post now uses the planning selector grammar, including numbered
+family stems and nested aliases. Missing Trefftz A families each receive their
+own section distribution, so their exported loads can be attributed and posted. (FR-455).
+
+- Trefftz C converts `Cp_ref` with the recorded reference dynamic pressure.
+Its Bernoulli diagnostic changes when the reference and freestream speeds
+differ. The public `bernoulli_residual` return documentation now states the
+integrated Betz-Maskell diagnostic in N. (FR-453).
+
+- Truncated and invalid wake count headers produce named reader refusals and a
+far-field post skip. The signed shed-circulation requirement and its verification
+now agree with the definitions page and the recorded wake evidence. (FR-452).
+- post help states the overwrite default once and explains confirmation controls; geometry build protects outputs used as run inputs (FR-397, FR-471; PFS-2081.110, API-001).
+- matrix geometry aliases name their ledger-backed removal in v1.0.0 (FR-477, NFR-20; PFS-2081.111, API-002).
+- the new external FSI command and its generated callback use only --out; external help carries no requirement id (FR-462; PFS-2081.113, PFS-2081.114, API-004, API-005).
+- Setup family lists can omit absent numbered siblings on sector geometries; the strict missing-family option still refuses them. (FR-435).
+- OBJ-only geometry sweep previews print the OBJ filename used by matrix rows. (FR-472).
+- Geometry builds refuse unowned partial and mesh sibling folders. Retrying an owned partial build archives its evidence under `.partial.previous`; rebuilding a mesh replaces only recorded outputs and preserves other files. (FR-471).
+- External FSI refuses input and output names reserved by the coupling and checks structural node digests before staging and before every structural program call. Each call records the staged node digest. (FR-462).
+- Far-field bit parity explicitly excepts the approved right-handed z-axis moment sign correction. All other baseline results remain exact. Verification is supported on Windows AMD64 with CPython 3.12 and numpy 2.5.4; other platforms are unverified. (FR-457).
+- Trefftz B's requirement now defines the wake export as signed shed circulation
+at strip edges, accumulated to bound circulation at strip midpoints. A wake
+line value must not be supplied directly as bound strip circulation. This
+corrects the requirement to the existing reconstruction and native fixtures. (FR-452).
+
+- Geometry builds with a failed audit are required to promote nothing and keep
+their built outputs in the partial folder for inspection. The current build
+implementation still promotes them; that implementation gap remains open. (FR-471).
+- Planning resolves the far-field plane and lattice once, by frame and by the exact laid-out points: a declared `[[probes]]` shape identical after layout is reused (a key stated at its default is the same geometry), and a `[farfield]` table stating no geometry reuses the one declared lattice or rectangle that qualifies (FR-455 R2, PFS-2081.56).
+- Post matches every exported far-field position to the recorded layout, each set exactly once, and integrates with the recorded grid; a set it cannot match is a named skip. A record without a layout is matched to the table as it stands, by shape for the plane and a frame's lattice (FR-455 R4, PFS-2081.58).
+- Trefftz A warns, naming the families and both lifts, where the traced families' lift departs from the solver's CL by more than 5 percent (FR-451 R13, PFS-2081.96).
+- The far-field comparison columns `CDI_NEAR_PRESSURE` and `CDI_NEAR_VORTICITY` read the first column of the printed drag split, `CDp` on 26.125 (FR-456 R2, FR-423, PFS-2081.98).
+- Failed geometry audits retain the built outputs and record in the partial
+folder and promote nothing, including when rebuilding with `--overwrite`.
+The geometry build command exits 1 and prints the retained inspection paths. (FR-471).
+
+- Matrix planning refuses legacy or incomplete geometry build records with a
+message naming the record and missing input key, instead of raising KeyError. (FR-473).
+- FR-471 R2: Geometry builds set the simulation length unit and mark trailing
+  edges before saving the FSM and exporting the OBJ. The OBJ now always uses
+  the explicitly stated unit, independent of the solver's initial default.
+  `EXPORT_SURFACE_MESH` preserves the current script phase, so it may follow
+  unit setup and `SAVEAS` as well as geometry operations.
+- REL7-001, FR-471 R2: Generated OBJ sidecars now state the exported metre
+  unit instead of the source mesh's import unit. Millimetre-source builds
+  retain their physical dimensions on re-import and pass valid trailing-edge
+  audits for both OBJ-only and FSM-plus-OBJ outputs.
+- The CLI scheduler regression now exercises the scheduler on Windows and isolates its selected profile. The mark-failed mutation test follows the per-point implementation. Command parsing, record marking, renaming and sweep collection retain their behavior while shared steps are factored into helpers to satisfy source limits (no requirement: test and internal helper changes, no behaviour change).
+- Workspace storage and batch commands read one end rule for a grouped job: the end record, the job log, every `job_end_files` glob, or a point whose wall-clock state says it fired; delete-sims, free-space and sync now treat a clock-stopped batch as ended, as collect does (no requirement: PFS-2094.041, PFS-2094.044 fix).
+- Sync and free-space share one log-name rule: `FS_runtime_output.txt`, `FlightStreamLog.txt`, `*_log.txt`, `*-log.txt` and `*.log`, in any case (no requirement: PFS-2087.002 fix).
+- `ledger diff` normalises each executed script against its own run root and words a changed command as `a ...` and `b ...` (no requirement: PFS-2103.013 fix).
+- `show` reads only the end of an evidence file and reports a binary file by size and sha256 (no requirement: PFS-2101.004 fix).
+- `log --sims 20` no longer selects simulation `20-b`; a row's own `sim_id` or `sims` decides before its text (no requirement: PFS-2094.043 fix).
+- A thin blade's rows all run from the leading edge, and a blunt trailing edge ends the mean line at the midpoint of its base (no requirement: PFS-2099.001, PFS-2099.002 fix).
+- A thin blade cut from a multi-body OBJ carries only the mesh operations that act on it, and names the ones left out in its sidecar (no requirement: PFS-2099.003, PFS-2099.013 fix).
+- Refined meshes order faces within one source face by vertex index, then distance, so a millimetre mesh orders as a metre one does, and a one-row or one-column grid is written in the source's own run (no requirement: PFS-2099.019, PFS-2099.018 fix).
+
+### Fixed
+
+- PFS-2089.006: Public action-export renderers require explicit keyword-only version.
+- PFS-2104.031: Walltime rescue respects EXPORT_LOG and LOG_OUTPUT routing.
+- PFS-2104.039: Walltime rescue respects disabled log export.
+- PFS-2095.041: Quasi-steady export thresholds are refused as steady-run thresholds.
+- PFS-2104.004: Original hub copies preserve the placed origin and basis; unknown placement is refused.
+- PFS-2104.005: Flat-row blade frames use the declared rotor hub and blade datum.
+- PFS-2104.034: Negative blade datum directions retain their sign in hub axes.
+- PFS-2104.007: Raw wake nodes and tolerance use the simulation length unit.
+- PFS-2104.008: Vector-shaft MOTIONS hubs align local Z with the shaft.
+- PFS-2104.009: Steady survey imports honor scale and frame; unsupported transformed surface surveys are refused.
+- PFS-2104.010: Quasi-steady FFT native inflow uses the same simulation unit as the builder.
+- PFS-2088.011: Each rotor passage product uses that rotor averaging span, including the fallback turn.
+- PFS-2095.006: Signed RPM is treated as a magnitude for windows; stationary step windows have no revolution.
+- PFS-2095.007: Uninterpretable averaging windows become post skips and invalid declared windows are refused at build.
+- PFS-2098.002: Public export and reduction windows clamp to run length like recorded windows.
+- PFS-2100.022: Recorded averaging-window text identifies clipping to run length.
+- PFS-2104.011: Rotor block blade count takes precedence; contradictory row counts are refused.
+- PFS-2093.009: Averaging windows must contain one valid positive count.
+- PFS-2093.010: Unsupported WALLTIME suffixes name the full supplied unit.
+- PFS-2095.042: NCPUS accepts integral decimal text such as 4.0.
+- PFS-2097.003: Angles and body rates refuse nonfinite values with named row errors.
+- PFS-2097.014: Resolved angles, body rates and wall clocks require finite numbers.
+- PFS-2097.015: Additional iteration counts must be whole; additional revolutions round before ceiling.
+- PFS-2097.004: Restart counts must be finite and positive; iteration counts must be whole.
+- PFS-2104.012: Steady sweep builds apply ordinary build validations and boundary-layer frame stamps.
+- PFS-2104.041: Every steady sweep section product receives its loads frame.
+- PFS-2104.043: Body-rate sweeps run separate jobs; grouped scripts refuse changing rates.
+- PFS-2104.037: Grouped motion restatements refuse duplicate later rotor creation.
+- PFS-2104.003: Export thresholds and counters honor CLOCK_MOTION.
+- PFS-2096.003: LOG_OUTPUT cannot overwrite any other exported output.
+- PFS-2104.006: Undeclared custom inflow units outside metre simulations yield unknown coverage and a warning.
+- PFS-2104.033: Normal probes are created for averaging-only export windows.
+- PFS-2104.036: Steady sweep points replace the prior point probe objects.
+- PFS-2104.040: Steady sweep points replace the prior point pproc probe objects.
+- PFS-2104.038: Named-frame steady probes use normalized orthogonal axes.
+- PFS-2105.027: Steady field layout records reference coordinates and preserves declared frame separately.
+- PFS-2104.042: Every quasi-steady clocking executes row raw phase commands.
+- PFS-2081.19: Passage cuts use cumulative physical boundaries without repeated rounded-step drift.
+- PFS-2081.20: Rotor revolution spans use exact angular steps when declared.
+- PFS-2081.33: A missing averaging clock is recorded as a post skip; its documentation now agrees.
+- PFS-2093.001: Ignored matrix VELOCITY emits a warning naming TASmps or MACH as the velocity source.
+- PFS-2095.008: Zero-RPM explicit clocks build without division by zero.
+- PFS-2097.005: Explicit time step and iteration counts must be positive.
+- Correct indexed mesh boundary lookup, station roundoff handling, odd-grid harmonic coverage, phase origins, and right-handed in-plane moments.
+- Preserve requested post-processing diagnostics in quiet mode and require meaningful scales for aerodynamic counts.
+- Preserve manual chapter bytes during version insertion and recover registration writes without overwriting unrelated temporary files.
+- Require complete probe execution evidence, correct surface-section export filenames, and use the configured probe timeout in the Python API.
+- Tighten release fragment folding, directed parity exceptions, mutation verdicts, and temporary mutation byte restoration.
+- The tier-3 maintenance programs `tests/tier3_licensed/actions_probe.py` and `duct.py` start as scripts from
+  another working directory with no `PYTHONPATH` setting.
+- `tests/tier3_licensed/mesh_routes.py` applies the same relative `1e-9` rounding slack to its unit-conversion
+  verdict and its route comparisons, so a gap of exactly one printed unit reports `IMPORT CONVERTS`.
+- `tests/tier3_licensed/rotation_null.py` resolves the simulation ID from the leading token of each point name, for
+  both angle signs, and scores the recorded products instead of raising `KeyError`.
+- The measured-rate table again names the pitch and roll/yaw measurements in
+  readable language after internal report locators were removed (FR-101).
+- The additional-post guide again names its public skip reasons, which had
+  been removed with internal test citations (FR-111).
+- Integration guards follow the documented post confirmation controls and
+  geometry command deprecations, retain the guarantee evidence outside public
+  prose, and record the current architecture and type-check measurements
+  (FR-397, FR-477, NFR-13, NFR-27).
+- FR-68: a row stating `BLADES` equal to its rotor block's families times
+  `PERIODIC_COPIES` (one meshed blade of a periodic rotor) plans again; any
+  other disagreement with the block is still refused (PFS-2104.011).
+- The FR-419 text in the functional requirements is valid UTF-8 again
+  (it had been written double-encoded).
+- FR-460: a pproc asking for surface streamlines exports them in the export
+  block of the point, after the off-body analysis commands, where the
+  surface-streamline export now belongs by its phase; it was emitted right
+  after generation and the script was refused for an analysis command after
+  the export phase.
+- The stale-extraction message now names the full command, pyfs-matrix post <matrix stem> --additional-pproc, which the CLI accepts; the old text omitted the matrix and was refused.
+- The frozen-window message names the rotor table by the one builder of its file name, with the alias sanitised, so the file named is the file written.
+- A windowed rotor row whose average cannot be made into coefficients is left out of the table with its reason stated, instead of being written.
+- The J-mismatch rotor warning now compares CLOCK_MOTION with the rotor alias ignoring case, so differently cased aliases no longer raise a false warning.
+- A rotor record that states no Mach now takes the simulation's Mach, or NA where none is stated, never 0.0.
+- An acoustic export that cannot be read or written is now skipped per point, under acoustics/<stem>_acoustics_summary.csv in products.json, so each point keeps its own reason.
+- Unsteady harmonics and disc maps now end at the last step actually written, for example after a wall-clock stop, never at the planned last step.
+- For an OBJ geometry the mesh-faces warning no longer suggests --overwrite; it points to the manual route in docs/mesh-inputs.md. A saved simulation still gets --overwrite.
+- Recorded polar file-name helpers now raise ProductError, not a bare ValueError, when the group is a name; pass the group number, or use swept_polar_file_name.
+- read_csv_table now reports the file's own line number in errors when lines are skipped before the header.
+- Acoustic tables are written at round-trip float precision instead of five decimals. Rebuild acoustic tables to recover small amplitudes and exact time samples.
+- A calibration correction now also invalidates derived columns that depend on the corrected components: ETAW now includes CN and CS, and THRUST, TORQUE and the rotor-state columns read NA unless their source forces are stated.
+- read_custom_polar_format now raises ProductError naming the line for non-numeric values, a bad reference count, or non-ASCII bytes, instead of a bare ValueError or UnicodeDecodeError.
+- The generated input glossary page keeps the line endings the page already has, so a CRLF checkout is no longer rewritten with mixed endings on every plan or post.
+- Mirroring an installed-frame table now also flips YMOM and every *_PHASE_DEG column. Rebuild installed-frame copies from their source tables.
+- Blade-view harmonics refuse a negative X rotor axis; specify positive X and signed omega.
+- Probe fields, reductions and the probe table now read the Time-step clock through one reader; native fields are refused unless their steps are finite, whole and strictly increasing.
+- At nonpositive free-stream velocity, plots coefficient columns read NA and post warns; physical forces remain exported values.
+- write_probe_field and write_recorded_probe_fields test every destination first, so an existing file refuses before anything is written, not after a partial set.
+- products.json is now written atomically, and an interrupted write leaves no truncated file; a cut-off manifest is named with its remedy (post again without --sims) instead of a bare JSON error.
+- An unknown matrix stem is refused before post/<stem>/ or its log files are created.
+- Section radii and torque arms are now measured from the hub for geometry-frame cuts. K_1P reads NA, with a warning, where the recorded frame and hub cannot place the station.
+- A clocking export without a positive reference velocity is now skipped with its reason named, instead of being read at the free-stream velocity.
+- The rotor table's ETAW sign is now fixed once per rotor against body +x, so it no longer flips between alpha -2 and +2 for a shaft square to the stream.
+- Rotor table rows that state no ALPHA or BETA now write NA for shaft angle and ETAW, with a warning, instead of assuming level flight.
+- A rotor row whose loads export states an unrecognised analysis frame is now refused with the frame named, and static points warn that rotor coefficients except J read NA.
+- Warnings raised by the pproc builder while matching section distributions no longer appear in post output.
+- Section-distribution tables now keep only stamped files inside the record's export window; files outside it are named in skipped.
+- The sections series steps_tabled now lists only steps that produced rows; a step whose export declared no sections is no longer listed.
+- The wide settings table no longer carries the fill sentinel in f<id>_value; a list-valued flag keeps its length, not 999.
+- average_surface_exports now raises ProductError when the window ends before it starts, instead of failing later on an empty range.
+- write_surface_average now tests both destinations first, so an existing file raises ProductExistsError before either the Tecplot or VTK file is written.
+- Integrated tip Strip_length, Fx_int, Fz_int and My_int increase by the missing half strip; rebuild post products.
+- On 26.125 exports, post.log now warns, once per point, for each surface on the vorticity drag list whose CDp is exactly 0 (the solver declined it, as earlier builds print CDi 0), naming the surface and the build. This replaces the former warning that the rule was not applied; build 26.124 cannot discriminate.
+- docs/geometry.md states that the CAD section loft route is refused on 26.124 and 26.125 (CAD_CREATE_IMPORT_CURVE_TXT is broken there, RPT-166) and that the CCS route is the working one.
+- Surface parsing reports out-of-range VTK polygon integers as malformed
+  output, so translation records the problem instead of aborting with an
+  uncatalogued overflow.
+- Reusing a surface translation without a native source verifies its data
+  against a fresh translation as well as checking its source and frame.
+- A `TK` pin is the temperature of the whole flow state: the speed of sound (`sqrt(gamma R T)`), the Sutherland viscosity, the Mach to velocity conversion, the derived Reynolds number and the density now follow it, as they follow a `dISA`.
+- The emitted density, pressure and temperature satisfy `p = rho R T`: a density solved from `REmi` or pinned by `RHOkgm3` is emitted beside its own ideal-gas pressure, and a `PPA` pin sets the density at the state's temperature.
+- A refined level whose kept-row trailing edge was detected names its points file in its boundaries file (`file = "<level>.te.txt"` in place of `detect`) when every family the detection route covers was detected, so the run marks the line the refinement kept; otherwise a warning names the points file the run does not read.
+- Audit gate G4 fails a trailing-edge line that a source chain no longer reaches (a shortened chain), and reports the level's and the source's trailing-edge lengths.
+- omitted s_ref names the reference area and m2 unit without introducing a default area (FR-457; PFS-2081.112, API-003).
+- 6DOF documentation lists case-sensitive freedom keys and force enums (FR-461; PFS-2081.115, API-006).
+- the geometry build row-copy refusal names both required CLI options (FR-472; PFS-2081.116, API-007).
+- Far-field post took a frame's lattice as the last points of the export and the plane by its point count, so a reused frame lattice followed by another probe entry, or a plane changed to another grid of the same count, was integrated with the wrong samples or the wrong area (FR-455 R4, PFS-2081.58).
+- The far-field products of a `qsteady_rotor` point were skipped ("states no speed in the point's record"): the hub speed is read from the row's own quasi-steady record, as every other product reads it, signed once by the rotor's hand (FR-453 R8, PFS-2081.93).
+- `CDI_NEAR_PRESSURE` and `CDI_NEAR_VORTICITY` were `NA` on every 26.125 point (FR-456 R2, FR-423, PFS-2081.98).
+- Far-field post matched an unsteady run's probes without their recorded frames, taking the first coordinate convention that matched, so a declared lattice of a translated frame followed by a reference-frame entry at its reference positions read that entry's velocities. A set is now matched only among the points of the frame it was recorded in, in that frame's coordinates, and a set found twice is refused (FR-455 R4, PFS-2081.58, PFS-2081.102).
+- The far-field matching tolerance grew with the distance from the origin, so a plane of another grid far from the origin was integrated with the recorded area. Each coordinate is now compared within the export's own printed precision, and a layout that precision cannot resolve is refused (FR-455 R4, PFS-2081.103).
+- The plan said a rotor's Trefftz C added probe points while it reused the declared lattice the ledgers reuse; its state now follows the lattice it reads (FR-455 R4, PFS-2081.101).
+- A declared `[[probes]]` lattice or plane the far field reused on an unsteady row kept only the histories it stated, so a `VX`-only declaration left `VY`, `VZ` and `CP_REF` absent and the balances `NA`. The plan now adds the missing histories at the same vertices, in the entry's frame, records them as `plots_added` and states their count (FR-455 R9, PFS-2081.99).
+- Planning reused a declared section distribution over several families, or `all`, for Trefftz A while post traced only a block of one named family, so post skipped and said a new run would add the distribution. Plan and post now share one rule: a block cuts one family (`all` on a geometry of one family counts), and an aggregate of several covers none, so the plan adds their own (FR-455 R2, PFS-2081.100).
+- An odd azimuth count refused the harmonic order just below half of it (order 6 on 13 azimuths) and so kept the sole declared lattice from being reused; the aliasing rule is now 2 m_max >= n_psi at load and in planning (FR-454 R2, FR-455 R2, PFS-2081.107).
+- OBJ-only deflection sweeps now retain solver meshes until the required sweep overlay is produced. Unreadable or empty selected surfaces give an explicit failure, and a previous overlay cannot appear current after a failed build (FR-470 R1, FR-472 R7, PFS-2081.108, REL4-001).
+- Filtered sweeps keep the original one-based angle_deg positions in the overlay's variant cell labels, including the third angle and noncontiguous selections (FR-472 R7, PFS-2081.109, REL4-002).
+- Refuse an existing sweep overlay without `--overwrite`, including disjoint `--only` selections. Authorized replacements retain the old overlay as `.previous` evidence and publish the new overlay atomically (FR-471 R9, FR-472 R7, PFS-2081.117, REL5-001).
+- Sweep overlays support the same exported OBJ fallback as individual previews for quadrilateral saved meshes, preserving control-surface families and original angle ordinals (FR-472 R7, PFS-2081.118, REL5-002).
+- The `strip_edges` documentation now describes shape and ends-option checks, trace-order coordinates that may be constant or descending, and nonfinite propagation (FR-451 R3, PFS-2081.119, REL5-003).
+- Geometry preflight checks every promoted artifact, including scripts, logs and sidecars. Sweep variants remain staged until all solver runs, audits and the overlay succeed, preserving prior outputs on failure (FR-471 R9, FR-472 R7, SWEEP-01, SWEEP-02).
+- A geometry build, one body or every variant of a sweep, is one transaction: every geometry is built and judged in its partial folder, and nothing moves until all of them passed their audit and the sweep overlay is written. A record kept in a partial folder now names its files where they are, including for a variant that passed beside one that failed; the command says why such a variant was not promoted, offers `geometry accept` for promoted geometries only, and `accept` refuses a partial folder. Each record is written after its files and the overlay after the last variant, so an interrupted build never leaves a record naming an absent file, and `--overwrite` completes it (FR-471 R3, R8, FR-472 R8, FR-473 R1, PFS-2081.120, REL6-002).
+- An external FSI input can no longer declare an input or output under a name the archiving step owns, such as `call.json`, which the step's record silently overwrote in every call's archive. The name is refused when the input is read, at plan, and by the step before the program runs (FR-462 R3, R4, PFS-2081.121, REL6-001).
+- `pyfs-workspace init` on a bad root prints the refusal and exits 2 (PFS-2095.059).
+- Staging replaces a dangling inputs link, every link removal falls back to a copy, a failed archive leaves no fragment, and collection names files by `collection_name` (PFS-2095.056, PFS-2095.062, PFS-2096.010, PFS-2094.042).
+- `--cost-file` and `--hpc` end with the command that set them (PFS-2094.045).
+- A cost flag counts only when its row value is True or ENABLE (PFS-2094.046).
+- The cost file refuses a zero, negative, text or non-finite reference figure or curve entry, naming the table and key (PFS-2097.019).
+- An encrypted or damaged workbook, and a short bridge record, are refused as `ExcelSyncError` (PFS-2095.060).
+- Excel sync strips the MATRIX and POL cells, so `1001 ` no longer appends a duplicate row (PFS-2096.025).
+- A reference artifact's `[frames]` table or non-list aliases are refused by name (PFS-2095.058).
+- A manifest row whose `points_ran` entry has an unknown status or a non-text tag is unreadable when read (PFS-2093.005).
+- POL renumbering counts compacted `sim_<id>.zip` and batch simulations as taken (PFS-2085.020).
+- `rename_group_products` and `unmapped_group_numbers` read only products under `post/`, never links (PFS-2096.012).
+- `write_inventory` quotes boundary names and the file name as TOML strings (PFS-2095.034).
+- A free-space recipe is checked whole before its first step: unknown keys, shapes, statuses, extensions, actions and `keep_latest` are refused naming the recipe and table (PFS-2093.007, PFS-2096.028, PFS-2097.020).
+- Sync refusals name the keyword `source (CLI: --from)` (PFS-2100.018).
+- Trailing-edge extraction accepts a numpy integer section count (PFS-2095.061).
+- A job-end glob that cannot be formatted with the job's values warns instead of keeping the batch running silently (PFS-2094.050).
+- Cleaning a held saved simulation is refused naming the file and leaves no temporary file (PFS-2099.012).
+- The ledger query readers raise `WorkspaceError`, as documented (PFS-2095.028).
+- `ledger diff` finds a recorded script under its simulation folder (PFS-2103.039).
+- A torn or malformed activity line, or a non-ISO timestamp, is skipped with a warning naming it (PFS-2081.25).
+- A point card lists only its own archives (PFS-2094.020).
+- A flat rotor row with a named `ROTOR_ORIGIN` keeps its row-setup keys out of the variables (PFS-2095.029).
+- A refinement table stating only `keep_first_row` names the fix (PFS-2093.013).
+- A refinement or trailing-edge points file that is not UTF-8 is refused (PFS-2099.004).
+- An empty family selection is refused before anything is written (PFS-2099.005).
+
+### Removed
+
+- `farfield.rothalpy` and `farfield.irreversible_deficit`, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream output carries either; a call refuses, naming ITACA, where they went for evaluation (FR-458).
+- `farfield.lattice_dataset` and `post.dataset_to_points`; a call refuses, naming the replacement (FR-457 R3).
 
 ## [0.39.0] - 2026-10-11
 
@@ -14768,7 +15186,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.36.0...v0.37.0

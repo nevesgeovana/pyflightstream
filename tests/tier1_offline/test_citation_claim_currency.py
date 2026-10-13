@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T14:55:46-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [git, CHANGELOG.md]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Account for folded fragments deleted from the working tree.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: no shipped page promises a manual page on every database entry.
 
 Since 2026-08-06 an entry rests on ONE of two citations: the manual page
@@ -76,8 +87,8 @@ _PROSE_SUFFIXES = (".md", ".tex", ".py")
 def prose_population(root: Path) -> list[str]:
     """Return the prose files this guard rules on, tracked or about to be.
 
-    TWO CALLS, NOT ONE, and the split is the whole content of this
-    function.
+    Tracked and untracked populations are queried separately, and a third
+    query removes paths git records as deleted from the working tree.
 
     Everything TRACKED is in, wherever it sits. That is the population a
     committed tree has, and it is what CI sees.
@@ -106,7 +117,7 @@ def prose_population(root: Path) -> list[str]:
     # do not.
     environment = os.environ.copy()
 
-    # A FAILED CALL REFUSES, and neither call checked its status until
+    # A FAILED CALL REFUSES, and the original calls checked no status until
     # 2026-08-18. If the `--others` call failed for any reason while
     # `--cached` succeeded, this returned the tracked-only population
     # in silence, which is exactly the regression the test below
@@ -130,7 +141,12 @@ def prose_population(root: Path) -> list[str]:
     seen = ls_files("--cached", "*.md", "*.tex", "*.py")
     untracked = ls_files("--others", "--exclude-standard", "--", *SOURCE_ROOTS)
     seen += [name for name in untracked if name.endswith(_PROSE_SUFFIXES)]
-    return sorted(set(seen))
+    # A release folds fragments into CHANGELOG.md before staging their
+    # deletion. They remain in the index, but are no longer prose surfaces.
+    # Ask git which paths are deleted; unreadable existing files still fail
+    # when the coverage test reads them.
+    deleted = set(ls_files("--deleted"))
+    return sorted(set(seen) - deleted)
 
 
 #: The shipped prose surfaces that describe the database to a reader.
@@ -556,6 +572,15 @@ def test_the_population_walk_sees_a_new_source_file_before_it_is_committed(tmp_p
     (tmp_path / "src" / "brand_new.py").write_text("# manual_ref\n", encoding="utf-8")
     (tmp_path / "scratch_note.md").write_text("# manual_ref\n", encoding="utf-8")
 
+    # The release fold removes a tracked fragment before its deletion is
+    # staged. Its prose now lives in the changelog, which stays in scope.
+    (tmp_path / "changelog.d").mkdir()
+    fragment = tmp_path / "changelog.d" / "folded.md"
+    fragment.write_text("# manual_ref\n", encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("# manual_ref\n", encoding="utf-8")
+    git("add", "changelog.d/folded.md", "CHANGELOG.md")
+    fragment.unlink()
+
     population = prose_population(tmp_path)
 
     assert "src/committed.py" in population
@@ -564,6 +589,8 @@ def test_the_population_walk_sees_a_new_source_file_before_it_is_committed(tmp_p
         "differently before and after the commit that adds it, which is exactly how a "
         "tier-1 green was reported on a population the commit then changed"
     )
+    assert "changelog.d/folded.md" not in population
+    assert "CHANGELOG.md" in population
     assert "scratch_note.md" not in population, (
         "an untracked file outside the source roots is in the population, so a scratch "
         "note in a developer's tree can turn tier 1 red locally while CI stays green"

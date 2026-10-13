@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T14:55:46.035268-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+dependencies: [pyproject.toml, tests/tier1_offline/test_p0400_farfield_numpy.py]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Record the NFR-06 amendment promotion in SRS revision 1.84.1.
+revision_source: git
+-->
+
 # Software Requirements Specification
 
 The SRS of pyflightstream: the authoritative public reference for what
@@ -10,7 +23,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.84.0 |
+| Version | 1.84.1 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -104,6 +117,7 @@ is still pending.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.84.1 | 2026-10-13 | NFR-06's 0.40.0 amendment is implemented: xarray has left the runtime set, the far-field core uses numpy arrays, and the Evidence paragraph names the dependency, import, numerical-equivalence and shipped-set tests. The future ITACA migration is unchanged. |
 | 1.84.0 | 2026-10-12 | The far-field family of 0.40.0 moves to implemented: FR-450 to FR-459 are implemented, each with its Evidence line and its test files on the Origin line, and FR-458 R2 is verified by inspection (the ITACA inbox item ROTHALPY_2026-10-12, estate commit 4dbc73b). The statements the promotion check found without a tier-1 proof are proved by the P0400-FFPROOF tests through plan and post on fixture workspaces (FR-450 R7, FR-451 R10, FR-452 R3, FR-453 R7, FR-454 R2, FR-455 R9, FR-456 R1 and R4, FR-457 R5, FR-458 R1, FR-459 R5), and the code was brought to the statements where they were not met: the plan warns a reused distribution with fewer stations per side than `stations`, a short wake writes the B row `NA`, a C row above Mach 0.3 is warned, the far-field files are named by the stem of the simulation's polar tables, a frame's lattice declared in an entry of its own frame is reused, and an unsteady row whose probes are of kind normal gives the instant and a named skip for the average. `docs/upgrading.md` gains the old-to-new table of every changed far-field signature. The FR-38 amendment is implemented; the box stays deferred until the licensed gates of PFS-2139.010. No requirement changes its statement. |
 | 1.83.0 | 2026-10-12 | FR-461 amended by R6 (RPT-166 probe P4-04): `EXPORT_6DOF_TRAJECTORY` is emitted after the march, with the row's other exports, where R2 emitted it with the motion in the setup phase and the file held its header and no row on 26.124 and 26.125; R2 no longer lists it. Implemented with P0400-6DOFEXPORT. |
 | 1.82.0 | 2026-10-12 | FR-101 amended: a rotor row on 26.100 is refused at plan time by name until a rotation null probe measures the unit of that build's angular velocity, where it was written in rev/min as a maintainer decision (RPT-051); the refusal shipped in 0.40.0 (PFS-2088.010). |
