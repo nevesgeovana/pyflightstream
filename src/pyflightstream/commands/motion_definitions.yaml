@@ -1,3 +1,19 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: pyflightstream-motion-definitions
+# last_modified_at: 2026-10-13T00:49:32.015849+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies:
+#   - reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md
+#   - reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml
+#   - reports/compat/CMP-26125_2026-10-12_6dof-after-march.yaml
+# authority: pyflightstream
+# status: active
+# confidentiality: internal
+# change_summary: Promote only EXPORT_6DOF_TRAJECTORY on 26.124 and 26.125 through apply_compat and cite after-march evidence.
+# revision_source: git
+# GEOVERSE_HEADER_END
+
 # Chapter: Scripting reference, Motion Definitions (SRC-003 pp.332-336).
 #
 # COMPLETE as of 2026-08-07. M1 drafted the rotary motion path and the
@@ -984,8 +1000,8 @@ EXPORT_6DOF_TRAJECTORY:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: documented, note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; after-march export verified by RPT-167"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_6dof-after-march.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
   notes: >
     Writes a motion's trajectory tables to a file, the path on the
     following line.
@@ -997,6 +1013,10 @@ EXPORT_6DOF_TRAJECTORY:
     P4-04m, reports/RPT-166_command-gap-probes-second-round_2026-10-12.md
     section 3 and section 5). The unit of the columns is not settled by the
     probes (RPT-166 P4), and the package does not convert them.
+
+    The fresh after-march verification on both builds is recorded in
+    reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md;
+    each scoped compat report cites its rows and orchestrator verdicts.
 
 CREATE_NEW_MOTION_EUCLIDEAN:
   layout: bare
