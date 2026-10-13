@@ -1327,7 +1327,7 @@ The override list of `pyproject.toml` loses the three blocks and `MYPY_EXEMPTION
 
 ## Integration lane integD recount (2026-10-13)
 
-The memory-gated `scripts/mypy_recount.py --out C:/WORK/r040/integfix-logs/integD-mypy`
+The memory-gated `scripts/mypy_recount.py --out <a scratch folder>`
 run measured the uncommitted lane tree at HEAD `8a239446`: 344 tracked modules,
 165 errors in 13 modules with overrides off, and the shipped configuration clean
 across 344 source files. `cases/restart_records.py` is the additional clean module
